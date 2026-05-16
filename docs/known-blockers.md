@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-16 (Stage 5.5.6)_
+_Last updated: 2026-05-16 (Stage 6.1.2.1)_
 
 ---
 
@@ -23,6 +23,9 @@ All 5 migrations (0001–0005) are applied to the hosted project. `npx supabase 
 
 ### ✅ Account / Profile Feature Missing
 `AccountScreen` now shows email, masked user ID, role label (via `formatProfileRole`), and editable display name. `buildProfileUpdatePayload` explicitly excludes role/id/email — no client-side privilege escalation possible. See `docs/account-operations.md` and `docs/supabase-admin-ops.md`.
+
+### ✅ Admin Foundation Deployed (Stage 6.1.2.1)
+Migration 0007 applied; `admin-users` Edge Function deployed (ACTIVE v1); dev human bootstrapped to `role=admin` via untracked `scripts/admin/bootstrap-admin.local.sql`. Verification query confirms `is_admin=true`. Live browser smoke (sections A–H of `docs/testing-runs/2026-05-16-admin-smoke.md`) pending operator run.
 
 ---
 

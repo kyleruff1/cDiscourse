@@ -106,3 +106,34 @@ After verifying Debates tab loads:
 - I. Responsive layout
 - J. Console errors
 - K. Account tab
+
+---
+
+## Entry 2 — Stage 6.1.2.1 — 2026-05-16
+
+### Observation
+
+| Field | Value |
+|---|---|
+| Date | 2026-05-16 |
+| Stage | 6.1.2.1 |
+| Browser URL | http://localhost:8081 (operator-driven) |
+| Symptom (pre-bootstrap) | Account tab showed `ADMIN? false` for the dev human user |
+| Root cause | `profiles.role` had not yet been promoted to `admin` for that user |
+| Resolution | Ran `scripts/admin/bootstrap-admin.local.sql` via `npx supabase db query --linked --file …`. Verification row returned `role=admin`, `is_admin=true` |
+
+### Verification
+
+| Step | Result |
+|---|---|
+| Migration 0007 applied | ✅ remote DB reports "up to date" |
+| `admin-users` function deployed | ✅ ACTIVE v1 |
+| Bootstrap SQL ran | ✅ one row updated; verification row confirms `is_admin=true` |
+| Account tab `ADMIN? true` (post-refresh) | 🔲 pending operator browser refresh |
+| Admin tab visible | 🔲 pending operator browser refresh |
+
+### Notes
+
+- After bootstrap SQL runs, the Expo app may need a hard refresh (clear cache and reload) for the new role to flow through `useAccountProfile` and `getVisibleTabs`. The role is fetched on screen mount.
+- Bootstrap script is at `scripts/admin/bootstrap-admin.local.sql` (gitignored). Committed template at `scripts/admin/bootstrap-admin.sql.template`.
+- No secrets exposed in this entry.

@@ -4,18 +4,11 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
-## Prompt 0 — Deploy & bootstrap (must run before Prompt 1)
+## Prompt 0 — Deploy & bootstrap (✅ done 2026-05-16)
 
-> Deploy the admin function and bootstrap admin access. This is a one-time step.
->
-> 1. Deploy the admin-users Edge Function:
->    ```
->    npx supabase functions deploy admin-users
->    ```
-> 2. Open Supabase Dashboard → SQL Editor for `qsciikhztvzzohssddrq`.
-> 3. Paste the contents of `scripts/admin/bootstrap-admin.local.sql` (gitignored — pre-filled with your dev admin email).
-> 4. Run the script. The verification query should return one row with `role='admin'` and `is_admin=true`.
-> 5. Confirm `npx supabase functions list` shows `admin-users` as ACTIVE.
+> 1. ✅ `npx supabase functions deploy admin-users` → ACTIVE v1
+> 2. ✅ `npx supabase db query --linked --file scripts/admin/bootstrap-admin.local.sql` → verification row shows `role=admin`, `is_admin=true`
+> 3. ✅ `npx supabase functions list` confirms `admin-users` ACTIVE
 
 ---
 

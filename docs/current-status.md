@@ -14,7 +14,7 @@ Stages 6.1.0 (gamified UX), 6.0.3 (inline composer), 5.5.6.1 (RLS hotfix), 5.5.6
 - Supabase project `qsciikhztvzzohssddrq` linked and accessible
 - All 7 migrations applied to hosted project (0001–0007)
 - `submit-argument` Edge Function ACTIVE (version 1)
-- `admin-users` Edge Function: written locally, **not yet deployed** (user deploys via `npx supabase functions deploy admin-users`)
+- `admin-users` Edge Function: ✅ deployed ACTIVE v1 (2026-05-16 22:20 UTC)
 - `.env` configured; gitignored
 - Secret scan clean
 - ANTHROPIC_API_KEY set as Supabase secret (reportedly rotated — not called in this or earlier stages)
@@ -44,8 +44,9 @@ Stages 6.1.0 (gamified UX), 6.0.3 (inline composer), 5.5.6.1 (RLS hotfix), 5.5.6
 
 ## What Is Stubbed / Pending
 
-- `admin-users` Edge Function: written and config registered, **deploy pending** — user runs `npx supabase functions deploy admin-users`
-- Admin bootstrap: SQL ready (`scripts/admin/bootstrap-admin.local.sql`), **run pending** in Supabase SQL Editor
+- `admin-users` deploy: ✅ done
+- Admin bootstrap SQL: ✅ run; dev human is `role=admin` (verified)
+- **Live browser smoke (Stage 6.1.2.1 A–H)**: pending operator run — see `docs/testing-runs/2026-05-16-admin-smoke.md`
 - IP/email block rules are **app-level only**; full Supabase Auth pre-login enforcement is a later stage
 - View As is **read-only snapshot only**; no auth impersonation in this stage
 - Bot user automation (counter-runner programmatic posting) is a later stage
@@ -75,13 +76,14 @@ Run on 2026-05-16:
 | Project ref | `qsciikhztvzzohssddrq` |
 | Migrations applied | ✅ 0001–0007 |
 | `submit-argument` deployed | ✅ ACTIVE v1 |
-| `admin-users` deployed | 🔲 Pending user deploy |
+| `admin-users` deployed | ✅ ACTIVE v1 |
 | `.env` configured | ✅ |
-| Admin bootstrap SQL run | 🔲 Pending user run |
+| Admin bootstrap SQL run | ✅ dev human promoted; verification row confirms `is_admin=true` |
 
 ## Next Recommended Steps
 
-1. **Deploy admin function**: `npx supabase functions deploy admin-users`
-2. **Run admin bootstrap**: paste `scripts/admin/bootstrap-admin.local.sql` into Supabase SQL Editor and run
-3. **Smoke test**: `npm run web -- --clear`, sign in as `kyleruff+devtests1@gmail.com`, confirm Admin tab appears, walk through Stage 6.1.2 admin checks in `docs/browser-visual-test.md`
-4. After smoke test passes: Stage 6.1.3 (invite backend migration) or Stage 6.1.4 (resting status persistence)
+1. ✅ `admin-users` deployed
+2. ✅ Admin bootstrap SQL run
+3. **Live browser smoke**: `npm run web -- --clear`, walk `docs/testing-runs/2026-05-16-admin-smoke.md` sections A–H
+4. **Stage 6.1.2.2 — dev bot fixture runner** (Node scripts under `scripts/bot-fixtures/`, uses normal auth, no service-role)
+5. Later: Stage 6.1.3 (invite backend) or Stage 6.1.4 (resting status persistence)
