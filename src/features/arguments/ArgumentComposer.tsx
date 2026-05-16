@@ -40,6 +40,8 @@ interface Props {
   parentArgument: ArgumentRow | null;
   onClearParent: () => void;
   onSubmitSuccess: () => void;
+  /** Called when the user discards the draft and closes the inline composer. */
+  onClose?: () => void;
 }
 
 const TYPE_LABELS: Record<ArgumentType, string> = {
@@ -73,7 +75,7 @@ const MAX_BODY = 2000;
 
 const NEEDS_AXIS: ArgumentType[] = ['rebuttal', 'counter_rebuttal'];
 
-export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess }: Props) {
+export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess, onClose }: Props) {
   const { draft, isRecovered, updateField, discardDraft } = useArgumentComposer(
     debate.id,
     selectedParentId,
@@ -237,9 +239,9 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Compose</Text>
+        <Text style={styles.headerTitle}>Your Move</Text>
         <Pressable
-          onPress={discardDraft}
+          onPress={() => { discardDraft(); onClose?.(); }}
           accessibilityRole="button"
           accessibilityLabel="Discard draft"
         >
@@ -442,13 +444,13 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
         {/* Evidence section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>
-            Source / evidence
+            Receipts
             {draft.argumentType === 'evidence' && (
               <Text style={styles.required}> required</Text>
             )}
           </Text>
           <Text style={styles.sectionHint}>
-            Attach a URL, citation label, or source text. Required for evidence arguments.
+            Drop a link, citation, or source text. Required for evidence arguments.
           </Text>
           <TextInput
             value={evidenceItem.url ?? ''}

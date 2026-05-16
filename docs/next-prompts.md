@@ -4,32 +4,31 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
-## Prompt 1 — Stage 5 Live Smoke Test (GATE)
+## Prompt 1 — Stage 6.0.3 Visual Smoke Test (inline composer)
 
-> Stage 5 Recovery Gate is complete. Infrastructure is live. Run the browser smoke test before continuing Stage 6.
+> Stage 6.0.3 is complete. Run the browser smoke test for the new argument-first UX.
 >
 > Run:
 > ```bash
 > npm run web -- --clear
 > ```
 >
-> Walk through `docs/browser-visual-test.md` sections A–I:
+> Walk through `docs/browser-visual-test.md` sections A–K:
 > - A. App boot — no red screen, Supabase configured
 > - B. Auth — sign up, sign in, sign out, refresh preserves session
-> - C. Debate lifecycle — create, list, join, select
+> - C. Argument rooms — create, list, join, select (was "Debates")
 > - D. Argument tree — empty state, existing arguments, reply button
-> - E. Composer — resolution visible, type/side/body/evidence fields
-> - F. Submit — root claim through submitArgumentDraft, argument row in Supabase, tree refreshes
-> - G. Server 422 — invalid argument shape, error shown, draft preserved
-> - H. Idempotency — retry same payload, no duplicate row
-> - I. Security — no sb_secret_ in bundle, no service key in .env
+> - E. Inline composer root — "Start an argument" opens "Your Move" composer
+> - F. Inline composer reply — "Reply" opens composer with parent context; Discard returns to tree
+> - G. Submit — root claim through submitArgumentDraft, argument row visible, tree refreshes
+> - H. Server 422 — invalid argument shape, error shown, draft preserved
+> - I. Idempotency — retry same payload, no duplicate row
+> - J. Session recovery — refresh preserves auth + room + draft state
+> - K. Account tab — email, masked ID, role, editable display name
 >
-> Also rotate the ANTHROPIC_API_KEY (exposed in a previous chat session):
-> 1. console.anthropic.com → API Keys → revoke the old key
-> 2. Create a new key
-> 3. `npx supabase secrets set ANTHROPIC_API_KEY=<new-key>` (do not paste key into chat)
+> Confirm: no top-level "Compose" tab visible, "Arguments" tab label visible.
 >
-> Update `docs/mvp-smoke-test.md` with results. When all A–I pass, proceed to Prompt 2.
+> Update `docs/live-smoke-debug-log.md` with results. When sections A–K pass, proceed to Prompt 2.
 
 ---
 
@@ -107,11 +106,12 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 5.5.6 complete as of 2026-05-16.
-Infrastructure live: project `qsciikhztvzzohssddrq`, migrations applied, `submit-argument` ACTIVE.
-Post-submit refresh (Stage 5.5.5) and account/profile feature (Stage 5.5.6) committed.
-526 tests pass. TypeScript strict mode clean.
+Stage 6.0.3 complete as of 2026-05-16.
+Infrastructure live: project `qsciikhztvzzohssddrq`, migrations applied (0001–0006), `submit-argument` ACTIVE.
+Argument-first UX (inline composer, no Compose tab), fixture skills, and 4 fixture scenarios committed.
+594 tests pass. TypeScript strict mode clean.
 
-**Safe to continue Stage 6: YES — after live smoke test passes.**
+**Safe to run fixture counter-test: YES — use `/argument-counter-runner sports-play-in`.**
+**Safe to continue Stage 6.0.2: YES — after smoke test passes.**
 
 See `docs/current-status.md` for full status.

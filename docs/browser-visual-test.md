@@ -62,7 +62,15 @@ Verify in browser:
 
 ---
 
-## Section C — Debate List / Create / Select
+## Section B.5 — Argument-First Navigation (Stage 6.0.3)
+
+- [ ] Top tab bar shows: Arguments | Account | Debug (dev only)
+- [ ] No "Debates", "Debate", or "Compose" tab visible in top bar
+- [ ] Tab label reads "Arguments" (not "Debates")
+
+---
+
+## Section C — Argument Rooms / Debate List / Create / Select
 
 **Without .env:**
 
@@ -89,24 +97,28 @@ Verify in browser:
 
 ---
 
-## Section E — Composer Root Draft
+## Section E — Inline Composer (Root — Start an Argument)
 
-- [ ] Compose tab opens with selected debate context
-- [ ] Resolution bar shows debate resolution text
+- [ ] "Start an argument" button visible at bottom of room view when tree is showing
+- [ ] Tapping "Start an argument" opens the inline composer (replaces tree view)
+- [ ] Composer header reads "Your Move" (not "Compose")
+- [ ] Resolution bar shows room resolution text
 - [ ] Root mode notice: "Root-level argument — only thesis or claim allowed at root"
+- [ ] Conversation Move Navigator shows root move chips (start_thesis, make_claim)
 - [ ] Type picker shows only Thesis / Claim for root (no parent)
 - [ ] Side picker: Affirmative / Negative / Neutral
 - [ ] Body text input works; character counter updates (0/2000)
-- [ ] Tag picker shows type-appropriate tags
+- [ ] Evidence section labeled "Receipts"
 - [ ] Client validation preview appears once required fields are filled
-- [ ] Discard draft works (clears draft and state)
+- [ ] Discard button returns to tree view (no separate Compose tab)
 - [ ] Draft recovery notice appears after reload if draft was dirty
 
 ---
 
-## Section F — Composer Reply Draft
+## Section F — Inline Composer (Reply)
 
-- [ ] Clicking Reply from an argument switches to Compose tab
+- [ ] Tapping "Reply" on an argument node opens the inline composer (replaces tree)
+- [ ] Composer header reads "Your Move"
 - [ ] Parent panel shows parent type / side / body excerpt
 - [ ] target_excerpt field is visible and editable
 - [ ] Rebuttal / counter_rebuttal types show disagreementAxis picker (Fact / Definition / Causal / Value / Evidence / Logic / Scope)

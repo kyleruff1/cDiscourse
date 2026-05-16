@@ -4,9 +4,9 @@ _Last updated: 2026-05-16 (Stage 5.5.6)_
 
 ## Current Stage
 
-**Stage 5.5.6.1 complete.** RLS recursion hotfix applied: migration 0006 adds three SECURITY DEFINER helpers (`is_debate_participant`, `is_debate_open_or_locked`, `is_debate_joinable`) and replaces the two mutually-recursive policies on `debates` and `debate_participants`. Pushed to hosted Supabase. Local baseline green: 526 tests, typecheck clean, lint clean.
+**Stage 6.0.3 complete.** Argument-first UX simplification: removed Compose tab from top-level nav, composer now opens inline within the Arguments tab. Nav is now `Arguments | Account | Debug`. Two Claude Code skills created (`argument-fixture-author`, `argument-counter-runner`). Four fixture scenarios in `fixtures/argument-scenarios/`. 594 tests, 17 suites — typecheck clean, lint clean.
 
-Stage 5.5.6 (account feature), Stage 6.0 (language-processing scaffold), and Stage 6.0.1 (conversation move navigator) also committed.
+Stage 5.5.6.1 (RLS hotfix), Stage 5.5.6 (account feature), Stage 6.0 (language-processing scaffold), and Stage 6.0.1 (conversation move navigator) also committed.
 
 ## What Works
 
@@ -35,6 +35,8 @@ Stage 5.5.6 (account feature), Stage 6.0 (language-processing scaffold), and Sta
 - Argument submission (Stage 5.5.3): idempotent via `client_submission_id`, server 422 shown, draft preserved on failure
 - **Stage 5.5.5: Post-submit refresh** — `App.tsx` calls `refreshTreeRef.current?.()` in `handleSubmitSuccess`; tree re-fetches after success
 - **Stage 5.5.6: Account/profile feature** — `src/features/account/` (types, API, hook, screen, index). `AccountScreen` shows email, masked user ID, role label, editable display name. `buildProfileUpdatePayload` never includes role/id/email. `docs/account-operations.md` + `docs/supabase-admin-ops.md` created.
+- **Stage 5.5.6.1: RLS hotfix** — migration 0006 fixes debates/debate_participants infinite recursion with three SECURITY DEFINER helpers.
+- **Stage 6.0.3: Argument-first UX + fixture skills** — top-level Compose tab removed, inline composer in Arguments tab. Two Claude Code skills. Four fixture scenarios. `src/features/arguments/roomNavigation.ts` for pure nav helpers. `src/features/devFixtures/` for fixture types and validation.
 - Stage 6.0 — Language-processing scaffold: disabled-by-default, server-only. `process-language-draft` Edge Function, Anthropic + mock providers
 - Stage 6.0.1 — Conversation Move Navigator: pure TS move model, chip UI + axis sub-picker, wired into `ArgumentComposer`
 - Jest test suite: **526 tests**, 15 suites, all passing
@@ -62,7 +64,7 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (526 tests, 15 suites) |
+| `npm run test` | ✅ Pass (594 tests, 17 suites) |
 | `npx supabase projects list` | ✅ `qsciikhztvzzohssddrq` LINKED |
 | `npx supabase db push --dry-run` | ✅ Remote database is up to date |
 | `npx supabase functions list` | ✅ submit-argument ACTIVE |
@@ -87,6 +89,12 @@ Run on 2026-05-16:
 
 ## Next Recommended Stage
 
-**Live manual smoke test.** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md` sections A–K. This is the only remaining gate before Stage 6 continuation is fully safe.
+**Live manual smoke test (Stage 6.0.3.1).** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md` sections A–K. Confirm:
+- Arguments tab shows debate list / argument room (no Compose tab visible)
+- Room shows "Start an argument" button at bottom
+- Tapping "Start an argument" opens inline composer ("Your Move" header)
+- Tapping "Reply" on an argument opens inline composer with parent context
+- Discard closes the inline composer and returns to the tree
+- Submit success closes composer and refreshes tree
 
-After smoke test: Stage 6.0.2 (move qualifiers, quote anchoring, turn-status governance). Full prompt in `docs/next-prompts.md`.
+After smoke test: Stage 6.0.2 (move qualifiers, quote anchoring, turn-status governance), or run a fixture counter-test with `/argument-counter-runner sports-play-in`. Full prompts in `docs/next-prompts.md`.

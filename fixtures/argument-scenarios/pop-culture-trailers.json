@@ -1,0 +1,131 @@
+{
+  "scenarioId": "pop-culture-trailers",
+  "title": "Movie Trailers Reveal Too Much",
+  "resolution": "Movie trailers routinely reveal too much and diminish the in-theater experience.",
+  "category": "pop_culture",
+  "personas": [
+    { "alias": "River", "side": "affirmative", "tone": "calm" },
+    { "alias": "Casey", "side": "negative", "tone": "skeptical" },
+    { "alias": "Morgan", "side": "neutral", "tone": "playful" }
+  ],
+  "moves": [
+    {
+      "moveId": "m1",
+      "authorAlias": "River",
+      "parentMoveId": null,
+      "moveKind": "start_thesis",
+      "qualifierCode": null,
+      "argumentType": "thesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Modern movie trailers routinely include plot twists, character reveals, and third-act moments that should land in theater. Studios have optimized trailers for maximum click-through rather than viewer experience.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "quoteAnchorCandidate": "should land in theater"
+      }
+    },
+    {
+      "moveId": "m2",
+      "authorAlias": "Casey",
+      "parentMoveId": "m1",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "fact",
+      "targetExcerpt": "routinely include plot twists, character reveals, and third-act moments",
+      "body": "That overstates it. Major plot twists are rarely in trailers — studios deliberately protect actual endings. What you're calling 'too much' is usually first-half setup that audiences need to decide whether to go.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "quoteAnchorCandidate": "studios deliberately protect actual endings"
+      }
+    },
+    {
+      "moveId": "m3",
+      "authorAlias": "River",
+      "parentMoveId": "m2",
+      "moveKind": "ask_clarification",
+      "qualifierCode": null,
+      "argumentType": "clarification_request",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Are you distinguishing between spoiling setup versus spoiling the resolution? My claim is that trailers spoil setup moments that are meant to be discoveries in the theater, not just endings.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m4",
+      "authorAlias": "Casey",
+      "parentMoveId": "m3",
+      "moveKind": "make_claim",
+      "qualifierCode": null,
+      "argumentType": "claim",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Yes, exactly. Setup spoilers are a reasonable trade-off to attract audiences. Knowing a character is in danger is not the same as knowing how the danger resolves.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m5",
+      "authorAlias": "River",
+      "parentMoveId": "m2",
+      "moveKind": "add_evidence",
+      "qualifierCode": null,
+      "argumentType": "evidence",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "The Avengers: Endgame marketing team committed to not showing actual film footage, drawing widespread coverage as an unusually restrained campaign. That standard is clearly not the industry norm.",
+      "selectedTagCodes": [],
+      "evidence": {
+        "label": "Avengers: Endgame marketing approach",
+        "sourceText": "The Endgame marketing team deliberately excluded footage from the second half of the film, a strategy widely noted by journalists as a benchmark for trailer restraint."
+      },
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m6",
+      "authorAlias": "Casey",
+      "parentMoveId": "m5",
+      "moveKind": "concede_or_narrow",
+      "qualifierCode": null,
+      "argumentType": "concession",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Fair — the Endgame approach was intentional and effective, and it is clearly not what most studios do. I'll grant that more restraint is achievable and that trailers could lean on it more.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "playfulLabel": "Peace treaty-ish"
+      }
+    },
+    {
+      "moveId": "m7",
+      "authorAlias": "Morgan",
+      "parentMoveId": "m1",
+      "moveKind": "synthesize_thread",
+      "qualifierCode": null,
+      "argumentType": "synthesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Both sides agree more restraint is possible and that Endgame-style campaigns work. The remaining question is whether setup spoilers cross the line — and that may depend on the film and the viewer.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    }
+  ],
+  "expectedFlags": [],
+  "expectedTopicChecks": ["resolution_match"],
+  "expectedTurnStatuses": ["replied", "replied", "awaiting_my_response", "pending_reply", "conceded", "pending_reply", "synthesized"],
+  "notes": "Exercises: fact-axis challenge with quote anchor, clarification on scope, evidence from public marketing news, concession with playful label, synthesis. Safe pop culture topic."
+}

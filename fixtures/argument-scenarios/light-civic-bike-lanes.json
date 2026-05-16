@@ -1,0 +1,131 @@
+{
+  "scenarioId": "light-civic-bike-lanes",
+  "title": "Protected Bike Lanes",
+  "resolution": "City councils should prioritize protected bike lanes over general traffic lanes in urban corridors.",
+  "category": "light_civic",
+  "personas": [
+    { "alias": "Drew", "side": "affirmative", "tone": "calm" },
+    { "alias": "Quinn", "side": "negative", "tone": "skeptical" },
+    { "alias": "Lee", "side": "neutral", "tone": "conciliatory" }
+  ],
+  "moves": [
+    {
+      "moveId": "m1",
+      "authorAlias": "Drew",
+      "parentMoveId": null,
+      "moveKind": "start_thesis",
+      "qualifierCode": null,
+      "argumentType": "thesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Protected bike lanes — physically separated from car traffic — reduce cyclist injury rates and increase ridership. City councils that have implemented them consistently report measurable safety improvements.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "quoteAnchorCandidate": "consistently report measurable safety improvements"
+      }
+    },
+    {
+      "moveId": "m2",
+      "authorAlias": "Quinn",
+      "parentMoveId": "m1",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "causal",
+      "targetExcerpt": "consistently report measurable safety improvements",
+      "body": "Correlation is not causation here. Safety improvements in cities with bike lanes often coincide with broader road redesigns, lower speed limits, and increased cycling culture. The lanes alone may not be driving the numbers.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "quoteAnchorCandidate": "Safety improvements often coincide with broader road redesigns"
+      }
+    },
+    {
+      "moveId": "m3",
+      "authorAlias": "Drew",
+      "parentMoveId": "m2",
+      "moveKind": "ask_clarification",
+      "qualifierCode": null,
+      "argumentType": "clarification_request",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Are you arguing that we cannot know what causes the improvement, or that protected lanes specifically do not contribute? Those are separate claims with different standards of evidence.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m4",
+      "authorAlias": "Quinn",
+      "parentMoveId": "m3",
+      "moveKind": "make_claim",
+      "qualifierCode": null,
+      "argumentType": "claim",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "That the causal attribution to lanes specifically is too strong without controlling for the other variables. The improvement signal is real; what produced it is less clear.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m5",
+      "authorAlias": "Drew",
+      "parentMoveId": "m2",
+      "moveKind": "add_evidence",
+      "qualifierCode": null,
+      "argumentType": "evidence",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Before-after analyses in Minneapolis and Chicago controlled for concurrent road changes and still found protected lane segments had faster declining incident rates than comparable unprotected routes on the same corridors.",
+      "selectedTagCodes": [],
+      "evidence": {
+        "label": "Urban cycling safety: Minneapolis and Chicago controlled analyses",
+        "sourceText": "Controlled before-after studies found incident rates on protected lane segments declined faster than on adjacent unprotected routes, even accounting for parallel road changes."
+      },
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m6",
+      "authorAlias": "Quinn",
+      "parentMoveId": "m5",
+      "moveKind": "concede_or_narrow",
+      "qualifierCode": null,
+      "argumentType": "concession",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "If those controls are solid, the causal case is stronger than I gave credit for. I'll narrow: the question becomes whether the safety benefit justifies the trade-offs in parking and traffic flow on specific streets.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "playfulLabel": "Context goblin defeated"
+      }
+    },
+    {
+      "moveId": "m7",
+      "authorAlias": "Lee",
+      "parentMoveId": "m1",
+      "moveKind": "synthesize_thread",
+      "qualifierCode": null,
+      "argumentType": "synthesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Both sides agree safety is the goal and that controlled evidence strengthens the case. The live question is policy trade-offs — parking, traffic — which require local data and community input beyond what safety studies alone can answer.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    }
+  ],
+  "expectedFlags": [],
+  "expectedTopicChecks": ["resolution_match"],
+  "expectedTurnStatuses": ["replied", "replied", "awaiting_my_response", "pending_reply", "conceded", "pending_reply", "synthesized"],
+  "notes": "Exercises: causal-axis challenge with quote anchor, clarification on standard of evidence, controlled-study evidence, narrowing concession. Light civic topic without named politicians or ongoing scandals."
+}

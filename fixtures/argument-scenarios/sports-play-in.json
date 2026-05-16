@@ -1,0 +1,131 @@
+{
+  "scenarioId": "sports-play-in",
+  "title": "NBA Play-In Tournament",
+  "resolution": "The NBA play-in tournament makes the regular season more interesting.",
+  "category": "sports",
+  "personas": [
+    { "alias": "Alex", "side": "affirmative", "tone": "calm" },
+    { "alias": "Jordan", "side": "negative", "tone": "skeptical" },
+    { "alias": "Sam", "side": "neutral", "tone": "conciliatory" }
+  ],
+  "moves": [
+    {
+      "moveId": "m1",
+      "authorAlias": "Alex",
+      "parentMoveId": null,
+      "moveKind": "start_thesis",
+      "qualifierCode": null,
+      "argumentType": "thesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "The NBA play-in tournament gives teams fighting for playoff spots a real reason to push through the final weeks. Late-season games that would once be meaningless now carry real stakes, and that benefits fans, teams, and the sport.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "quoteAnchorCandidate": "gives teams fighting for playoff spots a real reason to push through the final weeks"
+      }
+    },
+    {
+      "moveId": "m2",
+      "authorAlias": "Jordan",
+      "parentMoveId": "m1",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "fact",
+      "targetExcerpt": "a real reason to push through the final weeks",
+      "body": "That 'real reason' mostly applies to teams at 7th and 8th seed. Teams at 9th and 10th still face brutal odds — they need to win two straight games against teams that just outperformed them all season.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "quoteAnchorCandidate": "Teams at 9th and 10th still face brutal odds"
+      }
+    },
+    {
+      "moveId": "m3",
+      "authorAlias": "Alex",
+      "parentMoveId": "m2",
+      "moveKind": "ask_clarification",
+      "qualifierCode": null,
+      "argumentType": "clarification_request",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Are you arguing the play-in is unfair to 9th and 10th seeds specifically, or that it fails to create meaningful games for the league overall? Those are different claims.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m4",
+      "authorAlias": "Jordan",
+      "parentMoveId": "m3",
+      "moveKind": "make_claim",
+      "qualifierCode": null,
+      "argumentType": "claim",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Mainly unfair to those teams. A team that finishes 9th plays more elimination games than a team with a worse record that simply missed the play-in cutoff entirely.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m5",
+      "authorAlias": "Alex",
+      "parentMoveId": "m2",
+      "moveKind": "add_evidence",
+      "qualifierCode": null,
+      "argumentType": "evidence",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Multiple play-in teams have advanced past the first round since 2021. The 2023 Miami Heat entered as an 8-seed through the play-in and reached the NBA Finals.",
+      "selectedTagCodes": [],
+      "evidence": {
+        "label": "2023 NBA Finals — Miami Heat as 8-seed",
+        "sourceText": "The Miami Heat qualified for the 2023 playoffs through the play-in tournament as the 8th seed and advanced to the NBA Finals."
+      },
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m6",
+      "authorAlias": "Jordan",
+      "parentMoveId": "m5",
+      "moveKind": "concede_or_narrow",
+      "qualifierCode": null,
+      "argumentType": "concession",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "The Heat example holds up. I'll grant that play-in teams are not just first-round fodder — the format does produce real playoff threats. I'll narrow my claim to the structural fairness question.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "playfulLabel": "I'm only MOSTLY wrong about this"
+      }
+    },
+    {
+      "moveId": "m7",
+      "authorAlias": "Sam",
+      "parentMoveId": "m1",
+      "moveKind": "synthesize_thread",
+      "qualifierCode": null,
+      "argumentType": "synthesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Both sides agree the play-in creates meaningful late-season stakes. The remaining question is whether the tournament structure is fair to teams at the margin. That is worth its own thread.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    }
+  ],
+  "expectedFlags": [],
+  "expectedTopicChecks": ["resolution_match"],
+  "expectedTurnStatuses": ["replied", "replied", "awaiting_my_response", "pending_reply", "conceded", "pending_reply", "synthesized"],
+  "notes": "Exercises: root thesis, fact-axis challenge with quote anchor, clarification round-trip, evidence with playful concession, synthesis. Safe sports topic with no real-world accusations."
+}

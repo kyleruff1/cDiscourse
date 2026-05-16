@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 5.5.6.1 complete** — RLS hotfix for debates/debate_participants infinite recursion (migration 0006). Three SECURITY DEFINER helpers (`is_debate_participant`, `is_debate_open_or_locked`, `is_debate_joinable`) break the recursive policy loop. Pushed to hosted Supabase. Stage 5.5.6 account feature also complete. 526 tests passing, lint clean, typecheck clean. Next: rerun browser smoke test (Debates tab should now load), then complete sections B–K per `docs/browser-visual-test.md`, then Stage 6.0.2.
+Current stage: **Stage 6.0.3 complete** — Argument-first UX simplification: Compose tab removed from top-level nav; composer now opens inline within the Arguments tab via "Start an argument" (root) or "Reply" (reply). Nav: `Arguments | Account | Debug`. Two Claude Code skills: `argument-fixture-author`, `argument-counter-runner`. Four fixture scenarios in `fixtures/argument-scenarios/`. `src/features/devFixtures/` validation module. 594 tests passing, lint clean, typecheck clean. Next: live browser smoke test (`npm run web -- --clear`), then Stage 6.0.2 (move qualifiers, quote anchoring, turn-status).
 
 ## Supabase Apply Commands
 

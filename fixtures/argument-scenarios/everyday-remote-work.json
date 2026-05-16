@@ -1,0 +1,131 @@
+{
+  "scenarioId": "everyday-remote-work",
+  "title": "Remote Work and Deep Focus",
+  "resolution": "Remote work improves performance on deep-focus tasks compared to open-office environments.",
+  "category": "everyday",
+  "personas": [
+    { "alias": "Avery", "side": "affirmative", "tone": "playful" },
+    { "alias": "Blake", "side": "negative", "tone": "skeptical" },
+    { "alias": "Charlie", "side": "neutral", "tone": "calm" }
+  ],
+  "moves": [
+    {
+      "moveId": "m1",
+      "authorAlias": "Avery",
+      "parentMoveId": null,
+      "moveKind": "start_thesis",
+      "qualifierCode": null,
+      "argumentType": "thesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Remote work removes the interruptions endemic to open offices — the drop-ins, ambient noise, and constant context-switching. For tasks that require sustained concentration, this is a measurable improvement over in-person work.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "quoteAnchorCandidate": "removes the interruptions endemic to open offices"
+      }
+    },
+    {
+      "moveId": "m2",
+      "authorAlias": "Blake",
+      "parentMoveId": "m1",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "evidence",
+      "targetExcerpt": "removes the interruptions endemic to open offices",
+      "body": "Remote work trades office interruptions for home interruptions. The deep-focus argument assumes people have a dedicated home workspace with minimal distractions, which many workers simply do not have.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "quoteAnchorCandidate": "assumes people have a dedicated home workspace"
+      }
+    },
+    {
+      "moveId": "m3",
+      "authorAlias": "Avery",
+      "parentMoveId": "m2",
+      "moveKind": "ask_clarification",
+      "qualifierCode": null,
+      "argumentType": "clarification_request",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Are you arguing remote work does not improve focus on average, or that the improvement is unevenly distributed across workers with versus without suitable home setups? Those are different scopes.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m4",
+      "authorAlias": "Blake",
+      "parentMoveId": "m3",
+      "moveKind": "make_claim",
+      "qualifierCode": null,
+      "argumentType": "claim",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "That the benefit is unevenly distributed — workers with a quiet dedicated room gain a real improvement; workers without one may see no benefit or worse performance. The general claim is too broad.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m5",
+      "authorAlias": "Avery",
+      "parentMoveId": "m2",
+      "moveKind": "add_evidence",
+      "qualifierCode": null,
+      "argumentType": "evidence",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "A Stanford randomized study by Bloom et al. found remote call-center workers showed about 13% higher productivity, fewer sick days, and shorter breaks. The setting was controlled and worker output was directly measured.",
+      "selectedTagCodes": [],
+      "evidence": {
+        "label": "Stanford WFH Study — Bloom et al.",
+        "sourceText": "Randomized experiment with call-center workers found remote employees more productive, with fewer breaks and sick days. Performance was directly measured, not self-reported."
+      },
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m6",
+      "authorAlias": "Blake",
+      "parentMoveId": "m5",
+      "moveKind": "concede_or_narrow",
+      "qualifierCode": null,
+      "argumentType": "concession",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "The Stanford study is solid — randomized, direct measurement. I'll grant that for the right type of work and worker setup, remote work is a real productivity improvement. My concern about uneven distribution still stands for the general claim.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {
+        "playfulLabel": "Surrender completely"
+      }
+    },
+    {
+      "moveId": "m7",
+      "authorAlias": "Charlie",
+      "parentMoveId": "m1",
+      "moveKind": "synthesize_thread",
+      "qualifierCode": null,
+      "argumentType": "synthesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Evidence supports remote work improving focus where dedicated space is available. Both sides agree the benefit is real but conditional on setup. The open question is how to make suitable conditions more accessible — a workplace design problem, not just a policy one.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "displayMeta": {}
+    }
+  ],
+  "expectedFlags": [],
+  "expectedTopicChecks": ["resolution_match"],
+  "expectedTurnStatuses": ["replied", "replied", "awaiting_my_response", "pending_reply", "conceded", "pending_reply", "synthesized"],
+  "notes": "Exercises: evidence-axis challenge with quote anchor, scope clarification, RCT evidence, conditional concession with playful label, synthesis. Everyday workplace topic with no political content."
+}
