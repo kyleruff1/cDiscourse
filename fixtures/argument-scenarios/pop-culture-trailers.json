@@ -127,5 +127,8 @@
   "expectedFlags": [],
   "expectedTopicChecks": ["resolution_match"],
   "expectedTurnStatuses": ["replied", "replied", "awaiting_my_response", "pending_reply", "conceded", "pending_reply", "synthesized"],
+  "expectedFinalRestingStatus": "peace_treaty_ish",
+  "expectedFinalClaimStanding": "settled_for_now",
+  "hasBranchCandidate": false,
   "notes": "Exercises: fact-axis challenge with quote anchor, clarification on scope, evidence from public marketing news, concession with playful label, synthesis. Safe pop culture topic."
 }

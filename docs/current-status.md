@@ -1,60 +1,72 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-16 (Stage 5.5.6)_
+_Last updated: 2026-05-16 (Stage 6.1.0)_
 
 ## Current Stage
 
-**Stage 6.0.3 complete.** Argument-first UX simplification: removed Compose tab from top-level nav, composer now opens inline within the Arguments tab. Nav is now `Arguments | Account | Debug`. Two Claude Code skills created (`argument-fixture-author`, `argument-counter-runner`). Four fixture scenarios in `fixtures/argument-scenarios/`. 594 tests, 17 suites — typecheck clean, lint clean.
+**Stage 6.1.0 complete.** Gamified argument-room UX refactor: game resting status model, claim standing model, DAW-style timeline/track view, invite UX foundation, upfront counterclaim support, bot navigation map, and gamified copy system. No DB migrations. No Anthropic calls. 700 tests, 23 suites — typecheck clean, lint clean.
 
-Stage 5.5.6.1 (RLS hotfix), Stage 5.5.6 (account feature), Stage 6.0 (language-processing scaffold), and Stage 6.0.1 (conversation move navigator) also committed.
+Stages 6.0.3 (inline composer), 5.5.6.1 (RLS hotfix), 5.5.6 (account), 5.5.5 (post-submit refresh), and earlier all committed.
 
 ## What Works
 
 ### Infrastructure (live)
 - Supabase project `qsciikhztvzzohssddrq` linked and accessible
-- All 5 migrations applied to hosted project (`db push --dry-run` reports "up to date")
-- `submit-argument` Edge Function ACTIVE (version 1) on hosted project
+- All 6 migrations applied to hosted project (0001–0006)
+- `submit-argument` Edge Function ACTIVE (version 1)
 - `.env` configured with `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `.env` gitignored; no secrets in tracked files (checkpoint secret scan: clean)
-- ANTHROPIC_API_KEY set as Supabase secret (needs rotation — exposed in chat session)
+- ANTHROPIC_API_KEY set as Supabase secret (reportedly rotated — not called in this stage)
 
 ### Core (local, tested)
-- Session contracts: `AppSessionSnapshot`, `DebateViewport`, `ComposerDraftSession`, `PendingSubmission`
-- Session reducer: pure state machine, tests pass
-- Session storage: AsyncStorage read/write with corrupt-data recovery
+- Session contracts, reducer, storage — all passing
 - Constitution v1 fully defined; rules engine pure TS, side-effect free
 - Discourse rails C-RAIL-001–005; topic satisfaction check
 - DB adapter layer; `evaluateArgumentDraft` end-to-end evaluation
-- `submit-argument` Edge Function (JWT-protected, deterministic Constitution re-validation server-side)
-- Database migrations 0001–0005 (schema, RLS, seed, rails+edge, session+scalability)
-- RLS policies on all tables
+- `submit-argument` Edge Function (JWT-protected, deterministic re-validation server-side)
+- Database migrations 0001–0006 (schema, RLS, seed, rails+edge, session+scalability, RLS fix)
+- RLS policies on all tables (migration 0006 fixes debates/debate_participants recursion)
 - Auth: `AuthScreen`, `useAuthSession`
 - Debates: `DebateListScreen`, `CreateDebateForm`, `JoinDebatePanel`, `DebateDetailHeader`, `useDebates`, `useCurrentDebate`
 - Argument viewport: normalized cache, viewport reducer, tree builder, composer handoff
-- `ArgumentTreeScreen` — now accepts `refreshRef` prop; registered by `App.tsx` for post-submit refresh
-- Argument submission (Stage 5.5.3): idempotent via `client_submission_id`, server 422 shown, draft preserved on failure
-- **Stage 5.5.5: Post-submit refresh** — `App.tsx` calls `refreshTreeRef.current?.()` in `handleSubmitSuccess`; tree re-fetches after success
-- **Stage 5.5.6: Account/profile feature** — `src/features/account/` (types, API, hook, screen, index). `AccountScreen` shows email, masked user ID, role label, editable display name. `buildProfileUpdatePayload` never includes role/id/email. `docs/account-operations.md` + `docs/supabase-admin-ops.md` created.
-- **Stage 5.5.6.1: RLS hotfix** — migration 0006 fixes debates/debate_participants infinite recursion with three SECURITY DEFINER helpers.
-- **Stage 6.0.3: Argument-first UX + fixture skills** — top-level Compose tab removed, inline composer in Arguments tab. Two Claude Code skills. Four fixture scenarios. `src/features/arguments/roomNavigation.ts` for pure nav helpers. `src/features/devFixtures/` for fixture types and validation.
-- Stage 6.0 — Language-processing scaffold: disabled-by-default, server-only. `process-language-draft` Edge Function, Anthropic + mock providers
-- Stage 6.0.1 — Conversation Move Navigator: pure TS move model, chip UI + axis sub-picker, wired into `ArgumentComposer`
-- Jest test suite: **526 tests**, 15 suites, all passing
+- `ArgumentTreeScreen` — supports `viewMode: 'tree' | 'timeline'` (Stage 6.1.0)
+- Argument submission: idempotent via `client_submission_id`, server 422 shown, draft preserved on failure
+- Post-submit refresh via `refreshTreeRef`
+- Account/profile feature: `AccountScreen`, editable display name
+- **Stage 6.0.1: ConversationMoveNavigator** — pure TS move model, 7 move kinds, challenge axis sub-picker
+- **Stage 6.0.3: Argument-first UX** — inline composer ("Your Move"), no top-level Compose tab, Arguments | Account | Debug nav
+- **Stage 6.1.0: Gamified UX**:
+  - `gameStatus.ts` — 19 GameRestingStatus values, pure derivation, forbidden copy rules enforced
+  - `claimStanding.ts` — 13 ClaimStanding values, allowed next moves per standing
+  - `argumentTimeline.ts` — DAW-style track model (core/counter/receipts/clarification/concession/tangent)
+  - `ArgumentTimelineScreen.tsx` — track view, toggles from ArgumentTreeScreen
+  - `ArgumentTrack.tsx` + `ArgumentTimelineNode.tsx` — lane/card components
+  - `gameCopy.ts` — pure copy strings, no forbidden labels, self-directed concessions
+  - `counterClaim.ts` — pure model for optional upfront counterclaim
+  - `inviteTypes.ts` + `inviteCopy.ts` + `InvitePanel.tsx` — invite foundation (UI only, no backend)
+  - App.tsx updated: Thread/Tracks toggle, Invite chip, room toolbar
+  - `docs/bot-navigation-map.md` — stable accessibilityLabel anchors for bot skills
+- Claude Code skills: `argument-fixture-author`, `argument-counter-runner` (updated for gamified UX)
+- Fixture scenarios: 4 scenarios with `expectedRestingStatus`, `expectedClaimStanding`, `expectedFinalRestingStatus`
+- Jest test suite: **700 tests**, 23 suites, all passing
 - TypeScript strict mode clean (0 errors)
 - ESLint clean (0 warnings)
 
 ## What Is Stubbed
 
 - `src/features/moderation/` — feature slice directory exists, no screens
-- Navigation stack: manual tab switching via `useState` in `App.tsx` (no Expo Router)
-- Full manual smoke test — infrastructure is live but browser walkthrough not yet completed
-- Account screen: no profile editing for moderator/admin escalation (by design — backend-only)
+- Navigation: manual tab switching via `useState` in `App.tsx` (no Expo Router)
+- Live manual smoke test — infrastructure is live but browser walkthrough not yet completed for Stage 6.1.0
+- Invite backend — InvitePanel is UI-only; no Supabase migration for invites (Stage 6.1.3+)
+- Counterclaim — model-only; not yet wired into CreateDebateForm
+- Resting status badge — model exists; not yet displayed in UI per argument node
+- Claim standing display — model exists; not yet displayed in UI
 
 ## What Is Blocked / Pending
 
-- **ANTHROPIC_API_KEY rotation required** — key was exposed in a previous chat session. See `docs/known-blockers.md`.
-- **Live manual smoke test pending** — hosted backend is configured; full A–I walkthrough in browser not yet completed. See `docs/browser-visual-test.md`.
-- **Docker/Supabase local** — local Supabase never validated (Docker Desktop unavailable). Migrations are applied to hosted project.
+- **Live manual smoke test (Stage 6.1.1)** — run `npm run web -- --clear`, walk `docs/browser-visual-test.md`
+- **Docker/Supabase local** — local Supabase never validated (Docker Desktop unavailable)
+- **ANTHROPIC_API_KEY rotation** — reportedly done; verify via Supabase dashboard before enabling AI stage
 
 ## Last Verification Commands
 
@@ -64,10 +76,8 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (594 tests, 17 suites) |
-| `npx supabase projects list` | ✅ `qsciikhztvzzohssddrq` LINKED |
-| `npx supabase db push --dry-run` | ✅ Remote database is up to date |
-| `npx supabase functions list` | ✅ submit-argument ACTIVE |
+| `npm run test` | ✅ Pass (700 tests, 23 suites) |
+| `npm run checkpoint` | ✅ Stage 6.1.0 complete |
 
 ## Hosted Backend Status
 
@@ -78,23 +88,25 @@ Run on 2026-05-16:
 | Migrations applied | ✅ Yes (0001–0006) |
 | `submit-argument` deployed | ✅ Yes (ACTIVE v1) |
 | `.env` configured | ✅ Yes |
-| ANTHROPIC_API_KEY set | ✅ Set (⚠️ rotation needed) |
-| RLS recursion on debates | ✅ Fixed (migration 0006) |
+| ANTHROPIC_API_KEY set | ✅ Set (reportedly rotated — not called in this stage) |
+| RLS recursion | ✅ Fixed (migration 0006) |
 | Live auth tested | 🔲 Pending (browser test) |
 | Live debate create/join tested | 🔲 Pending |
 | Live argument submit tested | 🔲 Pending |
-| Server 422 tested | 🔲 Pending |
-| Idempotency tested live | 🔲 Pending |
-| Post-submit tree refresh | ✅ Implemented (Stage 5.5.5) |
 
 ## Next Recommended Stage
 
-**Live manual smoke test (Stage 6.0.3.1).** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md` sections A–K. Confirm:
-- Arguments tab shows debate list / argument room (no Compose tab visible)
-- Room shows "Start an argument" button at bottom
-- Tapping "Start an argument" opens inline composer ("Your Move" header)
-- Tapping "Reply" on an argument opens inline composer with parent context
-- Discard closes the inline composer and returns to the tree
-- Submit success closes composer and refreshes tree
+**Stage 6.1.1 — Live browser smoke test** of the gamified argument-room UX. Run:
+```
+npm run web -- --clear
+```
 
-After smoke test: Stage 6.0.2 (move qualifiers, quote anchoring, turn-status governance), or run a fixture counter-test with `/argument-counter-runner sports-play-in`. Full prompts in `docs/next-prompts.md`.
+Walk `docs/browser-visual-test.md` sections A–K. Verify:
+- Arguments tab shows Thread / Tracks toggle in room toolbar
+- Tracks view shows Core / Counters / Receipts / Concessions / Tangents lanes
+- Invite chip opens InvitePanel inline
+- "Start an argument" button opens inline composer ("Your Move")
+- Reply opens inline composer with parent context
+- Discard closes composer and returns to room
+
+After smoke test: Stage 6.1.2 (fixture runner with normal client auth) or Stage 6.1.3 (invite backend migration).

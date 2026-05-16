@@ -1,5 +1,9 @@
 export { ArgumentTreeScreen } from './ArgumentTreeScreen';
+export type { ArgumentViewMode } from './ArgumentTreeScreen';
 export { ArgumentComposer } from './ArgumentComposer';
+export { ArgumentTimelineScreen } from './ArgumentTimelineScreen';
+export { ArgumentTrack } from './ArgumentTrack';
+export { ArgumentTimelineNode } from './ArgumentTimelineNode';
 export { useArgumentViewport } from './useArgumentViewport';
 export { useArgumentComposer } from './useArgumentComposer';
 export { useConstitution } from './useConstitution';

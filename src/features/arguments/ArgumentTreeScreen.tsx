@@ -10,20 +10,25 @@ import {
 import { useArgumentViewport } from './useArgumentViewport';
 import { ArgumentNode } from './ArgumentNode';
 import { ArgumentPathBar } from './ArgumentPathBar';
+import { ArgumentTimelineScreen } from './ArgumentTimelineScreen';
 import { getKnownChildCount } from './argumentCache';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import type { Debate } from '../debates/types';
 import type { ArgumentRow } from './types';
 
+export type ArgumentViewMode = 'tree' | 'timeline';
+
 interface Props {
   debate: Debate;
   onReply: (argumentId: string, argument: ArgumentRow) => void;
   /** Caller stores this ref and calls .current() to trigger a refresh from outside. */
   refreshRef?: React.MutableRefObject<(() => void) | null>;
+  /** 'tree' (default) or 'timeline' track view. */
+  viewMode?: ArgumentViewMode;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree' }: Props) {
   const {
     cache,
     viewport,
@@ -49,10 +54,24 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef }: Props) {
     return <LoadingNotice message="Loading arguments…" />;
   }
 
+  if (viewMode === 'timeline') {
+    return (
+      <ArgumentTimelineScreen
+        cache={cache}
+        selectedArgumentId={viewport.selectedParentId}
+        focusedArgumentId={focusedArgumentId}
+        onSelectArgument={(id) => {
+          const arg = cache.argumentsById[id];
+          if (arg) onReply(id, arg);
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.resolutionBar}>
-        <Text style={styles.resolutionLabel}>Resolution</Text>
+        <Text style={styles.resolutionLabel}>Claim</Text>
         <Text style={styles.resolutionText} numberOfLines={2}>{debate.resolution}</Text>
       </View>
 

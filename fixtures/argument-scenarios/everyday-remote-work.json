@@ -4,9 +4,21 @@
   "resolution": "Remote work improves performance on deep-focus tasks compared to open-office environments.",
   "category": "everyday",
   "personas": [
-    { "alias": "Avery", "side": "affirmative", "tone": "playful" },
-    { "alias": "Blake", "side": "negative", "tone": "skeptical" },
-    { "alias": "Charlie", "side": "neutral", "tone": "calm" }
+    {
+      "alias": "Avery",
+      "side": "affirmative",
+      "tone": "playful"
+    },
+    {
+      "alias": "Blake",
+      "side": "negative",
+      "tone": "skeptical"
+    },
+    {
+      "alias": "Charlie",
+      "side": "neutral",
+      "tone": "calm"
+    }
   ],
   "moves": [
     {
@@ -125,7 +137,20 @@
     }
   ],
   "expectedFlags": [],
-  "expectedTopicChecks": ["resolution_match"],
-  "expectedTurnStatuses": ["replied", "replied", "awaiting_my_response", "pending_reply", "conceded", "pending_reply", "synthesized"],
-  "notes": "Exercises: evidence-axis challenge with quote anchor, scope clarification, RCT evidence, conditional concession with playful label, synthesis. Everyday workplace topic with no political content."
+  "expectedTopicChecks": [
+    "resolution_match"
+  ],
+  "expectedTurnStatuses": [
+    "replied",
+    "replied",
+    "awaiting_my_response",
+    "pending_reply",
+    "conceded",
+    "pending_reply",
+    "synthesized"
+  ],
+  "notes": "Exercises: evidence-axis challenge with quote anchor, scope clarification, RCT evidence, conditional concession with playful label, synthesis. Everyday workplace topic with no political content.",
+  "expectedFinalRestingStatus": "peace_treaty_ish",
+  "expectedFinalClaimStanding": "settled_for_now",
+  "hasBranchCandidate": false
 }

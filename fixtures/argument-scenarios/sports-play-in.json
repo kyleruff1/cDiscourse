@@ -22,6 +22,8 @@
       "selectedTagCodes": [],
       "evidence": null,
       "expectedStatus": "posted",
+      "expectedRestingStatus": "open",
+      "expectedClaimStanding": "not_started",
       "displayMeta": {
         "quoteAnchorCandidate": "gives teams fighting for playoff spots a real reason to push through the final weeks"
       }
@@ -39,6 +41,8 @@
       "selectedTagCodes": [],
       "evidence": null,
       "expectedStatus": "posted",
+      "expectedRestingStatus": "receipts_requested",
+      "expectedClaimStanding": "counter_currently_stronger",
       "displayMeta": {
         "quoteAnchorCandidate": "Teams at 9th and 10th still face brutal odds"
       }
@@ -56,6 +60,8 @@
       "selectedTagCodes": [],
       "evidence": null,
       "expectedStatus": "posted",
+      "expectedRestingStatus": "quote_requested",
+      "expectedClaimStanding": "needs_receipts",
       "displayMeta": {}
     },
     {
@@ -71,6 +77,8 @@
       "selectedTagCodes": [],
       "evidence": null,
       "expectedStatus": "posted",
+      "expectedRestingStatus": "unresolved",
+      "expectedClaimStanding": "under_challenge",
       "displayMeta": {}
     },
     {
@@ -89,6 +97,8 @@
         "sourceText": "The Miami Heat qualified for the 2023 playoffs through the play-in tournament as the 8th seed and advanced to the NBA Finals."
       },
       "expectedStatus": "posted",
+      "expectedRestingStatus": "unresolved",
+      "expectedClaimStanding": "stronger_than_counter",
       "displayMeta": {}
     },
     {
@@ -104,6 +114,8 @@
       "selectedTagCodes": [],
       "evidence": null,
       "expectedStatus": "posted",
+      "expectedRestingStatus": "point_conceded",
+      "expectedClaimStanding": "conceded",
       "displayMeta": {
         "playfulLabel": "I'm only MOSTLY wrong about this"
       }
@@ -121,11 +133,16 @@
       "selectedTagCodes": [],
       "evidence": null,
       "expectedStatus": "posted",
+      "expectedRestingStatus": "peace_treaty_ish",
+      "expectedClaimStanding": "settled_for_now",
       "displayMeta": {}
     }
   ],
   "expectedFlags": [],
   "expectedTopicChecks": ["resolution_match"],
   "expectedTurnStatuses": ["replied", "replied", "awaiting_my_response", "pending_reply", "conceded", "pending_reply", "synthesized"],
-  "notes": "Exercises: root thesis, fact-axis challenge with quote anchor, clarification round-trip, evidence with playful concession, synthesis. Safe sports topic with no real-world accusations."
+  "expectedFinalRestingStatus": "peace_treaty_ish",
+  "expectedFinalClaimStanding": "settled_for_now",
+  "hasBranchCandidate": false,
+  "notes": "Exercises: root thesis, fact-axis challenge with quote anchor, clarification round-trip, evidence with playful concession, synthesis. Safe sports topic. Resting status progresses from open → receipts_requested → unresolved → point_conceded → peace_treaty_ish."
 }

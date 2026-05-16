@@ -68,6 +68,10 @@ export interface FixtureMove {
   selectedTagCodes: string[];
   evidence?: FixtureEvidence | null;
   expectedStatus: string;
+  /** Expected game resting status after this move is applied. */
+  expectedRestingStatus?: string | null;
+  /** Expected claim standing after this move is applied. */
+  expectedClaimStanding?: string | null;
   displayMeta?: FixtureDisplayMeta;
 }
 
@@ -81,5 +85,11 @@ export interface FixtureScenario {
   expectedFlags: string[];
   expectedTopicChecks: string[];
   expectedTurnStatuses: string[];
+  /** Final expected resting status of the room after all moves. */
+  expectedFinalRestingStatus?: string;
+  /** Final expected claim standing of the root claim after all moves. */
+  expectedFinalClaimStanding?: string;
+  /** True if a tangent/branch candidate exists in the scenario. */
+  hasBranchCandidate?: boolean;
   notes: string;
 }

@@ -1,6 +1,6 @@
 # CDiscourse — Browser Visual Test Guide
 
-_Stage 5.5.6 — updated 2026-05-16_
+_Stage 6.1.0 — updated 2026-05-16_
 
 ## How to Launch
 
@@ -62,11 +62,32 @@ Verify in browser:
 
 ---
 
-## Section B.5 — Argument-First Navigation (Stage 6.0.3)
+## Section B.5 — Argument-First Navigation (Stage 6.0.3+)
 
 - [ ] Top tab bar shows: Arguments | Account | Debug (dev only)
 - [ ] No "Debates", "Debate", or "Compose" tab visible in top bar
 - [ ] Tab label reads "Arguments" (not "Debates")
+
+---
+
+## Section B.6 — Gamified Room Toolbar (Stage 6.1.0)
+
+When inside an Argument Room:
+
+- [ ] Room toolbar visible below room header
+- [ ] "Argument Room" label visible in toolbar
+- [ ] "Thread" chip visible and selectable (tree view)
+- [ ] "Tracks" chip visible and selectable (timeline view)
+- [ ] "Invite" chip visible and tappable
+- [ ] Tapping "Invite" opens InvitePanel inline
+- [ ] InvitePanel shows: title, subtitle, email/name input, copy buttons
+- [ ] InvitePanel shows "Invite sending coming later." notice
+- [ ] InvitePanel can be closed with ✕ button
+- [ ] Switching to "Tracks" view shows: Core, Counters, Receipts, Clarifications, Concessions, Tangents lane headers
+- [ ] Switching back to "Thread" shows nested tree view
+- [ ] View toggle does not lose argument data
+
+---
 
 ---
 

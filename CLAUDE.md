@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 6.0.3 complete** — Argument-first UX simplification: Compose tab removed from top-level nav; composer now opens inline within the Arguments tab via "Start an argument" (root) or "Reply" (reply). Nav: `Arguments | Account | Debug`. Two Claude Code skills: `argument-fixture-author`, `argument-counter-runner`. Four fixture scenarios in `fixtures/argument-scenarios/`. `src/features/devFixtures/` validation module. 594 tests passing, lint clean, typecheck clean. Next: live browser smoke test (`npm run web -- --clear`), then Stage 6.0.2 (move qualifiers, quote anchoring, turn-status).
+Current stage: **Stage 6.1.0 complete** — Gamified argument-room UX: game resting status model (19 statuses), claim standing model (13 standings), DAW-style timeline/track view (Core/Counters/Receipts/Clarifications/Concessions/Tangents lanes), invite UX foundation (UI-only, no backend migration), upfront counterclaim support (model only), bot navigation map, gamified copy system. No DB migrations. No Anthropic calls. 700 tests passing, lint clean, typecheck clean. Next: Stage 6.1.1 live browser smoke test (`npm run web -- --clear`).
 
 ## Supabase Apply Commands
 

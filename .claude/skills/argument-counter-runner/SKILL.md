@@ -68,21 +68,30 @@ Open http://localhost:8081 — do not edit code while the dev server runs.
 
 ## Manual Browser Walk (per move)
 
+Bot navigation labels are defined in `docs/bot-navigation-map.md`. Use `accessibilityLabel` values to locate elements.
+
 For each move in the fixture scenario:
 
 1. Sign in as the persona's test account (use manually created dev accounts — never put credentials in Git).
-2. Open the Argument Room or create it if it does not exist.
-3. For root moves: tap "Start an argument."
-4. For reply moves: tap "Reply" on the parent argument node.
-5. In the inline composer:
-   - Tap the matching move chip in the Conversation Move Navigator.
-   - If challenge: select the disagreement axis shown in the fixture.
+2. Open the Arguments tab (`nav-arguments`).
+3. Open the Argument Room or create it if it does not exist (`input-room-title`).
+4. For root moves: tap "Start an argument" (`button-start-argument`).
+5. For reply moves: tap "Reply" on the parent argument node (`button-reply`).
+6. In the inline composer (header: "Your Move"):
+   - Tap the matching move chip (`chip-move-challenge`, `chip-move-clarify`, etc.).
+   - If challenge: select the disagreement axis (fact/logic/scope/receipts).
    - If evidence: paste the evidence fields from the fixture.
-   - Write or paste the body from the fixture.
-   - Verify validation preview shows no blocking errors.
+   - Write or paste the body (`input-body`).
+   - Verify validation preview shows no blocking errors (`panel-validation-preview`).
    - Tap Submit.
-6. Confirm the argument appears in the tree.
-7. Record actual vs. expected status.
+7. Confirm the argument appears in the thread (tree view) or Tracks view.
+8. Note any resting status badges (`badge-resting-status`).
+9. Record actual vs. expected status, including `expectedRestingStatus` and `expectedClaimStanding` from the fixture.
+
+Also verify:
+- Thread view (default) shows arguments in nested tree.
+- Tracks view shows arguments in Core / Counters / Receipts / Clarifications / Concessions / Tangents lanes.
+- Toggle between Thread and Tracks views works without losing data.
 
 ## Counter-Testing Steps
 

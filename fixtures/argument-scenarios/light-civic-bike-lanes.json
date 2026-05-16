@@ -127,5 +127,8 @@
   "expectedFlags": [],
   "expectedTopicChecks": ["resolution_match"],
   "expectedTurnStatuses": ["replied", "replied", "awaiting_my_response", "pending_reply", "conceded", "pending_reply", "synthesized"],
+  "expectedFinalRestingStatus": "peace_treaty_ish",
+  "expectedFinalClaimStanding": "settled_for_now",
+  "hasBranchCandidate": false,
   "notes": "Exercises: causal-axis challenge with quote anchor, clarification on standard of evidence, controlled-study evidence, narrowing concession. Light civic topic without named politicians or ongoing scandals."
 }
