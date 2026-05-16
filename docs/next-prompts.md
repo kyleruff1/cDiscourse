@@ -4,9 +4,52 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
-## Prompt 1 — Stage 6.0.2: Move Qualifiers, Quote Anchoring, and Turn-Status Governance
+## Prompt 1 — Stage 5 Live Smoke Test (GATE)
 
-> Stage 6.0.1 is complete. The move navigator is wired and 505 tests pass.
+> Stage 5 Recovery Gate is complete. Infrastructure is live. Run the browser smoke test before continuing Stage 6.
+>
+> Run:
+> ```bash
+> npm run web -- --clear
+> ```
+>
+> Walk through `docs/browser-visual-test.md` sections A–I:
+> - A. App boot — no red screen, Supabase configured
+> - B. Auth — sign up, sign in, sign out, refresh preserves session
+> - C. Debate lifecycle — create, list, join, select
+> - D. Argument tree — empty state, existing arguments, reply button
+> - E. Composer — resolution visible, type/side/body/evidence fields
+> - F. Submit — root claim through submitArgumentDraft, argument row in Supabase, tree refreshes
+> - G. Server 422 — invalid argument shape, error shown, draft preserved
+> - H. Idempotency — retry same payload, no duplicate row
+> - I. Security — no sb_secret_ in bundle, no service key in .env
+>
+> Also rotate the ANTHROPIC_API_KEY (exposed in a previous chat session):
+> 1. console.anthropic.com → API Keys → revoke the old key
+> 2. Create a new key
+> 3. `npx supabase secrets set ANTHROPIC_API_KEY=<new-key>` (do not paste key into chat)
+>
+> Update `docs/mvp-smoke-test.md` with results. When all A–I pass, proceed to Prompt 2.
+
+---
+
+## Prompt 2 — Stage 5.5.6: MVP Demo Polish
+
+> Only if smoke test passed and issues were found in sections A–I. Address any UI/UX issues found during the live smoke test that affect the MVP demo path. Do not add new features. Do not redesign.
+>
+> Examples of valid Stage 5.5.6 work:
+> - Error message wording improvements
+> - Loading state edge cases
+> - Sign-up email confirmation copy
+> - Empty state copy corrections
+>
+> Commit: `"chore: Stage 5.5.6 — MVP demo polish"`
+
+---
+
+## Prompt 3 — Stage 6.0.2: Move Qualifiers, Quote Anchoring, and Turn-Status Governance
+
+> Stage 5.5.5 is complete. Smoke test is complete (or accepted as known gap). 506 tests pass.
 >
 > Stage 6.0.2 adds three pure-TypeScript/React layers to the composer UX. No DB migration, no Anthropic calls, no persistence for `UserResponseMark`.
 >
@@ -33,101 +76,56 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 > - Add `UserResponseMarkPicker` below the body input (shown always when `parentArgument` is set).
 >
 > **Tests (3 new files):**
-> - `__tests__/moveQualifiers.test.ts` — qualifier catalogue, `getQualifierOptionsForMove`, `mergeQualifierTags` dedup, `qualifierRequiresSpecificity`.
-> - `__tests__/quoteAnchors.test.ts` — tokenizer, range extraction, candidate builder, anchor→excerpt conversion.
-> - `__tests__/turnStatus.test.ts` — `deriveTurnStatus` for each of the 11 statuses, `getTurnStatusDisplay` returns label+color, `getUserResponseMarkOptions` returns 9 items.
+> - `__tests__/moveQualifiers.test.ts`
+> - `__tests__/quoteAnchors.test.ts`
+> - `__tests__/turnStatus.test.ts`
 >
 > **Docs:**
-> - `docs/conversation-ux-map.md` — full UX flow diagram with qualifier + anchor + status layers.
-> - `docs/turn-response-governance.md` — governance rules: what `TurnResponseStatus` means, how `UserResponseMark` is local-only, why concession copy is self-directed.
-> - `docs/transcript-language-processor-system-prompt.md` — the exact system prompt used in `anthropicProvider.ts`, documented for review.
+> - `docs/conversation-ux-map.md`
+> - `docs/turn-response-governance.md`
+> - `docs/transcript-language-processor-system-prompt.md`
 >
-> ### Hard constraints
+> **Hard constraints:**
 > - Do NOT call Anthropic. Do NOT create a new Supabase migration.
-> - Do NOT persist `UserResponseMark` to the DB in this stage — local state only.
-> - Concession labels must be self-directed: "I'm conceding this point", "I'm narrowing my claim" — never imply the opponent is wrong or manipulative.
-> - Do NOT infer manipulation, bad faith, dishonesty, truth, winner, hiding, or banning.
+> - Do NOT persist `UserResponseMark` to the DB — local state only.
+> - Concession labels must be self-directed: "I'm conceding this point" — never imply the opponent is wrong.
 >
 > Run `npm run typecheck && npm run lint && npm run test` before finishing.
 > Commit: `"feat: Stage 6.0.2 — move qualifiers quote anchoring and turn status UX"`
 
 ---
 
-## Prompt 2 — MVP Backend Validation (Supabase Setup)
+## Prompt 4 — Stage 6.0.3: Visual Smoke Test of Move Navigator UX
 
-Before running any of these steps, have Docker Desktop running and a Supabase project created at https://supabase.com.
-
-```bash
-# 1. Link the remote project
-npx supabase link --project-ref <your-project-ref>
-
-# 2. Push all migrations (0001–0005)
-npx supabase db push --linked
-
-# 3. Verify migrations applied cleanly
-npx supabase db status
-npx supabase db lint
-
-# 4. Set Edge Function secrets
-npx supabase secrets set ANTHROPIC_API_KEY=<your-key>
-
-# 5. Deploy the submit-argument Edge Function
-npx supabase functions deploy submit-argument
-
-# 6. Create .env from the example (NEVER commit .env)
-cp .env.example .env
-# Fill in: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-
-# 7. Relaunch the browser app
-npm run web -- --clear
-```
-
-Then complete the manual smoke test checklist: `docs/browser-visual-test.md`.
-
-Goal: confirm that end-to-end argument submission (client → Edge Function → DB → argument tree) works with real Supabase.
+> After Stage 6.0.2, run a visual smoke test of the new UX in the browser:
+> - Move navigator shows correct chips (2 root / up to 5 reply)
+> - Challenge axis sub-picker appears
+> - Qualifier chips appear and toggle
+> - Quote anchor selector shows parent sentences
+> - Turn status badge renders
+> - UserResponseMarkPicker shows 9 options, local state only
 
 ---
 
-## Prompt 2 — Stage 5.5.5: Viewport Refresh After Submit
+## Prompt 5 — Stage 6.1: Wire "Process Draft" Button (AI Advisory)
 
-> After a successful argument submission, the debate tab's argument tree should refresh automatically to show the newly posted argument.
+> Only after: smoke test complete, ANTHROPIC_API_KEY rotated, Stage 6.0.2 complete.
 >
-> Current behavior: after `SUBMISSION_SUCCEEDED` and tab switch, the argument tree does not re-fetch. The user must pull-to-refresh manually to see their own argument.
+> Wire a "Help me structure this" button into `ArgumentComposer` that calls `processLanguageDraft` and displays suggestions in a review panel. The AI suggestion step is never in the critical path — it never gatekeeps submission.
 >
-> Implement a lightweight refresh mechanism:
-> - After `SUBMISSION_SUCCEEDED` dispatched, call `refresh()` from `useArgumentViewport` in the debate-view tab.
-> - The cleanest approach: lift a `refreshViewport` callback from `ArgumentTreeScreen` to `App.tsx`, and call it in `handleSubmitSuccess()`.
-> - Do not implement realtime subscriptions. Poll or manual-trigger only.
-> - Do not add dependencies.
->
-> Run `npm run typecheck && npm run lint && npm run test` before finishing.
-> Commit with: `"feat: Stage 5.5.5 — refresh argument tree after submit"`
-
----
-
-## Prompt 3 — Stage 5.6: Expo Router Migration
-
-> Migrate navigation from the manual `useState` tab switcher in `App.tsx` to Expo Router file-based routing.
->
-> Install Expo Router: `npx expo install expo-router`.
-> Create the file structure under `app/`. Auth guard should redirect unauthenticated users to `app/(auth)/sign-in.tsx`. The debate room and composer should be nested under a debate route. Move `MainAppShell` logic into route files. Keep `AppSessionProvider` wrapping the root layout.
->
-> No new features — this is a pure routing migration.
-> Run `npm run typecheck && npm run lint && npm run test` before finishing.
-
----
-
-## Prompt 4 — Stage 5.7: Argument Tree Pagination and Pull-to-Refresh
-
-> Extend `useArgumentViewport` to support cursor-based pagination for root and child arguments (`rootCursor` and per-parent cursors). Add a "Load more" button at the bottom of each expanded node when the server returned exactly `pageSize` results. Add a pull-to-refresh gesture on the tree `ScrollView` that calls `refresh()` from `useArgumentViewport`.
->
-> Do not implement realtime subscriptions — manual refresh only.
-> Run `npm run typecheck && npm run lint && npm run test` before finishing.
+> Do NOT call Anthropic automatically on every keystroke. User must tap the button explicitly.
+> Do NOT let AI suggestions override deterministic Constitution validation.
+> Do NOT auto-submit from AI suggestions.
 
 ---
 
 ## Notes
 
-Stages 5.5.1–5.5.4, 6.0, and 6.0.1 are complete.  
-505 tests pass. TypeScript strict mode clean.  
+Stage 5 Recovery Gate complete as of 2026-05-16.
+Infrastructure live: project `qsciikhztvzzohssddrq`, migrations applied, `submit-argument` ACTIVE.
+Post-submit refresh (Stage 5.5.5) implemented and committed.
+506 tests pass. TypeScript strict mode clean.
+
+**Safe to continue Stage 6: YES — after live smoke test passes.**
+
 See `docs/current-status.md` for full status.

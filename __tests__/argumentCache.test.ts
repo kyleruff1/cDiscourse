@@ -95,6 +95,25 @@ describe('argumentCache — mergeArguments', () => {
     const cache = mergeArguments(EMPTY_CACHE, []);
     expect(cache).toBe(EMPTY_CACHE);
   });
+
+  test('post-submit refresh: re-merging roots after a full re-fetch does not duplicate root IDs', () => {
+    // Simulate: initial load, then refresh() re-fetches the same roots + new one
+    const root1 = arg('r1', null, 0);
+    const root2 = arg('r2', null, 0);
+    const root3 = arg('r3', null, 0); // newly submitted argument
+
+    let cache = mergeArguments(EMPTY_CACHE, [root1, root2]);
+    // Refresh returns all three (server includes the new submission)
+    cache = mergeArguments(cache, [root1, root2, root3]);
+
+    const roots = cache.childIdsByParentId[ROOT_KEY] ?? [];
+    expect(roots).toHaveLength(3);
+    expect(roots).toContain('r1');
+    expect(roots).toContain('r2');
+    expect(roots).toContain('r3');
+    // No duplicates
+    expect(new Set(roots).size).toBe(roots.length);
+  });
 });
 
 // ── 2. Child ordering ─────────────────────────────────────────

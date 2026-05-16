@@ -23,22 +23,27 @@ If pre-conditions 5–6 are not met, only the "no .env" path of each section is 
 
 ---
 
-## Smoke Test Results — 2026-05-16 (partial)
+## Smoke Test Results — 2026-05-16 (Stage 5 Recovery Gate)
+
+Infrastructure is now live. `.env` configured, migrations applied, `submit-argument` ACTIVE.
+Post-submit refresh (Stage 5.5.5) implemented. Browser walkthrough not yet completed.
 
 | Section | Status | Notes |
 |---|---|---|
-| Web server launches | ✅ | http://localhost:8081, 352 modules, 4.1 s |
+| Web server launches | ✅ | Verified previously (352 modules) |
 | Bundle errors | ✅ None | |
-| Auth screen renders | 🔲 Pending | Requires browser check |
-| Config error notice visible | 🔲 Pending | Expected: yes (no .env) |
-| Debate list | 🔲 Pending | Blocked by no .env |
-| Argument tree | 🔲 Pending | Blocked by no .env |
-| Composer root | 🔲 Pending | Accessible even without .env via Compose tab |
-| Composer reply | 🔲 Pending | Requires debate + parent argument |
-| Submit flow | 🔲 Pending | Blocked by no .env / no deployed function |
-| Session recovery | 🔲 Pending | Requires auth configured |
-| Responsive layout | 🔲 Pending | Requires browser |
-| Console errors | 🔲 Pending | Requires browser DevTools |
+| Hosted backend live | ✅ | qsciikhztvzzohssddrq linked, submit-argument ACTIVE |
+| Auth screen renders | 🔲 Pending browser | Unblocked: .env configured |
+| Sign-in / sign-up | 🔲 Pending browser | |
+| Debate create/join | 🔲 Pending browser | |
+| Argument tree | 🔲 Pending browser | |
+| Composer root | 🔲 Pending browser | |
+| Submit flow | 🔲 Pending browser | Unblocked: submit-argument deployed |
+| Post-submit tree refresh | 🔲 Pending browser | Stage 5.5.5 implemented |
+| Server 422 error display | 🔲 Pending browser | |
+| Idempotency live | 🔲 Pending browser | |
+| Session recovery | 🔲 Pending browser | |
+| Console errors | 🔲 Pending browser | |
 
 ---
 
@@ -107,14 +112,17 @@ All of these must pass:
 
 ## Current Status
 
-**Safe for MVP demo: NO** (as of 2026-05-16)
+**Safe for MVP demo: ALMOST** (as of 2026-05-16 Stage 5 Recovery Gate)
 
-Blockers:
-1. No `.env` — Supabase not configured
-2. No linked Supabase project — migrations not applied
-3. `submit-argument` Edge Function not deployed
-4. Docker unavailable — local Supabase stack not validated
+Infrastructure blockers resolved:
+- ✅ `.env` configured with real project URL and publishable key
+- ✅ Supabase project linked (`qsciikhztvzzohssddrq`)
+- ✅ All migrations applied to hosted project
+- ✅ `submit-argument` Edge Function deployed and ACTIVE
+- ✅ Post-submit tree refresh implemented (Stage 5.5.5)
 
-None of these are code issues. The app code is complete and passes all static checks. The blockers are infrastructure/configuration tasks.
+Remaining:
+1. Run the browser smoke test — `npm run web -- --clear` then walk sections A–I
+2. Rotate the ANTHROPIC_API_KEY (exposed in chat) — see `docs/known-blockers.md`
 
-See `docs/known-blockers.md` for resolution steps.
+See `docs/browser-visual-test.md` for the full checklist.

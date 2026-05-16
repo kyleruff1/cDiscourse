@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -19,9 +19,11 @@ import type { ArgumentRow } from './types';
 interface Props {
   debate: Debate;
   onReply: (argumentId: string, argument: ArgumentRow) => void;
+  /** Caller stores this ref and calls .current() to trigger a refresh from outside. */
+  refreshRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export function ArgumentTreeScreen({ debate, onReply }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef }: Props) {
   const {
     cache,
     viewport,
@@ -33,6 +35,11 @@ export function ArgumentTreeScreen({ debate, onReply }: Props) {
     unfocus,
     refresh,
   } = useArgumentViewport(debate.id);
+
+  // Register refresh with the caller's ref so handleSubmitSuccess can trigger it.
+  useEffect(() => {
+    if (refreshRef) refreshRef.current = refresh;
+  }, [refresh, refreshRef]);
 
   const { visibleArgumentIds, focusedPathIds, focusedArgumentId, expandedArgumentIds } = viewport;
 

@@ -11,7 +11,6 @@ import {
   mapMoveToDraftPatch,
   getVisibleMoveSteps,
   getMoveWarnings,
-  type ConversationMoveKind,
   type ConversationMoveSelection,
 } from '../src/features/arguments/conversationMoves';
 import type { ArgumentType, ConstitutionRule } from '../src/domain/constitution/types';

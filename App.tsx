@@ -36,6 +36,7 @@ function MainAppShell() {
   const { signOut, loading: signOutLoading } = useAuthSession();
   const [tab, setTab] = useState<Tab>('debates');
   const [replyTarget, setReplyTarget] = useState<{ id: string; argument: ArgumentRow } | null>(null);
+  const refreshTreeRef = useRef<(() => void) | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
@@ -78,6 +79,7 @@ function MainAppShell() {
   const handleSubmitSuccess = () => {
     setReplyTarget(null);
     setTab('current_debate');
+    refreshTreeRef.current?.();
   };
 
   const participantSide = state.snapshot.participantSide;
@@ -121,7 +123,7 @@ function MainAppShell() {
               participantSide={participantSide}
               onLeave={deselectDebate}
             />
-            <ArgumentTreeScreen debate={currentDebate} onReply={handleReply} />
+            <ArgumentTreeScreen debate={currentDebate} onReply={handleReply} refreshRef={refreshTreeRef} />
           </View>
         )}
         {activeTab === 'composer' && currentDebate && (

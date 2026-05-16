@@ -1,17 +1,53 @@
 # CDiscourse — Known Blockers
 
-Active issues that prevent full local validation as of 2026-05-16.
+_Last updated: 2026-05-16 (Stage 5 Recovery Gate)_
 
 ---
 
-## 1. Docker Unavailable — Supabase Local Not Validated
+## RESOLVED — Previously Blocking
 
-**Status:** Blocking local DB validation  
-**Impact:** Cannot run `npx supabase start`, `npx supabase db reset`, or `npx supabase db lint`
+### ✅ Supabase Project Linked
+Project `qsciikhztvzzohssddrq` is now linked (`supabase projects list` shows `●`).
 
-Migrations 0001–0005 are written and syntactically correct but have not been applied to any database instance. Edge Functions cannot be tested end-to-end locally.
+### ✅ Migrations Applied
+All 5 migrations (0001–0005) are applied to the hosted project. `npx supabase db push --dry-run` reports "Remote database is up to date."
 
-**Resolution (when Docker Desktop is running):**
+### ✅ submit-argument Deployed
+`submit-argument` Edge Function is ACTIVE (version 1) on the hosted project.
+
+### ✅ `.env` Created
+`.env` exists with `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` set to real values. Gitignored.
+
+### ✅ Post-Submit Refresh
+`ArgumentTreeScreen` now accepts a `refreshRef` prop. `App.tsx` passes `refreshTreeRef` and calls it in `handleSubmitSuccess`. The tree re-fetches after a successful submit.
+
+---
+
+## ACTIVE BLOCKERS
+
+### 1. ANTHROPIC_API_KEY Must Be Rotated
+
+**Status:** Security — requires manual action  
+**Impact:** The ANTHROPIC_API_KEY that was set during the 2026-05-16 session was exposed in conversation. It should be rotated before the AI language-processing feature is enabled.
+
+**Resolution (manual — do not paste key into chat):**
+1. Go to `console.anthropic.com` → API Keys → revoke the exposed key
+2. Create a new key
+3. Update the Supabase secret:
+   ```bash
+   npx supabase secrets set ANTHROPIC_API_KEY=<new-key>
+   ```
+
+This blocker does NOT affect the MVP demo — `AI_LANGUAGE_PROCESSING_ENABLED=false` by default and no client-side Anthropic calls exist.
+
+---
+
+### 2. Docker Unavailable — Supabase Local Never Validated
+
+**Status:** Informational — not MVP blocking  
+**Impact:** Migrations have been applied to hosted project (resolved), but local Supabase stack has never been validated with Docker.
+
+If Docker Desktop becomes available:
 ```bash
 npx supabase start
 npx supabase db reset
@@ -21,67 +57,36 @@ npx supabase db lint
 
 ---
 
-## 2. No Linked Remote Supabase Project
+### 3. Live Manual Smoke Test Pending
 
-**Status:** Blocking deployment  
-**Impact:** Cannot deploy Edge Functions or push migrations to staging/prod
+**Status:** Blocking MVP sign-off  
+**Impact:** The hosted backend is configured, but the full manual smoke test (auth → debates → compose → submit → tree refresh) has not been completed in a browser session.
 
-`npx supabase link` has not been run. No project-ref is configured.
+**Resolution:** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md` sections A–I.
 
-**Resolution:**
-```bash
-npx supabase link --project-ref <your-project-ref>
-npx supabase db push --linked
-npx supabase functions deploy submit-argument
-```
+Items expected to work based on static analysis:
+- Auth sign-up / sign-in / sign-out
+- Debate create / join / list
+- Composer: type picker, side picker, body, validation preview
+- Submit: submitArgumentDraft → Edge Function → argument row → success
+- Post-submit: tree auto-refreshes via refreshRef (Stage 5.5.5)
+- Server 422: error shown, draft preserved
+- Idempotency: duplicate client_submission_id rejected
 
 ---
 
-## 3. npm Install Peer Dependency Caveats
+### 4. npm Install Peer Dependency Caveats
 
 **Status:** Informational  
 **Impact:** `npm install` may fail with peer dependency conflicts involving `jest-expo` and React 19
 
-Try without the flag first:
-```bash
-npm install <package>
-```
-
-If conflicts occur, use:
-```bash
-npm install <package> --legacy-peer-deps
-```
-
-Do not use `--force` — it can silently corrupt dependency resolution.
+Use `--legacy-peer-deps` if needed. Do not use `--force`.
 
 ---
 
-## 4. Deno Mirror Risk for Edge Functions
+### 5. Deno Mirror Risk for Edge Functions
 
 **Status:** Informational  
-**Impact:** Edge Function URL imports may break if a mirror goes down or a URL-pinned version is removed
+**Impact:** Edge Function URL imports may break if a mirror goes down
 
-All Edge Function dependencies are imported by URL in `supabase/functions/`. There is no Deno lock file. If an import URL breaks:
-
-1. Confirm the URL is still valid
-2. Pin to a specific version tag in the import URL (e.g., `@1.2.3`)
-3. Use `esm.sh` or `deno.land/x` as fallback mirrors
-
-Imports to watch: `zod` (used in `supabase/functions/_shared/validationSchemas.ts`).
-
----
-
-## 5. `.env` Not Created
-
-**Status:** Expected — not a bug  
-**Impact:** App will not connect to Supabase without local `.env`
-
-`.env` is gitignored and must be created manually. Copy from `.env.example`:
-```bash
-cp .env.example .env
-# Fill in real values (NEVER commit the filled file)
-```
-
-Required keys:
-- `EXPO_PUBLIC_SUPABASE_URL`
-- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (anon/publishable key only — never service role)
+All Edge Function dependencies are imported by URL in `supabase/functions/`. If an import URL breaks, pin to a specific version tag.

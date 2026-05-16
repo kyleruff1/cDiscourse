@@ -16,7 +16,7 @@ import {
   type MoveDraftPatch,
   type ConversationMoveSelection,
 } from './conversationMoves';
-import type { ArgumentType, DisagreementAxis, ConstitutionRule } from '../../domain/constitution/types';
+import type { ArgumentType, ConstitutionRule } from '../../domain/constitution/types';
 
 interface Props {
   parentArgument: { argumentType: ArgumentType } | null;
