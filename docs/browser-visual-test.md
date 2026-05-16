@@ -1,6 +1,6 @@
 # CDiscourse — Browser Visual Test Guide
 
-_Stage 5.5.4 — created 2026-05-16_
+_Stage 5.5.6 — updated 2026-05-16_
 
 ## How to Launch
 
@@ -176,6 +176,22 @@ Open browser DevTools (F12 → Console):
 - [ ] No unhandled promise rejection warnings
 - [ ] No service role key visible in any console output
 - [ ] No raw secret printed to console
+
+---
+
+## Section K — Account Screen
+
+- [ ] Account tab is visible in tab bar when signed in
+- [ ] Screen shows: masked user ID (`…` + last 8 chars), email, role label (e.g., "Participant")
+- [ ] Display name is shown or placeholder "Not set" if missing
+- [ ] Edit button opens inline text input with current name
+- [ ] Saving a valid name shows "Display name saved." for 2 seconds then clears
+- [ ] Save button is disabled when the input is empty or only whitespace
+- [ ] Cancel button returns to display mode without saving
+- [ ] No role-change UI anywhere in the screen
+- [ ] "Role changes and account management…" note card is visible
+- [ ] Sign Out button is red, tapping it signs out and returns to auth screen
+- [ ] Supabase-not-configured state shows clear error message (no crash)
 
 ---
 

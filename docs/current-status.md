@@ -1,12 +1,12 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-16 (Stage 5 Recovery Gate)_
+_Last updated: 2026-05-16 (Stage 5.5.6)_
 
 ## Current Stage
 
-**Stage 5 Recovery Gate complete.** Backend is live. Stage 5.5.5 (post-submit refresh) implemented and committed. Local baseline green: 506 tests, typecheck clean, lint clean.
+**Stage 5.5.6 complete.** Account/profile feature built and tested. Supabase admin ops docs created. Local baseline green: 526 tests, typecheck clean, lint clean.
 
-Stage 6.0 and 6.0.1 are also committed (language-processing scaffold + conversation move navigator).
+Stage 6.0 and 6.0.1 are also committed (language-processing scaffold + conversation move navigator). Stage 5 Recovery Gate complete.
 
 ## What Works
 
@@ -34,9 +34,10 @@ Stage 6.0 and 6.0.1 are also committed (language-processing scaffold + conversat
 - `ArgumentTreeScreen` — now accepts `refreshRef` prop; registered by `App.tsx` for post-submit refresh
 - Argument submission (Stage 5.5.3): idempotent via `client_submission_id`, server 422 shown, draft preserved on failure
 - **Stage 5.5.5: Post-submit refresh** — `App.tsx` calls `refreshTreeRef.current?.()` in `handleSubmitSuccess`; tree re-fetches after success
+- **Stage 5.5.6: Account/profile feature** — `src/features/account/` (types, API, hook, screen, index). `AccountScreen` shows email, masked user ID, role label, editable display name. `buildProfileUpdatePayload` never includes role/id/email. `docs/account-operations.md` + `docs/supabase-admin-ops.md` created.
 - Stage 6.0 — Language-processing scaffold: disabled-by-default, server-only. `process-language-draft` Edge Function, Anthropic + mock providers
 - Stage 6.0.1 — Conversation Move Navigator: pure TS move model, chip UI + axis sub-picker, wired into `ArgumentComposer`
-- Jest test suite: **506 tests**, 14 suites, all passing
+- Jest test suite: **526 tests**, 15 suites, all passing
 - TypeScript strict mode clean (0 errors)
 - ESLint clean (0 warnings)
 
@@ -45,6 +46,7 @@ Stage 6.0 and 6.0.1 are also committed (language-processing scaffold + conversat
 - `src/features/moderation/` — feature slice directory exists, no screens
 - Navigation stack: manual tab switching via `useState` in `App.tsx` (no Expo Router)
 - Full manual smoke test — infrastructure is live but browser walkthrough not yet completed
+- Account screen: no profile editing for moderator/admin escalation (by design — backend-only)
 
 ## What Is Blocked / Pending
 
@@ -60,7 +62,7 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (506 tests, 14 suites) |
+| `npm run test` | ✅ Pass (526 tests, 15 suites) |
 | `npx supabase projects list` | ✅ `qsciikhztvzzohssddrq` LINKED |
 | `npx supabase db push --dry-run` | ✅ Remote database is up to date |
 | `npx supabase functions list` | ✅ submit-argument ACTIVE |
@@ -84,6 +86,6 @@ Run on 2026-05-16:
 
 ## Next Recommended Stage
 
-**Live manual smoke test.** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md`. This is the only remaining gate before Stage 6 continuation is fully safe.
+**Live manual smoke test.** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md` sections A–K. This is the only remaining gate before Stage 6 continuation is fully safe.
 
-After smoke test: Stage 5.5.6 (any polish found during smoke test), then Stage 6.0.2 (move qualifiers, quote anchoring, turn-status governance). Full prompt in `docs/next-prompts.md`.
+After smoke test: Stage 6.0.2 (move qualifiers, quote anchoring, turn-status governance). Full prompt in `docs/next-prompts.md`.

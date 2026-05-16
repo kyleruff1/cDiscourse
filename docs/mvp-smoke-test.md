@@ -1,6 +1,6 @@
 # CDiscourse — MVP Smoke Test
 
-_Stage 5.5.4 — created 2026-05-16_
+_Stage 5.5.6 — updated 2026-05-16_
 
 ## Purpose
 
@@ -14,7 +14,7 @@ Before running the smoke test:
 
 1. `npm run typecheck` — must pass (0 errors)
 2. `npm run lint` — must pass (0 warnings)
-3. `npm run test` — must pass (386 tests)
+3. `npm run test` — must pass (526 tests)
 4. `npm run web -- --clear` — must open http://localhost:8081 without a bundle error
 5. `.env` exists with real `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 6. Supabase project linked, migrations applied, `submit-argument` function deployed
@@ -23,16 +23,17 @@ If pre-conditions 5–6 are not met, only the "no .env" path of each section is 
 
 ---
 
-## Smoke Test Results — 2026-05-16 (Stage 5 Recovery Gate)
+## Smoke Test Results — 2026-05-16 (Stage 5.5.6)
 
-Infrastructure is now live. `.env` configured, migrations applied, `submit-argument` ACTIVE.
-Post-submit refresh (Stage 5.5.5) implemented. Browser walkthrough not yet completed.
+Infrastructure live. `.env` configured, migrations applied, `submit-argument` ACTIVE.
+Post-submit refresh (Stage 5.5.5) and account feature (Stage 5.5.6) implemented. Browser walkthrough not yet completed.
 
 | Section | Status | Notes |
 |---|---|---|
 | Web server launches | ✅ | Verified previously (352 modules) |
 | Bundle errors | ✅ None | |
 | Hosted backend live | ✅ | qsciikhztvzzohssddrq linked, submit-argument ACTIVE |
+| Account screen renders | ✅ | `AccountScreen` implemented — email, role, display name edit |
 | Auth screen renders | 🔲 Pending browser | Unblocked: .env configured |
 | Sign-in / sign-up | 🔲 Pending browser | |
 | Debate create/join | 🔲 Pending browser | |
@@ -107,12 +108,15 @@ All of these must pass:
 - [ ] Submitted argument appears in tree (after manual refresh)
 - [ ] Submit failure (e.g., body too short) shows error and preserves draft
 - [ ] Browser refresh does not crash; auth session persists
+- [ ] Account tab shows email, masked user ID, role label, editable display name
+- [ ] Display name edit saves and shows "Display name saved." notice
+- [ ] No role-change UI visible in account screen
 
 ---
 
 ## Current Status
 
-**Safe for MVP demo: ALMOST** (as of 2026-05-16 Stage 5 Recovery Gate)
+**Safe for MVP demo: ALMOST** (as of 2026-05-16 Stage 5.5.6)
 
 Infrastructure blockers resolved:
 - ✅ `.env` configured with real project URL and publishable key
@@ -120,9 +124,10 @@ Infrastructure blockers resolved:
 - ✅ All migrations applied to hosted project
 - ✅ `submit-argument` Edge Function deployed and ACTIVE
 - ✅ Post-submit tree refresh implemented (Stage 5.5.5)
+- ✅ Account/profile feature implemented (Stage 5.5.6)
 
 Remaining:
-1. Run the browser smoke test — `npm run web -- --clear` then walk sections A–I
+1. Run the browser smoke test — `npm run web -- --clear` then walk sections A–K
 2. Rotate the ANTHROPIC_API_KEY (exposed in chat) — see `docs/known-blockers.md`
 
 See `docs/browser-visual-test.md` for the full checklist.

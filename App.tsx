@@ -9,6 +9,7 @@ import { LoadingNotice } from './src/components/LoadingNotice';
 import { useAuthSession } from './src/features/auth/useAuthSession';
 import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate } from './src/features/debates';
 import { ArgumentTreeScreen, ArgumentComposer } from './src/features/arguments';
+import { AccountScreen } from './src/features/account';
 import type { ArgumentRow } from './src/features/arguments';
 
 // ── AppRoot: session-gated routing ────────────────────────────
@@ -136,7 +137,7 @@ function MainAppShell() {
           />
         )}
         {activeTab === 'account' && (
-          <AccountTab onSignOut={handleSignOut} signOutLoading={signOutLoading} />
+          <AccountScreen onSignOut={handleSignOut} signOutLoading={signOutLoading} />
         )}
         {activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
       </View>
@@ -151,37 +152,6 @@ const TAB_LABELS: Record<Tab, string> = {
   account: 'Account',
   debug: 'Debug',
 };
-
-// ── AccountTab ────────────────────────────────────────────────
-
-interface AccountTabProps {
-  onSignOut: () => Promise<void>;
-  signOutLoading: boolean;
-}
-
-function AccountTab({ onSignOut, signOutLoading }: AccountTabProps) {
-  const { state } = useAppSession();
-
-  return (
-    <View style={styles.accountTab}>
-      <Text style={styles.accountTitle}>Account</Text>
-      <Text style={styles.accountSub}>
-        {state.snapshot.userId
-          ? `User ID: …${state.snapshot.userId.slice(-8)}`
-          : 'Signed in'}
-      </Text>
-      <Pressable
-        onPress={onSignOut}
-        disabled={signOutLoading}
-        style={[styles.signOutButton, signOutLoading && styles.signOutDisabled]}
-        accessibilityRole="button"
-        accessibilityLabel="Sign out"
-      >
-        <Text style={styles.signOutLabel}>{signOutLoading ? 'Signing out…' : 'Sign Out'}</Text>
-      </Pressable>
-    </View>
-  );
-}
 
 // ── Root export ───────────────────────────────────────────────
 
@@ -207,17 +177,4 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#6366f1' },
   body: { flex: 1 },
   debateRoom: { flex: 1 },
-  accountTab: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  accountTitle: { fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  accountSub: { fontSize: 14, color: '#6b7280', marginBottom: 32 },
-  signOutButton: {
-    paddingVertical: 13,
-    paddingHorizontal: 28,
-    borderRadius: 10,
-    backgroundColor: '#ef4444',
-    minWidth: 160,
-    alignItems: 'center',
-  },
-  signOutDisabled: { opacity: 0.45 },
-  signOutLabel: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

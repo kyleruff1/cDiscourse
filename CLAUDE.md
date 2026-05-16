@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 5 Recovery Gate + Stage 5.5.5 complete** — Hosted Supabase project `qsciikhztvzzohssddrq` linked, migrations applied, `submit-argument` ACTIVE. Post-submit tree refresh implemented (`ArgumentTreeScreen.refreshRef` + `App.tsx.handleSubmitSuccess`). 506 tests passing, lint clean, typecheck clean. Stage 6.0 (language-processing scaffold) and 6.0.1 (conversation move navigator) also committed. Next: live browser smoke test (see `docs/next-prompts.md` Prompt 1), then Stage 6.0.2.
+Current stage: **Stage 5.5.6 complete** — Account/profile feature built (`src/features/account/`: types, API, hook, screen, index). `AccountScreen` shows email, masked user ID, role label, editable display name. `buildProfileUpdatePayload` never includes role/id/email. `docs/account-operations.md` and `docs/supabase-admin-ops.md` created. 526 tests passing, lint clean, typecheck clean. Stage 6.0 (language-processing scaffold) and 6.0.1 (conversation move navigator) also committed. Next: live browser smoke test (see `docs/next-prompts.md` Prompt 1), then Stage 6.0.2 (move qualifiers, quote anchoring, turn-status governance).
 
 ## Supabase Apply Commands
 

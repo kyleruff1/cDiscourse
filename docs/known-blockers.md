@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-16 (Stage 5 Recovery Gate)_
+_Last updated: 2026-05-16 (Stage 5.5.6)_
 
 ---
 
@@ -20,6 +20,9 @@ All 5 migrations (0001–0005) are applied to the hosted project. `npx supabase 
 
 ### ✅ Post-Submit Refresh
 `ArgumentTreeScreen` now accepts a `refreshRef` prop. `App.tsx` passes `refreshTreeRef` and calls it in `handleSubmitSuccess`. The tree re-fetches after a successful submit.
+
+### ✅ Account / Profile Feature Missing
+`AccountScreen` now shows email, masked user ID, role label (via `formatProfileRole`), and editable display name. `buildProfileUpdatePayload` explicitly excludes role/id/email — no client-side privilege escalation possible. See `docs/account-operations.md` and `docs/supabase-admin-ops.md`.
 
 ---
 

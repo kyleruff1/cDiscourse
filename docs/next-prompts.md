@@ -33,21 +33,7 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
-## Prompt 2 — Stage 5.5.6: MVP Demo Polish
-
-> Only if smoke test passed and issues were found in sections A–I. Address any UI/UX issues found during the live smoke test that affect the MVP demo path. Do not add new features. Do not redesign.
->
-> Examples of valid Stage 5.5.6 work:
-> - Error message wording improvements
-> - Loading state edge cases
-> - Sign-up email confirmation copy
-> - Empty state copy corrections
->
-> Commit: `"chore: Stage 5.5.6 — MVP demo polish"`
-
----
-
-## Prompt 3 — Stage 6.0.2: Move Qualifiers, Quote Anchoring, and Turn-Status Governance
+## Prompt 2 — Stage 6.0.2: Move Qualifiers, Quote Anchoring, and Turn-Status Governance
 
 > Stage 5.5.5 is complete. Smoke test is complete (or accepted as known gap). 506 tests pass.
 >
@@ -95,7 +81,7 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
-## Prompt 4 — Stage 6.0.3: Visual Smoke Test of Move Navigator UX
+## Prompt 3 — Stage 6.0.3: Visual Smoke Test of Move Navigator UX
 
 > After Stage 6.0.2, run a visual smoke test of the new UX in the browser:
 > - Move navigator shows correct chips (2 root / up to 5 reply)
@@ -107,7 +93,7 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
-## Prompt 5 — Stage 6.1: Wire "Process Draft" Button (AI Advisory)
+## Prompt 4 — Stage 6.1: Wire "Process Draft" Button (AI Advisory)
 
 > Only after: smoke test complete, ANTHROPIC_API_KEY rotated, Stage 6.0.2 complete.
 >
@@ -121,10 +107,10 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 5 Recovery Gate complete as of 2026-05-16.
+Stage 5.5.6 complete as of 2026-05-16.
 Infrastructure live: project `qsciikhztvzzohssddrq`, migrations applied, `submit-argument` ACTIVE.
-Post-submit refresh (Stage 5.5.5) implemented and committed.
-506 tests pass. TypeScript strict mode clean.
+Post-submit refresh (Stage 5.5.5) and account/profile feature (Stage 5.5.6) committed.
+526 tests pass. TypeScript strict mode clean.
 
 **Safe to continue Stage 6: YES — after live smoke test passes.**
 
