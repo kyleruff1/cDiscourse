@@ -88,6 +88,7 @@ export function AccountScreen({ onSignOut, signOutLoading }: Props) {
             <Row label="User ID" value={`…${userId?.slice(-8) ?? '—'}`} />
             <Row label="Email" value={email ?? 'Loading…'} />
             <Row label="Role" value={formatProfileRole(profile.role)} />
+            <Row label="ADMIN?" value={profile.role === 'admin' ? 'true' : 'false'} />
 
             <View style={styles.nameRow}>
               <Text style={styles.rowLabel}>Display name</Text>

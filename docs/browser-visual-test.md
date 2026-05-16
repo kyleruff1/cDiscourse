@@ -1,6 +1,6 @@
 # CDiscourse — Browser Visual Test Guide
 
-_Stage 6.1.0 — updated 2026-05-16_
+_Stage 6.1.2 — updated 2026-05-16_
 
 ## How to Launch
 
@@ -246,3 +246,77 @@ To test with real data, configure `.env` with a real Supabase project. See `.env
 |---|---|---|
 | `jest-expo@55.0.17` — expected `~54.0.17` | Info | Update in a future maintenance session |
 | `tsconfig.json#include` auto-updated by Expo | Info | Commit the updated tsconfig if changed |
+
+---
+
+## Section M — Account ADMIN? row (Stage 6.1.2)
+
+- [ ] Account tab shows a row "ADMIN?" with `true` or `false`
+- [ ] If profile.role = 'admin', value is `true`
+- [ ] If profile.role != 'admin', value is `false`
+- [ ] Role row above ADMIN? still shows formatted label (Admin / Moderator / Participant)
+- [ ] No role-change UI in the Account tab
+
+---
+
+## Section N — Admin Tab (Stage 6.1.2)
+
+**Pre-requisites:** `admin-users` function deployed; admin bootstrap SQL run for the signed-in user.
+
+### Visibility gating
+
+- [ ] As admin: top-level Admin tab is visible (after Arguments and Account)
+- [ ] As non-admin (role=user): Admin tab is NOT visible
+- [ ] As non-admin: calling admin-users directly returns 403
+
+### Users sub-tab
+
+- [ ] User list loads via admin-users (no service-role in browser DevTools network panel)
+- [ ] Search by email / display name / id narrows the list
+- [ ] Filter chips: "All", "Admins", "Bots only" work
+- [ ] Each row shows ADMIN / BOT / DISABLED badges as appropriate
+- [ ] Tapping a row opens detail panel
+- [ ] Detail panel shows: ADMIN? true/false, BOT? true/false, role, display, created, last sign-in
+- [ ] Reason field is required for role/disable/delete actions
+- [ ] Promote-to-admin requires "Confirm admin grant" checkbox
+- [ ] Demoting the last admin shows `cannot_demote_last_admin`
+- [ ] Send password reset works (look for recovery log in Supabase Auth events)
+- [ ] Disable user → ban_until set on auth.users
+- [ ] Enable user → ban cleared
+- [ ] Soft delete user requires confirm=true (panel checks reason)
+
+### Create user form (under Users tab "+ New")
+
+- [ ] Toggle between Human / Bot
+- [ ] Bot creation succeeds with label+email
+- [ ] Human creation succeeds with email
+- [ ] Password field is optional; not logged anywhere
+- [ ] No password leaks into browser DevTools/console
+
+### View As sub-tab
+
+- [ ] Banner reads "Read-only admin snapshot — you are NOT signed in as this user…"
+- [ ] Enter target user ID → snapshot loads
+- [ ] Snapshot shows: target email, profile, bot row (if any), recent arguments, recent rooms, recent audit events
+- [ ] No "post as user" affordance exists
+- [ ] No auth token visible in DevTools
+
+### History sub-tab
+
+- [ ] Enter target user ID → audit events for that target load
+- [ ] Each event shows action, timestamp, optional reason, sanitized payload summary
+- [ ] No raw passwords or tokens appear in payload
+
+### Blocks sub-tab
+
+- [ ] Notice "app-level block rules" is visible
+- [ ] Add email block → row appears with normalized lowercased value
+- [ ] Add IP CIDR block → accepted
+- [ ] Unblock → row marked LIFTED with timestamp
+- [ ] Duplicate active block on same value → server rejects (unique index)
+
+### Bot Users sub-tab
+
+- [ ] Auto-filters to bots only
+- [ ] Create bot → appears in list with label, persona, email, id
+- [ ] Footer notes "Bot automation is not enabled in this stage."

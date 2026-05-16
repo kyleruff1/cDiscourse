@@ -372,6 +372,9 @@ verify_jwt = true
 [functions.process-language-draft]
 verify_jwt = true
 
+[functions.admin-users]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

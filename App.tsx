@@ -17,10 +17,12 @@ import { useAuthSession } from './src/features/auth/useAuthSession';
 import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate } from './src/features/debates';
 import { ArgumentTreeScreen, ArgumentComposer } from './src/features/arguments';
 import { AccountScreen } from './src/features/account';
+import { useAccountProfile } from './src/features/account/useAccountProfile';
+import { AdminScreen } from './src/features/admin';
 import { InvitePanel } from './src/features/invites/InvitePanel';
 import type { ArgumentRow } from './src/features/arguments';
 import type { ArgumentViewMode } from './src/features/arguments/ArgumentTreeScreen';
-import { TAB_LABELS } from './src/features/arguments/roomNavigation';
+import { TAB_LABELS, getVisibleTabs } from './src/features/arguments/roomNavigation';
 import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
 import { ROOM_COPY } from './src/features/arguments/gameCopy';
 
@@ -54,14 +56,11 @@ function MainAppShell() {
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
+  const { profile: currentProfile } = useAccountProfile(state.snapshot.userId);
 
   const hasDebate = Boolean(state.snapshot.selectedDebateId);
 
-  const tabs: ArgumentRoomTab[] = [
-    'arguments',
-    'account',
-    ...(__DEV__ ? (['debug'] as ArgumentRoomTab[]) : []),
-  ];
+  const tabs = getVisibleTabs(currentProfile?.role ?? null, Boolean(__DEV__));
 
   const activeTab = tabs.includes(tab) ? tab : 'arguments';
 
@@ -250,6 +249,8 @@ function MainAppShell() {
         {activeTab === 'account' && (
           <AccountScreen onSignOut={handleSignOut} signOutLoading={signOutLoading} />
         )}
+
+        {activeTab === 'admin' && currentProfile?.role === 'admin' && <AdminScreen />}
 
         {activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
       </View>

@@ -1,0 +1,28 @@
+-- Bootstrap admin SQL — TEMPLATE
+--
+-- Run once in the Supabase SQL Editor (or psql) for the project you control.
+-- Replace <admin-email> with the dev human account that should hold admin role.
+-- DO NOT commit a copy of this file with a real email — copy to
+-- scripts/admin/bootstrap-admin.local.sql (gitignored) and substitute there.
+--
+-- This script promotes an existing auth user to profiles.role = 'admin'.
+-- It will NOT create an auth user. The user must already exist in auth.users
+-- (sign them up through normal flow first).
+
+-- ── Promote ───────────────────────────────────────────────────
+update public.profiles p
+set role = 'admin'
+from auth.users u
+where u.id = p.id
+  and lower(u.email) = lower('<admin-email>');
+
+-- ── Verify ────────────────────────────────────────────────────
+select
+  u.id,
+  u.email,
+  p.display_name,
+  p.role,
+  public.is_admin(u.id) as is_admin
+from auth.users u
+join public.profiles p on p.id = u.id
+where lower(u.email) = lower('<admin-email>');

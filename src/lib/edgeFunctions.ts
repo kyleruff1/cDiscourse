@@ -224,3 +224,84 @@ export async function processLanguageDraft(
 
   return { ok: true, data };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// admin-users
+//
+// Privileged actions for the admin tab. The client never holds service keys —
+// the Edge Function verifies the JWT and checks profiles.role = 'admin'
+// before performing any action.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AdminUsersAction =
+  | 'list_users'
+  | 'get_user_detail'
+  | 'create_user'
+  | 'create_bot_user'
+  | 'update_role'
+  | 'send_password_reset'
+  | 'set_temporary_password'
+  | 'disable_user'
+  | 'enable_user'
+  | 'soft_delete_user'
+  | 'list_blocks'
+  | 'add_block'
+  | 'remove_block'
+  | 'view_as_snapshot';
+
+export interface AdminUsersRequest {
+  action: AdminUsersAction;
+  [key: string]: unknown;
+}
+
+export interface AdminUsersError {
+  error: string;
+  reason?: string;
+  detail?: string;
+  issues?: Array<{ path?: (string | number)[]; message: string }>;
+}
+
+export type AdminUsersResult<T = unknown> =
+  | { ok: true; data: T }
+  | { ok: false; error: AdminUsersError; status: number };
+
+export async function adminUsers<T = unknown>(payload: AdminUsersRequest): Promise<AdminUsersResult<T>> {
+  const { data, error } = await supabase.functions.invoke<T>('admin-users', { body: payload });
+
+  if (error) {
+    let errorBody: AdminUsersError = { error: 'network_error' };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) {
+        errorBody = (await raw.json()) as AdminUsersError;
+      }
+    } catch {
+      // ignore parse failures
+    }
+    const status =
+      (error as { status?: number }).status ??
+      ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+
+  if (!data) {
+    return { ok: false, error: { error: 'empty_response' }, status: 500 };
+  }
+
+  return { ok: true, data };
+}
+
+export function adminErrorMessage(err: AdminUsersError, status: number): string {
+  if (status === 403 || err.error === 'forbidden') {
+    return 'Admin access required.';
+  }
+  if (status === 401 || err.error === 'unauthorized') {
+    return 'Sign in required.';
+  }
+  if (status === 404 || err.error === 'function_not_found') {
+    return 'admin-users function is not deployed yet.';
+  }
+  if (err.detail) return err.detail;
+  if (err.reason) return err.reason;
+  return err.error;
+}

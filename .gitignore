@@ -46,6 +46,10 @@ coverage/
 # Supabase local temp files
 supabase/.temp/
 
+# Admin bootstrap scripts with real emails (never commit)
+scripts/admin/*.local.sql
+scripts/admin/bootstrap-admin.sql
+
 # generated native folders
 /ios
 /android

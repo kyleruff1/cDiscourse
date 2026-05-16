@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 6.1.0 complete** — Gamified argument-room UX: game resting status model (19 statuses), claim standing model (13 standings), DAW-style timeline/track view (Core/Counters/Receipts/Clarifications/Concessions/Tangents lanes), invite UX foundation (UI-only, no backend migration), upfront counterclaim support (model only), bot navigation map, gamified copy system. No DB migrations. No Anthropic calls. 700 tests passing, lint clean, typecheck clean. Next: Stage 6.1.1 live browser smoke test (`npm run web -- --clear`).
+Current stage: **Stage 6.1.2 complete** — Admin and bot operations foundation: `is_admin()` helper, `admin_audit_events` / `admin_block_rules` / `bot_user_registry` tables (migration 0007 applied to hosted DB), `admin-users` Edge Function with 14 actions (list/get/create/update_role/password/disable/delete/block/view-as), admin client wrapper, AdminScreen with 5 sub-tabs (Users/View As/History/Blocks/Bot Users), Admin tab gated by `profiles.role = 'admin'`, View As is read-only snapshot only. Bootstrap admin SQL is untracked. 750 tests passing, lint clean, typecheck clean. Next: deploy `admin-users` function, run bootstrap SQL, live smoke test.
 
 ## Supabase Apply Commands
 

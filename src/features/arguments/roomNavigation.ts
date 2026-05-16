@@ -1,13 +1,28 @@
 // Pure navigation helpers for the argument-first UI.
 // No React, no Supabase — fully testable.
 
-export type ArgumentRoomTab = 'arguments' | 'account' | 'debug';
+export type ArgumentRoomTab = 'arguments' | 'account' | 'admin' | 'debug';
 
 export const TAB_LABELS: Record<ArgumentRoomTab, string> = {
   arguments: 'Arguments',
   account: 'Account',
+  admin: 'Admin',
   debug: 'Debug',
 };
+
+/**
+ * Returns the list of tabs visible to a user with the given role.
+ * Pure function — no React. Used by the tab bar and tested directly.
+ *
+ * - Admin tab is shown only when role === 'admin'.
+ * - Debug tab is shown only in __DEV__.
+ */
+export function getVisibleTabs(role: string | null | undefined, isDev: boolean): ArgumentRoomTab[] {
+  const tabs: ArgumentRoomTab[] = ['arguments', 'account'];
+  if (role === 'admin') tabs.push('admin');
+  if (isDev) tabs.push('debug');
+  return tabs;
+}
 
 export const ARGUMENT_ROOM_LABEL = 'Argument Room';
 export const START_ARGUMENT_LABEL = 'Start an argument';

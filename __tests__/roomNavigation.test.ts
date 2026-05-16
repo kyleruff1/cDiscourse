@@ -41,8 +41,8 @@ describe('TAB_LABELS', () => {
     expect(keys).not.toContain('composer');
   });
 
-  it('has exactly 3 tabs', () => {
-    expect(Object.keys(TAB_LABELS)).toHaveLength(3);
+  it('has the four expected tab keys (arguments, account, admin, debug)', () => {
+    expect(Object.keys(TAB_LABELS).sort()).toEqual(['account', 'admin', 'arguments', 'debug']);
   });
 });
 

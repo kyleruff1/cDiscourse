@@ -1,6 +1,33 @@
 # CDiscourse — Supabase Admin Operations
 
-_Last updated: 2026-05-16 (Stage 5.5.6)_
+_Last updated: 2026-05-16 (Stage 6.1.2)_
+
+## Stage 6.1.2 — Admin layer changes
+
+- Migration 0007 (`stage6_admin_operations`) applied. Adds `is_admin()` helper, `admin_audit_events`, `admin_block_rules`, `bot_user_registry`.
+- New Edge Function `admin-users` (written, deploy pending). Verifies caller's JWT and `profiles.role = 'admin'`.
+- Promoting first admin: see `docs/admin-bootstrap.md`. The bootstrap SQL is NOT committed; use `scripts/admin/bootstrap-admin.local.sql` (gitignored).
+- All admin actions write to `admin_audit_events` (append-only — no UPDATE/DELETE policy).
+- Service-role / secret keys remain server-only (Supabase Function env). Never in `src/` or `App.tsx`.
+
+To deploy the function:
+```bash
+npx supabase functions deploy admin-users
+```
+
+To verify:
+```bash
+npx supabase functions list
+```
+
+To inspect the audit log (admin-only via dashboard):
+```sql
+select * from public.admin_audit_events order by created_at desc limit 50;
+```
+
+---
+
+
 
 ## Project Reference
 
