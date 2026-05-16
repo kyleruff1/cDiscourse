@@ -48,6 +48,7 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           ...state.snapshot,
           userId: action.userId,
           selectedDebateId: null,
+          participantSide: null,
           viewport: null,
           activeDraft: null,
           pendingSubmission: null,

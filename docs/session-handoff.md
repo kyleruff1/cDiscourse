@@ -58,10 +58,16 @@ All three must pass before proceeding with any implementation.
 
 4. **Flags are advisory only.** No flag ever automatically hides, deletes, or modifies content. AI-sourced flags always set `authoritative: false`.
 
-5. **Soft-delete only.** Arguments use `is_deleted = true`. Flags use `dismissed = true`. Hard deletes are not permitted.
+5. **Soft-delete only.** Arguments use `status = 'deleted'`. Flags use `dismissed = true`. Hard deletes are not permitted.
 
 6. **Constitution is immutable after insert.** `constitution_versions` rows are write-once. Never update or delete them.
 
 7. **Migration sequence is sacred.** Migrations apply in numbered order. An applied migration must never be edited.
 
 8. **Stage gate discipline.** Do not implement a later stage's features until the previous stage's verification commands pass.
+
+9. **No direct insert of posted arguments.** Clients must call the `submit-argument` Edge Function for all final submissions. Direct client inserts are limited to `status = 'draft'` by RLS (migration 0004).
+
+10. **Normalized argument cache.** The viewport uses flat `Record<string, T>` maps, never a nested tree. `ROOT_KEY = 'ROOT'` is the sentinel key for top-level arguments in `childIdsByParentId`. The `viewportReducer` in `argumentViewport.ts` is the single point of mutation for all cache and viewport state.
+
+11. **ArgumentRow matches the DB schema.** `src/features/arguments/types.ts` `ArgumentRow` must be kept in sync with `public.arguments` columns, including: `targetExcerpt`, `disagreementAxis`, `railPayload`, `clientValidation`, `serverValidation`, `clientSubmissionId`. `ARG_SELECT` in `argumentsApi.ts` must include all mapped columns.

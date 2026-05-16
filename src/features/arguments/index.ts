@@ -1,4 +1,11 @@
-// Arguments feature — placeholder for Stage 3-4
-// Will contain: useArgumentTree, ArgumentNode, ComposeDrawer, argument insert logic
-
-export {};
+export { ArgumentTreeScreen } from './ArgumentTreeScreen';
+export { useArgumentViewport } from './useArgumentViewport';
+export {
+  selectReplyTarget,
+  clearReplyTarget,
+  getAllowedReplyTypesForParent,
+  getVisibleArgumentIds,
+  getArgumentRelationsForDisplay,
+  getParentArgumentForComposer,
+} from './composerHandoff';
+export type { ArgumentRow, ArgumentCache, ArgumentViewportState, DisagreementAxis } from './types';

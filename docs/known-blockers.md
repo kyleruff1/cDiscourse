@@ -9,7 +9,7 @@ Active issues that prevent full local validation as of 2026-05-16.
 **Status:** Blocking local DB validation  
 **Impact:** Cannot run `npx supabase start`, `npx supabase db reset`, or `npx supabase db lint`
 
-Migrations 0001–0004 are written and syntactically correct but have not been applied to any database instance. Edge Functions cannot be tested end-to-end locally.
+Migrations 0001–0005 are written and syntactically correct but have not been applied to any database instance. Edge Functions cannot be tested end-to-end locally.
 
 **Resolution (when Docker Desktop is running):**
 ```bash

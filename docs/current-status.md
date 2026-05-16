@@ -4,16 +4,14 @@ _Last updated: 2026-05-16_
 
 ## Current Stage
 
-**Stage 5.1 complete.** Stage 5.2 (Home screen + Debate Room) is next.
+**Stage 5.4.5 complete.** Stage 5.5 (Argument Composer screen) is next.
 
 ## What Works
 
 - Session contracts: `AppSessionSnapshot`, `DebateViewport`, `ComposerDraftSession`, `PendingSubmission` (`src/features/session/types.ts`)
-- Session reducer: pure state machine, 48 tests pass (`src/features/session/sessionState.ts`)
+- Session reducer: pure state machine, tests pass (`src/features/session/sessionState.ts`)
 - Session storage: AsyncStorage read/write with corrupt-data recovery (`src/features/session/sessionStorage.ts`)
 - Storage key namespacing by userId (`src/features/session/sessionKeys.ts`)
-- Migration 0005: `debate_user_state` table, `client_submission_id` on `arguments`, scalability indexes, RLS
-- Idempotent `submit-argument`: returns existing argument on retry with same `client_submission_id`
 - Constitution v1 fully defined (`src/domain/constitution/constitution.v1.ts`)
 - Rules engine (`src/domain/constitution/engine.ts`) — pure TS, side-effect free
 - Transition matrix and allowed-transitions helpers (`src/domain/constitution/allowedTransitions.ts`)
@@ -23,29 +21,34 @@ _Last updated: 2026-05-16_
 - `evaluateArgumentDraft` end-to-end evaluation function (`src/domain/constitution/evaluateArgumentDraft.ts`)
 - `submit-argument` Supabase Edge Function (`supabase/functions/submit-argument/index.ts`)
 - Shared Edge Function helpers (`supabase/functions/_shared/`)
-- Database migrations 0001–0004 (schema, RLS, seed, rails+edge)
+- Database migrations 0001–0005 (schema, RLS, seed, rails+edge, session+scalability)
 - RLS policies on all tables (migration `20260516000002_rls_policies.sql`)
 - Supabase client initialization (`src/lib/supabase.ts`)
 - Edge Function client wrapper (`src/lib/edgeFunctions.ts`)
-- Jest test suite passing (`__tests__/`)
-- TypeScript strict mode — `npm run typecheck` passes
-- ESLint — `npm run lint` passes
+- Auth: `AuthScreen`, `useAuthSession` (`src/features/auth/`)
+- Debates: `DebateListScreen`, `CreateDebateForm`, `JoinDebatePanel`, `DebateDetailHeader`, `useDebates`, `useCurrentDebate`, `debatesApi`, `debateUserStateApi` (`src/features/debates/`)
+- Argument viewport: normalized cache, viewport reducer, tree builder, composer handoff (`src/features/arguments/`)
+  - `argumentCache.ts` — `mergeArguments`, `mergeRelations`, `markLoaded`, `isParentLoaded`, `getKnownChildCount`
+  - `buildArgumentTree.ts` — `computeVisibleArgumentIds`, `computeFocusedPath`, `MAX_DISPLAY_DEPTH = 6`
+  - `argumentViewport.ts` — `viewportReducer`, `buildInitialViewport`, `toSessionViewport`; actions: `ROOTS_LOADED`, `CHILDREN_LOADED`, `FOCUS_LOADED`, `EXPAND`, `COLLAPSE`, `FOCUS`, `UNFOCUS`, `SELECT_PARENT`, `CLEAR_PARENT`, `REFRESH_COMPLETE`
+  - `useArgumentViewport.ts` — debounced session sync, inflight guard, expand/collapse/focus/unfocus/refresh
+  - `composerHandoff.ts` — `selectReplyTarget`, `clearReplyTarget`, `getAllowedReplyTypesForParent`, `getVisibleArgumentIds`, `getArgumentRelationsForDisplay`, `getParentArgumentForComposer`
+  - `ArgumentTreeScreen`, `ArgumentNode`, `ArgumentPathBar`, `ArgumentNodeSummary`, `FlagSummary`, `TopicSatisfactionBadge`
+- `ArgumentRow` fully matches `public.arguments` schema: includes `targetExcerpt`, `disagreementAxis`, `railPayload`, `clientValidation`, `serverValidation`, `clientSubmissionId`
+- App shell: `App.tsx` with tab navigation, auto-switches to debate room on selection
+- Jest test suite: 262 tests pass across 8 suites
+- TypeScript strict mode — `npm run typecheck` passes (0 errors)
+- ESLint — `npm run lint` passes (0 warnings)
 
 ## What Is Stubbed
 
-- `src/features/arguments/` — feature slice directory exists, no UI components
-- `src/features/auth/` — feature slice directory exists, no screens
-- `src/features/debates/` — feature slice directory exists, no screens
 - `src/features/moderation/` — feature slice directory exists, no screens
-- `src/components/` — directory exists, no components
-- Navigation stack not wired (Expo Router not yet installed)
-- Auth screens not built
-- Debate Room screen not built
-- Argument Submission drawer not built
+- Navigation stack: manual tab switching via `useState` in `App.tsx` (no Expo Router)
+- Composer tab shows `EmptyState` — full compose drawer is Stage 5.5
 
 ## What Is Blocked
 
-- **Docker/Supabase local not validated** — Docker Desktop was not available when Stage 4 completed. Migrations exist but have never been applied. See `docs/known-blockers.md`.
+- **Docker/Supabase local not validated** — Docker Desktop unavailable. Migrations exist (0001–0005) but have never been applied. See `docs/known-blockers.md`.
 - **No linked remote Supabase project** — `npx supabase link` has not been run.
 - **Edge Function not deployed** — `submit-argument` exists locally but has not been deployed or tested against a live database.
 
@@ -57,14 +60,13 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (190 tests, 5 suites) |
-| `npm run checkpoint` | ✅ Pass |
+| `npm run test` | ✅ Pass (262 tests, 8 suites) |
 | `npx supabase start` | ❌ Blocked — Docker not running |
 | `npx supabase db status` | ❌ Blocked — Docker not running |
 
 ## Docker/Supabase Local Status
 
-**Not validated.** Docker Desktop was not available when Stage 4 was completed. Migrations 0001–0004 are written and syntactically valid but have not been applied to a local instance. When Docker is available:
+**Not validated.** Docker Desktop was not available. Migrations 0001–0005 are written and syntactically valid but have not been applied. When Docker is available:
 
 ```bash
 npx supabase start
@@ -84,8 +86,8 @@ npx supabase functions deploy submit-argument
 
 ## RLS Status
 
-Policies defined in `supabase/migrations/20260516000002_rls_policies.sql`. Not applied to any live database (Docker blocked). All tables designed with `ENABLE ROW LEVEL SECURITY`. Service role bypasses RLS — Edge Functions use this by design.
+Policies defined in `supabase/migrations/20260516000002_rls_policies.sql` and updated in `20260516000004_stage4_rails_and_edge.sql`. Not applied to any live database (Docker blocked). All tables designed with `ENABLE ROW LEVEL SECURITY`.
 
 ## Next Recommended Stage
 
-**Stage 5.1 — Navigation + Auth Screens.** See `docs/next-prompts.md` for the exact prompt.
+**Stage 5.5 — Argument Composer.** See `docs/next-prompts.md` for the exact prompt.

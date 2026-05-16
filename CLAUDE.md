@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 5.2 complete** — auth API, AppSessionProvider, UI primitives, AuthScreen, SessionDebugPanel, and app shell with session-gated routing. Start Stage 5.3 (Debate list + Debate Room).
+Current stage: **Stage 5.4.5 complete** — normalized argument cache, viewport reducer, composer handoff helpers (`composerHandoff.ts`), `ArgumentRow` schema alignment (all 6 missing columns added), `SELECT_PARENT`/`CLEAR_PARENT` viewport actions, and full test coverage (262 tests, 8 suites). Start Stage 5.5 (Argument Composer screen).
 
 ## Supabase Apply Commands
 

@@ -1,4 +1,5 @@
-// Debates feature — placeholder for Stage 3
-// Will contain: useRoomStore, RoomList, RoomDetail, create-room flow
-
-export {};
+export { DebateListScreen } from './DebateListScreen';
+export { DebateDetailHeader } from './DebateDetailHeader';
+export { useDebates } from './useDebates';
+export { useCurrentDebate } from './useCurrentDebate';
+export type { Debate, DebateStatus, ParticipantSide, CreateDebateInput } from './types';

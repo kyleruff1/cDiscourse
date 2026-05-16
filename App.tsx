@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { AppSessionProvider } from './src/features/session/AppSessionProvider';
 import { useAppSession } from './src/features/session/useAppSession';
@@ -8,6 +8,8 @@ import { AuthScreen } from './src/features/auth/AuthScreen';
 import { LoadingNotice } from './src/components/LoadingNotice';
 import { EmptyState } from './src/components/EmptyState';
 import { useAuthSession } from './src/features/auth/useAuthSession';
+import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate } from './src/features/debates';
+import { ArgumentTreeScreen } from './src/features/arguments';
 
 // ── AppRoot: session-gated routing ────────────────────────────
 
@@ -29,12 +31,23 @@ function AppRoot() {
 
 type Tab = 'debates' | 'current_debate' | 'composer' | 'account' | 'debug';
 
-const BASE_TABS: Tab[] = ['debates', 'account'];
-
 function MainAppShell() {
   const { state, dispatch } = useAppSession();
   const { signOut, loading: signOutLoading } = useAuthSession();
   const [tab, setTab] = useState<Tab>('debates');
+
+  const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
+  const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
+
+  // Auto-switch to current_debate tab when a debate is newly selected.
+  const prevSelectedDebateId = useRef<string | null>(null);
+  useEffect(() => {
+    const newId = state.snapshot.selectedDebateId;
+    if (newId && newId !== prevSelectedDebateId.current) {
+      setTab('current_debate');
+    }
+    prevSelectedDebateId.current = newId;
+  }, [state.snapshot.selectedDebateId]);
 
   const hasDebate = Boolean(state.snapshot.selectedDebateId);
   const tabs: Tab[] = [
@@ -51,6 +64,8 @@ function MainAppShell() {
     await signOut();
     dispatch({ type: 'SIGNED_OUT' });
   };
+
+  const participantSide = state.snapshot.participantSide;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -74,21 +89,30 @@ function MainAppShell() {
 
       <View style={styles.body}>
         {activeTab === 'debates' && (
-          <EmptyState
-            title="Your Debates"
-            body="Debate list coming in Stage 5.2."
+          <DebateListScreen
+            debates={debates}
+            loading={debatesLoading}
+            error={debatesError}
+            onRefresh={refresh}
+            onCreate={create}
+            onJoin={join}
+            onSelect={selectDebate}
           />
         )}
-        {activeTab === 'current_debate' && (
-          <EmptyState
-            title="Debate Room"
-            body="Argument tree coming in Stage 5.3."
-          />
+        {activeTab === 'current_debate' && currentDebate && (
+          <View style={styles.debateRoom}>
+            <DebateDetailHeader
+              debate={currentDebate}
+              participantSide={participantSide}
+              onLeave={deselectDebate}
+            />
+            <ArgumentTreeScreen debate={currentDebate} />
+          </View>
         )}
         {activeTab === 'composer' && (
           <EmptyState
             title="Compose"
-            body="Argument composer coming in Stage 5.3."
+            body="Argument composer coming in Stage 5.4."
           />
         )}
         {activeTab === 'account' && (
@@ -149,9 +173,6 @@ export default function App() {
   );
 }
 
-// BASE_TABS is defined but used only as a type reference; keep it for future use.
-void BASE_TABS;
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f9fafb' },
   tabBar: {
@@ -165,6 +186,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 12, color: '#6b7280', fontWeight: '500' },
   tabTextActive: { color: '#6366f1' },
   body: { flex: 1 },
+  debateRoom: { flex: 1 },
   accountTab: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   accountTitle: { fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 8 },
   accountSub: { fontSize: 14, color: '#6b7280', marginBottom: 32 },
