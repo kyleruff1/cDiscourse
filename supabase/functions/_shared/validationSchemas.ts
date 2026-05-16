@@ -50,6 +50,8 @@ export const SubmitArgumentSchema = z.object({
   attached_evidence: z.array(EvidenceAttachmentSchema).optional(),
   target: TargetSchema.optional(),
   client_validation: z.record(z.unknown()).optional(),
+  /** Client-generated UUID for idempotent submission. Same UUID on retry returns the existing argument. */
+  client_submission_id: z.string().uuid().optional(),
 });
 
 export type SubmitArgumentPayload = z.infer<typeof SubmitArgumentSchema>;

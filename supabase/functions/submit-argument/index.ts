@@ -7,7 +7,7 @@
  *   - serviceClient bypasses RLS only for authoritative inserts after validation.
  *   - No AI or model-provider calls.
  */
-import { corsHeaders, created, unauthorized, forbidden, methodNotAllowed, validationFailed, internalError } from '../_shared/http.ts';
+import { corsHeaders, ok, created, unauthorized, forbidden, methodNotAllowed, validationFailed, internalError } from '../_shared/http.ts';
 import { createCallerClient, createServiceClient } from '../_shared/supabaseClients.ts';
 import { SubmitArgumentSchema } from '../_shared/validationSchemas.ts';
 import { evaluateArgumentDraft } from '../_shared/constitution/evaluateArgumentDraft.ts';
@@ -63,6 +63,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const { data: { user }, error: userError } = await callerClient.auth.getUser();
   if (userError || !user) return unauthorized();
+
+  // ── Idempotency check ─────────────────────────────────────────
+  // If the client retries with the same client_submission_id, return the
+  // previously inserted argument without re-running validation or inserting.
+  if (data.client_submission_id) {
+    const { data: existingArg } = await serviceClient
+      .from('arguments')
+      .select('id, debate_id, argument_type, side, body, depth, status, created_at, author_id, parent_id')
+      .eq('author_id', user.id)
+      .eq('client_submission_id', data.client_submission_id)
+      .maybeSingle();
+
+    if (existingArg) {
+      const [tagsRes, topicRes, flagsRes] = await Promise.all([
+        serviceClient.from('argument_tags').select('*').eq('argument_id', existingArg.id),
+        serviceClient
+          .from('topic_satisfaction_checks')
+          .select('*')
+          .eq('argument_id', existingArg.id)
+          .maybeSingle(),
+        serviceClient.from('argument_flags').select('*').eq('argument_id', existingArg.id),
+      ]);
+      return ok({
+        argument: existingArg,
+        tags: tagsRes.data ?? [],
+        topic_satisfaction_check: topicRes.data ?? null,
+        flags: flagsRes.data ?? [],
+        validation: {
+          allowPost: true,
+          blockingErrors: [],
+          warnings: [],
+          normalizedTags: [],
+          serverValidationPayload: {
+            idempotent: true,
+            clientSubmissionId: data.client_submission_id,
+          },
+        },
+        idempotent: true,
+      });
+    }
+  }
 
   // ── Profile ───────────────────────────────────────────────────
   const { data: profile } = await callerClient
@@ -292,6 +333,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     target_excerpt: target?.targetExcerpt ?? null,
     disagreement_axis: target?.disagreementAxis ?? null,
     rail_payload: railsResult.railPayload,
+    client_submission_id: data.client_submission_id ?? null,
   };
 
   const { data: insertedArg, error: insertError } = await serviceClient

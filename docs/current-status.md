@@ -4,10 +4,16 @@ _Last updated: 2026-05-16_
 
 ## Current Stage
 
-**Stage 4 complete.** Stage 5 (UI — Debate Room + Argument Submission screens) is next.
+**Stage 5.1 complete.** Stage 5.2 (Home screen + Debate Room) is next.
 
 ## What Works
 
+- Session contracts: `AppSessionSnapshot`, `DebateViewport`, `ComposerDraftSession`, `PendingSubmission` (`src/features/session/types.ts`)
+- Session reducer: pure state machine, 48 tests pass (`src/features/session/sessionState.ts`)
+- Session storage: AsyncStorage read/write with corrupt-data recovery (`src/features/session/sessionStorage.ts`)
+- Storage key namespacing by userId (`src/features/session/sessionKeys.ts`)
+- Migration 0005: `debate_user_state` table, `client_submission_id` on `arguments`, scalability indexes, RLS
+- Idempotent `submit-argument`: returns existing argument on retry with same `client_submission_id`
 - Constitution v1 fully defined (`src/domain/constitution/constitution.v1.ts`)
 - Rules engine (`src/domain/constitution/engine.ts`) — pure TS, side-effect free
 - Transition matrix and allowed-transitions helpers (`src/domain/constitution/allowedTransitions.ts`)
@@ -51,8 +57,8 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass |
-| `npm run checkpoint` | ✅ Pass (added Stage 5.0) |
+| `npm run test` | ✅ Pass (190 tests, 5 suites) |
+| `npm run checkpoint` | ✅ Pass |
 | `npx supabase start` | ❌ Blocked — Docker not running |
 | `npx supabase db status` | ❌ Blocked — Docker not running |
 

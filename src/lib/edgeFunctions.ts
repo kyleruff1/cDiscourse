@@ -32,6 +32,8 @@ export interface SubmitArgumentInput {
   attached_evidence?: EvidenceAttachmentInput[];
   target?: ArgumentTargetInput;
   client_validation?: Record<string, unknown>;
+  /** Client-generated UUID (from PendingSubmission.clientSubmissionId). Same UUID on retry returns existing argument without re-inserting. */
+  client_submission_id?: string;
 }
 
 export interface SubmitArgumentValidation {
