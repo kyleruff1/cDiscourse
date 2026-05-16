@@ -1,6 +1,9 @@
 import type { ComposerDraft, EvidenceAttachmentLocal } from './composerState';
 import type { ComposerDraftSession, PendingSubmission } from '../session/types';
 import { draftKey } from '../session/sessionKeys';
+import type { ArgumentType } from './types';
+import type { ConstitutionRule, ConstitutionTagDef } from '../../domain/constitution/types';
+import { getAllowedReplies } from '../../domain/constitution';
 
 // ── Identity ──────────────────────────────────────────────────
 
@@ -141,4 +144,38 @@ export function shouldRestoreDraft(
  */
 export function canClearParentWithoutConfirm(draft: ComposerDraft): boolean {
   return !draft.dirty;
+}
+
+// ── Type and tag filtering ─────────────────────────────────────
+
+/**
+ * Returns the argument types a user may select for a new argument, given
+ * the parent's type (or null for root-level posts).
+ */
+export function getAllowedArgumentTypesForParent(
+  parentType: ArgumentType | null,
+  rules: ConstitutionRule[],
+): ArgumentType[] {
+  if (parentType === null) {
+    const rootRule = rules.find((r) => r.code === 'root_type_allowed' && r.enabled);
+    const allowed =
+      (rootRule?.params['allowedRootTypes'] as string[] | undefined) ?? ['thesis', 'claim'];
+    return allowed as ArgumentType[];
+  }
+  return getAllowedReplies(parentType, rules);
+}
+
+/**
+ * Returns the tag definitions that are valid for the given argument type.
+ * Tags with an empty allowedArgumentTypes array are valid for all types.
+ */
+export function getTagDefsForArgumentType(
+  argumentType: ArgumentType,
+  tagDefs: ConstitutionTagDef[],
+): ConstitutionTagDef[] {
+  return tagDefs.filter(
+    (td) =>
+      td.enabled &&
+      (td.allowedArgumentTypes.length === 0 || td.allowedArgumentTypes.includes(argumentType)),
+  );
 }

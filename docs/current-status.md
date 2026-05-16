@@ -4,7 +4,7 @@ _Last updated: 2026-05-16_
 
 ## Current Stage
 
-**Stage 5.4.5 complete.** Stage 5.5 (Argument Composer screen) is next.
+**Stage 5.5.2 complete.** Stage 5.5.3 (argument submission) is next.
 
 ## What Works
 
@@ -35,8 +35,17 @@ _Last updated: 2026-05-16_
   - `composerHandoff.ts` — `selectReplyTarget`, `clearReplyTarget`, `getAllowedReplyTypesForParent`, `getVisibleArgumentIds`, `getArgumentRelationsForDisplay`, `getParentArgumentForComposer`
   - `ArgumentTreeScreen`, `ArgumentNode`, `ArgumentPathBar`, `ArgumentNodeSummary`, `FlagSummary`, `TopicSatisfactionBadge`
 - `ArgumentRow` fully matches `public.arguments` schema: includes `targetExcerpt`, `disagreementAxis`, `railPayload`, `clientValidation`, `serverValidation`, `clientSubmissionId`
+- Composer state layer (Stage 5.5.1): `composerState.ts`, `composerHelpers.ts`, `useArgumentComposer`, `ComposerDraftRecoveryNotice`
+- Composer UI (Stage 5.5.2): `ArgumentComposer.tsx`, `ComposerTargetPanel.tsx`, `ComposerValidationPanel.tsx`
+  - Type picker (filtered by parent type via `getAllowedArgumentTypesForParent`)
+  - Side picker (Affirmative / Negative / Neutral)
+  - Body `TextInput` (multiline, 2000-char limit, live counter)
+  - Tag picker grouped by general vs. disagreement-axis tags
+  - Live Constitution validation preview via `evaluateArgumentDraft` with `ComposerValidationPanel`
+  - Submit button (disabled placeholder — submit is Stage 5.5.3)
+  - Reply target from `ArgumentTreeScreen` wired through `App.tsx` `replyTarget` state
 - App shell: `App.tsx` with tab navigation, auto-switches to debate room on selection
-- Jest test suite: 262 tests pass across 8 suites
+- Jest test suite: 337 tests pass across 10 suites
 - TypeScript strict mode — `npm run typecheck` passes (0 errors)
 - ESLint — `npm run lint` passes (0 warnings)
 
@@ -44,7 +53,7 @@ _Last updated: 2026-05-16_
 
 - `src/features/moderation/` — feature slice directory exists, no screens
 - Navigation stack: manual tab switching via `useState` in `App.tsx` (no Expo Router)
-- Composer tab shows `EmptyState` — full compose drawer is Stage 5.5
+- Argument submit is a disabled placeholder — `submitArgumentDraft` wiring is Stage 5.5.3
 
 ## What Is Blocked
 
@@ -60,7 +69,7 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (262 tests, 8 suites) |
+| `npm run test` | ✅ Pass (337 tests, 10 suites) |
 | `npx supabase start` | ❌ Blocked — Docker not running |
 | `npx supabase db status` | ❌ Blocked — Docker not running |
 
@@ -90,4 +99,4 @@ Policies defined in `supabase/migrations/20260516000002_rls_policies.sql` and up
 
 ## Next Recommended Stage
 
-**Stage 5.5 — Argument Composer.** See `docs/next-prompts.md` for the exact prompt.
+**Stage 5.5.3 — Argument submission.** See `docs/next-prompts.md` for the exact prompt.

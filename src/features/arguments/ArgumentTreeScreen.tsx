@@ -14,12 +14,14 @@ import { getKnownChildCount } from './argumentCache';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import type { Debate } from '../debates/types';
+import type { ArgumentRow } from './types';
 
 interface Props {
   debate: Debate;
+  onReply: (argumentId: string, argument: ArgumentRow) => void;
 }
 
-export function ArgumentTreeScreen({ debate }: Props) {
+export function ArgumentTreeScreen({ debate, onReply }: Props) {
   const {
     cache,
     viewport,
@@ -102,7 +104,7 @@ export function ArgumentTreeScreen({ debate }: Props) {
               onExpand={() => expand(id)}
               onCollapse={() => collapse(id)}
               onFocus={() => focus(id)}
-              onReply={() => { /* Stage 5.5: open composer */ }}
+              onReply={() => onReply(id, arg)}
             />
           );
         })}

@@ -6,10 +6,10 @@ import { useAppSession } from './src/features/session/useAppSession';
 import { SessionDebugPanel } from './src/features/session/SessionDebugPanel';
 import { AuthScreen } from './src/features/auth/AuthScreen';
 import { LoadingNotice } from './src/components/LoadingNotice';
-import { EmptyState } from './src/components/EmptyState';
 import { useAuthSession } from './src/features/auth/useAuthSession';
 import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate } from './src/features/debates';
-import { ArgumentTreeScreen } from './src/features/arguments';
+import { ArgumentTreeScreen, ArgumentComposer } from './src/features/arguments';
+import type { ArgumentRow } from './src/features/arguments';
 
 // ── AppRoot: session-gated routing ────────────────────────────
 
@@ -35,6 +35,7 @@ function MainAppShell() {
   const { state, dispatch } = useAppSession();
   const { signOut, loading: signOutLoading } = useAuthSession();
   const [tab, setTab] = useState<Tab>('debates');
+  const [replyTarget, setReplyTarget] = useState<{ id: string; argument: ArgumentRow } | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
@@ -63,6 +64,15 @@ function MainAppShell() {
   const handleSignOut = async () => {
     await signOut();
     dispatch({ type: 'SIGNED_OUT' });
+  };
+
+  const handleReply = (argumentId: string, argument: ArgumentRow) => {
+    setReplyTarget({ id: argumentId, argument });
+    setTab('composer');
+  };
+
+  const handleClearParent = () => {
+    setReplyTarget(null);
   };
 
   const participantSide = state.snapshot.participantSide;
@@ -106,13 +116,15 @@ function MainAppShell() {
               participantSide={participantSide}
               onLeave={deselectDebate}
             />
-            <ArgumentTreeScreen debate={currentDebate} />
+            <ArgumentTreeScreen debate={currentDebate} onReply={handleReply} />
           </View>
         )}
-        {activeTab === 'composer' && (
-          <EmptyState
-            title="Compose"
-            body="Argument composer coming in Stage 5.4."
+        {activeTab === 'composer' && currentDebate && (
+          <ArgumentComposer
+            debate={currentDebate}
+            selectedParentId={replyTarget?.id ?? null}
+            parentArgument={replyTarget?.argument ?? null}
+            onClearParent={handleClearParent}
           />
         )}
         {activeTab === 'account' && (

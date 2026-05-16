@@ -1,7 +1,14 @@
 export { ArgumentTreeScreen } from './ArgumentTreeScreen';
+export { ArgumentComposer } from './ArgumentComposer';
 export { useArgumentViewport } from './useArgumentViewport';
 export { useArgumentComposer } from './useArgumentComposer';
+export { useConstitution } from './useConstitution';
+export type { UseConstitutionResult } from './useConstitution';
+export { buildEvaluationInput } from './composerValidation';
+export type { ComposerConstitutionData } from './composerValidation';
 export { ComposerDraftRecoveryNotice } from './ComposerDraftRecoveryNotice';
+export { ComposerTargetPanel } from './ComposerTargetPanel';
+export { ComposerValidationPanel } from './ComposerValidationPanel';
 export {
   selectReplyTarget,
   clearReplyTarget,
@@ -22,6 +29,8 @@ export {
   normalizeAttachedEvidence,
   shouldRestoreDraft,
   canClearParentWithoutConfirm,
+  getAllowedArgumentTypesForParent,
+  getTagDefsForArgumentType,
 } from './composerHelpers';
 export { draftToSession, sessionToDraft } from './composerState';
 export type { ComposerDraft, EvidenceAttachmentLocal } from './composerState';
