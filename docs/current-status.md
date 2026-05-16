@@ -36,14 +36,13 @@ _Last updated: 2026-05-16_
   - `ArgumentTreeScreen`, `ArgumentNode`, `ArgumentPathBar`, `ArgumentNodeSummary`, `FlagSummary`, `TopicSatisfactionBadge`
 - `ArgumentRow` fully matches `public.arguments` schema: includes `targetExcerpt`, `disagreementAxis`, `railPayload`, `clientValidation`, `serverValidation`, `clientSubmissionId`
 - Composer state layer (Stage 5.5.1): `composerState.ts`, `composerHelpers.ts`, `useArgumentComposer`, `ComposerDraftRecoveryNotice`
-- Composer UI (Stage 5.5.2): `ArgumentComposer.tsx`, `ComposerTargetPanel.tsx`, `ComposerValidationPanel.tsx`
-  - Type picker (filtered by parent type via `getAllowedArgumentTypesForParent`)
-  - Side picker (Affirmative / Negative / Neutral)
-  - Body `TextInput` (multiline, 2000-char limit, live counter)
-  - Tag picker grouped by general vs. disagreement-axis tags
-  - Live Constitution validation preview via `evaluateArgumentDraft` with `ComposerValidationPanel`
-  - Submit button (disabled placeholder — submit is Stage 5.5.3)
-  - Reply target from `ArgumentTreeScreen` wired through `App.tsx` `replyTarget` state
+- Composer UI (Stage 5.5.2):
+  - `useConstitution.ts` — Supabase fetch with local v1 fallback; never blocks the composer
+  - `composerValidation.ts` — `buildEvaluationInput` pure mapper (draft + debate + parent + constitution → evaluation input | null)
+  - `ArgumentComposer.tsx` — type picker, side picker, body input (2000-char), target excerpt, disagreement axis selector for rebuttal/counter_rebuttal, tag pickers (general + axis layer), evidence fields (url/label/source text), live `evaluateArgumentDraft` preview, disabled submit placeholder
+  - `ComposerTargetPanel.tsx` — root-mode copy, reply mode with parent excerpt + target excerpt field + type-specific guidance (concession/clarification/rebuttal)
+  - `ComposerValidationPanel.tsx` — blocking errors, warnings, extended topic scores (resolution/parent/combined), matched/missing terms, constitution source chip
+  - Reply target wired: `ArgumentTreeScreen.onReply(id, argument)` → `App.tsx` `replyTarget` state → `ArgumentComposer` props
 - App shell: `App.tsx` with tab navigation, auto-switches to debate room on selection
 - Jest test suite: 337 tests pass across 10 suites
 - TypeScript strict mode — `npm run typecheck` passes (0 errors)
@@ -69,7 +68,7 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (337 tests, 10 suites) |
+| `npm run test` | ✅ Pass (351 tests, 11 suites) |
 | `npx supabase start` | ❌ Blocked — Docker not running |
 | `npx supabase db status` | ❌ Blocked — Docker not running |
 
