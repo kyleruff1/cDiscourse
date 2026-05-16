@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 5.4.5 complete** — normalized argument cache, viewport reducer, composer handoff helpers (`composerHandoff.ts`), `ArgumentRow` schema alignment (all 6 missing columns added), `SELECT_PARENT`/`CLEAR_PARENT` viewport actions, and full test coverage (262 tests, 8 suites). Start Stage 5.5 (Argument Composer screen).
+Current stage: **Stage 5.5.1 complete** — `ComposerDraft` type, `composerState.ts` converters, `composerHelpers.ts` pure functions, `useArgumentComposer` hook with draft restoration and debounced AsyncStorage persistence, `ComposerDraftRecoveryNotice` component, and 49 new tests (311 total, 9 suites). Start Stage 5.5.2 (Composer UI).
 
 ## Supabase Apply Commands
 
