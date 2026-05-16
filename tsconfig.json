@@ -4,14 +4,33 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/lib/*": ["src/lib/*"],
-      "@/domain/*": ["src/domain/*"],
-      "@/features/*": ["src/features/*"],
-      "@/components/*": ["src/components/*"],
-      "@/types/*": ["src/types/*"]
+      "@/*": [
+        "src/*"
+      ],
+      "@/lib/*": [
+        "src/lib/*"
+      ],
+      "@/domain/*": [
+        "src/domain/*"
+      ],
+      "@/features/*": [
+        "src/features/*"
+      ],
+      "@/components/*": [
+        "src/components/*"
+      ],
+      "@/types/*": [
+        "src/types/*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.d.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", "supabase/functions"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase/functions"
+  ]
 }

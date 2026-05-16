@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 5.5.3 complete** — argument submission via `submitArgumentDraft` with idempotency (`clientSubmissionId` + fingerprint), server validation error display, draft-safe retry, draft/tab cleanup on success. 386 tests, 12 suites. Next: Stage 5.5.4 (viewport refresh after submit).
+Current stage: **Stage 5.5.4 complete** — Expo Web launched (http://localhost:8081, 352 modules, no bundle errors); web deps installed (`react-dom`, `react-native-web`, `@expo/metro-runtime`); smoke test checklist created at `docs/browser-visual-test.md`; MVP status at `docs/mvp-smoke-test.md`. Next: configure `.env`, link Supabase, deploy `submit-argument`, complete manual smoke test.
 
 ## Supabase Apply Commands
 

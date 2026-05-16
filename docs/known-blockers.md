@@ -84,4 +84,4 @@ cp .env.example .env
 
 Required keys:
 - `EXPO_PUBLIC_SUPABASE_URL`
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY` (anon key only — never service role)
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (anon/publishable key only — never service role)

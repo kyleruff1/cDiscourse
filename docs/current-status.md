@@ -4,7 +4,7 @@ _Last updated: 2026-05-16_
 
 ## Current Stage
 
-**Stage 5.5.3 complete.** Argument submission via `submitArgumentDraft` with idempotency, server validation error display, and draft-safe retry.
+**Stage 5.5.4 complete.** Browser launch verified: Expo Web bundled 352 modules at http://localhost:8081 with no errors. Web dependencies installed, smoke test checklist and MVP readiness documented.
 
 ## What Works
 
@@ -58,6 +58,7 @@ _Last updated: 2026-05-16_
 - `src/features/moderation/` — feature slice directory exists, no screens
 - Navigation stack: manual tab switching via `useState` in `App.tsx` (no Expo Router)
 - Viewport refresh after submit — tab switches to debate view but argument tree does not auto-refresh to show the new argument
+- Full manual smoke test (Sections B–J of `docs/browser-visual-test.md`) — blocked by no `.env` / no deployed Supabase
 
 ## What Is Blocked
 
@@ -74,6 +75,7 @@ Run on 2026-05-16:
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
 | `npm run test` | ✅ Pass (386 tests, 12 suites) |
+| `npm run web -- --clear` | ✅ Bundled 352 modules — http://localhost:8081 |
 | `npx supabase start` | ❌ Blocked — Docker not running |
 | `npx supabase db status` | ❌ Blocked — Docker not running |
 
@@ -103,4 +105,4 @@ Policies defined in `supabase/migrations/20260516000002_rls_policies.sql` and up
 
 ## Next Recommended Stage
 
-**Stage 5.5.4 — Viewport refresh after submit.** After a successful argument submission, the debate tab's argument tree should refresh to show the newly posted argument without requiring the user to manually pull-to-refresh.
+**MVP backend validation.** Configure `.env`, link a Supabase project, push migrations, deploy `submit-argument`, then complete the manual smoke test checklist in `docs/browser-visual-test.md`. After that, Stage 5.5.5 (viewport refresh after submit) and Stage 5.6 (Expo Router migration) are next.
