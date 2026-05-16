@@ -66,3 +66,9 @@ This is read-only. View As never logs you in as the bot.
 
 - Stage 6.1.3+: Counter-runner skill that programmatically signs in as a bot and posts through `submit-argument` (still via normal auth — service-role never in skill code)
 - Later: Bot persona templates with fixture-driven moves
+
+---
+
+## Programmatic bot driving (Stage 6.1.2.2)
+
+`scripts/bot-fixtures/runScenario.mjs` can sign in as bots (normal auth) and submit fixture moves through `submit-argument`. See `docs/bot-fixture-runner.md` for setup. The runner does NOT use service-role keys.

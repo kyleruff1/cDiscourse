@@ -12,7 +12,12 @@
     "format": "prettier --write \"**/*.{ts,tsx,json}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json}\"",
     "test": "jest --passWithNoTests",
-    "checkpoint": "node scripts/checkpoint-status.mjs"
+    "checkpoint": "node scripts/checkpoint-status.mjs",
+    "bot:fixture": "node scripts/bot-fixtures/runScenario.js",
+    "bot:fixture:sports": "node scripts/bot-fixtures/runScenario.js sports-play-in",
+    "bot:fixture:popculture": "node scripts/bot-fixtures/runScenario.js pop-culture-trailers",
+    "bot:fixture:bikelanes": "node scripts/bot-fixtures/runScenario.js light-civic-bike-lanes",
+    "bot:fixture:remotework": "node scripts/bot-fixtures/runScenario.js everyday-remote-work"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
