@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 5.1 complete** — session contracts, local persistence, debate_user_state migration, idempotent submit-argument, scalability indexes, and session tests. Start Stage 5.2 (Home screen + Debate Room UI).
+Current stage: **Stage 5.2 complete** — auth API, AppSessionProvider, UI primitives, AuthScreen, SessionDebugPanel, and app shell with session-gated routing. Start Stage 5.3 (Debate list + Debate Room).
 
 ## Supabase Apply Commands
 
