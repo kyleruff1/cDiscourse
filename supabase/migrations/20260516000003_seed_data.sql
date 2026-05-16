@@ -22,33 +22,38 @@ VALUES (
   'constitution-v1',
   '1.0.0',
   'CDiscourse Constitution v1',
-  E'# CDiscourse Constitution v1.0.0\n\n'
-  E'## Preamble\n\n'
-  E'The purpose of a debate Constitution is to ensure that discourse remains structured, navigable, and fair '
-  E'without requiring a central authority to adjudicate truth. The Constitution governs **form**, not **content**. '
-  E'It defines what kinds of moves are valid in response to what, not which arguments are correct.\n\n'
-  E'## Argument Types\n\n'
-  E'| Code | Name | Description |\n'
-  E'|---|---|---|\n'
-  E'| thesis | Thesis | Opening position statement for a debate side. |\n'
-  E'| claim | Claim | A substantive, falsifiable assertion. |\n'
-  E'| rebuttal | Rebuttal | Direct challenge to a parent claim or rebuttal. |\n'
-  E'| counter_rebuttal | Counter-Rebuttal | Defense of original claim against a rebuttal. |\n'
-  E'| evidence | Evidence | Factual support with at least one cited source. |\n'
-  E'| clarification_request | Clarification Request | Question asking for definition or scope clarity. Must end with ?. |\n'
-  E'| concession | Concession | Acknowledgment that the parent argument has merit. |\n'
-  E'| synthesis | Synthesis | Summary of a completed subtree. Terminal node. |\n\n'
-  E'## Transition Matrix\n\n'
-  E'| From | Allowed Replies |\n'
-  E'|---|---|\n'
-  E'| thesis | claim, rebuttal, evidence |\n'
-  E'| claim | rebuttal, evidence, clarification_request, concession |\n'
-  E'| rebuttal | counter_rebuttal, evidence, clarification_request, concession |\n'
-  E'| counter_rebuttal | rebuttal, evidence, clarification_request |\n'
-  E'| evidence | clarification_request, rebuttal |\n'
-  E'| clarification_request | claim |\n'
-  E'| concession | synthesis |\n'
-  E'| synthesis | (terminal — no replies) |\n',
+  $body$# CDiscourse Constitution v1.0.0
+
+## Preamble
+
+The purpose of a debate Constitution is to ensure that discourse remains structured, navigable, and fair without requiring a central authority to adjudicate truth. The Constitution governs **form**, not **content**. It defines what kinds of moves are valid in response to what, not which arguments are correct.
+
+## Argument Types
+
+| Code | Name | Description |
+|---|---|---|
+| thesis | Thesis | Opening position statement for a debate side. |
+| claim | Claim | A substantive, falsifiable assertion. |
+| rebuttal | Rebuttal | Direct challenge to a parent claim or rebuttal. |
+| counter_rebuttal | Counter-Rebuttal | Defense of original claim against a rebuttal. |
+| evidence | Evidence | Factual support with at least one cited source. |
+| clarification_request | Clarification Request | Question asking for definition or scope clarity. Must end with ?. |
+| concession | Concession | Acknowledgment that the parent argument has merit. |
+| synthesis | Synthesis | Summary of a completed subtree. Terminal node. |
+
+## Transition Matrix
+
+| From | Allowed Replies |
+|---|---|
+| thesis | claim, rebuttal, evidence |
+| claim | rebuttal, evidence, clarification_request, concession |
+| rebuttal | counter_rebuttal, evidence, clarification_request, concession |
+| counter_rebuttal | rebuttal, evidence, clarification_request |
+| evidence | clarification_request, rebuttal |
+| clarification_request | claim |
+| concession | synthesis |
+| synthesis | (terminal — no replies) |
+$body$,
   true
 )
 ON CONFLICT (slug) DO NOTHING;

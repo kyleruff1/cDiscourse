@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 5.5.4 complete** — Expo Web launched (http://localhost:8081, 352 modules, no bundle errors); web deps installed (`react-dom`, `react-native-web`, `@expo/metro-runtime`); smoke test checklist created at `docs/browser-visual-test.md`; MVP status at `docs/mvp-smoke-test.md`. Next: configure `.env`, link Supabase, deploy `submit-argument`, complete manual smoke test.
+Current stage: **Stage 6.0.1 complete** — Conversation Move Navigator implemented and wired into `ArgumentComposer`. Language-processing scaffold (Stage 6.0) complete: server-only Anthropic + mock providers, disabled by default. 505 tests passing. Next: Stage 6.0.2 — move qualifiers, quote anchoring, turn-status governance (see `docs/next-prompts.md`).
 
 ## Supabase Apply Commands
 

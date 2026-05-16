@@ -4,7 +4,7 @@ _Last updated: 2026-05-16_
 
 ## Current Stage
 
-**Stage 5.5.4 complete.** Browser launch verified: Expo Web bundled 352 modules at http://localhost:8081 with no errors. Web dependencies installed, smoke test checklist and MVP readiness documented.
+**Stage 6.0.1 complete.** Conversation Move Navigator implemented: pure TS move model (`conversationMoves.ts`), `ConversationMoveNavigator.tsx` component wired into `ArgumentComposer.tsx`, 62 new tests (505 total, all passing). Language-processing scaffold (Stage 6.0) also complete — server-only Anthropic + mock providers, disabled by default.
 
 ## What Works
 
@@ -49,7 +49,9 @@ _Last updated: 2026-05-16_
   - `PendingSubmission.submissionFingerprint` — optional field stores draft fingerprint at queue time for idempotency comparison
   - `App.tsx` `handleSubmitSuccess` — clears `replyTarget`, switches to debate tab on successful submit
 - App shell: `App.tsx` with tab navigation, auto-switches to debate room on selection
-- Jest test suite: 337 tests pass across 10 suites
+- Stage 6.0 — Language-processing scaffold: `supabase/functions/process-language-draft/`, `src/features/languageProcessing/`, `src/lib/edgeFunctions.ts` (`processLanguageDraft`). Disabled by default (`AI_LANGUAGE_PROCESSING_ENABLED=false`). Docs: `docs/transcript-language-processing.md`, `docs/semantic-review.md`, `docs/ai-provider-decision.md`.
+- Stage 6.0.1 — Conversation Move Navigator: `src/features/arguments/conversationMoves.ts` (pure TS move model), `src/features/arguments/ConversationMoveNavigator.tsx` (chip UI, axis sub-picker, warnings), wired into `ArgumentComposer.tsx`. Skill: `.claude/skills/transcript-lang-min/SKILL.md`. Docs: `docs/conversation-move-navigation.md`.
+- Jest test suite: 505 tests pass across 14 suites
 - TypeScript strict mode — `npm run typecheck` passes (0 errors)
 - ESLint — `npm run lint` passes (0 warnings)
 
@@ -74,7 +76,7 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (386 tests, 12 suites) |
+| `npm run test` | ✅ Pass (505 tests, 14 suites) |
 | `npm run web -- --clear` | ✅ Bundled 352 modules — http://localhost:8081 |
 | `npx supabase start` | ❌ Blocked — Docker not running |
 | `npx supabase db status` | ❌ Blocked — Docker not running |
@@ -105,4 +107,6 @@ Policies defined in `supabase/migrations/20260516000002_rls_policies.sql` and up
 
 ## Next Recommended Stage
 
-**MVP backend validation.** Configure `.env`, link a Supabase project, push migrations, deploy `submit-argument`, then complete the manual smoke test checklist in `docs/browser-visual-test.md`. After that, Stage 5.5.5 (viewport refresh after submit) and Stage 5.6 (Expo Router migration) are next.
+**Stage 6.0.2** — Move qualifiers (25 codes), quote anchoring (`QuoteAnchor`), and turn-status governance (`TurnResponseStatus`, `UserResponseMark`). No DB migration, no Anthropic, `UserResponseMark` is local-only. See `docs/next-prompts.md` for the full prompt.
+
+After Stage 6.0.2: **MVP backend validation** — configure `.env`, link Supabase, push migrations, deploy `submit-argument`, complete manual smoke test.

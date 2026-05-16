@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef, useState } from 'react';
+import React, { useMemo, useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,8 @@ import type { PendingSubmission } from '../session/types';
 import { ComposerDraftRecoveryNotice } from './ComposerDraftRecoveryNotice';
 import { ComposerTargetPanel } from './ComposerTargetPanel';
 import { ComposerValidationPanel } from './ComposerValidationPanel';
+import { ConversationMoveNavigator } from './ConversationMoveNavigator';
+import type { MoveDraftPatch } from './conversationMoves';
 import { getAllowedArgumentTypesForParent, getTagDefsForArgumentType } from './composerHelpers';
 import { buildEvaluationInput } from './composerValidation';
 import type { ArgumentRow, ArgumentType, ArgumentSide, DisagreementAxis } from './types';
@@ -128,6 +130,21 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
     !!draft.side &&
     draft.body.trim().length > 0 &&
     (evaluationResult?.allowPost ?? false);
+
+  const handleMovePatch = useCallback(
+    (patch: MoveDraftPatch) => {
+      if (!draft) return;
+      const incoming = patch.suggestedTagCodes ?? [];
+      const merged = [...new Set([...draft.selectedTagCodes, ...incoming])];
+      updateField({
+        ...(patch.argumentType !== undefined ? { argumentType: patch.argumentType ?? null } : {}),
+        ...(patch.disagreementAxis !== undefined ? { disagreementAxis: patch.disagreementAxis ?? null } : {}),
+        ...(patch.targetExcerpt !== undefined ? { targetExcerpt: patch.targetExcerpt ?? null } : {}),
+        selectedTagCodes: merged,
+      });
+    },
+    [draft, updateField],
+  );
 
   const handleSubmit = async () => {
     if (!draft || !draft.argumentType || !draft.side) return;
@@ -258,6 +275,13 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
           targetExcerpt={draft.targetExcerpt ?? ''}
           onChangeTargetExcerpt={(text) => updateField({ targetExcerpt: text || null })}
           onClear={parentArgument ? onClearParent : undefined}
+        />
+
+        {/* Conversation move navigator */}
+        <ConversationMoveNavigator
+          parentArgument={parentArgument}
+          rules={constitution.activeRules}
+          onApplyPatch={handleMovePatch}
         />
 
         {/* Type picker */}

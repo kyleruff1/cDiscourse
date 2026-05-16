@@ -1,109 +1,133 @@
 # CDiscourse — Next Prompts
 
-The next three recommended session prompts, in order. Run `npm run checkpoint` first to confirm the current stage.
+The next recommended session prompts, in order. Run `npm run checkpoint` first to confirm the current stage.
 
 ---
 
-## Prompt 1 — Stage 5.5.1: Composer State, Draft Identity, Draft Persistence Hook
+## Prompt 1 — Stage 6.0.2: Move Qualifiers, Quote Anchoring, and Turn-Status Governance
 
-> Implement Stage 5.5.1: composer state management and draft persistence.
+> Stage 6.0.1 is complete. The move navigator is wired and 505 tests pass.
 >
-> **Do not build any UI yet. Do not call submitArgumentDraft. Do not add dependencies.**
+> Stage 6.0.2 adds three pure-TypeScript/React layers to the composer UX. No DB migration, no Anthropic calls, no persistence for `UserResponseMark`.
 >
-> Build `src/features/arguments/useComposerDraft.ts` — a hook the ComposerScreen will consume.
+> ### Deliverables
 >
-> What the hook must do:
-> - Accept `(debateId: string)` as argument.
-> - On mount, check `state.snapshot.activeDraft`. If one exists for this debateId, adopt it. Otherwise create a fresh `ComposerDraftSession` with a newly generated UUID for `draftId` and dispatch `DRAFT_STARTED`.
-> - Expose `draft: ComposerDraftSession | null`, `updateDraft(patch: Partial<ComposerDraftSession>)`, and `clearDraft()`.
-> - `updateDraft` must: dispatch `DRAFT_UPDATED` to the session reducer, then debounce-save to AsyncStorage via `saveDraft` from `src/features/session/sessionStorage.ts` (300–500ms debounce).
-> - `clearDraft` must: dispatch `DRAFT_CLEARED`, then call `deleteDraft` from `sessionStorage.ts`.
-> - Use `getParentArgumentForComposer` from `src/features/arguments/composerHandoff.ts` to expose `parentArgument: ArgumentRow | null` derived from the viewport.
-> - UUID generation: use `crypto.randomUUID()` — it is available in Hermes (React Native ≥ 0.71) without a dependency.
+> **New pure-TS models:**
+> - `src/features/arguments/moveQualifiers.ts` — 25 `MoveQualifierCode` values. Functions: `getQualifierOptionsForMove(moveKind)`, `getPrimaryQualifierOptionsForMove` (first 5), `getOverflowQualifierOptionsForMove` (rest), `mapQualifierToDraftPatch(code, draft)`, `mergeQualifierTags(existing, incoming)`, `qualifierRequiresSpecificity(code)`.
+> - `src/features/arguments/quoteAnchors.ts` — `QuoteAnchor`, `QuoteToken`, `QuoteAnchorCandidate`. Functions: `tokenizeQuoteText(text)`, `getQuoteTextFromRange(tokens, start, end)`, `buildQuoteAnchorCandidates(parentBody)` (returns top 3 sentence-level candidates), `quoteAnchorToTargetExcerpt(anchor)`.
+> - `src/features/arguments/turnStatus.ts` — `TurnResponseStatus` union (11 values: 'pending_reply' | 'replied' | 'awaiting_my_response' | 'conceded' | 'synthesized' | 'evidence_added' | 'clarified' | 'challenged' | 'counter_challenged' | 'stale' | 'resolved'). `UserResponseMark` union (9 values: 'noted' | 'bookmarked' | 'agree' | 'partially_agree' | 'disagree' | 'needs_more_evidence' | 'conceding_this' | 'challenging_this' | 'skipping_for_now'). Functions: `deriveTurnStatus(argument, parentArgument, childArguments)`, `getUserResponseMarkOptions()`, `getTurnStatusDisplay(status)` → `{ label, color, icon }`.
 >
-> Note: `ComposerDraftSession`, `DRAFT_STARTED`, `DRAFT_UPDATED`, `DRAFT_CLEARED` are all already implemented in `src/features/session/`. `saveDraft` / `deleteDraft` / `loadDraft` are in `src/features/session/sessionStorage.ts`. No new session actions are needed.
+> **New UI components:**
+> - `src/features/arguments/MoveQualifierPicker.tsx` — shows up to 5 primary qualifiers as chips + "More flavor" expander for overflow. Emits `onQualifierToggle(code)`.
+> - `src/features/arguments/QuoteAnchorSelector.tsx` — shows "Be specific: [quote]" button when parent body available. Falls back to manual text input. Emits `onAnchorSelect(excerpt)`.
+> - `src/features/arguments/TurnStatusBadge.tsx` — compact pill badge for `ArgumentNode`. Props: `status: TurnResponseStatus`. Read-only display.
+> - `src/features/arguments/UserResponseMarkPicker.tsx` — shows 9 `UserResponseMark` options. Local `useState` only — no DB call. Emits `onMarkSelect(mark)`. Concession copy must be self-directed ("I'm conceding this point") — never mock the opponent.
 >
-> Wire `selectReplyTarget` / `clearReplyTarget` from `composerHandoff.ts` into `useArgumentViewport` so that tapping any `ArgumentNode` in the tree dispatches `SELECT_PARENT` and optionally auto-switches to the Compose tab.
+> **State updates:**
+> - Add optional fields to `ComposerDraft` in `composerState.ts`: `moveKind?: ConversationMoveKind | null`, `quoteAnchor?: string | null`, `primaryMoveQualifierCode?: string | null`, `moveQualifierCodes?: string[]`, `targetExcerptManuallyEdited?: boolean`.
+> - Update `draftToSession` / `sessionToDraft` to round-trip these new fields.
 >
-> Write tests in `__tests__/composerDraft.test.ts` covering:
-> - Fresh draft creates a new UUID on first call.
-> - Adopts existing activeDraft rather than creating a duplicate.
-> - `updateDraft` dispatches DRAFT_UPDATED with the patch merged correctly.
-> - `clearDraft` dispatches DRAFT_CLEARED.
+> **Wire into ArgumentComposer:**
+> - Below the `ConversationMoveNavigator`, add `MoveQualifierPicker` (shown when `moveKind` is set).
+> - Add `QuoteAnchorSelector` in the target excerpt area (shown when `parentArgument` is set).
+> - Add `UserResponseMarkPicker` below the body input (shown always when `parentArgument` is set).
+>
+> **Tests (3 new files):**
+> - `__tests__/moveQualifiers.test.ts` — qualifier catalogue, `getQualifierOptionsForMove`, `mergeQualifierTags` dedup, `qualifierRequiresSpecificity`.
+> - `__tests__/quoteAnchors.test.ts` — tokenizer, range extraction, candidate builder, anchor→excerpt conversion.
+> - `__tests__/turnStatus.test.ts` — `deriveTurnStatus` for each of the 11 statuses, `getTurnStatusDisplay` returns label+color, `getUserResponseMarkOptions` returns 9 items.
+>
+> **Docs:**
+> - `docs/conversation-ux-map.md` — full UX flow diagram with qualifier + anchor + status layers.
+> - `docs/turn-response-governance.md` — governance rules: what `TurnResponseStatus` means, how `UserResponseMark` is local-only, why concession copy is self-directed.
+> - `docs/transcript-language-processor-system-prompt.md` — the exact system prompt used in `anthropicProvider.ts`, documented for review.
+>
+> ### Hard constraints
+> - Do NOT call Anthropic. Do NOT create a new Supabase migration.
+> - Do NOT persist `UserResponseMark` to the DB in this stage — local state only.
+> - Concession labels must be self-directed: "I'm conceding this point", "I'm narrowing my claim" — never imply the opponent is wrong or manipulative.
+> - Do NOT infer manipulation, bad faith, dishonesty, truth, winner, hiding, or banning.
 >
 > Run `npm run typecheck && npm run lint && npm run test` before finishing.
-> Commit with: `"feat: Stage 5.5.1 — useComposerDraft hook and draft persistence"`
+> Commit: `"feat: Stage 6.0.2 — move qualifiers quote anchoring and turn status UX"`
 
 ---
 
-## Prompt 2 — Stage 5.5.2: Composer UI and Client-Side Constitution Preview (No Submit)
+## Prompt 2 — MVP Backend Validation (Supabase Setup)
 
-> Implement Stage 5.5.2: the Composer screen UI with live client-side validation preview.
+Before running any of these steps, have Docker Desktop running and a Supabase project created at https://supabase.com.
+
+```bash
+# 1. Link the remote project
+npx supabase link --project-ref <your-project-ref>
+
+# 2. Push all migrations (0001–0005)
+npx supabase db push --linked
+
+# 3. Verify migrations applied cleanly
+npx supabase db status
+npx supabase db lint
+
+# 4. Set Edge Function secrets
+npx supabase secrets set ANTHROPIC_API_KEY=<your-key>
+
+# 5. Deploy the submit-argument Edge Function
+npx supabase functions deploy submit-argument
+
+# 6. Create .env from the example (NEVER commit .env)
+cp .env.example .env
+# Fill in: EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+# 7. Relaunch the browser app
+npm run web -- --clear
+```
+
+Then complete the manual smoke test checklist: `docs/browser-visual-test.md`.
+
+Goal: confirm that end-to-end argument submission (client → Edge Function → DB → argument tree) works with real Supabase.
+
+---
+
+## Prompt 2 — Stage 5.5.5: Viewport Refresh After Submit
+
+> After a successful argument submission, the debate tab's argument tree should refresh automatically to show the newly posted argument.
 >
-> **Do not call submitArgumentDraft yet. Do not implement realtime, pagination, audio, or semantic AI. Do not add dependencies.**
+> Current behavior: after `SUBMISSION_SUCCEEDED` and tab switch, the argument tree does not re-fetch. The user must pull-to-refresh manually to see their own argument.
 >
-> Build `src/features/arguments/ComposerScreen.tsx`. Wire it into `App.tsx` so `activeTab === 'composer'` renders `<ComposerScreen debate={currentDebate} />` (replacing the current EmptyState). Show an EmptyState when no debate is selected.
->
-> The screen must use `useComposerDraft` (from Stage 5.5.1) and must:
-> - Load constitution data (rules, tagDefs, flagDefs) from Supabase via a `useConstitution(constitutionId: string)` hook in `src/features/arguments/useConstitution.ts`. Fetch once per debate selection; show a loading indicator while fetching.
-> - Show a parent argument preview bar (using `getParentArgumentForComposer`) with a "× Clear reply target" control.
-> - Show an argument type selector limited to `getAllowedReplyTypesForParent(cache, viewport, rules, ['thesis', 'claim'])`.
-> - Show a `body` multiline TextInput. Enforce the character limit from the `C-LENGTH-001` rule (`length_body` in `constitution_rules`) — show a character counter.
-> - Show a `target_excerpt` TextInput only when a parent is selected.
-> - Show a `disagreement_axis` picker only when argumentType is `rebuttal` or `counter_rebuttal`.
-> - Call `evaluateArgumentDraft` from `src/domain/constitution/evaluateArgumentDraft.ts` on every draft change (debounced 300ms). Display blocking errors as red inline banners. Display warnings as amber banners. All banners are informational only — do not block the user from editing.
-> - Show a disabled "Submit" button (grayed out, no action) as a visual placeholder. Label it "Submit argument".
-> - Use only React Native primitives: View, Text, TextInput, Pressable, ScrollView.
->
-> The `useConstitution` hook fetches from: `constitution_versions` (by id), `constitution_rules` (where constitution_id = ? AND enabled = true), `tag_definitions` (enabled = true), `flag_definitions` (enabled = true). Use `adaptDbConstitutionVersion`, `adaptDbRule`, `adaptDbTagDef`, `adaptDbFlagDef` from `src/domain/constitution/dbAdapters.ts` on the raw rows.
->
-> Add tests for `useConstitution` hook behavior (mock Supabase) in `__tests__/useConstitution.test.ts`.
+> Implement a lightweight refresh mechanism:
+> - After `SUBMISSION_SUCCEEDED` dispatched, call `refresh()` from `useArgumentViewport` in the debate-view tab.
+> - The cleanest approach: lift a `refreshViewport` callback from `ArgumentTreeScreen` to `App.tsx`, and call it in `handleSubmitSuccess()`.
+> - Do not implement realtime subscriptions. Poll or manual-trigger only.
+> - Do not add dependencies.
 >
 > Run `npm run typecheck && npm run lint && npm run test` before finishing.
-> Commit with: `"feat: Stage 5.5.2 — ComposerScreen UI with live validation preview"`
+> Commit with: `"feat: Stage 5.5.5 — refresh argument tree after submit"`
 
 ---
 
-## Prompt 3 — Stage 5.5.3: Submit via submitArgumentDraft with Idempotency and Error Handling
-
-> Implement Stage 5.5.3: wire the "Submit argument" button to the Edge Function.
->
-> **Do not add dependencies. Do not implement realtime. Do not insert posted arguments directly — always use submitArgumentDraft.**
->
-> The submit flow must be:
-> 1. On button press: generate a new UUID for `clientSubmissionId`, dispatch `SUBMISSION_QUEUED` with a `PendingSubmission` record.
-> 2. Dispatch `SUBMISSION_STARTED`.
-> 3. Call `submitArgumentDraft` from `src/lib/edgeFunctions.ts` with the full payload from the draft, passing `client_submission_id: pendingSubmission.clientSubmissionId`.
-> 4a. On `ok: true`: dispatch `SUBMISSION_SUCCEEDED`, dispatch `DRAFT_CLEARED`, call `deleteDraft` from `sessionStorage.ts`, auto-switch to the `current_debate` tab, show a transient success banner on the tree screen.
-> 4b. On `ok: false`: dispatch `SUBMISSION_FAILED` with the error string. Show the error inline in the ComposerScreen with a "Retry" button. Retry must reuse the same `clientSubmissionId` (idempotency).
->
-> Note: `SUBMISSION_QUEUED`, `SUBMISSION_STARTED`, `SUBMISSION_SUCCEEDED`, `SUBMISSION_FAILED`, `ERROR_CLEARED` are already implemented in `src/features/session/sessionState.ts`. Do not add new session actions.
->
-> The submit button must be disabled while `state.status === 'submitting'` and while `evaluateArgumentDraft` returns any `blockingErrors`.
->
-> Display returned flags from the Edge Function response as dismissible amber/red banners in the tree screen (non-authoritative, `authoritative = false` is always implied for AI-sourced flags).
->
-> Run `npm run typecheck && npm run lint && npm run test` before finishing.
-> Commit with: `"feat: Stage 5.5.3 — submit argument via Edge Function with idempotency"`
-
----
-
-## Prompt 4 — Stage 5.6: Expo Router Migration
+## Prompt 3 — Stage 5.6: Expo Router Migration
 
 > Migrate navigation from the manual `useState` tab switcher in `App.tsx` to Expo Router file-based routing.
 >
-> Install Expo Router (`npx expo install expo-router`). Create the file structure under `app/`. Auth guard should redirect unauthenticated users to `app/(auth)/sign-in.tsx`. The debate room and composer should be nested under a debate route. Move `MainAppShell` logic into route files. Keep `AppSessionProvider` wrapping the root layout.
+> Install Expo Router: `npx expo install expo-router`.
+> Create the file structure under `app/`. Auth guard should redirect unauthenticated users to `app/(auth)/sign-in.tsx`. The debate room and composer should be nested under a debate route. Move `MainAppShell` logic into route files. Keep `AppSessionProvider` wrapping the root layout.
 >
-> No new features — this is a pure routing migration. Run `npm run typecheck && npm run lint && npm run test` before finishing.
+> No new features — this is a pure routing migration.
+> Run `npm run typecheck && npm run lint && npm run test` before finishing.
 
 ---
 
-## Prompt 5 — Stage 5.7: Argument Tree Refresh + Pagination
+## Prompt 4 — Stage 5.7: Argument Tree Pagination and Pull-to-Refresh
 
-> Implement Stage 5.7: argument tree pagination and background refresh.
->
 > Extend `useArgumentViewport` to support cursor-based pagination for root and child arguments (`rootCursor` and per-parent cursors). Add a "Load more" button at the bottom of each expanded node when the server returned exactly `pageSize` results. Add a pull-to-refresh gesture on the tree `ScrollView` that calls `refresh()` from `useArgumentViewport`.
 >
-> Do not implement realtime subscriptions — polling only when user explicitly refreshes.
->
+> Do not implement realtime subscriptions — manual refresh only.
 > Run `npm run typecheck && npm run lint && npm run test` before finishing.
+
+---
+
+## Notes
+
+Stages 5.5.1–5.5.4, 6.0, and 6.0.1 are complete.  
+505 tests pass. TypeScript strict mode clean.  
+See `docs/current-status.md` for full status.

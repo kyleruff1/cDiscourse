@@ -1,8 +1,12 @@
 /**
  * Typed client wrappers for Supabase Edge Functions.
  *
- * The mobile client must NEVER directly insert posted arguments into
- * public.arguments. Use submitArgumentDraft for all argument submissions.
+ * Rules:
+ * - The mobile client must NEVER directly insert posted arguments into
+ *   public.arguments. Use submitArgumentDraft for all argument submissions.
+ * - processLanguageDraft must NOT be called automatically from ArgumentComposer
+ *   or the submit flow. It is an explicit user-triggered action only.
+ * - ANTHROPIC_API_KEY is never in client code or Expo env — server-only.
  */
 import { supabase } from './supabase';
 import type { ArgumentType, ArgumentSide, DisagreementAxis } from '../domain/constitution/types';
@@ -100,6 +104,110 @@ export async function submitArgumentDraft(
       const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
       if (raw?.json) {
         errorBody = (await raw.json()) as SubmitArgumentError;
+      }
+    } catch {
+      // ignore parse failures
+    }
+    const status =
+      (error as { status?: number }).status ??
+      ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+
+  if (!data) {
+    return { ok: false, error: { error: 'empty_response' }, status: 500 };
+  }
+
+  return { ok: true, data };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// process-language-draft
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProcessLanguageDraftPayload {
+  debateId: string;
+  debateResolution: string;
+  debateDescription?: string;
+  parentArgumentId?: string | null;
+  parentArgumentBody?: string | null;
+  /** 'transcript' = rough spoken text. 'typed_draft' = typed input. */
+  sourceKind: 'typed_draft' | 'transcript';
+  /** Raw text to process. Max 8 000 chars. */
+  rawText: string;
+  userSide?: 'affirmative' | 'negative' | 'neutral';
+  currentDraft?: {
+    argumentType?: string | null;
+    selectedTagCodes?: string[];
+    targetExcerpt?: string | null;
+    disagreementAxis?: string | null;
+  };
+  deterministicTopicCheck?: unknown;
+  deterministicFlags?: unknown[];
+}
+
+export interface ProcessLanguageDraftDisabled {
+  enabled: false;
+  reason: string;
+}
+
+export interface ProcessLanguageDraftResult {
+  enabled: true;
+  cleanedText: string;
+  suggestedArgumentType: string | null;
+  suggestedTagCodes: string[];
+  suggestedDisagreementAxis: string | null;
+  targetExcerptCandidates: string[];
+  possibleFlags: string[];
+  transcriptIssues: string[];
+  topicRelation: {
+    respondsToResolution: boolean;
+    respondsToParent: boolean | null;
+    score: number;
+    shortExplanation: string;
+  };
+  tone: {
+    civilityRisk: boolean;
+    loadedLanguagePossible: boolean;
+    shortExplanation: string;
+  };
+  uncertaintyLevel: 'low' | 'medium' | 'high';
+  /** Always true — the user must review all suggestions before submitting. */
+  userReviewRequired: true;
+  provider: string;
+  model: string;
+}
+
+export type ProcessLanguageDraftOutcome =
+  | ProcessLanguageDraftDisabled
+  | ProcessLanguageDraftResult;
+
+export type ProcessLanguageDraftFunctionResult =
+  | { ok: true; data: ProcessLanguageDraftOutcome }
+  | { ok: false; error: { error: string }; status: number };
+
+/**
+ * Send a rough draft or transcript to the language-processing Edge Function.
+ * Returns structured suggestions for user review.
+ *
+ * IMPORTANT: Do NOT call this automatically. It must only be triggered by an
+ * explicit user action (e.g. tapping "Process draft"). The AI is advisory only —
+ * the user must review and accept all suggestions before submitting an argument.
+ */
+export async function processLanguageDraft(
+  payload: ProcessLanguageDraftPayload,
+): Promise<ProcessLanguageDraftFunctionResult> {
+  const { data, error } = await supabase.functions.invoke<ProcessLanguageDraftOutcome>(
+    'process-language-draft',
+    { body: payload },
+  );
+
+  if (error) {
+    let errorBody: { error: string } = { error: 'network_error' };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) {
+        errorBody = (await raw.json()) as { error: string };
       }
     } catch {
       // ignore parse failures
