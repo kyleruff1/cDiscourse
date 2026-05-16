@@ -35,3 +35,11 @@ export {
 export { draftToSession, sessionToDraft } from './composerState';
 export type { ComposerDraft, EvidenceAttachmentLocal } from './composerState';
 export type { ArgumentRow, ArgumentCache, ArgumentViewportState, DisagreementAxis } from './types';
+export {
+  buildSubmitArgumentPayload,
+  createSubmissionFingerprint,
+  getOrCreateClientSubmissionId,
+  shouldReuseClientSubmissionIdForRetry,
+  extractServerValidationError,
+  isIdempotentSuccess,
+} from './composerSubmit';

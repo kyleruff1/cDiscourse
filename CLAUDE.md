@@ -33,7 +33,7 @@ If the session was interrupted mid-task, read `docs/current-status.md` first —
 
 Always check which stage is active before implementing. Do not implement Stage 2 features while Stage 1 is incomplete. After each stage, run the verification commands listed in `docs/implementation-plan.md` and confirm they pass before proceeding.
 
-Current stage: **Stage 5.5.2 complete** — composer UI (`ArgumentComposer`, `ComposerTargetPanel`, `ComposerValidationPanel`), type/tag pickers filtered by Constitution rules, live `evaluateArgumentDraft` validation preview, reply-target wiring through `App.tsx`, 337 tests, 10 suites. Start Stage 5.5.3 (argument submission via `submitArgumentDraft`).
+Current stage: **Stage 5.5.3 complete** — argument submission via `submitArgumentDraft` with idempotency (`clientSubmissionId` + fingerprint), server validation error display, draft-safe retry, draft/tab cleanup on success. 386 tests, 12 suites. Next: Stage 5.5.4 (viewport refresh after submit).
 
 ## Supabase Apply Commands
 

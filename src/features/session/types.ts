@@ -44,6 +44,8 @@ export interface PendingSubmission {
   createdAt: string;
   status: 'queued' | 'submitting' | 'submitted' | 'failed';
   lastError: string | null;
+  /** Fingerprint of the draft at queue time — used to detect draft changes after a failed submission. */
+  submissionFingerprint?: string;
 }
 
 export interface AppSessionSnapshot {

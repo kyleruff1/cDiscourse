@@ -4,7 +4,7 @@ _Last updated: 2026-05-16_
 
 ## Current Stage
 
-**Stage 5.5.2 complete.** Stage 5.5.3 (argument submission) is next.
+**Stage 5.5.3 complete.** Argument submission via `submitArgumentDraft` with idempotency, server validation error display, and draft-safe retry.
 
 ## What Works
 
@@ -39,10 +39,15 @@ _Last updated: 2026-05-16_
 - Composer UI (Stage 5.5.2):
   - `useConstitution.ts` — Supabase fetch with local v1 fallback; never blocks the composer
   - `composerValidation.ts` — `buildEvaluationInput` pure mapper (draft + debate + parent + constitution → evaluation input | null)
-  - `ArgumentComposer.tsx` — type picker, side picker, body input (2000-char), target excerpt, disagreement axis selector for rebuttal/counter_rebuttal, tag pickers (general + axis layer), evidence fields (url/label/source text), live `evaluateArgumentDraft` preview, disabled submit placeholder
+  - `ArgumentComposer.tsx` — type picker, side picker, body input (2000-char), target excerpt, disagreement axis selector for rebuttal/counter_rebuttal, tag pickers (general + axis layer), evidence fields (url/label/source text), live `evaluateArgumentDraft` preview
   - `ComposerTargetPanel.tsx` — root-mode copy, reply mode with parent excerpt + target excerpt field + type-specific guidance (concession/clarification/rebuttal)
   - `ComposerValidationPanel.tsx` — blocking errors, warnings, extended topic scores (resolution/parent/combined), matched/missing terms, constitution source chip
   - Reply target wired: `ArgumentTreeScreen.onReply(id, argument)` → `App.tsx` `replyTarget` state → `ArgumentComposer` props
+- Argument submission (Stage 5.5.3):
+  - `composerSubmit.ts` — pure helpers: `createSubmissionFingerprint`, `shouldReuseClientSubmissionIdForRetry`, `getOrCreateClientSubmissionId`, `buildSubmitArgumentPayload`, `extractServerValidationError`, `isIdempotentSuccess`
+  - `ArgumentComposer.tsx` — live submit button enabled when client validation passes and Supabase configured; dispatches `SUBMISSION_QUEUED → SUBMISSION_STARTED → SUBMISSION_SUCCEEDED/FAILED`; shows server blocking errors on 422; reuses `clientSubmissionId` on retry when payload unchanged; clears draft and switches to debate tab on success
+  - `PendingSubmission.submissionFingerprint` — optional field stores draft fingerprint at queue time for idempotency comparison
+  - `App.tsx` `handleSubmitSuccess` — clears `replyTarget`, switches to debate tab on successful submit
 - App shell: `App.tsx` with tab navigation, auto-switches to debate room on selection
 - Jest test suite: 337 tests pass across 10 suites
 - TypeScript strict mode — `npm run typecheck` passes (0 errors)
@@ -52,7 +57,7 @@ _Last updated: 2026-05-16_
 
 - `src/features/moderation/` — feature slice directory exists, no screens
 - Navigation stack: manual tab switching via `useState` in `App.tsx` (no Expo Router)
-- Argument submit is a disabled placeholder — `submitArgumentDraft` wiring is Stage 5.5.3
+- Viewport refresh after submit — tab switches to debate view but argument tree does not auto-refresh to show the new argument
 
 ## What Is Blocked
 
@@ -68,7 +73,7 @@ Run on 2026-05-16:
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (351 tests, 11 suites) |
+| `npm run test` | ✅ Pass (386 tests, 12 suites) |
 | `npx supabase start` | ❌ Blocked — Docker not running |
 | `npx supabase db status` | ❌ Blocked — Docker not running |
 
@@ -98,4 +103,4 @@ Policies defined in `supabase/migrations/20260516000002_rls_policies.sql` and up
 
 ## Next Recommended Stage
 
-**Stage 5.5.3 — Argument submission.** See `docs/next-prompts.md` for the exact prompt.
+**Stage 5.5.4 — Viewport refresh after submit.** After a successful argument submission, the debate tab's argument tree should refresh to show the newly posted argument without requiring the user to manually pull-to-refresh.

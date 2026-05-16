@@ -75,6 +75,11 @@ function MainAppShell() {
     setReplyTarget(null);
   };
 
+  const handleSubmitSuccess = () => {
+    setReplyTarget(null);
+    setTab('current_debate');
+  };
+
   const participantSide = state.snapshot.participantSide;
 
   return (
@@ -125,6 +130,7 @@ function MainAppShell() {
             selectedParentId={replyTarget?.id ?? null}
             parentArgument={replyTarget?.argument ?? null}
             onClearParent={handleClearParent}
+            onSubmitSuccess={handleSubmitSuccess}
           />
         )}
         {activeTab === 'account' && (

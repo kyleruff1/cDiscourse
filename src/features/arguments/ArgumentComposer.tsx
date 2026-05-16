@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,17 @@ import {
 } from 'react-native';
 import { useArgumentComposer } from './useArgumentComposer';
 import { useConstitution } from './useConstitution';
+import { useAppSession } from '../session/useAppSession';
+import { SUPABASE_CONFIGURED } from '../../lib/supabase';
+import { submitArgumentDraft } from '../../lib/edgeFunctions';
+import { deleteDraft } from '../session/sessionStorage';
+import {
+  buildSubmitArgumentPayload,
+  createSubmissionFingerprint,
+  getOrCreateClientSubmissionId,
+  extractServerValidationError,
+} from './composerSubmit';
+import type { PendingSubmission } from '../session/types';
 import { ComposerDraftRecoveryNotice } from './ComposerDraftRecoveryNotice';
 import { ComposerTargetPanel } from './ComposerTargetPanel';
 import { ComposerValidationPanel } from './ComposerValidationPanel';
@@ -26,6 +37,7 @@ interface Props {
   selectedParentId: string | null;
   parentArgument: ArgumentRow | null;
   onClearParent: () => void;
+  onSubmitSuccess: () => void;
 }
 
 const TYPE_LABELS: Record<ArgumentType, string> = {
@@ -59,12 +71,18 @@ const MAX_BODY = 2000;
 
 const NEEDS_AXIS: ArgumentType[] = ['rebuttal', 'counter_rebuttal'];
 
-export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent }: Props) {
+export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess }: Props) {
   const { draft, isRecovered, updateField, discardDraft } = useArgumentComposer(
     debate.id,
     selectedParentId,
   );
   const constitution = useConstitution();
+  const { state, dispatch } = useAppSession();
+  const userId = state.snapshot.userId;
+  const pendingSubmission = state.snapshot.pendingSubmission;
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverErrors, setServerErrors] = useState<string[] | null>(null);
 
   // Keep draft parentId in sync when the reply target changes from outside.
   const prevSelectedParentIdRef = useRef(selectedParentId);
@@ -101,6 +119,59 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
     if (!input) return null;
     return evaluateArgumentDraft(input);
   }, [draft, debate, parentArgument, constitution]);
+
+  const canSubmit =
+    !!draft &&
+    !isSubmitting &&
+    SUPABASE_CONFIGURED &&
+    !!draft.argumentType &&
+    !!draft.side &&
+    draft.body.trim().length > 0 &&
+    (evaluationResult?.allowPost ?? false);
+
+  const handleSubmit = async () => {
+    if (!draft || !draft.argumentType || !draft.side) return;
+    if (!evaluationResult?.allowPost || isSubmitting || !SUPABASE_CONFIGURED) return;
+
+    const fingerprint = createSubmissionFingerprint(draft);
+    const clientSubmissionId = getOrCreateClientSubmissionId(pendingSubmission, fingerprint);
+
+    const submission: PendingSubmission = {
+      clientSubmissionId,
+      draftId: draft.draftId,
+      debateId: draft.debateId,
+      createdAt: new Date().toISOString(),
+      status: 'queued',
+      lastError: null,
+      submissionFingerprint: fingerprint,
+    };
+
+    dispatch({ type: 'SUBMISSION_QUEUED', submission });
+    dispatch({ type: 'SUBMISSION_STARTED', clientSubmissionId });
+    setIsSubmitting(true);
+    setServerErrors(null);
+
+    const payload = buildSubmitArgumentPayload(draft, clientSubmissionId);
+    const result = await submitArgumentDraft(payload);
+
+    if (result.ok) {
+      dispatch({ type: 'SUBMISSION_SUCCEEDED', clientSubmissionId });
+      dispatch({ type: 'DRAFT_CLEARED' });
+      if (userId) {
+        void deleteDraft(userId, draft.draftId, draft.debateId);
+      }
+      onSubmitSuccess();
+    } else {
+      const errorMsg = extractServerValidationError(result.error);
+      dispatch({ type: 'SUBMISSION_FAILED', clientSubmissionId, error: errorMsg });
+      setIsSubmitting(false);
+      if (result.error.blockingErrors && result.error.blockingErrors.length > 0) {
+        setServerErrors(result.error.blockingErrors.map((e) => e.message));
+      } else {
+        setServerErrors([errorMsg]);
+      }
+    }
+  };
 
   if (!draft) {
     return <LoadingNotice message="Initializing draft…" />;
@@ -391,12 +462,29 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
           <ComposerValidationPanel result={evaluationResult} source={constitution.source} />
         )}
 
-        {/* Submit placeholder */}
+        {/* Server validation errors (422 from Edge Function) */}
+        {serverErrors && serverErrors.length > 0 && (
+          <View style={styles.serverErrorBox}>
+            <Text style={styles.serverErrorTitle}>Server rejected this argument:</Text>
+            {serverErrors.map((msg, i) => (
+              <Text key={i} style={styles.serverErrorMsg}>
+                {'•'} {msg}
+              </Text>
+            ))}
+          </View>
+        )}
+
         <Button
-          label="Submit — enabled in Stage 5.5.3"
-          onPress={() => {}}
-          disabled
+          label={isSubmitting ? 'Submitting…' : 'Submit Argument'}
+          onPress={() => { void handleSubmit(); }}
+          disabled={!canSubmit}
         />
+
+        {!SUPABASE_CONFIGURED && (
+          <Text style={styles.configWarning}>
+            Supabase not configured — submit disabled.
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -510,4 +598,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   evidenceTextarea: { minHeight: 60, textAlignVertical: 'top' },
+  serverErrorBox: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  serverErrorTitle: { fontSize: 13, fontWeight: '700', color: '#b91c1c', marginBottom: 6 },
+  serverErrorMsg: { fontSize: 13, color: '#991b1b', lineHeight: 20, marginBottom: 2 },
+  configWarning: { fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: 6 },
 });
