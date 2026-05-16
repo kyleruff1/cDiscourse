@@ -62,12 +62,13 @@ npx supabase db lint
 
 ### 3. Live Manual Smoke Test Pending
 
-**Status:** Blocking MVP sign-off  
-**Impact:** The hosted backend is configured, but the full manual smoke test (auth → debates → compose → submit → tree refresh) has not been completed in a browser session.
+**Status:** Partially unblocked — RLS recursion fixed; full walkthrough still needed  
+**Impact:** The hosted backend is configured. Migration 0006 fixed the `debates` RLS recursion that caused the "infinite recursion" error in the browser.
 
-**Resolution:** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md` sections A–I.
+**Resolution:** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md` sections A–K.
 
-Items expected to work based on static analysis:
+Items expected to work after migration 0006:
+- Debates tab loads without policy error
 - Auth sign-up / sign-in / sign-out
 - Debate create / join / list
 - Composer: type picker, side picker, body, validation preview

@@ -4,9 +4,9 @@ _Last updated: 2026-05-16 (Stage 5.5.6)_
 
 ## Current Stage
 
-**Stage 5.5.6 complete.** Account/profile feature built and tested. Supabase admin ops docs created. Local baseline green: 526 tests, typecheck clean, lint clean.
+**Stage 5.5.6.1 complete.** RLS recursion hotfix applied: migration 0006 adds three SECURITY DEFINER helpers (`is_debate_participant`, `is_debate_open_or_locked`, `is_debate_joinable`) and replaces the two mutually-recursive policies on `debates` and `debate_participants`. Pushed to hosted Supabase. Local baseline green: 526 tests, typecheck clean, lint clean.
 
-Stage 6.0 and 6.0.1 are also committed (language-processing scaffold + conversation move navigator). Stage 5 Recovery Gate complete.
+Stage 5.5.6 (account feature), Stage 6.0 (language-processing scaffold), and Stage 6.0.1 (conversation move navigator) also committed.
 
 ## What Works
 
@@ -73,10 +73,11 @@ Run on 2026-05-16:
 |---|---|
 | Project ref | `qsciikhztvzzohssddrq` |
 | Project linked | ✅ Yes |
-| Migrations applied | ✅ Yes (0001–0005) |
+| Migrations applied | ✅ Yes (0001–0006) |
 | `submit-argument` deployed | ✅ Yes (ACTIVE v1) |
 | `.env` configured | ✅ Yes |
 | ANTHROPIC_API_KEY set | ✅ Set (⚠️ rotation needed) |
+| RLS recursion on debates | ✅ Fixed (migration 0006) |
 | Live auth tested | 🔲 Pending (browser test) |
 | Live debate create/join tested | 🔲 Pending |
 | Live argument submit tested | 🔲 Pending |

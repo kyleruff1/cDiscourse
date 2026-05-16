@@ -33,6 +33,7 @@ Post-submit refresh (Stage 5.5.5) and account feature (Stage 5.5.6) implemented.
 | Web server launches | ✅ | Verified previously (352 modules) |
 | Bundle errors | ✅ None | |
 | Hosted backend live | ✅ | qsciikhztvzzohssddrq linked, submit-argument ACTIVE |
+| Debates RLS recursion | ✅ Fixed | Migration 0006 — SECURITY DEFINER helpers break the loop |
 | Account screen renders | ✅ | `AccountScreen` implemented — email, role, display name edit |
 | Auth screen renders | 🔲 Pending browser | Unblocked: .env configured |
 | Sign-in / sign-up | 🔲 Pending browser | |
@@ -116,7 +117,7 @@ All of these must pass:
 
 ## Current Status
 
-**Safe for MVP demo: ALMOST** (as of 2026-05-16 Stage 5.5.6)
+**Safe for MVP demo: ALMOST** (as of 2026-05-16 Stage 5.5.6.1)
 
 Infrastructure blockers resolved:
 - ✅ `.env` configured with real project URL and publishable key
@@ -125,6 +126,7 @@ Infrastructure blockers resolved:
 - ✅ `submit-argument` Edge Function deployed and ACTIVE
 - ✅ Post-submit tree refresh implemented (Stage 5.5.5)
 - ✅ Account/profile feature implemented (Stage 5.5.6)
+- ✅ Debates RLS recursion fixed (Stage 5.5.6.1, migration 0006)
 
 Remaining:
 1. Run the browser smoke test — `npm run web -- --clear` then walk sections A–K
