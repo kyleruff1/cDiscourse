@@ -11,7 +11,7 @@
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ArgumentBubbleControl, ArgumentBubbleViewModel } from './argumentGameSurface';
+import type { ArgumentBubbleControl, ArgumentBubbleViewModel } from './argumentGameSurfaceModel';
 
 const CONTROL_LABEL: Record<ArgumentBubbleControl, string> = {
   reply: 'Reply',

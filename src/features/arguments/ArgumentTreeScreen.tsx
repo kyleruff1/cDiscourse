@@ -11,13 +11,16 @@ import { useArgumentViewport } from './useArgumentViewport';
 import { ArgumentNode } from './ArgumentNode';
 import { ArgumentPathBar } from './ArgumentPathBar';
 import { ArgumentTimelineScreen } from './ArgumentTimelineScreen';
+import { ArgumentGameSurface } from './ArgumentGameSurface';
 import { getKnownChildCount } from './argumentCache';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import type { Debate } from '../debates/types';
-import type { ArgumentRow } from './types';
+import type { ArgumentRow, ArgumentCache } from './types';
+import type { ArgumentMessageInput, ArgumentBubbleControl } from './argumentGameSurfaceModel';
+import { useAppSession } from '../session/useAppSession';
 
-export type ArgumentViewMode = 'tree' | 'timeline';
+export type ArgumentViewMode = 'tree' | 'timeline' | 'stack';
 
 interface Props {
   debate: Debate;
@@ -64,6 +67,17 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
           const arg = cache.argumentsById[id];
           if (arg) onReply(id, arg);
         }}
+      />
+    );
+  }
+
+  if (viewMode === 'stack') {
+    return (
+      <StackGameSurfaceMount
+        debate={debate}
+        cache={cache}
+        visibleArgumentIds={visibleArgumentIds}
+        onReply={onReply}
       />
     );
   }
@@ -182,3 +196,61 @@ const styles = StyleSheet.create({
   },
   detachedText: { fontSize: 12, color: '#92400e' },
 });
+
+// ── Stage 6.1.8 — StackGameSurfaceMount adapter ────────────────────────────
+//
+// Shapes the existing ArgumentCache into ArgumentMessageInput[] for the new
+// Stack + Timeline interaction surface. No service-role usage. No body
+// mutation. The "Reply" action dispatches the existing onReply handler so
+// the composer flow remains the source of truth for posting.
+
+interface StackGameSurfaceMountProps {
+  debate: Debate;
+  cache: ArgumentCache;
+  visibleArgumentIds: string[];
+  onReply: (argumentId: string, argument: ArgumentRow) => void;
+}
+
+function StackGameSurfaceMount({ debate, cache, visibleArgumentIds, onReply }: StackGameSurfaceMountProps) {
+  const { state } = useAppSession();
+  const currentUserId = state.snapshot.userId || null;
+
+  // Use the visible argument ids (loaded so far) — feeds the same data the
+  // tree view sees. The game surface sorts them chronologically internally.
+  const messages: ArgumentMessageInput[] = visibleArgumentIds
+    .map((id) => cache.argumentsById[id])
+    .filter((row): row is ArgumentRow => Boolean(row) && row.status !== 'deleted')
+    .map((row) => ({
+      id: row.id,
+      debateId: row.debateId,
+      parentId: row.parentId,
+      authorId: row.authorId,
+      argumentType: row.argumentType,
+      side: row.side,
+      body: row.body,
+      status: row.status,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+
+  // Find the root claim for fallback display title.
+  const rootRow = messages.find((m) => m.parentId === null);
+  const handleAction = (control: ArgumentBubbleControl, messageId: string) => {
+    if (control === 'reply' || control === 'disagree' || control === 'ask_for_source' || control === 'ask_for_quote' || control === 'branch') {
+      const arg = cache.argumentsById[messageId];
+      if (arg) onReply(messageId, arg);
+    }
+    // 'flag', 'view_qualifiers', 'request_deletion' are handled inside the
+    // game surface (request_deletion opens the modal sheet automatically).
+  };
+
+  return (
+    <ArgumentGameSurface
+      debate={{ id: debate.id, title: debate.title, rootBody: rootRow?.body ?? null }}
+      messages={messages}
+      currentUserId={currentUserId}
+      isAdmin={false}
+      onAction={handleAction}
+    />
+  );
+}

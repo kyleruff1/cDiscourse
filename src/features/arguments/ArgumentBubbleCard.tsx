@@ -14,7 +14,7 @@
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ArgumentBubbleViewModel } from './argumentGameSurface';
+import type { ArgumentBubbleViewModel } from './argumentGameSurfaceModel';
 
 interface Props {
   viewModel: ArgumentBubbleViewModel;

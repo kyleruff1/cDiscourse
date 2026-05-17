@@ -50,7 +50,7 @@ function MainAppShell() {
   const [tab, setTab] = useState<ArgumentRoomTab>('arguments');
   const [replyTarget, setReplyTarget] = useState<{ id: string; argument: ArgumentRow } | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ArgumentViewMode>('tree');
+  const [viewMode, setViewMode] = useState<ArgumentViewMode>('stack');
   const [inviteOpen, setInviteOpen] = useState(false);
   const refreshTreeRef = useRef<(() => void) | null>(null);
 
@@ -158,6 +158,16 @@ function MainAppShell() {
                 <Text style={styles.roomLabel}>{ROOM_COPY.title}</Text>
                 <View style={styles.toolbarSep} />
                 {/* View toggle */}
+                <Pressable
+                  style={[styles.toolbarChip, viewMode === 'stack' && styles.toolbarChipActive]}
+                  onPress={() => setViewMode('stack')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Stack view"
+                >
+                  <Text style={[styles.toolbarChipText, viewMode === 'stack' && styles.toolbarChipTextActive]}>
+                    Stack
+                  </Text>
+                </Pressable>
                 <Pressable
                   style={[styles.toolbarChip, viewMode === 'tree' && styles.toolbarChipActive]}
                   onPress={() => setViewMode('tree')}

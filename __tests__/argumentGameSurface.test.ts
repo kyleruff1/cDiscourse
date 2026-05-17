@@ -16,7 +16,7 @@ import {
   STACK_VISIBLE_RADIUS,
   ALL_BUBBLE_CONTROLS,
   type ArgumentMessageInput,
-} from '../src/features/arguments/argumentGameSurface';
+} from '../src/features/arguments/argumentGameSurfaceModel';
 
 function mkMsg(id: string, createdAt: string, over: Partial<ArgumentMessageInput> = {}): ArgumentMessageInput {
   return {

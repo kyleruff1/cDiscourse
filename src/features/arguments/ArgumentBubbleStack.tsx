@@ -11,7 +11,7 @@ import { ArgumentBubbleCard } from './ArgumentBubbleCard';
 import {
   getStackTransformForIndex,
   type ArgumentBubbleViewModel,
-} from './argumentGameSurface';
+} from './argumentGameSurfaceModel';
 
 interface Props {
   viewModels: ArgumentBubbleViewModel[];

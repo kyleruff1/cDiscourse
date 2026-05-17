@@ -26,7 +26,7 @@ import {
   type ArgumentBubbleControl,
   type ArgumentMessageInput,
   type ArgumentSurfaceMode,
-} from './argumentGameSurface';
+} from './argumentGameSurfaceModel';
 
 interface Props {
   debate: {
