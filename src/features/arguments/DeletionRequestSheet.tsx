@@ -35,7 +35,11 @@ export function DeletionRequestSheet({ visible, debateId, argumentId, onClose, o
       setState({ kind: 'success', requestId: r.data.requestId, status: r.data.status, emailStatus: r.data.emailStatus });
       onSuccess?.(r.data);
     } else {
-      setState({ kind: 'error', message: r.error?.reason || r.error?.error || `error_${r.status}` });
+      const parts = [r.error?.reason, r.error?.detail].filter(Boolean) as string[];
+      const message = parts.length > 0
+        ? `${r.error?.error || `error_${r.status}`} (${parts.join('; ')})`
+        : (r.error?.error || `error_${r.status}`);
+      setState({ kind: 'error', message });
     }
   };
 

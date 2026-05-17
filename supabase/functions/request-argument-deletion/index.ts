@@ -70,17 +70,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── Verify caller authored the argument and it belongs to the debate. ──
   // This SELECT goes through RLS; if the row is invisible to the caller, we
-  // treat it as forbidden (no leak about existence).
+  // treat it as forbidden (no leak about existence). The schema uses
+  // `status='deleted'` for soft-delete; there is no `is_deleted` column.
   const { data: argRow, error: argErr } = await callerClient
     .from('arguments')
-    .select('id, author_id, debate_id, status, is_deleted')
+    .select('id, author_id, debate_id, status')
     .eq('id', body.argumentId)
     .maybeSingle();
-  if (argErr) return internalError('argument_lookup_failed');
+  if (argErr) return internalError(`argument_lookup_failed:${String(argErr.message || '').slice(0, 120)}`);
   if (!argRow) return forbidden('argument_not_authorized_or_missing');
   if (argRow.author_id !== requesterId) return forbidden('not_argument_author');
   if (argRow.debate_id !== body.debateId) return badRequest('debate_argument_mismatch');
-  if (argRow.is_deleted) return badRequest('argument_already_deleted');
+  if (argRow.status === 'deleted') return badRequest('argument_already_deleted');
 
   // ── Find an existing open request (RLS lets requester see their own). ──
   const { data: existing, error: existingErr } = await callerClient
@@ -118,10 +119,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ── Audit (best-effort; service-role only used here, never logged). ──
+  // `source` is NOT NULL on admin_audit_events with a CHECK constraint —
+  // omitting it produced a silent insert failure on earlier deploys.
   try {
     const svc = createServiceClient();
     await svc.from('admin_audit_events').insert({
       action: 'argument_deletion_requested',
+      source: 'edge_function',
       actor_user_id: requesterId,
       target_user_id: requesterId,
       reason: null,

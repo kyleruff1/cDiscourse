@@ -317,7 +317,7 @@ export interface RequestArgumentDeletionResult {
 
 export type RequestArgumentDeletionOutcome =
   | { ok: true; data: RequestArgumentDeletionResult }
-  | { ok: false; error: { error: string; reason?: string }; status: number };
+  | { ok: false; error: { error: string; reason?: string; detail?: string }; status: number };
 
 export async function requestArgumentDeletion(
   payload: RequestArgumentDeletionPayload,
@@ -327,10 +327,10 @@ export async function requestArgumentDeletion(
     { body: payload },
   );
   if (error) {
-    let errorBody: { error: string; reason?: string } = { error: 'network_error' };
+    let errorBody: { error: string; reason?: string; detail?: string } = { error: 'network_error' };
     try {
       const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
-      if (raw?.json) errorBody = (await raw.json()) as { error: string; reason?: string };
+      if (raw?.json) errorBody = (await raw.json()) as { error: string; reason?: string; detail?: string };
     } catch { /* ignore */ }
     const status =
       (error as { status?: number }).status ??
