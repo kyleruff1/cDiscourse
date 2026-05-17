@@ -30,8 +30,19 @@ describe('claudeMessagesClient — gating + sanitization', () => {
     delete process.env.ENGAGEMENT_INTEL_ENABLE_ANTHROPIC;
   });
 
-  it('refuses to construct a client without env file', () => {
+  it('refuses when ENGAGEMENT_INTEL_ENABLE_ANTHROPIC is explicitly false', () => {
+    // process.env overrides any value the .env file might contain — this
+    // keeps the test hermetic even when an operator has populated the local
+    // env file for the live pilot. We force the flag off and expect refusal.
+    process.env.ENGAGEMENT_INTEL_ENABLE_ANTHROPIC = 'false';
+    process.env.ANTHROPIC_API_KEY = '';
     expect(() => claude.createClient()).toThrow(/Anthropic adapter disabled/);
+  });
+
+  it('refuses when ANTHROPIC_API_KEY is missing even if flag is on', () => {
+    process.env.ENGAGEMENT_INTEL_ENABLE_ANTHROPIC = 'true';
+    process.env.ANTHROPIC_API_KEY = '';
+    expect(() => claude.createClient()).toThrow(/api_key_missing/);
   });
 
   it('sanitizes sk-ant- keys', () => {

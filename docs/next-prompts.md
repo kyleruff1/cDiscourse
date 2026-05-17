@@ -72,7 +72,12 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 6.1.5 scaffold complete as of 2026-05-17. AI-driven bot fixture path added behind operator gates. Anthropic adapter, persona prompts, move renderer with deterministic fallback, xAI X Search seed source (scaffold-only), orchestrator. +28 new tests. **1090 tests / 38 suites passing.** No live Anthropic / xAI call made. Stages 6.1.3.1–6.1.4 remain valid. Next operator step: `npm run bot:fixture:ai:3 -- --pilot` (after `.env.engagement-intelligence` has `ANTHROPIC_API_KEY` + `ENGAGEMENT_INTEL_ENABLE_ANTHROPIC=true`).
+Stage 6.1.5.1 complete as of 2026-05-17. Admin Arguments tab + message qualifier taxonomy + game recommendations doc. **1157 tests / 41 suites passing.** Live AI corpus from Stage 6.1.5 (38/38 posted) drove the recommendations. No Anthropic / xAI call by Claude in this stage.
+
+Next safe stages:
+- Stage 6.1.5.2 — point-standing persistence + UI nudges in the composer (wires the Stage 6.1.4 engine + uses `messageQualifiers` nudges).
+- Stage 6.1.5.3 — `bot:fixture:ai:50` live run (~$10–$30 spend; 50 rooms; rederive recommendations from a wider sample).
+- Stage 6.1.6 — argument-room UX cleanup informed by browser walk-through of the Admin Arguments tab.
 Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. `submit-argument` ACTIVE v1. `admin-users` ACTIVE v1.
 **851 tests pass.** TypeScript strict mode clean. ESLint clean.
 

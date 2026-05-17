@@ -96,7 +96,7 @@ export interface AdminViewAsSnapshot {
   recentAuditEvents: AdminAuditEvent[];
 }
 
-export type AdminTab = 'users' | 'view_as' | 'history' | 'blocks' | 'bot_users';
+export type AdminTab = 'users' | 'view_as' | 'history' | 'blocks' | 'bot_users' | 'arguments';
 
 export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   users: 'Users',
@@ -104,4 +104,30 @@ export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   history: 'History',
   blocks: 'Blocks',
   bot_users: 'Bot Users',
+  arguments: 'Arguments',
 };
+
+/**
+ * One row in the AdminArgumentsTab. Shape is what the tab's loader returns
+ * after joining `public.arguments` with `public.debates` (title) and
+ * `public.profiles` (display name). Admin RLS already permits the SELECT.
+ */
+export interface AdminArgumentRow {
+  id: string;
+  debateId: string;
+  debateTitle: string | null;
+  authorId: string | null;
+  authorDisplayName: string | null;
+  argumentType: string;
+  side: string;
+  body: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  disagreementAxis: string | null;
+  selectedTagCodes: string[] | null;
+  targetExcerpt: string | null;
+  hasEvidence: boolean;
+  hasFlags: boolean;
+  topicSatisfactionScore: number | null;
+}
