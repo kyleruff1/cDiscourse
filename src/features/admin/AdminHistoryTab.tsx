@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { adminGetUserDetail, adminErrorMessage, summarizeAuditPayload } from './adminApi';
 import type { AdminAuditEvent } from './types';
+import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
 
 /**
  * AdminHistoryTab — shows recent admin actions for a queried user.
@@ -47,12 +48,23 @@ export function AdminHistoryTab() {
         autoCapitalize="none"
         accessibilityLabel="history-target-id"
       />
-      {loading && <Text style={styles.muted}>Loading…</Text>}
-      {error && <Text style={styles.error}>{error}</Text>}
+      {loading && <Text style={styles.muted} accessibilityLabel="history-loading">Loading audit events…</Text>}
+      {error && (
+        <Text style={styles.error} accessibilityLabel="history-error">
+          Could not load events: {error}.
+        </Text>
+      )}
+      {events.length > 0 && (
+        <Text style={styles.sortStatus} accessibilityLabel="history-sort-status">
+          Sorted by: Created ↓ (Newest first — admin-users Edge Function default)
+        </Text>
+      )}
       {events.map((e) => (
         <View key={e.id} style={styles.event}>
           <Text style={styles.eventAction}>{e.action}</Text>
-          <Text style={styles.eventMeta}>{e.created_at}</Text>
+          <Text style={styles.eventMeta}>
+            Created {formatDateTime(e.created_at)} ({formatRelativeShort(e.created_at)})
+          </Text>
           {e.reason && <Text style={styles.eventReason}>Reason: {e.reason}</Text>}
           {Object.keys(e.payload ?? {}).length > 0 && (
             <Text style={styles.eventPayload}>{summarizeAuditPayload(e.payload)}</Text>
@@ -60,7 +72,9 @@ export function AdminHistoryTab() {
         </View>
       ))}
       {!loading && targetUserId.trim() && events.length === 0 && !error && (
-        <Text style={styles.muted}>No events for this user.</Text>
+        <Text style={styles.muted} accessibilityLabel="history-empty">
+          No events for this user. Newer admin actions on this user will appear here, newest first.
+        </Text>
       )}
     </ScrollView>
   );
@@ -78,4 +92,5 @@ const styles = StyleSheet.create({
   eventMeta: { fontSize: 10, color: '#6b7280', marginTop: 2 },
   eventReason: { fontSize: 11, color: '#374151', marginTop: 2 },
   eventPayload: { fontSize: 10, color: '#6b7280', marginTop: 2, fontFamily: 'monospace' as 'monospace' },
+  sortStatus: { fontSize: 11, color: '#374151', fontWeight: '600', marginBottom: 6 },
 });

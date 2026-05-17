@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,10 @@ import { LoadingNotice } from '../../components/LoadingNotice';
 import { CreateDebateForm } from './CreateDebateForm';
 import { JoinDebatePanel } from './JoinDebatePanel';
 import type { Debate, CreateDebateInput, ParticipantSide } from './types';
+import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
+
+type DebateSortField = 'updated_at' | 'created_at';
+type DebateSortDirection = 'desc' | 'asc';
 
 interface Props {
   debates: Debate[];
@@ -52,6 +56,8 @@ interface DebateCardProps {
 function DebateCard({ debate, onPress }: DebateCardProps) {
   const dotColor = STATUS_DOT[debate.status] ?? '#9ca3af';
   const sideText = debate.myParticipantSide ? SIDE_LABEL[debate.myParticipantSide] : null;
+  const hasUpdated = Boolean(debate.updatedAt);
+  const updatedDisplay = hasUpdated ? debate.updatedAt : debate.createdAt;
 
   return (
     <Pressable
@@ -75,6 +81,18 @@ function DebateCard({ debate, onPress }: DebateCardProps) {
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>{debate.title}</Text>
       <Text style={styles.cardResolution} numberOfLines={2}>{debate.resolution}</Text>
+      <View style={styles.cardTimes} accessibilityLabel={`debate-times-${debate.id}`}>
+        <Text style={styles.cardTimeText}>
+          <Text style={styles.cardTimeLabel}>Created </Text>
+          {formatDateTime(debate.createdAt)} · {formatRelativeShort(debate.createdAt)}
+        </Text>
+        <Text style={styles.cardTimeText}>
+          <Text style={styles.cardTimeLabel}>
+            Last Updated{hasUpdated ? ' ' : ': same as created · '}
+          </Text>
+          {formatDateTime(updatedDisplay)} · {formatRelativeShort(updatedDisplay)}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -90,6 +108,34 @@ export function DebateListScreen({
 }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [joiningDebate, setJoiningDebate] = useState<Debate | null>(null);
+  const [sortField, setSortField] = useState<DebateSortField>('updated_at');
+  const [sortDirection, setSortDirection] = useState<DebateSortDirection>('desc');
+
+  const toggleSort = (field: DebateSortField) => {
+    if (field === sortField) {
+      setSortDirection((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const sortedDebates = useMemo(() => {
+    const arr = [...debates];
+    const pick = (d: Debate) => {
+      const v = sortField === 'created_at' ? d.createdAt : (d.updatedAt || d.createdAt);
+      const t = new Date(v).getTime();
+      return Number.isNaN(t) ? 0 : t;
+    };
+    arr.sort((a, b) => (sortDirection === 'asc' ? pick(a) - pick(b) : pick(b) - pick(a)));
+    return arr;
+  }, [debates, sortField, sortDirection]);
+
+  const sortHuman = sortField === 'updated_at'
+    ? (sortDirection === 'desc' ? 'Newest activity' : 'Oldest activity')
+    : (sortDirection === 'desc' ? 'Newest created' : 'Oldest created');
+  const sortColumn = sortField === 'updated_at' ? 'Last Updated' : 'Created';
+  const sortArrow = sortDirection === 'desc' ? '↓' : '↑';
 
   const handleDebatePress = (debate: Debate) => {
     if (debate.myParticipantSide) {
@@ -152,16 +198,44 @@ export function DebateListScreen({
 
       {error ? (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>Could not load debates. Pull to refresh. (detail: {error})</Text>
         </View>
       ) : null}
+
+      <View style={styles.sortBar} accessibilityLabel="debates-sort-bar">
+        <Text style={styles.sortBarLabel}>Sort by:</Text>
+        <Pressable
+          onPress={() => toggleSort('updated_at')}
+          style={[styles.sortChip, sortField === 'updated_at' && styles.sortChipActive]}
+          accessibilityLabel="debates-sort-updated"
+        >
+          <Text style={[styles.sortChipText, sortField === 'updated_at' && styles.sortChipTextActive]}>
+            Last Updated{sortField === 'updated_at' ? ` ${sortArrow}` : ''}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => toggleSort('created_at')}
+          style={[styles.sortChip, sortField === 'created_at' && styles.sortChipActive]}
+          accessibilityLabel="debates-sort-created"
+        >
+          <Text style={[styles.sortChipText, sortField === 'created_at' && styles.sortChipTextActive]}>
+            Created{sortField === 'created_at' ? ` ${sortArrow}` : ''}
+          </Text>
+        </Pressable>
+      </View>
+      <Text style={styles.sortStatus} accessibilityLabel="debates-sort-status">
+        Sorted by: {sortColumn} {sortArrow} ({sortHuman})
+      </Text>
+      <Text style={styles.sortHelper}>
+        Use Last Updated to find active conversations. Use Created to find newest rooms.
+      </Text>
 
       <ScrollView
         style={styles.list}
         contentContainerStyle={styles.listContent}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
       >
-        {debates.length === 0 ? (
+        {sortedDebates.length === 0 ? (
           <EmptyState
             title="No debates yet"
             body={'Tap "+ New" to start the first debate.'}
@@ -169,7 +243,7 @@ export function DebateListScreen({
             onAction={() => setShowCreate(true)}
           />
         ) : (
-          debates.map((debate) => (
+          sortedDebates.map((debate) => (
             <DebateCard key={debate.id} debate={debate} onPress={handleDebatePress} />
           ))
         )}
@@ -229,4 +303,44 @@ const styles = StyleSheet.create({
   joinHint: { fontSize: 11, color: '#9ca3af' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 4 },
   cardResolution: { fontSize: 13, color: '#6b7280', lineHeight: 18 },
+  cardTimes: { marginTop: 8, gap: 2 },
+  cardTimeText: { fontSize: 11, color: '#6b7280' },
+  cardTimeLabel: { color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase', fontSize: 10 },
+  sortBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    gap: 6,
+  },
+  sortBarLabel: { fontSize: 11, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase' },
+  sortChip: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  sortChipActive: { backgroundColor: '#e0e7ff', borderColor: '#6366f1' },
+  sortChipText: { fontSize: 12, color: '#374151', fontWeight: '600' },
+  sortChipTextActive: { color: '#4338ca' },
+  sortStatus: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#374151',
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+    backgroundColor: '#f9fafb',
+  },
+  sortHelper: {
+    fontSize: 11,
+    color: '#4b5563',
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+    backgroundColor: '#f9fafb',
+  },
 });

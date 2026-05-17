@@ -11,6 +11,9 @@
 import { supabase, SUPABASE_CONFIGURED } from '../../lib/supabase';
 import type { AdminArgumentRow } from './types';
 
+export type AdminArgumentsSortField = 'updated_at' | 'created_at';
+export type AdminArgumentsSortDirection = 'desc' | 'asc';
+
 export interface LoadAdminArgumentsOptions {
   /** Cap rows returned. Defaults to 50. */
   limit?: number;
@@ -20,6 +23,10 @@ export interface LoadAdminArgumentsOptions {
   authorId?: string | null;
   /** When true, includes soft-deleted rows. Off by default. */
   includeDeleted?: boolean;
+  /** Sort column. Defaults to `updated_at`. */
+  sortField?: AdminArgumentsSortField;
+  /** Sort direction. Defaults to `desc` (newest first). */
+  sortDirection?: AdminArgumentsSortDirection;
 }
 
 interface RawArgumentRow {
@@ -66,6 +73,8 @@ function extractTopicScore(serverValidation: Record<string, unknown> | null): nu
 export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}): Promise<AdminArgumentRow[]> {
   if (!SUPABASE_CONFIGURED) return [];
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 500);
+  const sortField: AdminArgumentsSortField = options.sortField === 'created_at' ? 'created_at' : 'updated_at';
+  const sortDirection: AdminArgumentsSortDirection = options.sortDirection === 'asc' ? 'asc' : 'desc';
   let q = supabase
     .from('arguments')
     .select(
@@ -76,7 +85,7 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
         'debates(title)', 'profiles(display_name)',
       ].join(','),
     )
-    .order('updated_at', { ascending: false })
+    .order(sortField, { ascending: sortDirection === 'asc' })
     .limit(limit);
   if (options.debateId) q = q.eq('debate_id', options.debateId);
   if (options.authorId) q = q.eq('author_id', options.authorId);
