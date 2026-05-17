@@ -1,6 +1,6 @@
 # Engagement Epidemiology — 2026-05-17
 
-_Run id_: `2026-05-17T05-01-09-728Z-705fea5f`
+_Run id_: `2026-05-17T05-16-23-330Z-ffc5254d`
 _Source mode_: `synthetic`
 _Stories_: 0  ·  _Root posts_: 24  ·  _Reply pairs_: 24  ·  _Excluded_: 0
 _X API live calls_: NO  ·  _xAI live calls_: NO  ·  _service-role used_: NO  ·  _user-review required_: ALWAYS

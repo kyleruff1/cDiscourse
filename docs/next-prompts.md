@@ -72,7 +72,7 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 6.1.4 complete as of 2026-05-17. Point-standing economy engine added in `src/features/pointStanding/` — pure-TS, not auto-wired. Encodes the doctrine "concession is a scoring repair, not a scoring defeat." +24 new tests covering worked bike-lane example, evasion example, anti-exploit gates, and ledger semantics. **1062 tests / 37 suites passing.** Stages 6.1.3.1 / 6.1.3.2 / 6.1.3.2a / 6.1.3.3 remain valid.
+Stage 6.1.5 scaffold complete as of 2026-05-17. AI-driven bot fixture path added behind operator gates. Anthropic adapter, persona prompts, move renderer with deterministic fallback, xAI X Search seed source (scaffold-only), orchestrator. +28 new tests. **1090 tests / 38 suites passing.** No live Anthropic / xAI call made. Stages 6.1.3.1–6.1.4 remain valid. Next operator step: `npm run bot:fixture:ai:3 -- --pilot` (after `.env.engagement-intelligence` has `ANTHROPIC_API_KEY` + `ENGAGEMENT_INTEL_ENABLE_ANTHROPIC=true`).
 Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. `submit-argument` ACTIVE v1. `admin-users` ACTIVE v1.
 **851 tests pass.** TypeScript strict mode clean. ESLint clean.
 

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "source": "manual_synthetic",
+  "description": "Synthetic topic seeds shaped like topicBank entries, used as the stand-in for xAI X Search results when the live path is disabled. No real X posts, no real handles, no real URLs. Stage 6.1.5.",
+  "topics": [
+    {
+      "topicId": "ai-seed-pitch-clock-baseball",
+      "title": "Pitch clock changed baseball pacing.",
+      "resolution": "The pitch clock made baseball faster and more watchable.",
+      "resolutionKeywords": ["pitch", "clock", "baseball", "watchable", "pacing"],
+      "thesisFraming": "The pitch clock made baseball faster and more watchable. Late innings have less downtime and the pacing keeps fans in the game.",
+      "counterClaims": [
+        "The pitch clock rushed pitchers into mistakes and hurt late-inning pacing.",
+        "Faster pacing in baseball cheapened the strategic pauses that matter."
+      ],
+      "evidenceFacts": [
+        { "label": "MLB average game length change", "sourceText": "Average MLB game length dropped by roughly 24 minutes in the first season of the pitch clock." },
+        { "label": "Player and viewer reaction surveys", "sourceText": "Player and viewer reaction surveys showed mixed but largely positive responses to the pitch clock." }
+      ],
+      "scopeNarrowings": ["late-inning baseball only", "starting pitchers specifically"],
+      "tangentHooks": ["Defense-first teams are more fun than highlight teams — separate thread."]
+    },
+    {
+      "topicId": "ai-seed-bike-lanes-curb",
+      "title": "Bike lanes are better curb space than parking.",
+      "resolution": "Protected bike lanes are a better use of curb space than parking in dense corridors.",
+      "resolutionKeywords": ["protected", "bike", "lanes", "curb", "parking"],
+      "thesisFraming": "Protected bike lanes are a better use of curb space than parking in dense corridors. Bike lanes move more people per linear curb foot than parking does.",
+      "counterClaims": [
+        "Protected bike lanes do not actually outperform parking for most curb users in most corridors.",
+        "Replacing curb parking with bike lanes hurts businesses that need curb loading."
+      ],
+      "evidenceFacts": [
+        { "label": "Curb productivity studies", "sourceText": "Curb productivity research consistently finds protected bike lanes carry more daily users per foot than parking in dense corridors." },
+        { "label": "Business-impact case studies", "sourceText": "Multiple corridor studies show retail revenue stable or up after replacing curb parking with protected bike lanes." }
+      ],
+      "scopeNarrowings": ["dense commercial corridors only", "weekday peak hours specifically"],
+      "tangentHooks": ["Libraries should host more after-hours events — separate thread."]
+    },
+    {
+      "topicId": "ai-seed-onboarding-apology",
+      "title": "Long onboarding is an apology for bad UI.",
+      "resolution": "Long onboarding screens are usually an apology for bad UI.",
+      "resolutionKeywords": ["long", "onboarding", "screens", "apology", "bad"],
+      "thesisFraming": "Long onboarding screens are usually an apology for bad UI. The onboarding patches over the bad UI the product team did not fix at the core.",
+      "counterClaims": [
+        "Long onboarding screens are not usually an apology — they are a deliberate guided first session.",
+        "Calling long onboarding an apology underestimates the value of structured first sessions."
+      ],
+      "evidenceFacts": [
+        { "label": "Onboarding drop-off studies", "sourceText": "Onboarding drop-off studies consistently find longer flows correlate with higher early-funnel drop." },
+        { "label": "Activation metric analysis", "sourceText": "Activation metric analysis often shows users who skip long onboarding still activate at similar rates." }
+      ],
+      "scopeNarrowings": ["consumer apps only", "first-session onboarding specifically"],
+      "tangentHooks": ["A useful empty state beats a tutorial — separate thread."]
+    }
+  ]
+}
