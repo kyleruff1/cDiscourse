@@ -20,6 +20,7 @@ const { createBotClient, signInBot } = require('./supabaseClient');
 const { ensureBotUser } = require('./adminOps');
 const { buildSubmitArgumentBody, invokeSubmitArgument } = require('./submitMove');
 const { writeRunLog } = require('./writeRunLog');
+const { mapPersonaSideToParticipantSide } = require('./personaMapping');
 
 async function main() {
   const cliScenarioId = process.argv[2];
@@ -103,13 +104,19 @@ async function main() {
   }
 
   const roomTitle = `${scenario.title} (bot fixture ${new Date().toISOString().slice(0, 19)})`;
+  // Use scenario.debateDescription if present, else empty string. Never
+  // forward `scenario.notes` — those are test-author metadata describing
+  // what the fixture exercises, and they pollute the topic-satisfaction
+  // reference set so child moves score off-topic.
+  const debateDescription =
+    typeof scenario.debateDescription === 'string' ? scenario.debateDescription : '';
   const debateInsert = await botA.client
     .from('debates')
     .insert({
       created_by: botA.userId,
       title: roomTitle,
       resolution: scenario.resolution,
-      description: scenario.notes || '',
+      description: debateDescription,
       status: 'open',
       constitution_id: constitutionRes.data.id,
     })
@@ -127,11 +134,12 @@ async function main() {
     .from('debate_participants')
     .insert({ debate_id: debateId, user_id: botA.userId, side: 'moderator' });
 
-  // Other bots join
+  // Other bots join. Persona 'neutral' maps to participant 'moderator' so the
+  // bot can post synthesis / cross-side moves; see personaMapping.js.
   for (let i = 1; i < cfg.bots.length; i++) {
     const bot = botByAlias[botAliasesAvailable[i]];
     const personaSide = (scenario.personas && scenario.personas[i] && scenario.personas[i].side) || 'observer';
-    const joinSide = personaSide === 'affirmative' || personaSide === 'negative' ? personaSide : 'observer';
+    const joinSide = mapPersonaSideToParticipantSide(personaSide);
     const { error } = await bot.client
       .from('debate_participants')
       .insert({ debate_id: debateId, user_id: bot.userId, side: joinSide });
@@ -159,6 +167,21 @@ async function main() {
     }
     const personaSide = (scenario.personas || []).find((p) => p.alias === move.authorAlias);
     const side = (personaSide && personaSide.side) || 'neutral';
+
+    // Skip children whose parent move did not post — submit-argument would
+    // reject with a confusing "parent not found" 403 and pollute the log.
+    if (move.parentMoveId && !argumentIdByMoveId[move.parentMoveId]) {
+      results.push({
+        moveId: move.moveId,
+        expectedStatus: move.expectedStatus,
+        actualStatus: 'skipped_missing_parent',
+        argumentId: null,
+        errorCode: 'parent_did_not_post',
+        errorDetail: `parent move ${move.parentMoveId} did not post`,
+      });
+      console.warn(`[runner] ${move.moveId} skipped (parent ${move.parentMoveId} missing)`);
+      continue;
+    }
     const parentArgumentId = move.parentMoveId ? argumentIdByMoveId[move.parentMoveId] : null;
 
     const body = buildSubmitArgumentBody({
@@ -189,17 +212,21 @@ async function main() {
         actualStatus: 'posted',
         argumentId: argId,
         errorCode: null,
+        errorDetail: null,
       });
       console.log(`[runner] ${move.moveId} posted as ${argId}`);
     } else {
+      const errCode =
+        typeof result.error === 'object' && result.error ? result.error.error || 'unknown' : String(result.error);
       results.push({
         moveId: move.moveId,
         expectedStatus: move.expectedStatus,
         actualStatus: `failed_${result.status}`,
         argumentId: null,
-        errorCode: typeof result.error === 'object' ? result.error.error || 'unknown' : String(result.error),
+        errorCode: errCode,
+        errorDetail: result.detail || null,
       });
-      console.warn(`[runner] ${move.moveId} failed (${result.status})`);
+      console.warn(`[runner] ${move.moveId} failed_${result.status} (${errCode})`);
     }
   }
 

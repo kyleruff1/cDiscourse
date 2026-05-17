@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-16 (Stage 6.1.2.1)_
+_Last updated: 2026-05-17 (Stage 6.1.2.4b)_
 
 ---
 
@@ -26,6 +26,9 @@ All 5 migrations (0001–0005) are applied to the hosted project. `npx supabase 
 
 ### ✅ Admin Foundation Deployed (Stage 6.1.2.1)
 Migration 0007 applied; `admin-users` Edge Function deployed (ACTIVE v1); dev human bootstrapped to `role=admin` via untracked `scripts/admin/bootstrap-admin.local.sql`. Verification query confirms `is_admin=true`. Live browser smoke (sections A–H of `docs/testing-runs/2026-05-16-admin-smoke.md`) pending operator run.
+
+### ✅ Bot Fixture Runner Live End-to-End (Stage 6.1.2.4b)
+First live fixture run posted **7/7** moves for `sports-play-in` via normal auth + `submit-argument` (room `62305b8b-c11e-41a6-81b8-4c95daf73d2c`). Runner error classification, persona→side mapping, and parent-skipping repaired; fixture transitions and bodies aligned with the constitution and topic-satisfaction thresholds. No service-role key, no Anthropic. See `docs/testing-runs/2026-05-17-sports-play-in.md` and `docs/bot-fixture-runner.md`.
 
 ---
 

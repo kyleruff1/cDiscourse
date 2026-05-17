@@ -1,10 +1,12 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-16 (Stage 6.1.2)_
+_Last updated: 2026-05-17 (Stage 6.1.2.4b)_
 
 ## Current Stage
 
-**Stage 6.1.2 complete.** Admin and bot operations foundation: `is_admin()` helper, `admin_audit_events` / `admin_block_rules` / `bot_user_registry` tables (migration 0007 applied to hosted DB), `admin-users` Edge Function with 14 whitelisted actions, admin client wrapper, AdminScreen with 5 sub-tabs (Users / View As / History / Blocks / Bot Users), Admin tab gated by `profiles.role = 'admin'`. View As is read-only snapshot only — no auth impersonation. Bootstrap admin SQL is untracked (`scripts/admin/bootstrap-admin.local.sql` is gitignored). 750 tests, 26 suites, all passing.
+**Stage 6.1.2.4b complete.** Bot fixture runner repaired and first end-to-end live fixture run achieved (sports-play-in, 7/7 moves posted via normal Supabase auth + `submit-argument`, room `62305b8b-c11e-41a6-81b8-4c95daf73d2c`). Runner now extracts real HTTP status from `FunctionsHttpError.context.status` (no more `failed_500` collapse for real 422/403), records `errorDetail` from `blockingErrors[0]` / 403 `reason`, skips children when parent did not post, and maps persona side `neutral` → participant side `moderator` so synthesizer bots can post across types per the constitution. Fixture sports-play-in patched: m6 (concession) now replies to m4 (claim) and m7 (synthesis) replies to m6 (concession) per `transition_*` rules; m5 and m6 bodies expanded to share parent vocabulary so combined topic-satisfaction score clears the off-topic threshold; m7 body includes a concession marker. Runner no longer passes `scenario.notes` as `debate.description` (it polluted the topic-reference term set). 803 tests, 27 suites, all passing. GitHub origin/main up to date through 6.1.2.3.
+
+**Stage 6.1.2 (foundation) complete.** Admin and bot operations foundation: `is_admin()` helper, `admin_audit_events` / `admin_block_rules` / `bot_user_registry` tables (migration 0007 applied to hosted DB), `admin-users` Edge Function with 14 whitelisted actions, admin client wrapper, AdminScreen with 5 sub-tabs (Users / View As / History / Blocks / Bot Users), Admin tab gated by `profiles.role = 'admin'`. View As is read-only snapshot only — no auth impersonation. Bootstrap admin SQL is untracked (`scripts/admin/bootstrap-admin.local.sql` is gitignored).
 
 Stages 6.1.0 (gamified UX), 6.0.3 (inline composer), 5.5.6.1 (RLS hotfix), 5.5.6 (account), 5.5.5 (post-submit refresh), and earlier all committed.
 
@@ -58,16 +60,16 @@ Stages 6.1.0 (gamified UX), 6.0.3 (inline composer), 5.5.6.1 (RLS hotfix), 5.5.6
 
 ## Last Verification Commands
 
-Run on 2026-05-16:
+Run on 2026-05-17:
 
 | Command | Result |
 |---|---|
 | `npm run typecheck` | ✅ Pass (0 errors) |
 | `npm run lint` | ✅ Pass (0 warnings) |
-| `npm run test` | ✅ Pass (750 tests, 26 suites) |
+| `npm run test` | ✅ Pass (803 tests, 27 suites) |
 | `npx supabase db push --dry-run` | ✅ Remote database is up to date |
-| `npx supabase functions list` | submit-argument ACTIVE; admin-users not yet deployed |
-| `npx supabase secrets list` | All expected secrets present (names only) |
+| `npx supabase functions list` | submit-argument ACTIVE v1; admin-users ACTIVE v1 |
+| `npm run bot:fixture:sports` | ✅ 7/7 moves posted via normal auth + submit-argument (no service-role, no Anthropic) |
 
 ## Hosted Backend Status
 
@@ -84,6 +86,8 @@ Run on 2026-05-16:
 
 1. ✅ `admin-users` deployed
 2. ✅ Admin bootstrap SQL run
-3. **Live browser smoke**: `npm run web -- --clear`, walk `docs/testing-runs/2026-05-16-admin-smoke.md` sections A–H
-4. **Stage 6.1.2.2 — dev bot fixture runner** (Node scripts under `scripts/bot-fixtures/`, uses normal auth, no service-role)
-5. Later: Stage 6.1.3 (invite backend) or Stage 6.1.4 (resting status persistence)
+3. ✅ Bot fixture runner repaired and first live run posted 7/7 moves (Stage 6.1.2.4b, room `62305b8b-c11e-41a6-81b8-4c95daf73d2c`)
+4. **Live browser smoke (A–H)** + **UX triage of bot-generated room** — still pending operator-driven walk in `npm run web -- --clear`. Use `docs/testing-runs/2026-05-16-admin-smoke.md` for admin checks and inspect the bot room above for argument-flow UX.
+5. **Run remaining fixture scenarios**: `bot:fixture:popculture`, `bot:fixture:bikelanes`, `bot:fixture:remotework` — each may need the same body-overlap tightening applied to sports-play-in.
+6. Stage 6.1.5 — persistent resting status / claim standing from server (currently client-computed).
+7. Stage 6.1.4 — argument-room UX simplification informed by browser triage of the live bot room.

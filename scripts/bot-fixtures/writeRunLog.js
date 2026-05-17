@@ -29,10 +29,12 @@ function redactText(text, aliasByEmail = {}) {
 }
 
 function formatMoveResultsTable(results) {
-  const header = '| moveId | Expected | Actual | argumentId | Error |\n|---|---|---|---|---|';
-  const rows = results.map((r) =>
-    `| ${r.moveId} | ${r.expectedStatus || '—'} | ${r.actualStatus} | ${r.argumentId || '—'} | ${r.errorCode || ''} |`,
-  );
+  const header =
+    '| moveId | Expected | Actual | argumentId | Error | Detail |\n|---|---|---|---|---|---|';
+  const rows = results.map((r) => {
+    const detail = typeof r.errorDetail === 'string' && r.errorDetail.length > 0 ? r.errorDetail : '';
+    return `| ${r.moveId} | ${r.expectedStatus || '—'} | ${r.actualStatus} | ${r.argumentId || '—'} | ${r.errorCode || ''} | ${detail} |`;
+  });
   return [header, ...rows].join('\n');
 }
 

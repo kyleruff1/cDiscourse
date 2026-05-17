@@ -1,6 +1,6 @@
 # CDiscourse — Bot Fixture Runner
 
-_Stage 6.1.2.2 — 2026-05-16_
+_Stage 6.1.2.4b — 2026-05-17 (repair pass)_
 
 ## What this is
 
@@ -19,16 +19,46 @@ A **dev-only Node script** that drives the app's authoritative paths using fixtu
 
 ```
 scripts/bot-fixtures/
-  loadEnv.mjs         — env parsing + validation (pure)
-  loadScenario.mjs    — fixture JSON loader + ordering (pure)
-  supabaseClient.mjs  — anon-key client factory + signInBot
-  adminOps.mjs        — admin-users wrapper (admin JWT)
-  submitMove.mjs      — fixture→submit-argument body builder (pure)
-  writeRunLog.mjs     — redacted run log writer
-  runScenario.mjs     — entry point
+  loadEnv.js          — env parsing + validation (pure)
+  loadScenario.js     — fixture JSON loader + ordering (pure)
+  supabaseClient.js   — anon-key client factory + signInBot
+  adminOps.js         — admin-users wrapper (admin JWT)
+  submitMove.js       — fixture→submit-argument body builder + error classifier
+  writeRunLog.js      — redacted run log writer
+  personaMapping.js   — persona side → participant side mapping (pure)
+  runScenario.js      — entry point
 ```
 
 Unit tests: `__tests__/botFixtureRunner.test.ts` (pure helpers only).
+
+## Error classification (Stage 6.1.2.4b)
+
+`submitMove.js` extracts the real HTTP status from `FunctionsHttpError.context.status` — the `error.status` field on supabase-js v2 is undefined, so a previous version mislabeled every real 422 / 403 as `failed_500`. The runner now records:
+
+- `failed_403` for forbidden (with `detail` = `body.reason`)
+- `failed_422` for validation_failed (with `detail` = first `blockingErrors[0].ruleCode + message`)
+- `failed_500` only for true transport / internal errors
+- `skipped_missing_parent` for moves whose parent did not post
+
+`writeRunLog.js` includes a Detail column for at-a-glance diagnosis. JWTs, apikey values, request headers, and emails are never logged.
+
+## Persona → participant side mapping (Stage 6.1.2.4b)
+
+`personaMapping.js` maps the fixture persona's `side` to the participant `side` that satisfies `submit-argument`'s authorization matrix:
+
+| Persona side | Participant side | Why |
+|---|---|---|
+| affirmative | affirmative | normal |
+| negative | negative | normal |
+| neutral | moderator | so a third-party synthesizer can post synthesis / cross-side moves; observers may only post neutral `clarification_request` |
+| (other) | observer | safe default |
+
+## Fixture authoring rules (informed by 6.1.2.4b)
+
+- **Transitions are enforced server-side.** A child move's `argumentType` must be in the parent's `allowed_reply_types` (see `transition_*` rules in `supabase/migrations/20260516000003_seed_data.sql`). Most notably: `synthesis` can ONLY follow `concession`; `concession` cannot follow `evidence`.
+- **Topic satisfaction is lexical.** Each body must share enough unique non-stop tokens with the **resolution** AND with the **parent body** to clear the off-topic threshold (combined = min of the two). Quote a few words from the parent and from the resolution.
+- **Concession marker required.** Bodies of `concession` AND `synthesis` arguments must include one of: `i concede`, `i grant`, `i agree with`, `that point is valid`, `you're right`, `fair point`, `i acknowledge`.
+- **Runner does NOT pass `scenario.notes` as `debate.description`** — `notes` is test metadata and pollutes the topic-reference token set. Use the optional `debateDescription` field in the scenario JSON for real description text.
 
 ## Operator setup (first time)
 

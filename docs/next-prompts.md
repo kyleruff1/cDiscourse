@@ -72,15 +72,15 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 6.1.2 complete as of 2026-05-16.
-Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. `submit-argument` ACTIVE. `admin-users` written, **deploy pending**.
-750 tests pass. TypeScript strict mode clean. ESLint clean.
+Stage 6.1.2.4b complete as of 2026-05-17. Bot fixture runner repaired; first end-to-end fixture posted 7/7 moves via normal auth + `submit-argument` (sports-play-in, room `62305b8b-c11e-41a6-81b8-4c95daf73d2c`).
+Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. `submit-argument` ACTIVE v1. `admin-users` ACTIVE v1.
+**803 tests pass.** TypeScript strict mode clean. ESLint clean.
 
-**Safe to run admin smoke test: YES — after deploy + bootstrap (Prompt 0).**
-**AI (Anthropic) not called in Stage 6.1.2: confirmed.**
+**Safe to run admin smoke test: YES.**
+**Safe to run other bot fixtures (popculture / bikelanes / remotework): YES — but each fixture body may need the same parent-overlap + resolution-keyword tightening applied to sports-play-in.**
+**AI (Anthropic) not called in Stage 6.1.2.4b: confirmed.**
 
 See `docs/current-status.md` for full status.
+See `docs/bot-fixture-runner.md` for runner / fixture authoring rules (updated 6.1.2.4b).
+See `docs/testing-runs/2026-05-17-sports-play-in.md` for the live run log.
 See `docs/admin-security-model.md` for admin security details.
-See `docs/admin-bootstrap.md` for one-time bootstrap.
-See `docs/admin-operations.md` for what admins can/cannot do.
-See `docs/bot-user-operations.md` for bot user flow.

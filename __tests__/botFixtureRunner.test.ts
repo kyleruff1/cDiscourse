@@ -13,6 +13,7 @@ const loadEnv = require(path.join(repoRoot, 'scripts/bot-fixtures/loadEnv.js'));
 const loadScenario = require(path.join(repoRoot, 'scripts/bot-fixtures/loadScenario.js'));
 const submitMove = require(path.join(repoRoot, 'scripts/bot-fixtures/submitMove.js'));
 const writeRunLog = require(path.join(repoRoot, 'scripts/bot-fixtures/writeRunLog.js'));
+const personaMapping = require(path.join(repoRoot, 'scripts/bot-fixtures/personaMapping.js'));
 
 describe('loadEnv helpers', () => {
   it('parseDotEnv reads simple KEY=VALUE lines', () => {
@@ -364,6 +365,194 @@ describe('runner source — security invariants', () => {
       // string/regex literal). stripCommentsAndStrings removes regex literals
       // so this check confirms no executable code uses the key.
       expect(code).not.toMatch(/sb_secret_[A-Za-z0-9]/);
+    }
+  });
+});
+
+describe('submitMove — error classification', () => {
+  it('extractErrorStatus returns FunctionsHttpError.context.status', () => {
+    const err = { context: { status: 422 } };
+    expect(submitMove.extractErrorStatus(err)).toBe(422);
+  });
+
+  it('extractErrorStatus falls back to error.status when context missing', () => {
+    const err = { status: 403 };
+    expect(submitMove.extractErrorStatus(err)).toBe(403);
+  });
+
+  it('extractErrorStatus returns 0 when neither is available', () => {
+    expect(submitMove.extractErrorStatus({})).toBe(0);
+    expect(submitMove.extractErrorStatus(null)).toBe(0);
+  });
+
+  it('summarizeErrorDetail picks first blockingError message', () => {
+    const body = {
+      error: 'validation_failed',
+      blockingErrors: [{ ruleCode: 'length_body', message: 'Argument body is too short.' }],
+    };
+    expect(submitMove.summarizeErrorDetail(body)).toBe('length_body: Argument body is too short.');
+  });
+
+  it('summarizeErrorDetail picks reason for 403 forbidden', () => {
+    const body = { error: 'forbidden', reason: 'You must join this debate before posting.' };
+    expect(submitMove.summarizeErrorDetail(body)).toBe('You must join this debate before posting.');
+  });
+
+  it('summarizeErrorDetail returns null on empty error body', () => {
+    expect(submitMove.summarizeErrorDetail({})).toBe(null);
+    expect(submitMove.summarizeErrorDetail(null)).toBe(null);
+  });
+
+  it('invokeSubmitArgument preserves real 422 status from FunctionsHttpError', async () => {
+    const fakeResponse = {
+      status: 422,
+      json: async () => ({
+        error: 'validation_failed',
+        blockingErrors: [{ ruleCode: 'length_body', message: 'too short' }],
+      }),
+    };
+    const fakeError = { name: 'FunctionsHttpError', context: fakeResponse };
+    const fakeSb = { functions: { invoke: async () => ({ data: null, error: fakeError }) } };
+    const result = await submitMove.invokeSubmitArgument(fakeSb, {
+      debate_id: 'd1',
+      argument_type: 'claim',
+      side: 'affirmative',
+      body: 'hi',
+      selected_tag_codes: [],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(422);
+    expect(result.error.error).toBe('validation_failed');
+    expect(result.detail).toBe('length_body: too short');
+  });
+
+  it('invokeSubmitArgument preserves real 403 status', async () => {
+    const fakeResponse = {
+      status: 403,
+      json: async () => ({ error: 'forbidden', reason: 'Not a participant.' }),
+    };
+    const fakeError = { name: 'FunctionsHttpError', context: fakeResponse };
+    const fakeSb = { functions: { invoke: async () => ({ data: null, error: fakeError }) } };
+    const result = await submitMove.invokeSubmitArgument(fakeSb, {
+      debate_id: 'd1',
+      argument_type: 'claim',
+      side: 'affirmative',
+      body: 'hi',
+      selected_tag_codes: [],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(403);
+    expect(result.error.error).toBe('forbidden');
+    expect(result.detail).toBe('Not a participant.');
+  });
+
+  it('invokeSubmitArgument returns ok=true on success', async () => {
+    const fakeSb = {
+      functions: { invoke: async () => ({ data: { argument: { id: 'a1' } }, error: null }) },
+    };
+    const result = await submitMove.invokeSubmitArgument(fakeSb, {
+      debate_id: 'd1',
+      argument_type: 'claim',
+      side: 'affirmative',
+      body: 'hi',
+      selected_tag_codes: [],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.data.argument.id).toBe('a1');
+  });
+});
+
+describe('writeRunLog — error detail column', () => {
+  it('formatMoveResultsTable includes detail column', () => {
+    const md = writeRunLog.formatMoveResultsTable([
+      {
+        moveId: 'm1',
+        expectedStatus: 'posted',
+        actualStatus: 'failed_422',
+        argumentId: null,
+        errorCode: 'validation_failed',
+        errorDetail: 'length_body: too short',
+      },
+    ]);
+    expect(md).toContain('| Detail |');
+    expect(md).toContain('length_body: too short');
+  });
+
+  it('formatMoveResultsTable shows blank detail when none provided', () => {
+    const md = writeRunLog.formatMoveResultsTable([
+      { moveId: 'm1', expectedStatus: 'posted', actualStatus: 'posted', argumentId: 'a1', errorCode: null },
+    ]);
+    expect(md).toContain('| m1 |');
+  });
+});
+
+describe('personaMapping — participant side', () => {
+  const { mapPersonaSideToParticipantSide } = personaMapping;
+
+  it('maps affirmative → affirmative', () => {
+    expect(mapPersonaSideToParticipantSide('affirmative')).toBe('affirmative');
+  });
+
+  it('maps negative → negative', () => {
+    expect(mapPersonaSideToParticipantSide('negative')).toBe('negative');
+  });
+
+  it('maps neutral → moderator (so synthesis/cross-side moves are allowed)', () => {
+    expect(mapPersonaSideToParticipantSide('neutral')).toBe('moderator');
+  });
+
+  it('maps unknown / undefined → observer', () => {
+    expect(mapPersonaSideToParticipantSide(undefined)).toBe('observer');
+    expect(mapPersonaSideToParticipantSide('something-else')).toBe('observer');
+  });
+});
+
+describe('sports-play-in fixture — constitution transitions', () => {
+  /**
+   * Static mirror of `transition_*.allowed_reply_types` from
+   * supabase/migrations/20260516000003_seed_data.sql. If the seed changes,
+   * update this table to match. This test catches fixture authors choosing
+   * an invalid parent argument_type → child argument_type pair.
+   */
+  const ALLOWED_REPLIES: Record<string, string[]> = {
+    thesis: ['claim', 'rebuttal', 'evidence'],
+    claim: ['rebuttal', 'evidence', 'clarification_request', 'concession'],
+    rebuttal: ['counter_rebuttal', 'evidence', 'clarification_request', 'concession'],
+    counter_rebuttal: ['rebuttal', 'evidence', 'clarification_request'],
+    evidence: ['clarification_request', 'rebuttal'],
+    clarification_request: ['claim'],
+    concession: ['synthesis'],
+    synthesis: [],
+  };
+
+  it('every child move uses an allowed transition', () => {
+    const scenario = loadScenario.loadScenario('sports-play-in');
+    const typeByMoveId: Record<string, string> = {};
+    for (const m of scenario.moves) typeByMoveId[m.moveId] = m.argumentType;
+
+    for (const m of scenario.moves) {
+      if (m.parentMoveId === null) continue;
+      const parentType = typeByMoveId[m.parentMoveId];
+      const allowed = ALLOWED_REPLIES[parentType] || [];
+      if (!allowed.includes(m.argumentType)) {
+        throw new Error(
+          `Move ${m.moveId} (${m.argumentType}) is not a valid reply to parent ${m.parentMoveId} (${parentType}). Allowed: ${allowed.join(', ')}`,
+        );
+      }
+    }
+  });
+
+  it('concession moves include a concession marker (for both concession and synthesis rails)', () => {
+    const scenario = loadScenario.loadScenario('sports-play-in');
+    const markers = ['i concede', 'i grant', 'i agree with', 'that point is valid', "you're right", 'fair point', 'i acknowledge'];
+    const requireMarker = ['concession', 'synthesis'];
+    for (const m of scenario.moves) {
+      if (!requireMarker.includes(m.argumentType)) continue;
+      const body = (m.body || '').toLowerCase();
+      const has = markers.some((mk) => body.includes(mk));
+      if (!has) {
+        throw new Error(`Move ${m.moveId} (${m.argumentType}) has no concession marker in body`);
+      }
     }
   });
 });

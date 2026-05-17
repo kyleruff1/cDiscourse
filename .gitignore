@@ -35,6 +35,8 @@ yarn-error.*
 .env*.local
 .env.bot-tests
 .env.bot-tests.local
+.env.bot-tests.bak-*
+.env.bot-tests.bak.*
 
 # Claude Code local settings (user-specific permissions)
 .claude/settings.local.json
