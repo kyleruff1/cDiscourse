@@ -1,6 +1,6 @@
 # xAI Adversarial Bot Corpus — 2026-05-17
 
-_Run id_: `2026-05-17T22-24-48-524Z-4eca5ed1`
+_Run id_: `2026-05-17T23-26-48-195Z-ff9e0be4`
 _Mode_: live
 _Env booleans_: hasXaiKey=true enableXai=true hasAnthropicKey=true enableAnthropic=true hasBotTests=true
 
@@ -25,22 +25,19 @@ _Env booleans_: hasXaiKey=true enableXai=true hasAnthropicKey=true enableAnthrop
 - xAI calls: (not wired in this commit)
 - Anthropic calls: (not wired in this commit)
 - Supabase writes: 0
-- Scenarios built: 32
-- Replies scanned: 157
-- Usable dissent replies: 32
+- Scenarios built: 5
+- Replies scanned: 26
+- Usable dissent replies: 5
 - Synthetic fallbacks: 0
 - Source-chain risk HIGH replies: 0
 - Amplification risk HIGH replies: 0
 
 ## Top disagreement axes (replies)
 
-- `none` — 101
-- `scope` — 35
-- `evidence` — 9
-- `fact` — 8
-- `value` — 2
-- `framing` — 1
-- `logic` — 1
+- `none` — 14
+- `scope` — 9
+- `fact` — 2
+- `evidence` — 1
 
 ## Anti-amplification doctrine surfaced
 

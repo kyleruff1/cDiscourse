@@ -523,8 +523,26 @@ async function postLiveScenario({ args, jsonl, scene, source, dissent, dissentSo
     return { posted: movesPosted, error: 'm2_failed' };
   }
 
+  // Strip JSON-shape prefixes from prior bodies before they enter the
+  // conversation summary — otherwise Anthropic mimics the JSON wrapper
+  // and we end up with nested {"body":"{"body":..."} corruption.
+  function cleanForSummary(body) {
+    let t = String(body || '').trim();
+    // If a prior body still looks like a JSON wrapper, try to extract its
+    // inner body string before truncating.
+    if (/^\s*\{[\s\S]*"body"\s*:/.test(t)) {
+      try {
+        const inner = JSON.parse(t);
+        if (inner && typeof inner.body === 'string') t = inner.body;
+      } catch { /* leave as-is */ }
+    }
+    // Replace any remaining `{"body":` or `"disagreementAxis":` markers so
+    // the summary line reads as prose, not JSON.
+    t = t.replace(/^[\s{"]*body"\s*:\s*"?/i, '').replace(/"\s*,\s*"disagreementAxis"\s*:[\s\S]*$/i, '');
+    return t.slice(0, 140);
+  }
   function summarize() {
-    return moves.map((m) => `  ${m.moveId} (${m.argumentType}): ${m.body.slice(0, 140)}`).join('\n');
+    return moves.map((m) => `  ${m.moveId} (${m.argumentType}): ${cleanForSummary(m.body)}`).join('\n');
   }
 
   let stopReason = null;
@@ -545,20 +563,26 @@ async function postLiveScenario({ args, jsonl, scene, source, dissent, dissentSo
       persona,
       skillBundle: bundle,
       conversationSummary: summarize(),
-      axis,
+      axis: 'auto',                 // let Anthropic choose the axis from the parent body
+      fallbackAxis: axis,           // round-robin used if Anthropic returns no parseable axis
       antiAmplificationCue: 'popularity is not doing the evidentiary work',
       forceTargetExcerpt: targetExcerpt,
     });
+    const effectiveAxis = rendered.chosenAxis || axis;
     const r = await submit({
       persona, body: rendered.body, argumentType,
       parentMoveId: parent.moveId, depth,
       slotMeta: {
-        targetExcerpt, disagreementAxis: axis,
+        targetExcerpt, disagreementAxis: effectiveAxis,
         antiAmplificationNote: 'popularity is not doing the evidentiary work',
         generationSpec: {
           source: rendered.source, attempts: rendered.attempts,
           validationFailureReason: rendered.validationFailureReason,
           skillHash: rendered.skillHash,
+          chosenAxis: rendered.chosenAxis,
+          mechanism: rendered.mechanism,
+          jsonParsed: rendered.jsonParsed,
+          fallbackAxisUsed: !rendered.chosenAxis || rendered.chosenAxis === axis,
         },
       },
     });

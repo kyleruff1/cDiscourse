@@ -53,6 +53,16 @@ const BANNED_CANNED_PHRASES = [
   'on the keyword point',
 ];
 
+/**
+ * Disagreement-axis vocabulary Anthropic may choose from. Mirrors the
+ * runner's internal set; `mapAxisForSubmit` remaps to the legacy
+ * 7-axis set the deployed Edge Function accepts.
+ */
+const ALLOWED_AXES = [
+  'fact', 'definition', 'causal', 'value', 'evidence', 'logic', 'scope',
+  'source_chain', 'anti_amplification', 'framing',
+];
+
 function lower(s) { return String(s || '').toLowerCase(); }
 
 function stripMarkdown(text) {
@@ -118,7 +128,27 @@ function buildAdversarialSystemPrompt({ skillRole, skillBodyText, skillHash, sce
     '- Banned canned phrases (do NOT use these): "Counter to the previous point", "The causal disagreement is the heart of it", "The evidence disagreement is the heart of it", "This evidence is on point", "Pushing back on the rebuttal", "narrow back to", "On the [keyword] point".',
     `- Scenario category: ${scenarioCategory || 'xai_adversarial'}.`,
     '',
-    'Output contract: return ONLY the argument body text. No prefix, no quotes around the whole thing, no JSON, no markdown headers. One to three sentences. Aim for 80–300 characters.',
+    'Disagreement-axis vocabulary you may pick from (choose the SINGLE axis',
+    'that the parent body most plainly creates pressure on — do not invent new axes):',
+    '  - `fact`             — a factual claim is disputed (specific event, number, date, mechanism).',
+    '  - `definition`       — a term is being used loosely or in a non-standard way.',
+    '  - `causal`           — A is said to cause B but the mechanism is unstated.',
+    '  - `value`            — the moral / aesthetic / preference frame is the live disagreement.',
+    '  - `evidence`         — the body relies on an unstated source, study, or anecdote.',
+    '  - `logic`            — the conclusion does not follow from the stated premises.',
+    '  - `scope`            — the claim over-generalises across populations / time / settings.',
+    '  - `source_chain`     — the body forwards / amplifies an unverified upstream source.',
+    '  - `anti_amplification` — popularity / virality / engagement is being conflated with truth.',
+    '  - `framing`          — the framing pre-loads the answer; the question is being begged.',
+    '',
+    'Output contract: return ONE compact JSON object on a single line, with NO',
+    'prose around it, NO markdown fences, NO comments. The JSON must have',
+    'exactly these keys:',
+    '  {',
+    '    "body": "<one to three sentences, 80–300 chars, plain prose>",',
+    '    "disagreementAxis": "<one of the axis vocabulary above>",',
+    '    "mechanism": "<short phrase, ≤120 chars, naming the mechanism or move this axis presses on>"',
+    '  }',
   ].join('\n');
 }
 
@@ -149,22 +179,99 @@ function buildAdversarialUserPayload({
   lines.push(`Your move slot:`);
   lines.push(`  argumentType: ${slot.argumentType}`);
   lines.push(`  depth:        ${slot.depth}`);
-  if (axis) lines.push(`  disagreementAxis: ${axis}`);
+  // Axis hint: 'auto' tells Anthropic to pick from the vocabulary;
+  // a specific axis string is treated as a suggestion the model may
+  // overrule if a different axis is more obviously what the parent
+  // creates pressure on.
+  if (axis === 'auto' || !axis) {
+    lines.push('  disagreementAxis: auto (pick the SINGLE best axis from the vocabulary above)');
+  } else {
+    lines.push(`  disagreementAxis: ${axis} (suggested; override only if a different axis is more obviously what the parent creates pressure on)`);
+  }
   if (antiAmplificationCue) {
     lines.push('');
     lines.push(`Anti-amplification cue: ${antiAmplificationCue}`);
   }
   if (forceTargetExcerpt) {
     lines.push('');
-    lines.push(`Quote this short phrase verbatim somewhere in your body: "${forceTargetExcerpt}".`);
+    lines.push(`Quote this short phrase verbatim somewhere in the "body" field: "${forceTargetExcerpt}".`);
   }
   if (forceConcessionMarker) {
     lines.push('');
-    lines.push('Include exactly one concession marker phrase: ' + CONCESSION_MARKERS.slice(0, 5).join(' / ') + '.');
+    lines.push('Include exactly one concession marker phrase in the "body" field: ' + CONCESSION_MARKERS.slice(0, 5).join(' / ') + '.');
   }
   lines.push('');
-  lines.push('Write the body now. Pure prose. No JSON, no markdown.');
+  lines.push('Return ONE compact JSON object now. Just the JSON, nothing else.');
   return lines.join('\n');
+}
+
+/**
+ * Parse the model's response. Accepts:
+ *   - a JSON object with {body, disagreementAxis, mechanism}
+ *   - a JSON object wrapped in ```json ... ``` or ``` ... ``` fences
+ *   - raw prose (legacy fallback — treated as body, no axis)
+ *
+ * Returns { body, axis, mechanism, jsonParsed }. `axis` is null when
+ * the response did not contain a recognisable axis.
+ */
+function parseModelResponse(raw) {
+  if (raw == null) return { body: '', axis: null, mechanism: null, jsonParsed: false };
+  let text = String(raw).trim();
+  // Strip leading/trailing code fences if present.
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  // First-pass: try to parse the whole string as JSON.
+  let obj = null;
+  try { obj = JSON.parse(text); } catch { /* swallow */ }
+  // Second-pass: locate a brace-balanced JSON object embedded in prose.
+  if (!obj) {
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) {
+      try { obj = JSON.parse(m[0]); } catch { /* swallow */ }
+    }
+  }
+  if (!obj || typeof obj !== 'object') {
+    // If the text LOOKS like a JSON wrapper but didn't parse, Anthropic
+    // produced malformed JSON (typically unescaped quotes inside the body
+    // string). Clear it so the renderer's validators trigger a retry /
+    // deterministic fallback instead of propagating the wrapper-shape
+    // string as body.
+    if (/^\s*\{[\s\S]{0,80}"body"\s*:/.test(text)) {
+      return { body: '', axis: null, mechanism: null, jsonParsed: false };
+    }
+    return { body: text, axis: null, mechanism: null, jsonParsed: false };
+  }
+  let body = typeof obj.body === 'string' ? obj.body : '';
+  let axisRaw = typeof obj.disagreementAxis === 'string' ? obj.disagreementAxis.toLowerCase().trim() : null;
+  let mechanism = typeof obj.mechanism === 'string' ? obj.mechanism.slice(0, 200) : null;
+
+  // Defensive: unwrap one level of nested JSON. Anthropic sometimes returns
+  // `{"body": "{\"body\": ...}"}` when prior bodies in the conversation
+  // summary contained quotes. We try to parse the inner string ONCE; if it
+  // exposes a recognisable axis + body, prefer those.
+  if (body && /^\s*\{[\s\S]*"body"\s*:/.test(body)) {
+    try {
+      const inner = JSON.parse(body);
+      if (inner && typeof inner === 'object' && typeof inner.body === 'string') {
+        body = inner.body;
+        if (!axisRaw && typeof inner.disagreementAxis === 'string') {
+          axisRaw = inner.disagreementAxis.toLowerCase().trim();
+        }
+        if (!mechanism && typeof inner.mechanism === 'string') {
+          mechanism = inner.mechanism.slice(0, 200);
+        }
+      }
+    } catch { /* if the inner is malformed, leave the outer body as-is */ }
+  }
+
+  // Final defensive check: a body that STILL looks like JSON is unusable
+  // prose — clear it so the renderer's validators will fail this attempt
+  // and trigger the retry / deterministic fallback path.
+  if (body && /^\s*\{[\s\S]{0,80}"body"\s*:/.test(body)) {
+    body = '';
+  }
+
+  const axis = axisRaw && ALLOWED_AXES.includes(axisRaw) ? axisRaw : null;
+  return { body, axis, mechanism, jsonParsed: true };
 }
 
 function deterministicAdversarialFallback({ scene, parent, slot, axis, persona }) {
@@ -184,8 +291,16 @@ function deterministicAdversarialFallback({ scene, parent, slot, axis, persona }
 /**
  * Generate one move body via Anthropic, with full skill body in the
  * system prompt. Returns:
- *   { source, body, attempts, validationFailureReason, skillHash }
- * where `source` is `anthropic` | `deterministic_fallback`.
+ *   {
+ *     source,                    // 'anthropic' | 'deterministic_fallback'
+ *     body,                      // validated prose
+ *     chosenAxis,                // axis Anthropic picked (or null on fallback)
+ *     mechanism,                 // short phrase from the model (or null)
+ *     attempts,
+ *     validationFailureReason,
+ *     skillHash,
+ *     jsonParsed,                // whether the JSON contract was satisfied
+ *   }
  */
 async function renderAdversarialMove({
   client,
@@ -195,18 +310,25 @@ async function renderAdversarialMove({
   persona,
   skillBundle,
   conversationSummary,
-  axis,
+  axis,                  // pass 'auto' to let Anthropic choose; pass a specific
+                         // axis to suggest one the model may override.
+  fallbackAxis,          // axis to use if Anthropic returns no parseable axis.
   antiAmplificationCue,
   forceTargetExcerpt,
   maxRetries = 1,
 }) {
+  const safeFallbackAxis = fallbackAxis || (typeof axis === 'string' && axis !== 'auto' ? axis : 'source_chain');
+
   if (!client || typeof client.generate !== 'function') {
     return {
       source: 'deterministic_fallback',
-      body: deterministicAdversarialFallback({ scene, parent, slot, axis, persona }),
+      body: deterministicAdversarialFallback({ scene, parent, slot, axis: safeFallbackAxis, persona }),
+      chosenAxis: safeFallbackAxis,
+      mechanism: null,
       attempts: 0,
       validationFailureReason: 'no_anthropic_client',
       skillHash: persona.skillHash,
+      jsonParsed: false,
     };
   }
   const skillRole = persona.skillRole === 'bot-provocateur' ? 'bot-provocateur'
@@ -234,7 +356,7 @@ async function renderAdversarialMove({
       forceTargetExcerpt,
       forceConcessionMarker: needsConcession,
       axis,
-      antiAmplificationCue: attempt === 0 ? antiAmplificationCue : `${antiAmplificationCue || ''} (retry: keep the body shorter, no canned phrases, no user labels)`,
+      antiAmplificationCue: attempt === 0 ? antiAmplificationCue : `${antiAmplificationCue || ''} (retry: return STRICT JSON, no markdown, keep the body shorter, no canned phrases, no user labels)`,
     });
 
     let raw;
@@ -242,21 +364,28 @@ async function renderAdversarialMove({
       const result = await client.generate({
         systemPrompt,
         userPayload,
-        maxTokens: 360,
+        maxTokens: 420, // small bump to fit JSON wrapper
         temperature: needsConcession ? 0.5 : 0.7,
       });
       raw = result.text;
     } catch (err) {
       return {
         source: 'deterministic_fallback',
-        body: deterministicAdversarialFallback({ scene, parent, slot, axis, persona }),
+        body: deterministicAdversarialFallback({ scene, parent, slot, axis: safeFallbackAxis, persona }),
+        chosenAxis: safeFallbackAxis,
+        mechanism: null,
         attempts: attempt + 1,
         validationFailureReason: `ai_call_failed: ${sanitizeError(String(err && err.message)).slice(0, 200)}`,
         skillHash,
+        jsonParsed: false,
       };
     }
 
-    const body = ensureLengthBounds(raw);
+    const parsed = parseModelResponse(raw);
+    const body = ensureLengthBounds(parsed.body);
+    const chosenAxis = parsed.axis || safeFallbackAxis;
+    const mechanism = parsed.mechanism;
+
     const issues = [];
     const cannedHit = hasBannedCannedPhrase(body);
     if (cannedHit) issues.push('banned_canned_phrase');
@@ -267,16 +396,28 @@ async function renderAdversarialMove({
     if (body.length < 40) issues.push('too_short');
 
     if (issues.length === 0) {
-      return { source: 'anthropic', body, attempts: attempt + 1, validationFailureReason: null, skillHash };
+      return {
+        source: 'anthropic',
+        body,
+        chosenAxis,
+        mechanism,
+        attempts: attempt + 1,
+        validationFailureReason: null,
+        skillHash,
+        jsonParsed: parsed.jsonParsed,
+      };
     }
   }
 
   return {
     source: 'deterministic_fallback',
-    body: deterministicAdversarialFallback({ scene, parent, slot, axis, persona }),
+    body: deterministicAdversarialFallback({ scene, parent, slot, axis: safeFallbackAxis, persona }),
+    chosenAxis: safeFallbackAxis,
+    mechanism: null,
     attempts: maxRetries + 1,
     validationFailureReason: 'validation_failed_after_retries',
     skillHash,
+    jsonParsed: false,
   };
 }
 
@@ -284,6 +425,7 @@ module.exports = {
   renderAdversarialMove,
   buildAdversarialSystemPrompt,
   buildAdversarialUserPayload,
+  parseModelResponse,
   ensureLengthBounds,
   hasConcessionMarker,
   hasBannedCannedPhrase,
@@ -292,4 +434,5 @@ module.exports = {
   CONCESSION_MARKERS,
   BANNED_CANNED_PHRASES,
   FORBIDDEN_USER_LABELS,
+  ALLOWED_AXES,
 };
