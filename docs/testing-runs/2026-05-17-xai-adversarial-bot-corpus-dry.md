@@ -1,6 +1,6 @@
 # xAI Adversarial Bot Corpus — 2026-05-17
 
-_Run id_: `2026-05-17T19-58-23-192Z-9a4fc4e4`
+_Run id_: `2026-05-17T21-57-29-566Z-1baa673e`
 _Mode_: dry
 _Env booleans_: hasXaiKey=true enableXai=true hasAnthropicKey=true enableAnthropic=true hasBotTests=true
 

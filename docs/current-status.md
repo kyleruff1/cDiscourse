@@ -1,8 +1,34 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-17 (Stage 6.2 UX rescue)_
+_Last updated: 2026-05-17 (Stage 6.1.9 follow-up — dry contract stabilized + M1/M2 seed exemption tests)_
 
 ## Current Stage
+
+**Stage 6.1.9 follow-up complete — stabilize xAI adversarial dry contract and prove M1/M2 seed validation is keyword-stuffing-free.**
+
+What changed in this pass:
+- **Dry JSONL contract fixed**: the harvester now writes to `<runId>-xai-adversarial-harvest.jsonl` (was colliding with the runner's `…-semantic-corpus.jsonl`). The runner's dry mode now emits the full required event set, **plus** four new granular events: `bot_assignment`, `move_prompt_built`, `move_rendered`, `move_validated`. Existing `bot_move_render` retained for back-compat. Every event still carries `skillGate` with both skill hashes.
+- **M1/M2 keyword exemption**: Stage 6.2 already converted topic OFF_TOPIC and parent-overlap PARENT_NONRESPONSIVE to advisory. New `__tests__/seedM1M2NoKeywordStuffing.test.ts` (7 tests) proves: a root thesis with zero overlap with the room resolution posts; a parent-linked rebuttal with zero overlap posts; a target_excerpt that is a substring of the parent body silences the rail entirely; an off-topic tangent at m3+ still surfaces an advisory warning but is not blocking. Pure-function tests against the shared engine the Edge Function uses on the server side.
+- **Deploy gap surfaced**: the tiny live app import (Phase 5) succeeded structurally but the deployed `submit-argument` Edge Function still enforces the **pre-Stage-6.2** OFF_TOPIC hard block. Local code is correct; deployment is needed to pick up the advisory change. Operator must run `npx supabase functions deploy submit-argument --linked` for the patch to take effect server-side. Until then, ~25% of moves at m3+ will still bounce with `topic_satisfaction_lexical: appears off-topic`.
+- **No service-role, no direct insert, no `.env*` touched, no `console.log` of secrets.** Skill gate validated for every JSONL event.
+
+### Run results
+
+| Phase | Run | Result |
+|---|---|---|
+| P0 — baseline | `npm run skills:validate` | OK (provocateur `d8cf0cd9ea662501`, revocateur `44d12e0cfadb7fa7`) |
+| P0 — typecheck | `npm run typecheck` | clean |
+| P0 — lint | `npm run lint` | clean |
+| P0 — tests | `npm test` | **1671 / 65 suites passing** (+7 new seed tests since Stage 6.2 commit) |
+| P3 — dry harvest | `npm run engagement:intel:xai:adversarial:dry` | 5 sources, 5 usable, 0 synthetic |
+| P3 — dry bot corpus | `npm run bot:fixture:xai-adversarial:dry` | 421 events, all 15 stages emitted |
+| P4 — tiny live xAI | `npm run engagement:intel:xai:adversarial:tiny` | 5 sources, 30 replies scanned, 4 usable, 3 synthetic, no identifier leaks |
+| P5 — tiny live app | `runXaiAdversarialBotCorpus.js --harvest-file … --pilot --scenarios 5 --max-depth 6` | 5 rooms created, 18 attempts, **13 posted / 5 rejected**, all 5 rejections are pre-Stage-6.2 OFF_TOPIC blocks from the deployed Edge Function. Anthropic: 14 calls / ~49k input / ~1.6k output tokens. Skill gate validated. M1 succeeded for all 5 rooms; M2 succeeded for 4 of 5. |
+| P6 — full run decision | not run | Gated on operator deploy of `submit-argument` to remove the OFF_TOPIC hard block. |
+
+**Live calls this session:** xAI live (1 harvest), Anthropic live (1 corpus run, 14 calls), Supabase writes (5 debates + 13 arguments). All gated, all redacted, all routed through `submit-argument`.
+
+**Cleanup notes for operator:** the 5 new tiny-test debate rooms are still in Supabase. Earlier sessions left ~10 more. They can be soft-deleted via the admin Edge Function when convenient.
 
 **Stage 6.2 complete — normal-user UX rescue: timeline map, sidecar, score tracker, advisory validation.** Replaces the form-heavy compliance workflow with a playable argument game.
 

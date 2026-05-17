@@ -1,6 +1,6 @@
 # xAI Adversarial Corpus — Stage 6.1.9 — 2026-05-17
 
-_Run id_: `2026-05-17T20-48-18-368Z-95ad8d26`
+_Run id_: `2026-05-17T21-57-42-213Z-a3752f08`
 _Mode_: live
 _Source mode_: xai_x_search
 
@@ -21,8 +21,8 @@ _Source mode_: xai_x_search
 ## Counts
 
 - Sources harvested: 5
-- Replies classified: 25
-- Usable dissent picks: 2
+- Replies classified: 30
+- Usable dissent picks: 4
 - Synthetic-fallback dissents: 3
 
 ## Issue-frame distribution
@@ -31,34 +31,37 @@ _Source mode_: xai_x_search
 
 ## Disagreement-axis distribution
 
-- `none` — 20
-- `scope` — 2
-- `fact` — 2
-- `evidence` — 1
+- `none` — 16
+- `scope` — 8
+- `fact` — 3
+- `evidence` — 3
 
 ## Abuse-risk distribution
 
-- `none` — 25
+- `none` — 30
 
 ## Amplification-risk distribution
 
-- `none_observed` — 25
+- `none_observed` — 29
+- `low` — 1
 
 ## Source-chain-risk distribution
 
-- `low` — 25
+- `low` — 24
+- `unknown` — 6
 
 ## Top deterministic rule candidates
 
 Format: `<disagreementAxis>::<replyFunction>` — count.
 
-- `none::unclear` — 17
-- `scope::narrow_scope` — 2
-- `none::support` — 2
-- `none::caveat` — 1
-- `fact::rebut` — 1
-- `fact::ask_source` — 1
+- `none::unclear` — 14
+- `scope::narrow_scope` — 7
+- `fact::rebut` — 3
+- `evidence::unclear` — 2
+- `none::tangent` — 1
+- `scope::ask_source` — 1
 - `evidence::ask_source` — 1
+- `none::ask_source` — 1
 
 ## Platform-support-warning exhibits (redacted)
 
@@ -68,13 +71,13 @@ Format: `<disagreementAxis>::<replyFunction>` — count.
 
 - **current debatable news topic** · axis=`source_chain` · dissent=`synthetic_fallback`
   - source: Isn’t debatable? National debt vs GDP, Bond yields, unemployment, tax burden, better off to be on benefits than in work, inflation, illegal migration, private business closures… anyone concerned about the state of the country is labelled far right!
-  - reply:  Quote the part where Anyone concerned about national debt, bond yields, unemployment, tax burden, ben is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
+  - reply:  Quote the part where National debt vs GDP, bond yields, unemployment, tax burden, benefits vs work, i is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
 - **current debatable news topic** · axis=`source_chain` · dissent=`synthetic_fallback`
-  - source: Political rhetoric surrounding drug trafficking, national security, and border enforcement continues to generate sharp partisan debate in the United States.
-  - reply:  Quote the part where Political rhetoric on drug trafficking, national security and border enforcement is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
+  - source: Cases involving organized crime and cross-border gangs continue fueling heated debates around immigration policy, law enforcement resources, and public safety priorities.
+  - reply:  Quote the part where Cases involving organized crime and cross-border gangs continue fueling heated d is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
 - **current debatable news topic** · axis=`source_chain` · dissent=`synthetic_fallback`
-  - source: Debates over judicial reform, statehood proposals, and the Electoral College continue to be highly polarizing issues in U.S. politics.
-  - reply:  Quote the part where Debates over judicial reform, statehood proposals and the Electoral College are  is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
+  - source: Debates over judicial reform, statehood proposals, and the Electoral College continue to be highly polarizing issues in U.S. politics. Supporters of these ideas argue they strengthen democratic representation, while opponents view them as attempts to reshape long-standing constit
+  - reply:  Quote the part where Debates over judicial reform, statehood proposals and the Electoral College cont is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
 
 ## Game-design recommendations
 

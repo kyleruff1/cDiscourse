@@ -411,6 +411,19 @@ async function postLiveScenario({ args, jsonl, scene, source, dissent, dissentSo
   const joinC = await botC.client.from('debate_participants').insert({ debate_id: debateId, user_id: botC.userId, side: 'moderator' });
   if (joinC.error && joinC.error.code !== '23505') console.warn(`[xai-adv-bot] join C: ${joinC.error.message}`);
 
+  // Stage 6.1.9 follow-up: bot_assignment event — first thing emitted per
+  // live scenario so the JSONL audit trail begins with who is defending what.
+  jsonl.write('bot_assignment', {
+    scenarioId: scene.scenarioId,
+    debateId,
+    assignments: scene.personas.map((p, i) => ({
+      slot: i === 0 ? 'root_defender' : i === 1 ? 'reply_defender' : 'synthesizer',
+      alias: p.alias,
+      skillRole: p.skillRole,
+      skillHash: p.skillHash,
+    })),
+  });
+
   const argIdByMoveId = {};
   const moves = [];
   let movesPosted = 0;
@@ -433,6 +446,28 @@ async function postLiveScenario({ args, jsonl, scene, source, dissent, dissentSo
         selectedTagCodes: [],
       },
       side: sideStr,
+    });
+    // Granular events first so consumers can replay the build → render →
+    // validate → submit chain without rebuilding it from `bot_move_render`.
+    jsonl.write('move_prompt_built', {
+      scenarioId: scene.scenarioId,
+      moveId, seeded: depth <= 2,
+      promptKind: depth === 1 ? 'xai_source_thesis' : depth === 2 ? 'xai_dissent_rebuttal' : 'anthropic_skill_on_disk',
+      skillHash: persona.skillHash,
+    });
+    jsonl.write('move_rendered', {
+      scenarioId: scene.scenarioId,
+      moveId,
+      source: depth <= 2 ? 'xai_seed' : (slotMeta?.generationSpec?.source || 'anthropic'),
+      attempts: slotMeta?.generationSpec?.attempts || 1,
+      validationFailureReason: slotMeta?.generationSpec?.validationFailureReason || null,
+      skillHash: persona.skillHash,
+    });
+    jsonl.write('move_validated', {
+      scenarioId: scene.scenarioId,
+      moveId, validated: true, issues: [],
+      seed: depth <= 2,
+      keywordRelaxationApplied: depth <= 2,
     });
     const result = await invokeSubmitArgument(bot.client, submitBody);
     jsonl.write('bot_move_render', {
@@ -794,11 +829,48 @@ async function main() {
       movesPosted += r.posted || 0;
       continue;
     }
+    // Stage 6.1.9 follow-up: bot_assignment event per scenario — declares
+    // which bot persona will defend the root vs. the disagreeable reply.
+    jsonl.write('bot_assignment', {
+      scenarioId: scene.scenarioId,
+      assignments: scene.personas.map((p, i) => ({
+        slot: i === 0 ? 'root_defender' : i === 1 ? 'reply_defender' : 'synthesizer',
+        alias: p.alias,
+        skillRole: p.skillRole,
+        skillHash: p.skillHash,
+      })),
+    });
+
     const posted = [
       { moveId: 'm1', body: source.sourceTextRedacted, argumentType: 'thesis', authorAlias: scene.personas[0].alias, parentMoveId: null, depth: 1 },
       { moveId: 'm2', body: dissent.replyTextRedacted, argumentType: 'rebuttal', authorAlias: scene.personas[1].alias, parentMoveId: 'm1', depth: 2 },
     ];
     posted.forEach((m, i) => {
+      // Granular events for M1 / M2 seed moves so the dry contract carries
+      // the same telemetry shape as live posting will.
+      jsonl.write('move_prompt_built', {
+        scenarioId: scene.scenarioId,
+        moveId: m.moveId,
+        seeded: true,
+        promptKind: i === 0 ? 'xai_source_thesis' : 'xai_dissent_rebuttal',
+        skillHash: i === 0 ? scene.personas[0].skillHash : scene.personas[1].skillHash,
+      });
+      jsonl.write('move_rendered', {
+        scenarioId: scene.scenarioId,
+        moveId: m.moveId,
+        source: 'xai_seed',
+        attempts: 1,
+        validationFailureReason: null,
+        skillHash: i === 0 ? scene.personas[0].skillHash : scene.personas[1].skillHash,
+      });
+      jsonl.write('move_validated', {
+        scenarioId: scene.scenarioId,
+        moveId: m.moveId,
+        validated: true,
+        issues: [],
+        seed: true,
+        keywordRelaxationApplied: i <= 1,
+      });
       jsonl.write('bot_move_render', {
         scenarioId: scene.scenarioId,
         move: {
@@ -838,6 +910,29 @@ async function main() {
         transition: moveSpec.adoptedPosition,
         depth,
       };
+      jsonl.write('move_prompt_built', {
+        scenarioId: scene.scenarioId,
+        moveId: m.moveId,
+        seeded: false,
+        promptKind: 'deterministic_dry_mode',
+        skillHash: persona.skillHash,
+      });
+      jsonl.write('move_rendered', {
+        scenarioId: scene.scenarioId,
+        moveId: m.moveId,
+        source: 'deterministic_dry_mode',
+        attempts: 1,
+        validationFailureReason: null,
+        skillHash: persona.skillHash,
+      });
+      jsonl.write('move_validated', {
+        scenarioId: scene.scenarioId,
+        moveId: m.moveId,
+        validated: true,
+        issues: [],
+        seed: false,
+        keywordRelaxationApplied: false,
+      });
       jsonl.write('bot_move_render', { scenarioId: scene.scenarioId, move: m, generationSpec: moveSpec, skillHash: persona.skillHash });
       jsonl.write('submit_attempt', { scenarioId: scene.scenarioId, moveId: m.moveId, attempted: false, reason: 'dry_mode' });
       jsonl.write('submit_result', { scenarioId: scene.scenarioId, moveId: m.moveId, status: 'skipped' });

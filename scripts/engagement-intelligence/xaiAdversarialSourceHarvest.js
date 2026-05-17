@@ -350,7 +350,9 @@ async function main() {
   console.log(`[xai-harvest] skill gate OK · provocateur=${bundle.provocateurHash} · revocateur=${bundle.revocateurHash}`);
 
   ensureDir(args.outDir);
-  const jsonlPath = path.join(args.outDir, `${runId}-xai-adversarial-semantic-corpus.jsonl`);
+  // Distinct filename from the runner's "semantic-corpus" output so the
+  // contract test (and human inspection) can target either reliably.
+  const jsonlPath = path.join(args.outDir, `${runId}-xai-adversarial-harvest.jsonl`);
   const sourceMode = args.dry ? 'dry_fixture' : 'xai_x_search';
   const skillGate = redactedSkillGate(bundle, true);
   const jsonl = new HarvestJsonlStream(jsonlPath, skillGate, runId, sourceMode);
