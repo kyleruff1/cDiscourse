@@ -291,6 +291,56 @@ export async function adminUsers<T = unknown>(payload: AdminUsersRequest): Promi
   return { ok: true, data };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// request-argument-deletion (Stage 6.1.8)
+//
+// Users can REQUEST deletion of their own argument. Admins resolve. No row
+// in public.arguments is auto-deleted by this function — it only records the
+// request and (optionally) sends an admin notification email.
+//
+// The function never returns admin email addresses. The client never sees
+// service-role keys, provider API keys, or full JWTs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RequestArgumentDeletionPayload {
+  debateId: string;
+  argumentId: string;
+  reason?: string | null;
+}
+
+export interface RequestArgumentDeletionResult {
+  requestId: string;
+  status: 'requested' | 'reviewing' | 'approved' | 'rejected' | 'cancelled';
+  emailStatus: 'sent' | 'not_configured' | 'failed_sanitized';
+  userReviewRequired: true;
+}
+
+export type RequestArgumentDeletionOutcome =
+  | { ok: true; data: RequestArgumentDeletionResult }
+  | { ok: false; error: { error: string; reason?: string }; status: number };
+
+export async function requestArgumentDeletion(
+  payload: RequestArgumentDeletionPayload,
+): Promise<RequestArgumentDeletionOutcome> {
+  const { data, error } = await supabase.functions.invoke<RequestArgumentDeletionResult>(
+    'request-argument-deletion',
+    { body: payload },
+  );
+  if (error) {
+    let errorBody: { error: string; reason?: string } = { error: 'network_error' };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) errorBody = (await raw.json()) as { error: string; reason?: string };
+    } catch { /* ignore */ }
+    const status =
+      (error as { status?: number }).status ??
+      ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+  if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
+  return { ok: true, data };
+}
+
 export function adminErrorMessage(err: AdminUsersError, status: number): string {
   if (status === 403 || err.error === 'forbidden') {
     return 'Admin access required.';

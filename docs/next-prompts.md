@@ -72,6 +72,8 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
+Stage 6.1.8 complete as of 2026-05-17. New argument-room game surface (Stack + Timeline), deletion request workflow (migration + Edge Function + client wrapper + sheet UI), optional debate title with safe RLS-gated update path. Posted message bodies remain immutable; deletion is REQUEST-ONLY. Admin Arguments + Debate list tables (Stage 6.1.6b) unchanged. **1425 tests / 58 suites passing.** No Anthropic / xAI / X API call by Claude in this stage. Migration 0008 + Edge Function `request-argument-deletion` are written but NOT deployed — operator runs `npx supabase db push --linked` + `npx supabase functions deploy request-argument-deletion` when ready.
+
 Stage 6.1.7 complete as of 2026-05-17. xAI adversarial thread corpus scaffold: new runner `runXaiAdversarialThreadCorpus.js`, provider abstraction (xai_responses default, legacy_chat_search fallback), source/reply collectors, first-disagreement selector with mixed-agreement preference, deterministic 3-bot scene builder, continuation loop with submit-argument flow, v2 annotation pass, single JSONL event stream, committable Markdown report. Engagement credit and factual-standing eligibility tracked SEPARATELY. Synthetic rebuttals (when allowed) are clearly marked `excludedFromRealEpidemiology=true`. **1360 tests / 54 suites passing.** No Anthropic / xAI / X API call by Claude in this stage.
 
 Next safe live runs require operator readiness:
