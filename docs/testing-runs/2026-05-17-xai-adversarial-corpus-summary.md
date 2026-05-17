@@ -1,6 +1,6 @@
 # xAI Adversarial Corpus — Stage 6.1.9 — 2026-05-17
 
-_Run id_: `2026-05-17T21-57-42-213Z-a3752f08`
+_Run id_: `2026-05-17T22-13-14-660Z-5b447504`
 _Mode_: live
 _Source mode_: xai_x_search
 
@@ -20,48 +20,61 @@ _Source mode_: xai_x_search
 
 ## Counts
 
-- Sources harvested: 5
-- Replies classified: 30
-- Usable dissent picks: 4
-- Synthetic-fallback dissents: 3
+- Sources harvested: 32
+- Replies classified: 150
+- Usable dissent picks: 13
+- Synthetic-fallback dissents: 23
 
 ## Issue-frame distribution
 
-- `current debatable news topic` — 5
+- `tech policy / platform debate` — 8
+- `civic policy debate (everyday)` — 8
+- `culture / media discussion` — 8
+- `current debatable news topic` — 6
+- `sports rule change debate` — 2
 
 ## Disagreement-axis distribution
 
-- `none` — 16
-- `scope` — 8
-- `fact` — 3
-- `evidence` — 3
+- `none` — 107
+- `scope` — 14
+- `fact` — 12
+- `evidence` — 12
+- `value` — 3
+- `framing` — 1
+- `logic` — 1
 
 ## Abuse-risk distribution
 
-- `none` — 30
+- `none` — 149
+- `low` — 1
 
 ## Amplification-risk distribution
 
-- `none_observed` — 29
-- `low` — 1
+- `none_observed` — 146
+- `low` — 4
 
 ## Source-chain-risk distribution
 
-- `low` — 24
-- `unknown` — 6
+- `low` — 113
+- `unknown` — 35
+- `medium` — 2
 
 ## Top deterministic rule candidates
 
 Format: `<disagreementAxis>::<replyFunction>` — count.
 
-- `none::unclear` — 14
-- `scope::narrow_scope` — 7
-- `fact::rebut` — 3
-- `evidence::unclear` — 2
-- `none::tangent` — 1
-- `scope::ask_source` — 1
-- `evidence::ask_source` — 1
-- `none::ask_source` — 1
+- `none::unclear` — 86
+- `none::caveat` — 20
+- `scope::narrow_scope` — 13
+- `fact::rebut` — 11
+- `evidence::unclear` — 6
+- `evidence::ask_source` — 4
+- `fact::ask_source` — 1
+- `evidence::caveat` — 1
+- `evidence::rebut` — 1
+- `value::unclear` — 1
+- `value::caveat` — 1
+- `value::rebut` — 1
 
 ## Platform-support-warning exhibits (redacted)
 
@@ -70,18 +83,24 @@ Format: `<disagreementAxis>::<replyFunction>` — count.
 ## Source-chain-axis exhibits (redacted)
 
 - **current debatable news topic** · axis=`source_chain` · dissent=`synthetic_fallback`
-  - source: Isn’t debatable? National debt vs GDP, Bond yields, unemployment, tax burden, better off to be on benefits than in work, inflation, illegal migration, private business closures… anyone concerned about the state of the country is labelled far right!
-  - reply:  Quote the part where National debt vs GDP, bond yields, unemployment, tax burden, benefits vs work, i is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
+  - source: BREAKING: The Israeli military’s Central Command chief has signed an order extending Israel’s controversial death penalty law to Palestinians in the occupied West Bank
+  - reply:  Quote the part where Israel is extending its controversial death penalty law to Palestinians in the o is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
 - **current debatable news topic** · axis=`source_chain` · dissent=`synthetic_fallback`
-  - source: Cases involving organized crime and cross-border gangs continue fueling heated debates around immigration policy, law enforcement resources, and public safety priorities.
-  - reply:  Quote the part where Cases involving organized crime and cross-border gangs continue fueling heated d is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
+  - source: Eseme Eyiboh says the Senate rule amendment debate should prioritise institutional stability, continuity and legislative experience over personalities
+  - reply:  Quote the part where Senate rule amendment debate should prioritise institutional stability and legis is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
 - **current debatable news topic** · axis=`source_chain` · dissent=`synthetic_fallback`
-  - source: Debates over judicial reform, statehood proposals, and the Electoral College continue to be highly polarizing issues in U.S. politics. Supporters of these ideas argue they strengthen democratic representation, while opponents view them as attempts to reshape long-standing constit
-  - reply:  Quote the part where Debates over judicial reform, statehood proposals and the Electoral College cont is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
+  - source: Is Fernandes most creative Premier League player ever? That PFA POTY shouldn’t even be a debate
+  - reply:  Quote the part where Bruno Fernandes is the most creative Premier League player ever is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
+- **current debatable news topic** · axis=`source_chain` · dissent=`synthetic_fallback`
+  - source: Selecting the #1 hottest controversial issue trending on X: the explosive reports of an Iranian bill offering a bounty on the US President sparking worldwide outrage
+  - reply:  Quote the part where Explosive reports of an Iranian bill offering a bounty on the US President spark is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
+- **current debatable news topic** · axis=`source_chain` · dissent=`synthetic_fallback`
+  - source: National debt vs GDP, Bond yields, unemployment, tax burden, better off to be on benefits than in work, inflation, illegal migration
+  - reply:  Quote the part where National debt vs GDP, illegal migration and whether people are better off on ben is shown, not asserted. The mechanism is missing and the source-chain has no primary record. Narrow the claim to what the evidence actually supports.
 
 ## Game-design recommendations
 
-- 3 sources required a synthetic dissent skeleton — surface as "the platform did not produce a usable counterpoint; play this scaffold instead" so users do not mistake it for a real X reply.
+- 23 sources required a synthetic dissent skeleton — surface as "the platform did not produce a usable counterpoint; play this scaffold instead" so users do not mistake it for a real X reply.
 - Never convert popularity / virality / engagement velocity into point-standing or claim standing.
 - Never label users; only annotate text behavior.
 
