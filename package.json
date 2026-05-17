@@ -40,7 +40,10 @@
     "bot:fixture:ai:50": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 50 --pilot",
     "bot:fixture:ai:annotated:dry": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 3 --annotate",
     "bot:fixture:ai:3:annotated": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 3 --pilot --annotate --deep",
-    "bot:fixture:ai:50:annotated": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 50 --pilot --annotate --deep"
+    "bot:fixture:ai:50:annotated": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 50 --pilot --annotate --deep",
+    "bot:fixture:xai-adversarial:dry": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --dry --rooms 3 --candidate-posts 30 --top-replies 12 --max-depth 5 --source-mode synthetic",
+    "bot:fixture:xai-adversarial:3": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --pilot --rooms 3 --candidate-posts 30 --top-replies 12 --max-depth 5 --source-mode xai_live --provider xai_responses",
+    "bot:fixture:xai-adversarial:50": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --pilot --rooms 50 --candidate-posts 300 --top-replies 12 --max-depth 10 --source-mode xai_live --provider xai_responses --allow-synthetic-rebuttal"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

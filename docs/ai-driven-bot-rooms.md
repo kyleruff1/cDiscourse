@@ -87,6 +87,82 @@ npm run bot:fixture:ai:50
 #   --seeds both       — synthetic now, xAI when wired
 ```
 
+## Stage 6.1.7 — xAI adversarial thread corpus
+
+Stage 6.1.7 adds a new operator-gated runner that turns the xAI Responses API + `x_search` tool into a structured adversarial thread corpus. The provider abstraction lives in `scripts/engagement-intelligence/xaiAdversarialProvider.js` and exposes two paths:
+
+- **`xaiResponsesProvider`** (default) — `POST /v1/responses` with `tools: [{ type: 'x_search' }]`. We default to this path because the Responses API surfaces explicit citation refs, which lets the report keep metric-vs-inferred ranking honest.
+- **`legacyXaiChatSearchProvider`** — `POST /v1/chat/completions` with `search_parameters` (Live Search). Retained as a fallback for installations that have not yet been migrated to Responses.
+
+Both providers run the same hard gates as the auth probe: `.env.engagement-intelligence` present, `ENGAGEMENT_INTEL_ENABLE_XAI=true`, `XAI_API_KEY` non-empty, caller passes `--pilot`. The XAI key is read via a closure and never logged. Every returned string goes through `sanitizeForLog` (strips `xai-*`, `sk-ant-*`, `sb_secret_*`, JWT-shape, Bearer, Authorization, X handles, `x.com` / `t.co` / `twitter.com` URLs, raw 15-20 digit post IDs, emails).
+
+### Pipeline
+
+1. `xaiAdversarialSourceCollector` — query xAI for up to N candidate news-topic source posts. Default candidate pool: 300. Output is fully redacted; `sourceMetricsIfAvailable` is numeric-only, `providerConfidence` clamped to [0,1].
+2. `sampleDeterministic` — deterministic seeded sampling from the candidate pool down to `--rooms` source posts.
+3. `xaiReplyCollector` — for each selected source, request up to 12 public reply candidates. `topReplyMethod` is `'metric_ranked'` only when the model returns numeric metrics; otherwise it is honestly `'provider_inferred'`.
+4. `selectFirstDisagreeableReply` — uses the existing deterministic engagement scalar to classify every reply against the source. Picks the first reply with `disagreementScore >= 0.35`, stance not pure agreement / joke / tangent / unclear, and at least one observable text feature. Prefers mixed-agreement classes (`broad_accept_narrow_decline`, `narrow_accept_broad_decline`, `narrow_accept_narrow_decline`).
+5. **Synthetic fallback** — only when `--allow-synthetic-rebuttal` is set AND `--synthetic-rebuttal-threshold` (default 3) source candidates failed in a row. The synthetic reply is marked `syntheticRebuttal=true`, `excludedFromRealEpidemiology=true`, `includedInGameStressOnly=true`.
+6. `xaiAdversarialSceneBuilder` — builds a 3-bot scene with deterministic skill assignment (`bot-provocateur` → `source_defender`, `bot-revocateur` → `reply_defender`, `bot-synthesizer` → `synthesis_moderator`). Every persona carries an `identityDisclaimer` ("test bot account in a dev environment; not a real X user").
+7. **Continuation loop** (`runXaiAdversarialThreadCorpus.js`) — reuses the existing `aiMoveRenderer` + `submit-argument` flow. Stops at: explicit concession, synthesis, soft concession/synthesis marker, max depth, three submit failures in a row.
+8. **Annotation** — every move + the seeded thesis/rebuttal pass through the existing v2 annotator (Anthropic with deterministic fallback). All anti-amplification fields surface in the report.
+9. **JSONL** — one event per line under `logs/engagement-intelligence/<runId>-xai-adversarial-thread-corpus.jsonl` (gitignored). Event types: `run_start`, `provider_query`, `source_candidate`, `source_selected`, `reply_candidate`, `reply_selected`, `synthetic_rebuttal_generated`, `debate_created`, `bot_assigned`, `move_prompt_built`, `move_generated`, `move_validated`, `move_submitted`, `annotation_completed`, `point_standing_candidate`, `room_resolved`, `room_stalemate`, `run_max_depth`, `run_summary`.
+10. **Markdown report** — single committable file under `docs/testing-runs/<date>-xai-adversarial-thread-corpus.md`. Doctrine reminder + aggregate distributions + samples + anti-amplification recommendations + compliance checklist. Fully redacted; no @handles, URLs, raw IDs, JWTs, keys.
+
+### Two scores, always separate
+
+Per the anti-amplification doctrine (Stage 6.1.5.2), the runner tracks engagement / playability and factual-standing eligibility independently. A viral or adversarial reply can earn engagement credit (`challengerPressureGain` / `responderRecoveryGain`) while `applyAntiAmplification` suppresses any positive `broadStandingDelta` / `narrowStandingDelta` until the move brings receipts, quote anchoring, or scope narrowing.
+
+### CLI
+
+```bash
+# Dry — no xAI / Anthropic / Supabase. Synthetic seed file drives a
+# placeholder pipeline that still produces the JSONL + Markdown shape.
+npm run bot:fixture:xai-adversarial:dry
+
+# Tiny live — 3 source posts, candidate pool 30, top-12 replies, max-depth
+# 5. xAI Responses + x_search via the default provider. Operator must add
+# --post-to-dev-supabase if they also want Supabase writes via submit-argument.
+npm run bot:fixture:xai-adversarial:3
+
+# Full pilot — 50 source posts, candidate pool 300, top-12 replies, max-depth
+# 10. Allows the synthetic fallback when xAI cannot supply a usable rebuttal.
+npm run bot:fixture:xai-adversarial:50
+```
+
+CLI flags:
+
+```
+--pilot                          required for any live xAI / Anthropic / Supabase write
+--dry                            no network, deterministic placeholders
+--rooms 50                       number of source posts / debates
+--candidate-posts 300            target candidate source pool
+--top-replies 12                 top replies per source post
+--max-depth 10                   max continuation depth after initial rebuttal
+--source-mode xai_live|synthetic|mixed
+--provider xai_responses|legacy_chat_search   (default xai_responses)
+--annotation-jsonl <path>
+--report-name <name>
+--post-to-dev-supabase           required for real submit-argument writes
+--allow-synthetic-rebuttal       only after the threshold of failed sources
+--synthetic-rebuttal-threshold N (default 3)
+--seed <seed>                    deterministic sampling seed
+--budget-max-anthropic-calls
+--budget-max-input-tokens
+--budget-max-output-tokens
+--budget-max-xai-calls
+```
+
+### What this is NOT
+
+- Not model training.
+- Not truth scoring.
+- Not moderation.
+- Not user / person classification.
+- Not a claim that virality = factual support.
+
+The runner refuses to call any user / account / handle a `liar`, `propagandist`, `extremist`, `troll`, `bot`, `astroturfer`, `bad-faith`, `dishonest`, or `manipulative` — those tokens are blocked at the annotator + the report layer. Bots are *test bots*; they never claim to be real X users.
+
 ## Stage 6.1.5.2 — anti-amplification doctrine + xAI source data + political frame
 
 Stage 6.1.5.2 extends the annotation pipeline to encode an explicit doctrine: **popularity / repetition / engagement velocity / political identity are NOT evidence.** Every annotation (Anthropic or deterministic fallback) now also carries:
