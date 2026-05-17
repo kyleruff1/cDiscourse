@@ -72,16 +72,17 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 6.1.3 dry-run gate complete as of 2026-05-17. Spicy bot stress-test suite landed (topic bank, generator, batch runner, validator + 21 new tests). 50 scenarios generated; 10-scenario dry-run reports 0 plan issues. Live stress runs have not been executed yet.
+Stage 6.1.3.1 dry-corpus gate complete as of 2026-05-17. Engagement corpus mode landed (single-file Markdown with decision traces + per-room scores; +27 new tests). Stage 6.1.3 `stress:10` live run remains valid (10/10 rooms, 123/123 moves).
 Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. `submit-argument` ACTIVE v1. `admin-users` ACTIVE v1.
-**824 tests pass.** TypeScript strict mode clean. ESLint clean.
+**851 tests pass.** TypeScript strict mode clean. ESLint clean.
 
 **Safe to run admin smoke test: YES.**
-**Safe to run `bot:fixture:stress:10` (live): YES.**
-**Run `bot:fixture:stress:50` only after the 10-room gate is acceptable** — see `docs/bot-fixture-runner.md` § "Acceptable 10-room gate".
-**AI (Anthropic) not called in Stage 6.1.3: confirmed.**
+**Safe to run `bot:fixture:corpus:10` (live): YES.**
+**Run `bot:fixture:corpus:50` only after the 10-room corpus reads usefully** — see `docs/bot-engagement-corpus.md`.
+**AI (Anthropic) not called in Stage 6.1.3.1: confirmed.**
 
 See `docs/current-status.md` for full status.
-See `docs/bot-fixture-runner.md` for runner / fixture authoring rules (updated 6.1.3).
+See `docs/bot-fixture-runner.md` for runner / fixture authoring rules (updated 6.1.3.1).
+See `docs/bot-engagement-corpus.md` for the corpus artifact spec.
 See `docs/bot-topic-bank.md` for the topic library.
 See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur/SKILL.md` for spicy stress-test mode rules.

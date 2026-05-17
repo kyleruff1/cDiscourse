@@ -21,7 +21,10 @@
     "bot:fixture:generate-stress": "node scripts/bot-fixtures/generateStressScenarios.js --count 50",
     "bot:fixture:stress:dry": "node scripts/bot-fixtures/runStressBatch.js --dry --regenerate --count 10",
     "bot:fixture:stress:10": "node scripts/bot-fixtures/runStressBatch.js --regenerate --count 10",
-    "bot:fixture:stress:50": "node scripts/bot-fixtures/runStressBatch.js --regenerate --count 50"
+    "bot:fixture:stress:50": "node scripts/bot-fixtures/runStressBatch.js --regenerate --count 50",
+    "bot:fixture:corpus:dry": "node scripts/bot-fixtures/runStressBatch.js --dry --corpus --regenerate --count 10",
+    "bot:fixture:corpus:10": "node scripts/bot-fixtures/runStressBatch.js --corpus --regenerate --count 10",
+    "bot:fixture:corpus:50": "node scripts/bot-fixtures/runStressBatch.js --corpus --regenerate --count 50"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

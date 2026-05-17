@@ -1,6 +1,6 @@
 # CDiscourse — Bot Fixture Runner
 
-_Stage 6.1.3 — 2026-05-17 (spicy stress-test suite)_
+_Stage 6.1.3.1 — 2026-05-17 (engagement corpus mode)_
 
 ## What this is
 
@@ -179,7 +179,8 @@ scripts/bot-fixtures/
   stressConfig.js               — directory + threshold constants (pure)
   stressScenarioTemplates.js    — 3 templates (12/11/13 moves) + seeded body composer
   generateStressScenarios.js    — CLI: writes deterministic fixture JSON from topic bank
-  runStressBatch.js             — CLI: drives generated scenarios end-to-end
+  runStressBatch.js             — CLI: drives generated scenarios end-to-end + emits corpus
+  engagementCorpus.js           — decision-trace classifiers + scoring + Markdown/JSONL builders (pure)
 ```
 
 ```
@@ -196,7 +197,17 @@ npm run bot:fixture:generate-stress   # write 50 deterministic JSON scenarios to
 npm run bot:fixture:stress:dry        # regenerate 10 + validate; NO Supabase calls
 npm run bot:fixture:stress:10         # regenerate 10 + run live (auth + submit-argument)
 npm run bot:fixture:stress:50         # regenerate 50 + run live (operator confirmation required)
+
+# Stage 6.1.3.1 — engagement corpus mode (one rich Markdown per run)
+npm run bot:fixture:corpus:dry        # 10 scenarios planned-only, writes engagement corpus md
+npm run bot:fixture:corpus:10         # 10 scenarios live, writes engagement corpus md (and stress summary)
+npm run bot:fixture:corpus:50         # 50 scenarios live, writes full engagement corpus (operator confirmation required)
 ```
+
+The `--corpus` flag also accepts:
+- `--write-jsonl` — additionally writes `logs/bot-stress/<runId>-engagement-corpus.jsonl` (local-only, gitignored)
+- `--no-write-markdown` — suppress the Markdown corpus
+- `--corpus-only` — implies `--corpus` (reserved for future when the runner can skip the stress summary)
 
 The dry mode is the default safe path. The 10- and 50-room live modes use the existing `.env.bot-tests` credentials, reuse the three bot Auth users created by Stage 6.1.2, and never use a service-role key.
 

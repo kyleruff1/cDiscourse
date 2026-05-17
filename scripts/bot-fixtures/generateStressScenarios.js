@@ -64,19 +64,20 @@ function buildScenario({ topic, template, scenarioIndex, seedStr }) {
   };
 }
 
-function generate({ count, seed }) {
+function generate({ count, seed, outputDir }) {
   const topicBank = JSON.parse(fs.readFileSync(STRESS_CONFIG.TOPIC_BANK_PATH, 'utf8'));
   const topics = flattenTopics(topicBank);
   if (topics.length === 0) throw new Error('Topic bank is empty.');
 
+  const dir = outputDir || STRESS_CONFIG.GENERATED_FIXTURE_DIR;
   const masterRng = seededRng(seed);
-  if (!fs.existsSync(STRESS_CONFIG.GENERATED_FIXTURE_DIR)) {
-    fs.mkdirSync(STRESS_CONFIG.GENERATED_FIXTURE_DIR, { recursive: true });
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   } else {
     // Wipe stale generated scenarios from previous runs so the directory
     // reflects exactly this run. Generated scenarios are gitignored.
-    for (const f of fs.readdirSync(STRESS_CONFIG.GENERATED_FIXTURE_DIR)) {
-      if (f.endsWith('.json')) fs.unlinkSync(path.join(STRESS_CONFIG.GENERATED_FIXTURE_DIR, f));
+    for (const f of fs.readdirSync(dir)) {
+      if (f.endsWith('.json')) fs.unlinkSync(path.join(dir, f));
     }
   }
 
@@ -88,12 +89,12 @@ function generate({ count, seed }) {
     const template = TEMPLATES[Math.floor(masterRng() * TEMPLATES.length)];
     const seedStr = `${seed}::${i}::${template.id}::${topic.topicId}`;
     const scenario = buildScenario({ topic, template, scenarioIndex: i, seedStr });
-    const filePath = path.join(STRESS_CONFIG.GENERATED_FIXTURE_DIR, `${scenario.scenarioId}.json`);
+    const filePath = path.join(dir, `${scenario.scenarioId}.json`);
     fs.writeFileSync(filePath, JSON.stringify(scenario, null, 2));
     written.push(scenario.scenarioId);
   }
 
-  return { count: written.length, ids: written, outputDir: STRESS_CONFIG.GENERATED_FIXTURE_DIR };
+  return { count: written.length, ids: written, outputDir: dir };
 }
 
 if (require.main === module) {

@@ -15,6 +15,11 @@ const PROVOCATEUR_OPENERS = [
   "Tee-up for the obvious counter:",
   "I know this is going to get challenged, and that's the point.",
   "This claim is spicy but testable.",
+  "Bold claim, fully load-bearing:",
+  "Receipts may be incoming.",
+  "I'll defend this with my whole chest:",
+  "Putting this on the record:",
+  "Spicy but defensible:",
 ];
 
 const OBVIOUS_COUNTER_TEEUPS = [
@@ -22,6 +27,8 @@ const OBVIOUS_COUNTER_TEEUPS = [
   "I know someone will say",
   "Counter-claim tee-up:",
   "The predictable pushback:",
+  "The lazy rebuttal will be:",
+  "The first-page comeback is:",
 ];
 
 const REVOCATEUR_CHALLENGES = [
@@ -35,6 +42,10 @@ const REVOCATEUR_CHALLENGES = [
   "This claim needs a leash.",
   "That is a bold claim wearing a tiny hat.",
   "The receipt drawer is empty.",
+  "Counterexample time.",
+  "That premise is doing all the work here.",
+  "Where is the rest of this argument?",
+  "Polished framing, thin support.",
 ];
 
 const QUOTE_DEMANDS = [
@@ -42,6 +53,8 @@ const QUOTE_DEMANDS = [
   "Which part exactly?",
   "Point to the sentence.",
   "Show me the words.",
+  "Which line are you actually defending?",
+  "Pull the receipt sentence.",
 ];
 
 const RECEIPT_DEMANDS = [
@@ -50,6 +63,8 @@ const RECEIPT_DEMANDS = [
   "Where is this from?",
   "Source check.",
   "Bring the receipts.",
+  "Cite or fold.",
+  "Where's the receipt for that?",
 ];
 
 const SCOPE_CHALLENGES = [
@@ -58,6 +73,7 @@ const SCOPE_CHALLENGES = [
   "You moved the goalposts.",
   "Scope creep.",
   "Narrow that down.",
+  "This claim quietly expanded.",
 ];
 
 const DEFINITION_CHALLENGES = [
@@ -65,6 +81,7 @@ const DEFINITION_CHALLENGES = [
   "What do you mean by that exactly?",
   "That word is doing a lot of work.",
   "Pin the definition.",
+  "Definitions, then we talk.",
 ];
 
 const TANGENT_HOOKS = [
@@ -72,6 +89,37 @@ const TANGENT_HOOKS = [
   "That deserves its own thread.",
   "Branch candidate: own room.",
   "Side quest. New thread.",
+  "Park that — own room.",
+];
+
+const COUNTEREXAMPLE_LINES = [
+  "Counterexample time.",
+  "Here's the case your claim can't carry.",
+  "Try this example on for size.",
+  "The case that doesn't fit:",
+];
+
+const WEAK_EXAMPLE_LINES = [
+  "That example is doing most of the lifting.",
+  "One example does not make the rule.",
+  "That case is the only one that fits.",
+  "Sample size of one.",
+];
+
+const DODGE_CALLOUT_LINES = [
+  "That sounds like a dodge.",
+  "Soft-pedal noted.",
+  "That answer didn't actually engage the quote.",
+  "Smooth deflection, no contact.",
+];
+
+const PLAYFUL_SELF_OWN_LINES = [
+  "I am only mostly wrong about this.",
+  "I'll surrender the small point, not the whole war.",
+  "Mostly wrong, partly right.",
+  "Peace treaty-ish on this narrow point.",
+  "Argument got smaller.",
+  "Context goblin defeated.",
 ];
 
 const CONCESSION_PHRASES = [
@@ -82,18 +130,13 @@ const CONCESSION_PHRASES = [
   "I agree with",
 ];
 
-const CONCESSION_NARROWERS = [
-  "I will surrender the small point, not the whole war.",
-  "I am only mostly wrong about this.",
-  "Mostly wrong, partly right.",
-  "Peace treaty-ish on this narrow point.",
-  "Argument got smaller.",
-];
+const CONCESSION_NARROWERS = PLAYFUL_SELF_OWN_LINES;
 
 const SYNTHESIS_PHRASES = [
   "I acknowledge both sides agreed",
   "I grant the room has converged",
   "I acknowledge the open question is",
+  "I acknowledge the room settled, narrowly, on",
 ];
 
 // Words and phrases that must NEVER appear in generated bot bodies.
@@ -126,6 +169,10 @@ module.exports = {
   SCOPE_CHALLENGES,
   DEFINITION_CHALLENGES,
   TANGENT_HOOKS,
+  COUNTEREXAMPLE_LINES,
+  WEAK_EXAMPLE_LINES,
+  DODGE_CALLOUT_LINES,
+  PLAYFUL_SELF_OWN_LINES,
   CONCESSION_PHRASES,
   CONCESSION_NARROWERS,
   SYNTHESIS_PHRASES,

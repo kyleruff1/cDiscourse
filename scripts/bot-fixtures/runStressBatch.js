@@ -27,15 +27,33 @@ const { ensureBotUser } = require('./adminOps');
 const { buildSubmitArgumentBody, invokeSubmitArgument } = require('./submitMove');
 const { mapPersonaSideToParticipantSide } = require('./personaMapping');
 const { generate } = require('./generateStressScenarios');
+const {
+  buildEngagementCorpusMarkdown,
+  buildEngagementCorpusJsonlEvents,
+} = require('./engagementCorpus');
 
 function parseArgs(argv) {
-  const args = { dry: false, count: 10, regenerate: false, seed: STRESS_CONFIG.DEFAULT_SEED };
+  const args = {
+    dry: false,
+    count: 10,
+    regenerate: false,
+    seed: STRESS_CONFIG.DEFAULT_SEED,
+    corpus: false,
+    corpusOnly: false,
+    writeMarkdown: true,
+    writeJsonl: false,
+  };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry') args.dry = true;
     else if (a === '--count' && argv[i + 1]) args.count = Number(argv[++i]);
     else if (a === '--regenerate') args.regenerate = true;
     else if (a === '--seed' && argv[i + 1]) args.seed = argv[++i];
+    else if (a === '--corpus') args.corpus = true;
+    else if (a === '--corpus-only') { args.corpus = true; args.corpusOnly = true; }
+    else if (a === '--write-markdown') args.writeMarkdown = true;
+    else if (a === '--no-write-markdown') args.writeMarkdown = false;
+    else if (a === '--write-jsonl') args.writeJsonl = true;
   }
   if (!Number.isFinite(args.count) || args.count < 1) args.count = 10;
   return args;
@@ -295,6 +313,43 @@ function topN(map, n) {
   return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
 }
 
+function writeCorpus({ runId, mode, scenarios, runRecords, args }) {
+  ensureDir(STRESS_CONFIG.SUMMARY_DIR);
+  ensureDir(STRESS_CONFIG.STRESS_LOG_DIR);
+  const dateIso = new Date().toISOString();
+  const date = dateIso.slice(0, 10);
+  const run = {
+    runId,
+    dateIso,
+    mode,
+    scenarios,
+    // Align roomResults positionally to scenarios; if a scenario didn't run, its
+    // entry is { roomId: null, results: [] }.
+    roomResults: scenarios.map((s) => {
+      const rec = runRecords.find((r) => r.scenario && r.scenario.scenarioId === s.scenarioId);
+      return rec ? { roomId: rec.roomId, results: rec.results } : { roomId: null, results: [] };
+    }),
+  };
+
+  let markdownPath = null;
+  let jsonlPath = null;
+
+  if (args.writeMarkdown !== false) {
+    const md = buildEngagementCorpusMarkdown(run);
+    const suffix = mode === 'dry' ? '-dry' : '';
+    markdownPath = path.join(STRESS_CONFIG.SUMMARY_DIR, `${date}-bot-engagement-corpus${suffix}.md`);
+    fs.writeFileSync(markdownPath, md);
+  }
+
+  if (args.writeJsonl) {
+    const events = buildEngagementCorpusJsonlEvents(run);
+    jsonlPath = path.join(STRESS_CONFIG.STRESS_LOG_DIR, `${runId}-engagement-corpus.jsonl`);
+    fs.writeFileSync(jsonlPath, events.map((e) => JSON.stringify(e)).join('\n') + '\n');
+  }
+
+  return { markdownPath, jsonlPath };
+}
+
 async function main() {
   const args = parseArgs(process.argv);
 
@@ -322,6 +377,18 @@ async function main() {
     console.log('[stress] dry run — no Supabase calls. Use --count to control plan size.');
     console.log(`[stress] first 3 planned scenarios:`);
     for (const s of scenarios.slice(0, 3)) console.log(`  • ${s.scenarioId} (${s.category}, ${s.moves.length} moves)`);
+    if (args.corpus) {
+      const corpusRunId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
+      const corpusPaths = writeCorpus({
+        runId: corpusRunId,
+        mode: 'dry',
+        scenarios,
+        runRecords: scenarios.map((s) => ({ scenario: s, roomId: null, results: [] })),
+        args,
+      });
+      if (corpusPaths.markdownPath) console.log(`[stress] corpus markdown (dry): ${corpusPaths.markdownPath}`);
+      if (corpusPaths.jsonlPath) console.log(`[stress] corpus jsonl (dry, local-only): ${corpusPaths.jsonlPath}`);
+    }
     return;
   }
 
@@ -389,9 +456,16 @@ async function main() {
     scenarios, runRecords,
   });
 
+  let corpusPaths = { markdownPath: null, jsonlPath: null };
+  if (args.corpus) {
+    corpusPaths = writeCorpus({ runId, mode: 'live', scenarios, runRecords, args });
+  }
+
   console.log('');
   console.log(`[stress] summary written: ${summaryPath}`);
   console.log(`[stress] full JSONL log: ${jsonlPath}`);
+  if (corpusPaths.markdownPath) console.log(`[stress] corpus markdown: ${corpusPaths.markdownPath}`);
+  if (corpusPaths.jsonlPath) console.log(`[stress] corpus jsonl (local-only): ${corpusPaths.jsonlPath}`);
   console.log(`[stress] rooms_created=${totals.roomsCreated}/${totals.rooms} posted=${totals.posted}/${totals.moves}`);
   console.log(`[stress] failed_422=${totals.failed_422} failed_403=${totals.failed_403} failed_500=${totals.failed_500} skipped_parent=${totals.skipped_missing_parent}`);
 }

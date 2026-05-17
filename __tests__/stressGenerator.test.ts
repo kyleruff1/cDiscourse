@@ -75,13 +75,22 @@ describe('spicy language pool — safety invariants', () => {
 });
 
 describe('stress generator — deterministic batch', () => {
-  const TEMP_DIR = path.join(repoRoot, 'fixtures', 'generated-scenarios');
+  // Isolated temp dir so this suite doesn't race the engagementCorpus suite
+  // (Jest runs test files in parallel workers).
+  const TEMP_DIR = path.join(repoRoot, 'fixtures', 'generated-scenarios-stress-test');
 
   beforeAll(() => {
     if (fs.existsSync(TEMP_DIR)) {
       for (const f of fs.readdirSync(TEMP_DIR)) fs.unlinkSync(path.join(TEMP_DIR, f));
     }
-    generator.generate({ count: 50, seed: 'stress-test-seed-2026' });
+    generator.generate({ count: 50, seed: 'stress-test-seed-2026', outputDir: TEMP_DIR });
+  });
+
+  afterAll(() => {
+    if (fs.existsSync(TEMP_DIR)) {
+      for (const f of fs.readdirSync(TEMP_DIR)) fs.unlinkSync(path.join(TEMP_DIR, f));
+      try { fs.rmdirSync(TEMP_DIR); } catch { /* ignore */ }
+    }
   });
 
   function loadScenarios(): FixtureScenario[] {
@@ -180,14 +189,14 @@ describe('stress generator — deterministic batch', () => {
   });
 
   it('deterministic: same seed produces the same scenarioIds', () => {
-    const idsA = generator.generate({ count: 5, seed: 'determinism-check-A' }).ids;
-    const idsB = generator.generate({ count: 5, seed: 'determinism-check-A' }).ids;
+    const idsA = generator.generate({ count: 5, seed: 'determinism-check-A', outputDir: TEMP_DIR }).ids;
+    const idsB = generator.generate({ count: 5, seed: 'determinism-check-A', outputDir: TEMP_DIR }).ids;
     expect(idsA).toEqual(idsB);
   });
 
   it('different seeds produce different scenarioIds (probabilistic)', () => {
-    const idsA = generator.generate({ count: 5, seed: 'determinism-check-A' }).ids;
-    const idsB = generator.generate({ count: 5, seed: 'determinism-check-B' }).ids;
+    const idsA = generator.generate({ count: 5, seed: 'determinism-check-A', outputDir: TEMP_DIR }).ids;
+    const idsB = generator.generate({ count: 5, seed: 'determinism-check-B', outputDir: TEMP_DIR }).ids;
     // At least one ID should differ across seeds (template index varies by RNG).
     const same = idsA.filter((id: string, i: number) => idsB[i] === id);
     expect(same.length).toBeLessThan(idsA.length);

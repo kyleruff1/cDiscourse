@@ -30,6 +30,10 @@ const {
   SCOPE_CHALLENGES,
   DEFINITION_CHALLENGES,
   TANGENT_HOOKS,
+  COUNTEREXAMPLE_LINES,
+  WEAK_EXAMPLE_LINES,
+  DODGE_CALLOUT_LINES,
+  PLAYFUL_SELF_OWN_LINES,
   CONCESSION_PHRASES,
   CONCESSION_NARROWERS,
   SYNTHESIS_PHRASES,
@@ -123,13 +127,15 @@ function renderThesis(rng, topic) {
 
 function renderRebuttal(rng, topic, parentBody, axis) {
   const challenge = pick(rng, REVOCATEUR_CHALLENGES);
+  const dodge = pick(rng, DODGE_CALLOUT_LINES);
   const echo = echoKeywords(parentBody, topic);
   const counter = pick(rng, topic.counterClaims || ['the opposite claim']);
   return composeBody([
     challenge,
     echo,
     counter,
-    `The ${axis} disagreement on ${firstKeywords(topic, 3).join(' ')} is the heart of it.`,
+    `The ${axis} disagreement on ${firstKeywords(topic, 3).join(' ')} is where this lives.`,
+    dodge,
   ]);
 }
 
@@ -139,7 +145,7 @@ function renderCounterRebuttal(rng, topic, parentBody) {
   return composeBody([
     challenge,
     echo,
-    `This counter-rebuttal narrows back to ${firstKeywords(topic, 3).join(' and ')}.`,
+    `Counter-rebuttal: the claim only carries for ${firstKeywords(topic, 3).join(' and ')}.`,
     pick(rng, REVOCATEUR_CHALLENGES),
   ]);
 }
@@ -150,7 +156,7 @@ function renderClarification(rng, topic, parentBody) {
   return composeBody([
     demand,
     echo,
-    `Are you arguing about ${firstKeywords(topic, 2).join(' or ')} specifically?`,
+    `Are you arguing about ${firstKeywords(topic, 2).join(' or ')} specifically, and what counts?`,
   ]);
 }
 
@@ -159,7 +165,7 @@ function renderClaim(rng, topic, parentBody) {
   const scope = pick(rng, topic.scopeNarrowings || ['the original framing']);
   return composeBody([
     echo,
-    `My narrower claim is about ${scope}, holding the ${firstKeywords(topic, 2).join(' and ')} point intact.`,
+    `Narrower claim: ${scope}, while the ${firstKeywords(topic, 2).join(' and ')} point stays intact.`,
     pick(rng, REVOCATEUR_CHALLENGES),
   ]);
 }
@@ -167,33 +173,37 @@ function renderClaim(rng, topic, parentBody) {
 function renderEvidence(rng, topic, parentBody, fact) {
   const receipt = pick(rng, RECEIPT_DEMANDS);
   const echo = echoKeywords(parentBody, topic);
+  const counterex = pick(rng, COUNTEREXAMPLE_LINES);
   return composeBody([
     echo,
-    `${fact.sourceText} This ${firstKeywords(topic, 2).join(' / ')} evidence answers: ${receipt}`,
+    `${counterex} ${fact.sourceText}`,
+    `This ${firstKeywords(topic, 2).join(' / ')} receipt answers the request: ${receipt}`,
   ]);
 }
 
 function renderConcession(rng, topic, parentBody) {
   const marker = pick(rng, CONCESSION_PHRASES);
   const narrower = pick(rng, CONCESSION_NARROWERS);
+  const selfOwn = pick(rng, PLAYFUL_SELF_OWN_LINES);
   const echo = echoKeywords(parentBody, topic);
   return composeBody([
     `${marker} the narrower ${firstKeywords(topic, 2).join(' and ')} point.`,
     narrower,
+    selfOwn,
     echo,
   ]);
 }
 
 function renderSynthesis(rng, topic, parentBody) {
-  // Synthesis must include a concession marker too (concession_integrity
-  // applies_to includes "synthesis").
+  // Synthesis must include a concession marker (concession_integrity applies_to includes "synthesis").
   const synth = pick(rng, SYNTHESIS_PHRASES);
+  const tangent = pick(rng, TANGENT_HOOKS);
   const echo = echoKeywords(parentBody, topic);
   return composeBody([
     `${synth} on the ${firstKeywords(topic, 2).join(' and ')} question.`,
     echo,
-    `I acknowledge the room has converged enough on ${firstKeywords(topic, 1)[0]} to synthesize.`,
-    pick(rng, TANGENT_HOOKS),
+    `I acknowledge the room has converged on ${firstKeywords(topic, 1)[0]} enough to synthesize.`,
+    tangent,
   ]);
 }
 
@@ -257,6 +267,45 @@ const TEMPLATES = [
       { moveId: 'm11', author: 1, parent: 'm10', moveKind: 'make_claim', argumentType: 'claim', branchCandidate: true },
       { moveId: 'm12', author: 0, parent: 'm11', moveKind: 'concede_or_narrow', argumentType: 'concession', playfulLabel: 'Mostly wrong, partly right' },
       { moveId: 'm13', author: 2, parent: 'm12', moveKind: 'synthesize_thread', argumentType: 'synthesis' },
+    ],
+  },
+  {
+    id: 'deep-chain-12',
+    description: '12-move deep chain: rebuttal/counter-rebuttal ping-pong reaches depth 10 before concession + synthesis close. Includes one tangent at mid-thread.',
+    slots: [
+      { moveId: 'm1', author: 0, parent: null, moveKind: 'start_thesis', argumentType: 'thesis' },
+      { moveId: 'm2', author: 1, parent: 'm1', moveKind: 'challenge_parent', argumentType: 'rebuttal', axis: 'scope', target: true },
+      { moveId: 'm3', author: 0, parent: 'm2', moveKind: 'challenge_parent', argumentType: 'counter_rebuttal', axis: 'fact', target: true },
+      { moveId: 'm4', author: 1, parent: 'm3', moveKind: 'challenge_parent', argumentType: 'rebuttal', axis: 'evidence', target: true },
+      { moveId: 'm5', author: 1, parent: 'm4', moveKind: 'add_evidence', argumentType: 'evidence' },
+      { moveId: 'm6', author: 0, parent: 'm5', moveKind: 'challenge_parent', argumentType: 'rebuttal', axis: 'logic', target: true },
+      { moveId: 'm7', author: 2, parent: 'm6', moveKind: 'ask_clarification', argumentType: 'clarification_request', branchCandidate: true },
+      { moveId: 'm8', author: 0, parent: 'm7', moveKind: 'make_claim', argumentType: 'claim' },
+      { moveId: 'm9', author: 1, parent: 'm8', moveKind: 'challenge_parent', argumentType: 'rebuttal', axis: 'definition', target: true },
+      { moveId: 'm10', author: 1, parent: 'm9', moveKind: 'concede_or_narrow', argumentType: 'concession', playfulLabel: 'Argument got smaller' },
+      { moveId: 'm11', author: 2, parent: 'm10', moveKind: 'synthesize_thread', argumentType: 'synthesis' },
+      { moveId: 'm12', author: 0, parent: 'm7', moveKind: 'make_claim', argumentType: 'claim', branchCandidate: true },
+    ],
+  },
+  {
+    id: 'deep-chain-15',
+    description: '15-move long-chain duel: thesis → rebuttal/counter-rebuttal ping-pong reaches depth 14 with one evidence drop, one clarification, then concession + synthesis close.',
+    slots: [
+      { moveId: 'm1', author: 0, parent: null, moveKind: 'start_thesis', argumentType: 'thesis' },
+      { moveId: 'm2', author: 1, parent: 'm1', moveKind: 'challenge_parent', argumentType: 'rebuttal', axis: 'scope', target: true },
+      { moveId: 'm3', author: 0, parent: 'm2', moveKind: 'challenge_parent', argumentType: 'counter_rebuttal', axis: 'fact', target: true },
+      { moveId: 'm4', author: 1, parent: 'm3', moveKind: 'challenge_parent', argumentType: 'rebuttal', axis: 'evidence', target: true },
+      { moveId: 'm5', author: 0, parent: 'm4', moveKind: 'challenge_parent', argumentType: 'counter_rebuttal', axis: 'logic', target: true },
+      { moveId: 'm6', author: 0, parent: 'm5', moveKind: 'add_evidence', argumentType: 'evidence' },
+      { moveId: 'm7', author: 1, parent: 'm6', moveKind: 'challenge_parent', argumentType: 'rebuttal', axis: 'scope', target: true },
+      { moveId: 'm8', author: 0, parent: 'm7', moveKind: 'challenge_parent', argumentType: 'counter_rebuttal', axis: 'definition', target: true },
+      { moveId: 'm9', author: 1, parent: 'm8', moveKind: 'challenge_parent', argumentType: 'rebuttal', axis: 'causal', target: true },
+      { moveId: 'm10', author: 0, parent: 'm9', moveKind: 'challenge_parent', argumentType: 'counter_rebuttal', axis: 'value', target: true },
+      { moveId: 'm11', author: 0, parent: 'm10', moveKind: 'add_evidence', argumentType: 'evidence' },
+      { moveId: 'm12', author: 2, parent: 'm11', moveKind: 'ask_clarification', argumentType: 'clarification_request', branchCandidate: true },
+      { moveId: 'm13', author: 1, parent: 'm12', moveKind: 'make_claim', argumentType: 'claim' },
+      { moveId: 'm14', author: 1, parent: 'm13', moveKind: 'concede_or_narrow', argumentType: 'concession', playfulLabel: 'Peace treaty-ish' },
+      { moveId: 'm15', author: 2, parent: 'm14', moveKind: 'synthesize_thread', argumentType: 'synthesis' },
     ],
   },
 ];
