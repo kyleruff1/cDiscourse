@@ -27,9 +27,20 @@ const MESSAGES_ENDPOINT = '/v1/messages';
 const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
 const DEFAULT_MAX_TOKENS = 360;
 
+// Budget defaults sized for a 50-room annotated corpus run:
+//   - 50 rooms × ~13 moves = ~650 generations + 650 annotations
+//   - generation prompts are ~3k input tokens after prompt cache
+//   - annotation prompts are ~4k input tokens
+//   - generation output ≈ 60 tokens; annotation output ≈ 600 tokens
+//   ⇒ projected input ~5M, projected output ~430k
+//
+// Earlier defaults (200k / 60k) were sized for one tiny pilot only; they
+// silently tripped after ~60 generation calls in a 50-room run and made
+// every subsequent annotation fall back to deterministic. The new ceilings
+// give a 50-room run headroom while keeping a hard cap.
 const DEFAULT_BUDGET = {
-  maxInputTokens: 200_000,
-  maxOutputTokens: 60_000,
+  maxInputTokens: 8_000_000,
+  maxOutputTokens: 500_000,
 };
 
 const ENV_FILE = path.join(process.cwd(), '.env.engagement-intelligence');
@@ -124,8 +135,15 @@ function createClient(options = {}) {
     if (!userPayload) throw new Error('generate(): userPayload required');
 
     const requestedMax = Math.min(maxTokens || DEFAULT_MAX_TOKENS, 1024);
-    // Pre-flight budget check (output projection).
+    // Pre-flight budget check (BOTH output projection and accumulated input).
+    // Refusing before the HTTP call is sent avoids burning spend on a call
+    // whose result we will reject. The earlier post-flight check left
+    // every "over budget" call's response stranded — that's how the 50-room
+    // run silently fell back to deterministic on every annotation.
     if (spent.outputTokens + requestedMax > budget.maxOutputTokens) {
+      throw new AnthropicBudgetExceededError({ ...spent }, { ...budget });
+    }
+    if (spent.inputTokens > budget.maxInputTokens) {
       throw new AnthropicBudgetExceededError({ ...spent }, { ...budget });
     }
 
@@ -179,10 +197,11 @@ function createClient(options = {}) {
       spent.inputTokens += inputTokens + cacheCreationTokens;
       spent.outputTokens += outputTokens;
       spent.calls += 1;
-      // Post-flight budget check on accumulated input.
-      if (spent.inputTokens > budget.maxInputTokens) {
-        throw new AnthropicBudgetExceededError({ ...spent }, { ...budget });
-      }
+      // Post-flight check removed in Stage 6.1.7 follow-up — replaced by the
+      // pre-flight check above so we never burn an HTTP call whose result we
+      // will reject. (Earlier the post-flight throw was silently swallowed by
+      // the annotator's catch block, leaving 100% deterministic fallback
+      // across a 50-room corpus.)
       return {
         text: sanitize(text),
         usage: { inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens },

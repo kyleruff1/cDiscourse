@@ -240,17 +240,22 @@ async function annotateMove({ client, scenario, move, parent, thread, body, dete
   const expected = buildExpected({ scenario, move, parent });
 
   // First attempt.
+  let firstReason = null;
   try {
     const r = await client.generate({ systemPrompt: prompt.system, userPayload: prompt.user, maxTokens: 1024, temperature: 0.2 });
     const parsed = tryParseJson(r.text);
     const validated = validateAnnotation(parsed, expected);
     if (validated) { validated.annotationSource = 'anthropic'; return validated; }
+    firstReason = parsed ? 'invalid_shape' : 'unparseable_json';
   } catch (err) {
-    // First attempt failed — fall through to retry.
-    sanitizeAnnotationError(err); // discard sanitized message; caller observes the eventual annotationSource
+    // First attempt failed — surface a sanitized reason so the eventual
+    // deterministic fallback annotation carries it (it was being silently
+    // discarded before, hiding budget breaches).
+    firstReason = sanitizeAnnotationError(err);
   }
 
   // Single retry: ask for "fix JSON only".
+  let retryReason = null;
   try {
     const r2 = await client.generate({
       systemPrompt: prompt.system,
@@ -261,13 +266,18 @@ async function annotateMove({ client, scenario, move, parent, thread, body, dete
     const parsed = tryParseJson(r2.text);
     const validated = validateAnnotation(parsed, expected);
     if (validated) { validated.annotationSource = 'anthropic_retry'; return validated; }
+    retryReason = parsed ? 'invalid_shape_retry' : 'unparseable_json_retry';
   } catch (err) {
-    sanitizeAnnotationError(err);
+    retryReason = sanitizeAnnotationError(err);
   }
 
+  // Surface BOTH attempt reasons in the fallback so operators can spot
+  // structural problems (e.g., budget exceeded, schema rejection, JSON
+  // parse fails) instead of seeing a generic "anthropic_invalid_or_error".
+  const reason = `anthropic_invalid_or_error: first=${firstReason || 'unknown'}; retry=${retryReason || 'unknown'}`;
   return fallbackAnnotation({
     scenario, move, parent, thread, body, deterministicVector,
-    reason: 'anthropic_invalid_or_error',
+    reason,
   });
 }
 
