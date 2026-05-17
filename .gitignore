@@ -43,6 +43,16 @@ logs/
 logs/bot-stress/
 fixtures/generated-scenarios/
 
+# Engagement intelligence (Stage 6.1.3.2) — raw / classified / redacted local-only
+.env.engagement-intelligence
+.env.engagement-intelligence.*
+!.env.engagement-intelligence.example
+logs/engagement-intelligence/
+data/engagement-intelligence/raw/
+data/engagement-intelligence/redacted/
+data/engagement-intelligence/classified/
+data/engagement-intelligence/local/
+
 # Claude Code local settings (user-specific permissions)
 .claude/settings.local.json
 

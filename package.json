@@ -24,7 +24,13 @@
     "bot:fixture:stress:50": "node scripts/bot-fixtures/runStressBatch.js --regenerate --count 50",
     "bot:fixture:corpus:dry": "node scripts/bot-fixtures/runStressBatch.js --dry --corpus --regenerate --count 10",
     "bot:fixture:corpus:10": "node scripts/bot-fixtures/runStressBatch.js --corpus --regenerate --count 10",
-    "bot:fixture:corpus:50": "node scripts/bot-fixtures/runStressBatch.js --corpus --regenerate --count 50"
+    "bot:fixture:corpus:50": "node scripts/bot-fixtures/runStressBatch.js --corpus --regenerate --count 50",
+    "engagement:intel:plan": "node scripts/engagement-intelligence/xNewsPlan.js",
+    "engagement:intel:synthetic": "node scripts/engagement-intelligence/analyzeEngagementSamples.js --synthetic",
+    "engagement:intel:x-news:dry": "node scripts/engagement-intelligence/xNewsCollect.js --dry",
+    "engagement:intel:x-news:pilot": "node scripts/engagement-intelligence/xNewsCollect.js --pilot",
+    "engagement:intel:replies:pilot": "node scripts/engagement-intelligence/xReplyCollect.js --pilot",
+    "engagement:intel:xai:classify": "node scripts/engagement-intelligence/xaiClassifyPairs.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

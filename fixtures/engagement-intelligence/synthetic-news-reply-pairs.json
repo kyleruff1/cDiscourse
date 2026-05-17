@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 1,
+  "source": "manual_synthetic",
+  "description": "Synthetic root/reply pairs for offline engagement-intelligence tests. NO real X data, NO real handles, NO real URLs, NO real emails. Used only by __tests__/engagementIntelligence.test.ts and scripts/engagement-intelligence/analyzeEngagementSamples.js.",
+  "pairs": [
+    {
+      "pairId": "syn-001-strong-agree",
+      "rootText": "The new pitch clock made baseball games much shorter.",
+      "replyText": "Agreed. Games are noticeably shorter and the pace is better.",
+      "expectedPrimaryStance": "strong_agree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "none",
+      "expectedReplyFunction": "support",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.2
+    },
+    {
+      "pairId": "syn-002-weak-agree",
+      "rootText": "Coffee shops should add quiet zones.",
+      "replyText": "Yes, that sounds fair for focused work.",
+      "expectedPrimaryStance": "weak_agree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "none",
+      "expectedReplyFunction": "support",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.3
+    },
+    {
+      "pairId": "syn-003-mixed-fair-but",
+      "rootText": "The pitch clock made baseball games much more serious.",
+      "replyText": "Fair point, but it also rushed pitchers into mistakes.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "fact",
+      "expectedReplyFunction": "caveat",
+      "expectedCoexistenceMin": 0.3,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-004-evidence-challenge",
+      "rootText": "Remote work boosts productivity by 13%.",
+      "replyText": "Where is this from? Source for the 13% claim?",
+      "expectedPrimaryStance": "receipt_request",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "evidence",
+      "expectedReplyFunction": "ask_source",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.4
+    },
+    {
+      "pairId": "syn-005-quote-request",
+      "rootText": "The mayor said zoning reform is dead on arrival.",
+      "replyText": "Quote the exact bit. Which sentence said that?",
+      "expectedPrimaryStance": "quote_request",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "evidence",
+      "expectedReplyFunction": "ask_quote",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.4
+    },
+    {
+      "pairId": "syn-006-definition-challenge",
+      "rootText": "Every successful product has good onboarding.",
+      "replyText": "Define successful. That word is doing a lot of work here.",
+      "expectedPrimaryStance": "weak_disagree",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "definition",
+      "expectedReplyFunction": "ask_definition",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.4
+    },
+    {
+      "pairId": "syn-007-scope-challenge",
+      "rootText": "Tabs are overused in product UI.",
+      "replyText": "Too broad. That is true for settings pages but not all of product UI.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "scope",
+      "expectedReplyFunction": "narrow_scope",
+      "expectedCoexistenceMin": 0.2,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-008-causal-challenge",
+      "rootText": "Late commutes are caused by bike lanes taking road space.",
+      "replyText": "Correlation does not equal cause. Other variables explain late commutes.",
+      "expectedPrimaryStance": "strong_disagree",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "causal",
+      "expectedReplyFunction": "rebut",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.3
+    },
+    {
+      "pairId": "syn-009-value-challenge",
+      "rootText": "Speed matters more than quality in startup product launches.",
+      "replyText": "Wrong priorities. Quality matters more than speed at this stage.",
+      "expectedPrimaryStance": "strong_disagree",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "value",
+      "expectedReplyFunction": "rebut",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.4
+    },
+    {
+      "pairId": "syn-010-logic-challenge",
+      "rootText": "Every team that uses async stand-ups is more productive.",
+      "replyText": "That does not follow. Productivity has more variables than meeting format.",
+      "expectedPrimaryStance": "strong_disagree",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "logic",
+      "expectedReplyFunction": "rebut",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.3
+    },
+    {
+      "pairId": "syn-011-counterexample",
+      "rootText": "Large menus mean low food quality.",
+      "replyText": "Counterexample: the neighborhood diner runs a huge menu and is consistently good.",
+      "expectedPrimaryStance": "weak_disagree",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "fact",
+      "expectedReplyFunction": "counterexample",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.4
+    },
+    {
+      "pairId": "syn-012-tangent",
+      "rootText": "City council meetings should enforce a strict 3-minute timer.",
+      "replyText": "Speaking of which, why is parking so bad downtown?",
+      "expectedPrimaryStance": "tangent",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "none",
+      "expectedReplyFunction": "branch_tangent",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.3
+    },
+    {
+      "pairId": "syn-013-joke",
+      "rootText": "Every app should have a boring mode.",
+      "replyText": "lol gamification be like 🎉🎉🎉",
+      "expectedPrimaryStance": "joke_or_meme",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "none",
+      "expectedReplyFunction": "joke",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.3
+    },
+    {
+      "pairId": "syn-014-unclear",
+      "rootText": "Read receipts make conversations worse.",
+      "replyText": "Maybe.",
+      "expectedPrimaryStance": "unclear",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "none",
+      "expectedReplyFunction": "unclear",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.3
+    },
+    {
+      "pairId": "syn-015-agree-premise-disagree-conclusion",
+      "rootText": "Brunch is mostly a scheduling problem, so brunch food does not matter.",
+      "replyText": "I grant brunch is a scheduling thing, but the food still matters.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "fact",
+      "expectedReplyFunction": "caveat",
+      "expectedCoexistenceMin": 0.3,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-016-agree-fact-disagree-framing",
+      "rootText": "Late-season games matter more now because of the play-in.",
+      "replyText": "Yes, late-season games matter, but framing this as a play-in win overstates it.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "framing",
+      "expectedReplyFunction": "caveat",
+      "expectedCoexistenceMin": 0.3,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-017-disagree-evidence-agree-conclusion",
+      "rootText": "Pitch clock helped baseball overall.",
+      "replyText": "Source for the overall claim? But yes the games are shorter, that I grant.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "conclusion",
+      "expectedDisagreementType": "evidence",
+      "expectedReplyFunction": "caveat",
+      "expectedCoexistenceMin": 0.3,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-018-concession-plus-rebut",
+      "rootText": "Trash talk is part of sports literacy.",
+      "replyText": "Fair point that trash talk is a skill, but treating it as sports literacy excuses bad behavior.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "value",
+      "expectedReplyFunction": "caveat",
+      "expectedCoexistenceMin": 0.3,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-019-strong-agree-extend",
+      "rootText": "Settings pages should ship with search.",
+      "replyText": "Agreed. And also: settings categories should collapse by default.",
+      "expectedPrimaryStance": "strong_agree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "none",
+      "expectedReplyFunction": "extend",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.3
+    },
+    {
+      "pairId": "syn-020-narrow-scope",
+      "rootText": "Every onboarding screen is an apology for bad UI.",
+      "replyText": "Too broad. This is true for consumer apps, not for B2B enterprise apps.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "context",
+      "expectedDisagreementType": "scope",
+      "expectedReplyFunction": "narrow_scope",
+      "expectedCoexistenceMin": 0.2,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-021-tone-remark",
+      "rootText": "Voice notes ruin team memory.",
+      "replyText": "The tone here is loaded. The framing of ruin is doing a lot of work.",
+      "expectedPrimaryStance": "weak_disagree",
+      "expectedAgreementType": "none",
+      "expectedDisagreementType": "framing",
+      "expectedReplyFunction": "rebut",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.4
+    },
+    {
+      "pairId": "syn-022-agree-but-narrow",
+      "rootText": "Group chats are bad project management.",
+      "replyText": "Mostly right, but for two-person teams group chats are fine. Narrow the claim.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "scope",
+      "expectedReplyFunction": "narrow_scope",
+      "expectedCoexistenceMin": 0.3,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-023-disagree-but-concede",
+      "rootText": "Tacos beat sandwiches on every metric.",
+      "replyText": "Wrong on portability for very full fillings. I grant tacos win on heat retention though.",
+      "expectedPrimaryStance": "mixed_agree_disagree",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "fact",
+      "expectedReplyFunction": "caveat",
+      "expectedCoexistenceMin": 0.3,
+      "expectedCoexistenceMax": 1.0
+    },
+    {
+      "pairId": "syn-024-ambiguous-sarcasm",
+      "rootText": "Brunch is mostly a scheduling problem.",
+      "replyText": "Oh sure, totally a scheduling problem.",
+      "expectedPrimaryStance": "unclear",
+      "expectedAgreementType": "premise",
+      "expectedDisagreementType": "none",
+      "expectedReplyFunction": "unclear",
+      "expectedCoexistenceMin": 0.0,
+      "expectedCoexistenceMax": 0.4
+    }
+  ]
+}
