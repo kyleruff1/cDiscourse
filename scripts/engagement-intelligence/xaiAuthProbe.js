@@ -102,11 +102,40 @@ function sanitize(text) {
 // ── Network probe (single GET, body discarded) ─────────────────
 
 /**
+ * Drain the response body so undici closes the underlying socket / async
+ * handle before we return. The body content is discarded — only `cancel()` /
+ * tee-and-drop is performed. Any error during drain is swallowed; we treat
+ * it as a successful no-op (status was already captured).
+ *
+ * This is the load-bearing piece of the Windows clean-exit fix: without an
+ * explicit body release, libuv's async close can still be in progress when
+ * the event loop drains, which triggers
+ *   `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\\win\\async.c`.
+ */
+async function releaseResponseBody(res) {
+  if (!res || !res.body) return;
+  try {
+    if (typeof res.body.cancel === 'function') {
+      await res.body.cancel();
+      return;
+    }
+  } catch {
+    // Fall through to drain attempt.
+  }
+  try {
+    // Last-resort: read-and-discard. We do NOT keep the bytes.
+    await res.arrayBuffer().catch(() => undefined);
+  } catch {
+    /* swallow */
+  }
+}
+
+/**
  * `useAuth=true`  → send Authorization: Bearer <key> (key never logged).
  * `useAuth=false` → send NO Authorization header (the "no-key" probe).
  *
  * Returns ONLY: { status, category, transportErrorCategory? }. The response
- * body is never read, parsed, or returned.
+ * body is never read into memory; it is cancelled / drained and discarded.
  */
 async function probeAuth({ useAuth, keyFromEnv }) {
   const url = `${XAI_BASE}${AUTH_PATH}`;
@@ -119,11 +148,12 @@ async function probeAuth({ useAuth, keyFromEnv }) {
   const t = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(url, { method: 'GET', headers, signal: controller.signal });
-    // We deliberately do NOT read res.text() / res.json(). Some responses can
-    // echo a request id that includes auth fragments; we want zero risk of
-    // accidentally writing one to disk.
-    try { if (typeof res.body?.cancel === 'function') res.body.cancel(); } catch { /* ignore */ }
     const status = res.status;
+    // Explicitly release the response body BEFORE we capture the category,
+    // so undici can begin closing the keep-alive socket while we map the
+    // status. Errors here are swallowed (sanitized) — they cannot change
+    // the auth result.
+    await releaseResponseBody(res);
     let category;
     if (status === 200) category = useAuth ? 'auth_ok' : 'unexpected_unauthenticated_access';
     else if (status === 401) category = 'auth_required_401';
@@ -147,6 +177,21 @@ async function probeAuth({ useAuth, keyFromEnv }) {
   }
 }
 
+/**
+ * Give the undici dispatcher one tick of event-loop time to finish closing
+ * keep-alive sockets / async handles before the process exits. On Windows,
+ * exiting too eagerly after a successful fetch trips libuv's
+ * `async.c` UV_HANDLE_CLOSING assertion even though the request itself
+ * completed cleanly.
+ */
+async function drainEventLoop() {
+  // setImmediate gives libuv a turn to run pending close callbacks.
+  await new Promise((resolve) => setImmediate(resolve));
+  // A second 0ms timer pushes us past the next libuv timer phase, which is
+  // enough on Node 20+ Windows builds to release the undici async handle.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 // ── Main entry ─────────────────────────────────────────────────
 
 async function main() {
@@ -167,9 +212,12 @@ async function main() {
     return 0;
   }
 
-  // ── Live path. Read the key from .env file or process env. NEVER log it. ──
+  // ── Live path. Read the key from .env file or process env. NEVER log it.
+  // process.env wins when set; an explicit empty string ('') counts as
+  // "no key" and we do NOT fall back to the file — matching safeEnvSnapshot's
+  // merge logic so the snapshot and the live path always agree.
   let keyFromEnv = process.env.XAI_API_KEY;
-  if (!keyFromEnv && snapshot.envFileExists) {
+  if (keyFromEnv === undefined && snapshot.envFileExists) {
     const parsed = parseDotEnv(fs.readFileSync(ENV_FILE, 'utf8'));
     if (parsed.XAI_API_KEY) keyFromEnv = parsed.XAI_API_KEY;
   }
@@ -184,6 +232,10 @@ async function main() {
   console.log(`[xai-auth-probe] performing one GET ${AUTH_PATH} (no prompt, no body read) authMode=${hasKey ? 'with-key' : 'no-key'}`);
   const result = await probeAuth({ useAuth: hasKey, keyFromEnv: hasKey ? keyFromEnv : null });
 
+  // Let undici release its async handle before we return; this avoids the
+  // Windows libuv UV_HANDLE_CLOSING assertion after a successful live probe.
+  await drainEventLoop();
+
   // Safety: 200 without a key is a security anomaly. Surface loudly.
   if (result.category === 'unexpected_unauthenticated_access') {
     console.error('[xai-auth-probe] ALERT: status=200 with NO Authorization header. This contradicts xAI auth requirements.');
@@ -196,10 +248,16 @@ async function main() {
 }
 
 if (require.main === module) {
-  main().then((code) => process.exit(code || 0)).catch((err) => {
-    console.error('[xai-auth-probe] fatal: ' + sanitize(err && err.message));
-    process.exit(99);
-  });
+  // Set process.exitCode and return — do NOT call process.exit(). On Windows,
+  // forcing exit while undici's keep-alive socket is still closing triggers
+  // a libuv async.c assertion. Letting the event loop drain naturally is
+  // safer and produces the same exit code.
+  main()
+    .then((code) => { process.exitCode = code || 0; })
+    .catch((err) => {
+      console.error('[xai-auth-probe] fatal: ' + sanitize(err && err.message));
+      process.exitCode = 99;
+    });
 }
 
 module.exports = {
@@ -208,6 +266,8 @@ module.exports = {
   safeEnvSnapshot,
   sanitize,
   probeAuth,
+  releaseResponseBody,
+  drainEventLoop,
   XAI_BASE,
   AUTH_PATH,
 };

@@ -72,7 +72,9 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 6.1.5.1 complete as of 2026-05-17. Admin Arguments tab + message qualifier taxonomy + game recommendations doc. **1157 tests / 41 suites passing.** Live AI corpus from Stage 6.1.5 (38/38 posted) drove the recommendations. No Anthropic / xAI call by Claude in this stage.
+Stage 6.1.3.2b complete as of 2026-05-17. xAI auth probe Windows clean-exit patch: response body now explicitly cancelled/drained, event loop drained one tick, `process.exitCode` replaces `process.exit()`, empty-string `XAI_API_KEY` in `process.env` correctly treated as no-key. Live probe confirmed `status=200 / category=auth_ok / exit 0 / no Windows assertion`. xAI classification stays disabled by default. **1165 tests / 41 suites passing.**
+
+Stage 6.1.5.1 (earlier — Admin Arguments + qualifier taxonomy + game recommendations) complete as of 2026-05-17. Live AI corpus from Stage 6.1.5 (38/38 posted) drove the recommendations. No Anthropic / xAI call by Claude in this stage.
 
 Next safe stages:
 - Stage 6.1.5.2 — point-standing persistence + UI nudges in the composer (wires the Stage 6.1.4 engine + uses `messageQualifiers` nudges).

@@ -125,6 +125,75 @@ describe('xaiAuthProbe — dry mode makes no network call', () => {
   });
 });
 
+// ── Windows clean-exit fix: body cancel + event-loop drain ─────
+
+describe('xaiAuthProbe — releaseResponseBody', () => {
+  it('calls res.body.cancel() when available', async () => {
+    const cancel = jest.fn(async () => undefined);
+    const fakeRes = { body: { cancel } } as { body: { cancel: jest.Mock } };
+    await probe.releaseResponseBody(fakeRes);
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('swallows cancel errors and never throws', async () => {
+    const cancel = jest.fn(async () => { throw new Error('xai-shouldneverleak boom'); });
+    const fakeRes = { body: { cancel }, arrayBuffer: jest.fn(async () => undefined) };
+    await expect(probe.releaseResponseBody(fakeRes)).resolves.toBeUndefined();
+    expect(cancel).toHaveBeenCalled();
+  });
+
+  it('is a no-op for a response with no body', async () => {
+    await expect(probe.releaseResponseBody({ body: null })).resolves.toBeUndefined();
+    await expect(probe.releaseResponseBody(null)).resolves.toBeUndefined();
+  });
+
+  it('falls back to arrayBuffer drain when cancel is not available', async () => {
+    const arrayBuffer = jest.fn(async () => new ArrayBuffer(0));
+    const fakeRes = { body: { /* no cancel */ }, arrayBuffer };
+    await probe.releaseResponseBody(fakeRes);
+    expect(arrayBuffer).toHaveBeenCalled();
+  });
+});
+
+describe('xaiAuthProbe — drainEventLoop', () => {
+  it('resolves after at least one event-loop tick', async () => {
+    const start = Date.now();
+    await probe.drainEventLoop();
+    // setImmediate + setTimeout(0) — should be near-instant on any platform.
+    expect(Date.now() - start).toBeLessThan(200);
+  });
+});
+
+describe('xaiAuthProbe — main entry no longer hard-exits', () => {
+  it('source uses process.exitCode and avoids process.exit() in the live entry', () => {
+    const src = fs.readFileSync(path.join(repoRoot, 'scripts/engagement-intelligence/xaiAuthProbe.js'), 'utf8');
+    // process.exitCode is the correct Windows-friendly approach.
+    expect(src).toMatch(/process\.exitCode\s*=/);
+    // The require.main entry block must not call process.exit() as actual
+    // code (comments documenting why we avoid it are fine).
+    const mainBlock = src.slice(src.indexOf('if (require.main === module)'));
+    const codeOnly = mainBlock
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('//') && !line.trim().startsWith('*'))
+      .join('\n');
+    expect(codeOnly).not.toMatch(/process\.exit\(/);
+  });
+
+  it('source calls drainEventLoop after a live probe', () => {
+    const src = fs.readFileSync(path.join(repoRoot, 'scripts/engagement-intelligence/xaiAuthProbe.js'), 'utf8');
+    expect(src).toMatch(/await drainEventLoop\(\)/);
+  });
+
+  it('source releases the response body before mapping the category', () => {
+    const src = fs.readFileSync(path.join(repoRoot, 'scripts/engagement-intelligence/xaiAuthProbe.js'), 'utf8');
+    const probeIdx = src.indexOf('async function probeAuth');
+    const releaseIdx = src.indexOf('releaseResponseBody', probeIdx);
+    const categoryIdx = src.indexOf('category =', probeIdx);
+    expect(releaseIdx).toBeGreaterThan(probeIdx);
+    expect(releaseIdx).toBeLessThan(categoryIdx);
+  });
+});
+
 // ── xaiClassifyPairs: still disabled ──────────────────────────
 
 describe('xaiClassifyPairs CLI — production scaffold remains deterministic-first', () => {

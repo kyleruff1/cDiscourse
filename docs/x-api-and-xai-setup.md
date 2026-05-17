@@ -154,6 +154,25 @@ If `probe:no-key` returns `unexpected_unauthenticated_access`, **do not** treat 
 
 xAI **stays disabled** by default regardless of probe results. The Stage 6.1.3.3 tiny X News pilot remains X API only, xAI off.
 
+### Stage 6.1.3.2b — Windows clean-exit patch (2026-05-17)
+
+The live probe (`engagement:intel:xai:probe:live`) was successfully authenticating against `https://api.x.ai/v1/models` and returning `status=200 / category=auth_ok`, but on Windows Node printed a libuv assertion immediately after the result:
+
+```
+Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76
+```
+
+Root cause: the script called `process.exit(0)` while undici's keep-alive socket was still finishing its async close. The auth itself was fine; the bug was process cleanup. Patch:
+
+- The response body is now explicitly cancelled (`res.body.cancel()`) before the status is mapped, with a fallback `arrayBuffer()` drain when `cancel` is missing. Errors are swallowed and sanitized — they cannot change the auth result.
+- A new `drainEventLoop()` helper waits one `setImmediate` + one `setTimeout(0)` after the probe completes so libuv can release the async handle.
+- The `require.main` entry point sets `process.exitCode` and returns instead of calling `process.exit()`, letting the event loop drain naturally.
+- The live path's key resolution was tightened: an explicit empty-string `XAI_API_KEY` in `process.env` is now treated as "no key" and does **not** fall back to the `.env` file. This matches the snapshot's merge logic so the two paths cannot disagree.
+
+The probe is **not inference** — it still sends a single `GET /v1/models` with no prompt, no user text, no body read. No keys, headers, or response bodies are logged. xAI classification remains disabled by default. The Stage 6.1.3.3 X News pilot remains separately gated by `X_BEARER_TOKEN` + `ENGAGEMENT_INTEL_ENABLE_X_API=true` + `--pilot`.
+
+xAI auth has been confirmed (`status=200`, `category=auth_ok`, exit 0, no Windows assertion) on this machine. xAI classification remains off until separately enabled.
+
 ## Safety reminders
 
 - **Do not paste any key into Claude.**

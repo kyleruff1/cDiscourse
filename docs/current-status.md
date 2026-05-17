@@ -1,8 +1,10 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-17 (Stage 6.1.3.2)_
+_Last updated: 2026-05-17 (Stage 6.1.3.2b)_
 
 ## Current Stage
+
+**Stage 6.1.3.2b complete (xAI auth probe Windows clean-exit patch).** The live xAI auth probe (`engagement:intel:xai:probe:live`) was authenticating cleanly (`status=200`, `category=auth_ok`) but Node on Windows printed a `UV_HANDLE_CLOSING` assertion immediately after — a process-cleanup bug, not an auth bug. Patched `scripts/engagement-intelligence/xaiAuthProbe.js` to explicitly cancel/drain the response body, drain the event loop, set `process.exitCode` instead of calling `process.exit()`, and treat an empty-string `XAI_API_KEY` in `process.env` as "no key" (matching `safeEnvSnapshot`). Live probe now exits cleanly with code 0; no Windows assertion. xAI classification remains disabled by default. **1165 tests / 41 suites passing**, typecheck + lint clean. See `docs/x-api-and-xai-setup.md` § "Stage 6.1.3.2b".
 
 **Stage 6.1.5.1 complete (Admin Arguments + message qualifier taxonomy + game recommendations).** Live AI corpus from Stage 6.1.5 completed clean — 3 rooms × ~13 moves = **38 / 38 posted, 0 failures** (`docs/testing-runs/2026-05-17-ai-driven-bot-corpus.md`, run id `2026-05-17T05-33-03-863Z-fc5b47a8`). Stage 6.1.5.1 surfaces that data: new `AdminArgumentsTab` reads `public.arguments` via existing admin RLS (no Edge Function change, no migration), shows `created_at` + `updated_at`, and decorates each row with `MessageCategory` + `MessageQualifier` badges + UI nudges. Pure-TS `src/features/arguments/messageQualifiers.ts` defines 13 categories × 26 qualifiers; vocabulary tests assert zero verdict tokens. New `src/lib/formatDateTime.ts`. New docs: `docs/message-qualifier-taxonomy.md`, `docs/game-qualifier-recommendations.md`. No Anthropic / xAI call by Claude in this stage. +67 new tests. **1157 tests / 41 suites passing**, typecheck + lint clean.
 
