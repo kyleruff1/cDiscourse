@@ -21,10 +21,35 @@ describe('deterministicAnnotate — output shape', () => {
       reason: 'no_anthropic_client',
     });
 
-    expect(a.schemaVersion).toBe(1);
+    expect(a.schemaVersion).toBe(2);
     expect(a.moveId).toBe('m1');
     expect(a.userReviewRequired).toBe(true);
     expect(a.annotationSource).toBe('deterministic_fallback');
+    // Stage 6.1.5.2 — anti-amplification fields are always present.
+    expect(typeof a.politicalIssueFrame).toBe('string');
+    expect(typeof a.politicalValence).toBe('string');
+    expect(typeof a.evidentiaryRisk).toBe('string');
+    expect(typeof a.amplificationRisk).toBe('string');
+    expect(typeof a.platformSupportWarning).toBe('boolean');
+    expect(typeof a.recommendedGameTreatment).toBe('string');
+    expect(typeof a.justification).toBe('string');
+    expect(a.amplificationSignals).toEqual(expect.objectContaining({
+      repeated_claim_language: expect.any(Boolean),
+      high_engagement_low_evidence: expect.any(Boolean),
+      slogan_or_chant_like: expect.any(Boolean),
+      appeal_to_virality: expect.any(Boolean),
+    }));
+    expect(a.deterministicRuleCandidate).toEqual(expect.objectContaining({
+      shouldSuppressScoreGainForAmplificationOnly: expect.any(Boolean),
+      shouldAskForPrimarySource: expect.any(Boolean),
+      shouldMarkEvidenceRiskHigh: expect.any(Boolean),
+      shouldShowAmplificationRiskBadge: expect.any(Boolean),
+      shouldTreatAsOpinionNoFactualCredit: expect.any(Boolean),
+      shouldCreateIssueDebtForUnsupportedClaim: expect.any(Boolean),
+      shouldOfferScopeNarrowingForPoliticalGeneralization: expect.any(Boolean),
+      shouldOfferQuoteAnchorForAllegation: expect.any(Boolean),
+      shouldBranchContextIfClaimNeedsBackground: expect.any(Boolean),
+    }));
     expect(typeof a.messageCategory).toBe('string');
     expect(typeof a.primaryRhetoricalArchetype).toBe('string');
     expect(Array.isArray(a.secondaryRhetoricalArchetypes)).toBe(true);

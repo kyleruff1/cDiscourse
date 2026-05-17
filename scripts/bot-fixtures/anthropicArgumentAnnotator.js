@@ -20,6 +20,38 @@ const VALID_STANCE_VALUES = new Set([
 const FORBIDDEN_TOKENS = [
   'liar', 'dishonest', 'bad faith', 'manipulative', 'manipulation',
   'extremist', 'propagandist', 'winner', 'loser', 'stupid', 'idiot',
+  // Stage 6.1.5.2 anti-amplification additions: never apply these as
+  // user labels. Use coordination-risk / amplification-risk fields
+  // instead, which describe TEXT patterns not people.
+  'troll', 'astroturf', 'astroturfer',
+];
+
+const VALID_POLITICAL_FRAMES = new Set([
+  'election_process', 'governance', 'foreign_policy', 'economic_policy',
+  'civil_rights', 'public_safety', 'institutional_trust', 'culture_war',
+  'climate_energy', 'health_policy', 'labor_business',
+  'technology_platforms', 'unclear', 'non_political',
+]);
+const VALID_POLITICAL_VALENCES = new Set([
+  'pro_institutional', 'anti_institutional', 'left_leaning_frame',
+  'right_leaning_frame', 'populist_frame', 'establishment_frame',
+  'anti_media_frame', 'pro_media_frame', 'anti_platform_frame',
+  'pro_platform_frame', 'unclear', 'not_applicable',
+]);
+const VALID_EVIDENTIARY_RISKS = new Set(['low', 'medium', 'high', 'unknown']);
+const VALID_AMPLIFICATION_RISKS = new Set(['none_observed', 'low', 'medium', 'high']);
+const VALID_GAME_TREATMENTS = new Set([
+  'allow_as_opinion_no_factual_credit', 'ask_for_receipt',
+  'ask_for_quote_anchor', 'ask_for_scope_narrowing',
+  'ask_for_primary_source', 'suggest_branch_to_context_thread',
+  'mark_as_unresolved_issue_debt', 'allow_point_standing_after_evidence',
+  'suppress_score_gain_for_amplification_only',
+]);
+const AMPLIFICATION_SIGNAL_KEYS = [
+  'repeated_claim_language', 'high_engagement_low_evidence',
+  'slogan_or_chant_like', 'copy_paste_risk', 'outrage_hook',
+  'link_without_receipt_context', 'screenshot_without_primary_source',
+  'appeal_to_crowd_size', 'appeal_to_virality', 'unknown_source_chain',
 ];
 
 function clamp01(n) {
@@ -114,8 +146,39 @@ function validateAnnotation(parsed, expected) {
   parsed.evidenceSignals = parsed.evidenceSignals || {};
   parsed.threadSignals = parsed.threadSignals || {};
   parsed.modelJustification = parsed.modelJustification || { shortReason: '', observableTextFeatures: [], uncertaintyNotes: [] };
-  parsed.deterministicRuleCandidate = parsed.deterministicRuleCandidate || { shouldCreateRule: false, ruleName: null, ruleCondition: null, uiNudge: null };
-  parsed.schemaVersion = 1;
+
+  // Anti-amplification doctrine fields (Stage 6.1.5.2). Default to the
+  // conservative position: unclear frame, no amplification observed, no
+  // factual-standing suppression — Anthropic must affirmatively flag
+  // these. We never silently fabricate a political label.
+  const rc = parsed.deterministicRuleCandidate || {};
+  parsed.deterministicRuleCandidate = {
+    shouldCreateRule: Boolean(rc.shouldCreateRule),
+    ruleName: typeof rc.ruleName === 'string' ? rc.ruleName : null,
+    ruleCondition: typeof rc.ruleCondition === 'string' ? rc.ruleCondition : null,
+    uiNudge: typeof rc.uiNudge === 'string' ? rc.uiNudge : null,
+    shouldSuppressScoreGainForAmplificationOnly: Boolean(rc.shouldSuppressScoreGainForAmplificationOnly),
+    shouldAskForPrimarySource: Boolean(rc.shouldAskForPrimarySource),
+    shouldMarkEvidenceRiskHigh: Boolean(rc.shouldMarkEvidenceRiskHigh),
+    shouldShowAmplificationRiskBadge: Boolean(rc.shouldShowAmplificationRiskBadge),
+    shouldTreatAsOpinionNoFactualCredit: Boolean(rc.shouldTreatAsOpinionNoFactualCredit),
+    shouldCreateIssueDebtForUnsupportedClaim: Boolean(rc.shouldCreateIssueDebtForUnsupportedClaim),
+    shouldOfferScopeNarrowingForPoliticalGeneralization: Boolean(rc.shouldOfferScopeNarrowingForPoliticalGeneralization),
+    shouldOfferQuoteAnchorForAllegation: Boolean(rc.shouldOfferQuoteAnchorForAllegation),
+    shouldBranchContextIfClaimNeedsBackground: Boolean(rc.shouldBranchContextIfClaimNeedsBackground),
+  };
+  parsed.politicalIssueFrame = VALID_POLITICAL_FRAMES.has(parsed.politicalIssueFrame) ? parsed.politicalIssueFrame : 'unclear';
+  parsed.politicalValence = VALID_POLITICAL_VALENCES.has(parsed.politicalValence) ? parsed.politicalValence : 'unclear';
+  parsed.evidentiaryRisk = VALID_EVIDENTIARY_RISKS.has(parsed.evidentiaryRisk) ? parsed.evidentiaryRisk : 'unknown';
+  parsed.amplificationRisk = VALID_AMPLIFICATION_RISKS.has(parsed.amplificationRisk) ? parsed.amplificationRisk : 'none_observed';
+  parsed.recommendedGameTreatment = VALID_GAME_TREATMENTS.has(parsed.recommendedGameTreatment) ? parsed.recommendedGameTreatment : 'allow_as_opinion_no_factual_credit';
+  parsed.platformSupportWarning = Boolean(parsed.platformSupportWarning);
+  parsed.justification = typeof parsed.justification === 'string' ? parsed.justification.slice(0, 800) : '';
+  const ampIn = parsed.amplificationSignals || {};
+  const ampOut = {};
+  for (const k of AMPLIFICATION_SIGNAL_KEYS) ampOut[k] = Boolean(ampIn[k]);
+  parsed.amplificationSignals = ampOut;
+  parsed.schemaVersion = 2;
   parsed.scenarioId = parsed.scenarioId || expected?.scenarioId || '';
   parsed.roomId = parsed.roomId ?? expected?.roomId ?? null;
   parsed.parentMoveId = parsed.parentMoveId ?? expected?.parentMoveId ?? null;

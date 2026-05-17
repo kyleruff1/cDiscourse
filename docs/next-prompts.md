@@ -72,6 +72,12 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
+Stage 6.1.5.2 complete as of 2026-05-17. Anti-amplification doctrine encoded across the annotation schema (politicalIssueFrame, politicalValence, amplificationSignals, evidentiaryRisk, amplificationRisk, platformSupportWarning, recommendedGameTreatment, justification, 9 new rule flags). Point-standing engine post-processor (`applyAntiAmplification`): amplification earns engagement credit, never factual-standing credit until evidence arrives; narrowing / sourcing / clarification earns the conversion bonus. xAI X Search live seeder wired (`POST /v1/chat/completions` with `search_parameters`). X News pilot report extended with per-root + per-reply annotations + new aggregates. `runAiDrivenCorpus.js` captures submit error detail. **1258 tests / 50 suites passing.** No Anthropic / xAI call by Claude in this stage.
+
+Next safe live runs require operator readiness:
+- 3-room annotated AI corpus (~$1): needs `ANTHROPIC_API_KEY` + `ENGAGEMENT_INTEL_ENABLE_ANTHROPIC=true` in `.env.engagement-intelligence` AND `.env.bot-tests` populated (anon key + admin email/password + bot creds).
+- xAI X Search seeds via `bot:fixture:ai:3:annotated -- --seeds xai_live` (single xAI call): needs the existing `XAI_API_KEY` + `ENGAGEMENT_INTEL_ENABLE_XAI=true` (already set) — combine with the Anthropic readiness above.
+
 Stage 6.1.5.1 annotation pipeline complete as of 2026-05-17. Anthropic argument-intelligence schema + prompt builder + annotator wrapper + deterministic fallback + corpus runner wiring + Markdown report builder + 45 new tests landed. The dry path produces a complete annotated report using deterministic fallback only — no Anthropic call by Claude in this stage. Live 3-room / 50-room annotated pilots remain operator-gated (require `.env.engagement-intelligence` + `ENGAGEMENT_INTEL_ENABLE_ANTHROPIC=true` + `--pilot`). **1210 tests / 46 suites passing.**
 
 Stage 6.1.3.2b complete as of 2026-05-17. xAI auth probe Windows clean-exit patch: response body now explicitly cancelled/drained, event loop drained one tick, `process.exitCode` replaces `process.exit()`, empty-string `XAI_API_KEY` in `process.env` correctly treated as no-key. Live probe confirmed `status=200 / category=auth_ok / exit 0 / no Windows assertion`. xAI classification stays disabled by default. **1165 tests / 41 suites passing.**

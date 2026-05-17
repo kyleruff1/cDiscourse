@@ -79,6 +79,87 @@ export type RepairSuggestion =
 
 export type AnnotationSource = 'anthropic' | 'anthropic_retry' | 'deterministic_fallback';
 
+// ── Anti-amplification doctrine (Stage 6.1.5.2) ────────────────
+//
+// Core doctrine encoded across the schema:
+//   - Popularity is not evidence.
+//   - Repetition is not evidence.
+//   - Engagement velocity is not evidence.
+//   - Political identity is not evidence.
+//   - The app MAY identify political frame / issue family / rhetorical
+//     camp for research and gameplay context.
+//   - The app MUST NOT treat political alignment, crowd agreement, or
+//     viral repetition as factual support.
+//
+// Safety rules baked into the schema:
+//   - `politicalValence` describes the rhetorical frame of the TEXT, not
+//     the user.
+//   - Do NOT infer party registration, ideology, protected traits,
+//     religion, race, ethnicity, sexuality, health, or demographic
+//     identity.
+//   - Never label a user as extremist, propagandist, troll, bot,
+//     bad-faith, dishonest, liar, or manipulative.
+//   - Use "coordination risk" / "amplification risk" for content-pattern
+//     signals, not person labels.
+
+export type PoliticalIssueFrame =
+  | 'election_process'
+  | 'governance'
+  | 'foreign_policy'
+  | 'economic_policy'
+  | 'civil_rights'
+  | 'public_safety'
+  | 'institutional_trust'
+  | 'culture_war'
+  | 'climate_energy'
+  | 'health_policy'
+  | 'labor_business'
+  | 'technology_platforms'
+  | 'unclear'
+  | 'non_political';
+
+export type PoliticalValence =
+  | 'pro_institutional'
+  | 'anti_institutional'
+  | 'left_leaning_frame'
+  | 'right_leaning_frame'
+  | 'populist_frame'
+  | 'establishment_frame'
+  | 'anti_media_frame'
+  | 'pro_media_frame'
+  | 'anti_platform_frame'
+  | 'pro_platform_frame'
+  | 'unclear'
+  | 'not_applicable';
+
+export type EvidentiaryRisk = 'low' | 'medium' | 'high' | 'unknown';
+
+export type AmplificationRisk = 'none_observed' | 'low' | 'medium' | 'high';
+
+export type RecommendedGameTreatment =
+  | 'allow_as_opinion_no_factual_credit'
+  | 'ask_for_receipt'
+  | 'ask_for_quote_anchor'
+  | 'ask_for_scope_narrowing'
+  | 'ask_for_primary_source'
+  | 'suggest_branch_to_context_thread'
+  | 'mark_as_unresolved_issue_debt'
+  | 'allow_point_standing_after_evidence'
+  | 'suppress_score_gain_for_amplification_only';
+
+export interface AmplificationSignals {
+  repeated_claim_language: boolean;
+  high_engagement_low_evidence: boolean;
+  slogan_or_chant_like: boolean;
+  copy_paste_risk: boolean;
+  outrage_hook: boolean;
+  link_without_receipt_context: boolean;
+  screenshot_without_primary_source: boolean;
+  appeal_to_crowd_size: boolean;
+  appeal_to_virality: boolean;
+  unknown_source_chain: boolean;
+}
+
 export type EmotionalValence = 'positive' | 'neutral' | 'negative' | 'mixed' | 'unclear';
 
 export type HeatLevel = 'cold' | 'warm' | 'hot' | 'too_hot_possible';
@@ -149,12 +230,24 @@ export interface DeterministicRuleCandidate {
   ruleName: string | null;
   ruleCondition: string | null;
   uiNudge: string | null;
+
+  // Anti-amplification doctrine flags. Each is independently true/false
+  // and is read by the point-standing engine + composer nudge picker.
+  shouldSuppressScoreGainForAmplificationOnly: boolean;
+  shouldAskForPrimarySource: boolean;
+  shouldMarkEvidenceRiskHigh: boolean;
+  shouldShowAmplificationRiskBadge: boolean;
+  shouldTreatAsOpinionNoFactualCredit: boolean;
+  shouldCreateIssueDebtForUnsupportedClaim: boolean;
+  shouldOfferScopeNarrowingForPoliticalGeneralization: boolean;
+  shouldOfferQuoteAnchorForAllegation: boolean;
+  shouldBranchContextIfClaimNeedsBackground: boolean;
 }
 
 // ── Top-level annotation ───────────────────────────────────────
 
 export interface AnthropicArgumentAnnotation {
-  schemaVersion: 1;
+  schemaVersion: 2;
   moveId: string;
   roomId: string | null;
   scenarioId: string;
@@ -174,6 +267,24 @@ export interface AnthropicArgumentAnnotation {
   threadSignals: ThreadSignals;
   modelJustification: ModelJustification;
   deterministicRuleCandidate: DeterministicRuleCandidate;
+
+  // Political frame + amplification (Stage 6.1.5.2). All advisory.
+  // `politicalValence` is a frame description of the TEXT, never the
+  // user. See the "Anti-amplification doctrine" comment above.
+  politicalIssueFrame: PoliticalIssueFrame;
+  politicalValence: PoliticalValence;
+  amplificationSignals: AmplificationSignals;
+  evidentiaryRisk: EvidentiaryRisk;
+  amplificationRisk: AmplificationRisk;
+  /**
+   * `true` when the claim should NOT receive point-standing credit
+   * without additional evidence. The point-standing engine reads this.
+   */
+  platformSupportWarning: boolean;
+  recommendedGameTreatment: RecommendedGameTreatment;
+  /** One to three sentences. Observable text features only. */
+  justification: string;
+
   annotationSource: AnnotationSource;
   /** Always true. Outputs are advisory. */
   userReviewRequired: true;
@@ -210,6 +321,54 @@ export const ALL_REPAIR_SUGGESTIONS: RepairSuggestion[] = [
   'provide_receipt', 'quote_exact_bit', 'define_term',
   'narrow_scope', 'concede_small_point', 'branch_thread',
   'synthesize', 'none',
+];
+
+export const ALL_POLITICAL_ISSUE_FRAMES: PoliticalIssueFrame[] = [
+  'election_process', 'governance', 'foreign_policy', 'economic_policy',
+  'civil_rights', 'public_safety', 'institutional_trust', 'culture_war',
+  'climate_energy', 'health_policy', 'labor_business',
+  'technology_platforms', 'unclear', 'non_political',
+];
+
+export const ALL_POLITICAL_VALENCES: PoliticalValence[] = [
+  'pro_institutional', 'anti_institutional', 'left_leaning_frame',
+  'right_leaning_frame', 'populist_frame', 'establishment_frame',
+  'anti_media_frame', 'pro_media_frame', 'anti_platform_frame',
+  'pro_platform_frame', 'unclear', 'not_applicable',
+];
+
+export const ALL_EVIDENTIARY_RISKS: EvidentiaryRisk[] = [
+  'low', 'medium', 'high', 'unknown',
+];
+
+export const ALL_AMPLIFICATION_RISKS: AmplificationRisk[] = [
+  'none_observed', 'low', 'medium', 'high',
+];
+
+export const ALL_RECOMMENDED_GAME_TREATMENTS: RecommendedGameTreatment[] = [
+  'allow_as_opinion_no_factual_credit', 'ask_for_receipt',
+  'ask_for_quote_anchor', 'ask_for_scope_narrowing',
+  'ask_for_primary_source', 'suggest_branch_to_context_thread',
+  'mark_as_unresolved_issue_debt', 'allow_point_standing_after_evidence',
+  'suppress_score_gain_for_amplification_only',
+];
+
+export const AMPLIFICATION_SIGNAL_KEYS: ReadonlyArray<keyof AmplificationSignals> = [
+  'repeated_claim_language', 'high_engagement_low_evidence',
+  'slogan_or_chant_like', 'copy_paste_risk', 'outrage_hook',
+  'link_without_receipt_context', 'screenshot_without_primary_source',
+  'appeal_to_crowd_size', 'appeal_to_virality', 'unknown_source_chain',
+];
+
+/**
+ * Tokens we must NEVER apply as a user label. The annotator + fallback
+ * + report layers all enforce this. Use coordination-risk /
+ * amplification-risk content-pattern signals instead.
+ */
+export const FORBIDDEN_USER_LABELS: string[] = [
+  'troll', 'bot', 'astroturf', 'astroturfer',
+  'extremist', 'propagandist',
+  'liar', 'dishonest', 'bad faith', 'manipulative', 'manipulator',
 ];
 
 /**

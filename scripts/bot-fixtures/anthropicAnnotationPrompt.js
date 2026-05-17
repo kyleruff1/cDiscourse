@@ -24,11 +24,19 @@ const SYSTEM_PROMPT = [
   'You annotate a single argument move (a reply in a debate game).',
   'You are NOT a truth engine, NOT a moderator, and NOT a judge.',
   'You DO NOT decide who is correct. You DO NOT decide who is winning or losing.',
-  'You DO NOT call any speaker a liar, dishonest, bad faith, manipulative, extremist, propagandist, stupid, or an idiot.',
-  'You DO NOT infer demographic, political, religious, health, sexuality, or other protected-class attributes about any speaker.',
+  'You DO NOT call any speaker a liar, dishonest, bad faith, manipulative, extremist, propagandist, troll, bot, astroturfer, stupid, or an idiot.',
+  'You DO NOT infer demographic, political party, religious, health, sexuality, race, ethnicity, or other protected-class attributes about any speaker.',
   'You DO NOT make moderation recommendations.',
   'You classify observable language only — what words say and how they relate to the parent move.',
   'When something is risky to label, use the suffix "_possible" or set uncertainty high. Prefer "unclear" over guessing.',
+  // ── Anti-amplification doctrine ────────────────────────────────
+  'CORE DOCTRINE (Stage 6.1.5.2): popularity is NOT evidence. Repetition is NOT evidence. Engagement velocity is NOT evidence. Political identity is NOT evidence.',
+  'You MAY identify the political frame, issue family, or rhetorical camp of the TEXT for research and gameplay context.',
+  'You MUST NOT treat political alignment, crowd agreement, or viral repetition as factual support.',
+  '`politicalValence` describes the rhetorical frame of the TEXT, never the user. Do not infer party registration or ideology.',
+  'Use "coordination risk" / "amplification risk" for content-pattern signals, never as a person label.',
+  'Set platformSupportWarning=true whenever the claim should NOT receive point-standing credit without additional evidence (high amplification + low evidence, appeal to virality, unknown source chain, viral slogan repetition, factual allegation without quote/source).',
+  // ── Output format ──────────────────────────────────────────────
   'You ALWAYS output compact JSON only, no prose outside the JSON.',
   'You ALWAYS set userReviewRequired: true.',
   'The label set is fixed; do not invent new categories or archetypes.',
@@ -65,10 +73,35 @@ const REPAIR_SUGGESTIONS = [
   'synthesize', 'none',
 ];
 
+const POLITICAL_ISSUE_FRAMES = [
+  'election_process', 'governance', 'foreign_policy', 'economic_policy',
+  'civil_rights', 'public_safety', 'institutional_trust', 'culture_war',
+  'climate_energy', 'health_policy', 'labor_business',
+  'technology_platforms', 'unclear', 'non_political',
+];
+
+const POLITICAL_VALENCES = [
+  'pro_institutional', 'anti_institutional', 'left_leaning_frame',
+  'right_leaning_frame', 'populist_frame', 'establishment_frame',
+  'anti_media_frame', 'pro_media_frame', 'anti_platform_frame',
+  'pro_platform_frame', 'unclear', 'not_applicable',
+];
+
+const EVIDENTIARY_RISKS = ['low', 'medium', 'high', 'unknown'];
+const AMPLIFICATION_RISKS = ['none_observed', 'low', 'medium', 'high'];
+
+const RECOMMENDED_GAME_TREATMENTS = [
+  'allow_as_opinion_no_factual_credit', 'ask_for_receipt',
+  'ask_for_quote_anchor', 'ask_for_scope_narrowing',
+  'ask_for_primary_source', 'suggest_branch_to_context_thread',
+  'mark_as_unresolved_issue_debt', 'allow_point_standing_after_evidence',
+  'suppress_score_gain_for_amplification_only',
+];
+
 const SCHEMA_DESCRIPTION = `Return ONE JSON object with this shape (all keys required):
 
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "moveId": string,
   "roomId": string | null,
   "scenarioId": string,
@@ -142,12 +175,41 @@ const SCHEMA_DESCRIPTION = `Return ONE JSON object with this shape (all keys req
     "shouldCreateRule": boolean,
     "ruleName": string | null,
     "ruleCondition": string | null,
-    "uiNudge": string | null
+    "uiNudge": string | null,
+    "shouldSuppressScoreGainForAmplificationOnly": boolean,
+    "shouldAskForPrimarySource": boolean,
+    "shouldMarkEvidenceRiskHigh": boolean,
+    "shouldShowAmplificationRiskBadge": boolean,
+    "shouldTreatAsOpinionNoFactualCredit": boolean,
+    "shouldCreateIssueDebtForUnsupportedClaim": boolean,
+    "shouldOfferScopeNarrowingForPoliticalGeneralization": boolean,
+    "shouldOfferQuoteAnchorForAllegation": boolean,
+    "shouldBranchContextIfClaimNeedsBackground": boolean
   },
+  "politicalIssueFrame": one of ${JSON.stringify(POLITICAL_ISSUE_FRAMES)},
+  "politicalValence": one of ${JSON.stringify(POLITICAL_VALENCES)},
+  "amplificationSignals": {
+    "repeated_claim_language": boolean,
+    "high_engagement_low_evidence": boolean,
+    "slogan_or_chant_like": boolean,
+    "copy_paste_risk": boolean,
+    "outrage_hook": boolean,
+    "link_without_receipt_context": boolean,
+    "screenshot_without_primary_source": boolean,
+    "appeal_to_crowd_size": boolean,
+    "appeal_to_virality": boolean,
+    "unknown_source_chain": boolean
+  },
+  "evidentiaryRisk": one of ${JSON.stringify(EVIDENTIARY_RISKS)},
+  "amplificationRisk": one of ${JSON.stringify(AMPLIFICATION_RISKS)},
+  "platformSupportWarning": boolean,
+  "recommendedGameTreatment": one of ${JSON.stringify(RECOMMENDED_GAME_TREATMENTS)},
+  "justification": string (1-3 sentences; observable text features only; do NOT make claims about the author; say "the text shows amplification-risk features" or "the claim relies on repetition / virality rather than evidence"; never "this is astroturfed"),
   "userReviewRequired": true
 }
 
-Use "unclear" liberally for ambiguous text. Use "_possible" suffix on archetypes when the signal is weak.`;
+Use "unclear" liberally for ambiguous text. Use "_possible" suffix on archetypes when the signal is weak.
+Set platformSupportWarning=true whenever high_engagement_low_evidence, appeal_to_virality, unknown_source_chain, evidentiaryRisk=high, or factual claim lacks a quote/source/evidence anchor, OR when a reply agrees with a viral claim without adding evidence, OR when a reply repeats a political slogan without narrowing or supporting the point.`;
 
 /**
  * Build the user prompt for one move. Includes:
@@ -224,6 +286,11 @@ module.exports = {
   MESSAGE_CATEGORIES,
   ISSUE_DEBT_AXES,
   REPAIR_SUGGESTIONS,
+  POLITICAL_ISSUE_FRAMES,
+  POLITICAL_VALENCES,
+  EVIDENTIARY_RISKS,
+  AMPLIFICATION_RISKS,
+  RECOMMENDED_GAME_TREATMENTS,
   buildAnnotationPrompt,
   buildUserPrompt,
 };

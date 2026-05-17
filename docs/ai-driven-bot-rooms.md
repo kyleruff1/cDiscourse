@@ -87,6 +87,47 @@ npm run bot:fixture:ai:50
 #   --seeds both       — synthetic now, xAI when wired
 ```
 
+## Stage 6.1.5.2 — anti-amplification doctrine + xAI source data + political frame
+
+Stage 6.1.5.2 extends the annotation pipeline to encode an explicit doctrine: **popularity / repetition / engagement velocity / political identity are NOT evidence.** Every annotation (Anthropic or deterministic fallback) now also carries:
+
+- `politicalIssueFrame` — issue family of the TEXT (14 values incl. `culture_war`, `election_process`, `climate_energy`, `unclear`, `non_political`).
+- `politicalValence` — rhetorical frame of the TEXT, never the user (12 values incl. `pro_institutional`, `anti_institutional`, `populist_frame`, `establishment_frame`, `anti_media_frame`, `unclear`, `not_applicable`).
+- `amplificationSignals` — 10-bool object (`repeated_claim_language`, `high_engagement_low_evidence`, `slogan_or_chant_like`, `copy_paste_risk`, `outrage_hook`, `link_without_receipt_context`, `screenshot_without_primary_source`, `appeal_to_crowd_size`, `appeal_to_virality`, `unknown_source_chain`).
+- `evidentiaryRisk` — `low | medium | high | unknown`.
+- `amplificationRisk` — `none_observed | low | medium | high`.
+- `platformSupportWarning` — `true` when the claim must NOT receive factual standing without evidence.
+- `recommendedGameTreatment` — one of nine treatment codes (e.g., `ask_for_primary_source`, `suppress_score_gain_for_amplification_only`, `allow_point_standing_after_evidence`).
+- `justification` — 1–3 sentences referencing observable text features only. Never claims about the author.
+- Nine new `deterministicRuleCandidate` boolean flags (`shouldSuppressScoreGainForAmplificationOnly`, `shouldAskForPrimarySource`, etc.).
+
+### Safety
+- `politicalValence` describes the TEXT, not the user.
+- No party-registration, ideology, religion, race, ethnicity, sexuality, health, or protected-class inference.
+- The annotator + fallback both refuse to apply user labels like `troll`, `bot`, `astroturfer`, `liar`, `propagandist`, `extremist`, `bad faith`, `manipulative`. Use coordination-risk / amplification-risk for content-pattern signals instead.
+
+### Scoring rule
+A new pure-TS module `src/features/pointStanding/antiAmplification.ts` post-processes the engine's `PointStandingDelta`:
+
+- **Amplification earns engagement credit, never factual-standing credit until evidence arrives.** When `platformSupportWarning=true` and the move adds no receipts / quote / scope narrowing, positive `broadStandingDelta` / `narrowStandingDelta` are suppressed; pressure / recovery / concession-integrity gains are preserved.
+- **Narrowing / sourcing / clarification of a viral claim earns the conversion bonus** — `bringsEvidenceOrNarrowing=true` releases the suppression and credits a small `broadStandingDelta + 0.05`.
+- The result also returns `recommendedNudge` (`ask_for_primary_source` / `ask_for_quote_anchor` / `ask_for_scope_narrowing` / `allow_as_opinion_no_factual_credit` / `allow_point_standing_after_evidence`).
+
+The point-standing engine itself remains pure and unchanged; the new rule is an opt-in post-processor.
+
+### xAI X Search seed source — now wired
+The previously scaffold-only `loadXaiSeedsLive` now calls `POST https://api.x.ai/v1/chat/completions` with xAI's `search_parameters` Live Search feature. Gates unchanged: `.env.engagement-intelligence` + `ENGAGEMENT_INTEL_ENABLE_XAI=true` + `XAI_API_KEY` + `--pilot`. Response is parsed for `{ topics: [...] }` and every seed is run through a redactor that strips X handles (`@name`), URLs (`x.com`, `t.co`, `twitter.com`), JWT-shape tokens, and the usual secret patterns. The seeder never logs the key or Authorization header; the response body is cancelled / drained before status mapping.
+
+### X News pilot report — annotation pass
+`runTinyXNewsPilot.js` now appends an anti-amplification annotation section to the existing report. Per pair, the deterministic annotator runs over `(root, reply)` and surfaces:
+
+- Per-root: politicalIssueFrame, politicalValence, evidentiaryRisk, amplificationRisk, amplificationSignals, platformSupportWarning, recommendedGameTreatment, justification.
+- Per-reply: stance (10 values), agreementType (7), disagreementType (9), agreementScalar / disagreementScalar / coexistenceScore, evidentiaryRisk, amplificationRisk, platformSupportWarning, recommendedGameTreatment, issueDebtCreated, concession-or-repair opportunity, deterministicRuleCandidate, justification.
+- Aggregates: top issue frames, top political valence frames, top disagreement types, top mixed-agreement patterns, high amplification-risk / low-evidence patterns, claims that should NOT receive factual standing, claims that could receive standing after evidence, most useful game qualifiers + composer nudges to add, point-standing economy changes recommended, broad-agreement + narrow-disagreement coexistence examples, viral-agreement-should-not-count-as-evidence examples.
+- Recommendations roll-up.
+
+No Anthropic call. xAI remains off for the X News pilot.
+
 ## Stage 6.1.5.1 — annotation pipeline (operator-gated)
 
 Stage 6.1.5.1 adds an optional **annotation pass** that classifies each generated move into the `AnthropicArgumentAnnotation` schema. The pass runs after each successful `submit-argument` call and:

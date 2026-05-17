@@ -35,6 +35,7 @@ const { loadEngagementEnv, snapshotForLog } = require('./loadEngagementEnv');
 const { NEWS_QUERY_BUCKETS } = require('./xNewsPlan');
 const { normalizeNewsStory, popularityScore, publicMetrics } = require('./normalizeXSample');
 const { liveCollect: liveCollectReplies } = require('./xReplyCollect');
+const { buildAntiAmplificationSection } = require('./xNewsAntiAmplificationReport');
 
 const REPO_ROOT = process.cwd();
 const RAW_DIR = path.join(REPO_ROOT, 'data', 'engagement-intelligence', 'raw');
@@ -176,7 +177,7 @@ function bucketLabel(score) {
   return '0.8-1.0';
 }
 
-function buildReport({ runId, scenarios, rootCount, interpretations, bucketsUsed }) {
+function buildReport({ runId, scenarios, rootCount, interpretations, bucketsUsed, pairs }) {
   const total = interpretations.length;
   const stanceDist = {};
   const agreeDist = {};
@@ -314,6 +315,21 @@ function buildReport({ runId, scenarios, rootCount, interpretations, bucketsUsed
   lines.push('- [x] No moderation recommendations; outputs are advisory.');
   lines.push('- [x] No truth claims; no winner / loser; no bad-faith / liar / extremist labels.');
   lines.push('');
+
+  // Stage 6.1.5.2 — Anti-amplification annotation pass over every pair.
+  // Uses the deterministic annotator (no Anthropic / xAI call) so the pilot
+  // remains X API only. The section is appended to the existing report.
+  if (Array.isArray(pairs) && pairs.length > 0) {
+    try {
+      const { markdown } = buildAntiAmplificationSection({ pairs, interpretations });
+      lines.push(markdown);
+    } catch (err) {
+      lines.push('## Anti-amplification doctrine — root + reply annotations');
+      lines.push('');
+      lines.push(`_Section skipped due to error: ${String(err.message || err).slice(0, 200)}_`);
+      lines.push('');
+    }
+  }
   return lines.join('\n');
 }
 
@@ -378,6 +394,7 @@ async function main() {
     rootCount: roots.length,
     interpretations,
     bucketsUsed,
+    pairs,
   });
   const reportPath = path.join(REPORT_DIR, `${new Date().toISOString().slice(0, 10)}-x-news-reply-pilot.md`);
   fs.writeFileSync(reportPath, md);

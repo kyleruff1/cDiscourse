@@ -81,7 +81,18 @@ function aggregateAnnotations(rooms) {
     heatLevel: new Map(),
     fallbackReason: new Map(),
     submitErrorCode: new Map(),
+    submitErrors: [],
     ruleCandidates: new Map(),
+    // Stage 6.1.5.2 — anti-amplification doctrine aggregates.
+    politicalIssueFrame: new Map(),
+    politicalValence: new Map(),
+    evidentiaryRisk: new Map(),
+    amplificationRisk: new Map(),
+    recommendedGameTreatment: new Map(),
+    amplificationSignalCounts: new Map(),
+    platformSupportWarningTrue: 0,
+    platformSupportWarningFalse: 0,
+    ruleFlagCounts: new Map(),
     agreementBuckets: new Map([['0.0', 0], ['0.25', 0], ['0.5', 0], ['0.75', 0]]),
     disagreementBuckets: new Map([['0.0', 0], ['0.25', 0], ['0.5', 0], ['0.75', 0]]),
     coexistenceBuckets: new Map([['0.0', 0], ['0.25', 0], ['0.5', 0], ['0.75', 0]]),
@@ -91,6 +102,12 @@ function aggregateAnnotations(rooms) {
     highPlayability: [], branchCandidates: [], concessions: [],
     unsupportedBoldClaims: [], receiptRequests: [], quoteRequests: [],
     fallbackExamples: [],
+    // Anti-amplification samples.
+    platformSupportWarnings: [],
+    shouldNotReceiveFactualStanding: [],
+    couldReceiveStandingAfterEvidence: [],
+    viralCrowdAgreement: [],
+    politicalGeneralizations: [],
   };
 
   function bucket01(n, map) {
@@ -101,12 +118,21 @@ function aggregateAnnotations(rooms) {
 
   for (const room of rooms) {
     for (const item of room.annotatedMoves || []) {
-      const { move, annotation, submitStatus, submitErrorCode } = item;
+      const { move, annotation, submitStatus, submitErrorCode, submitErrorDetail, submitHttpStatus } = item;
       out.moves++;
       if (submitStatus === 'posted') out.posted++;
       else if (submitStatus === 'skipped' || submitStatus === 'skipped_missing_parent') out.skipped++;
       else out.failed++;
       if (submitErrorCode) inc(out.submitErrorCode, submitErrorCode);
+      if (submitStatus && submitStatus !== 'posted' && submitStatus !== 'planned') {
+        out.submitErrors.push({
+          room, item,
+          status: submitStatus,
+          httpStatus: submitHttpStatus,
+          errorCode: submitErrorCode,
+          errorDetail: submitErrorDetail,
+        });
+      }
       if (!annotation) continue;
       inc(out.annotationSource, annotation.annotationSource);
       inc(out.messageCategory, annotation.messageCategory);
@@ -154,6 +180,45 @@ function aggregateAnnotations(rooms) {
       }
       if ((annotation.primaryRhetoricalArchetype === 'quote_anchor_demander' || annotation.evidenceSignals?.asksForQuote) && samples.quoteRequests.length < 8) {
         samples.quoteRequests.push({ room, item });
+      }
+
+      // Anti-amplification doctrine aggregates.
+      inc(out.politicalIssueFrame, annotation.politicalIssueFrame);
+      inc(out.politicalValence, annotation.politicalValence);
+      inc(out.evidentiaryRisk, annotation.evidentiaryRisk);
+      inc(out.amplificationRisk, annotation.amplificationRisk);
+      inc(out.recommendedGameTreatment, annotation.recommendedGameTreatment);
+      if (annotation.platformSupportWarning) out.platformSupportWarningTrue++; else out.platformSupportWarningFalse++;
+      const signals = annotation.amplificationSignals || {};
+      for (const [k, v] of Object.entries(signals)) {
+        if (v === true) out.amplificationSignalCounts.set(k, (out.amplificationSignalCounts.get(k) || 0) + 1);
+      }
+      const rc = annotation.deterministicRuleCandidate || {};
+      const ruleFlagKeys = [
+        'shouldSuppressScoreGainForAmplificationOnly', 'shouldAskForPrimarySource',
+        'shouldMarkEvidenceRiskHigh', 'shouldShowAmplificationRiskBadge',
+        'shouldTreatAsOpinionNoFactualCredit', 'shouldCreateIssueDebtForUnsupportedClaim',
+        'shouldOfferScopeNarrowingForPoliticalGeneralization',
+        'shouldOfferQuoteAnchorForAllegation', 'shouldBranchContextIfClaimNeedsBackground',
+      ];
+      for (const k of ruleFlagKeys) {
+        if (rc[k] === true) out.ruleFlagCounts.set(k, (out.ruleFlagCounts.get(k) || 0) + 1);
+      }
+
+      if (annotation.platformSupportWarning && samples.platformSupportWarnings.length < 12) {
+        samples.platformSupportWarnings.push({ room, item });
+      }
+      if (rc.shouldTreatAsOpinionNoFactualCredit && samples.shouldNotReceiveFactualStanding.length < 12) {
+        samples.shouldNotReceiveFactualStanding.push({ room, item });
+      }
+      if (annotation.recommendedGameTreatment === 'allow_point_standing_after_evidence' && samples.couldReceiveStandingAfterEvidence.length < 8) {
+        samples.couldReceiveStandingAfterEvidence.push({ room, item });
+      }
+      if ((signals.appeal_to_virality || signals.appeal_to_crowd_size) && (annotation.agreementDisagreementVector?.agreementScore || 0) >= 0.5 && samples.viralCrowdAgreement.length < 8) {
+        samples.viralCrowdAgreement.push({ room, item });
+      }
+      if (rc.shouldOfferScopeNarrowingForPoliticalGeneralization && samples.politicalGeneralizations.length < 8) {
+        samples.politicalGeneralizations.push({ room, item });
       }
     }
   }
@@ -246,8 +311,34 @@ function renderRoomTranscript(room) {
     if (mj.shortReason) lines.push(`- why: ${safeMd(redactBodyForReport(mj.shortReason))}`);
     if ((mj.observableTextFeatures || []).length) lines.push(`- features: ${(mj.observableTextFeatures || []).map((f) => '`' + safeMd(redactBodyForReport(f)).slice(0, 60) + '`').join(', ')}`);
     if ((mj.uncertaintyNotes || []).length) lines.push(`- uncertainty: ${(mj.uncertaintyNotes || []).map((f) => '`' + safeMd(redactBodyForReport(f)).slice(0, 60) + '`').join(', ')}`);
+    // Stage 6.1.5.2 — anti-amplification doctrine fields.
+    lines.push(`- politicalIssueFrame: \`${a.politicalIssueFrame || 'unclear'}\` · politicalValence: \`${a.politicalValence || 'unclear'}\``);
+    const signals = a.amplificationSignals || {};
+    const activeSignals = Object.entries(signals).filter(([, v]) => v).map(([k]) => k);
+    lines.push(`- amplificationSignals: ${activeSignals.length === 0 ? '_(none)_' : activeSignals.map((k) => '`' + k + '`').join(', ')}`);
+    lines.push(`- evidentiaryRisk: \`${a.evidentiaryRisk || 'unknown'}\` · amplificationRisk: \`${a.amplificationRisk || 'none_observed'}\` · platformSupportWarning: ${Boolean(a.platformSupportWarning)}`);
+    lines.push(`- recommendedGameTreatment: \`${a.recommendedGameTreatment || 'allow_as_opinion_no_factual_credit'}\``);
+    if (a.justification) lines.push(`- antiAmplificationJustification: ${safeMd(redactBodyForReport(a.justification))}`);
+    const ruleFlagKeys = [
+      'shouldSuppressScoreGainForAmplificationOnly', 'shouldAskForPrimarySource',
+      'shouldMarkEvidenceRiskHigh', 'shouldShowAmplificationRiskBadge',
+      'shouldTreatAsOpinionNoFactualCredit', 'shouldCreateIssueDebtForUnsupportedClaim',
+      'shouldOfferScopeNarrowingForPoliticalGeneralization',
+      'shouldOfferQuoteAnchorForAllegation', 'shouldBranchContextIfClaimNeedsBackground',
+    ];
+    const rcAll = a.deterministicRuleCandidate || {};
+    const activeRuleFlags = ruleFlagKeys.filter((k) => rcAll[k] === true);
+    if (activeRuleFlags.length > 0) lines.push(`- ruleFlags: ${activeRuleFlags.map((k) => '`' + k + '`').join(', ')}`);
+
     lines.push(`- annotationSource: \`${a.annotationSource || 'deterministic_fallback'}\``);
-    lines.push(`- submitStatus: \`${item.submitStatus || 'planned'}\`${item.submitErrorCode ? ` (errorCode=\`${item.submitErrorCode}\`)` : ''}`);
+    const statusBits = [];
+    statusBits.push(`submitStatus: \`${item.submitStatus || 'planned'}\``);
+    if (item.submitHttpStatus) statusBits.push(`HTTP ${item.submitHttpStatus}`);
+    if (item.submitErrorCode) statusBits.push(`errorCode=\`${item.submitErrorCode}\``);
+    lines.push(`- ${statusBits.join(' · ')}`);
+    if (item.submitErrorDetail) {
+      lines.push(`- submitErrorDetail: ${safeMd(redactBodyForReport(String(item.submitErrorDetail)).slice(0, 400))}`);
+    }
     lines.push('');
     lines.push('Body:');
     lines.push('');
@@ -286,6 +377,23 @@ function buildRecommendations(agg) {
   if ((agg.submitErrorCode?.size || 0) > 0) {
     const top = sortDesc(agg.submitErrorCode).slice(0, 3).map(([k, v]) => `\`${k}\` (${v}×)`).join(', ');
     recs.push(`Submit-argument error codes seen: ${top} — inspect runner log for repeats.`);
+  }
+  // Anti-amplification doctrine recommendations.
+  if (agg.platformSupportWarningTrue > 0) {
+    const pct = Math.round((agg.platformSupportWarningTrue / Math.max(1, agg.platformSupportWarningTrue + agg.platformSupportWarningFalse)) * 100);
+    recs.push(`platformSupportWarning fired on ${agg.platformSupportWarningTrue} moves (${pct}% of corpus) — wire the point-standing engine to suppress factual-standing gain on these and route them to "ask_for_receipt" / "ask_for_quote_anchor" composer nudges.`);
+  }
+  if (agg.amplificationSignalCounts.size > 0) {
+    const top = sortDesc(agg.amplificationSignalCounts).slice(0, 4).map(([k, v]) => `\`${k}\` (${v}×)`).join(', ');
+    recs.push(`Top amplification signals observed: ${top} — promote these to deterministic composer-time checks so the compose UI can warn before submit.`);
+  }
+  if (agg.ruleFlagCounts.size > 0) {
+    const top = sortDesc(agg.ruleFlagCounts).slice(0, 5).map(([k, v]) => `\`${k}\` (${v}×)`).join(', ');
+    recs.push(`Most-fired anti-amplification rule flags: ${top} — promote the top 3 to TS rules in \`engine.ts\` and surface as composer nudges.`);
+  }
+  if (agg.politicalIssueFrame.size > 0) {
+    const top = sortDesc(agg.politicalIssueFrame).slice(0, 5).filter(([k]) => k !== 'unclear' && k !== 'non_political').map(([k, v]) => `\`${k}\` (${v}×)`).join(', ');
+    if (top) recs.push(`Top political issue frames in corpus: ${top}. The app should surface frame badges in the room header as context — never as a verdict.`);
   }
   if (recs.length === 0) recs.push('No top-level recommendations — corpus is small or uniform; consider running 50-room sample.');
   return recs;
@@ -330,6 +438,21 @@ function buildAnnotatedIntelligenceMarkdown(run) {
   for (const r of renderDistributionTable('Heat level', agg.heatLevel)) lines.push(r);
   for (const r of renderDistributionTable('Submit error codes', agg.submitErrorCode)) lines.push(r);
   for (const r of renderDistributionTable('Fallback short reasons (top)', agg.fallbackReason)) lines.push(r);
+
+  // ── Anti-amplification doctrine aggregate sections ───────────
+  lines.push('## Anti-amplification doctrine — aggregates');
+  lines.push('');
+  lines.push('_Doctrine: popularity / repetition / engagement velocity / political identity are NOT evidence. politicalValence describes the TEXT, not the user. No demographic / party / protected-trait inference. No bot / troll / bad-faith user labels._');
+  lines.push('');
+  lines.push(`- platformSupportWarning=true: **${agg.platformSupportWarningTrue}** / ${agg.platformSupportWarningTrue + agg.platformSupportWarningFalse} moves`);
+  lines.push('');
+  for (const r of renderDistributionTable('Top political issue frames', agg.politicalIssueFrame)) lines.push(r);
+  for (const r of renderDistributionTable('Top political valence frames', agg.politicalValence)) lines.push(r);
+  for (const r of renderDistributionTable('Evidentiary risk', agg.evidentiaryRisk)) lines.push(r);
+  for (const r of renderDistributionTable('Amplification risk', agg.amplificationRisk)) lines.push(r);
+  for (const r of renderDistributionTable('Recommended game treatment', agg.recommendedGameTreatment)) lines.push(r);
+  for (const r of renderDistributionTable('Amplification signals fired (counts)', agg.amplificationSignalCounts)) lines.push(r);
+  for (const r of renderDistributionTable('Deterministic rule flags fired (counts)', agg.ruleFlagCounts)) lines.push(r);
   for (const r of renderBucketTable('Agreement scalar distribution', agg.agreementBuckets)) lines.push(r);
   for (const r of renderBucketTable('Disagreement scalar distribution', agg.disagreementBuckets)) lines.push(r);
   for (const r of renderBucketTable('Coexistence scalar distribution', agg.coexistenceBuckets)) lines.push(r);
@@ -346,6 +469,26 @@ function buildAnnotatedIntelligenceMarkdown(run) {
   for (const l of renderSampleSection('Receipt requests', samples.receiptRequests)) lines.push(l);
   for (const l of renderSampleSection('Quote-anchor requests', samples.quoteRequests)) lines.push(l);
   for (const l of renderSampleSection('Deterministic fallback examples', samples.fallbackExamples)) lines.push(l);
+
+  // Anti-amplification sample sections.
+  for (const l of renderSampleSection('platformSupportWarning=true (claim must earn standing via evidence)', samples.platformSupportWarnings)) lines.push(l);
+  for (const l of renderSampleSection('Claims that should NOT receive factual standing', samples.shouldNotReceiveFactualStanding)) lines.push(l);
+  for (const l of renderSampleSection('Claims that could receive standing AFTER evidence', samples.couldReceiveStandingAfterEvidence)) lines.push(l);
+  for (const l of renderSampleSection('Viral / crowd-agreement moves (agreement without evidence)', samples.viralCrowdAgreement)) lines.push(l);
+  for (const l of renderSampleSection('Political-generalization candidates (offer scope narrowing)', samples.politicalGeneralizations)) lines.push(l);
+
+  // Submit errors with full detail.
+  if (agg.submitErrors.length > 0) {
+    lines.push('## Submit errors — full detail');
+    lines.push('');
+    for (const e of agg.submitErrors.slice(0, 50)) {
+      const m = e.item.move;
+      lines.push(`- room=\`${e.room.scenarioId}\` move=\`${m.moveId}\` status=\`${e.status}\`${e.httpStatus ? ` HTTP ${e.httpStatus}` : ''}${e.errorCode ? ` errorCode=\`${e.errorCode}\`` : ''}`);
+      if (e.errorDetail) lines.push(`  - detail: ${safeMd(redactBodyForReport(String(e.errorDetail)).slice(0, 400))}`);
+    }
+    if (agg.submitErrors.length > 50) lines.push(`- _(truncated; ${agg.submitErrors.length - 50} more error(s) omitted)_`);
+    lines.push('');
+  }
 
   lines.push('## Recommendations');
   lines.push('');

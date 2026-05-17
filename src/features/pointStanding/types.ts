@@ -237,3 +237,29 @@ export interface RepairGradingResult {
 // ── Helper aliases for callers ────────────────────────────────
 
 export type MixedClass = MixedAgreementClass;
+
+// ── Anti-amplification doctrine (Stage 6.1.5.2) ───────────────
+//
+// Doctrine: "A message can receive engagement credit for creating playable
+// tension, but it cannot receive factual-standing credit merely because it
+// is popular, repeated, or aligned with a visible crowd."
+//
+// `AmplificationContext` is the input the caller derives from an
+// `AnthropicArgumentAnnotation` and passes alongside the grading vector.
+// The engine itself stays pure: a separate `applyAntiAmplification` step
+// post-processes the produced delta.
+
+export type EvidentiaryRiskLevel = 'low' | 'medium' | 'high' | 'unknown';
+export type AmplificationRiskLevel = 'none_observed' | 'low' | 'medium' | 'high';
+
+export interface AmplificationContext {
+  platformSupportWarning: boolean;
+  evidentiaryRisk: EvidentiaryRiskLevel;
+  amplificationRisk: AmplificationRiskLevel;
+  appealToVirality: boolean;
+  appealToCrowdSize: boolean;
+  highEngagementLowEvidence: boolean;
+  unknownSourceChain: boolean;
+  /** True when the move adds a concrete receipt / quote / source / scope narrowing. */
+  bringsEvidenceOrNarrowing: boolean;
+}

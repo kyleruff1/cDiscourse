@@ -51,7 +51,7 @@ describe('annotateRoomMoves — wiring', () => {
     expect(annotated.length).toBe(2);
     for (const am of annotated) {
       expect(am.annotation.userReviewRequired).toBe(true);
-      expect(am.annotation.schemaVersion).toBe(1);
+      expect(am.annotation.schemaVersion).toBe(2);
       expect(am.annotation.annotationSource).toBe('deterministic_fallback');
     }
     expect(annotated[0].submitStatus).toBe('posted');

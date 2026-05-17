@@ -242,6 +242,8 @@ async function annotateRoomMoves({ scenario, roomId, client, results }) {
       annotation,
       submitStatus: result?.actualStatus || 'planned',
       submitErrorCode: result?.errorCode || null,
+      submitErrorDetail: result?.errorDetail || null,
+      submitHttpStatus: typeof result?.httpStatus === 'number' ? result.httpStatus : null,
     });
   }
   return annotated;
