@@ -106,6 +106,39 @@ export async function listRootArguments(
   return { ok: true, data: ((data ?? []) as unknown as RawArgument[]).map(mapArgument) };
 }
 
+/**
+ * Stage 6.2 — Full-room loader for the game surface (Stack + Timeline).
+ *
+ * Loads ALL posted arguments visible to RLS in a debate, ordered by
+ * `created_at` ascending. Does not depend on expanded/collapsed tree
+ * state. Hard-caps at `limit` (default 1000) and returns the next cursor
+ * for callers that need to page beyond the cap.
+ *
+ * - No service-role.
+ * - No view bypass; RLS still gates visibility.
+ */
+export async function listArgumentsForDebate(
+  debateId: string,
+  limit: number = 1000,
+  cursor?: string,
+): Promise<ApiResult<ArgumentRow[]>> {
+  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+
+  let q = supabase
+    .from('arguments')
+    .select(ARG_SELECT)
+    .eq('debate_id', debateId)
+    .eq('status', 'posted')
+    .order('created_at', { ascending: true })
+    .limit(Math.max(1, Math.min(limit, 5000)));
+
+  if (cursor) q = q.gt('created_at', cursor);
+
+  const { data, error } = await q;
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: ((data ?? []) as unknown as RawArgument[]).map(mapArgument) };
+}
+
 export async function listChildArguments(
   debateId: string,
   parentId: string,

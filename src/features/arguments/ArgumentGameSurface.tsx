@@ -11,22 +11,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
-import { ArgumentTimelineScrubber } from './ArgumentTimelineScrubber';
+import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
+import { ArgumentReplySidecar } from './ArgumentReplySidecar';
 import { DeletionRequestSheet } from './DeletionRequestSheet';
 import {
   buildArgumentBubbleViewModels,
+  buildArgumentTimelineMap,
   getDisplayTitle,
   getLatestMessageId,
   getNextMessageId,
   getPreviousMessageId,
-  getTimelineSegments,
   sortMessagesChronologically,
   toggleSurfaceMode,
   type ArgumentBubbleControl,
   type ArgumentMessageInput,
   type ArgumentSurfaceMode,
 } from './argumentGameSurfaceModel';
+import { computeParticipantTrends } from './argumentScoreModel';
+import { ArgumentScoreTracker } from './ArgumentScoreTracker';
+import type { ArgumentTag, ArgumentFlag } from './types';
 
 interface Props {
   debate: {
@@ -38,6 +42,14 @@ interface Props {
   messages: ArgumentMessageInput[];
   currentUserId: string | null;
   isAdmin?: boolean;
+  /** Optional initial surface mode (Stack default). */
+  initialMode?: ArgumentSurfaceMode;
+  /** Optional per-message non-dismissed flags from argument_flags. */
+  flagsByArgumentId?: Record<string, ArgumentFlag[]>;
+  /** Optional per-message tags from argument_tags. */
+  tagsByArgumentId?: Record<string, ArgumentTag[]>;
+  /** Optional latest-message-id hint from the full-room loader (used to snap active when new messages arrive). */
+  latestMessageId?: string | null;
   /** Optional map of (messageId → boolean) for "I have an open deletion request on this". */
   deletionRequestedMap?: Record<string, boolean>;
   /** Optional per-message category label (for timeline badges). */
@@ -46,6 +58,8 @@ interface Props {
   qualifierLabelById?: Record<string, string | null>;
   /** Action handlers. Called with the canonical control name + message id. */
   onAction?: (control: ArgumentBubbleControl, messageId: string) => void;
+  /** Optional refresh trigger (e.g., the room hook's refresh). */
+  onRefresh?: () => void;
 }
 
 export function ArgumentGameSurface({
@@ -53,14 +67,19 @@ export function ArgumentGameSurface({
   messages,
   currentUserId,
   isAdmin,
+  initialMode,
+  flagsByArgumentId,
+  tagsByArgumentId,
+  latestMessageId: latestIdHint,
   deletionRequestedMap,
-  categoryLabelById,
-  qualifierLabelById,
+  categoryLabelById: _categoryLabelById,
+  qualifierLabelById: _qualifierLabelById,
   onAction,
+  onRefresh: _onRefresh,
 }: Props) {
   const sorted = useMemo(() => sortMessagesChronologically(messages || []), [messages]);
-  const latestId = useMemo(() => getLatestMessageId(sorted), [sorted]);
-  const [mode, setMode] = useState<ArgumentSurfaceMode>('stack');
+  const latestId = useMemo(() => latestIdHint ?? getLatestMessageId(sorted), [sorted, latestIdHint]);
+  const [mode, setMode] = useState<ArgumentSurfaceMode>(initialMode || 'stack');
   const [activeMessageId, setActiveMessageId] = useState<string | null>(latestId);
   const [deletionTarget, setDeletionTarget] = useState<string | null>(null);
 
@@ -75,6 +94,12 @@ export function ArgumentGameSurface({
       setActiveMessageId(latestId);
     }
   }, [latestId, activeMessageId, sorted]);
+
+  // If the initialMode prop changes after mount (e.g., the user pressed a
+  // different toolbar chip), reflect it in local state.
+  useEffect(() => {
+    if (initialMode) setMode(initialMode);
+  }, [initialMode]);
 
   const chronologicalIds = useMemo(() => sorted.map((m) => m.id), [sorted]);
   const parentLookup = useCallback((parentId: string) => {
@@ -91,11 +116,26 @@ export function ArgumentGameSurface({
     parentHintLookup: parentLookup,
   }), [sorted, currentUserId, isAdmin, activeMessageId, deletionRequestedMap, parentLookup]);
 
-  const segments = useMemo(() => getTimelineSegments({
-    messages: sorted, currentUserId, activeMessageId, categoryLabelById, qualifierLabelById,
-  }), [sorted, currentUserId, activeMessageId, categoryLabelById, qualifierLabelById]);
+  // Enrich messages with per-message tags + flags for the timeline map's
+  // standing/tone inference.
+  const enrichedMessages = useMemo(() => sorted.map((m) => ({
+    ...m,
+    tagCodes: (tagsByArgumentId?.[m.id] || []).map((t) => t.tagCode),
+    flagCodes: (flagsByArgumentId?.[m.id] || []).map((f) => f.flagCode),
+  })), [sorted, tagsByArgumentId, flagsByArgumentId]);
+
+  const timelineMap = useMemo(() => buildArgumentTimelineMap({
+    messages: enrichedMessages,
+    currentUserId,
+    activeMessageId,
+  }), [enrichedMessages, currentUserId, activeMessageId]);
 
   const activeViewModel = useMemo(() => viewModels.find((v) => v.isActive) || null, [viewModels]);
+
+  const participantTrends = useMemo(
+    () => computeParticipantTrends({ messages: enrichedMessages, currentUserId }),
+    [enrichedMessages, currentUserId],
+  );
 
   const handleToggleMode = useCallback(() => {
     setMode((m) => toggleSurfaceMode(m));
@@ -158,26 +198,46 @@ export function ArgumentGameSurface({
 
       <View style={styles.body}>
         {mode === 'stack' ? (
-          <ArgumentBubbleStack
-            viewModels={viewModels}
-            activeMessageId={activeMessageId}
-            onActivate={handleActivate}
-            onPrevious={handlePrev}
-            onNext={handleNext}
-            onToggleMode={handleToggleMode}
-          />
+          <>
+            <ArgumentBubbleStack
+              viewModels={viewModels}
+              activeMessageId={activeMessageId}
+              onActivate={handleActivate}
+              onPrevious={handlePrev}
+              onNext={handleNext}
+              onToggleMode={handleToggleMode}
+            />
+            {activeViewModel && (
+              <ArgumentBubbleActions
+                viewModel={activeViewModel}
+                onAction={handleAction}
+              />
+            )}
+          </>
         ) : (
-          <ArgumentTimelineScrubber
-            segments={segments}
-            onActivate={handleActivate}
-            onToggleMode={handleToggleMode}
-          />
-        )}
-        {activeViewModel && (
-          <ArgumentBubbleActions
-            viewModel={activeViewModel}
-            onAction={handleAction}
-          />
+          <>
+            <ArgumentScoreTracker trends={participantTrends} />
+            <ArgumentTimelineMap
+              map={timelineMap}
+              onActivate={handleActivate}
+              onPrev={handlePrev}
+              onNext={handleNext}
+              onJumpLatest={() => latestId && setActiveMessageId(latestId)}
+              onToggleMode={handleToggleMode}
+            />
+            <ArgumentReplySidecar
+              activeMessage={timelineMap.activeNode}
+              activeViewModel={activeViewModel}
+              parentNode={
+                timelineMap.activeNode && timelineMap.activeNode.parentId
+                  ? timelineMap.nodes.find((n) => n.messageId === timelineMap.activeNode!.parentId) || null
+                  : null
+              }
+              totalCount={timelineMap.nodes.length}
+              activePathIds={timelineMap.activePathIds}
+              onAction={handleAction}
+            />
+          </>
         )}
       </View>
 

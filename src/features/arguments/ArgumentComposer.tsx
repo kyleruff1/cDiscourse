@@ -42,6 +42,12 @@ interface Props {
   onSubmitSuccess: () => void;
   /** Called when the user discards the draft and closes the inline composer. */
   onClose?: () => void;
+  /**
+   * Stage 6.2 M7 — initial draft patch from a sidecar/bubble quick action.
+   * Applied ONCE on mount or when the patch reference changes; never
+   * overwrites the user's body after they start typing.
+   */
+  initialPatch?: MoveDraftPatch | null;
 }
 
 const TYPE_LABELS: Record<ArgumentType, string> = {
@@ -75,7 +81,7 @@ const MAX_BODY = 2000;
 
 const NEEDS_AXIS: ArgumentType[] = ['rebuttal', 'counter_rebuttal'];
 
-export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess, onClose }: Props) {
+export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess, onClose, initialPatch }: Props) {
   const { draft, isRecovered, updateField, discardDraft } = useArgumentComposer(
     debate.id,
     selectedParentId,
@@ -87,6 +93,10 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverErrors, setServerErrors] = useState<string[] | null>(null);
+  // Stage 6.2 — Advanced anchor + tags are collapsed by default. (Hooks
+  // must be declared before any early returns to satisfy rules-of-hooks.)
+  const [showAdvancedAnchor, setShowAdvancedAnchor] = useState(false);
+  const [showAdvancedTags, setShowAdvancedTags] = useState(false);
 
   // Keep draft parentId in sync when the reply target changes from outside.
   const prevSelectedParentIdRef = useRef(selectedParentId);
@@ -96,6 +106,24 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
       updateField({ parentId: selectedParentId });
     }
   }, [selectedParentId, updateField]);
+
+  // Stage 6.2 M7 — apply incoming preset once per patch identity. We compare
+  // by reference: a new preset triggers application; subsequent renders
+  // with the same object do not.
+  const appliedPatchRef = useRef<MoveDraftPatch | null>(null);
+  useEffect(() => {
+    if (!initialPatch || initialPatch === appliedPatchRef.current) return;
+    appliedPatchRef.current = initialPatch;
+    if (!draft) return;
+    const incoming = initialPatch.suggestedTagCodes ?? [];
+    const merged = [...new Set([...draft.selectedTagCodes, ...incoming])];
+    updateField({
+      ...(initialPatch.argumentType !== undefined ? { argumentType: initialPatch.argumentType ?? null } : {}),
+      ...(initialPatch.disagreementAxis !== undefined ? { disagreementAxis: initialPatch.disagreementAxis ?? null } : {}),
+      ...(initialPatch.targetExcerpt !== undefined ? { targetExcerpt: initialPatch.targetExcerpt ?? null } : {}),
+      ...(incoming.length > 0 ? { selectedTagCodes: merged } : {}),
+    });
+  }, [initialPatch, draft, updateField]);
 
   const parentType = parentArgument?.argumentType ?? null;
 
@@ -236,6 +264,8 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
     updateField({ disagreementAxis: draft.disagreementAxis === axis ? null : axis });
   };
 
+  const showEvidenceFields = draft.argumentType === 'evidence';
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -270,21 +300,45 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
           />
         )}
 
-        {/* Target / parent panel — always shown */}
-        <ComposerTargetPanel
-          parentArgument={parentArgument}
-          selectedArgumentType={draft.argumentType}
-          targetExcerpt={draft.targetExcerpt ?? ''}
-          onChangeTargetExcerpt={(text) => updateField({ targetExcerpt: text || null })}
-          onClear={parentArgument ? onClearParent : undefined}
-        />
+        {/* Parent-target chip (read-only context). Target excerpt is moved
+            to "Advanced anchor quote" below per Stage 6.2 UX rescue. */}
+        {parentArgument ? (
+          <View style={styles.parentBlock}>
+            <Text style={styles.sectionLabel}>Replying to</Text>
+            <Text style={styles.parentPreview} numberOfLines={3}>{parentArgument.body}</Text>
+            <Pressable onPress={onClearParent} accessibilityRole="button" accessibilityLabel="Clear reply target">
+              <Text style={styles.clearTargetLink}>Clear</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
-        {/* Conversation move navigator */}
+        {/* Conversation move navigator (quick presets) */}
         <ConversationMoveNavigator
           parentArgument={parentArgument}
           rules={constitution.activeRules}
           onApplyPatch={handleMovePatch}
         />
+
+        {/* Body input — moved up so the primary action is "write reply". */}
+        <View style={styles.section}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.sectionLabel}>Your reply</Text>
+            <Text style={[styles.charCount, draft.body.length > MAX_BODY && styles.charCountOver]}>
+              {draft.body.length}/{MAX_BODY}
+            </Text>
+          </View>
+          <TextInput
+            value={draft.body}
+            onChangeText={handleBodyChange}
+            placeholder="Write your move…"
+            placeholderTextColor="#9ca3af"
+            multiline
+            style={styles.bodyInput}
+            accessibilityLabel="Argument body"
+            testID="composer-body-input"
+            autoCapitalize="sentences"
+          />
+        </View>
 
         {/* Type picker */}
         <View style={styles.section}>
@@ -334,35 +388,16 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
           </View>
         </View>
 
-        {/* Body input */}
-        <View style={styles.section}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.sectionLabel}>Body</Text>
-            <Text style={[styles.charCount, draft.body.length > MAX_BODY && styles.charCountOver]}>
-              {draft.body.length}/{MAX_BODY}
-            </Text>
-          </View>
-          <TextInput
-            value={draft.body}
-            onChangeText={handleBodyChange}
-            placeholder="Write your argument here…"
-            placeholderTextColor="#9ca3af"
-            multiline
-            style={styles.bodyInput}
-            accessibilityLabel="Argument body"
-            autoCapitalize="sentences"
-          />
-        </View>
-
-        {/* Disagreement axis picker (rebuttal / counter_rebuttal) */}
+        {/* Disagreement axis picker (rebuttal / counter_rebuttal) — now
+            optional per Stage 6.2 UX rescue. The original "required" label
+            has been removed; the field is renamed for normal users. */}
         {showAxisPicker && (
-          <View style={styles.section}>
+          <View style={styles.section} testID="composer-optional-focus">
             <Text style={styles.sectionLabel}>
-              Disagreement axis{' '}
-              <Text style={styles.required}>required</Text>
+              Optional focus — what are you challenging?
             </Text>
             <Text style={styles.sectionHint}>
-              Identify the nature of your disagreement to satisfy C-RAIL-002.
+              Pick one if you want; it just helps your reply read more clearly. Skip it freely.
             </Text>
             <View style={styles.chipRow}>
               {DISAGREEMENT_AXES.map(({ value, label }) => {
@@ -386,10 +421,18 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
           </View>
         )}
 
-        {/* General tags */}
+        {/* General tags — collapsed by default per Stage 6.2 UX rescue. */}
         {generalTags.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Tags</Text>
+            <Pressable
+              onPress={() => setShowAdvancedTags((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle advanced tags"
+              testID="composer-toggle-advanced-tags"
+            >
+              <Text style={styles.sectionLabel}>{showAdvancedTags ? '▾' : '▸'} Tags (optional)</Text>
+            </Pressable>
+            {showAdvancedTags ? (
             <View style={styles.chipRow}>
               {generalTags.map((td) => {
                 const isSelected = draft.selectedTagCodes.includes(td.code);
@@ -409,16 +452,14 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
                 );
               })}
             </View>
+            ) : null}
           </View>
         )}
 
-        {/* Axis tags (secondary tag layer for rebuttals) */}
-        {disagreementAxisTags.length > 0 && (
+        {/* Axis tags (secondary tag layer for rebuttals) — also collapsed. */}
+        {disagreementAxisTags.length > 0 && showAdvancedTags && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Disagreement tags</Text>
-            <Text style={styles.sectionHint}>
-              Optional additional tags. Use the axis selector above to satisfy the axis rail.
-            </Text>
+            <Text style={styles.sectionLabel}>Disagreement tags (optional)</Text>
             <View style={styles.chipRow}>
               {disagreementAxisTags.map((td) => {
                 const isSelected = draft.selectedTagCodes.includes(td.code);
@@ -441,16 +482,15 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
           </View>
         )}
 
-        {/* Evidence section */}
+        {/* Evidence section — collapsed for normal replies, expanded for Evidence type. */}
+        {showEvidenceFields && (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>
             Receipts
-            {draft.argumentType === 'evidence' && (
-              <Text style={styles.required}> required</Text>
-            )}
+            <Text style={styles.required}> required for Evidence posts</Text>
           </Text>
           <Text style={styles.sectionHint}>
-            Drop a link, citation, or source text. Required for evidence arguments.
+            Drop a link, citation, or source text.
           </Text>
           <TextInput
             value={evidenceItem.url ?? ''}
@@ -482,6 +522,30 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
             autoCapitalize="sentences"
           />
         </View>
+        )}
+
+        {/* Advanced anchor quote — collapsed by default. */}
+        {parentArgument ? (
+          <View style={styles.section}>
+            <Pressable
+              onPress={() => setShowAdvancedAnchor((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle advanced anchor quote"
+              testID="composer-toggle-advanced-anchor"
+            >
+              <Text style={styles.sectionLabel}>{showAdvancedAnchor ? '▾' : '▸'} Advanced anchor quote (optional)</Text>
+            </Pressable>
+            {showAdvancedAnchor ? (
+              <ComposerTargetPanel
+                parentArgument={parentArgument}
+                selectedArgumentType={draft.argumentType}
+                targetExcerpt={draft.targetExcerpt ?? ''}
+                onChangeTargetExcerpt={(text) => updateField({ targetExcerpt: text || null })}
+                onClear={undefined}
+              />
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Validation preview */}
         {evaluationResult && (
@@ -501,7 +565,7 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
         )}
 
         <Button
-          label={isSubmitting ? 'Submitting…' : 'Submit Argument'}
+          label={isSubmitting ? 'Posting…' : 'Post move'}
           onPress={() => { void handleSubmit(); }}
           disabled={!canSubmit}
         />
@@ -542,6 +606,9 @@ const styles = StyleSheet.create({
   },
   resolutionLabel: { fontSize: 10, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   resolutionText: { fontSize: 13, color: '#374151', lineHeight: 18 },
+  parentBlock: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 12, marginBottom: 12 },
+  parentPreview: { fontSize: 13, color: '#374151', lineHeight: 18, marginVertical: 4 },
+  clearTargetLink: { fontSize: 12, color: '#6366f1', fontWeight: '600', marginTop: 4 },
   section: { marginBottom: 20 },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 6 },
   sectionHint: { fontSize: 11, color: '#6b7280', marginBottom: 8 },

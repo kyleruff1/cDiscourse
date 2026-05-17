@@ -180,14 +180,16 @@ describe('C-TOPIC-001 — topic satisfaction', () => {
     expect(result.blockingErrors.some((e) => e.flagCode === 'off_topic')).toBe(false);
   });
 
-  test('completely off-topic body produces blocking off_topic error', () => {
+  // Stage 6.2 UX rescue: off-topic is advisory only — does not block posting.
+  test('completely off-topic body surfaces an advisory off_topic warning (not blocking)', () => {
     const result = evaluateArgumentDraft(
       baseInput({
         body: 'Cats are the best domestic pets because they are independent and clean themselves regularly.',
       }),
     );
-    expect(result.allowPost).toBe(false);
-    expect(result.blockingErrors.some((e) => e.flagCode === 'off_topic')).toBe(true);
+    expect(result.allowPost).toBe(true);
+    expect(result.blockingErrors.some((e) => e.flagCode === 'off_topic')).toBe(false);
+    expect(result.warnings.some((w) => w.flagCode === 'off_topic')).toBe(true);
   });
 
   test('weakly on-topic body produces weak_topic_satisfaction warning', () => {
@@ -247,8 +249,16 @@ describe('C-EVIDENCE-001 — evidence citation required', () => {
 // ── C-LENGTH-001: body length bounds ─────────────────────────
 
 describe('C-LENGTH-001 — body length bounds', () => {
-  test('body under minimum length produces blocking error', () => {
+  // Stage 6.2 UX rescue: short-but-nonempty body is advisory only.
+  test('body under minimum length surfaces advisory warning (not blocking)', () => {
     const result = evaluateArgumentDraft(baseInput({ body: 'Too short.' }));
+    expect(result.allowPost).toBe(true);
+    expect(result.warnings.some((w) => w.flagCode === 'unclear_claim')).toBe(true);
+    expect(result.blockingErrors.some((e) => e.flagCode === 'unclear_claim')).toBe(false);
+  });
+
+  test('empty body still hard-blocks', () => {
+    const result = evaluateArgumentDraft(baseInput({ body: '' }));
     expect(result.allowPost).toBe(false);
     expect(result.blockingErrors.some((e) => e.flagCode === 'unclear_claim')).toBe(true);
   });

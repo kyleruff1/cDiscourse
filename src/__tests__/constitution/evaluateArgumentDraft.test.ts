@@ -105,7 +105,8 @@ test('invalid transition is blocked (synthesis cannot reply to thesis)', () => {
 
 // ── Test 5: rebuttal with no parent overlap → parent_nonresponsive ─
 
-test('rebuttal with no lexical overlap with parent produces parent_nonresponsive flag', () => {
+// Stage 6.2 UX rescue: parent_nonresponsive is now advisory only.
+test('rebuttal with no lexical overlap with parent surfaces an advisory parent_nonresponsive warning (not blocking)', () => {
   const railResult = runRailsChecks({
     argumentType: 'rebuttal',
     body: 'Cats are wonderful pets that bring joy to households everywhere in the world today.',
@@ -114,10 +115,14 @@ test('rebuttal with no lexical overlap with parent produces parent_nonresponsive
     activeRules: constitutionRules,
     source: 'server_rules',
   });
-  const isBlocking = railResult.entries.some(
+  const hasWarning = railResult.entries.some(
+    (e) => e.flagCode === FLAG_CODES.PARENT_NONRESPONSIVE && e.kind === 'warning',
+  );
+  const hasBlocking = railResult.entries.some(
     (e) => e.flagCode === FLAG_CODES.PARENT_NONRESPONSIVE && e.kind === 'blocking',
   );
-  expect(isBlocking).toBe(true);
+  expect(hasWarning).toBe(true);
+  expect(hasBlocking).toBe(false);
 });
 
 // ── Test 6: rebuttal with target_excerpt from parent passes ──

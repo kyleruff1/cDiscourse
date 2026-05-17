@@ -1,8 +1,21 @@
 # Argument Stack + Timeline Game Surface
 
-_Stage 6.1.8 — 2026-05-17_
+_Stage 6.2 — 2026-05-17 — UX rescue pass on top of Stage 6.1.8_
 
-## What this is
+## Stage 6.2 update — UX rescue
+
+This document was first written for Stage 6.1.8 (Stack + horizontal scrubber). Stage 6.2 builds on it:
+
+- **Full-room loading**: Stack and Timeline now share `useArgumentRoomMessages` (one RLS-bound query, ordered by `created_at` asc). Stack no longer depends on `visibleArgumentIds`; tree-collapsed replies are no longer hidden from the game surface.
+- **Timeline is now a graphical map**, not a scrubber. `ArgumentTimelineMap.tsx` renders one node per message with parent-child connectors (segmented gradient strips built from `<View>`s — no SVG library added), a center rail, deterministic bands (`Opening` / `First clash` / `Evidence run` / `Hot zone` / `Current endgame`), an active-glow ring, a latest marker, junction "N routes" pills, and detached pills for missing-parent replies. Beginning / middle / end timestamps render under the rail, plus a compact color legend.
+- **Reply detail sidecar** (`ArgumentReplySidecar.tsx`) replaces the simple action chip cluster in Timeline mode. Read-only context (kind / side / actor / timestamps / parent preview / reply count / active-path / dropped tags / standing / tone / junction & detached hints) + a tactical action row (`Reply`, `Challenge`, `Source?`, `Quote?`, `Clarify`, `Evidence`, `Concede`, `Branch`, `Flag`, `Qualifiers`). Own-message actions limited to `View qualifiers` and `Request deletion`. Body editing is not exposed.
+- **Score tracker** (`ArgumentScoreTracker.tsx`) renders per-participant standing in 7 bands (`Pretty wrong` → `Completely right`), tone, temperature, and a 12-point sparkline. Internal fallback states `Unscored` / `Not enough signal` are used when there are no usable analysis fields. Score never blocks posting.
+- **Composer**: target excerpt is now `Advanced anchor quote (optional)`, collapsed by default. The disagreement axis is renamed `Optional focus — what are you challenging?` with no `required` label. Tag selectors are collapsed by default. Evidence URL/label/source fields are collapsed unless argumentType is Evidence. Submit button reads `Post move`. The validation panel shows `Ready` / `Advisory` / `Structural issue` chips; matched/missing term lists are hidden from normal users (dev-only disclosure behind `__DEV__`).
+- **Validation rails — advisory only**: low topic score, low parent overlap, missing target excerpt, missing concession marker, missing clarification question structure, missing disagreement axis, and short-but-nonempty body are now warnings, not blocks. Empty body, over-max body, invalid transition, and Evidence-without-source remain hard blocks. The same change is mirrored in `supabase/functions/_shared/constitution/`.
+- **Quick-action → composer presets**: `quickActionPresets.ts` maps sidecar action labels to typed `MoveDraftPatch` values; the composer accepts an `initialPatch` prop and applies the patch ONCE per identity (never overwrites the user's typing).
+- **Junction-ready model**: timeline nodes carry `branchId`, `branchRootMessageId`, `junctionGroupId`, `isJunction`, `junctionChildCount`. A future branch/junction split-screen is not yet implemented; the model is ready for it.
+
+## Stage 6.1.8 (original) — what this is
 
 A new interactive surface for the argument-room screen. Replaces the comment-thread feel with a stack of overlapping bubble cards (latest message always on top) plus a horizontal DAW/sleep-map-style timeline scrubber. The user always sees the most recent message first.
 

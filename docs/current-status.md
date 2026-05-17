@@ -1,8 +1,39 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-17 (Stage 6.1.8)_
+_Last updated: 2026-05-17 (Stage 6.2 UX rescue)_
 
 ## Current Stage
+
+**Stage 6.2 complete — normal-user UX rescue: timeline map, sidecar, score tracker, advisory validation.** Replaces the form-heavy compliance workflow with a playable argument game.
+
+Highlights:
+- **Pure timeline map model** (`buildArgumentTimelineMap` in `src/features/arguments/argumentGameSurfaceModel.ts`). One node per posted message, earliest left → latest right, parent-child edges, lane assignment by reply depth/sibling parity, junction detection (`isJunction` + `junctionGroupId`), detached-parent handling (`isDetached`), active-path walk, deterministic bands (`Opening` / `First clash` / `Evidence run` / `Hot zone` / `Current endgame`), participant trends with sparkline, color legend. Future-ready fields for branch/junction splitting.
+- **Full-room message loader** (`useArgumentRoomMessages` + `listArgumentsForDebate`). Stack + Timeline share the same complete conversation; Stack no longer reads `visibleArgumentIds`.
+- **Normal-user routing**: Stack default; Timeline opens the new graphical map (not the old Tracks/lane screen). Old `tree` / `tracks` chips are visible only when `__DEV__`. Switching modes preserves the active message.
+- **Graphical timeline map** (`ArgumentTimelineMap.tsx`): horizontally scrollable, 44px+ tappable nodes, segmented gradient connectors built from `<View>` strips (no new dependency), bands above the rail, active glow ring, latest marker, junction "N routes" pill, detached pill, dropped-tag chips, Prev/Next/Latest controls, color legend, auto-scroll-to-active.
+- **Reply detail sidecar** (`ArgumentReplySidecar.tsx`): read-only context (kind / side / actor / timestamps / parent preview / reply count / active-path / tags / standing / tone / junction & detached hints) plus quick actions (`Reply`, `Challenge`, `Source?`, `Quote?`, `Clarify`, `Evidence`, `Concede`, `Branch`, `Flag`, `Qualifiers`). Own-message actions limited to `View qualifiers` and `Request deletion`. No body-editing affordance.
+- **Score tracker** (`ArgumentScoreTracker.tsx` + pure `argumentScoreModel.ts`): per-participant standing in the 7-band scale (`Pretty wrong` → `Slightly wrong` → `Neutral` → `Slightly right` → `Maybe right, but misguided` → `Pretty right` → `Completely right`, plus internal `Unscored` / `Not enough signal`). Tone + temperature bands derived from civility flags + body length. Hot-but-sourced messages map to `Maybe right, but misguided`. Score never blocks posting and never declares a winner.
+- **Composer simplification**: target excerpt moved under `Advanced anchor quote` (collapsed); disagreement axis renamed to **Optional focus — what are you challenging?** (no `required` label); tag selectors collapsed by default; evidence fields collapsed unless argumentType is Evidence; body input moved to the top; CTA renamed to `Post move`; validation panel now shows `Ready` / `Advisory` / `Structural issue` chips. Matched/missing term lists hidden from normal users (dev-only disclosure).
+- **Quick-action presets** (`quickActionPresets.ts` + composer `initialPatch` prop): Challenge → rebuttal/counter-rebuttal without forced axis; Source? / Quote? / Clarify → clarification_request with appropriate tag; Evidence → evidence type (fields auto-expand); Concede → concession (no exact phrase required); Reply / Branch / Flag have no destructive defaults.
+- **Validation rails — advisory not blocking** (client + supabase shared mirror): the following are now warnings, not hard blocks — low topic score, low parent overlap, missing target excerpt, missing concession marker, missing clarification question structure, missing disagreement axis, short-but-nonempty body. **Hard blocks remain** for empty body, over-max body, invalid transition, explicit Evidence post without source.
+
+**No service-role.** **No client AI calls.** **No new DB tables.** **No new dependencies.** Old `ArgumentTimelineScreen` (Tracks/lane) stays in the codebase but is no longer reachable for normal users.
+
+### Test commands run
+- `npm run typecheck` — pass.
+- `npm run lint` — pass (0 errors, 0 warnings).
+- `npm test` — **1664 / 64 suites passing**. Targeted suites:
+  - `argumentTimelineMap.test.ts` — 37 tests (M1).
+  - `quickActionPresets.test.ts` — 9 tests (M7).
+  - `advisoryNotBlocking.test.ts` — 10 tests (M9).
+  - Existing composer / rails / evaluate suites updated to assert the new advisory contract.
+- Live API runs: **none** (no Anthropic, no xAI, no service-role; no `.env*` touched; no Supabase write).
+- Browser/Expo Web verification: **not performed in this pass** — remains a manual QA step.
+
+### What's NOT done
+- The future branch/junction split-screen view (model is ready; UI not built).
+- Auto-pulse / subtle motion polish on the map (no new RN animation lib added).
+- Full sidecar-side rendering on wide-screen Timeline mode (sidecar currently docks below the map at all widths; layout placement is single-column).
 
 **Stage 6.1.8 complete (Argument Stack + Timeline game surface; deletion request workflow).** Replaces the argument-room thread/comment surface with an interactive bubble stack + horizontal DAW-style timeline. Latest message is active by default and visually on top. Pure-TS model in `src/features/arguments/argumentGameSurface.ts` (types: `ArgumentSurfaceMode`, `ArgumentBubbleActor`, `ArgumentBubbleControl`, `ArgumentTimelineSegment`, `ArgumentBubbleViewModel`, `ArgumentSurfaceState`; helpers: `buildArgumentBubbleViewModels`, `sortMessagesChronologically`, `getLatestMessageId`, `getPreviousMessageId`, `getNextMessageId`, `getBubbleControlsForActor`, `getDisplayTitle`, `getTimelineSegments`, `getStackTransformForIndex`). Stack uses scale + translate + rotate + opacity + zIndex transforms to fan older cards behind the active one. Timeline is a horizontal scrubber with beginning/middle/end timestamps below the rail. New components: `ArgumentGameSurface`, `ArgumentBubbleStack`, `ArgumentTimelineScrubber`, `ArgumentBubbleCard`, `ArgumentBubbleActions`, `ArgumentDraftQualifierCards`, `DeletionRequestSheet`. Bubble controls are actor-aware: **own bubbles never expose body-edit / disagree / flag / reply / score controls** — only `view_qualifiers` + `request_deletion`. Debate title is optional (`src/features/debates/debateTitleApi.ts` + pure `debateTitleHelpers.ts`); when empty, the room shows the root claim body excerpt; max 120 chars; updating the title never mutates `public.arguments.body`. New migration `20260517000008_stage6_1_8_argument_deletion_requests.sql` (table + 5-state status check + partial unique index + 3 RLS policies). New Edge Function `request-argument-deletion` (JWT-verified, caller-scoped argument-author check, optional Resend notification with graceful `not_configured` fallback, never returns admin email addresses, never logs Authorization headers or RESEND_API_KEY). New `requestArgumentDeletion` client wrapper. **No Anthropic / xAI / X API / Supabase write by Claude in this stage** (migration + Edge Function are not deployed — operator must deploy). Stage 6.1.6b Admin Arguments / Debate list tables remain unchanged. +60 new tests across `argumentGameSurface.test.ts` (30), `argumentDeletionRequest.test.ts` (20), `debateTitleApi.test.ts` (10). **1425 tests / 58 suites passing**, typecheck + lint clean. See `docs/argument-stack-timeline-surface.md`.
 

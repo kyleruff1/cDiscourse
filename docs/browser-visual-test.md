@@ -1,6 +1,74 @@
 # CDiscourse — Browser Visual Test Guide
 
-_Stage 6.1.2 — updated 2026-05-16_
+_Stage 6.2 UX rescue — updated 2026-05-17_
+
+## Stage 6.2 checklist (manual)
+
+After Stack/Timeline routing + map + sidecar landed, verify the following in a browser session. **None of this was completed by the automated pass — these remain manual checks.**
+
+### Stack mode
+- [ ] Open any debate room. Default mode chip is `Stack`.
+- [ ] Active card is the latest message and visually on top.
+- [ ] Older cards fan behind with reduced scale/opacity.
+- [ ] Prev/Next buttons step through chronologically.
+- [ ] Action chips on the active bubble respect ownership: own bubbles show only `View qualifiers` + `Request deletion`; other bubbles show the full set.
+
+### Timeline map mode
+- [ ] Pressing `Timeline` chip opens the graphical map (NOT the old vertical Tracks/lane screen).
+- [ ] testID `argument-timeline-map` is in the DOM.
+- [ ] One `timeline-node-<id>` per message; earliest leftmost, latest rightmost.
+- [ ] Each node passes the 44px touch target — verify visually that nodes are easy to tap on mobile.
+- [ ] `timeline-prev`, `timeline-next`, `timeline-jump-latest` controls work.
+- [ ] Pressing a node changes the active message AND updates the sidecar.
+- [ ] Active node has a distinct ring/glow.
+- [ ] Latest node has the latest marker.
+- [ ] A node with 2+ replies shows a junction "N routes" pill (`timeline-junction-<id>`).
+- [ ] Detached messages show a "detached" pill and have an accessibility label that says "detached, parent unavailable".
+- [ ] Beginning / middle / end timestamps render under the rail.
+- [ ] Color legend at the bottom shows the 6 families.
+- [ ] Bands (`Opening` / `First clash` / `Evidence run` / `Hot zone` / `Current endgame`) appear above the rail where the heuristic fires.
+
+### Node traversal
+- [ ] Switching Stack ↔ Timeline preserves the active message across modes.
+- [ ] After posting a new reply, the room reloads and the new/latest message is active in both modes.
+
+### Sidecar
+- [ ] `argument-reply-sidecar` docks below the map.
+- [ ] Shows message ordinal / kind / side / actor / absolute + relative timestamps.
+- [ ] Parent preview block appears when there's a parent.
+- [ ] Reply count, active path, standing band, tone band, temperature band all visible.
+- [ ] Junction hint ("N reply routes from here") and detached hint render where applicable.
+- [ ] Body is read-only — no edit affordance.
+
+### Quick actions → composer presets
+- [ ] `Challenge` opens composer with type pre-set to rebuttal/counter-rebuttal and NO required disagreement axis.
+- [ ] `Source?` opens composer with type clarification_request and a `source_request` tag added.
+- [ ] `Evidence` opens composer with type evidence and Receipts fields visible.
+- [ ] `Concede` opens composer with type concession and no requirement to write "I concede".
+- [ ] User edits after preset is applied are not overwritten on re-render.
+
+### Composer simplification
+- [ ] `Post move` is the submit button label.
+- [ ] Body input is near the top.
+- [ ] No "Paste exact phrase" copy is visible by default.
+- [ ] `Advanced anchor quote (optional)` collapsed by default.
+- [ ] `Disagreement axis` is renamed to `Optional focus — what are you challenging?` (no `required` label).
+- [ ] Tags and Disagreement tags collapsed by default behind `Tags (optional)`.
+- [ ] Evidence URL/label/source fields appear only when type = Evidence.
+- [ ] Validation panel shows `Ready` / `Advisory` / `Structural issue` chip and the calmer copy: "Advisory checks. You can post unless there is a structural issue."
+
+### Ordinary replies must not require exact words
+- [ ] Type a reply that shares zero words with the parent → composer shows an advisory warning but `Post move` remains enabled.
+- [ ] Type a short body (< 20 chars) → advisory only; can post.
+- [ ] Submit a concession without "I concede" → posts.
+- [ ] Submit a clarification without a question mark → posts.
+- [ ] Submit a rebuttal without picking an Optional focus → posts.
+
+### Old Tracks/Thread (dev only)
+- [ ] `Thread (dev)` and `Tracks (dev)` chips appear ONLY in `__DEV__`. In production builds they are absent.
+
+---
+
 
 ## How to Launch
 

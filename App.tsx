@@ -22,6 +22,7 @@ import { AdminScreen } from './src/features/admin';
 import { InvitePanel } from './src/features/invites/InvitePanel';
 import type { ArgumentRow } from './src/features/arguments';
 import type { ArgumentViewMode } from './src/features/arguments/ArgumentTreeScreen';
+import type { MoveDraftPatch } from './src/features/arguments/conversationMoves';
 import { TAB_LABELS, getVisibleTabs } from './src/features/arguments/roomNavigation';
 import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
 import { ROOM_COPY } from './src/features/arguments/gameCopy';
@@ -52,6 +53,9 @@ function MainAppShell() {
   const [composerOpen, setComposerOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ArgumentViewMode>('stack');
   const [inviteOpen, setInviteOpen] = useState(false);
+  // Stage 6.2 M7 — preset draft patch from sidecar/bubble quick action.
+  // Reset on composer close so the next open starts fresh.
+  const [composerPreset, setComposerPreset] = useState<MoveDraftPatch | null>(null);
   const refreshTreeRef = useRef<(() => void) | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
@@ -86,11 +90,13 @@ function MainAppShell() {
   const handleComposerClose = () => {
     setReplyTarget(null);
     setComposerOpen(false);
+    setComposerPreset(null);
   };
 
   const handleSubmitSuccess = () => {
     setReplyTarget(null);
     setComposerOpen(false);
+    setComposerPreset(null);
     refreshTreeRef.current?.();
   };
 
@@ -157,37 +163,55 @@ function MainAppShell() {
               >
                 <Text style={styles.roomLabel}>{ROOM_COPY.title}</Text>
                 <View style={styles.toolbarSep} />
-                {/* View toggle */}
+                {/* View toggle — Stack + Timeline are the normal-user chips. */}
                 <Pressable
                   style={[styles.toolbarChip, viewMode === 'stack' && styles.toolbarChipActive]}
                   onPress={() => setViewMode('stack')}
                   accessibilityRole="button"
                   accessibilityLabel="Stack view"
+                  testID="room-toolbar-stack"
                 >
                   <Text style={[styles.toolbarChipText, viewMode === 'stack' && styles.toolbarChipTextActive]}>
                     Stack
                   </Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.toolbarChip, viewMode === 'tree' && styles.toolbarChipActive]}
-                  onPress={() => setViewMode('tree')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Tree view"
-                >
-                  <Text style={[styles.toolbarChipText, viewMode === 'tree' && styles.toolbarChipTextActive]}>
-                    Thread
-                  </Text>
-                </Pressable>
-                <Pressable
                   style={[styles.toolbarChip, viewMode === 'timeline' && styles.toolbarChipActive]}
                   onPress={() => setViewMode('timeline')}
                   accessibilityRole="button"
-                  accessibilityLabel="Timeline track view"
+                  accessibilityLabel="Timeline map"
+                  testID="room-toolbar-timeline"
                 >
                   <Text style={[styles.toolbarChipText, viewMode === 'timeline' && styles.toolbarChipTextActive]}>
-                    Tracks
+                    Timeline
                   </Text>
                 </Pressable>
+                {__DEV__ && (
+                  <>
+                    <Pressable
+                      style={[styles.toolbarChip, viewMode === 'tree' && styles.toolbarChipActive]}
+                      onPress={() => setViewMode('tree')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Tree view (dev)"
+                      testID="room-toolbar-tree-dev"
+                    >
+                      <Text style={[styles.toolbarChipText, viewMode === 'tree' && styles.toolbarChipTextActive]}>
+                        Thread (dev)
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.toolbarChip, viewMode === 'tracks' && styles.toolbarChipActive]}
+                      onPress={() => setViewMode('tracks')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Tracks lane view (dev)"
+                      testID="room-toolbar-tracks-dev"
+                    >
+                      <Text style={[styles.toolbarChipText, viewMode === 'tracks' && styles.toolbarChipTextActive]}>
+                        Tracks (dev)
+                      </Text>
+                    </Pressable>
+                  </>
+                )}
                 <View style={styles.toolbarSep} />
                 {/* Invite */}
                 <Pressable
@@ -220,6 +244,7 @@ function MainAppShell() {
               onReply={handleReply}
               refreshRef={refreshTreeRef}
               viewMode={viewMode}
+              onComposerPreset={setComposerPreset}
             />
 
             {/* Gamified action bar */}
@@ -253,6 +278,7 @@ function MainAppShell() {
             onClearParent={handleClearParent}
             onSubmitSuccess={handleSubmitSuccess}
             onClose={handleComposerClose}
+            initialPatch={composerPreset}
           />
         )}
 

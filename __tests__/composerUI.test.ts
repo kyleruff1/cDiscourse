@@ -220,12 +220,26 @@ describe('evaluateArgumentDraft — validation mapping', () => {
     expect(codes).toContain('missing_parent');
   });
 
-  it('blocks a body that is too short', () => {
+  // Stage 6.2 UX rescue: short-but-nonempty body is advisory only.
+  it('does not block a short body, but surfaces an advisory warning', () => {
     const result = evaluateArgumentDraft({
       ...BASE_INPUT,
       argumentType: 'thesis',
       side: 'affirmative',
       body: 'Too short',
+      selectedTagCodes: [],
+    });
+    expect(result.allowPost).toBe(true);
+    const warningCodes = result.warnings.map((w) => w.flagCode);
+    expect(warningCodes).toContain('unclear_claim');
+  });
+
+  it('still blocks an empty body', () => {
+    const result = evaluateArgumentDraft({
+      ...BASE_INPUT,
+      argumentType: 'thesis',
+      side: 'affirmative',
+      body: '',
       selectedTagCodes: [],
     });
     expect(result.allowPost).toBe(false);

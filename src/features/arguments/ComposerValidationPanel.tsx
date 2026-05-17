@@ -15,20 +15,37 @@ export function ComposerValidationPanel({ result, source }: Props) {
   const { allowPost, blockingErrors, warnings, topicSatisfactionCheck } = result;
   const tsc = topicSatisfactionCheck;
 
+  // Stage 6.2 UX rescue: short compact statuses + advisory framing. Matched
+  // / missing term lists are hidden behind a dev-only disclosure.
+  let status: 'ready' | 'advisory' | 'structural' = 'ready';
+  if (blockingErrors.length > 0) status = 'structural';
+  else if (warnings.length > 0) status = 'advisory';
+
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="composer-validation-panel">
       <View style={styles.disclaimerRow}>
+        <View style={[styles.statusChip,
+          status === 'ready' && styles.statusReady,
+          status === 'advisory' && styles.statusAdvisory,
+          status === 'structural' && styles.statusStructural,
+        ]}>
+          <Text style={styles.statusChipText}>
+            {status === 'ready' ? 'Ready' : status === 'advisory' ? 'Advisory' : 'Structural issue'}
+          </Text>
+        </View>
         <Text style={styles.disclaimer}>
-          Client validation is a preview. Server validation is authoritative.
+          Advisory checks. You can post unless there is a structural issue.
         </Text>
-        <Text style={[styles.sourceChip, source === 'supabase' ? styles.sourceSupabase : styles.sourceFallback]}>
-          {source === 'supabase' ? 'Live rules' : 'Local v1'}
-        </Text>
+        {__DEV__ ? (
+          <Text style={[styles.sourceChip, source === 'supabase' ? styles.sourceSupabase : styles.sourceFallback]}>
+            {source === 'supabase' ? 'Live rules' : 'Local v1'}
+          </Text>
+        ) : null}
       </View>
 
       {blockingErrors.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitleError}>Blocking issues</Text>
+          <Text style={styles.sectionTitleError}>Structural issue — please resolve</Text>
           {blockingErrors.map((e, i) => (
             <View key={i} style={styles.errorRow}>
               <Text style={styles.bullet}>✕</Text>
@@ -40,63 +57,41 @@ export function ComposerValidationPanel({ result, source }: Props) {
 
       {warnings.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitleWarn}>Warnings</Text>
-          {warnings.map((w, i) => (
+          <Text style={styles.sectionTitleWarn}>Advisory</Text>
+          {warnings.slice(0, 3).map((w, i) => (
             <View key={i} style={styles.warningRow}>
-              <Text style={styles.bulletWarn}>!</Text>
+              <Text style={styles.bulletWarn}>·</Text>
               <Text style={styles.warningText}>{w.message}</Text>
             </View>
           ))}
         </View>
       )}
 
-      {tsc && (
+      {__DEV__ && tsc ? (
         <View style={styles.topicSection}>
-          <Text style={styles.topicHeader}>Topic coverage</Text>
-
+          <Text style={styles.topicHeader}>Topic coverage (dev)</Text>
           <View style={styles.topicScoreRow}>
-            <Text style={styles.topicLabel}>Combined score</Text>
-            <Text style={[
-              styles.topicValue,
-              tsc.status === 'failed' && styles.topicFailed,
-              tsc.status === 'weak' && styles.topicWeak,
-              tsc.status === 'satisfied' && styles.topicOk,
-            ]}>
-              {pct(tsc.score)} <Text style={styles.topicStatus}>({tsc.status})</Text>
-            </Text>
+            <Text style={styles.topicLabel}>Score</Text>
+            <Text style={styles.topicValue}>{pct(tsc.score)} ({tsc.status})</Text>
           </View>
-
-          {tsc.resolutionScore !== undefined && (
-            <View style={styles.topicScoreRow}>
-              <Text style={styles.topicSubLabel}>vs. resolution</Text>
-              <Text style={styles.topicSubValue}>{pct(tsc.resolutionScore)}</Text>
-            </View>
-          )}
-          {tsc.parentScore !== undefined && tsc.parentScore !== null && (
-            <View style={styles.topicScoreRow}>
-              <Text style={styles.topicSubLabel}>vs. parent</Text>
-              <Text style={styles.topicSubValue}>{pct(tsc.parentScore)}</Text>
-            </View>
-          )}
-
           {tsc.matchedTerms.length > 0 && (
             <View style={styles.termRow}>
               <Text style={styles.termLabelOk}>Matched:</Text>
-              <Text style={styles.termListOk}>{tsc.matchedTerms.join(', ')}</Text>
+              <Text style={styles.termListOk}>{tsc.matchedTerms.slice(0, 8).join(', ')}</Text>
             </View>
           )}
           {tsc.missingTerms.length > 0 && (
             <View style={styles.termRow}>
               <Text style={styles.termLabelMiss}>Missing:</Text>
-              <Text style={styles.termListMiss}>{tsc.missingTerms.join(', ')}</Text>
+              <Text style={styles.termListMiss}>{tsc.missingTerms.slice(0, 8).join(', ')}</Text>
             </View>
           )}
         </View>
-      )}
+      ) : null}
 
       {allowPost && blockingErrors.length === 0 && warnings.length === 0 && (
         <View style={styles.okRow}>
-          <Text style={styles.okText}>No issues found</Text>
+          <Text style={styles.okText}>Ready to post.</Text>
         </View>
       )}
     </View>
@@ -144,4 +139,9 @@ const styles = StyleSheet.create({
   termListMiss: { fontSize: 11, color: '#991b1b', flex: 1 },
   okRow: { paddingTop: 4 },
   okText: { fontSize: 12, color: '#15803d', fontWeight: '600' },
+  statusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  statusChipText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' as const },
+  statusReady: { backgroundColor: '#dcfce7' },
+  statusAdvisory: { backgroundColor: '#fef9c3' },
+  statusStructural: { backgroundColor: '#fee2e2' },
 });

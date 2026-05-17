@@ -128,15 +128,19 @@ function checkParentResponsiveness(input: RailsCheckInput): RailsFlagEntry[] {
 
   const score = overlapScore(input.body, input.parentBody);
 
+  // Stage 6.2 UX rescue: low parent overlap is now advisory only. We never
+  // block a normal reply just because lexical overlap with the parent is
+  // tiny; the user may legitimately be responding to a sub-claim without
+  // copying any word from it. The flag still persists for moderator review.
   if (score < hardBlockThreshold) {
     const detail = makeFlagDetail(
       RULE_CODES.PARENT_RESPONSIVENESS_LEXICAL,
       FLAG_CODES.PARENT_NONRESPONSIVE,
-      'blocking',
-      `Argument has no meaningful connection to its parent (overlap: ${(score * 100).toFixed(0)}%). Add a target_excerpt or revise to engage with the parent.`,
+      'warning',
+      `This may not clearly connect to the parent.`,
       { overlapScore: score, hardBlockThreshold },
     );
-    return [{ detail, kind: 'blocking', flagCode: FLAG_CODES.PARENT_NONRESPONSIVE, confidence: score }];
+    return [{ detail, kind: 'warning', flagCode: FLAG_CODES.PARENT_NONRESPONSIVE, confidence: score }];
   }
 
   if (score < warningThreshold) {
@@ -205,15 +209,18 @@ function checkConcessionIntegrity(input: RailsCheckInput): RailsFlagEntry[] {
 
   const hasMarker = concessionMarkers.some((m) => lower.includes(m));
 
+  // Stage 6.2 UX rescue: missing concession-marker phrase is advisory now.
+  // Users should not have to mimic exact wording like "I concede" to post
+  // a concession-style move.
   if (!hasMarker) {
     const detail = makeFlagDetail(
       RULE_CODES.CONCESSION_INTEGRITY,
       FLAG_CODES.PARENT_NONRESPONSIVE,
-      'blocking',
-      `Concession must include an explicit concession marker (e.g. "I concede", "I grant", "That point is valid").`,
+      'warning',
+      `Optional: a concession reads more clearly with a phrase like "I grant" or "fair point".`,
       { concessionMarkers },
     );
-    return [{ detail, kind: 'blocking', flagCode: FLAG_CODES.PARENT_NONRESPONSIVE }];
+    return [{ detail, kind: 'warning', flagCode: FLAG_CODES.PARENT_NONRESPONSIVE }];
   }
 
   // Check for evasion: "but/however" followed by low parent overlap in the post-conjunction text
@@ -277,18 +284,20 @@ function checkClarificationPurity(input: RailsCheckInput): RailsFlagEntry[] {
     return [{ detail, kind: 'warning', flagCode: FLAG_CODES.LOADED_CLARIFICATION }];
   }
 
-  // If no question structure and no parent connection: block
+  // Stage 6.2 UX rescue: missing question structure on a clarification is
+  // advisory only. The user might be asking for a definition or framing
+  // rather than literally adding a "?".
   if (!hasQuestion) {
     const parentOverlap = input.parentBody ? overlapScore(input.body, input.parentBody) : 0;
     if (parentOverlap < 0.05) {
       const detail = makeFlagDetail(
         RULE_CODES.CLARIFICATION_PURITY,
         FLAG_CODES.PARENT_NONRESPONSIVE,
-        'blocking',
-        'Clarification request has no question structure and no connection to the parent argument.',
+        'warning',
+        'Optional: clarification reads more clearly when it ends with a question.',
         { hasQuestion, parentOverlap },
       );
-      return [{ detail, kind: 'blocking', flagCode: FLAG_CODES.PARENT_NONRESPONSIVE }];
+      return [{ detail, kind: 'warning', flagCode: FLAG_CODES.PARENT_NONRESPONSIVE }];
     }
   }
 

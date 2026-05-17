@@ -16,11 +16,19 @@ import { getKnownChildCount } from './argumentCache';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import type { Debate } from '../debates/types';
-import type { ArgumentRow, ArgumentCache } from './types';
-import type { ArgumentMessageInput, ArgumentBubbleControl } from './argumentGameSurfaceModel';
+import type { ArgumentRow } from './types';
+import type { ArgumentMessageInput, ArgumentBubbleControl, ArgumentSurfaceMode } from './argumentGameSurfaceModel';
+import type { MoveDraftPatch } from './conversationMoves';
 import { useAppSession } from '../session/useAppSession';
+import { useArgumentRoomMessages } from './useArgumentRoomMessages';
+import { quickActionToPreset } from './quickActionPresets';
 
-export type ArgumentViewMode = 'tree' | 'timeline' | 'stack';
+/**
+ * Stage 6.2 — Normal users only ever see `stack` or `timeline`. The
+ * old `tree` and `tracks` paths remain wired for `__DEV__` and admin
+ * tooling but are no longer reachable from the normal toolbar.
+ */
+export type ArgumentViewMode = 'tree' | 'timeline' | 'stack' | 'tracks';
 
 interface Props {
   debate: Debate;
@@ -29,9 +37,15 @@ interface Props {
   refreshRef?: React.MutableRefObject<(() => void) | null>;
   /** 'tree' (default) or 'timeline' track view. */
   viewMode?: ArgumentViewMode;
+  /**
+   * Stage 6.2 M7 — when a quick action fires from the sidecar/bubble, this
+   * callback receives a typed composer preset that the room shell pushes
+   * into the composer. Called BEFORE / alongside onReply.
+   */
+  onComposerPreset?: (preset: MoveDraftPatch | null) => void;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree' }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset }: Props) {
   const {
     cache,
     viewport,
@@ -57,7 +71,8 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
     return <LoadingNotice message="Loading arguments…" />;
   }
 
-  if (viewMode === 'timeline') {
+  // `tracks` is the legacy lane/Tracks screen. Dev-only.
+  if (viewMode === 'tracks') {
     return (
       <ArgumentTimelineScreen
         cache={cache}
@@ -71,13 +86,18 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
     );
   }
 
-  if (viewMode === 'stack') {
+  // Stage 6.2 — Stack + Timeline (graphical map) share the same full-room
+  // message source. The internal surface toggle inside ArgumentGameSurface
+  // is what flips between Stack <-> Timeline-map visual modes; this prop
+  // controls the INITIAL mode when the user enters via the room toolbar.
+  if (viewMode === 'stack' || viewMode === 'timeline') {
     return (
-      <StackGameSurfaceMount
+      <FullRoomGameSurfaceMount
         debate={debate}
-        cache={cache}
-        visibleArgumentIds={visibleArgumentIds}
         onReply={onReply}
+        refreshRef={refreshRef}
+        initialMode={viewMode === 'timeline' ? 'timeline' : 'stack'}
+        onComposerPreset={onComposerPreset}
       />
     );
   }
@@ -197,29 +217,42 @@ const styles = StyleSheet.create({
   detachedText: { fontSize: 12, color: '#92400e' },
 });
 
-// ── Stage 6.1.8 — StackGameSurfaceMount adapter ────────────────────────────
+// ── Stage 6.2 — FullRoomGameSurfaceMount ──────────────────────────────────
 //
-// Shapes the existing ArgumentCache into ArgumentMessageInput[] for the new
-// Stack + Timeline interaction surface. No service-role usage. No body
-// mutation. The "Reply" action dispatches the existing onReply handler so
-// the composer flow remains the source of truth for posting.
+// Replaces the older `StackGameSurfaceMount` which read from `visibleArgumentIds`.
+// This mount loads the FULL room of posted messages (one query, RLS-bound)
+// and feeds them to the game surface. Stack and Timeline modes share this
+// data; switching modes never reloads.
 
-interface StackGameSurfaceMountProps {
+interface FullRoomGameSurfaceMountProps {
   debate: Debate;
-  cache: ArgumentCache;
-  visibleArgumentIds: string[];
   onReply: (argumentId: string, argument: ArgumentRow) => void;
+  refreshRef?: React.MutableRefObject<(() => void) | null>;
+  initialMode: ArgumentSurfaceMode;
+  onComposerPreset?: (preset: MoveDraftPatch | null) => void;
 }
 
-function StackGameSurfaceMount({ debate, cache, visibleArgumentIds, onReply }: StackGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
-  // Use the visible argument ids (loaded so far) — feeds the same data the
-  // tree view sees. The game surface sorts them chronologically internally.
-  const messages: ArgumentMessageInput[] = visibleArgumentIds
-    .map((id) => cache.argumentsById[id])
-    .filter((row): row is ArgumentRow => Boolean(row) && row.status !== 'deleted')
+  const {
+    messages: rows,
+    tagsByArgumentId,
+    flagsByArgumentId,
+    loading,
+    error,
+    latestId,
+    refresh,
+  } = useArgumentRoomMessages(debate.id);
+
+  // Register refresh so handleSubmitSuccess can trigger it from App.tsx.
+  useEffect(() => {
+    if (refreshRef) refreshRef.current = refresh;
+  }, [refresh, refreshRef]);
+
+  const messages: ArgumentMessageInput[] = rows
+    .filter((row) => row.status !== 'deleted')
     .map((row) => ({
       id: row.id,
       debateId: row.debateId,
@@ -231,26 +264,64 @@ function StackGameSurfaceMount({ debate, cache, visibleArgumentIds, onReply }: S
       status: row.status,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      qualifierLabels: (tagsByArgumentId[row.id] || []).map((t) => t.tagCode),
     }));
 
-  // Find the root claim for fallback display title.
   const rootRow = messages.find((m) => m.parentId === null);
+
   const handleAction = (control: ArgumentBubbleControl, messageId: string) => {
-    if (control === 'reply' || control === 'disagree' || control === 'ask_for_source' || control === 'ask_for_quote' || control === 'branch') {
-      const arg = cache.argumentsById[messageId];
-      if (arg) onReply(messageId, arg);
+    if (
+      control === 'reply' ||
+      control === 'disagree' ||
+      control === 'ask_for_source' ||
+      control === 'ask_for_quote' ||
+      control === 'branch'
+    ) {
+      const arg = rows.find((r) => r.id === messageId);
+      if (arg) {
+        // Stage 6.2 M7 — push a typed composer preset BEFORE opening the
+        // composer so it applies on first mount.
+        if (onComposerPreset) {
+          const presetLabel =
+            control === 'disagree' ? 'challenge' :
+            control === 'ask_for_source' ? 'source' :
+            control === 'ask_for_quote' ? 'quote' :
+            control === 'branch' ? 'branch' :
+            'reply';
+          const preset = quickActionToPreset(presetLabel, arg.argumentType);
+          onComposerPreset(preset);
+        }
+        onReply(messageId, arg);
+      }
     }
-    // 'flag', 'view_qualifiers', 'request_deletion' are handled inside the
-    // game surface (request_deletion opens the modal sheet automatically).
   };
 
+  if (loading && rows.length === 0) {
+    return <LoadingNotice message="Loading arguments…" />;
+  }
+
   return (
-    <ArgumentGameSurface
-      debate={{ id: debate.id, title: debate.title, rootBody: rootRow?.body ?? null }}
-      messages={messages}
-      currentUserId={currentUserId}
-      isAdmin={false}
-      onAction={handleAction}
-    />
+    <View style={{ flex: 1, backgroundColor: '#020617' }}>
+      {error ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={refresh} accessibilityRole="button" accessibilityLabel="Retry">
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      <ArgumentGameSurface
+        debate={{ id: debate.id, title: debate.title, rootBody: rootRow?.body ?? null }}
+        messages={messages}
+        currentUserId={currentUserId}
+        isAdmin={false}
+        initialMode={initialMode}
+        flagsByArgumentId={flagsByArgumentId}
+        tagsByArgumentId={tagsByArgumentId}
+        latestMessageId={latestId}
+        onAction={handleAction}
+        onRefresh={refresh}
+      />
+    </View>
   );
 }

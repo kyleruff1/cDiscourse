@@ -162,10 +162,19 @@ export function evaluateArgumentDraft(input: ArgumentDraftEvaluationInput): Eval
     typeof lengthRule?.params['maxChars'] === 'number' ? lengthRule.params['maxChars'] :
     typeof lengthRule?.params['max_chars'] === 'number' ? lengthRule.params['max_chars'] : 2000;
 
-  if (body.length < minChars) {
+  // Stage 6.2 UX rescue: only EMPTY body hard-blocks. Short-but-nonempty
+  // becomes advisory only so casual replies don't get gated by length.
+  if (body.length === 0) {
     addBlocking(
       makeFlagDetail(RULE_CODES.LENGTH_BODY, FLAG_CODES.UNCLEAR_CLAIM, 'blocking',
-        `Argument body is too short (${body.length} chars; minimum ${minChars}).`,
+        `Argument body cannot be empty.`,
+        { bodyLength: body.length, minChars, maxChars }),
+      FLAG_CODES.UNCLEAR_CLAIM,
+    );
+  } else if (body.length < minChars) {
+    addWarning(
+      makeFlagDetail(RULE_CODES.LENGTH_BODY, FLAG_CODES.UNCLEAR_CLAIM, 'warning',
+        `Short body — you can post, but a longer reply is usually clearer.`,
         { bodyLength: body.length, minChars, maxChars }),
       FLAG_CODES.UNCLEAR_CLAIM,
     );
@@ -198,12 +207,13 @@ export function evaluateArgumentDraft(input: ArgumentDraftEvaluationInput): Eval
     body, debateResolution, debateDescription, parentArgument?.body, activeRules,
   );
 
+  // Stage 6.2 UX rescue: off-topic is advisory only.
   if (topicSatisfactionCheck.status === 'failed') {
-    addBlocking(
-      makeFlagDetail(RULE_CODES.TOPIC_SATISFACTION_LEXICAL, FLAG_CODES.OFF_TOPIC, 'blocking',
-        `Argument appears off-topic (combined score ${(topicSatisfactionCheck.score * 100).toFixed(0)}%).`,
+    addWarning(
+      makeFlagDetail(RULE_CODES.TOPIC_SATISFACTION_LEXICAL, FLAG_CODES.OFF_TOPIC, 'warning',
+        `This may be drifting from the topic.`,
         { score: topicSatisfactionCheck.score, matchedTerms: topicSatisfactionCheck.matchedTerms }),
-      FLAG_CODES.OFF_TOPIC,
+      FLAG_CODES.OFF_TOPIC, topicSatisfactionCheck.score,
     );
   } else if (topicSatisfactionCheck.status === 'weak') {
     addWarning(

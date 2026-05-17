@@ -194,15 +194,26 @@ export function evaluateArgumentDraft(input: ArgumentDraftEvaluationInput): Eval
         ? lengthRule.params['max_chars']
         : 2000;
 
-  if (body.length < minChars) {
+  // Stage 6.2 UX rescue: only EMPTY body hard-blocks. A short-but-nonempty
+  // body becomes an advisory warning.
+  if (body.length === 0) {
     const detail = makeFlagDetail(
       RULE_CODES.LENGTH_BODY,
       FLAG_CODES.UNCLEAR_CLAIM,
       'blocking',
-      `Argument body is too short (${body.length} chars; minimum ${minChars}).`,
+      `Argument body cannot be empty.`,
       { bodyLength: body.length, minChars, maxChars },
     );
     addBlocking(detail, FLAG_CODES.UNCLEAR_CLAIM);
+  } else if (body.length < minChars) {
+    const detail = makeFlagDetail(
+      RULE_CODES.LENGTH_BODY,
+      FLAG_CODES.UNCLEAR_CLAIM,
+      'warning',
+      `Short body — you can post, but a longer reply is usually clearer.`,
+      { bodyLength: body.length, minChars, maxChars },
+    );
+    addWarning(detail, FLAG_CODES.UNCLEAR_CLAIM);
   } else if (body.length > maxChars) {
     const detail = makeFlagDetail(
       RULE_CODES.LENGTH_BODY,
@@ -242,12 +253,15 @@ export function evaluateArgumentDraft(input: ArgumentDraftEvaluationInput): Eval
     activeRules,
   );
 
+  // Stage 6.2 UX rescue: off-topic is advisory only. Normal users should
+  // not be blocked because a deterministic lexical score thinks the body
+  // doesn't share enough words with the resolution.
   if (topicSatisfactionCheck.status === 'failed') {
     const detail = makeFlagDetail(
       RULE_CODES.TOPIC_SATISFACTION_LEXICAL,
       FLAG_CODES.OFF_TOPIC,
-      'blocking',
-      `Argument appears off-topic (combined score ${(topicSatisfactionCheck.score * 100).toFixed(0)}%).`,
+      'warning',
+      `This may be drifting from the topic.`,
       {
         score: topicSatisfactionCheck.score,
         matchedTerms: topicSatisfactionCheck.matchedTerms,
@@ -255,7 +269,7 @@ export function evaluateArgumentDraft(input: ArgumentDraftEvaluationInput): Eval
         parentScore: topicSatisfactionCheck.parentScore,
       },
     );
-    addBlocking(detail, FLAG_CODES.OFF_TOPIC);
+    addWarning(detail, FLAG_CODES.OFF_TOPIC, topicSatisfactionCheck.score);
   } else if (topicSatisfactionCheck.status === 'weak') {
     const detail = makeFlagDetail(
       RULE_CODES.TOPIC_SATISFACTION_LEXICAL,
