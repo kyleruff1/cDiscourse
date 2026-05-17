@@ -20,16 +20,6 @@ import {
 
 type LoadState = 'idle' | 'loading' | 'error';
 
-function shortenId(id: string | null | undefined, prefix = 6): string {
-  if (!id) return '—';
-  return id.length <= prefix ? id : `${id.slice(0, prefix)}…`;
-}
-
-function shortenBody(body: string, max = 220): string {
-  const s = String(body || '').replace(/\s+/g, ' ').trim();
-  return s.length <= max ? s : s.slice(0, max - 1) + '…';
-}
-
 const SORT_HUMAN_LABEL: Record<`${AdminArgumentsSortField}:${AdminArgumentsSortDirection}`, string> = {
   'updated_at:desc': 'Newest activity',
   'updated_at:asc': 'Oldest activity',
@@ -42,9 +32,78 @@ const SORT_COLUMN_LABEL: Record<AdminArgumentsSortField, string> = {
   created_at: 'Created',
 };
 
+// ── Column widths. The table is wrapped in a horizontal ScrollView so the
+//    columns never collapse into "card metadata" on narrow viewports.
+const COL = {
+  status: 80,
+  side: 64,
+  type: 130,
+  debate: 280,
+  cat: 170,
+  created: 170,
+  updated: 170,
+  action: 80,
+};
+const TABLE_WIDTH =
+  COL.status + COL.side + COL.type + COL.debate + COL.cat + COL.created + COL.updated + COL.action;
+
+function shortenId(id: string | null | undefined, prefix = 6): string {
+  if (!id) return '—';
+  return id.length <= prefix ? id : `${id.slice(0, prefix)}…`;
+}
+
+function shortenBody(body: string, max = 160): string {
+  const s = String(body || '').replace(/\s+/g, ' ').trim();
+  return s.length <= max ? s : s.slice(0, max - 1) + '…';
+}
+
 function sortArrow(active: boolean, dir: AdminArgumentsSortDirection): string {
   if (!active) return '';
   return dir === 'desc' ? ' ↓' : ' ↑';
+}
+
+interface SortableHeaderProps {
+  label: string;
+  field: AdminArgumentsSortField;
+  sortField: AdminArgumentsSortField;
+  sortDirection: AdminArgumentsSortDirection;
+  onPress: (field: AdminArgumentsSortField) => void;
+  width: number;
+  testID: string;
+}
+
+function SortableHeader({ label, field, sortField, sortDirection, onPress, width, testID }: SortableHeaderProps) {
+  const active = sortField === field;
+  const directionLabel = active ? (sortDirection === 'desc' ? 'sorted descending' : 'sorted ascending') : 'not sorted';
+  return (
+    <Pressable
+      style={[styles.headerCell, { width }, active && styles.headerCellActive]}
+      onPress={() => onPress(field)}
+      accessibilityRole="button"
+      accessibilityLabel={`Sort by ${label}`}
+      accessibilityState={{ selected: active }}
+      accessibilityHint={directionLabel}
+      // testID is used by integration tests; pass through to the underlying
+      // node for both React Native + React Native Web renderers.
+      testID={testID}
+    >
+      <Text style={[styles.headerCellText, active && styles.headerCellTextActive]}>
+        {label}{sortArrow(active, sortDirection)}
+      </Text>
+      <Text style={styles.headerCellSubtext}>
+        {active ? (sortDirection === 'desc' ? '↓ newest first' : '↑ oldest first') : 'tap to sort'}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface PlainHeaderProps { label: string; width: number; flex?: number }
+function PlainHeader({ label, width }: PlainHeaderProps) {
+  return (
+    <View style={[styles.headerCell, { width }]}>
+      <Text style={styles.headerCellText}>{label}</Text>
+    </View>
+  );
 }
 
 export function AdminArgumentsTab() {
@@ -136,38 +195,6 @@ export function AdminArgumentsTab() {
         </Pressable>
       </View>
 
-      <View style={styles.sortHeader} accessibilityLabel="admin-arguments-sort-header">
-        <Text style={styles.sortHeaderLabel}>Sort by:</Text>
-        <Pressable
-          onPress={() => toggleSort('updated_at')}
-          style={[styles.sortCol, sortField === 'updated_at' && styles.sortColActive]}
-          accessibilityLabel="admin-arguments-sort-updated"
-        >
-          <Text style={[styles.sortColLabel, sortField === 'updated_at' && styles.sortColLabelActive]}>
-            Last Updated{sortArrow(sortField === 'updated_at', sortDirection)}
-          </Text>
-          <Text style={styles.sortColHint}>
-            {sortField === 'updated_at'
-              ? SORT_HUMAN_LABEL[sortStatusKey]
-              : 'Tap for newest activity'}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => toggleSort('created_at')}
-          style={[styles.sortCol, sortField === 'created_at' && styles.sortColActive]}
-          accessibilityLabel="admin-arguments-sort-created"
-        >
-          <Text style={[styles.sortColLabel, sortField === 'created_at' && styles.sortColLabelActive]}>
-            Created{sortArrow(sortField === 'created_at', sortDirection)}
-          </Text>
-          <Text style={styles.sortColHint}>
-            {sortField === 'created_at'
-              ? SORT_HUMAN_LABEL[sortStatusKey]
-              : 'Tap for newest created'}
-          </Text>
-        </Pressable>
-      </View>
-
       <Text style={styles.sortStatus} accessibilityLabel="admin-arguments-sort-status">
         Sorted by: {sortStatusColumn} ({sortStatusHuman})
       </Text>
@@ -200,76 +227,134 @@ export function AdminArgumentsTab() {
         </Text>
       )}
 
-      <ScrollView style={styles.list} accessibilityLabel="admin-arguments-list">
-        {filtered.map((r) => {
-          const category = deriveMessageCategory({
-            argumentType: r.argumentType,
-            side: r.side,
-            disagreementAxis: r.disagreementAxis,
-            selectedTagCodes: r.selectedTagCodes,
-            targetExcerpt: r.targetExcerpt,
-            body: r.body,
-          });
-          const qualifier = derivePrimaryQualifier({
-            argumentType: r.argumentType,
-            disagreementAxis: r.disagreementAxis,
-            selectedTagCodes: r.selectedTagCodes,
-            targetExcerpt: r.targetExcerpt,
-            body: r.body,
-          });
-          const flagCount = flagsByArgId[r.id] || 0;
-          const hasUpdated = Boolean(r.updatedAt);
-          const updatedDisplay = hasUpdated ? r.updatedAt : r.createdAt;
-          return (
-            <View key={r.id} style={styles.row} accessibilityLabel={`admin-argument-${r.id}`}>
-              <View style={styles.rowHeader}>
-                <View style={styles.timeBlock}>
-                  <Text style={styles.timeLabel}>Created</Text>
-                  <Text style={styles.timeText}>
-                    {formatDateTime(r.createdAt)} · {formatRelativeShort(r.createdAt)}
-                  </Text>
+      {/* Horizontally scrollable table. Columns never collapse into card
+          metadata on narrow viewports — they stay as scannable columns. */}
+      <ScrollView
+        horizontal
+        style={styles.tableWrap}
+        contentContainerStyle={{ minWidth: TABLE_WIDTH }}
+        accessibilityLabel="admin-arguments-table-scroller"
+      >
+        <View style={styles.table} accessibilityLabel="admin-arguments-table" testID="admin-arguments-table">
+          <View style={styles.headerRow} accessibilityLabel="admin-arguments-header-row">
+            <PlainHeader label="Status" width={COL.status} />
+            <PlainHeader label="Side" width={COL.side} />
+            <PlainHeader label="Type" width={COL.type} />
+            <PlainHeader label="Debate / Argument" width={COL.debate} />
+            <PlainHeader label="Category / Qualifier" width={COL.cat} />
+            <SortableHeader
+              label="Created"
+              field="created_at"
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onPress={toggleSort}
+              width={COL.created}
+              testID="admin-arguments-header-created"
+            />
+            <SortableHeader
+              label="Last Updated"
+              field="updated_at"
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onPress={toggleSort}
+              width={COL.updated}
+              testID="admin-arguments-header-updated"
+            />
+            <PlainHeader label="Action" width={COL.action} />
+          </View>
+
+          <ScrollView style={styles.bodyScroller} accessibilityLabel="admin-arguments-list">
+            {filtered.map((r) => {
+              const category = deriveMessageCategory({
+                argumentType: r.argumentType,
+                side: r.side,
+                disagreementAxis: r.disagreementAxis,
+                selectedTagCodes: r.selectedTagCodes,
+                targetExcerpt: r.targetExcerpt,
+                body: r.body,
+              });
+              const qualifier = derivePrimaryQualifier({
+                argumentType: r.argumentType,
+                disagreementAxis: r.disagreementAxis,
+                selectedTagCodes: r.selectedTagCodes,
+                targetExcerpt: r.targetExcerpt,
+                body: r.body,
+              });
+              const flagCount = flagsByArgId[r.id] || 0;
+              const hasUpdated = Boolean(r.updatedAt);
+              const updatedDisplay = hasUpdated ? r.updatedAt : r.createdAt;
+              return (
+                <View
+                  key={r.id}
+                  style={styles.row}
+                  accessibilityLabel={`admin-argument-${r.id}`}
+                >
+                  <View style={[styles.cell, { width: COL.status }]}>
+                    <Badge label={r.status} variant="status" />
+                  </View>
+                  <View style={[styles.cell, { width: COL.side }]}>
+                    <Badge label={r.side} variant="side" />
+                  </View>
+                  <View style={[styles.cell, { width: COL.type }]}>
+                    <Badge label={r.argumentType} variant="type" />
+                    {r.disagreementAxis && (
+                      <Text style={styles.subtle}>axis: {r.disagreementAxis}</Text>
+                    )}
+                  </View>
+                  <View style={[styles.cell, styles.cellDebate, { width: COL.debate }]}>
+                    <Text style={styles.metaTitle} numberOfLines={1}>
+                      {r.debateTitle ?? `Room ${shortenId(r.debateId)}`}
+                    </Text>
+                    <Text style={styles.metaAuthor} numberOfLines={1}>
+                      {r.authorDisplayName ?? shortenId(r.authorId)}
+                    </Text>
+                    <Text style={styles.body} numberOfLines={3}>
+                      {shortenBody(r.body)}
+                    </Text>
+                    {qualifier && (
+                      <Text style={styles.nudge} numberOfLines={2}>
+                        Nudge: {getQualifierUiNudge(qualifier)}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={[styles.cell, { width: COL.cat }]}>
+                    <Badge label={formatCategoryLabel(category)} variant="category" />
+                    {qualifier && (
+                      <Badge label={formatQualifierLabel(qualifier)} variant="qualifier" />
+                    )}
+                    {r.hasEvidence && <Badge label="evidence" variant="evidence" />}
+                    {flagCount > 0 && <Badge label={`flags: ${flagCount}`} variant="flag" />}
+                    {typeof r.topicSatisfactionScore === 'number' && (
+                      <Badge label={`topic ${(r.topicSatisfactionScore * 100).toFixed(0)}%`} variant="topic" />
+                    )}
+                  </View>
+                  <View
+                    style={[styles.cell, { width: COL.created }]}
+                    accessibilityLabel={`admin-arguments-cell-created-${r.id}`}
+                    testID="admin-arguments-cell-created"
+                  >
+                    <Text style={styles.timeAbsolute}>{formatDateTime(r.createdAt)}</Text>
+                    <Text style={styles.timeRelative}>{formatRelativeShort(r.createdAt)}</Text>
+                  </View>
+                  <View
+                    style={[styles.cell, { width: COL.updated }]}
+                    accessibilityLabel={`admin-arguments-cell-updated-${r.id}`}
+                    testID="admin-arguments-cell-updated"
+                  >
+                    <Text style={styles.timeAbsolute}>{formatDateTime(updatedDisplay)}</Text>
+                    <Text style={styles.timeRelative}>{formatRelativeShort(updatedDisplay)}</Text>
+                    {!hasUpdated && (
+                      <Text style={styles.fallbackHint}>same as created</Text>
+                    )}
+                  </View>
+                  <View style={[styles.cell, { width: COL.action }]}>
+                    <Text style={styles.actionId}>{shortenId(r.id, 8)}</Text>
+                  </View>
                 </View>
-                <View style={styles.timeBlock}>
-                  <Text style={styles.timeLabel}>
-                    Last Updated{hasUpdated ? '' : ': same as created'}
-                  </Text>
-                  <Text style={styles.timeText}>
-                    {formatDateTime(updatedDisplay)} · {formatRelativeShort(updatedDisplay)}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.rowMeta}>
-                <Text style={styles.metaTitle}>
-                  {r.debateTitle ?? `Room ${shortenId(r.debateId)}`}
-                </Text>
-                <Text style={styles.metaAuthor}>
-                  {r.authorDisplayName ?? shortenId(r.authorId)}
-                </Text>
-              </View>
-              <View style={styles.badgeRow}>
-                <Badge label={r.argumentType} variant="type" />
-                <Badge label={r.side} variant="side" />
-                <Badge label={formatCategoryLabel(category)} variant="category" />
-                {qualifier && (
-                  <Badge label={formatQualifierLabel(qualifier)} variant="qualifier" />
-                )}
-                {r.disagreementAxis && (
-                  <Badge label={`axis: ${r.disagreementAxis}`} variant="axis" />
-                )}
-                {r.hasEvidence && <Badge label="evidence" variant="evidence" />}
-                {flagCount > 0 && <Badge label={`flags: ${flagCount}`} variant="flag" />}
-                {typeof r.topicSatisfactionScore === 'number' && (
-                  <Badge label={`topic ${(r.topicSatisfactionScore * 100).toFixed(0)}%`} variant="topic" />
-                )}
-                <Badge label={`status: ${r.status}`} variant="status" />
-              </View>
-              <Text style={styles.body}>{shortenBody(r.body)}</Text>
-              {qualifier && (
-                <Text style={styles.nudge}>Nudge: {getQualifierUiNudge(qualifier)}</Text>
-              )}
-            </View>
-          );
-        })}
+              );
+            })}
+          </ScrollView>
+        </View>
       </ScrollView>
 
       <Text style={styles.footnote}>
@@ -335,37 +420,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1d4ed8',
   },
   refreshBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  sortHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    alignItems: 'stretch',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    gap: 6,
-  },
-  sortHeaderLabel: {
-    alignSelf: 'center',
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6b7280',
-    textTransform: 'uppercase',
-    marginRight: 4,
-  },
-  sortCol: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  sortColActive: { backgroundColor: '#e0e7ff', borderColor: '#6366f1' },
-  sortColLabel: { fontSize: 12, fontWeight: '700', color: '#374151' },
-  sortColLabelActive: { color: '#4338ca' },
-  sortColHint: { fontSize: 10, color: '#6b7280', marginTop: 2 },
   sortStatus: {
     fontSize: 11,
     color: '#374151',
@@ -392,31 +446,50 @@ const styles = StyleSheet.create({
   },
   status: { padding: 12, color: '#6b7280', fontSize: 13 },
   error: { padding: 12, color: '#b91c1c', fontSize: 13, backgroundColor: '#fef2f2' },
-  list: { flex: 1, paddingHorizontal: 8, paddingTop: 6 },
-  row: {
+  tableWrap: { flex: 1 },
+  table: { flex: 1, minWidth: TABLE_WIDTH },
+  headerRow: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderBottomWidth: 2,
+    borderBottomColor: '#d1d5db',
   },
-  rowHeader: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 4 },
-  timeBlock: { minWidth: 160 },
-  timeLabel: { fontSize: 10, color: '#9ca3af', textTransform: 'uppercase', fontWeight: '700' },
-  timeText: { fontSize: 11, color: '#1f2937', marginTop: 1 },
-  rowMeta: { marginBottom: 4 },
-  metaTitle: { fontSize: 13, fontWeight: '700', color: '#111827' },
-  metaAuthor: { fontSize: 11, color: '#6b7280' },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginVertical: 6 },
-  badge: {
+  headerCell: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRightWidth: 1,
+    borderRightColor: '#e5e7eb',
+  },
+  headerCellActive: { backgroundColor: '#e0e7ff' },
+  headerCellText: { fontSize: 11, fontWeight: '700', color: '#1f2937', textTransform: 'uppercase' },
+  headerCellTextActive: { color: '#4338ca' },
+  headerCellSubtext: { fontSize: 9, color: '#6b7280', marginTop: 2 },
+  bodyScroller: { flex: 1 },
+  row: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  cell: {
     paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    paddingVertical: 6,
+    borderRightWidth: 1,
+    borderRightColor: '#f3f4f6',
+    gap: 2,
   },
+  cellDebate: { paddingRight: 8 },
+  metaTitle: { fontSize: 12, fontWeight: '700', color: '#111827' },
+  metaAuthor: { fontSize: 10, color: '#6b7280' },
+  body: { fontSize: 11, color: '#374151' },
+  subtle: { fontSize: 10, color: '#6b7280', marginTop: 2 },
+  badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 2 },
   badgeText: { fontSize: 10, fontWeight: '600' },
-  body: { fontSize: 13, color: '#1f2937', marginTop: 2 },
-  nudge: { fontSize: 11, color: '#4b5563', fontStyle: 'italic', marginTop: 6 },
+  timeAbsolute: { fontSize: 11, color: '#111827', fontVariant: ['tabular-nums'] as ['tabular-nums'] },
+  timeRelative: { fontSize: 10, color: '#6b7280' },
+  fallbackHint: { fontSize: 9, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 },
+  actionId: { fontSize: 10, color: '#6b7280', fontFamily: 'monospace' as 'monospace' },
+  nudge: { fontSize: 10, color: '#4b5563', fontStyle: 'italic', marginTop: 4 },
   footnote: {
     padding: 8,
     fontSize: 10,

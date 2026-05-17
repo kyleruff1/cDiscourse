@@ -125,16 +125,27 @@ describe('AdminArgumentsTab — footnote disclaimer', () => {
   });
 });
 
-describe('AdminArgumentsTab — Stage 6.1.6a sort + Poppy UI', () => {
+describe('AdminArgumentsTab — Stage 6.1.6b table layout', () => {
   const src = fs.readFileSync(path.join(repoRoot, 'src/features/admin/AdminArgumentsTab.tsx'), 'utf8');
 
-  it('renders visible "Last Updated" + "Created" column headers', () => {
-    expect(src).toContain('Last Updated');
-    expect(src).toContain('Created');
+  it('renders every required column header literal', () => {
+    for (const label of [
+      'Status', 'Side', 'Type', 'Debate / Argument',
+      'Category / Qualifier', 'Created', 'Last Updated', 'Action',
+    ]) {
+      expect(src).toContain(`label="${label}"`);
+    }
   });
 
-  it('renders a "Sort by:" header and a "Sorted by:" status label', () => {
-    expect(src).toContain('Sort by:');
+  it('table + sortable header + cell testIDs are present', () => {
+    expect(src).toContain('testID="admin-arguments-table"');
+    expect(src).toContain('testID="admin-arguments-header-created"');
+    expect(src).toContain('testID="admin-arguments-header-updated"');
+    expect(src).toContain('testID="admin-arguments-cell-created"');
+    expect(src).toContain('testID="admin-arguments-cell-updated"');
+  });
+
+  it('renders a visible "Sorted by:" status label', () => {
     expect(src).toContain('Sorted by:');
   });
 
@@ -151,8 +162,6 @@ describe('AdminArgumentsTab — Stage 6.1.6a sort + Poppy UI', () => {
   });
 
   it('clicking a sort column toggles direction; switching column resets to desc', () => {
-    // The reducer should flip direction on same-field click and reset to
-    // desc on new-field click.
     expect(src).toMatch(/setSortDirection\(\(d\)\s*=>\s*\(d\s*===\s*'desc'\s*\?\s*'asc'\s*:\s*'desc'\)\)/);
     expect(src).toMatch(/setSortField\(field\);\s*setSortDirection\('desc'\)/);
   });
@@ -167,11 +176,9 @@ describe('AdminArgumentsTab — Stage 6.1.6a sort + Poppy UI', () => {
     expect(src).toContain('same as created');
   });
 
-  it('exposes accessibility labels for sort affordances', () => {
-    expect(src).toContain('admin-arguments-sort-header');
-    expect(src).toContain('admin-arguments-sort-updated');
-    expect(src).toContain('admin-arguments-sort-created');
+  it('exposes accessibility labels for sort affordances + table status', () => {
     expect(src).toContain('admin-arguments-sort-status');
+    expect(src).toContain('accessibilityLabel={`Sort by ${label}`}');
   });
 
   it('renders explanatory empty / loading / error / filtered-empty states', () => {
@@ -194,16 +201,28 @@ describe('AdminArgumentsTab — Stage 6.1.6a sort + Poppy UI', () => {
     expect(src).toContain('admin-arguments-sort-legend');
   });
 
-  it('shows both absolute timestamp + short relative age per row', () => {
+  it('shows both absolute timestamp + short relative age per row, as SEPARATE Text elements (not prose)', () => {
     expect(src).toContain('formatDateTime(r.createdAt)');
     expect(src).toContain('formatRelativeShort(r.createdAt)');
     expect(src).toContain('formatDateTime(updatedDisplay)');
     expect(src).toContain('formatRelativeShort(updatedDisplay)');
+    // The timestamp cells must use separate <Text style={styles.timeAbsolute}>
+    // and <Text style={styles.timeRelative}> — never a concatenated sentence.
+    expect(src).toMatch(/styles\.timeAbsolute/);
+    expect(src).toMatch(/styles\.timeRelative/);
+    expect(src).not.toMatch(/formatDateTime\([^)]+\)\s*\}\s*·\s*\{\s*formatRelativeShort/);
   });
 
   it('uses an arrow indicator for the active sort column', () => {
     expect(src).toMatch(/↓|↑/);
     expect(src).toMatch(/function sortArrow/);
+  });
+
+  it('sortable headers are buttons with accessibility role + state', () => {
+    expect(src).toContain('accessibilityRole="button"');
+    expect(src).toMatch(/accessibilityState=\{\{ selected: active \}\}/);
+    expect(src).toMatch(/sorted descending/);
+    expect(src).toMatch(/sorted ascending/);
   });
 });
 

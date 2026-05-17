@@ -48,49 +48,125 @@ const SIDE_LABEL: Record<string, string> = {
   moderator: 'Mod',
 };
 
-interface DebateCardProps {
+// Column widths — table stays scannable, never collapses into card metadata.
+const COL = {
+  status: 88,
+  side: 70,
+  debate: 320,
+  created: 170,
+  updated: 170,
+  action: 110,
+};
+const TABLE_WIDTH = COL.status + COL.side + COL.debate + COL.created + COL.updated + COL.action;
+
+function safeTimestamp(value: string | null | undefined, fallback?: string | null): number {
+  // Real Date comparison — never string comparison.
+  const candidate = value && value.length > 0 ? value : (fallback ?? '');
+  if (!candidate) return 0;
+  const t = new Date(candidate).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function sortArrow(active: boolean, dir: DebateSortDirection): string {
+  if (!active) return '';
+  return dir === 'desc' ? ' ↓' : ' ↑';
+}
+
+interface SortableHeaderProps {
+  label: string;
+  field: DebateSortField;
+  sortField: DebateSortField;
+  sortDirection: DebateSortDirection;
+  onPress: (field: DebateSortField) => void;
+  width: number;
+  testID: string;
+}
+
+function SortableHeader({ label, field, sortField, sortDirection, onPress, width, testID }: SortableHeaderProps) {
+  const active = sortField === field;
+  const directionLabel = active ? (sortDirection === 'desc' ? 'sorted descending' : 'sorted ascending') : 'not sorted';
+  return (
+    <Pressable
+      style={[styles.headerCell, { width }, active && styles.headerCellActive]}
+      onPress={() => onPress(field)}
+      accessibilityRole="button"
+      accessibilityLabel={`Sort by ${label}`}
+      accessibilityState={{ selected: active }}
+      accessibilityHint={directionLabel}
+      testID={testID}
+    >
+      <Text style={[styles.headerCellText, active && styles.headerCellTextActive]}>
+        {label}{sortArrow(active, sortDirection)}
+      </Text>
+      <Text style={styles.headerCellSubtext}>
+        {active ? (sortDirection === 'desc' ? '↓ newest first' : '↑ oldest first') : 'tap to sort'}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface PlainHeaderProps { label: string; width: number }
+function PlainHeader({ label, width }: PlainHeaderProps) {
+  return (
+    <View style={[styles.headerCell, { width }]}>
+      <Text style={styles.headerCellText}>{label}</Text>
+    </View>
+  );
+}
+
+interface DebateRowProps {
   debate: Debate;
   onPress: (debate: Debate) => void;
 }
 
-function DebateCard({ debate, onPress }: DebateCardProps) {
+function DebateRow({ debate, onPress }: DebateRowProps) {
   const dotColor = STATUS_DOT[debate.status] ?? '#9ca3af';
-  const sideText = debate.myParticipantSide ? SIDE_LABEL[debate.myParticipantSide] : null;
+  const sideText = debate.myParticipantSide ? SIDE_LABEL[debate.myParticipantSide] : '—';
   const hasUpdated = Boolean(debate.updatedAt);
   const updatedDisplay = hasUpdated ? debate.updatedAt : debate.createdAt;
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       onPress={() => onPress(debate)}
       accessibilityRole="button"
       accessibilityLabel={`Open debate: ${debate.title}`}
     >
-      <View style={styles.cardHeader}>
+      <View style={[styles.cell, { width: COL.status }]}>
         <View style={styles.cardStatus}>
           <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
           <Text style={styles.statusText}>{STATUS_LABEL[debate.status] ?? debate.status}</Text>
         </View>
-        {sideText ? (
-          <View style={styles.sidePill}>
-            <Text style={styles.sidePillText}>{sideText}</Text>
-          </View>
-        ) : (
-          <Text style={styles.joinHint}>Tap to join</Text>
+      </View>
+      <View style={[styles.cell, { width: COL.side }]}>
+        <Text style={styles.sideText}>{sideText}</Text>
+      </View>
+      <View style={[styles.cell, styles.cellDebate, { width: COL.debate }]}>
+        <Text style={styles.title} numberOfLines={1}>{debate.title}</Text>
+        <Text style={styles.resolution} numberOfLines={2}>{debate.resolution}</Text>
+      </View>
+      <View
+        style={[styles.cell, { width: COL.created }]}
+        accessibilityLabel={`debates-cell-created-${debate.id}`}
+        testID="debates-cell-created"
+      >
+        <Text style={styles.timeAbsolute}>{formatDateTime(debate.createdAt)}</Text>
+        <Text style={styles.timeRelative}>{formatRelativeShort(debate.createdAt)}</Text>
+      </View>
+      <View
+        style={[styles.cell, { width: COL.updated }]}
+        accessibilityLabel={`debates-cell-updated-${debate.id}`}
+        testID="debates-cell-updated"
+      >
+        <Text style={styles.timeAbsolute}>{formatDateTime(updatedDisplay)}</Text>
+        <Text style={styles.timeRelative}>{formatRelativeShort(updatedDisplay)}</Text>
+        {!hasUpdated && (
+          <Text style={styles.fallbackHint}>same as created</Text>
         )}
       </View>
-      <Text style={styles.cardTitle} numberOfLines={2}>{debate.title}</Text>
-      <Text style={styles.cardResolution} numberOfLines={2}>{debate.resolution}</Text>
-      <View style={styles.cardTimes} accessibilityLabel={`debate-times-${debate.id}`}>
-        <Text style={styles.cardTimeText}>
-          <Text style={styles.cardTimeLabel}>Created </Text>
-          {formatDateTime(debate.createdAt)} · {formatRelativeShort(debate.createdAt)}
-        </Text>
-        <Text style={styles.cardTimeText}>
-          <Text style={styles.cardTimeLabel}>
-            Last Updated{hasUpdated ? ' ' : ': same as created · '}
-          </Text>
-          {formatDateTime(updatedDisplay)} · {formatRelativeShort(updatedDisplay)}
+      <View style={[styles.cell, { width: COL.action }]}>
+        <Text style={styles.actionText}>
+          {debate.myParticipantSide ? 'Open →' : 'Tap to join →'}
         </Text>
       </View>
     </Pressable>
@@ -123,19 +199,13 @@ export function DebateListScreen({
   const sortedDebates = useMemo(() => {
     const arr = [...debates];
     const pick = (d: Debate) => {
-      const v = sortField === 'created_at' ? d.createdAt : (d.updatedAt || d.createdAt);
-      const t = new Date(v).getTime();
-      return Number.isNaN(t) ? 0 : t;
+      // Real Date timestamps with null-safe fallback. Never string compare.
+      if (sortField === 'created_at') return safeTimestamp(d.createdAt);
+      return safeTimestamp(d.updatedAt, d.createdAt);
     };
     arr.sort((a, b) => (sortDirection === 'asc' ? pick(a) - pick(b) : pick(b) - pick(a)));
     return arr;
   }, [debates, sortField, sortDirection]);
-
-  const sortHuman = sortField === 'updated_at'
-    ? (sortDirection === 'desc' ? 'Newest activity' : 'Oldest activity')
-    : (sortDirection === 'desc' ? 'Newest created' : 'Oldest created');
-  const sortColumn = sortField === 'updated_at' ? 'Last Updated' : 'Created';
-  const sortArrow = sortDirection === 'desc' ? '↓' : '↑';
 
   const handleDebatePress = (debate: Debate) => {
     if (debate.myParticipantSide) {
@@ -177,10 +247,15 @@ export function DebateListScreen({
   }
 
   const isInitialLoad = loading && debates.length === 0;
-
   if (isInitialLoad) {
     return <LoadingNotice message="Loading debates…" />;
   }
+
+  const sortHuman = sortField === 'updated_at'
+    ? (sortDirection === 'desc' ? 'Newest activity' : 'Oldest activity')
+    : (sortDirection === 'desc' ? 'Newest created' : 'Oldest created');
+  const sortColumn = sortField === 'updated_at' ? 'Last Updated' : 'Created';
+  const sortArrowVisible = sortDirection === 'desc' ? '↓' : '↑';
 
   return (
     <View style={styles.container}>
@@ -202,51 +277,65 @@ export function DebateListScreen({
         </View>
       ) : null}
 
-      <View style={styles.sortBar} accessibilityLabel="debates-sort-bar">
-        <Text style={styles.sortBarLabel}>Sort by:</Text>
-        <Pressable
-          onPress={() => toggleSort('updated_at')}
-          style={[styles.sortChip, sortField === 'updated_at' && styles.sortChipActive]}
-          accessibilityLabel="debates-sort-updated"
-        >
-          <Text style={[styles.sortChipText, sortField === 'updated_at' && styles.sortChipTextActive]}>
-            Last Updated{sortField === 'updated_at' ? ` ${sortArrow}` : ''}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => toggleSort('created_at')}
-          style={[styles.sortChip, sortField === 'created_at' && styles.sortChipActive]}
-          accessibilityLabel="debates-sort-created"
-        >
-          <Text style={[styles.sortChipText, sortField === 'created_at' && styles.sortChipTextActive]}>
-            Created{sortField === 'created_at' ? ` ${sortArrow}` : ''}
-          </Text>
-        </Pressable>
-      </View>
       <Text style={styles.sortStatus} accessibilityLabel="debates-sort-status">
-        Sorted by: {sortColumn} {sortArrow} ({sortHuman})
+        Sorted by: {sortColumn} {sortArrowVisible} ({sortHuman})
       </Text>
       <Text style={styles.sortHelper}>
         Use Last Updated to find active conversations. Use Created to find newest rooms.
       </Text>
 
       <ScrollView
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
+        horizontal
+        style={styles.tableWrap}
+        contentContainerStyle={{ minWidth: TABLE_WIDTH }}
+        accessibilityLabel="debates-table-scroller"
       >
-        {sortedDebates.length === 0 ? (
-          <EmptyState
-            title="No debates yet"
-            body={'Tap "+ New" to start the first debate.'}
-            actionLabel="Create Debate"
-            onAction={() => setShowCreate(true)}
-          />
-        ) : (
-          sortedDebates.map((debate) => (
-            <DebateCard key={debate.id} debate={debate} onPress={handleDebatePress} />
-          ))
-        )}
+        <View style={styles.table} accessibilityLabel="debates-table" testID="debates-table">
+          <View style={styles.headerRow} accessibilityLabel="debates-header-row">
+            <PlainHeader label="Status" width={COL.status} />
+            <PlainHeader label="My Side" width={COL.side} />
+            <PlainHeader label="Debate" width={COL.debate} />
+            <SortableHeader
+              label="Created"
+              field="created_at"
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onPress={toggleSort}
+              width={COL.created}
+              testID="debates-header-created"
+            />
+            <SortableHeader
+              label="Last Updated"
+              field="updated_at"
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onPress={toggleSort}
+              width={COL.updated}
+              testID="debates-header-updated"
+            />
+            <PlainHeader label="Action" width={COL.action} />
+          </View>
+          <ScrollView
+            style={styles.bodyScroller}
+            refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
+            accessibilityLabel="debates-list"
+          >
+            {sortedDebates.length === 0 ? (
+              <View style={{ minWidth: TABLE_WIDTH }}>
+                <EmptyState
+                  title="No debates yet"
+                  body={'Tap "+ New" to start the first debate.'}
+                  actionLabel="Create Debate"
+                  onAction={() => setShowCreate(true)}
+                />
+              </View>
+            ) : (
+              sortedDebates.map((debate) => (
+                <DebateRow key={debate.id} debate={debate} onPress={handleDebatePress} />
+              ))
+            )}
+          </ScrollView>
+        </View>
       </ScrollView>
     </View>
   );
@@ -274,66 +363,12 @@ const styles = StyleSheet.create({
   newButtonText: { fontSize: 13, fontWeight: '600', color: '#fff' },
   errorBanner: { backgroundColor: '#fef2f2', padding: 12, borderBottomWidth: 1, borderBottomColor: '#fecaca' },
   errorText: { fontSize: 13, color: '#b91c1c', textAlign: 'center' },
-  list: { flex: 1 },
-  listContent: { padding: 12, gap: 10 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  cardPressed: { opacity: 0.75 },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  cardStatus: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { fontSize: 12, color: '#6b7280', fontWeight: '500' },
-  sidePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    backgroundColor: '#eef2ff',
-  },
-  sidePillText: { fontSize: 11, fontWeight: '700', color: '#4f46e5' },
-  joinHint: { fontSize: 11, color: '#9ca3af' },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 4 },
-  cardResolution: { fontSize: 13, color: '#6b7280', lineHeight: 18 },
-  cardTimes: { marginTop: 8, gap: 2 },
-  cardTimeText: { fontSize: 11, color: '#6b7280' },
-  cardTimeLabel: { color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase', fontSize: 10 },
-  sortBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    gap: 6,
-  },
-  sortBarLabel: { fontSize: 11, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase' },
-  sortChip: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  sortChipActive: { backgroundColor: '#e0e7ff', borderColor: '#6366f1' },
-  sortChipText: { fontSize: 12, color: '#374151', fontWeight: '600' },
-  sortChipTextActive: { color: '#4338ca' },
   sortStatus: {
     fontSize: 11,
     fontWeight: '600',
     color: '#374151',
     paddingHorizontal: 12,
-    paddingVertical: 2,
+    paddingVertical: 4,
     backgroundColor: '#f9fafb',
   },
   sortHelper: {
@@ -343,4 +378,48 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     backgroundColor: '#f9fafb',
   },
+  tableWrap: { flex: 1 },
+  table: { flex: 1, minWidth: TABLE_WIDTH },
+  headerRow: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 2,
+    borderBottomColor: '#d1d5db',
+  },
+  headerCell: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRightWidth: 1,
+    borderRightColor: '#e5e7eb',
+  },
+  headerCellActive: { backgroundColor: '#e0e7ff' },
+  headerCellText: { fontSize: 11, fontWeight: '700', color: '#1f2937', textTransform: 'uppercase' },
+  headerCellTextActive: { color: '#4338ca' },
+  headerCellSubtext: { fontSize: 9, color: '#6b7280', marginTop: 2 },
+  bodyScroller: { flex: 1 },
+  row: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  rowPressed: { opacity: 0.75 },
+  cell: {
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    borderRightWidth: 1,
+    borderRightColor: '#f3f4f6',
+    gap: 2,
+  },
+  cellDebate: { paddingRight: 8 },
+  cardStatus: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusText: { fontSize: 12, color: '#6b7280', fontWeight: '500' },
+  sideText: { fontSize: 12, fontWeight: '700', color: '#4f46e5' },
+  title: { fontSize: 13, fontWeight: '700', color: '#111827' },
+  resolution: { fontSize: 12, color: '#6b7280', lineHeight: 16 },
+  timeAbsolute: { fontSize: 11, color: '#111827', fontVariant: ['tabular-nums'] as ['tabular-nums'] },
+  timeRelative: { fontSize: 10, color: '#6b7280' },
+  fallbackHint: { fontSize: 9, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 },
+  actionText: { fontSize: 12, fontWeight: '600', color: '#4338ca' },
 });

@@ -1,8 +1,9 @@
 /**
- * Stage 6.1.6a — Admin Arguments sort + Poppy UI behavior tests.
+ * Stage 6.1.6b — Admin Arguments table-layout sort behavior tests.
  *
- * Pure-string tests on the source file (no React Native renderer in CI)
- * plus a behavioral test of the API loader's sort options via a thin mock.
+ * Pure-string assertions on the source file (no React Native renderer in CI).
+ * The previous toolbar-based "Sort by" chips have been replaced by sortable
+ * column headers in a real table; these tests cover the new structure.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -42,6 +43,44 @@ describe('adminArgumentsApi — sort option contract', () => {
   });
 });
 
+describe('AdminArgumentsTab — table structure', () => {
+  it('wraps the table in a horizontally scrollable container so columns never collapse', () => {
+    expect(tabSrc).toMatch(/<ScrollView\s+horizontal/);
+    expect(tabSrc).toMatch(/minWidth:\s*TABLE_WIDTH/);
+  });
+
+  it('renders a header row with sortable Created + Last Updated columns', () => {
+    expect(tabSrc).toContain('SortableHeader');
+    expect(tabSrc).toContain('field="created_at"');
+    expect(tabSrc).toContain('field="updated_at"');
+    expect(tabSrc).toContain('testID="admin-arguments-header-created"');
+    expect(tabSrc).toContain('testID="admin-arguments-header-updated"');
+  });
+
+  it('per-row timestamp cells carry distinct testIDs (not card body text)', () => {
+    expect(tabSrc).toContain('testID="admin-arguments-cell-created"');
+    expect(tabSrc).toContain('testID="admin-arguments-cell-updated"');
+  });
+
+  it('shows the absolute timestamp + relative age as two stacked Text elements per cell', () => {
+    // The cell renders <Text style={styles.timeAbsolute}>{formatDateTime(...)}</Text>
+    // followed by <Text style={styles.timeRelative}>{formatRelativeShort(...)}</Text>.
+    // The two MUST appear as separate Text nodes — no prose concatenation.
+    expect(tabSrc).toMatch(/<Text style=\{styles\.timeAbsolute\}>\{formatDateTime\(r\.createdAt\)\}<\/Text>/);
+    expect(tabSrc).toMatch(/<Text style=\{styles\.timeRelative\}>\{formatRelativeShort\(r\.createdAt\)\}<\/Text>/);
+    expect(tabSrc).toMatch(/<Text style=\{styles\.timeAbsolute\}>\{formatDateTime\(updatedDisplay\)\}<\/Text>/);
+    expect(tabSrc).toMatch(/<Text style=\{styles\.timeRelative\}>\{formatRelativeShort\(updatedDisplay\)\}<\/Text>/);
+  });
+
+  it('regression: no prose concatenation of date · relative', () => {
+    // Anti-pattern from 6.1.6a:
+    //   {formatDateTime(...)} · {formatRelativeShort(...)}
+    // …would put the two side by side inside the same parent. The new
+    // table places them in distinct stacked Texts.
+    expect(tabSrc).not.toMatch(/formatDateTime\([^)]+\)\}\s*·\s*\{formatRelativeShort/);
+  });
+});
+
 describe('AdminArgumentsTab — visible label contract', () => {
   it('plain-language sort labels — all four states', () => {
     expect(tabSrc).toContain("'updated_at:desc': 'Newest activity'");
@@ -50,7 +89,7 @@ describe('AdminArgumentsTab — visible label contract', () => {
     expect(tabSrc).toContain("'created_at:asc': 'Oldest created'");
   });
 
-  it('column headers visible as text: "Last Updated" + "Created"', () => {
+  it('column-name dictionary uses "Last Updated" + "Created"', () => {
     expect(tabSrc).toContain("updated_at: 'Last Updated'");
     expect(tabSrc).toContain("created_at: 'Created'");
   });
@@ -59,22 +98,10 @@ describe('AdminArgumentsTab — visible label contract', () => {
     expect(tabSrc).toMatch(/Sorted by:\s*\{sortStatusColumn\}\s*\(\{sortStatusHuman\}\)/);
   });
 
-  it('tap-hint copy on inactive sort columns guides the admin', () => {
-    expect(tabSrc).toContain('Tap for newest activity');
-    expect(tabSrc).toContain('Tap for newest created');
-  });
-
-  it('absolute timestamp + relative age both appear per row', () => {
-    expect(tabSrc).toContain('formatDateTime(r.createdAt)');
-    expect(tabSrc).toContain('formatRelativeShort(r.createdAt)');
-    expect(tabSrc).toContain('formatDateTime(updatedDisplay)');
-    expect(tabSrc).toContain('formatRelativeShort(updatedDisplay)');
-  });
-
-  it('shows an arrow indicator only on the active sort column', () => {
-    // The sortArrow helper returns '' when inactive.
-    expect(tabSrc).toMatch(/function sortArrow\(active: boolean,\s*dir:\s*AdminArgumentsSortDirection\)/);
-    expect(tabSrc).toMatch(/if \(!active\) return '';/);
+  it('inactive sort header shows "tap to sort"; active header shows newest/oldest first', () => {
+    expect(tabSrc).toContain('tap to sort');
+    expect(tabSrc).toContain('↓ newest first');
+    expect(tabSrc).toContain('↑ oldest first');
   });
 
   it('graceful fallback when updated_at is missing', () => {
