@@ -67,13 +67,14 @@ function buildResponsesReplyPayload({ source, count, model }) {
     'NEVER assert which user is correct.',
   ].join('\n');
 
+  // xAI Responses API contract: no `response_format` (chat/completions-only).
+  // The instructions + JSON shape in the prompt do the JSON-shape work.
   return {
     model,
     instructions: REPLY_SYSTEM,
     input: userPrompt,
     tools: [{ type: 'x_search' }],
     temperature: 0.2,
-    response_format: { type: 'json_object' },
   };
 }
 

@@ -104,9 +104,13 @@ async function collectSourceCandidates({
   fetchImpl,
   timeoutMs,
   runSalt,
+  fromDate,
+  toDate,
+  allowedHandles,
+  excludedHandles,
 } = {}) {
   const provider = pickProvider(providerLabel);
-  const result = await provider({ topicHint, count, pilot, fetchImpl, timeoutMs });
+  const result = await provider({ topicHint, count, pilot, fetchImpl, timeoutMs, fromDate, toDate, allowedHandles, excludedHandles });
   const rawTopics = Array.isArray(result.rawTopics) ? result.rawTopics : [];
   const candidates = [];
   for (let i = 0; i < rawTopics.length; i++) {

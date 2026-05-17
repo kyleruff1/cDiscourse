@@ -43,7 +43,10 @@ const path = require('node:path');
 const XAI_BASE = 'https://api.x.ai';
 const RESPONSES_PATH = '/v1/responses';
 const CHAT_PATH = '/v1/chat/completions';
-const DEFAULT_MODEL = 'grok-4-latest';
+// xAI published model for X Search via the Responses API (per current xAI
+// docs). Operator can override via `XAI_MODEL` in `.env.engagement-intelligence`
+// if the deployed account is on a different track.
+const DEFAULT_MODEL = 'grok-4.3';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 // ── Redaction ──────────────────────────────────────────────────
@@ -173,7 +176,7 @@ const RESPONSES_SYSTEM = [
   'You return compact JSON only, no prose outside the JSON, no code fences.',
 ].join(' ');
 
-function buildResponsesPayload({ topicHint, count, model }) {
+function buildResponsesPayload({ topicHint, count, model, fromDate, toDate, allowedHandles, excludedHandles }) {
   const userPrompt = [
     `Return up to ${count} current debatable PUBLIC news topics observed on X within the last 48 hours.`,
     `Search topic hint: ${topicHint || 'current news'}.`,
@@ -192,13 +195,29 @@ function buildResponsesPayload({ topicHint, count, model }) {
     'NEVER assert which user is correct.',
   ].join('\n');
 
+  // xAI Responses API contract: model + instructions + input + tools.
+  // `response_format` is a chat/completions-only field; including it on
+  // the Responses endpoint returned HTTP 400 on earlier deploys. We rely
+  // on the explicit JSON-only instruction inside `instructions` + a JSON
+  // shape printed in `input` instead.
+  //
+  // X Search filter parameters (per xAI docs) live INSIDE the tool entry,
+  // not at the top level of the request. We disable image/video understanding
+  // by omission so the agent only handles text excerpts.
+  const xSearchTool = { type: 'x_search' };
+  if (fromDate) xSearchTool.from_date = String(fromDate);
+  if (toDate) xSearchTool.to_date = String(toDate);
+  if (Array.isArray(allowedHandles) && allowedHandles.length > 0) {
+    xSearchTool.allowed_x_handles = allowedHandles.slice(0, 10).map((h) => String(h).replace(/^@/, ''));
+  } else if (Array.isArray(excludedHandles) && excludedHandles.length > 0) {
+    xSearchTool.excluded_x_handles = excludedHandles.slice(0, 10).map((h) => String(h).replace(/^@/, ''));
+  }
   return {
     model,
     instructions: RESPONSES_SYSTEM,
     input: userPrompt,
-    tools: [{ type: 'x_search' }],
+    tools: [xSearchTool],
     temperature: 0.2,
-    response_format: { type: 'json_object' },
   };
 }
 
@@ -227,10 +246,15 @@ function extractTopicsFromResponses(json) {
   } catch { return null; }
 }
 
-async function xaiResponsesProvider({ topicHint, count, pilot, fetchImpl, timeoutMs }) {
+async function xaiResponsesProvider({ topicHint, count, pilot, fetchImpl, timeoutMs, fromDate, toDate, allowedHandles, excludedHandles }) {
   const { key } = assertLiveAllowed({ pilot, providerLabel: 'xai_responses' });
   const model = envSnapshot().model;
-  const body = buildResponsesPayload({ topicHint, count: Math.min(Math.max(Number(count) || 30, 1), 300), model });
+  const body = buildResponsesPayload({
+    topicHint,
+    count: Math.min(Math.max(Number(count) || 30, 1), 300),
+    model,
+    fromDate, toDate, allowedHandles, excludedHandles,
+  });
 
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), Number(timeoutMs) > 0 ? Number(timeoutMs) : DEFAULT_TIMEOUT_MS);

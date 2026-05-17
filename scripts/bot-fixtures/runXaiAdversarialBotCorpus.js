@@ -37,6 +37,14 @@ const { loadAdversarialSkillBundle, redactedSkillGate } = require('./skillFileLo
 const { redactRaw, convertHostileBody } = require('../engagement-intelligence/xaiSourceRedactor');
 const { selectFirstUsableDissent } = require('../engagement-intelligence/xaiDissentDetector');
 const { buildAdversarialScene } = require('./xaiAdversarialSceneBuilder');
+const { renderAdversarialMove } = require('./xaiAdversarialMoveRenderer');
+const claudeClient = require('./claudeMessagesClient');
+const { loadEnvFiles, buildBotConfig } = require('./loadEnv');
+const { createBotClient, signInBot } = require('./supabaseClient');
+const { ensureBotUser } = require('./adminOps');
+const { buildSubmitArgumentBody, invokeSubmitArgument } = require('./submitMove');
+// mapPersonaSideToParticipantSide kept available for downstream callers.
+require('./personaMapping');
 
 // ── CLI parsing ───────────────────────────────────────────────
 
@@ -48,6 +56,7 @@ function parseArgs(argv) {
     maxDepth: 6,
     seed: 'cdiscourse-stage-6.1.9',
     fixturePath: FIXTURE_PATH,
+    harvestFile: null,
     annotationJsonl: null,
     reportName: null,
     postToDevSupabase: false,
@@ -61,6 +70,7 @@ function parseArgs(argv) {
     else if (a === '--max-depth' && argv[i + 1]) args.maxDepth = Math.max(2, Math.min(20, Number(argv[++i]) || 6));
     else if (a === '--seed' && argv[i + 1]) args.seed = String(argv[++i]);
     else if (a === '--fixture' && argv[i + 1]) args.fixturePath = String(argv[++i]);
+    else if (a === '--harvest-file' && argv[i + 1]) args.harvestFile = String(argv[++i]);
     else if (a === '--annotation-jsonl' && argv[i + 1]) args.annotationJsonl = String(argv[++i]);
     else if (a === '--report-name' && argv[i + 1]) args.reportName = String(argv[++i]);
     else if (a === '--post-to-dev-supabase') args.postToDevSupabase = true;
@@ -238,6 +248,311 @@ function generateDryMove({ scenario, parent, persona, depth, args }) {
   };
 }
 
+// ── Axis mapping ────────────────────────────────────────────────
+// `submit-argument` validates `target.disagreement_axis` against the
+// Constitution-derived set: fact | definition | causal | value | evidence
+// | logic | scope. Stage 6.1.9 introduces semantic-corpus axes that the
+// Edge Function does not know yet (source_chain, anti_amplification,
+// framing). We keep the original axis in the JSONL for telemetry and map
+// to the closest legacy axis for the wire call.
+const AXIS_REMAP_FOR_SUBMIT = {
+  source_chain: 'evidence',
+  anti_amplification: 'evidence',
+  framing: 'scope',
+  none: null,
+};
+
+function mapAxisForSubmit(axis) {
+  if (axis == null) return null;
+  if (Object.prototype.hasOwnProperty.call(AXIS_REMAP_FOR_SUBMIT, axis)) return AXIS_REMAP_FOR_SUBMIT[axis];
+  return axis;
+}
+
+// ── Harvest-JSONL reader ───────────────────────────────────────
+
+/**
+ * Read a Stage 6.1.9 harvest JSONL and reconstruct the shaped sources
+ * the runner consumes. We re-shape `scenario_build` events back into the
+ * `{ sourceHash, sourceTextRedacted, replies: [...] }` shape expected by
+ * the dissent + scenario-build phases below. The runner's own dissent
+ * detection is idempotent against the harvester (both use the same
+ * deterministic classifier), so the result is consistent.
+ */
+function readHarvestFile(harvestPath) {
+  const raw = fs.readFileSync(harvestPath, 'utf8');
+  const out = [];
+  let ordinal = 0;
+  for (const line of raw.split('\n')) {
+    if (!line.trim()) continue;
+    let ev;
+    try { ev = JSON.parse(line); } catch { continue; }
+    if (!ev || ev.stage !== 'scenario_build') continue;
+    if (!ev.sourcePost || !ev.sourcePost.redactedText) continue;
+    ordinal += 1;
+    const replies = Array.isArray(ev.candidateReplies)
+      ? ev.candidateReplies.map((c, i) => ({
+          replyOrdinal: c.rank || i + 1,
+          replyHash: `${ev.sourceHash}-rep-${String(c.rank || i + 1).padStart(2, '0')}`,
+          sourceHash: ev.sourceHash,
+          provider: 'harvest_file',
+          providerRank: c.rank || i + 1,
+          providerConfidence: 0.5,
+          topReplyMethod: 'provider_inferred',
+          replyTextRedacted: redactRaw(c.redactedText || ''),
+          replyClaimSummary: redactRaw((c.redactedText || '').slice(0, 160)),
+          replyMetricsIfAvailable: null,
+          citationRefs: [],
+          collectedAt: new Date().toISOString(),
+          redactionApplied: true,
+          redactionNotes: 'reconstructed from harvest JSONL',
+          kind: c.replyFunction || 'unspecified',
+          // Carry the harvester's classification so downstream events
+          // can stamp it without re-running. The runner currently
+          // re-classifies for parity; we keep this for telemetry only.
+          _harvestClassification: c,
+        }))
+      : [];
+    out.push({
+      sourceOrdinal: ordinal,
+      sourceHash: ev.sourceHash,
+      provider: 'harvest_file',
+      providerQuery: ev.sourceQuery || ev.sourcePost.issueFrame || 'unspecified',
+      providerRank: ordinal,
+      providerConfidence: 0.5,
+      citationRefs: [],
+      topicBucket: ev.sourcePost.issueFrame || 'unknown',
+      sourceTextRedacted: redactRaw(ev.sourcePost.redactedText),
+      sourceClaimSummary: redactRaw((ev.sourcePost.redactedText || '').slice(0, 280)),
+      sourceClaimType: 'unclear',
+      sourceMetricsIfAvailable: null,
+      sourceCollectedAt: ev.ts || new Date().toISOString(),
+      redactionApplied: true,
+      redactionNotes: 'reconstructed from harvest JSONL',
+      popularityBucket: ev.sourcePost.popularityBucket || 'unknown',
+      replies,
+      _selectedDissent: ev.selectedDissent || null,
+    });
+  }
+  return out;
+}
+
+// ── Live posting helpers (FU3) ─────────────────────────────────
+
+async function setupLivePostingContext({ args }) {
+  const env = loadEnvFiles();
+  let cfg;
+  try { cfg = buildBotConfig(env); }
+  catch (err) { console.error(`[xai-adv-bot] live setup: ${err.message}`); return null; }
+
+  let anthropic;
+  try { anthropic = claudeClient.createClient({ pilot: args.pilot, requirePilotFlag: true }); }
+  catch (err) { console.error(`[xai-adv-bot] live setup: anthropic_disabled: ${(err && err.reason) || (err && err.message)}`); return null; }
+
+  const adminClient = createBotClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+  const adminSession = await signInBot(adminClient, cfg.adminEmail, cfg.adminPassword);
+  if (!adminSession) { console.error('[xai-adv-bot] live setup: admin_sign_in_failed'); return null; }
+
+  const botByAlias = {};
+  for (const bot of cfg.bots) {
+    let userId;
+    try {
+      const r = await ensureBotUser(adminClient, {
+        label: bot.label, email: bot.email, password: bot.password,
+        persona: bot.persona, displayName: bot.label,
+      });
+      userId = r.userId;
+    } catch (err) {
+      console.error(`[xai-adv-bot] live setup: ensure_bot_user_failed for ${bot.alias}: ${(err && err.message) || 'unknown'}`);
+      return null;
+    }
+    const c = createBotClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+    const s = await signInBot(c, bot.email, bot.password);
+    if (!s) { console.error(`[xai-adv-bot] live setup: bot_sign_in_failed for ${bot.alias}`); return null; }
+    botByAlias[bot.alias] = { userId, email: bot.email, client: c, label: bot.label };
+  }
+  return { cfg, adminClient, botByAlias, anthropic };
+}
+
+async function postLiveScenario({ args, jsonl, scene, source, dissent, dissentSource, bundle, liveCtx, runId }) {
+  const constitutionRes = await liveCtx.adminClient.from('constitution_versions').select('id').eq('active', true).single();
+  if (constitutionRes.error || !constitutionRes.data) {
+    jsonl.write('room_summary', { scenarioId: scene.scenarioId, error: 'no_active_constitution' });
+    return { posted: 0, error: 'no_active_constitution' };
+  }
+  const constitutionId = constitutionRes.data.id;
+  const botByAlias = liveCtx.botByAlias;
+  const [personaA, personaB, personaC] = scene.personas;
+  const botA = botByAlias[personaA.alias];
+  const botB = botByAlias[personaB.alias];
+  const botC = botByAlias[personaC.alias];
+  if (!botA || !botB || !botC) {
+    jsonl.write('room_summary', { scenarioId: scene.scenarioId, error: 'bot_alias_missing' });
+    return { posted: 0, error: 'bot_alias_missing' };
+  }
+
+  const roomTitle = `${(source.sourceClaimSummary || scene.title || '').slice(0, 100)} [xai-adv ${runId.slice(0, 8)} ${scene.scenarioId.slice(-8)}]`;
+  const debateInsert = await botA.client.from('debates').insert({
+    created_by: botA.userId,
+    title: roomTitle,
+    resolution: source.sourceClaimSummary || scene.title || '(unspecified)',
+    description: scene.runScopeNote || '',
+    status: 'open',
+    constitution_id: constitutionId,
+  }).select('id').single();
+  if (debateInsert.error || !debateInsert.data) {
+    jsonl.write('room_summary', { scenarioId: scene.scenarioId, error: 'create_debate_failed', detail: (debateInsert.error?.message || '').slice(0, 200) });
+    return { posted: 0, error: 'create_debate_failed' };
+  }
+  const debateId = debateInsert.data.id;
+
+  await botA.client.from('debate_participants').insert({ debate_id: debateId, user_id: botA.userId, side: 'moderator' });
+  const joinB = await botB.client.from('debate_participants').insert({ debate_id: debateId, user_id: botB.userId, side: 'negative' });
+  if (joinB.error && joinB.error.code !== '23505') console.warn(`[xai-adv-bot] join B: ${joinB.error.message}`);
+  const joinC = await botC.client.from('debate_participants').insert({ debate_id: debateId, user_id: botC.userId, side: 'moderator' });
+  if (joinC.error && joinC.error.code !== '23505') console.warn(`[xai-adv-bot] join C: ${joinC.error.message}`);
+
+  const argIdByMoveId = {};
+  const moves = [];
+  let movesPosted = 0;
+
+  async function submit({ persona, body, argumentType, parentMoveId, depth, slotMeta }) {
+    const moveId = `m${depth}`;
+    const parentArgumentId = parentMoveId ? argIdByMoveId[parentMoveId] : null;
+    const bot = botByAlias[persona.alias];
+    const sideStr = persona.skillRole === 'bot-provocateur' ? 'affirmative'
+                  : persona.skillRole === 'bot-revocateur' ? 'negative'
+                  : 'moderator';
+    const submitBody = buildSubmitArgumentBody({
+      debateId,
+      parentArgumentId,
+      move: {
+        argumentType,
+        body,
+        targetExcerpt: slotMeta?.targetExcerpt || null,
+        disagreementAxis: mapAxisForSubmit(slotMeta?.disagreementAxis || null),
+        selectedTagCodes: [],
+      },
+      side: sideStr,
+    });
+    const result = await invokeSubmitArgument(bot.client, submitBody);
+    jsonl.write('bot_move_render', {
+      scenarioId: scene.scenarioId,
+      move: {
+        moveId, parentMoveId, argumentId: null,
+        authorAlias: persona.alias, argumentType, body,
+        targetExcerpt: slotMeta?.targetExcerpt || null,
+        disagreementAxis: slotMeta?.disagreementAxis || null,
+        qualifiers: [], evidenceDebt: slotMeta?.evidenceDebt || [],
+        antiAmplificationNote: slotMeta?.antiAmplificationNote || null,
+        transition: argumentType, depth,
+      },
+      skillHash: persona.skillHash,
+      generationSpec: slotMeta?.generationSpec || null,
+    });
+    jsonl.write('submit_attempt', { scenarioId: scene.scenarioId, moveId, attempted: true });
+    if (result.ok) {
+      const argumentId = result.data?.argument?.id || result.data?.id || null;
+      if (argumentId) argIdByMoveId[moveId] = argumentId;
+      jsonl.write('submit_result', { scenarioId: scene.scenarioId, moveId, status: 'posted', argumentId });
+      moves.push({ moveId, parentMoveId, argumentType, body, argumentId, depth });
+      movesPosted += 1;
+      return { posted: true, moveId, argumentId };
+    }
+    jsonl.write('submit_result', {
+      scenarioId: scene.scenarioId, moveId, status: 'rejected',
+      httpStatus: result.status, errorCode: result.error?.error || null,
+      detail: typeof result.detail === 'string' ? result.detail.slice(0, 200) : null,
+    });
+    return { posted: false };
+  }
+
+  const m1 = await submit({
+    persona: personaA, body: source.sourceTextRedacted, argumentType: 'thesis',
+    parentMoveId: null, depth: 1, slotMeta: null,
+  });
+  if (!m1.posted) {
+    jsonl.write('room_summary', { scenarioId: scene.scenarioId, debateId, error: 'm1_failed' });
+    return { posted: movesPosted, error: 'm1_failed' };
+  }
+  const m2 = await submit({
+    persona: personaB, body: dissent.replyTextRedacted, argumentType: 'rebuttal',
+    parentMoveId: 'm1', depth: 2,
+    slotMeta: {
+      targetExcerpt: (source.sourceTextRedacted || '').slice(0, 120),
+      disagreementAxis: 'source_chain',
+      antiAmplificationNote: 'amplification suspected; demanding source-chain',
+    },
+  });
+  if (!m2.posted) {
+    jsonl.write('room_summary', { scenarioId: scene.scenarioId, debateId, error: 'm2_failed' });
+    return { posted: movesPosted, error: 'm2_failed' };
+  }
+
+  function summarize() {
+    return moves.map((m) => `  ${m.moveId} (${m.argumentType}): ${m.body.slice(0, 140)}`).join('\n');
+  }
+
+  let stopReason = null;
+  for (let depth = 3; depth <= args.maxDepth; depth++) {
+    const personaIdx = depth % 2;
+    const persona = scene.personas[personaIdx];
+    const parent = moves[moves.length - 1];
+    const argumentType = depth % 2 === 0 ? 'rebuttal' : 'counter_rebuttal';
+    const axes = ['source_chain', 'evidence', 'scope', 'definition', 'causal', 'logic'];
+    const axis = axes[depth % axes.length];
+    const targetExcerpt = (parent.body || '').slice(0, 80).replace(/\s+/g, ' ').trim();
+
+    const rendered = await renderAdversarialMove({
+      client: liveCtx.anthropic,
+      scene,
+      parent: { argumentType: parent.argumentType, body: parent.body, depth: parent.depth },
+      slot: { argumentType, depth },
+      persona,
+      skillBundle: bundle,
+      conversationSummary: summarize(),
+      axis,
+      antiAmplificationCue: 'popularity is not doing the evidentiary work',
+      forceTargetExcerpt: targetExcerpt,
+    });
+    const r = await submit({
+      persona, body: rendered.body, argumentType,
+      parentMoveId: parent.moveId, depth,
+      slotMeta: {
+        targetExcerpt, disagreementAxis: axis,
+        antiAmplificationNote: 'popularity is not doing the evidentiary work',
+        generationSpec: {
+          source: rendered.source, attempts: rendered.attempts,
+          validationFailureReason: rendered.validationFailureReason,
+          skillHash: rendered.skillHash,
+        },
+      },
+    });
+    if (!r.posted) { stopReason = 'submit_failed'; break; }
+    jsonl.write('annotation', {
+      scenarioId: scene.scenarioId, moveId: r.moveId,
+      annotation: {
+        agreementScore: 0.1, disagreementScore: 0.6, coexistenceScore: 0.2,
+        primaryStance: 'weak_disagree',
+        politicalIssueFrame: source.topicBucket,
+        amplificationRisk: source.popularityBucket === 'high' ? 'medium' : 'none_observed',
+        evidentiaryRisk: source.popularityBucket === 'high' ? 'high' : 'medium',
+        recommendedGameTreatment: 'ask_for_primary_source',
+        modelJustification: 'live anthropic body; deterministic stub annotation',
+        userReviewRequired: true,
+      },
+      annotationSource: rendered.source === 'anthropic' ? 'deterministic_stub_with_live_body' : 'deterministic_stub_with_fallback_body',
+    });
+  }
+  if (!stopReason) stopReason = 'max_depth_reached';
+  jsonl.write('room_summary', {
+    scenarioId: scene.scenarioId, debateId,
+    sourceHash: source.sourceHash, replyHash: dissent.replyHash, dissentSource,
+    movesGenerated: moves.length, stopReason,
+    anthropicUsage: liveCtx.anthropic.snapshotUsage(),
+  });
+  return { posted: movesPosted };
+}
+
 // ── Main ──────────────────────────────────────────────────────
 
 async function main() {
@@ -283,10 +598,51 @@ async function main() {
     runId, scenarios: args.scenarios, maxDepth: args.maxDepth, seed: args.seed,
   });
 
-  // ── Source phase. Dry mode reads the fixture; live xAI path is gated.
+  // ── Source phase. Order of preference:
+  //   1. --harvest-file <path>   — read the Stage 6.1.9 harvest JSONL (preferred for live runs).
+  //   2. dry mode                — read the canonical synthetic fixture.
+  //   3. live without harvest    — abort (operator must run the harvester first).
   let fixture;
   let scenarioCount = 0;
-  if (args.dry) {
+  if (args.harvestFile) {
+    let harvestSources;
+    try { harvestSources = readHarvestFile(args.harvestFile); }
+    catch (err) {
+      console.error(`[xai-adv-bot] failed to read harvest file ${args.harvestFile}: ${err.message}`);
+      jsonl.write('run_summary', { runId, mode: args.dry ? 'dry' : 'live', scenarios: 0, reason: 'harvest_file_unreadable' });
+      await jsonl.end();
+      process.exitCode = 6;
+      return;
+    }
+    if (harvestSources.length === 0) {
+      console.error(`[xai-adv-bot] harvest file ${args.harvestFile} contained no scenario_build events`);
+      jsonl.write('run_summary', { runId, mode: args.dry ? 'dry' : 'live', scenarios: 0, reason: 'harvest_file_empty' });
+      await jsonl.end();
+      process.exitCode = 6;
+      return;
+    }
+    const taken = harvestSources.slice(0, args.scenarios);
+    for (const s of taken) {
+      jsonl.write('source_harvest', {
+        sourceMode: 'harvest_file',
+        sourcePost: {
+          redactedText: s.sourceTextRedacted,
+          issueFrame: s.topicBucket,
+          popularityBucket: s.popularityBucket,
+          sourceChainRisk: s.popularityBucket === 'high' ? 'high' : 'unknown',
+          platformSupportWarning: s.popularityBucket === 'high',
+        },
+        sourceOrdinal: s.sourceOrdinal,
+        sourceHash: s.sourceHash,
+        providerRank: s.providerRank,
+        providerConfidence: s.providerConfidence,
+        replyCount: s.replies.length,
+        harvestFile: path.relative(REPO_ROOT, args.harvestFile),
+      });
+    }
+    fixture = { sources: taken, _shaped: taken };
+    scenarioCount = taken.length;
+  } else if (args.dry) {
     fixture = readDryFixture(args.fixturePath);
     const wantedScenarios = Math.min(args.scenarios, fixture.sources.length);
     const sourceList = fixture.sources.slice(0, wantedScenarios);
@@ -311,9 +667,12 @@ async function main() {
     fixture._shaped = sourceList.map((s) => shapeFixtureSource(s, args.seed));
     scenarioCount = fixture._shaped.length;
   } else {
-    // Live: defer to the existing Stage 6.1.7 source collector (gated).
-    jsonl.write('source_harvest', { mode: 'live_xai_deferred', note: 'live xAI harvest reuses xaiAdversarialSourceCollector from Stage 6.1.7' });
-    console.warn('[xai-adv-bot] live source harvest not wired in this commit; aborting after skill gate');
+    // Live mode without --harvest-file: the spec requires the runner to
+    // consume a harvest JSONL. The harvester script is
+    // `scripts/engagement-intelligence/xaiAdversarialSourceHarvest.js`
+    // (npm scripts: engagement:intel:xai:adversarial:{dry,tiny,100}).
+    console.error('[xai-adv-bot] live mode requires --harvest-file <path>. Run `npm run engagement:intel:xai:adversarial:tiny` first to produce one.');
+    jsonl.write('run_summary', { runId, mode: 'live', scenarios: 0, reason: 'harvest_file_required_for_live' });
     await jsonl.end();
     process.exitCode = 3;
     return;
@@ -409,9 +768,32 @@ async function main() {
     scenarios.push({ scene, source, dissent, dissentSource });
   }
 
-  // ── Move generation phase (DRY-only deterministic placeholders).
+  // ── Live setup (FU2 Anthropic + FU3 Supabase). Dry mode skips this entirely.
+  let liveCtx = null;
+  if (!args.dry) {
+    liveCtx = await setupLivePostingContext({ args });
+    if (!liveCtx) {
+      console.error('[xai-adv-bot] live setup failed; aborting before posting');
+      jsonl.write('run_summary', { runId, mode: 'live', scenarios: 0, reason: 'live_setup_failed' });
+      await jsonl.end();
+      process.exitCode = 5;
+      return;
+    }
+    console.log('[xai-adv-bot] live posting context ready (admin + bots signed in, Anthropic client gated)');
+  }
+
+  // ── Move generation phase. Dry mode emits deterministic placeholders;
+  // live mode runs `postLiveScenario` which renders moves via Anthropic
+  // (skill-on-disk) and submits each through `submit-argument`.
   let movesPosted = 0;
   for (const { scene, source, dissent, dissentSource } of scenarios) {
+    if (!args.dry) {
+      const r = await postLiveScenario({
+        args, jsonl, scene, source, dissent, dissentSource, bundle, liveCtx, runId,
+      });
+      movesPosted += r.posted || 0;
+      continue;
+    }
     const posted = [
       { moveId: 'm1', body: source.sourceTextRedacted, argumentType: 'thesis', authorAlias: scene.personas[0].alias, parentMoveId: null, depth: 1 },
       { moveId: 'm2', body: dissent.replyTextRedacted, argumentType: 'rebuttal', authorAlias: scene.personas[1].alias, parentMoveId: 'm1', depth: 2 },
@@ -598,4 +980,7 @@ module.exports = {
   buildSyntheticDissent,
   generateDryMove,
   buildMarkdownReport,
+  readHarvestFile,
+  setupLivePostingContext,
+  postLiveScenario,
 };

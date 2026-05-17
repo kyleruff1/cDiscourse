@@ -149,7 +149,9 @@ describe('Source file — provider hygiene', () => {
   });
 
   it('uses Responses + x_search tool by default', () => {
-    expect(src).toMatch(/tools:\s*\[\{\s*type:\s*['"]x_search['"]/);
+    // Accept either an inline tool object or a pre-built tool variable;
+    // both produce `{ type: 'x_search' }` on the wire.
+    expect(src).toMatch(/\{\s*type:\s*['"]x_search['"]/);
     expect(src).toContain('/v1/responses');
   });
 
