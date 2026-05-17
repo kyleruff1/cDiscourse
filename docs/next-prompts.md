@@ -72,7 +72,7 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 6.1.3.2a complete as of 2026-05-17. Added fail-closed `xaiAuthProbe.js` that confirms xAI inference is not reachable without `Authorization: Bearer <XAI_API_KEY>`; output never contains keys / Bearer tokens / Authorization headers / response bodies. +18 new tests. **1008 tests / 34 suites passing.** No X API calls. No xAI calls. Stages 6.1.3.1 (live corpus:50) and 6.1.3.2 (engagement-intelligence scaffold) remain valid.
+Stage 6.1.3.3 scaffold complete as of 2026-05-17. Added mixed-agreement taxonomy + `runTinyXNewsPilot.js` orchestrator. Live X pilot is operator-gated and has NOT been run by Claude. +30 new tests. **1038 tests / 36 suites passing.** xAI remains off. Stages 6.1.3.1 / 6.1.3.2 / 6.1.3.2a remain valid.
 Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. `submit-argument` ACTIVE v1. `admin-users` ACTIVE v1.
 **851 tests pass.** TypeScript strict mode clean. ESLint clean.
 

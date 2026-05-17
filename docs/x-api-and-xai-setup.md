@@ -96,6 +96,35 @@ The script clamps to these caps even if the operator asks for more. Scaling to t
 
 Do not skip stages. Each step is gated on a clean offline report + operator review.
 
+## Tiny X News pilot (Stage 6.1.3.3)
+
+The orchestrator is `scripts/engagement-intelligence/runTinyXNewsPilot.js`. It refuses to run unless ALL of these are true:
+
+1. `.env.engagement-intelligence` exists.
+2. `ENGAGEMENT_INTEL_ENABLE_X_API=true` in that file.
+3. `X_BEARER_TOKEN` is populated.
+4. The CLI explicitly includes `--pilot`.
+
+If `ENGAGEMENT_INTEL_ENABLE_XAI=true` is also on, the orchestrator refuses unless `--allow-xai` is passed too. **For Stage 6.1.3.3 do NOT pass `--allow-xai`** — xAI stays off for the first reply pilot.
+
+```bash
+npm run engagement:intel:x-news:tiny-pilot                          # dry: no network
+npm run engagement:intel:x-news:tiny-pilot -- --pilot                # live: X API only, xAI off
+```
+
+Pipeline:
+1. `/2/news/search` for up to `MAX_NEWS_STORIES` (default 5) across the safe query buckets (`scripts/engagement-intelligence/xNewsPlan.js`).
+2. `/2/tweets?ids=…` to look up cluster posts.
+3. Rank by popularity; keep up to `MAX_POSTS_PER_STORY` (default 3) per story.
+4. For each root, `/2/tweets/search/recent?query=conversation_id:…` to fetch replies.
+5. Rank replies by engagement; keep up to `TOP_REPLIES_PER_POST` (default 12).
+6. Hard cap at `MAX_TOTAL_REPLY_PAIRS` (default 180).
+7. Hash IDs, redact text, classify with the deterministic scalar + mixed-agreement taxonomy.
+8. Write the redacted JSONL to `data/engagement-intelligence/redacted/<runId>-reply-pairs.jsonl` (gitignored).
+9. Write the committable aggregate Markdown to `docs/testing-runs/<date>-x-news-reply-pilot.md`.
+
+The orchestrator also writes raw root IDs to `data/engagement-intelligence/raw/<runId>-roots.json` (gitignored) so the reply step can re-key them. Nothing raw lands in `docs/`.
+
 ## xAI auth reality check (Stage 6.1.3.2a)
 
 If anything on this machine appears to reach `api.x.ai` without an `XAI_API_KEY` set, we treat that as a bug / misconfiguration / inherited credential / SDK auto-load until proven otherwise. The official xAI inference API requires `Authorization: Bearer <xAI API key>`. **There is no documented unauthenticated inference path.**

@@ -33,7 +33,8 @@
     "engagement:intel:xai:classify": "node scripts/engagement-intelligence/xaiClassifyPairs.js",
     "engagement:intel:xai:probe:dry": "node scripts/engagement-intelligence/xaiAuthProbe.js",
     "engagement:intel:xai:probe:live": "node scripts/engagement-intelligence/xaiAuthProbe.js --probe-live",
-    "engagement:intel:xai:probe:no-key": "node scripts/engagement-intelligence/xaiAuthProbe.js --probe-live --probe-missing-key"
+    "engagement:intel:xai:probe:no-key": "node scripts/engagement-intelligence/xaiAuthProbe.js --probe-live --probe-missing-key",
+    "engagement:intel:x-news:tiny-pilot": "node scripts/engagement-intelligence/runTinyXNewsPilot.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

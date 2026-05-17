@@ -117,12 +117,14 @@ export function scoreDisagreementLexemes(text: string): number {
 
 export function classifyAgreementType(text: string): AgreementType {
   const lc = lower(text);
-  if (/\b(fair|good)\s+point\b/.test(lc) || lc.includes('i grant') || lc.includes('i acknowledge')) return 'premise';
+  // Explicit "which part am I agreeing with" beats the catch-all "i grant"
+  // signal. Order matters here.
+  if (lc.includes('the conclusion') || lc.includes('overall conclusion') || lc.includes('overall')) return 'conclusion';
+  if (lc.includes('value frame') || lc.includes('what matters') || lc.includes('priorities') || lc.includes('the value')) return 'value';
   if (lc.includes('the data') || lc.includes('the evidence') || lc.includes('the source')) return 'evidence';
-  if (lc.includes('the conclusion') || lc.includes('overall')) return 'conclusion';
-  if (lc.includes('value') || lc.includes('matters') || lc.includes('priorities')) return 'value';
-  if (lc.includes('framing')) return 'framing';
-  if (lc.includes('context')) return 'context';
+  if (lc.includes('the framing') || lc.includes('how you frame')) return 'framing';
+  if (lc.includes('the context') || lc.includes('in context')) return 'context';
+  if (/\b(fair|good)\s+point\b/.test(lc) || lc.includes('i grant') || lc.includes('i acknowledge')) return 'premise';
   if (hitCount(text, AGREEMENT_LEXEMES) > 0) return 'premise';
   return 'none';
 }

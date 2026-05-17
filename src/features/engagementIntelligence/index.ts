@@ -10,3 +10,4 @@ export * from './redaction';
 export * from './agreementScalar';
 export * from './ruleCandidates';
 export * from './xaiStanceClassifier';
+export * from './mixedAgreementTaxonomy';

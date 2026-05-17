@@ -183,6 +183,68 @@ export interface ReplyInterpretation {
   exclusionReason: string | null;
 }
 
+// ── Mixed-agreement taxonomy (Stage 6.1.3.3) ───────────────────
+
+export type AgreementBreadth = 'none' | 'narrow' | 'medium' | 'broad';
+
+export type MixedAgreementClass =
+  | 'broad_accept_narrow_decline'
+  | 'narrow_accept_broad_decline'
+  | 'broad_accept_broad_decline'
+  | 'narrow_accept_narrow_decline'
+  | 'pure_accept'
+  | 'pure_decline'
+  | 'unclear_mixed'
+  | 'tangent_or_joke';
+
+export type SuggestedGameNudge =
+  | 'ask_for_scope_boundary'
+  | 'ask_for_source'
+  | 'ask_for_definition'
+  | 'split_tangent'
+  | 'invite_concession'
+  | 'invite_synthesis'
+  | 'continue_rebuttal'
+  | 'none';
+
+export interface MixedAgreementFlags {
+  broadAcceptor: boolean;
+  narrowAcceptor: boolean;
+  broadDecliner: boolean;
+  narrowDecliner: boolean;
+  acceptsMainConclusion: boolean;
+  acceptsValueFrame: boolean;
+  acceptsEvidence: boolean;
+  acceptsContext: boolean;
+  declinesScope: boolean;
+  declinesEvidence: boolean;
+  declinesDefinition: boolean;
+  declinesCausalClaim: boolean;
+  declinesLogic: boolean;
+  declinesFraming: boolean;
+  mixedAgreementClass: MixedAgreementClass;
+  agreementBreadth: AgreementBreadth;
+  disagreementBreadth: AgreementBreadth;
+  /** 0..1 — high values mean "this reply has agreement AND a specific disagreement axis the app can offer a move around." Advisory only. */
+  playableTensionScore: number;
+  suggestedGameNudge: SuggestedGameNudge;
+  /** Always true. Outputs are advisory; the app never auto-applies a verdict. */
+  userReviewRequired: true;
+}
+
+/**
+ * Subset of `MixedAgreementFlags` intended as the app-grading-system input.
+ * Same field names — the production grading code only depends on these.
+ */
+export interface GradingFlags {
+  broadAcceptor: boolean;
+  narrowAcceptor: boolean;
+  broadDecliner: boolean;
+  narrowDecliner: boolean;
+  mixedAgreementClass: MixedAgreementClass;
+  playableTensionScore: number;
+}
+
 // ── App-rule candidates ────────────────────────────────────────
 
 export type RuleTargetAppSurface =

@@ -4,6 +4,8 @@ _Last updated: 2026-05-17 (Stage 6.1.3.2)_
 
 ## Current Stage
 
+**Stage 6.1.3.3 scaffold complete (live pilot operator-gated).** Added the mixed-agreement taxonomy (`MixedAgreementClass`, `MixedAgreementFlags`, `GradingFlags`, breadth bands, `playableTensionScore`, suggested game nudges) in both TS and JS, plus a `runTinyXNewsPilot.js` orchestrator that gates on `.env.engagement-intelligence` + `ENGAGEMENT_INTEL_ENABLE_X_API=true` + `X_BEARER_TOKEN` + `--pilot`. Refuses if xAI is accidentally on (`--allow-xai` is NOT to be passed in this stage). Hard caps at 5 stories × 3 posts × 12 replies (180 reply pairs). Redacted JSONL stays local-only at `data/engagement-intelligence/redacted/`; aggregate Markdown lands at `docs/testing-runs/<date>-x-news-reply-pilot.md`. **No live X API call has been made by Claude in this session** — env is not configured. +30 new tests. **1038 tests / 36 suites passing**, typecheck + lint clean. See `docs/x-news-disagreement-epidemiology.md` § "Mixed-agreement taxonomy" and `docs/x-api-and-xai-setup.md` § "Tiny X News pilot".
+
 **Stage 6.1.3.2a complete (xAI auth reality check).** Fail-closed `xaiAuthProbe.js` script + 18 new tests, used to verify that xAI inference is not reachable without `Authorization: Bearer <XAI_API_KEY>`. Probe defaults to dry (no network). Live probe with a key gates on key presence. No-key probe requires explicit `--probe-missing-key` and reports HTTP 200 as `unexpected_unauthenticated_access` (exit 2). Output is always sanitized — keys / Bearer tokens / Authorization headers / response bodies are never logged. **1008 tests / 34 suites passing**. xAI stays disabled by default for the upcoming Stage 6.1.3.3 X News pilot. See `docs/x-api-and-xai-setup.md` § "xAI auth reality check".
 
 **Stage 6.1.3.2 complete (engagement-intelligence scaffold).** Compliant scaffold for X public-reply epidemiology + xAI structured stance classification. Both live APIs are DISABLED by default; scripts refuse to call out unless `ENGAGEMENT_INTEL_ENABLE_X_API=true` / `ENGAGEMENT_INTEL_ENABLE_XAI=true` AND the operator passes `--pilot` on the CLI. New pure-TS module `src/features/engagementIntelligence/` (two-axis agreement+disagreement scalar with `coexistenceScore`, redaction, rule-candidate builder, xAI prompt/schema/validator/merger). New `scripts/engagement-intelligence/` (env loader, plan, API client stub, refuse-by-default collectors, normalizer, offline analyzer, Markdown report writer, xAI CLI). 24-pair synthetic fixture. 4 new test files = 139 new tests. **990 tests / 33 suites passing**, typecheck + lint clean. No live X / xAI calls have been made. See `docs/x-news-disagreement-epidemiology.md` and `docs/x-api-and-xai-setup.md`.
@@ -86,6 +88,7 @@ Run on 2026-05-17 (post Stage 6.1.3.1 dry-corpus gate):
 | `npm run engagement:intel:x-news:dry` | ✅ refuses live X API without explicit `--pilot` + env flag |
 | `npm run engagement:intel:xai:probe:dry` | ✅ prints booleans-only env snapshot; no network |
 | `npm run engagement:intel:xai:probe:live` | ✅ refuses without `XAI_API_KEY`; no network on refusal path |
+| `npm run engagement:intel:x-news:tiny-pilot` | ✅ dry mode; refuses without env + `--pilot`; no network |
 
 ## Hosted Backend Status
 

@@ -69,6 +69,33 @@ type AgreementDisagreementVector = {
 - Not production app data. Real public replies are not imported into argument rooms.
 - Not scraping. Official X API only.
 
+## Mixed-agreement taxonomy (Stage 6.1.3.3)
+
+The most useful state for the app is not "agree" vs. "disagree" — it is **broad accept, narrow decline**: a reply agrees with the main conclusion / value frame, then rejects a specific scope / evidence / definition / causal point.
+
+```ts
+type MixedAgreementClass =
+  | 'broad_accept_narrow_decline'   // ← the most playable state
+  | 'narrow_accept_broad_decline'
+  | 'broad_accept_broad_decline'
+  | 'narrow_accept_narrow_decline'
+  | 'pure_accept'
+  | 'pure_decline'
+  | 'unclear_mixed'
+  | 'tangent_or_joke';
+```
+
+Derived flags (all advisory, all `userReviewRequired: true`):
+- `broadAcceptor` / `narrowAcceptor`
+- `broadDecliner` / `narrowDecliner`
+- `acceptsMainConclusion` / `acceptsValueFrame` / `acceptsEvidence` / `acceptsContext`
+- `declinesScope` / `declinesEvidence` / `declinesDefinition` / `declinesCausalClaim` / `declinesLogic` / `declinesFraming`
+- `agreementBreadth` / `disagreementBreadth` (`none` / `narrow` / `medium` / `broad`)
+- `playableTensionScore` 0..1 — high when coexistence + clear axis + narrowing language hooks; dampened on tangent / joke / person-attack
+- `suggestedGameNudge`: `ask_for_scope_boundary` / `ask_for_source` / `ask_for_definition` / `split_tangent` / `invite_concession` / `invite_synthesis` / `continue_rebuttal` / `none`
+
+`GradingFlags` is the subset of `MixedAgreementFlags` intended for the production grading system: `broadAcceptor`, `narrowAcceptor`, `broadDecliner`, `narrowDecliner`, `mixedAgreementClass`, `playableTensionScore`. Production code only depends on those names.
+
 ## xAI auth assumption (Stage 6.1.3.2a)
 
 xAI inference access is **assumed to require** `Authorization: Bearer <XAI_API_KEY>`. Any apparent no-key access is treated as a bug / misconfiguration / inherited credential / SDK auto-load until proven otherwise by the fail-closed probe (`npm run engagement:intel:xai:probe:*`, see `docs/x-api-and-xai-setup.md`).
