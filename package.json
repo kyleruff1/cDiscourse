@@ -41,9 +41,12 @@
     "bot:fixture:ai:annotated:dry": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 3 --annotate",
     "bot:fixture:ai:3:annotated": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 3 --pilot --annotate --deep",
     "bot:fixture:ai:50:annotated": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 50 --pilot --annotate --deep",
-    "bot:fixture:xai-adversarial:dry": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --dry --rooms 3 --candidate-posts 30 --top-replies 12 --max-depth 5 --source-mode synthetic",
-    "bot:fixture:xai-adversarial:3": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --pilot --rooms 3 --candidate-posts 30 --top-replies 12 --max-depth 5 --source-mode xai_live --provider xai_responses",
-    "bot:fixture:xai-adversarial:50": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --pilot --rooms 50 --candidate-posts 300 --top-replies 12 --max-depth 10 --source-mode xai_live --provider xai_responses --allow-synthetic-rebuttal"
+    "bot:fixture:xai-adversarial:dry": "node scripts/bot-fixtures/runXaiAdversarialBotCorpus.js --dry --scenarios 10 --max-depth 6",
+    "bot:fixture:xai-adversarial:tiny": "node scripts/bot-fixtures/runXaiAdversarialBotCorpus.js --pilot --scenarios 5 --max-depth 6",
+    "bot:fixture:xai-adversarial:50": "node scripts/bot-fixtures/runXaiAdversarialBotCorpus.js --pilot --scenarios 50 --max-depth 10",
+    "bot:fixture:xai-thread:dry": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --dry --rooms 3 --candidate-posts 30 --top-replies 12 --max-depth 5 --source-mode synthetic",
+    "bot:fixture:xai-thread:3": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --pilot --rooms 3 --candidate-posts 30 --top-replies 12 --max-depth 5 --source-mode xai_live --provider xai_responses",
+    "skills:validate": "node scripts/skills/validateBotSkills.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
