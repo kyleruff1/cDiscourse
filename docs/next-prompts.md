@@ -72,6 +72,8 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
+Stage 6.1.5.1 annotation pipeline complete as of 2026-05-17. Anthropic argument-intelligence schema + prompt builder + annotator wrapper + deterministic fallback + corpus runner wiring + Markdown report builder + 45 new tests landed. The dry path produces a complete annotated report using deterministic fallback only — no Anthropic call by Claude in this stage. Live 3-room / 50-room annotated pilots remain operator-gated (require `.env.engagement-intelligence` + `ENGAGEMENT_INTEL_ENABLE_ANTHROPIC=true` + `--pilot`). **1210 tests / 46 suites passing.**
+
 Stage 6.1.3.2b complete as of 2026-05-17. xAI auth probe Windows clean-exit patch: response body now explicitly cancelled/drained, event loop drained one tick, `process.exitCode` replaces `process.exit()`, empty-string `XAI_API_KEY` in `process.env` correctly treated as no-key. Live probe confirmed `status=200 / category=auth_ok / exit 0 / no Windows assertion`. xAI classification stays disabled by default. **1165 tests / 41 suites passing.**
 
 Stage 6.1.5.1 (earlier — Admin Arguments + qualifier taxonomy + game recommendations) complete as of 2026-05-17. Live AI corpus from Stage 6.1.5 (38/38 posted) drove the recommendations. No Anthropic / xAI call by Claude in this stage.

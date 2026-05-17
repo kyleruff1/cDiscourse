@@ -38,6 +38,9 @@ const { loadSeeds } = require('../engagement-intelligence/xaiSeededStances');
 const {
   buildEngagementCorpusMarkdown,
 } = require('./engagementCorpus');
+const { annotateMove, fallbackAnnotation } = require('./anthropicArgumentAnnotator');
+const { buildAnnotatedIntelligenceMarkdown } = require('./aiArgumentIntelligenceReport');
+const { computeAgreementDisagreementVector } = require('../engagement-intelligence/agreementScalarJs');
 
 const REPO_ROOT = process.cwd();
 const REPORT_DIR = path.join(REPO_ROOT, 'docs', 'testing-runs');
@@ -53,6 +56,13 @@ function parseArgs(argv) {
     seed: STRESS_CONFIG.DEFAULT_SEED,
     writeMarkdown: true,
     writeJsonl: false,
+    annotate: false,
+    annotationOnly: false,
+    annotationJsonl: null,
+    deep: false,
+    reportName: null,
+    maxMovesPerRoom: 15,
+    minMovesPerRoom: 10,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -63,6 +73,13 @@ function parseArgs(argv) {
     else if (a === '--template' && argv[i + 1]) args.template = String(argv[++i]);
     else if (a === '--seed' && argv[i + 1]) args.seed = String(argv[++i]);
     else if (a === '--write-jsonl') args.writeJsonl = true;
+    else if (a === '--annotate') args.annotate = true;
+    else if (a === '--annotation-only') { args.annotationOnly = true; args.annotate = true; }
+    else if (a === '--annotation-jsonl' && argv[i + 1]) args.annotationJsonl = String(argv[++i]);
+    else if (a === '--deep') args.deep = true;
+    else if (a === '--report-name' && argv[i + 1]) args.reportName = String(argv[++i]);
+    else if (a === '--max-moves-per-room' && argv[i + 1]) args.maxMovesPerRoom = Math.max(3, Math.min(30, Number(argv[++i]) || 15));
+    else if (a === '--min-moves-per-room' && argv[i + 1]) args.minMovesPerRoom = Math.max(2, Math.min(30, Number(argv[++i]) || 10));
   }
   return args;
 }
@@ -167,7 +184,70 @@ async function renderScenarioMoves({ template, seed, scenarioCategory, client, r
   return moves;
 }
 
-async function runLiveBatch({ args, scenarios, runId, client, jsonlStream }) {
+function buildThreadEntriesUpTo({ scenario, moveById, bodyByMoveId, currentMoveId }) {
+  const thread = [];
+  for (const m of scenario.moves) {
+    if (m.moveId === currentMoveId) break;
+    thread.push({
+      moveId: m.moveId,
+      argumentType: m.argumentType,
+      side: m.authorAlias,
+      parentMoveId: m.parentMoveId || null,
+      body: bodyByMoveId[m.moveId] || m.body || '',
+    });
+  }
+  return thread;
+}
+
+async function annotateRoomMoves({ scenario, roomId, client, results }) {
+  const annotated = [];
+  const moveById = new Map(scenario.moves.map((m) => [m.moveId, m]));
+  const bodyByMoveId = {};
+  for (const m of scenario.moves) bodyByMoveId[m.moveId] = m.body || '';
+  const resultByMoveId = new Map((results || []).map((r) => [r.moveId, r]));
+
+  for (const move of scenario.moves) {
+    const parent = move.parentMoveId ? moveById.get(move.parentMoveId) : null;
+    const parentBody = parent ? (bodyByMoveId[parent.moveId] || parent.body || '') : '';
+    const body = bodyByMoveId[move.moveId] || move.body || '';
+    const deterministicVector = computeAgreementDisagreementVector(parentBody, body);
+    const thread = buildThreadEntriesUpTo({ scenario, moveById, bodyByMoveId, currentMoveId: move.moveId });
+    const enrichedScenario = { ...scenario, roomId, rootClaim: scenario.resolution };
+    let annotation;
+    try {
+      annotation = await annotateMove({
+        client,
+        scenario: enrichedScenario,
+        move: { ...move, side: move.authorAlias },
+        parent: parent ? { moveId: parent.moveId, argumentType: parent.argumentType, body: parentBody } : null,
+        thread,
+        body,
+        deterministicVector,
+      });
+    } catch (err) {
+      annotation = fallbackAnnotation({
+        scenario: enrichedScenario,
+        move: { ...move, side: move.authorAlias },
+        parent: parent ? { moveId: parent.moveId, argumentType: parent.argumentType, body: parentBody } : null,
+        thread,
+        body,
+        deterministicVector,
+        reason: 'annotation_call_threw',
+      });
+    }
+    const result = resultByMoveId.get(move.moveId);
+    annotated.push({
+      move,
+      parentMove: parent ? { moveId: parent.moveId, argumentType: parent.argumentType, body: parentBody } : null,
+      annotation,
+      submitStatus: result?.actualStatus || 'planned',
+      submitErrorCode: result?.errorCode || null,
+    });
+  }
+  return annotated;
+}
+
+async function runLiveBatch({ args, scenarios, runId, client, jsonlStream, annotationJsonlStream }) {
   // Mirror runStressBatch's submit flow.
   const env = loadEnvFiles();
   const cfg = buildBotConfig(env);
@@ -269,7 +349,34 @@ async function runLiveBatch({ args, scenarios, runId, client, jsonlStream }) {
     }
     const posted = results.filter((r) => r.actualStatus === 'posted').length;
     console.log(`room=${debateId} posted=${posted}/${results.length}`);
-    runRecords.push({ scenario: s, roomId: debateId, results });
+
+    let annotatedMoves = null;
+    if (args.annotate) {
+      process.stdout.write(`[ai-corpus]   annotating ${results.length} move(s) ... `);
+      annotatedMoves = await annotateRoomMoves({ scenario: s, roomId: debateId, client, results });
+      const sources = annotatedMoves.reduce((acc, am) => {
+        const k = am.annotation?.annotationSource || 'deterministic_fallback';
+        acc[k] = (acc[k] || 0) + 1;
+        return acc;
+      }, {});
+      console.log(Object.entries(sources).map(([k, v]) => `${k}=${v}`).join(' '));
+      if (annotationJsonlStream) {
+        for (const am of annotatedMoves) {
+          annotationJsonlStream.write(JSON.stringify({
+            ts: new Date().toISOString(),
+            runId,
+            scenarioId: s.scenarioId,
+            roomId: debateId,
+            moveId: am.move.moveId,
+            argumentType: am.move.argumentType,
+            authorAlias: am.move.authorAlias,
+            submitStatus: am.submitStatus,
+            annotation: am.annotation,
+          }) + '\n');
+        }
+      }
+    }
+    runRecords.push({ scenario: s, roomId: debateId, results, annotatedMoves });
   }
   return runRecords;
 }
@@ -324,7 +431,9 @@ async function main() {
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
   const date = new Date().toISOString().slice(0, 10);
   const suffix = args.dry ? '-dry' : '';
-  const mdPath = path.join(REPORT_DIR, `${date}-ai-driven-bot-corpus${suffix}.md`);
+  const baseName = args.reportName || 'ai-driven-bot-corpus';
+  const mdPath = path.join(REPORT_DIR, `${date}-${baseName}${suffix}.md`);
+  const annotatedMdPath = path.join(REPORT_DIR, `${date}-${baseName}-annotated${suffix}.md`);
 
   if (args.dry) {
     const md = buildEngagementCorpusMarkdown({
@@ -334,6 +443,25 @@ async function main() {
     });
     if (args.writeMarkdown !== false) fs.writeFileSync(mdPath, md);
     console.log(`[ai-corpus] dry corpus md: ${path.relative(REPO_ROOT, mdPath)}`);
+
+    if (args.annotate) {
+      // Annotate in dry mode using deterministic fallback only (no Anthropic).
+      const rooms = [];
+      for (const s of renderedScenarios) {
+        const annotatedMoves = await annotateRoomMoves({
+          scenario: s, roomId: null, client: null, results: [],
+        });
+        rooms.push({
+          scenarioId: s.scenarioId, roomId: null, title: s.title,
+          rootClaim: s.resolution, resolution: s.resolution, annotatedMoves,
+        });
+      }
+      const annotatedMd = buildAnnotatedIntelligenceMarkdown({
+        runId, dateIso: new Date().toISOString(), mode: 'dry', rooms,
+      });
+      fs.writeFileSync(annotatedMdPath, annotatedMd);
+      console.log(`[ai-corpus] dry annotated md: ${path.relative(REPO_ROOT, annotatedMdPath)}`);
+    }
     return 0;
   }
 
@@ -342,8 +470,16 @@ async function main() {
   if (args.writeJsonl) {
     jsonlStream = fs.createWriteStream(path.join(LOG_DIR, `${runId}-ai-corpus.jsonl`));
   }
-  const runRecords = await runLiveBatch({ args, scenarios: renderedScenarios, runId, client, jsonlStream });
+  let annotationJsonlStream = null;
+  if (args.annotate) {
+    const annPath = args.annotationJsonl || path.join(LOG_DIR, `${runId}-ai-corpus-annotations.jsonl`);
+    ensureDir(path.dirname(annPath));
+    annotationJsonlStream = fs.createWriteStream(annPath);
+    console.log(`[ai-corpus] annotation jsonl: ${path.relative(REPO_ROOT, annPath)} (gitignored — do not commit)`);
+  }
+  const runRecords = await runLiveBatch({ args, scenarios: renderedScenarios, runId, client, jsonlStream, annotationJsonlStream });
   if (jsonlStream) jsonlStream.end();
+  if (annotationJsonlStream) annotationJsonlStream.end();
 
   const md = buildEngagementCorpusMarkdown({
     runId, dateIso: new Date().toISOString(), mode: 'live',
@@ -352,6 +488,23 @@ async function main() {
   });
   fs.writeFileSync(mdPath, md);
   console.log(`[ai-corpus] live corpus md: ${path.relative(REPO_ROOT, mdPath)}`);
+
+  if (args.annotate) {
+    const rooms = runRecords.map((r) => ({
+      scenarioId: r.scenario.scenarioId,
+      roomId: r.roomId,
+      title: r.scenario.title,
+      rootClaim: r.scenario.resolution,
+      resolution: r.scenario.resolution,
+      annotatedMoves: r.annotatedMoves || [],
+    }));
+    const annotatedMd = buildAnnotatedIntelligenceMarkdown({
+      runId, dateIso: new Date().toISOString(), mode: 'live', rooms,
+    });
+    fs.writeFileSync(annotatedMdPath, annotatedMd);
+    console.log(`[ai-corpus] live annotated md: ${path.relative(REPO_ROOT, annotatedMdPath)}`);
+  }
+
   if (usage) console.log(`[ai-corpus] final usage: ${JSON.stringify(usage)}`);
   return 0;
 }
@@ -366,4 +519,6 @@ module.exports = {
   pickTemplate,
   summarizeConversation,
   renderScenarioMoves,
+  annotateRoomMoves,
+  buildThreadEntriesUpTo,
 };

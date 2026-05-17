@@ -11,3 +11,4 @@ export * from './agreementScalar';
 export * from './ruleCandidates';
 export * from './xaiStanceClassifier';
 export * from './mixedAgreementTaxonomy';
+export * from './anthropicArgumentAnnotations';

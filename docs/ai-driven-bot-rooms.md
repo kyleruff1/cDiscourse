@@ -87,4 +87,51 @@ npm run bot:fixture:ai:50
 #   --seeds both       — synthetic now, xAI when wired
 ```
 
+## Stage 6.1.5.1 — annotation pipeline (operator-gated)
+
+Stage 6.1.5.1 adds an optional **annotation pass** that classifies each generated move into the `AnthropicArgumentAnnotation` schema. The pass runs after each successful `submit-argument` call and:
+
+- Builds a deterministic stance vector from the parent / child bodies.
+- Calls Anthropic with a strict JSON-only system prompt that bans truth verdicts, moderation recommendations, demographic / political / religious / health / sexuality / protected-class inference, and verdict tokens (liar / dishonest / bad faith / manipulative / extremist / propagandist / winner / loser / stupid / idiot).
+- Validates the returned JSON against the schema; retries once on invalid JSON; falls back to a pure-JS deterministic annotator if the model continues to fail. Annotation failure **never** blocks the corpus run.
+- Streams every annotation to a local JSONL (gitignored) and rolls a single Markdown intelligence report into `docs/testing-runs/<date>-ai-driven-bot-corpus-annotated[-dry].md`.
+
+Every annotation carries `userReviewRequired: true`. Outputs are advisory.
+
+### CLI flags
+
+```bash
+--annotate                # turn the pass on
+--annotation-only         # implies --annotate; only annotate (no separate effect today)
+--annotation-jsonl <path> # explicit JSONL location (default: logs/bot-stress/<runId>-ai-corpus-annotations.jsonl)
+--deep                    # request deeper move chains (10–15 per room)
+--report-name <name>      # override the markdown filename stem
+--max-moves-per-room 15   # upper bound on moves per room
+--min-moves-per-room 10   # lower bound on moves per room
+```
+
+### npm scripts
+
+```bash
+# Dry annotation pass — no Anthropic, no Supabase. Uses the deterministic
+# fallback for every move. Confirms the pipeline shape end-to-end.
+npm run bot:fixture:ai:annotated:dry
+
+# Live 3-room annotated pilot — real Anthropic spend (~$1), real Supabase
+# rows. Requires .env.engagement-intelligence + .env.bot-tests.
+npm run bot:fixture:ai:3:annotated
+
+# Full 50-room annotated corpus — ~$15–$50 spend. Runs only with
+# operator confirmation.
+npm run bot:fixture:ai:50:annotated
+```
+
+### What we still do NOT do
+
+- Do not collect "stereotypes" about users or groups. The schema collects **rhetorical archetypes** about text behavior only.
+- Do not infer demographic / political / religious / health / sexuality / protected-class attributes.
+- Do not commit raw local JSONL logs (they live under `logs/bot-stress/`, gitignored).
+- Do not bypass `submit-argument`. Annotation runs on already-posted moves; if `submit-argument` fails, annotation records the failure and moves on.
+- Do not call Anthropic from the production app.
+
 See also: `docs/x-news-disagreement-epidemiology.md`, `docs/x-api-and-xai-setup.md`, `docs/point-standing-economy.md`, `.claude/skills/bot-provocateur/SKILL.md`, `.claude/skills/bot-revocateur/SKILL.md`.

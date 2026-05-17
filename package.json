@@ -37,7 +37,10 @@
     "engagement:intel:x-news:tiny-pilot": "node scripts/engagement-intelligence/runTinyXNewsPilot.js",
     "bot:fixture:ai:dry": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 3",
     "bot:fixture:ai:3": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 3 --pilot",
-    "bot:fixture:ai:50": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 50 --pilot"
+    "bot:fixture:ai:50": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 50 --pilot",
+    "bot:fixture:ai:annotated:dry": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 3 --annotate",
+    "bot:fixture:ai:3:annotated": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 3 --pilot --annotate --deep",
+    "bot:fixture:ai:50:annotated": "node scripts/bot-fixtures/runAiDrivenCorpus.js --rooms 50 --pilot --annotate --deep"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
