@@ -38,6 +38,11 @@ yarn-error.*
 .env.bot-tests.bak-*
 .env.bot-tests.bak.*
 
+# Stress-test artifacts (generated fixtures + full local logs)
+logs/
+logs/bot-stress/
+fixtures/generated-scenarios/
+
 # Claude Code local settings (user-specific permissions)
 .claude/settings.local.json
 

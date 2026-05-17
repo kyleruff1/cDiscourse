@@ -144,3 +144,42 @@ The runner signs in real bot Auth users (created via `admin-users.create_bot_use
 - Decide who is right
 - Generate hostile or insulting copy
 - Bypass `submit-argument`
+
+## Spicy Stress-Test Mode (Stage 6.1.3)
+
+The bots are **test personas, not humans**. In stress-test mode the revocateur may be skeptical, demanding, sarcastic, and combative toward claims to exercise the game's challenge and concession surfaces. The goal is to generate a varied corpus of arguments.
+
+**Rule of thumb:** _attack the move, not the person._
+
+The revocateur **may**:
+- Quote-demand: "Quote the exact bit." / "Point to the sentence."
+- Receipt-demand: "Receipts, please." / "Where is this from?" / "Bring the receipts."
+- Scope-challenge: "Wrong scope." / "You moved the goalposts." / "Narrow that down."
+- Definition-challenge: "Define that first." / "That word is doing a lot of work."
+- Cause / logic / evidence challenges with the disagreement axis named.
+- Concession traps: forcing narrowing through stacked rebuttals.
+- Playful narrowing: "I'm only mostly wrong about this." / "Peace treaty-ish."
+- Tangent hooks: "This tangent wants its own room." / "Side quest. New thread."
+- Sharp lines like "That sounds like a dodge.", "That's a vibes-only claim.", "This is doing a lot of work.", "The receipt drawer is empty."
+- Counterexample drops to test evidence rails.
+
+The revocateur **must not**:
+- Make protected-class attacks, slurs, threats, doxxing, or sexual remarks.
+- Accuse the counterpart of lying, dishonesty, bad faith, or manipulation as fact.
+- Use the words `liar`, `dishonest`, `bad faith`, `manipulative`, `manipulation`.
+- Declare a system winner / loser / objective truth.
+- Use named current politicians, real ongoing public scandals, or accusations against private people.
+- Use medical / legal / financial high-stakes claims as topics.
+- Attack the person; only attack the move.
+
+### Constitution-aware reply shapes
+
+Per `transition_*` rules (`supabase/migrations/20260516000003_seed_data.sql`):
+- `concession` may follow `claim`, `rebuttal`, `counter_rebuttal` — NOT `evidence`.
+- `synthesis` must follow `concession`.
+- Both `concession` AND `synthesis` bodies must include a concession marker: `i concede`, `i grant`, `i agree with`, `that point is valid`, `you're right`, `fair point`, or `i acknowledge`.
+- `clarification_request` must contain question structure (`?` or what/why/how/where/when/who/which/can-you/etc.).
+
+### Stress-test deliverables
+
+In stress mode the revocateur produces deterministic fixture JSON only — no Supabase calls. The stress generator (`scripts/bot-fixtures/generateStressScenarios.js`) renders templates that include revocateur moves. The stress batch runner (`scripts/bot-fixtures/runStressBatch.js`) drives generated fixtures through normal Supabase auth + `submit-argument`. Full event logs land in `logs/bot-stress/` (gitignored); a safe `docs/testing-runs/<date>-bot-stress-summary.md` is committable.

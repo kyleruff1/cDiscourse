@@ -1,7 +1,19 @@
 // Dev-only types for CDiscourse argument fixture scenarios.
 // No secrets, no real user data. Safe to commit.
 
-export type ScenarioCategory = 'sports' | 'pop_culture' | 'light_civic' | 'everyday';
+export type ScenarioCategory =
+  | 'sports'
+  | 'pop_culture'
+  | 'light_civic'
+  | 'everyday'
+  // Stage 6.1.3 stress-test categories
+  | 'animal_taxonomy_weird'
+  | 'sports_hot_takes'
+  | 'pop_culture_hot_takes'
+  | 'everyday_absurd'
+  | 'technology_everyday'
+  | 'food_low_stakes'
+  | 'design_product';
 
 export type PersonaTone = 'calm' | 'playful' | 'skeptical' | 'conciliatory';
 
@@ -52,6 +64,8 @@ export interface FixtureDisplayMeta {
   playfulLabel?: string;
   /** Sentence or phrase in this move's body that is a good quote anchor candidate. */
   quoteAnchorCandidate?: string;
+  /** Marks a move that is intentionally a branch/tangent anchor (stress fixtures). */
+  branchCandidate?: boolean;
 }
 
 export interface FixtureMove {

@@ -1,0 +1,597 @@
+{
+  "schemaVersion": 1,
+  "categories": [
+    {
+      "id": "animal_taxonomy_weird",
+      "label": "Animal taxonomy hot takes",
+      "topics": [
+        {
+          "topicId": "animal-magpies-murder",
+          "title": "A group of magpies should also be called a murder.",
+          "resolution": "A group of magpies should also be called a murder, like crows.",
+          "resolutionKeywords": ["magpies", "group", "murder", "crows"],
+          "thesisFraming": "A group of magpies should also be called a murder, like crows. Magpies bicker, mob, and intimidate the same way crows do.",
+          "counterClaims": [
+            "Magpies do not behave like crows enough to share the murder label.",
+            "Calling a group of magpies a murder is just borrowing crow vocabulary."
+          ],
+          "evidenceFacts": [
+            { "label": "Magpie social behavior — group mobbing", "sourceText": "Field studies note magpies engage in cooperative mobbing of larger birds." },
+            { "label": "Standard collective nouns", "sourceText": "The accepted collective noun for magpies is a tiding or a charm." }
+          ],
+          "scopeNarrowings": ["urban magpies specifically", "Eurasian magpies only"],
+          "tangentHooks": ["What about geese — should their group name be more threatening?"]
+        },
+        {
+          "topicId": "animal-geese-rename",
+          "title": "Geese deserve a more threatening group name.",
+          "resolution": "Geese have done enough to deserve a more threatening group name than a gaggle.",
+          "resolutionKeywords": ["geese", "threatening", "group", "gaggle"],
+          "thesisFraming": "Geese have done enough to deserve a more threatening group name than a gaggle. Their group behavior is hostile, territorial, and coordinated.",
+          "counterClaims": [
+            "Geese behavior is not threatening enough to rename the group noun.",
+            "A gaggle is descriptive enough; geese are not coordinated enough to need a darker label."
+          ],
+          "evidenceFacts": [
+            { "label": "Park ranger incident logs", "sourceText": "Public park complaints involving geese chasing visitors are a recurring summer issue." },
+            { "label": "Etymology of gaggle", "sourceText": "Gaggle derives from a verb meaning to cackle, describing sound not threat." }
+          ],
+          "scopeNarrowings": ["Canada geese specifically", "geese during nesting season only"],
+          "tangentHooks": ["Are raccoons also rebrandable as honorary city residents?"]
+        },
+        {
+          "topicId": "animal-raccoons-residents",
+          "title": "Raccoons should be considered honorary city residents.",
+          "resolution": "Raccoons should be considered honorary city residents because they adapted to urban life.",
+          "resolutionKeywords": ["raccoons", "honorary", "city", "residents", "urban"],
+          "thesisFraming": "Raccoons should be considered honorary city residents because they adapted to urban life better than most urban wildlife. Their urban behavior is documented and consistent.",
+          "counterClaims": [
+            "Raccoons are urban opportunists, not honorary residents.",
+            "Calling raccoons honorary city residents stretches the residents idea."
+          ],
+          "evidenceFacts": [
+            { "label": "Urban raccoon density studies", "sourceText": "Toronto urban wildlife surveys document one of the highest raccoon densities in North America." },
+            { "label": "Behavioral adaptation literature", "sourceText": "Urban raccoons solve mechanical puzzles faster than their rural counterparts in controlled studies." }
+          ],
+          "scopeNarrowings": ["raccoons in Toronto specifically", "urban-adapted raccoon populations only"],
+          "tangentHooks": ["Pigeons are underrated urban infrastructure — separate thread."]
+        },
+        {
+          "topicId": "animal-pigeons-infrastructure",
+          "title": "Pigeons are underrated urban infrastructure.",
+          "resolution": "Pigeons are underrated urban infrastructure for cities.",
+          "resolutionKeywords": ["pigeons", "underrated", "urban", "infrastructure", "cities"],
+          "thesisFraming": "Pigeons are underrated urban infrastructure for cities. They clean up dropped food, anchor public spaces, and contribute to urban culture in cities.",
+          "counterClaims": [
+            "Pigeons are pests, not urban infrastructure.",
+            "Calling pigeons urban infrastructure stretches the infrastructure idea past usefulness."
+          ],
+          "evidenceFacts": [
+            { "label": "Urban ecology surveys", "sourceText": "Multiple urban ecology surveys document pigeons as a top scavenger of street food waste in dense cities." },
+            { "label": "Cultural role observations", "sourceText": "Pigeon-related public space studies note pigeons anchor informal gathering points in many city plazas." }
+          ],
+          "scopeNarrowings": ["pigeons in dense urban cores only", "feral pigeons specifically"],
+          "tangentHooks": ["Squirrels should also count as honorary urban infrastructure."]
+        }
+      ]
+    },
+    {
+      "id": "sports_hot_takes",
+      "label": "Sports hot takes",
+      "topics": [
+        {
+          "topicId": "sports-defense-first-fun",
+          "title": "Defense-first teams are more fun than highlight teams.",
+          "resolution": "Defense-first teams are more fun to watch than highlight teams.",
+          "resolutionKeywords": ["defense-first", "teams", "fun", "watch", "highlight"],
+          "thesisFraming": "Defense-first teams are more fun to watch than highlight teams. Defensive teams force more strategy, more close games, and more meaningful late-game moments than highlight teams.",
+          "counterClaims": [
+            "Highlight teams produce more viewing value than defense-first teams.",
+            "Defensive teams are technically interesting but not actually fun to watch."
+          ],
+          "evidenceFacts": [
+            { "label": "NBA defensive rating playoff outcomes", "sourceText": "Several recent playoff runs were anchored by elite defensive teams reaching the finals." },
+            { "label": "Game-pace viewership data", "sourceText": "Audience retention studies show close defensive games hold late-game viewership better than blowouts." }
+          ],
+          "scopeNarrowings": ["playoff defense-first teams only", "defense-first NBA teams specifically"],
+          "tangentHooks": ["The pitch clock made baseball feel more serious, not less — own thread."]
+        },
+        {
+          "topicId": "sports-pitch-clock-serious",
+          "title": "The pitch clock made baseball more serious.",
+          "resolution": "The pitch clock made baseball feel more serious, not less.",
+          "resolutionKeywords": ["pitch", "clock", "baseball", "serious", "less"],
+          "thesisFraming": "The pitch clock made baseball feel more serious, not less. The pitch clock added urgency to every plate appearance and made late innings of baseball feel less meandering.",
+          "counterClaims": [
+            "The pitch clock made baseball feel rushed, not more serious.",
+            "Pitch clock urgency cheapens late-inning baseball drama."
+          ],
+          "evidenceFacts": [
+            { "label": "MLB average game length", "sourceText": "Average MLB game length dropped by roughly 24 minutes in the first season of the pitch clock." },
+            { "label": "Player reaction surveys", "sourceText": "Player surveys after the pitch clock rollout showed mixed reactions, with starting pitchers reporting more focus." }
+          ],
+          "scopeNarrowings": ["late-inning baseball only", "starting pitchers specifically"],
+          "tangentHooks": ["Trash talk should count as sports literacy — separate thread."]
+        },
+        {
+          "topicId": "sports-cfb-week4-rankings",
+          "title": "CFB rankings should ignore preseason by Week 4.",
+          "resolution": "College football rankings should ignore preseason expectations by Week 4.",
+          "resolutionKeywords": ["college", "football", "rankings", "ignore", "preseason"],
+          "thesisFraming": "College football rankings should ignore preseason expectations by Week 4. By Week 4 there is enough real college football to evaluate without preseason bias.",
+          "counterClaims": [
+            "College football rankings need preseason context longer than Week 4.",
+            "Dropping preseason expectations by Week 4 punishes elite programs unfairly."
+          ],
+          "evidenceFacts": [
+            { "label": "Ranking inertia analysis", "sourceText": "Statistical work on college football poll inertia shows preseason ranking effects persist for weeks beyond Week 4." },
+            { "label": "Quality-win adjustment", "sourceText": "Computer models that strip preseason weighting after Week 4 produce notably different top-25 placements." }
+          ],
+          "scopeNarrowings": ["AP poll specifically", "computer rankings only"],
+          "tangentHooks": ["Defense-first teams should get bonus weight — separate thread."]
+        },
+        {
+          "topicId": "sports-trash-talk-literacy",
+          "title": "Trash talk is part of sports literacy.",
+          "resolution": "Trash talk is part of sports literacy and the sports experience.",
+          "resolutionKeywords": ["trash", "talk", "part", "sports", "literacy"],
+          "thesisFraming": "Trash talk is part of sports literacy and the sports experience. Reading trash talk well makes sports more legible and trash talk itself is a sports skill.",
+          "counterClaims": [
+            "Trash talk is performance, not sports literacy.",
+            "Treating trash talk as sports literacy excuses bad sports behavior."
+          ],
+          "evidenceFacts": [
+            { "label": "Trash talk frequency in elite leagues", "sourceText": "Surveys of mic'd-up footage across elite leagues show trash talk in nearly every recorded competitive series." },
+            { "label": "Coach perspectives on talk", "sourceText": "Coaches in interview studies often describe trash talk as a competitive psychological tool, not an outburst." }
+          ],
+          "scopeNarrowings": ["elite professional leagues only", "in-game trash talk specifically"],
+          "tangentHooks": ["Defensive teams are more fun than highlight teams — separate thread."]
+        }
+      ]
+    },
+    {
+      "id": "pop_culture_hot_takes",
+      "label": "Pop culture hot takes",
+      "topics": [
+        {
+          "topicId": "pop-trailers-third-act",
+          "title": "Movie trailers should not show third-act footage.",
+          "resolution": "Movie trailers should be banned from showing third-act footage.",
+          "resolutionKeywords": ["movie", "trailers", "banned", "third-act", "footage"],
+          "thesisFraming": "Movie trailers should be banned from showing third-act footage. Showing third-act footage in trailers spoils the movie that ticket buyers paid to see.",
+          "counterClaims": [
+            "Banning third-act footage in trailers would gut movie marketing.",
+            "Movie trailers showing third-act footage rarely actually spoil films for ticket buyers."
+          ],
+          "evidenceFacts": [
+            { "label": "Spoiler exposure studies", "sourceText": "Audience research shows knowing the climax beat reduces opening-weekend enjoyment for many viewers." },
+            { "label": "Trailer composition norms", "sourceText": "Industry analysis of major trailer cuts finds third-act footage appears in a meaningful share of theatrical trailers." }
+          ],
+          "scopeNarrowings": ["theatrical movie trailers only", "first trailers specifically"],
+          "tangentHooks": ["Spoilers expire after one week — separate thread."]
+        },
+        {
+          "topicId": "pop-spoilers-expire-week",
+          "title": "Spoilers expire after one week.",
+          "resolution": "Spoilers for new releases should expire after one week of public availability.",
+          "resolutionKeywords": ["spoilers", "expire", "one", "week", "release"],
+          "thesisFraming": "Spoilers for new releases should expire after one week of public availability. After one full week of release, spoilers should be fair game in public conversation.",
+          "counterClaims": [
+            "Spoilers should not expire after just one week of public release.",
+            "Treating spoilers as expired after one week punishes anyone who waits to watch a new release."
+          ],
+          "evidenceFacts": [
+            { "label": "Streaming release windows", "sourceText": "Streaming releases often see most viewership concentrated in the first 7 to 14 days." },
+            { "label": "Audience expectation surveys", "sourceText": "Surveys on spoiler etiquette show wide disagreement on appropriate spoiler-free windows after release." }
+          ],
+          "scopeNarrowings": ["streaming releases only", "major studio releases specifically"],
+          "tangentHooks": ["Album sequencing still matters in the playlist era — separate thread."]
+        },
+        {
+          "topicId": "pop-album-sequencing-playlists",
+          "title": "Album sequencing still matters in the playlist era.",
+          "resolution": "Album sequencing still matters in the playlist era.",
+          "resolutionKeywords": ["album", "sequencing", "matters", "playlist", "era"],
+          "thesisFraming": "Album sequencing still matters in the playlist era. Good album sequencing gives listeners a built-in arc and a clear listening contract that a playlist can not replicate.",
+          "counterClaims": [
+            "Album sequencing barely matters in the playlist era anymore.",
+            "Treating album sequencing as still important ignores how casual listeners use playlists."
+          ],
+          "evidenceFacts": [
+            { "label": "Streaming listener behavior", "sourceText": "Streaming platform data shows casual users frequently shuffle albums rather than play them in sequence." },
+            { "label": "Critic-favorite album orderings", "sourceText": "Several critically acclaimed recent albums explicitly reference their intended sequencing in press notes." }
+          ],
+          "scopeNarrowings": ["album listeners specifically", "long-form album experiences only"],
+          "tangentHooks": ["A mediocre sequel can improve the original — separate thread."]
+        },
+        {
+          "topicId": "pop-mediocre-sequel-improves",
+          "title": "A mediocre sequel can improve the original.",
+          "resolution": "A mediocre sequel can improve the original by clarifying its choices.",
+          "resolutionKeywords": ["mediocre", "sequel", "improve", "original", "choices"],
+          "thesisFraming": "A mediocre sequel can improve the original by clarifying its choices. The mediocre sequel often makes the original sequel-worthy choices visible by failing to repeat them.",
+          "counterClaims": [
+            "A mediocre sequel mainly drags the original down, not improves it.",
+            "Saying a mediocre sequel improves the original confuses contrast with quality."
+          ],
+          "evidenceFacts": [
+            { "label": "Sequel reception analysis", "sourceText": "Critic round-ups frequently note that weaker sequels reframe original choices in new and clarifying ways." },
+            { "label": "Director commentary patterns", "sourceText": "Director commentaries on sequel releases often spend significant time defending original creative choices." }
+          ],
+          "scopeNarrowings": ["theatrical sequels only", "first sequels specifically"],
+          "tangentHooks": ["Movie trailers should not show third-act footage — separate thread."]
+        }
+      ]
+    },
+    {
+      "id": "everyday_absurd",
+      "label": "Everyday absurd",
+      "topics": [
+        {
+          "topicId": "everyday-coffee-quiet-zones",
+          "title": "Coffee shops should have quiet zones.",
+          "resolution": "Coffee shops should have quiet zones like libraries.",
+          "resolutionKeywords": ["coffee", "shops", "quiet", "zones", "libraries"],
+          "thesisFraming": "Coffee shops should have quiet zones like libraries. Quiet zones in coffee shops would protect focused work without banning conversation entirely.",
+          "counterClaims": [
+            "Coffee shops are not libraries and should not enforce quiet zones.",
+            "Adding quiet zones to coffee shops will alienate the regulars who power the shops."
+          ],
+          "evidenceFacts": [
+            { "label": "Coworking shop case studies", "sourceText": "Several coworking-style cafes report higher remote-work patron retention after adding quiet sections." },
+            { "label": "Library quiet-zone models", "sourceText": "Library quiet-zone policies are routinely cited in workspace design literature." }
+          ],
+          "scopeNarrowings": ["independent coffee shops only", "weekday daytime hours specifically"],
+          "tangentHooks": ["Group chats are bad project management — separate thread."]
+        },
+        {
+          "topicId": "everyday-group-chats-pm",
+          "title": "Group chats are bad project management.",
+          "resolution": "Group chats are bad project management compared to shared documents.",
+          "resolutionKeywords": ["group", "chats", "bad", "project", "management"],
+          "thesisFraming": "Group chats are bad project management compared to shared documents. Group chats are linear, ephemeral, and project decisions disappear into chat scrollback.",
+          "counterClaims": [
+            "Group chats are an effective fast layer for project management decisions.",
+            "Calling group chats bad project management ignores how fast they unblock teams."
+          ],
+          "evidenceFacts": [
+            { "label": "Team retro patterns", "sourceText": "Engineering retros frequently cite chat decisions that nobody can re-find as a recurring failure mode." },
+            { "label": "Document-first vs chat-first", "sourceText": "Process-comparison studies favor document-first decision logs for project clarity and retention." }
+          ],
+          "scopeNarrowings": ["engineering project management only", "cross-team decisions specifically"],
+          "tangentHooks": ["Coffee shops should have quiet zones — separate thread."]
+        },
+        {
+          "topicId": "everyday-menu-red-flag",
+          "title": "Menus over 20 items are a red flag.",
+          "resolution": "Restaurant menus with more than 20 items are a red flag.",
+          "resolutionKeywords": ["menus", "more", "items", "red", "flag"],
+          "thesisFraming": "Restaurant menus with more than 20 items are a red flag. A menu with more than 20 items signals the kitchen is not focused, and the food usually reflects that.",
+          "counterClaims": [
+            "Big menus with more than 20 items are not actually a red flag for the kitchen.",
+            "Treating menus over 20 items as a red flag ignores neighborhood diner culture."
+          ],
+          "evidenceFacts": [
+            { "label": "Restaurant industry analysis", "sourceText": "Restaurant consultants frequently advise menu trimming as a quality and cost-control measure." },
+            { "label": "Neighborhood diner counterexamples", "sourceText": "Long-standing neighborhood diners often run menus well over 20 items with stable repeat-customer bases." }
+          ],
+          "scopeNarrowings": ["sit-down restaurants only", "new restaurants specifically"],
+          "tangentHooks": ["Shared docs beat meetings 80% of the time — separate thread."]
+        },
+        {
+          "topicId": "everyday-docs-beat-meetings",
+          "title": "A shared doc beats a meeting 80% of the time.",
+          "resolution": "A shared document beats a meeting 80% of the time.",
+          "resolutionKeywords": ["shared", "document", "beats", "meeting", "time"],
+          "thesisFraming": "A shared document beats a meeting 80% of the time. A well-structured shared document captures decisions, branches, and references better than a meeting captures the same content.",
+          "counterClaims": [
+            "Shared documents do not beat meetings 80% of the time for actual decision making.",
+            "Calling a shared doc 80% better than a meeting underweights real-time team alignment."
+          ],
+          "evidenceFacts": [
+            { "label": "Remote team retros", "sourceText": "Remote team retrospectives frequently identify meeting overuse as a top productivity drain." },
+            { "label": "Decision log studies", "sourceText": "Studies of high-output engineering teams favor written decision logs over meeting-only deciders." }
+          ],
+          "scopeNarrowings": ["distributed engineering teams only", "non-blocking decisions specifically"],
+          "tangentHooks": ["Group chats are bad project management — separate thread."]
+        }
+      ]
+    },
+    {
+      "id": "light_civic",
+      "label": "Light civic claims",
+      "topics": [
+        {
+          "topicId": "civic-council-three-minute",
+          "title": "Council meetings should enforce a 3-minute timer.",
+          "resolution": "City council meetings should enforce a strict three-minute public comment timer.",
+          "resolutionKeywords": ["council", "meetings", "three-minute", "timer", "public"],
+          "thesisFraming": "City council meetings should enforce a strict three-minute public comment timer. A strict three-minute timer in city council meetings keeps public comment fair and prevents agenda capture.",
+          "counterClaims": [
+            "A strict three-minute timer in city council meetings cuts off complex public comment.",
+            "Forcing three-minute caps in council meetings punishes residents with detailed input."
+          ],
+          "evidenceFacts": [
+            { "label": "Open-meeting research", "sourceText": "Open-meeting research notes shorter comment windows reduce monopolization by frequent commenters." },
+            { "label": "Council meeting case studies", "sourceText": "Several cities documented improved public-comment diversity after adopting fixed comment timers." }
+          ],
+          "scopeNarrowings": ["city council meetings only", "public comment specifically"],
+          "tangentHooks": ["Protected bike lanes are better than parking — separate thread."]
+        },
+        {
+          "topicId": "civic-bike-lanes-curb",
+          "title": "Protected bike lanes beat parking for curb space.",
+          "resolution": "Protected bike lanes are a better use of curb space than parking.",
+          "resolutionKeywords": ["protected", "bike", "lanes", "curb", "parking"],
+          "thesisFraming": "Protected bike lanes are a better use of curb space than parking. Protected bike lanes move more people per linear curb foot than parking does and reduce conflict points.",
+          "counterClaims": [
+            "Protected bike lanes do not actually outperform parking for most curb users.",
+            "Treating bike lanes as better than parking ignores businesses that need curb loading."
+          ],
+          "evidenceFacts": [
+            { "label": "Curb productivity studies", "sourceText": "Curb productivity research consistently finds protected bike lanes carry more daily users per foot than parking." },
+            { "label": "Business-impact research", "sourceText": "Multiple corridor studies show retail revenue stable or up after replacing parking with protected bike lanes." }
+          ],
+          "scopeNarrowings": ["dense commercial corridors only", "weekday peak hours specifically"],
+          "tangentHooks": ["Libraries should host more after-hours events — separate thread."]
+        },
+        {
+          "topicId": "civic-library-after-hours",
+          "title": "Libraries should host more after-hours community events.",
+          "resolution": "Libraries should host more after-hours community events.",
+          "resolutionKeywords": ["libraries", "host", "after-hours", "community", "events"],
+          "thesisFraming": "Libraries should host more after-hours community events. After-hours library events serve community members who can not visit during weekday library hours.",
+          "counterClaims": [
+            "Libraries should not be expected to host more after-hours community events without funding.",
+            "Pushing libraries into more after-hours community events strains library staff."
+          ],
+          "evidenceFacts": [
+            { "label": "Library system reports", "sourceText": "Library system annual reports cite community programming as their fastest-growing service category." },
+            { "label": "Staffing strain surveys", "sourceText": "Library staff survey results frequently flag evening programming hours as a top burnout factor." }
+          ],
+          "scopeNarrowings": ["main branch libraries only", "weekend events specifically"],
+          "tangentHooks": ["Public comment should require a clear claim — separate thread."]
+        },
+        {
+          "topicId": "civic-public-comment-claim",
+          "title": "Public comment should require a clear claim.",
+          "resolution": "Public comment should require a clear claim and one supporting reason.",
+          "resolutionKeywords": ["public", "comment", "require", "clear", "claim"],
+          "thesisFraming": "Public comment should require a clear claim and one supporting reason. Requiring a clear claim plus one reason in public comment keeps council deliberation legible and fair.",
+          "counterClaims": [
+            "Requiring a clear claim and one reason in public comment is gatekeeping civic input.",
+            "Adding a clear-claim requirement to public comment will reduce participation by ordinary residents."
+          ],
+          "evidenceFacts": [
+            { "label": "Civic input design research", "sourceText": "Civic input design research often advocates structured public-comment formats for council readability." },
+            { "label": "Pilot program outcomes", "sourceText": "Pilot programs with structured comment formats report higher decision-relevance ratings from council members." }
+          ],
+          "scopeNarrowings": ["council public comment only", "land-use hearings specifically"],
+          "tangentHooks": ["Three-minute council comment timer — separate thread."]
+        }
+      ]
+    },
+    {
+      "id": "technology_everyday",
+      "label": "Technology in everyday life",
+      "topics": [
+        {
+          "topicId": "tech-read-receipts-worse",
+          "title": "Read receipts make conversations worse.",
+          "resolution": "Read receipts make conversations worse on average.",
+          "resolutionKeywords": ["read", "receipts", "make", "conversations", "worse"],
+          "thesisFraming": "Read receipts make conversations worse on average. Read receipts in conversations create response anxiety and pressure that hurts ordinary conversation flow.",
+          "counterClaims": [
+            "Read receipts do not make conversations worse for most users.",
+            "Treating read receipts as bad for conversations ignores how they help close loops."
+          ],
+          "evidenceFacts": [
+            { "label": "Messaging UX research", "sourceText": "Messaging UX research notes read-receipt anxiety as a common reason users disable the feature." },
+            { "label": "Workplace messaging studies", "sourceText": "Workplace messaging studies cite read receipts as a top driver of after-hours response pressure." }
+          ],
+          "scopeNarrowings": ["personal messaging only", "workplace messaging specifically"],
+          "tangentHooks": ["Voice notes are hostile to searchable memory — separate thread."]
+        },
+        {
+          "topicId": "tech-autocorrect-arguments",
+          "title": "Autocorrect creates more arguments than it solves.",
+          "resolution": "Autocorrect creates more arguments than it solves in daily messaging.",
+          "resolutionKeywords": ["autocorrect", "creates", "arguments", "solves", "daily"],
+          "thesisFraming": "Autocorrect creates more arguments than it solves in daily messaging. Autocorrect mistakes in daily messaging routinely trigger misread tone and small arguments.",
+          "counterClaims": [
+            "Autocorrect prevents more daily messaging mistakes than it creates arguments.",
+            "Blaming autocorrect for arguments ignores how often it silently saves users from typos."
+          ],
+          "evidenceFacts": [
+            { "label": "Autocorrect satisfaction surveys", "sourceText": "Autocorrect satisfaction surveys consistently show users perceive it as both helpful and annoying." },
+            { "label": "Linguistic miscommunication studies", "sourceText": "Studies of text-based miscommunication frequently cite autocorrect substitutions among top friction sources." }
+          ],
+          "scopeNarrowings": ["mobile messaging only", "personal messaging specifically"],
+          "tangentHooks": ["Read receipts make conversations worse — separate thread."]
+        },
+        {
+          "topicId": "tech-voice-notes-search",
+          "title": "Voice notes are hostile to searchable memory.",
+          "resolution": "Voice notes are hostile to searchable memory in shared messaging.",
+          "resolutionKeywords": ["voice", "notes", "hostile", "searchable", "memory"],
+          "thesisFraming": "Voice notes are hostile to searchable memory in shared messaging. Voice notes in shared messaging bury decisions, references, and context behind audio that no one can search later.",
+          "counterClaims": [
+            "Voice notes are not actually hostile to searchable memory for most teams.",
+            "Calling voice notes hostile ignores how often they preserve tone better than text."
+          ],
+          "evidenceFacts": [
+            { "label": "Team archive audits", "sourceText": "Team archive audits frequently find voice notes account for un-findable past decisions." },
+            { "label": "Voice-to-text transcript quality", "sourceText": "Automatic voice-to-text transcripts in messaging products still misrender technical terms at high rates." }
+          ],
+          "scopeNarrowings": ["team messaging only", "decision-bearing voice notes specifically"],
+          "tangentHooks": ["Every app should have a boring mode — separate thread."]
+        },
+        {
+          "topicId": "tech-apps-boring-mode",
+          "title": "Every app should have a boring mode.",
+          "resolution": "Every consumer app should ship a boring mode that suppresses gamification.",
+          "resolutionKeywords": ["consumer", "app", "boring", "mode", "gamification"],
+          "thesisFraming": "Every consumer app should ship a boring mode that suppresses gamification. A boring mode in every consumer app would let users opt out of streaks, confetti, and gamification pressure.",
+          "counterClaims": [
+            "Every consumer app does not need a boring mode opt-out for gamification.",
+            "Adding a boring mode in every consumer app would gut the engagement that funds the product."
+          ],
+          "evidenceFacts": [
+            { "label": "App fatigue research", "sourceText": "App fatigue research notes streaks and notifications as top reasons users uninstall." },
+            { "label": "Reduced-motion settings adoption", "sourceText": "Reduced-motion settings adoption suggests significant user demand for app calm-down modes." }
+          ],
+          "scopeNarrowings": ["habit-loop apps only", "consumer apps specifically"],
+          "tangentHooks": ["Autocorrect creates more arguments than it solves — separate thread."]
+        }
+      ]
+    },
+    {
+      "id": "food_low_stakes",
+      "label": "Food low-stakes",
+      "topics": [
+        {
+          "topicId": "food-fries-condiment",
+          "title": "Fries are a condiment delivery system.",
+          "resolution": "Fries are best understood as a condiment delivery system.",
+          "resolutionKeywords": ["fries", "best", "condiment", "delivery", "system"],
+          "thesisFraming": "Fries are best understood as a condiment delivery system. Fries function as the medium for condiments and only secondarily as the food being delivered.",
+          "counterClaims": [
+            "Fries are food, not a condiment delivery system.",
+            "Treating fries as a condiment delivery system insults fry quality."
+          ],
+          "evidenceFacts": [
+            { "label": "Condiment-to-fry ratio menus", "sourceText": "Many fast-casual menus advertise fries by their sauce pairings rather than their fry style." },
+            { "label": "Bistro fry presentation", "sourceText": "Bistro fry presentation often emphasizes dipping sauces as much as the fries themselves." }
+          ],
+          "scopeNarrowings": ["fast-casual fries only", "fries with sauce specifically"],
+          "tangentHooks": ["Tacos are structurally superior to sandwiches — separate thread."]
+        },
+        {
+          "topicId": "food-brunch-scheduling",
+          "title": "Brunch is mostly a scheduling problem.",
+          "resolution": "Brunch is mostly a scheduling problem, not a food category.",
+          "resolutionKeywords": ["brunch", "mostly", "scheduling", "problem", "food"],
+          "thesisFraming": "Brunch is mostly a scheduling problem, not a food category. Brunch as a scheduling problem explains why brunch food is so often mediocre but the brunch hangout still works.",
+          "counterClaims": [
+            "Brunch is a real food category, not just a scheduling problem.",
+            "Calling brunch a scheduling problem dismisses how distinct brunch dishes are."
+          ],
+          "evidenceFacts": [
+            { "label": "Brunch menu overlap analysis", "sourceText": "Brunch menu overlap analysis finds most weekend brunch menus repeat the same handful of dishes." },
+            { "label": "Weekend social schedule research", "sourceText": "Weekend social schedule research highlights brunch as a default 'meet between obligations' anchor." }
+          ],
+          "scopeNarrowings": ["weekend brunch only", "urban brunch specifically"],
+          "tangentHooks": ["Tiny menus usually beat giant menus — separate thread."]
+        },
+        {
+          "topicId": "food-tacos-vs-sandwiches",
+          "title": "Tacos are structurally superior to sandwiches.",
+          "resolution": "Tacos are structurally superior to sandwiches as a portable food.",
+          "resolutionKeywords": ["tacos", "structurally", "superior", "sandwiches", "portable"],
+          "thesisFraming": "Tacos are structurally superior to sandwiches as a portable food. The taco's tortilla manages moisture, heat, and contents better than the sandwich's bread for portable meals.",
+          "counterClaims": [
+            "Tacos are not structurally superior to sandwiches for most eaters.",
+            "Calling tacos structurally superior to sandwiches ignores how messy tacos actually are."
+          ],
+          "evidenceFacts": [
+            { "label": "Portable food handling studies", "sourceText": "Portable food handling studies note taco fillings escape less than equivalent sandwich fillings." },
+            { "label": "Foodservice operator reviews", "sourceText": "Foodservice operator reviews often cite tacos as having higher per-unit margin than sandwiches at comparable price points." }
+          ],
+          "scopeNarrowings": ["handheld tacos only", "lunch tacos specifically"],
+          "tangentHooks": ["Fries are a condiment delivery system — separate thread."]
+        },
+        {
+          "topicId": "food-tiny-vs-giant-menus",
+          "title": "Tiny menus usually beat giant menus.",
+          "resolution": "Tiny menus usually beat giant menus on food quality.",
+          "resolutionKeywords": ["tiny", "menus", "beat", "giant", "quality"],
+          "thesisFraming": "Tiny menus usually beat giant menus on food quality. Tiny menus force the kitchen to refine each dish on the menu in a way giant menus never need to.",
+          "counterClaims": [
+            "Tiny menus do not usually beat giant menus on food quality.",
+            "Treating tiny menus as quality proof ignores how giant menus serve real demand."
+          ],
+          "evidenceFacts": [
+            { "label": "Restaurant operations research", "sourceText": "Restaurant operations research suggests smaller menus correlate with higher consistency scores." },
+            { "label": "Diner counterexamples", "sourceText": "Diner counterexamples show very large menus run by experienced kitchens can also achieve consistency." }
+          ],
+          "scopeNarrowings": ["new restaurants only", "fine-casual restaurants specifically"],
+          "tangentHooks": ["Brunch is mostly a scheduling problem — separate thread."]
+        }
+      ]
+    },
+    {
+      "id": "design_product",
+      "label": "Design + product",
+      "topics": [
+        {
+          "topicId": "design-tabs-overused",
+          "title": "Tabs are overused in product UI.",
+          "resolution": "Tabs are overused as a product UI pattern.",
+          "resolutionKeywords": ["tabs", "overused", "product", "pattern", "design"],
+          "thesisFraming": "Tabs are overused as a product UI pattern. Tabs in product UI bury content and switch context in a way users dislike when overused.",
+          "counterClaims": [
+            "Tabs are not actually overused in product UI for most workflows.",
+            "Calling tabs overused in product UI ignores how clearly they group content for users."
+          ],
+          "evidenceFacts": [
+            { "label": "UX heuristic critiques", "sourceText": "UX heuristic critiques routinely list deeply nested tabs as a common product UI antipattern." },
+            { "label": "Hidden-content discoverability", "sourceText": "Discoverability studies find users miss content placed behind secondary tabs in product UI." }
+          ],
+          "scopeNarrowings": ["settings pages only", "mobile product UI specifically"],
+          "tangentHooks": ["Settings pages should have search by default — separate thread."]
+        },
+        {
+          "topicId": "design-settings-search",
+          "title": "Settings pages should have search by default.",
+          "resolution": "Settings pages should have search by default in modern product UI.",
+          "resolutionKeywords": ["settings", "pages", "search", "default", "product"],
+          "thesisFraming": "Settings pages should have search by default in modern product UI. Search by default in settings pages turns a sprawling product UI into a usable settings surface.",
+          "counterClaims": [
+            "Settings pages do not need search by default for most users.",
+            "Adding search by default to settings pages encourages product teams to bloat settings."
+          ],
+          "evidenceFacts": [
+            { "label": "Settings discoverability research", "sourceText": "Settings discoverability research consistently favors search alongside categorical navigation." },
+            { "label": "Heavy-settings app patterns", "sourceText": "Heavy-settings apps that introduced search reduced settings support tickets in published case studies." }
+          ],
+          "scopeNarrowings": ["heavy-settings apps only", "enterprise settings specifically"],
+          "tangentHooks": ["Tabs are overused — separate thread."]
+        },
+        {
+          "topicId": "design-onboarding-apology",
+          "title": "Onboarding screens are usually an apology for bad UI.",
+          "resolution": "Long onboarding screens are usually an apology for bad UI.",
+          "resolutionKeywords": ["long", "onboarding", "screens", "apology", "bad"],
+          "thesisFraming": "Long onboarding screens are usually an apology for bad UI. Long onboarding screens patch over the bad UI that the product team did not fix at the core.",
+          "counterClaims": [
+            "Long onboarding screens are not usually an apology for bad UI.",
+            "Calling long onboarding screens an apology underestimates the value of guided first sessions."
+          ],
+          "evidenceFacts": [
+            { "label": "Onboarding drop-off studies", "sourceText": "Onboarding drop-off studies consistently find longer flows correlate with higher early-funnel drop." },
+            { "label": "Activation metric analysis", "sourceText": "Activation metric analysis often shows users who skip long onboarding still activate at similar rates." }
+          ],
+          "scopeNarrowings": ["consumer apps only", "first-session onboarding specifically"],
+          "tangentHooks": ["A useful empty state beats a tutorial — separate thread."]
+        },
+        {
+          "topicId": "design-empty-state-tutorial",
+          "title": "A useful empty state beats a tutorial.",
+          "resolution": "A useful empty state beats a tutorial for first-time product users.",
+          "resolutionKeywords": ["useful", "empty", "state", "beats", "tutorial"],
+          "thesisFraming": "A useful empty state beats a tutorial for first-time product users. A useful empty state lets first-time product users see the shape of the product without a separate tutorial.",
+          "counterClaims": [
+            "A useful empty state does not always beat a tutorial for first-time product users.",
+            "Treating empty states as better than tutorials assumes users will explore on their own."
+          ],
+          "evidenceFacts": [
+            { "label": "First-session task completion data", "sourceText": "First-session task completion data favors actionable empty states over isolated tutorial walkthroughs." },
+            { "label": "Tutorial skip rates", "sourceText": "Tutorial skip rates in mature consumer products often exceed 50% on first launch." }
+          ],
+          "scopeNarrowings": ["consumer SaaS only", "first-time users specifically"],
+          "tangentHooks": ["Onboarding screens are usually an apology — separate thread."]
+        }
+      ]
+    }
+  ]
+}

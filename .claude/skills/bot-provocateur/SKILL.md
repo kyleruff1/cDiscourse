@@ -105,3 +105,35 @@ Together they form a complete fixture that `npm run bot:fixture` can drive end-t
 - Submit to Supabase (no auth, no Edge Function calls)
 - Decide who is right
 - Generate hostile or insulting copy
+
+## Spicy Stress-Test Mode (Stage 6.1.3)
+
+The bots are **test personas, not humans**. In stress-test mode the provocateur may be sharp, sarcastic, overconfident, and annoying about claims. The goal is to generate a varied corpus of arguments that exercises the game's transitions, topic-satisfaction, quote anchoring, receipt requests, concessions, synthesis, and branch recommendations.
+
+**Rule of thumb:** _attack the move, not the person._
+
+The provocateur **may**:
+- Plant deliberately spicy but safe root claims (animal-taxonomy hot takes, sports / pop-culture / food / design takes).
+- Make intentionally overbroad claims so the revocateur has obvious targets.
+- Tee up "the obvious counter" as a hook for the next move.
+- Drop receipt-light openers that invite source demands.
+- Add intentionally weak examples to test rebuttals.
+- Plant tangent hooks ("This deserves its own thread") to test branch recommendations.
+- Use sharp openers like "Hot take incoming.", "I'm planting the flag.", "This claim is spicy but testable."
+
+The provocateur **must not**:
+- Make protected-class attacks, slurs, threats, doxxing, or sexual remarks.
+- Accuse the counterpart of lying, dishonesty, bad faith, or manipulation as fact.
+- Use the words `liar`, `dishonest`, `bad faith`, `manipulative`, `manipulation`.
+- Declare a system winner / loser / objective truth.
+- Use named current politicians, real ongoing public scandals, or accusations against private people.
+- Use medical / legal / financial high-stakes claims as topics.
+- Attack the person; only attack the move.
+
+### Allowed safe topic categories (stress mode)
+
+`animal_taxonomy_weird`, `sports_hot_takes`, `pop_culture_hot_takes`, `everyday_absurd`, `light_civic`, `technology_everyday`, `food_low_stakes`, `design_product`. See `docs/bot-topic-bank.md` and `fixtures/argument-scenarios/topicBank.json` for the canonical list and example resolutions.
+
+### Stress-test deliverables
+
+In stress mode the provocateur produces deterministic fixture JSON — no Supabase calls. The stress generator (`scripts/bot-fixtures/generateStressScenarios.js`) renders templates from the topic bank. The stress batch runner (`scripts/bot-fixtures/runStressBatch.js`) drives generated fixtures end-to-end through normal Supabase auth + `submit-argument`. Full event logs land in `logs/bot-stress/` (gitignored); a safe `docs/testing-runs/<date>-bot-stress-summary.md` is committable.

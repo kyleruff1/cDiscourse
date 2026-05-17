@@ -72,15 +72,16 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 6.1.2.4b complete as of 2026-05-17. Bot fixture runner repaired; first end-to-end fixture posted 7/7 moves via normal auth + `submit-argument` (sports-play-in, room `62305b8b-c11e-41a6-81b8-4c95daf73d2c`).
+Stage 6.1.3 dry-run gate complete as of 2026-05-17. Spicy bot stress-test suite landed (topic bank, generator, batch runner, validator + 21 new tests). 50 scenarios generated; 10-scenario dry-run reports 0 plan issues. Live stress runs have not been executed yet.
 Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. `submit-argument` ACTIVE v1. `admin-users` ACTIVE v1.
-**803 tests pass.** TypeScript strict mode clean. ESLint clean.
+**824 tests pass.** TypeScript strict mode clean. ESLint clean.
 
 **Safe to run admin smoke test: YES.**
-**Safe to run other bot fixtures (popculture / bikelanes / remotework): YES — but each fixture body may need the same parent-overlap + resolution-keyword tightening applied to sports-play-in.**
-**AI (Anthropic) not called in Stage 6.1.2.4b: confirmed.**
+**Safe to run `bot:fixture:stress:10` (live): YES.**
+**Run `bot:fixture:stress:50` only after the 10-room gate is acceptable** — see `docs/bot-fixture-runner.md` § "Acceptable 10-room gate".
+**AI (Anthropic) not called in Stage 6.1.3: confirmed.**
 
 See `docs/current-status.md` for full status.
-See `docs/bot-fixture-runner.md` for runner / fixture authoring rules (updated 6.1.2.4b).
-See `docs/testing-runs/2026-05-17-sports-play-in.md` for the live run log.
-See `docs/admin-security-model.md` for admin security details.
+See `docs/bot-fixture-runner.md` for runner / fixture authoring rules (updated 6.1.3).
+See `docs/bot-topic-bank.md` for the topic library.
+See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur/SKILL.md` for spicy stress-test mode rules.

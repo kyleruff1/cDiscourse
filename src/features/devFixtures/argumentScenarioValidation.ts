@@ -51,7 +51,48 @@ function scanText(text: string, label: string): string[] {
   return errs;
 }
 
-export function validateScenario(scenario: FixtureScenario): string[] {
+/**
+ * Constitution transition matrix — mirror of `transition_*` rules in
+ * `supabase/migrations/20260516000003_seed_data.sql`. Used to validate
+ * generated stress scenarios offline; if the seed changes, update this table.
+ */
+export const ALLOWED_REPLIES: Record<string, string[]> = {
+  thesis: ['claim', 'rebuttal', 'evidence'],
+  claim: ['rebuttal', 'evidence', 'clarification_request', 'concession'],
+  rebuttal: ['counter_rebuttal', 'evidence', 'clarification_request', 'concession'],
+  counter_rebuttal: ['rebuttal', 'evidence', 'clarification_request'],
+  evidence: ['clarification_request', 'rebuttal'],
+  clarification_request: ['claim'],
+  concession: ['synthesis'],
+  synthesis: [],
+};
+
+/**
+ * Phrases that satisfy the `concession_integrity` rail. Bodies of `concession`
+ * AND `synthesis` arguments must contain at least one.
+ */
+export const CONCESSION_MARKERS: string[] = [
+  'i concede',
+  'i grant',
+  'i agree with',
+  'that point is valid',
+  "you're right",
+  'you are right',
+  'fair point',
+  'i acknowledge',
+];
+
+export interface ValidateOptions {
+  minMoves?: number;
+  maxMoves?: number;
+  /** If true, enforce Constitution transitions + concession markers (stress mode). */
+  checkConstitution?: boolean;
+}
+
+export function validateScenario(scenario: FixtureScenario, options: ValidateOptions = {}): string[] {
+  const minMoves = options.minMoves ?? 6;
+  const maxMoves = options.maxMoves ?? 10;
+  const checkConstitution = options.checkConstitution === true;
   const errors: string[] = [];
 
   if (!scenario.scenarioId) errors.push('Missing scenarioId');
@@ -61,8 +102,8 @@ export function validateScenario(scenario: FixtureScenario): string[] {
   if (!scenario.personas?.length) errors.push('No personas defined');
   if (!scenario.moves?.length) { errors.push('No moves defined'); return errors; }
 
-  if (scenario.moves.length < 6) errors.push(`Too few moves: ${scenario.moves.length} (minimum 6)`);
-  if (scenario.moves.length > 10) errors.push(`Too many moves: ${scenario.moves.length} (maximum 10)`);
+  if (scenario.moves.length < minMoves) errors.push(`Too few moves: ${scenario.moves.length} (minimum ${minMoves})`);
+  if (scenario.moves.length > maxMoves) errors.push(`Too many moves: ${scenario.moves.length} (maximum ${maxMoves})`);
 
   // Unique move IDs
   const ids = scenario.moves.map((m) => m.moveId);
@@ -150,10 +191,44 @@ export function validateScenario(scenario: FixtureScenario): string[] {
     errors.push(...scanText(persona.alias, 'persona.alias'));
   }
 
+  // Stress-mode additions: enforce Constitution transitions + concession markers.
+  if (checkConstitution) {
+    const typeByMoveId = new Map<string, string>();
+    for (const m of scenario.moves) typeByMoveId.set(m.moveId, m.argumentType);
+
+    for (const m of scenario.moves) {
+      if (m.parentMoveId === null || m.parentMoveId === undefined) continue;
+      const parentType = typeByMoveId.get(m.parentMoveId);
+      if (!parentType) continue; // already reported as missing parent above
+      const allowed = ALLOWED_REPLIES[parentType] || [];
+      if (!allowed.includes(m.argumentType)) {
+        errors.push(
+          `Move "${m.moveId}" (${m.argumentType}) is not a valid reply to parent "${m.parentMoveId}" (${parentType}). Allowed: ${allowed.join(', ') || '(none — terminal)'}`,
+        );
+      }
+    }
+
+    const requireMarker = new Set(['concession', 'synthesis']);
+    for (const m of scenario.moves) {
+      if (!requireMarker.has(m.argumentType)) continue;
+      const body = (m.body || '').toLowerCase();
+      const hit = CONCESSION_MARKERS.some((mk) => body.includes(mk));
+      if (!hit) {
+        errors.push(
+          `Move "${m.moveId}" (${m.argumentType}) lacks a concession marker. Body must include one of: ${CONCESSION_MARKERS.slice(0, 4).join(', ')}, ...`,
+        );
+      }
+    }
+  }
+
   return errors;
 }
 
 export function isValidScenario(scenario: unknown): boolean {
   if (typeof scenario !== 'object' || scenario === null) return false;
   return validateScenario(scenario as FixtureScenario).length === 0;
+}
+
+export function validateStressScenario(scenario: FixtureScenario): string[] {
+  return validateScenario(scenario, { minMoves: 10, maxMoves: 15, checkConstitution: true });
 }

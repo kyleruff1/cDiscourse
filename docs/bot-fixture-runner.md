@@ -1,6 +1,6 @@
 # CDiscourse — Bot Fixture Runner
 
-_Stage 6.1.2.4b — 2026-05-17 (repair pass)_
+_Stage 6.1.3 — 2026-05-17 (spicy stress-test suite)_
 
 ## What this is
 
@@ -166,3 +166,77 @@ Then open `docs/testing-runs/<date>-<scenario>.md` to compare expected vs actual
 ## Failure handling
 
 If a fixture move fails, the run continues with subsequent moves whose parents posted successfully. Moves whose parent failed are skipped or fail with a clear error code in the log. Re-running with the same `client_submission_id`s is safe — `submit-argument` is idempotent.
+
+## Spicy stress-test suite (Stage 6.1.3)
+
+The stress suite extends the per-scenario runner to drive **batches** of generated rooms. The bots run sharper, sarcastic, claim-hostile (never person-hostile) language to exercise the game's transitions, topic-satisfaction, quote anchoring, receipts, concessions, synthesis, and branch recommendations.
+
+### Files
+
+```
+scripts/bot-fixtures/
+  spicyLanguage.js              — bounded "spicy" phrase pools + forbidden list (pure)
+  stressConfig.js               — directory + threshold constants (pure)
+  stressScenarioTemplates.js    — 3 templates (12/11/13 moves) + seeded body composer
+  generateStressScenarios.js    — CLI: writes deterministic fixture JSON from topic bank
+  runStressBatch.js             — CLI: drives generated scenarios end-to-end
+```
+
+```
+fixtures/argument-scenarios/topicBank.json   — committed source of safe topics (8 categories)
+fixtures/generated-scenarios/                — gitignored output of the generator
+logs/bot-stress/                             — gitignored JSONL event log per run
+docs/testing-runs/<date>-bot-stress-summary.md — committable safe summary
+```
+
+### Commands
+
+```bash
+npm run bot:fixture:generate-stress   # write 50 deterministic JSON scenarios to fixtures/generated-scenarios/
+npm run bot:fixture:stress:dry        # regenerate 10 + validate; NO Supabase calls
+npm run bot:fixture:stress:10         # regenerate 10 + run live (auth + submit-argument)
+npm run bot:fixture:stress:50         # regenerate 50 + run live (operator confirmation required)
+```
+
+The dry mode is the default safe path. The 10- and 50-room live modes use the existing `.env.bot-tests` credentials, reuse the three bot Auth users created by Stage 6.1.2, and never use a service-role key.
+
+### What stress mode is bounded by
+
+- Topics are drawn from `topicBank.json` — no current politicians, no real-person accusations, no medical / legal / financial advice, no protected-class conflict, no sexual / violent / extremist content.
+- Bot bodies are composed from `spicyLanguage.js` phrase pools. Forbidden phrases (`liar`, `dishonest`, `bad faith`, `manipulation`, `manipulative`, `you are stupid`, etc.) are asserted absent by `__tests__/stressGenerator.test.ts`.
+- Every generated scenario must pass `validateStressScenario` (Constitution transitions, concession markers, forbidden-term scan, 10–15 moves).
+- The runner writes only **aliases** to logs — emails / passwords / JWTs / apikey / auth headers / Supabase secrets never reach disk.
+
+### JSONL event schema
+
+Each line in `logs/bot-stress/<runId>-stress.jsonl` is an object with safe fields only:
+
+| Field | Note |
+|---|---|
+| `ts` | ISO timestamp |
+| `runId` | Per-batch identifier |
+| `scenarioId`, `category` | Generated scenario identity |
+| `roomId` | `debates.id` after creation (UUID, not sensitive) |
+| `moveId`, `authorAlias`, `moveKind`, `qualifierCode`, `argumentType`, `parentMoveId`, `parentArgumentId` | Move identity |
+| `status`, `httpStatus`, `errorCode`, `errorDetail` | Outcome — `errorDetail` is the first `blockingErrors[0]` rule code + message, or 403 `reason` |
+| `argumentId` | Returned `arguments.id` (UUID) on success |
+| `bodyLength`, `tagCount`, `hasTargetExcerpt`, `hasEvidence` | Shape stats for tuning |
+| `expectedStatus`, `actualStatus`, `durationMs` | Comparison + latency |
+
+### Acceptable 10-room gate
+
+- ≥ 80 % of rooms created
+- ≥ 70 % of moves posted
+- No `failed_500` unless a true bug is found
+- Every `failed_422 / failed_403` has a safe `errorDetail`
+- No runner crash; no secrets in logs
+
+Only after this gate is acceptable should an operator run the 50-room batch.
+
+### Do not
+
+- Run `stress:50` without operator confirmation (it creates many Supabase rows).
+- Run against production. Use dev / staging only.
+- Commit `logs/bot-stress/` or `fixtures/generated-scenarios/` — both are gitignored.
+- Add Anthropic, OpenAI, or any model calls.
+- Add service-role keys to runner code.

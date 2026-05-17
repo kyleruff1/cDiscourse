@@ -17,7 +17,11 @@
     "bot:fixture:sports": "node scripts/bot-fixtures/runScenario.js sports-play-in",
     "bot:fixture:popculture": "node scripts/bot-fixtures/runScenario.js pop-culture-trailers",
     "bot:fixture:bikelanes": "node scripts/bot-fixtures/runScenario.js light-civic-bike-lanes",
-    "bot:fixture:remotework": "node scripts/bot-fixtures/runScenario.js everyday-remote-work"
+    "bot:fixture:remotework": "node scripts/bot-fixtures/runScenario.js everyday-remote-work",
+    "bot:fixture:generate-stress": "node scripts/bot-fixtures/generateStressScenarios.js --count 50",
+    "bot:fixture:stress:dry": "node scripts/bot-fixtures/runStressBatch.js --dry --regenerate --count 10",
+    "bot:fixture:stress:10": "node scripts/bot-fixtures/runStressBatch.js --regenerate --count 10",
+    "bot:fixture:stress:50": "node scripts/bot-fixtures/runStressBatch.js --regenerate --count 50"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
