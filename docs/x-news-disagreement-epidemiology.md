@@ -69,6 +69,17 @@ type AgreementDisagreementVector = {
 - Not production app data. Real public replies are not imported into argument rooms.
 - Not scraping. Official X API only.
 
+## xAI auth assumption (Stage 6.1.3.2a)
+
+xAI inference access is **assumed to require** `Authorization: Bearer <XAI_API_KEY>`. Any apparent no-key access is treated as a bug / misconfiguration / inherited credential / SDK auto-load until proven otherwise by the fail-closed probe (`npm run engagement:intel:xai:probe:*`, see `docs/x-api-and-xai-setup.md`).
+
+xAI remains **disabled** by default. No xAI classification runs until the operator has explicitly:
+1. Confirmed key source via the probe,
+2. Set `ENGAGEMENT_INTEL_ENABLE_XAI=true` in `.env.engagement-intelligence`,
+3. Passed `--pilot` on the CLI.
+
+The Stage 6.1.3.3 tiny X News pilot is X API only — xAI is off for that run.
+
 ## Compliance baseline
 
 - Official X API endpoints only (`/2/news/search`, recent search). No browser automation. No unofficial endpoints. No likes / replies / quotes / follows / DMs / posts on the operator side.

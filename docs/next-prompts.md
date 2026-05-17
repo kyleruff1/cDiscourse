@@ -72,7 +72,7 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## Notes
 
-Stage 6.1.3.2 engagement-intelligence scaffold complete as of 2026-05-17. New `src/features/engagementIntelligence/` module + `scripts/engagement-intelligence/` CLIs. Live X API and xAI calls DISABLED by default. Synthetic-only analyzer emits a safe Markdown epidemiology report. +139 new tests. **990 tests / 33 suites passing.** No X API calls. No xAI calls. Stage 6.1.3.1 (live corpus:50) remains valid.
+Stage 6.1.3.2a complete as of 2026-05-17. Added fail-closed `xaiAuthProbe.js` that confirms xAI inference is not reachable without `Authorization: Bearer <XAI_API_KEY>`; output never contains keys / Bearer tokens / Authorization headers / response bodies. +18 new tests. **1008 tests / 34 suites passing.** No X API calls. No xAI calls. Stages 6.1.3.1 (live corpus:50) and 6.1.3.2 (engagement-intelligence scaffold) remain valid.
 Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. `submit-argument` ACTIVE v1. `admin-users` ACTIVE v1.
 **851 tests pass.** TypeScript strict mode clean. ESLint clean.
 

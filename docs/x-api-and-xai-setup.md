@@ -96,6 +96,35 @@ The script clamps to these caps even if the operator asks for more. Scaling to t
 
 Do not skip stages. Each step is gated on a clean offline report + operator review.
 
+## xAI auth reality check (Stage 6.1.3.2a)
+
+If anything on this machine appears to reach `api.x.ai` without an `XAI_API_KEY` set, we treat that as a bug / misconfiguration / inherited credential / SDK auto-load until proven otherwise. The official xAI inference API requires `Authorization: Bearer <xAI API key>`. **There is no documented unauthenticated inference path.**
+
+A fail-closed probe is shipped to verify exactly that:
+
+```bash
+npm run engagement:intel:xai:probe:dry       # default — no network, prints booleans only
+npm run engagement:intel:xai:probe:live      # one GET /v1/models with auth — needs XAI_API_KEY
+npm run engagement:intel:xai:probe:no-key    # one GET /v1/models WITHOUT auth — expects 401/403
+```
+
+Behavior:
+
+| Mode | Network? | Auth header? | Expected outcome |
+|---|---|---|---|
+| `probe:dry` | no | n/a | prints `mode=dry` and `dry auth probe only; no network` |
+| `probe:live` with key | yes (1 request) | yes | `auth_ok` (200) or `auth_required_401/403` |
+| `probe:live` without key | no | n/a | **refuses** (no `--probe-missing-key`) |
+| `probe:no-key` | yes (1 request) | **no** | `auth_required_401` / `auth_required_403` expected; a `200` is reported as `unexpected_unauthenticated_access` (exit 2) |
+
+The probe never sends a prompt, classification payload, or any user / public-X text. The response body is never read. Only the status code and a sanitized category are printed. The `XAI_API_KEY`, the `Authorization` header, and Bearer tokens never appear in stdout or in any error message — the sanitizer strips `xai-…`, `sk-…`, `sk-ant-…`, `Bearer …`, JWT-shape tokens, and `Authorization: …` lines.
+
+The probe targets the official xAI base host (`https://api.x.ai`) on a documented read-only endpoint (`GET /v1/models`). It does NOT call inference.
+
+If `probe:no-key` returns `unexpected_unauthenticated_access`, **do not** treat the situation as an opportunity to skip auth. Open a ticket, audit your `~/.config` / `~/.aws` / SDK auto-loaders / proxy credentials / shell environment for inherited xAI auth, and re-run the probe in a clean shell to confirm.
+
+xAI **stays disabled** by default regardless of probe results. The Stage 6.1.3.3 tiny X News pilot remains X API only, xAI off.
+
 ## Safety reminders
 
 - **Do not paste any key into Claude.**
