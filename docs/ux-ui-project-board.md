@@ -3,7 +3,9 @@
 **Status:** Roadmap. **Nothing on this board is implemented yet** unless explicitly noted under "Baseline."
 **Scope:** Stage 6.5–6.8 (Timeline Game Board, Interaction Rails, Evidence Layer, Profiles, Dev Hosting).
 **Owner:** Kyler.
-**Last updated:** 2026-05-17.
+**Last updated:** 2026-05-18.
+
+> **Companion doc:** [`docs/roadmap-timeline-tree-game-board.md`](roadmap-timeline-tree-game-board.md) — the Timeline Tree Game Board expansion (LIFE-001 / META-001 / SC-004 / GAME-001 / RULE-003 / AN-003 + scope additions on BR-001 / IX-001 / IX-002 / SC-003 / ST-002 / RULE-002 / GAL-002). Read it before starting any 6.6 Wave 1/2/3 card.
 
 ---
 
@@ -53,9 +55,12 @@ The doctrine that survives every card on this board:
 Cards: TL-001, TL-002, TL-003, VG-001, SC-001, SC-002, PM-001.
 **Definition of done:** Timeline is primary. Stack is details mode. Tapping nodes updates active point + side rail. No side declaration before entering. Tests pass.
 
-### Release 6.6 — Branches, kinks, evidence gameplay
-Cards: BR-001, EV-001, EV-002, EV-003, RULE-001, RULE-002.
-**Definition of done:** Branch/tangent paths visible. Evidence + source-chain become interactive tools. Weak/strong appear through shape/color/stroke. No internal codes leak.
+### Release 6.6 — Branches, kinks, evidence gameplay + Timeline Tree Game Board
+Cards (Wave 1 foundation): **BR-001 (tree + branch grammar)**, **LIFE-001 (point lifecycle metadata)**, **META-001 (tag / flag / metadata ledger)**.
+Cards (Wave 2 board interaction): **SC-004 (timeline node action dock)**, **IX-001 (zoom + focus modes)**, **ST-002 (lifecycle-driven suggestions)**.
+Cards (Wave 3 game constraints): **GAME-001 (exhaustion + moved-on rules)**, **RULE-003 (lifecycle-to-UX map)**, IX-002 (mini-map).
+Cards (Wave 4 polish): EV-001 ✅, EV-002 ✅, EV-003, EV-004, RULE-001 ✅, RULE-002, GAL-002.
+**Definition of done:** Branch/tangent paths visible. Point lifecycle visible without verdict copy. Board action dock drives the contextual move. Evidence + source-chain become interactive tools. No internal codes leak. Exhaustion / moved-on / ignored advisories are non-blocking.
 
 ### Release 6.7 — Profiles and preferences
 Cards: PR-001, PR-002, PR-003, PR-004, IX-003.
@@ -126,11 +131,12 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 
 ## Epic 3 — Branches, Tangents, and Kinks
 
-### BR-001 — Tangent kink model
-- **Priority:** P0/P1 — **Effort:** L — **Release:** 6.6
-- **Model:** `BranchKind = 'mainline' | 'tangent' | 'source_chain_branch' | 'evidence_branch' | 'definition_branch' | 'scope_branch' | 'synthesis_branch'`. `TimelineBranch { branchId, parentMessageId, firstMessageId, branchKind, lane, isCollapsed, unresolvedAxis?, messageCount }`.
-- **Acceptance:** First child stays on parent lane. Additional children branch up/down. Source-chain / evidence branches get matching visuals. Collapse leaves a visible stub. Active node inside collapsed branch auto-expands.
-- **Tests:** sibling lanes deterministic, tangent creates kink edge, collapsed preserves count, active path expands.
+### BR-001 — Tangent kink model / argument tree layout foundation
+- **Priority:** P0 — **Effort:** L — **Release:** 6.6 — **Wave:** 1 — **Agent:** timeline-ui-agent / roadmap-designer first
+- **Model:** `BranchKind = 'mainline' | 'tangent' | 'source_chain_branch' | 'evidence_branch' | 'definition_branch' | 'scope_branch' | 'synthesis_branch'`. `TimelineBranch { branchId, parentMessageId, firstMessageId, branchKind, lane, isCollapsed, unresolvedAxis?, messageCount, lifecycleSummary }`. `PointCluster { pointClusterId, rootMessageId, axis, messageIds, lifecycleState, evidenceContract }`.
+- **Scope additions (Timeline Tree Game Board):** Tree layout, not only kink graphics. Branch cluster click focuses a region (area-click selection). Collapsed branch stubs show count + branchKind icon + lifecycle summary chip. Active node inside collapsed branch auto-expands. Tree layout must remain deterministic across 250+ messages and testable.
+- **Acceptance:** First child continues mainline when appropriate. Additional children branch up/down deterministically. Branches render visible kinks/stubs. Active path visible through branches. 250+ message stress fixture remains legible with IX-001 density hooks.
+- **Tests:** sibling lane determinism · branch type classification · collapsed branch stub count · active path auto-expansion · missing parent / detached branch handling · 250+ message fixture.
 
 ### BR-002 — Split-screen branch inspector
 - **Priority:** P2 — **Effort:** L/XL — **Release:** 6.6+
@@ -152,9 +158,17 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Acceptance:** Tap node → active. Second tap / info icon → popover. Popover doesn't block timeline nav. Uses same action mapping as rail.
 
 ### SC-003 — Sidecar as detail inspector, not action dumping ground
-- **Priority:** P1 — **Effort:** M — **Release:** 6.5/6.6
+- **Priority:** P1 — **Effort:** M — **Release:** 6.6 — **Wave:** 2
 - **Sections:** "What this move says" · "Why it matters" · "What is unresolved" · "Where it sits" · "Suggested next move" · "Semantic flags" (deeper in Stack mode).
 - **Acceptance:** Timeline sidecar concise. No body editing. No internal snake_case codes.
+- **Boundary:** SC-003 is the **detail inspector**. The **action dock** is SC-004. SC-003 surfaces lifecycle state + unresolved axes + suggested next move; SC-004 owns the contextual move palette.
+
+### SC-004 — Timeline node action dock
+- **Priority:** P0/P1 — **Effort:** M/L — **Release:** 6.6 — **Wave:** 2 — **Agent:** sidecar-tools-agent
+- **Goal:** Compact action dock anchored on the Timeline / Tree surface for the selected node / cluster.
+- **Required actions:** Reply · Challenge · Ask source · Ask quote · Clarify · Add evidence · Narrow · Concede · Confirm · Mark moved on · Mark ignored · Branch · Synthesize · Flag · Open Cards detail.
+- **Acceptance:** Dock appears near selected node/cluster or as bottom rail on narrow screens. Own-message restrictions preserved (only `Open Cards detail · Mark synthesis-ready · Mark narrowed · Request deletion`). Observer matrix preserved. Actions create non-accusatory composer presets. Open Cards detail does not route away.
+- **Tests:** observer action matrix · participant-other matrix · own-message matrix · node selection updates dock · no route transition · preset mapping · ban-list across produced strings.
 
 ---
 
@@ -166,9 +180,11 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Scope:** Card view shows semantic flags · suggested reply flags · evidence/source-chain hints · parent/child path · score/trend detail · moderation-safe advisories · "Back to map" CTA.
 
 ### ST-002 — Suggested reply flags per bubble card
-- **Priority:** P1 — **Effort:** M — **Release:** 6.6
-- **Inputs:** disagreement axis · sourceChainRisk · evidentiaryRisk · latest move type · active path depth · no-rebuttal · stopReason · branch/tangent status · statement standing.
-- **Acceptance:** Suggestions deterministic + explainable, never block posting, never label people, map to quick-action presets.
+- **Priority:** P1 — **Effort:** M — **Release:** 6.6 — **Wave:** 2
+- **Inputs:** disagreement axis · sourceChainRisk · evidentiaryRisk · latest move type · active path depth · no-rebuttal · stopReason · branch/tangent status · statement standing · **LIFE-001 point lifecycle state** · **META-001 manual tags + auto metadata**.
+- **Suggested moves:** Ask source · Ask quote · Narrow · Concede · Confirm · Challenge mechanism · Challenge scope · Branch tangent · Synthesize.
+- **Acceptance:** Suggestions deterministic + explainable, never block posting, never label people, map to quick-action presets. Card shows *why* a move is suggested (lifecycle / tag derivation surface).
+- **Tests:** suggestion derivation table · copy ban-list · composer preset mapping · no forced action.
 
 ---
 
@@ -223,13 +239,18 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 ## Epic 8 — Timeline Interaction Mechanics
 
 ### IX-001 — Timeline zoom and density modes
-- **Priority:** P1 — **Effort:** L — **Release:** 6.6
-- **Modes:** Compact (dots, label on active) · Standard (shapes + short labels) · Detailed (shapes + badges + snippets) · Branch focus.
-- **Acceptance:** 5-message timeline isn't sparse. 300-message remains navigable. Zoom persists per session.
+- **Priority:** P0/P1 — **Effort:** L — **Release:** 6.6 — **Wave:** 2
+- **Density modes:** Compact (dots, label on active) · Normal (shapes + short labels) · Expanded (shapes + badges + snippets).
+- **Focus lenses (new):** Active path · Branch cluster · Unresolved only · Evidence / source only.
+- **Area-click selection:** Clicking a branch lane / cluster focuses that cluster (drives SC-004 dock).
+- **Acceptance:** 5-message timeline isn't sparse. 300-message remains navigable. Zoom persists per session. Density changes preserve active node. Focus lens hides only visually; data remains intact. No inaccessible tap targets (44px min). No new dependency.
+- **Tests:** density model · focus filter model · active node preserved across density change · tap target minimums · accessibility labels.
 
 ### IX-002 — Timeline mini-map overview
-- **Priority:** P2 — **Effort:** M/L — **Release:** 6.7
-- **Acceptance:** Jump to root/latest/hot zone/branch. Heat + branch markers. Doesn't crowd mobile.
+- **Priority:** P1 — **Effort:** M/L — **Release:** 6.6/6.7 — **Wave:** 3
+- **Scope additions (Timeline Tree Game Board):** Mini-map summarizes branch clusters, unresolved points, exhausted points, active path. Clicking mini-map region pans / focuses the tree. Supports branch collapse / expand.
+- **Acceptance:** Mini-map visually distinct from main map. No route transition. Works with 250+ messages.
+- **Tests:** region summary · click-to-focus model · collapsed branch count · active path indicator.
 
 ### IX-003 — Keyboard and accessibility navigation
 - **Priority:** P1 — **Effort:** M — **Release:** 6.7
@@ -289,13 +310,35 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Acceptance:** Deterministic grouping. Filter by action. Duplicate generated rooms remain collapsed. Heat framed as activity.
 
 ### GAL-002 — Entry cards with first suggested move
-- **Priority:** P1 — **Effort:** M — **Release:** 6.6
+- **Priority:** P1 — **Effort:** M — **Release:** 6.6 — **Wave:** 4
 - **Examples:** "Be the first rebuttal" · "Ask for the source" · "Challenge the mechanism" · "Narrow the claim" · "Offer synthesis" · "Watch first" · "Join when ready."
 - **Acceptance:** Hint from model fields, not AI call. Maps to quick action in rail. Short plain-language. No internal codes.
+- **Scope addition (Timeline Tree Game Board):** Once LIFE-001 lands, hint source moves to the *root cluster lifecycle state* of the room rather than the current heat / bucket heuristic. Stale-derivation guard: hint recomputes every load.
 
 ---
 
 ## Epic 12 — Evidence-Enhanced Game Rules and Flow
+
+### LIFE-001 — Point lifecycle metadata model
+- **Priority:** P0 — **Effort:** L — **Release:** 6.6 — **Wave:** 1 — **Agent:** evidence-rules-agent + timeline-ui-agent
+- **Goal:** Pure-TS lifecycle model for individual points and point clusters. Computed deterministically from existing `public.arguments` + `attached_evidence` + semantic flags. No persistence.
+- **States:** `open · answered · rebutted · clarified · sourced · quote_requested · source_requested · narrowed · conceded · confirmed · synthesis_ready · moved_on_by_affirmative · moved_on_by_negative · ignored_by_affirmative · ignored_by_negative · ignored_by_both · exhausted · branch_recommended · archived_or_resolved`.
+- **Acceptance:** Lifecycle summary computable from a message cluster. Ordinary replies remain postable. Exhaustion / moved-on / ignored-by-side states are advisories only — never block. No user-facing `snake_case`. No truth / verdict / person-label copy.
+- **Tests:** each state derivation · ignored-by-one-side · ignored-by-both · concession / narrowing path · synthesis-ready path · repeated-axis-pressure exhaustion · ban-list across labels.
+
+### META-001 — Move tag / flag / metadata event ledger
+- **Priority:** P0/P1 — **Effort:** L — **Release:** 6.6 — **Wave:** 1 — **Agent:** evidence-rules-agent
+- **Goal:** Define how **manual user tags**, **auto-derived metadata**, and **moderation flags** are represented and kept hard-separated for each move and point cluster.
+- **Manual tags:** `needs_source · needs_quote · definition_issue · scope_issue · causal_mechanism · evidence_debt · concession_offered · narrowed_claim · tangent · ready_for_synthesis`.
+- **Auto metadata:** `has_reply · has_rebuttal · has_counter_rebuttal · has_evidence · source_requested · quote_requested · source_attached · quote_attached · participant_skipped_node · no_response_after_n_turns · repeated_axis_pressure · branch_suggested · branch_created · point_stalled · point_exhausted · synthesis_candidate`.
+- **Acceptance:** Manual tag model exists (render-time only in v1, no persistence). Auto metadata derivation model exists. UI contract exposes plain-language labels via RULE-003. Existing semantic flags map cleanly into the model. Moderation flags remain isolated.
+- **Tests:** no raw code labels in UI contract · manual tag dedupe · auto-tag derivation table · card detail contract shape · timeline summary contract · ban-list across produced strings.
+
+### GAME-001 — Point exhaustion and timeout rules
+- **Priority:** P1 — **Effort:** M/L — **Release:** 6.6 — **Wave:** 3 — **Agent:** evidence-rules-agent / point-standing-economy
+- **Goal:** Non-blocking advisories for stale / ignored / exhausted / synthesis-ready clusters. Pure model.
+- **Acceptance:** Repeated same-axis pressure produces `exhausted` advisory. One-party nonresponse produces `ignored_by_<side>` advisory. Both-party dormancy produces `ignored_by_both` advisory. Concession + narrowing + no unresolved debt produces `synthesis_ready`. **No blocking output**. **No truth verdict**. **No "winner / loser"**. **No automated punishment**.
+- **Tests:** no blocking output · repeated-axis exhaustion · one-party ignored · two-party ignored · synthesis-ready · copy ban-list.
 
 ### RULE-001 — Semantic rule-to-UI map
 - **Priority:** P1 — **Effort:** M — **Release:** 6.6
@@ -317,6 +360,13 @@ synthesis_ready   -> "Offer synthesis"
 - **Priority:** P1 — **Effort:** M — **Release:** 6.6
 - **Mapping:** Weak topic → "May be drifting" chip · Parent nonresponsive → "Reconnect to parent?" · Missing source → source-chain action · Missing quote → quote request · Scope risk → narrow action · Definition ambiguity → clarify/define.
 - **Acceptance:** Warnings become suggested moves. One click from timeline. Ordinary replies stay postable.
+- **Cross-ref:** RULE-003 owns the lifecycle-state-to-UX label map; RULE-002 stays focused on validation-warning-to-suggested-move mapping.
+
+### RULE-003 — Lifecycle-to-UX doctrine map
+- **Priority:** P1 — **Effort:** M — **Release:** 6.6 — **Wave:** 3 — **Agent:** sidecar-tools-agent / evidence-rules-agent
+- **Goal:** Map every LIFE-001 lifecycle state + META-001 metadata tag to a plain-language label, helper line, icon, and allowed action set. Sits beside RULE-001 (semantic-code map) and RULE-002 (validation-to-suggested-move map).
+- **Acceptance:** No raw internal codes in UI. No truth labels. No user / person labels. Every lifecycle state has a safe label / helper / action mapping. Ban-list assertion across produced strings.
+- **Tests:** all states have labels · ban-list assertion · no snake_case visible · no produced action creates a blocked ordinary reply path.
 
 ---
 
@@ -326,6 +376,12 @@ synthesis_ready   -> "Offer synthesis"
 - **Priority:** P2 — **Effort:** M — **Release:** 6.7
 - **Outputs:** hot zones · unresolved axes · strong/weak counts · evidence-debt count · branch count · synthesis-ready count · no-rebuttal count.
 - **Acceptance:** Pure deterministic. No xAI/Anthropic. UI tests + debug only.
+
+### AN-003 — Tree playability diagnostics
+- **Priority:** P2 — **Effort:** M — **Release:** 6.7 — **Wave:** 4 — **Agent:** analytics-agent
+- **Goal:** Pure-model diagnostics for whether a tree is playable: number of unresolved points · number of exhausted / stale points · branch depth · average actions to reach active unresolved point · source / evidence debt concentration · nodes with no available suggested action.
+- **Acceptance:** Pure model. Dev / debug output only. No public scoring verdict. No xAI / Anthropic call.
+- **Tests:** deep-tree fixture · unresolved-point count · branch-overload indicator · no truth / verdict copy.
 
 ### AN-002 — Visual QA snapshots
 - **Priority:** P2 — **Effort:** M — **Release:** 6.8
@@ -350,7 +406,11 @@ synthesis_ready   -> "Offer synthesis"
 - VG-001 blocks SW-001 (strength bands need the visual-token layer).
 - EV-001 blocks EV-002, EV-003, EV-004 (popover, debt tracker, symmetry all read the artifact model).
 - RULE-001 blocks GAL-002, ST-002 (suggested-move copy lives there).
-- BR-001 blocks BR-002, IX-002 (inspector + minimap need branch model).
+- BR-001 blocks BR-002, IX-002, LIFE-001, SC-004 (tree / cluster contract is the foundation).
+- LIFE-001 blocks META-001, ST-002 expansion, GAL-002 expansion, GAME-001, RULE-003 (lifecycle state is the input).
+- META-001 blocks SC-004 dock-content, ST-002 suggestion derivation, AN-003 diagnostics inputs.
+- SC-004 blocks the dock-side acceptance of IX-001 area-click (focus drives dock contents).
+- RULE-003 blocks any UI surface that renders LIFE-001 or META-001 labels.
 - HOST-001 spike blocks HOST-002/003 (banner/smoke depend on chosen deployment URL).
 
 ---

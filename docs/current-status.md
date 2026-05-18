@@ -1,6 +1,20 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-18 (Release 6.6 VG-002 — Gradient wave rail)_
+_Last updated: 2026-05-18 (Release 6.6 — Timeline Tree Game Board roadmap expansion)_
+
+## Timeline Tree Game Board roadmap expansion (Release 6.6 / 6.7)
+
+**Status:** Roadmap-only pass. No production code, no migration, no Edge Function change in this expansion.
+
+- New master doc [`docs/roadmap-timeline-tree-game-board.md`](roadmap-timeline-tree-game-board.md) encodes the product thesis: argument rooms behave as a **playable argument tree**, not a linear message list. Timeline is the primary game board; Cards / Stack is the semantic detail surface.
+- Wave 1 (foundation): **BR-001** (tree + branch grammar), **LIFE-001** (point lifecycle metadata), **META-001** (tag / flag / metadata ledger).
+- Wave 2 (board interaction): **SC-004** (timeline node action dock), **IX-001** (zoom + density + focus modes), **ST-002** (lifecycle-driven suggestions).
+- Wave 3 (game constraints): **GAME-001** (exhaustion + moved-on advisories), **RULE-003** (lifecycle-to-UX map), **IX-002** (mini-map).
+- Wave 4 (diagnostics / polish): **AN-003** (tree playability diagnostics), GAL-002 expansion, EV-003 / EV-004 tie-ins.
+- Doctrine preserved: lifecycle states are gameplay signals, never verdicts. Exhaustion / moved-on / ignored are advisories, never blocking. No popularity / heat / engagement signal becomes a correctness signal. No `winner / loser / liar / true / false / verdict` in any produced label.
+- See `docs/ux-ui-project-board.md` for per-card acceptance criteria and the updated dependency graph.
+
+
 
 ## VG-002 — Gradient wave rail (Release 6.6)
 
@@ -68,20 +82,33 @@ Goal: make Timeline the primary surface and tighten the side rail / stack / visu
 - Stack Detail epic: ST-001 reposition Stack as Card Details (P1/S).
 - Project Mgmt slice: PM-001 board doc ✅, PM-002 NNL tracker (this card), QOL-017 GitHub Projects sync script, QOL-018 repo-local agent charters.
 
-### Next — Release 6.6 (Branches and evidence)
+### Next — Release 6.6 (Timeline Tree Game Board)
 
-Goal: branch grammar + first-class evidence layer + heat / momentum visuals without truth claims.
+Goal: branch / cluster / lifecycle foundation, then board action dock, then game constraints. See [`docs/roadmap-timeline-tree-game-board.md`](roadmap-timeline-tree-game-board.md) for the master plan.
 
-- Branches: BR-001 tangent kink model (P0/L), BR-002 split-screen branch inspector (P2/XL).
-- Evidence: EV-001 object model v1 (P0/L), EV-002 source-chain popover (P0/M), EV-003 debt tracker (P1/L), EV-004 symmetry with game rules (P1/M).
-- Visual Grammar: VG-002 gradient wave rail (P0/L).
-- Strength-Weakness: SW-002 heat / momentum / trend without truth claims (P1/M).
-- Interaction: IX-001 timeline zoom and density modes (P1/L).
-- Sidecar Rail: SC-003 sidecar as detail inspector, not action dumping ground (P1/M).
-- Stack Detail: ST-002 suggested reply flags per bubble card (P1/M).
-- Gallery: GAL-001 sections-as-play-lanes (P1/M), GAL-002 entry cards with first suggested move (P1/M).
-- Rules UX: RULE-001 semantic rule-to-UI map (P1/M), RULE-002 evidence symmetry between validation and visuals (P1/M).
-- Analytics: QOL-019 bot tester prompt refresh (P1/M), QOL-020 open-room engagement runner patch (P1/M).
+**Wave 1 — Foundation**
+- BR-001 tangent kink model / argument tree layout foundation (P0/L).
+- LIFE-001 point lifecycle metadata model (P0/L) — NEW.
+- META-001 move tag / flag / metadata event ledger (P0/L) — NEW.
+
+**Wave 2 — Board interaction**
+- SC-004 timeline node action dock (P0/M) — NEW.
+- IX-001 timeline zoom + density + focus modes (P0/L) — promoted from P1.
+- ST-002 suggested reply flags per bubble card (P1/M) — scope expanded with lifecycle inputs.
+
+**Wave 3 — Game constraints**
+- GAME-001 point exhaustion and timeout rules (P1/M) — NEW.
+- RULE-003 lifecycle-to-UX doctrine map (P1/M) — NEW.
+- IX-002 timeline mini-map overview (P1/M) — scope expanded with cluster summaries.
+
+**Wave 4 — Diagnostics / polish**
+- AN-003 tree playability diagnostics (P2/M) — NEW (Release 6.7).
+- GAL-002 entry cards with first suggested move (P1/M) — scope expanded.
+- EV-003 evidence debt tracker (P1/L), EV-004 evidence symmetry (P1/M), RULE-002 evidence symmetry between validation and visuals (P1/M).
+
+**Already shipped in 6.6**: EV-001 evidence object model ✅, EV-002 source-chain popover ✅, VG-002 gradient wave rail ✅, RULE-001 semantic rule-to-UI map ✅.
+
+**Side tracks**: BR-002 split-screen branch inspector (P2/XL), SW-002 heat / momentum without truth claims (P1/M), SC-003 sidecar as detail inspector (P1/M, boundary now shared with SC-004), GAL-001 sections-as-play-lanes (P1/M), QOL-019 / QOL-020 bot test infra (P1/M each).
 
 ### Later — Release 6.7 (Profiles + interaction polish)
 
