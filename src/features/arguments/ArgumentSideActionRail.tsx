@@ -35,36 +35,95 @@ export type RailActionCode =
   // Self bubble
   | 'request_deletion';
 
+/**
+ * SC-001 — Grouping taxonomy. The issue body specifies seven groups:
+ * Watch/Observe · Join side · Reply · Evidence · Branch · Review/flag ·
+ * Share. Every rail action carries one of these so a future UI pass
+ * can render the expanded rail as ordered category sections.
+ */
+export type RailActionCategory =
+  | 'watch_observe'
+  | 'join_side'
+  | 'reply'
+  | 'evidence'
+  | 'branch'
+  | 'review_flag'
+  | 'share';
+
+export const RAIL_ACTION_CATEGORIES: readonly RailActionCategory[] = [
+  'watch_observe',
+  'join_side',
+  'reply',
+  'evidence',
+  'branch',
+  'review_flag',
+  'share',
+] as const;
+
+export const RAIL_ACTION_CATEGORY_LABEL: Record<RailActionCategory, string> = {
+  watch_observe: 'Watch / Observe',
+  join_side: 'Join side',
+  reply: 'Reply',
+  evidence: 'Evidence',
+  branch: 'Branch',
+  review_flag: 'Review / Flag',
+  share: 'Share',
+};
+
 interface RailAction {
   code: RailActionCode;
   label: string;
   helper: string;
+  category: RailActionCategory;
   tone?: 'primary' | 'warning' | 'critical' | 'neutral';
 }
 
 const OBSERVER_ACTIONS: RailAction[] = [
-  { code: 'watch', label: 'Watch', helper: OBSERVER_COPY.watchHelp, tone: 'neutral' },
-  { code: 'join_aff', label: OBSERVER_COPY.joinAffShort, helper: OBSERVER_COPY.joinHelp + ' Argue For.', tone: 'primary' },
-  { code: 'join_neg', label: OBSERVER_COPY.joinNegShort, helper: OBSERVER_COPY.joinHelp + ' Argue Against.', tone: 'primary' },
-  { code: 'ask_source', label: 'Ask source', helper: OBSERVER_COPY.askSourceHelp, tone: 'primary' },
-  { code: 'open_timeline', label: 'Open timeline', helper: OBSERVER_COPY.openTimelineHelp, tone: 'neutral' },
-  { code: 'share', label: 'Share', helper: OBSERVER_COPY.shareHelp, tone: 'neutral' },
+  { code: 'watch', label: 'Watch', helper: OBSERVER_COPY.watchHelp, category: 'watch_observe', tone: 'neutral' },
+  { code: 'join_aff', label: OBSERVER_COPY.joinAffShort, helper: OBSERVER_COPY.joinHelp + ' Argue For.', category: 'join_side', tone: 'primary' },
+  { code: 'join_neg', label: OBSERVER_COPY.joinNegShort, helper: OBSERVER_COPY.joinHelp + ' Argue Against.', category: 'join_side', tone: 'primary' },
+  { code: 'ask_source', label: 'Ask source', helper: OBSERVER_COPY.askSourceHelp, category: 'evidence', tone: 'primary' },
+  { code: 'open_timeline', label: 'Open timeline', helper: OBSERVER_COPY.openTimelineHelp, category: 'watch_observe', tone: 'neutral' },
+  { code: 'share', label: 'Share', helper: OBSERVER_COPY.shareHelp, category: 'share', tone: 'neutral' },
 ];
 
 const PARTICIPANT_OTHER_ACTIONS: RailAction[] = [
-  { code: 'reply', label: 'Reply', helper: OBSERVER_COPY.replyHelp, tone: 'primary' },
-  { code: 'disagree', label: 'Disagree', helper: OBSERVER_COPY.disagreeHelp, tone: 'warning' },
-  { code: 'ask_source', label: 'Ask source', helper: OBSERVER_COPY.askSourceHelp, tone: 'primary' },
-  { code: 'ask_quote', label: 'Ask quote', helper: OBSERVER_COPY.askQuoteHelp, tone: 'primary' },
-  { code: 'split_branch', label: 'Split branch', helper: OBSERVER_COPY.splitBranchHelp, tone: 'neutral' },
-  { code: 'flag', label: 'Flag', helper: OBSERVER_COPY.flagHelp, tone: 'critical' },
-  { code: 'qualifiers', label: 'Qualifiers', helper: OBSERVER_COPY.qualifiersHelp, tone: 'neutral' },
+  { code: 'reply', label: 'Reply', helper: OBSERVER_COPY.replyHelp, category: 'reply', tone: 'primary' },
+  { code: 'disagree', label: 'Disagree', helper: OBSERVER_COPY.disagreeHelp, category: 'reply', tone: 'warning' },
+  { code: 'ask_source', label: 'Ask source', helper: OBSERVER_COPY.askSourceHelp, category: 'evidence', tone: 'primary' },
+  { code: 'ask_quote', label: 'Ask quote', helper: OBSERVER_COPY.askQuoteHelp, category: 'evidence', tone: 'primary' },
+  { code: 'split_branch', label: 'Split branch', helper: OBSERVER_COPY.splitBranchHelp, category: 'branch', tone: 'neutral' },
+  { code: 'flag', label: 'Flag', helper: OBSERVER_COPY.flagHelp, category: 'review_flag', tone: 'critical' },
+  { code: 'qualifiers', label: 'Qualifiers', helper: OBSERVER_COPY.qualifiersHelp, category: 'review_flag', tone: 'neutral' },
 ];
 
 const SELF_ACTIONS: RailAction[] = [
-  { code: 'qualifiers', label: 'Qualifiers', helper: OBSERVER_COPY.qualifiersHelp, tone: 'neutral' },
-  { code: 'request_deletion', label: 'Request deletion', helper: OBSERVER_COPY.requestDeletionHelp, tone: 'critical' },
+  { code: 'qualifiers', label: 'Qualifiers', helper: OBSERVER_COPY.qualifiersHelp, category: 'review_flag', tone: 'neutral' },
+  { code: 'request_deletion', label: 'Request deletion', helper: OBSERVER_COPY.requestDeletionHelp, category: 'review_flag', tone: 'critical' },
 ];
+
+export type RailActionWithCategory = RailAction;
+
+export interface RailActionGroup {
+  category: RailActionCategory;
+  label: string;
+  actions: RailAction[];
+}
+
+/**
+ * Bucket a flat rail action list into ordered category groups. Skips
+ * empty groups so the UI never renders an empty section.
+ */
+export function groupRailActionsByCategory(actions: readonly RailAction[]): RailActionGroup[] {
+  const out: RailActionGroup[] = [];
+  for (const cat of RAIL_ACTION_CATEGORIES) {
+    const matched = actions.filter((a) => a.category === cat);
+    if (matched.length > 0) {
+      out.push({ category: cat, label: RAIL_ACTION_CATEGORY_LABEL[cat], actions: matched });
+    }
+  }
+  return out;
+}
 
 export function getRailActions(viewerRole: RailViewerRole, bubbleActor: RailBubbleActor): RailAction[] {
   if (viewerRole === 'observer') return OBSERVER_ACTIONS;
