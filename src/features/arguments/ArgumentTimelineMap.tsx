@@ -34,6 +34,7 @@ import {
   decideNodeTapEffect,
 } from './timelineNodePopoverModel';
 import { TimelineNodePopover } from './TimelineNodePopover';
+import type { EvidenceArtifact, TimelineEvidenceContract } from '../evidence/evidenceModel';
 
 interface Props {
   map: ArgumentTimelineMapModel;
@@ -58,6 +59,25 @@ interface Props {
   onOpenDetails?: (messageId: string) => void;
   /** Forwarded to the controls-context for action permission gating. */
   controlsContext?: BubbleControlsContext;
+  /**
+   * EV-002 — Optional artifact map keyed by message id. The room shell
+   * builds this once per render via EV-001's `buildEvidenceArtifacts`.
+   * When the active node has artifacts, the popover renders a
+   * `ReceiptChip` + an inline `SourceChainPopover` section.
+   */
+  artifactsByMessageId?: Record<string, ReadonlyArray<EvidenceArtifact>>;
+  /**
+   * EV-002 — Builder for the per-node `TimelineEvidenceContract`. The
+   * room shell threads `getTimelineEvidenceContract(argumentType,
+   * artifacts)` here so the popover and the chip never drift.
+   */
+  evidenceContractFor?: (messageId: string) => TimelineEvidenceContract | null;
+  /**
+   * EV-002 — True when the viewer cannot post (observer mode). Threaded
+   * through to the popover so the "ask" CTA renders disabled with the
+   * locked helper "Join a side to ask".
+   */
+  isReadModeViewer?: boolean;
 }
 
 const RAIL_THICKNESS = 4;
@@ -200,6 +220,9 @@ export function ArgumentTimelineMap({
   onAction,
   onOpenDetails,
   controlsContext,
+  artifactsByMessageId,
+  evidenceContractFor,
+  isReadModeViewer,
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [popoverMessageId, setPopoverMessageId] = useState<string | null>(null);
@@ -246,12 +269,19 @@ export function ArgumentTimelineMap({
   const popoverModel = (() => {
     if (!popoverMessageId || !map.activeNode || !activeViewModel) return null;
     if (popoverMessageId !== map.activeNode.messageId) return null;
+    const contract = evidenceContractFor ? evidenceContractFor(map.activeNode.messageId) ?? undefined : undefined;
     return buildTimelineNodePopoverModel({
       node: map.activeNode,
       actor: activeViewModel.actor,
       totalCount: totalCount ?? map.nodes.length,
       controlsContext,
+      evidenceContract: contract,
     });
+  })();
+
+  const popoverArtifacts = (() => {
+    if (!popoverModel || !artifactsByMessageId) return undefined;
+    return artifactsByMessageId[popoverModel.messageId];
   })();
 
   if (map.nodes.length === 0) {
@@ -331,6 +361,8 @@ export function ArgumentTimelineMap({
             onAction={onAction}
             onOpenDetails={onOpenDetails ? (id) => { setPopoverMessageId(null); onOpenDetails(id); } : undefined}
             onClose={() => setPopoverMessageId(null)}
+            artifacts={popoverArtifacts}
+            isReadModeViewer={isReadModeViewer === true}
           />
         </View>
       ) : null}

@@ -121,6 +121,9 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
       ...(initialPatch.argumentType !== undefined ? { argumentType: initialPatch.argumentType ?? null } : {}),
       ...(initialPatch.disagreementAxis !== undefined ? { disagreementAxis: initialPatch.disagreementAxis ?? null } : {}),
       ...(initialPatch.targetExcerpt !== undefined ? { targetExcerpt: initialPatch.targetExcerpt ?? null } : {}),
+      // EV-002: surface the seeded body from "ask" presets routed through
+      // initialPatch (e.g. source/quote from the sidecar). User can edit.
+      ...(initialPatch.body !== undefined ? { body: initialPatch.body } : {}),
       ...(incoming.length > 0 ? { selectedTagCodes: merged } : {}),
     });
   }, [initialPatch, draft, updateField]);
@@ -170,6 +173,10 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
         ...(patch.argumentType !== undefined ? { argumentType: patch.argumentType ?? null } : {}),
         ...(patch.disagreementAxis !== undefined ? { disagreementAxis: patch.disagreementAxis ?? null } : {}),
         ...(patch.targetExcerpt !== undefined ? { targetExcerpt: patch.targetExcerpt ?? null } : {}),
+        // EV-002: when an "ask" preset provides a seeded body, write it to
+        // the composer. User can edit before submit. Existing presets that
+        // do not carry `body` pass undefined and leave the draft body alone.
+        ...(patch.body !== undefined ? { body: patch.body } : {}),
         selectedTagCodes: merged,
       });
     },

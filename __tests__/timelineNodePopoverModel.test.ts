@@ -191,3 +191,44 @@ describe('SC-002 decideInfoIconEffect', () => {
     expect(decideInfoIconEffect('m99')).toEqual({ type: 'open_popover', messageId: 'm99' });
   });
 });
+
+// ── EV-002 — evidenceContract pass-through ─────────────────────
+
+describe('EV-002 buildTimelineNodePopoverModel — optional evidenceContract', () => {
+  it('omits the evidenceContract field when none is passed', () => {
+    const node = fakeNode({ messageId: 'm1' });
+    const model = buildTimelineNodePopoverModel({ node, actor: 'other', totalCount: 1 });
+    expect(model).not.toBeNull();
+    expect('evidenceContract' in model!).toBe(false);
+  });
+
+  it('threads evidenceContract through untouched when provided', () => {
+    // Lazy-require so the test file does not need to import EV-001 at top.
+    // (Mirrors the existing test style which uses fakeNode for inputs.)
+    // We construct a minimal but realistic TimelineEvidenceContract.
+    const contract = {
+      rendersAsEvidenceNode: false,
+      rendersSourceChainRing: true,
+      accessibilityLabelSuffix: 'Has attached receipt: no source yet.',
+      receiptChip: {
+        label: 'No source yet',
+        helper: 'helper',
+        tone: 'info' as const,
+        invitesFollowup: true,
+        showsSourceChainPressure: true,
+        status: 'no_source' as const,
+        kinds: [],
+        count: 0,
+      },
+    };
+    const node = fakeNode({ messageId: 'm1' });
+    const model = buildTimelineNodePopoverModel({
+      node,
+      actor: 'other',
+      totalCount: 1,
+      evidenceContract: contract,
+    });
+    expect(model).not.toBeNull();
+    expect(model!.evidenceContract).toBe(contract);
+  });
+});

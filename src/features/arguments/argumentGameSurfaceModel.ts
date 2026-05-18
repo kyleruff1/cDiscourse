@@ -54,6 +54,19 @@ export interface ArgumentMessageInput {
   qualifierLabels?: string[];
   /** Optional point-standing / resting-status hint label. */
   pointStandingHint?: string | null;
+  /**
+   * EV-002 — Optional raw evidence attachments from
+   * `arguments.client_validation.attachedEvidence`. The caller threads
+   * `row.clientValidation.attachedEvidence` here so the room shell can
+   * build `artifactsByMessageId` once per render via EV-001's
+   * `buildEvidenceArtifacts`. Optional; all consumers default to `[]`.
+   */
+  attachedEvidence?: ReadonlyArray<{
+    url?: string | null;
+    label?: string | null;
+    sourceText?: string | null;
+    quote?: string | null;
+  }> | null;
 }
 
 export interface ArgumentTimelineSegment {

@@ -66,6 +66,12 @@ export interface MoveDraftPatch {
   /** Suggested tags. Caller must merge with existing codes without duplicates. */
   suggestedTagCodes?: string[];
   moveKind?: ConversationMoveKind | null;
+  /**
+   * EV-002 — Optional seeded body text. When provided, the composer writes
+   * this into the draft body field. The user can edit before submitting.
+   * Optional; existing callers (challenge / reply / etc.) are unaffected.
+   */
+  body?: string;
 }
 
 /** Step IDs for progressive-disclosure ordering. */

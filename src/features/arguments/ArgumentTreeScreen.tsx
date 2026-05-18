@@ -265,19 +265,31 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
 
   const messages: ArgumentMessageInput[] = rows
     .filter((row) => row.status !== 'deleted')
-    .map((row) => ({
-      id: row.id,
-      debateId: row.debateId,
-      parentId: row.parentId,
-      authorId: row.authorId,
-      argumentType: row.argumentType,
-      side: row.side,
-      body: row.body,
-      status: row.status,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      qualifierLabels: (tagsByArgumentId[row.id] || []).map((t) => t.tagCode),
-    }));
+    .map((row) => {
+      // EV-002 — surface optional attached evidence from clientValidation
+      // so the room shell can build the EV-001 artifact map per render.
+      // Typed defensively; the JSONB shape is loose.
+      const rawAttached = (row.clientValidation && typeof row.clientValidation === 'object'
+        ? (row.clientValidation as { attachedEvidence?: unknown }).attachedEvidence
+        : undefined);
+      const attachedEvidence = Array.isArray(rawAttached)
+        ? (rawAttached as Array<{ url?: string | null; label?: string | null; sourceText?: string | null; quote?: string | null }>)
+        : null;
+      return {
+        id: row.id,
+        debateId: row.debateId,
+        parentId: row.parentId,
+        authorId: row.authorId,
+        argumentType: row.argumentType,
+        side: row.side,
+        body: row.body,
+        status: row.status,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        qualifierLabels: (tagsByArgumentId[row.id] || []).map((t) => t.tagCode),
+        attachedEvidence,
+      };
+    });
 
   const rootRow = messages.find((m) => m.parentId === null);
 
