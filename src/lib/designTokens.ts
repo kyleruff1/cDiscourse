@@ -107,6 +107,42 @@ export const ARGUMENT = {
 
 export type ArgumentKindKey = keyof typeof ARGUMENT;
 
+// ── BRAND-001 — CivilDiscourse brand tokens ─────────────────────
+
+/**
+ * BRAND-001 — Global CivilDiscourse identity. The cream-on-black mark
+ * is the load-bearing visual move; the dark backdrop is a global
+ * default, not a per-screen choice.
+ *
+ * - `surface.app` is the app-wide page background that matches the
+ *   logo's black field.
+ * - `surface.appElevated` is the card / rail / sidecar surface tone
+ *   one step above `surface.app` — used so cards still read as a
+ *   discrete layer on the dark backdrop.
+ * - `text.primary` is the canonical cream that pairs with `surface.app`
+ *   for body text. WCAG AA passes against `#08060F` (contrast > 14:1).
+ * - `text.muted` is the secondary text tone for helpers + timestamps.
+ * - `accent.cream` exposes the same cream value for non-text use
+ *   (borders, dividers, focus rings).
+ */
+export const BRAND = {
+  surface: {
+    app:         { bg: '#08060F' },
+    appElevated: { bg: '#13101D' },
+  },
+  text: {
+    primary: '#F5EDE0',
+    muted:   '#B6AFA1',
+  },
+  accent: {
+    cream: '#F5EDE0',
+  },
+  /** Header height target in dp/px. */
+  headerHeightPx: 64 as const,
+  /** Logo height target inside the header. */
+  logoHeightPx: 44 as const,
+} as const;
+
 // ── Aggregate ───────────────────────────────────────────────────
 
 export const TOKENS = {
@@ -116,6 +152,7 @@ export const TOKENS = {
   surface: SURFACE,
   rail: RAIL,
   argument: ARGUMENT,
+  brand: BRAND,
 } as const;
 
 /**

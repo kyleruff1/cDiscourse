@@ -1,6 +1,16 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-18 (Stage 6.4 — Seamless Conversation Entry + Observer-first Side Action Rail)_
+_Last updated: 2026-05-18 (Stage 6.5 BRAND — Global CivilDiscourse identity + dark theme)_
+
+## BRAND-001 — CivilDiscourse global identity (Stage 6.5)
+
+**Status:** complete.
+
+- Canonical PNG committed at `assets/branding/civic-discourse-logo.png` (1370×1148, cream-on-black full lockup).
+- New `BRAND` token group in `src/lib/designTokens.ts`: `surface.app` (`#08060F`) and `surface.appElevated` (`#13101D`) for the dark backdrop and one-step-up card / rail tone; `text.primary` (`#F5EDE0`) is the canonical cream that pairs with the backdrop at >14:1 contrast.
+- New `src/components/AppHeader.tsx` — top bar mounted in `AppRoot` so it persists across every session state (unconfigured / signed_out / signed_in). Logo on the left tied to a state-only deselect (re-dispatches `SIGNED_IN`), no router. Right-side slot composes with the existing user / observer chrome. Text-only `CivilDiscourse` wordmark fallback if the asset is ever missing.
+- Global dark backdrop applied at the app root, tab bar, room toolbar, invite panel, action bar, and `src/components/Screen.tsx` (which wraps `AuthScreen` / `AccountScreen` / `AdminScreen`). Stage 6.4 functionality (observer rail collapsed, gallery dedupe, deletion-request flow) unchanged.
+- Tests `__tests__/appHeader.test.ts` (24): BRAND token contract; AppHeader source contract; App.tsx wiring; asset committed (>10KB, PNG magic bytes valid). TL-003 no-route invariant preserved.
 
 ## Now / Next / Later — UX board tracker
 
