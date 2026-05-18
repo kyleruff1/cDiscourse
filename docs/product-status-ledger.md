@@ -27,6 +27,7 @@ agent's job is to close those windows quickly via
 
 | Date | Issue | Title | Status | Commit | Agent | Verification | Notes |
 |---|---|---|---|---|---|---|---|
+| 2026-05-18 | board-prep | Timeline Tree Game Board roadmap expansion | Needs Review | this commit | project-board-manager | tc=pass; lint=pass; tests=2426 | New master doc `docs/roadmap-timeline-tree-game-board.md`. New cards LIFE-001 / META-001 / SC-004 / GAME-001 / RULE-003 / AN-003. Scope expansions on BR-001, IX-001, IX-002, SC-003, ST-002, RULE-002, GAL-002. Docs-only pass — no production code, no schema change. |
 | 2026-05-18 | #46 BRAND-001 | Global app shell: dark theme + CivilDiscourse logo header | Done | abba2e8 | timeline-ui-agent | tc=pass; lint=pass; tests=2201 | Merged via PR #55. Project Phase corrected Backlog → Done. Audit: `docs/project-audits/2026-05-18-overnight-work-audit.md`. |
 | 2026-05-18 | #32 RULE-001 | Semantic rule-to-UI affordance map | Done | bc4fe3c | evidence-rules-agent | tc=pass; lint=pass; tests=2201 | Merged via PR #54. Unblocks ST-002 + GAL-002. |
 | 2026-05-18 | #34 AN-001 | Deterministic board diagnostics model | Done | 7faefb6 | analytics-agent | tc=pass; lint=pass; tests=2201 | Merged via PR #53. |

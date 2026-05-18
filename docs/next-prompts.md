@@ -4,6 +4,35 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
+## Prompt A — Timeline Tree Game Board: BR-001 design
+
+> Run after the Timeline Tree Game Board roadmap commit (`docs: expand timeline tree game board roadmap`) is in `main`. See [`docs/roadmap-timeline-tree-game-board.md`](roadmap-timeline-tree-game-board.md) for the master plan.
+>
+> ```powershell
+> # Pull latest and start the foundation card.
+> git checkout main
+> git pull --ff-only origin main
+> .\.claude\scripts\spawn-card.ps1 BR-001
+> ```
+>
+> Pass the printed prompt to the `roadmap-designer` subagent with `isolation: "worktree"`. Add the BR-001 design constraints from the roadmap doc (§ "First implementation path" + § 5 + § 13):
+>
+> - Design phase only. Produce `docs/designs/BR-001.md`. Commit on the BR-001 branch. Do not write production code. Do not push.
+> - Define a deterministic **tree / branch / cluster** model before any UI work.
+> - Preserve Timeline as the primary game board; Cards / Stack stays the detail surface.
+> - `BranchKind` must support `mainline · tangent · source_chain_branch · evidence_branch · definition_branch · scope_branch · synthesis_branch`.
+> - Include node-cluster / branch-cluster contracts, collapsed-branch stub contract, active-path contract, area-click cluster-focus contract.
+> - Include accessibility labels per node + branch.
+> - Include a 250+ message stress plan.
+> - No new dependency unless the design explicitly recommends one and stops for operator approval.
+> - No `service-role`. No direct insert into `public.arguments`. No Supabase mutation. No live AI calls. No `.env*` edits.
+> - No `winner / loser / liar / true / false / verdict` UI copy. Heat = activity, not correctness. Popularity is not evidence.
+> - Required design-doc sections: Goal · Data model · Tree layout algorithm · Branch / kink grammar · Cluster focus behavior · Collapsed branch behavior · Active path behavior · Timeline map integration · Cards / Stack integration · Accessibility · Edge cases · Test plan · Doctrine / safety self-check · Operator steps · Dependencies on LIFE-001 / META-001 / SC-004 / IX-001 · Do not implement in this card · Follow-up discovery issues.
+
+After the designer completes, report design doc path + commit SHA + readiness to move BR-001 to Build.
+
+---
+
 ## Prompt 0 — Deploy & bootstrap (✅ done 2026-05-16)
 
 > 1. ✅ `npx supabase functions deploy admin-users` → ACTIVE v1
