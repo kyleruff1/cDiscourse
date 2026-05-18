@@ -106,6 +106,35 @@ export type ConversationSortMode =
 
 export type ConversationDedupeMode = 'collapse_generated' | 'show_all';
 
+/**
+ * Stage 6.4 — Smart entry hint: tells the room shell which message to
+ * activate when the user opens a card, plus a short prose hint to show
+ * inside the room ("Be the first challenge", "Try narrowing", etc.).
+ */
+export interface ConversationEntryHint {
+  /**
+   * Which message to focus on entry.
+   *  - `root`   → root message (root claim).
+   *  - `latest` → most recent message.
+   *  - `first_open_challenge` → the most recent challenge or ask_source move.
+   */
+  activate: 'root' | 'latest' | 'first_open_challenge';
+  /** Short prose hint shown to the user inside the room. */
+  microMomentLabel: string;
+}
+
+/**
+ * Stage 6.4 — Gallery section ids the entry screen groups cards under.
+ * The section a card belongs to is derived from `bucket` + `heatLevel`.
+ */
+export type ConversationGallerySection =
+  | 'jump_in'           // hot rooms with active back-and-forth
+  | 'needs_rebuttal'    // root posted, 0 rebuttals
+  | 'source_trail'      // source_chain_fight bucket
+  | 'hot_unresolved'    // hot_now OR overheated OR unresolved_deep_chain
+  | 'easy_first_move'   // pedantic_plain / cold / quiet rooms
+  | 'my_rooms';         // user is participant
+
 export interface ConversationSignal {
   code: string;
   label: string;
@@ -862,6 +891,92 @@ export function sortConversationGalleryCards(
 }
 
 // ── Pagination ──────────────────────────────────────────────
+
+// ── Stage 6.4 — Smart entry hints + section grouping ─────────
+
+/**
+ * Decide which message to activate when the user opens a card, plus a
+ * short prose hint to show inside the room. Pure / deterministic.
+ */
+export function deriveConversationEntryHint(card: ConversationGalleryCard): ConversationEntryHint {
+  if (card.hasNoRebuttal) return { activate: 'root', microMomentLabel: 'Be the first rebuttal' };
+  switch (card.bucket) {
+    case 'source_chain_fight':
+      return { activate: 'first_open_challenge', microMomentLabel: 'Ask for the source' };
+    case 'evidence_fight':
+      return { activate: 'first_open_challenge', microMomentLabel: 'Challenge the mechanism' };
+    case 'definition_scope_fight':
+      return { activate: 'latest', microMomentLabel: 'Narrow the claim' };
+    case 'unresolved_deep_chain':
+      return { activate: 'latest', microMomentLabel: 'Try narrowing or offer a synthesis' };
+    case 'hot_now':
+      return { activate: 'latest', microMomentLabel: 'Jump into the live exchange' };
+    case 'gaining_heat':
+      return { activate: 'latest', microMomentLabel: 'Add the next move' };
+    case 'pedantic_plain':
+      return { activate: 'root', microMomentLabel: 'Watch first — quiet room' };
+    case 'resolved_or_synthesized':
+      return { activate: 'latest', microMomentLabel: 'Resolved — read how it closed' };
+    case 'my_rooms':
+      return { activate: 'latest', microMomentLabel: 'Continue where you left off' };
+    case 'needs_rebuttal':
+      return { activate: 'root', microMomentLabel: 'Be the first rebuttal' };
+    case 'all_open':
+    default:
+      return { activate: 'latest', microMomentLabel: 'Watch first — join when ready' };
+  }
+}
+
+/**
+ * Group cards into Stage 6.4 entry sections. Returns ordered sections
+ * with their cards; each card appears in AT MOST one section so a user
+ * scrolling top-to-bottom can scan the whole inventory.
+ */
+export interface GallerySectionGroup {
+  id: ConversationGallerySection;
+  label: string;
+  cards: ConversationGalleryCard[];
+}
+
+const SECTION_ORDER: ConversationGallerySection[] = [
+  'jump_in', 'needs_rebuttal', 'source_trail', 'hot_unresolved', 'easy_first_move', 'my_rooms',
+];
+
+const SECTION_LABEL: Record<ConversationGallerySection, string> = {
+  jump_in: 'Jump into a live dispute',
+  needs_rebuttal: 'Needs first rebuttal',
+  source_trail: 'Source trail fights',
+  hot_unresolved: 'Hot but unresolved',
+  easy_first_move: 'Easy first move',
+  my_rooms: 'My rooms',
+};
+
+function classifyCardToSection(card: ConversationGalleryCard): ConversationGallerySection {
+  // Priority order keeps each card in a single section.
+  if (card.hasUserJoined) return 'my_rooms';
+  if (card.hasNoRebuttal) return 'needs_rebuttal';
+  if (card.bucket === 'source_chain_fight') return 'source_trail';
+  if (card.bucket === 'hot_now' || card.heatLevel === 'overheated' || card.bucket === 'unresolved_deep_chain') return 'hot_unresolved';
+  if (card.heatLevel === 'warming' && card.rebuttalCount >= 1) return 'jump_in';
+  if (card.bucket === 'pedantic_plain' || card.heatLevel === 'cold') return 'easy_first_move';
+  return 'jump_in';
+}
+
+export function groupGalleryCardsBySection(cards: ConversationGalleryCard[]): GallerySectionGroup[] {
+  const byId = new Map<ConversationGallerySection, ConversationGalleryCard[]>();
+  for (const id of SECTION_ORDER) byId.set(id, []);
+  for (const c of cards) {
+    const sid = classifyCardToSection(c);
+    byId.get(sid)!.push(c);
+  }
+  const groups: GallerySectionGroup[] = [];
+  for (const id of SECTION_ORDER) {
+    const list = byId.get(id) || [];
+    if (list.length === 0) continue;
+    groups.push({ id, label: SECTION_LABEL[id], cards: list });
+  }
+  return groups;
+}
 
 export function paginateConversationGalleryCards(
   cards: ConversationGalleryCard[],

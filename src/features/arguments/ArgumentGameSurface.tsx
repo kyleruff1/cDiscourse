@@ -30,7 +30,10 @@ import {
 } from './argumentGameSurfaceModel';
 import { computeParticipantTrends } from './argumentScoreModel';
 import { ArgumentScoreTracker } from './ArgumentScoreTracker';
+import { ArgumentSideActionRail, railActionToBubbleControl } from './ArgumentSideActionRail';
+import type { RailActionCode, RailViewerRole } from './ArgumentSideActionRail';
 import type { ArgumentTag, ArgumentFlag } from './types';
+import type { ParticipantSide } from '../debates/types';
 
 interface Props {
   debate: {
@@ -60,6 +63,24 @@ interface Props {
   onAction?: (control: ArgumentBubbleControl, messageId: string) => void;
   /** Optional refresh trigger (e.g., the room hook's refresh). */
   onRefresh?: () => void;
+  /**
+   * Stage 6.4 — Viewer role at entry. `observer` collapses the side action
+   * rail and hides post / score / flag controls until the user expands it
+   * and picks Join Aff / Join Neg.
+   */
+  viewerRole?: RailViewerRole;
+  /** Participant side, when the user is already a participant. */
+  participantSide?: ParticipantSide | null;
+  /** Called when the user picks Join Aff / Join Neg in the action rail. */
+  onJoinSide?: (side: 'affirmative' | 'negative') => void;
+  /** Called when the user picks Share in the action rail. */
+  onShareRoom?: () => void;
+  /**
+   * Optional smart-entry hint computed from the gallery card the user
+   * opened. The room shell uses it to pre-activate the right message
+   * and to show a small "micro-moment" hint near the timeline.
+   */
+  entryHint?: { activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string };
 }
 
 export function ArgumentGameSurface({
@@ -76,12 +97,36 @@ export function ArgumentGameSurface({
   qualifierLabelById: _qualifierLabelById,
   onAction,
   onRefresh: _onRefresh,
+  viewerRole,
+  participantSide,
+  onJoinSide,
+  onShareRoom,
+  entryHint,
 }: Props) {
   const sorted = useMemo(() => sortMessagesChronologically(messages || []), [messages]);
   const latestId = useMemo(() => latestIdHint ?? getLatestMessageId(sorted), [sorted, latestIdHint]);
   const [mode, setMode] = useState<ArgumentSurfaceMode>(initialMode || 'stack');
-  const [activeMessageId, setActiveMessageId] = useState<string | null>(latestId);
+  // Stage 6.4: derive the initial active message from the entry hint, not
+  // always the latest. needs_rebuttal cards open the root; source-chain
+  // cards open the most-recent challenge/source-style move.
+  const initialActiveId = useMemo<string | null>(() => {
+    if (!sorted.length) return null;
+    if (!entryHint) return latestId;
+    if (entryHint.activate === 'root') return sorted[0].id;
+    if (entryHint.activate === 'first_open_challenge') {
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        const t = String(sorted[i].argumentType || '').toLowerCase();
+        if (t === 'rebuttal' || t === 'counter_rebuttal' || t === 'clarification_request') return sorted[i].id;
+      }
+      return latestId;
+    }
+    return latestId;
+  }, [sorted, latestId, entryHint]);
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(initialActiveId);
   const [deletionTarget, setDeletionTarget] = useState<string | null>(null);
+  // Resolved viewer role: explicit prop, else infer from participant side.
+  const resolvedViewerRole: RailViewerRole = viewerRole
+    ?? (participantSide && participantSide !== 'observer' && participantSide !== 'moderator' ? 'participant' : 'observer');
 
   // When new messages arrive, keep the active selection on the LATEST.
   useEffect(() => {
@@ -159,6 +204,19 @@ export function ArgumentGameSurface({
     onAction?.(control, messageId);
   }, [onAction]);
 
+  // Stage 6.4 — Action rail action dispatch. Routes rail-only codes
+  // (join_aff, join_neg, share, open_timeline, watch) locally; bubble
+  // controls reuse the existing handleAction path.
+  const handleRailAction = useCallback((code: RailActionCode, ctx: { activeMessageId: string | null }) => {
+    if (code === 'join_aff') { onJoinSide?.('affirmative'); return; }
+    if (code === 'join_neg') { onJoinSide?.('negative'); return; }
+    if (code === 'open_timeline') { if (mode !== 'timeline') setMode('timeline'); return; }
+    if (code === 'watch') { /* no-op: observer stays observer */ return; }
+    if (code === 'share') { onShareRoom?.(); return; }
+    const ctrl = railActionToBubbleControl(code);
+    if (ctrl && ctx.activeMessageId) handleAction(ctrl, ctx.activeMessageId);
+  }, [onJoinSide, onShareRoom, mode, handleAction]);
+
   const handleDeletionSuccess = useCallback(() => {
     // Caller is responsible for re-fetching deletionRequestedMap; we just close.
     setDeletionTarget(null);
@@ -196,6 +254,12 @@ export function ArgumentGameSurface({
         </View>
       </View>
 
+      {entryHint?.microMomentLabel ? (
+        <View style={styles.microMoment} testID="argument-micro-moment">
+          <Text style={styles.microMomentText}>{entryHint.microMomentLabel}</Text>
+        </View>
+      ) : null}
+
       <View style={styles.body}>
         {mode === 'stack' ? (
           <>
@@ -207,12 +271,16 @@ export function ArgumentGameSurface({
               onNext={handleNext}
               onToggleMode={handleToggleMode}
             />
-            {activeViewModel && (
+            {/* Stage 6.4: legacy chip cluster is hidden in observer mode;
+                the action rail below is the single entry point for both
+                observer + participant flows. Participants still get the
+                chip cluster for quick access on the active card. */}
+            {activeViewModel && resolvedViewerRole === 'participant' ? (
               <ArgumentBubbleActions
                 viewModel={activeViewModel}
                 onAction={handleAction}
               />
-            )}
+            ) : null}
           </>
         ) : (
           <>
@@ -241,6 +309,15 @@ export function ArgumentGameSurface({
         )}
       </View>
 
+      {/* Stage 6.4 — Side action rail. Collapsed by default for observers. */}
+      <ArgumentSideActionRail
+        viewerRole={resolvedViewerRole}
+        bubbleActor={activeViewModel?.actor || 'unknown'}
+        participantSide={participantSide ?? null}
+        activeMessageId={activeMessageId}
+        onAction={handleRailAction}
+      />
+
       {deletionTarget && (
         <DeletionRequestSheet
           visible
@@ -265,4 +342,6 @@ const styles = StyleSheet.create({
   modeChipText: { color: '#e2e8f0', fontWeight: '700', fontSize: 12 },
   latestStatus: { color: '#94a3b8', fontSize: 11, flex: 1 },
   body: { flex: 1, paddingHorizontal: 8, paddingBottom: 8 },
+  microMoment: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1e1b4b', borderBottomWidth: 1, borderBottomColor: '#312e81' },
+  microMomentText: { color: '#a5b4fc', fontSize: 12, fontWeight: '700' as const },
 });

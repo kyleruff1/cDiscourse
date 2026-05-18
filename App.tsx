@@ -58,6 +58,10 @@ function MainAppShell() {
   // Stage 6.2 M7 — preset draft patch from sidecar/bubble quick action.
   // Reset on composer close so the next open starts fresh.
   const [composerPreset, setComposerPreset] = useState<MoveDraftPatch | null>(null);
+  // Stage 6.4: entry hint set by the Conversation Gallery when the user
+  // opens a card. Tells the room shell which message to activate first
+  // and what one-line "micro-moment" prompt to show.
+  const [entryHint, setEntryHint] = useState<{ activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string } | null>(null);
   const refreshTreeRef = useRef<(() => void) | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
@@ -145,7 +149,10 @@ function MainAppShell() {
             onRefresh={() => { refresh(); galleryArgs.refresh(); }}
             onCreate={create}
             onJoin={join}
-            onSelect={selectDebate}
+            onSelect={(debate, side, hint) => {
+              setEntryHint(hint || null);
+              selectDebate(debate, side);
+            }}
           />
         )}
         {/* Old sortable table is dev-only behind the chip; keep mount path so
@@ -263,6 +270,13 @@ function MainAppShell() {
               refreshRef={refreshTreeRef}
               viewMode={viewMode}
               onComposerPreset={setComposerPreset}
+              entryHint={entryHint}
+              participantSide={participantSide}
+              onJoinSide={async (side) => {
+                if (!currentDebate) return;
+                const joined = await join(currentDebate.id, side);
+                if (joined) selectDebate(currentDebate, joined);
+              }}
             />
 
             {/* Gamified action bar */}

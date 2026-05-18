@@ -1,5 +1,32 @@
 # CDiscourse — Current Status
 
+_Last updated: 2026-05-18 (Stage 6.4 — Seamless Conversation Entry + Observer-first Side Action Rail)_
+
+## Current Stage
+
+**Stage 6.4 complete — Seamless Conversation Entry + Observer-first Side Action Rail.** UI / UX only. No xAI, Anthropic, or X API calls. No Supabase writes beyond existing user actions. No service-role.
+
+- **Observer-first entry.** Opening a debate from the Conversation Gallery defaults to Observer / read mode. Existing participants keep their actual side; everyone else enters with `side='observer'`. No "choose side" modal on entry. The `JoinDebatePanel` mount path is preserved but reached only by an explicit in-rail Join Aff / Join Neg action.
+- **`ArgumentSideActionRail.tsx`** — collapsed by default for observers. Observer set: `Watch · Join For · Join Against · Ask source · Open timeline · Share`. Participant on another bubble: `Reply · Disagree · Ask source · Ask quote · Split branch · Flag · Qualifiers`. Own bubble: `Qualifiers · Request deletion` only (no edit, no disagree, no flag, no score). Each action carries a short helper string.
+- **Smart entry hints** — `deriveConversationEntryHint(card)` pre-activates the right message per bucket and shows a one-line micro-moment prompt: `needs_rebuttal → root + "Be the first rebuttal"`, `source_chain_fight → first open challenge + "Ask for the source"`, `evidence_fight → first open challenge + "Challenge the mechanism"`, `unresolved_deep_chain → latest + "Try narrowing or offer a synthesis"`, `pedantic_plain → root + "Watch first — quiet room"`, etc.
+- **Section grouping** — `groupGalleryCardsBySection(cards)` partitions cards into the six Stage 6.4 entry sections (Jump into a live dispute · Needs first rebuttal · Source trail fights · Hot but unresolved · Easy first move · My rooms). Each card lives in exactly one section by priority.
+- **Gallery action labels** — `Observe →` / `Continue →` / `Open →` with secondary "Jump in from inside". The old "Tap to join →" is reserved for the in-rail Join action.
+- **Plain-language copy** — `gameCopy.toPlainLanguage(code)` maps internal codes (`topic_satisfaction_lexical`, `source_chain`, `anti_amplification`, `evidence_debt`, `platform_support_warning`, `validation_failed_after_retries`, `max_depth_reached`, `synthesis_ready`, `submit_failed`, `observer`, `moderator`, etc.) into normal-user prose. `toPlainLanguageOrSuppress` is the recommended call for normal-user surfaces — unknown codes are silently dropped.
+- **Internal codes blocked from normal-user UI.** `looksLikeInternalCode(s)` flags snake_case / HTTP-status reasons; recommended for defensive renderers.
+
+### Test commands run
+
+- `npm run typecheck` — pass.
+- `npm run lint` — pass.
+- `npm run test` — **1805 / 70 suites passing** (+33 new seamless-entry tests).
+
+### What's NOT done
+
+- Wide-screen vertical rail (currently bottom-docked at all widths).
+- Animated rail expand/collapse.
+- Section-view toggle inside the gallery (single paginated list remains the default; section grouping is exported and tested for future wiring).
+- Voting UI (still placeholders only).
+
 _Last updated: 2026-05-18 (Stage 6.3 — Conversation Gallery + horizontal timeline UX)_
 
 ## Current Stage

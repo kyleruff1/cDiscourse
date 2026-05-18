@@ -138,6 +138,128 @@ export const VALIDATION_COPY = {
   constitutionSource: 'Constitution',
 } as const;
 
+// ── Stage 6.4 — Plain-language mapping for normal-user surfaces ─
+
+/**
+ * Maps internal validation / pipeline codes to human prose. Used in the
+ * gallery, action rail, sidecar, composer panel — anywhere a NORMAL user
+ * might encounter an internal code from a Flag, a runner stop reason, or
+ * a validation rail. Admin / Debug / Dev surfaces may still show the raw
+ * code; the helpers in this section are for the normal player flow.
+ */
+export const PLAIN_LANGUAGE_COPY = {
+  // Validation rail codes
+  topic_satisfaction_lexical: 'This reply needs a clearer link to the active card.',
+  weak_relevance: 'Needs a stronger tie-in',
+  parent_nonresponsive: 'Optional: tie this more directly to the parent.',
+  tangent_shift: 'Looks like it drifted from the parent.',
+  off_topic: 'This may be drifting from the topic.',
+  weak_topic: 'Topic coverage is light.',
+  unclear_claim: 'Short body — a longer reply is usually clearer.',
+  excessive_length: 'Too long — trim it down.',
+  invalid_transition: "That move type isn't allowed here.",
+  evidence_required: 'Evidence post needs at least one source.',
+  missing_parent: "There's nothing to reply to yet.",
+  loaded_clarification: 'Clarification reads loaded — keep it neutral.',
+  duplicate: "That's very similar to an existing reply.",
+  concession_evasion: 'Concession looks like it dodges the original point.',
+  fact_confusion: "There's uncertainty mixed with a factual challenge.",
+  ad_hominem: 'Keep it about the claim, not the person.',
+  civility_risk: 'Tone is getting heated.',
+  // Semantic-corpus axes / risks
+  source_chain: 'Source trail',
+  anti_amplification: 'Popularity is not proof',
+  evidence_debt: 'Receipts needed',
+  platform_support_warning: 'Do not score as proven yet',
+  // Runner / pipeline status
+  validation_failed_after_retries: 'The move needs a clearer shape before it can play well.',
+  max_depth_reached: 'Deep unresolved chain',
+  synthesis_ready: 'Near resolution',
+  synthesis: 'Resolved',
+  concession: 'Conceded',
+  submit_failed: 'Posting failed',
+  three_in_a_row_failures: 'Posting kept failing — try a different angle.',
+  // Participant / role
+  observer: 'Watching',
+  moderator: 'Observer',
+  affirmative: 'For',
+  negative: 'Against',
+  neutral: 'Neutral',
+} as const;
+
+export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;
+
+/**
+ * Lookup helper. Returns the plain-language string for a known internal
+ * code, or `null` for unknown codes (callers can decide to surface raw or
+ * suppress). Case-insensitive. Stage 6.4: normal-user surfaces SHOULD pass
+ * the result through `toPlainLanguageOrSuppress` to drop unknown codes.
+ */
+export function toPlainLanguage(code: string | null | undefined): string | null {
+  if (!code) return null;
+  const key = String(code).trim().toLowerCase().replace(/[\s-]+/g, '_') as PlainLanguageKey;
+  if (Object.prototype.hasOwnProperty.call(PLAIN_LANGUAGE_COPY, key)) return PLAIN_LANGUAGE_COPY[key];
+  return null;
+}
+
+/** Suppresses unknown codes for normal-user surfaces. */
+export function toPlainLanguageOrSuppress(code: string | null | undefined): string | null {
+  return toPlainLanguage(code);
+}
+
+/**
+ * Returns true if the string looks like an internal code that must NOT
+ * appear in normal-user UI (snake_case identifier, all-lowercase token
+ * surrounded by underscores). Used by tests + defensive renderers.
+ */
+export function looksLikeInternalCode(s: string | null | undefined): boolean {
+  if (!s) return false;
+  const t = String(s).trim();
+  // Underscored / colon / arrow code shapes.
+  if (/^[a-z][a-z0-9_]{4,}$/.test(t)) return true;
+  if (/^[A-Z][A-Z0-9_]{4,}$/.test(t)) return true;
+  if (/^[a-z_]+:[a-z0-9_:.-]+$/.test(t)) return true;
+  if (/^http_\d{3}_/.test(t)) return true;
+  return false;
+}
+
+// ── Stage 6.4 — Observer-first room copy ────────────────────────
+
+export const OBSERVER_COPY = {
+  badge: 'Watching',
+  enterRoom: 'Observe',
+  enterRoomSecondary: 'Jump in',
+  joinAff: 'Join — argue For',
+  joinNeg: 'Join — argue Against',
+  joinAffShort: 'Join For',
+  joinNegShort: 'Join Against',
+  watchHelp: 'Read the room without joining a side yet.',
+  joinHelp: 'Pick a side to start posting moves.',
+  askSourceHelp: 'Ask the speaker for their primary source.',
+  openTimelineHelp: 'Inspect the move-by-move history.',
+  shareHelp: 'Copy a link to this room.',
+  qualifiersHelp: 'See how the move was classified.',
+  requestDeletionHelp: 'Request that your message be removed.',
+  splitBranchHelp: 'Open a side issue without losing the main thread.',
+  flagHelp: 'Send to moderators for review.',
+  replyHelp: 'Post your move on this card.',
+  disagreeHelp: 'Challenge this move directly.',
+  askQuoteHelp: 'Ask the speaker to quote the exact passage.',
+} as const;
+
+// ── Stage 6.4 — Section headlines for the gallery entry ─────────
+
+export const GALLERY_SECTIONS = [
+  { id: 'jump_in', label: 'Jump into a live dispute', sub: 'Hot rooms with active back-and-forth.' },
+  { id: 'needs_rebuttal', label: 'Needs first rebuttal', sub: 'Someone planted a claim; nobody has pushed back yet.' },
+  { id: 'source_trail', label: 'Source trail fights', sub: 'Disputes over what the source actually says.' },
+  { id: 'hot_unresolved', label: 'Hot but unresolved', sub: 'Long threads still searching for a resolution.' },
+  { id: 'easy_first_move', label: 'Easy first move', sub: 'Quiet rooms — an easy place to start.' },
+  { id: 'my_rooms', label: 'My rooms', sub: 'Rooms you have already joined.' },
+] as const;
+
+export type GallerySectionId = typeof GALLERY_SECTIONS[number]['id'];
+
 // ── Helper: look up a copy key by path ────────────────────────
 
 export type CopyGroup =

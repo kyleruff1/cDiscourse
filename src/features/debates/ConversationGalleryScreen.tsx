@@ -20,6 +20,7 @@ import {
   BUCKET_DEFINITIONS,
   buildConversationGalleryCards,
   dedupeConversationCards,
+  deriveConversationEntryHint,
   paginateConversationGalleryCards,
   sortConversationGalleryCards,
   type ConversationBucket,
@@ -43,7 +44,12 @@ interface Props {
   onRefresh: () => void;
   onCreate: (input: CreateDebateInput) => Promise<Debate | null>;
   onJoin: (debateId: string, side: ParticipantSide) => Promise<ParticipantSide | null>;
-  onSelect: (debate: Debate, side: ParticipantSide) => void;
+  /**
+   * Stage 6.4: optional entry-hint argument lets the room shell pre-activate
+   * the right message and show a micro-moment label. Existing callers can
+   * ignore it.
+   */
+  onSelect: (debate: Debate, side: ParticipantSide, entryHint?: { activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string }) => void;
 }
 
 const SORT_OPTIONS: { id: ConversationSortMode; label: string }[] = [
@@ -142,6 +148,9 @@ export function ConversationGalleryScreen({
     if (pageIndex > 0 && pageIndex >= paged.pageCount) setPageIndex(Math.max(0, paged.pageCount - 1));
   }, [pageIndex, paged.pageCount]);
 
+  // Stage 6.4: the explicit JoinDebatePanel is kept mounted only when an
+  // action genuinely requires picking a side (Join Aff / Join Neg from
+  // the in-room action rail). Default gallery entry skips this panel.
   if (joiningDebate) {
     return (
       <JoinDebatePanel
@@ -272,11 +281,12 @@ export function ConversationGalleryScreen({
             onPress={() => {
               const debate = debates.find((d) => d.id === card.debateId);
               if (!debate) return;
-              if (card.hasUserJoined && debate.myParticipantSide) {
-                onSelect(debate, debate.myParticipantSide);
-              } else {
-                setJoiningDebate(debate);
-              }
+              // Stage 6.4: Observer-first entry. Existing participants
+              // keep their actual side; everyone else enters as observer.
+              // The in-room action rail is the ONLY join surface.
+              const sideToUse: ParticipantSide = debate.myParticipantSide || 'observer';
+              const entryHint = deriveConversationEntryHint(card);
+              onSelect(debate, sideToUse, entryHint);
             }}
           />
         ))}
@@ -414,8 +424,11 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
 
       <View style={styles.actionRow}>
         <Text style={styles.actionText}>
-          {card.hasUserJoined ? 'Continue →' : card.openStatus === 'open' ? 'Tap to join →' : 'Open →'}
+          {card.hasUserJoined ? 'Continue →' : card.openStatus === 'open' ? 'Observe →' : 'Open →'}
         </Text>
+        {!card.hasUserJoined && card.openStatus === 'open' ? (
+          <Text style={styles.actionTextSecondary}>Jump in from inside</Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -500,6 +513,7 @@ const styles = StyleSheet.create({
 
   actionRow: { marginTop: 8, alignItems: 'flex-end' },
   actionText: { color: '#a5b4fc', fontWeight: '800' as const, fontSize: 12 },
+  actionTextSecondary: { color: '#64748b', fontSize: 10, marginTop: 2 },
 
   pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 8, backgroundColor: '#0b1220', borderTopWidth: 1, borderTopColor: '#1f2937' },
   pageButton: { backgroundColor: '#1f2937', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },

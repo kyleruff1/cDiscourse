@@ -43,9 +43,15 @@ interface Props {
    * into the composer. Called BEFORE / alongside onReply.
    */
   onComposerPreset?: (preset: MoveDraftPatch | null) => void;
+  /** Stage 6.4 — entry hint passed from the Conversation Gallery. */
+  entryHint?: { activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string } | null;
+  /** Stage 6.4 — current viewer's participant side (null = observer entry). */
+  participantSide?: string | null;
+  /** Stage 6.4 — handler invoked when the in-room action rail picks Join Aff/Neg. */
+  onJoinSide?: (side: 'affirmative' | 'negative') => void;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide }: Props) {
   const {
     cache,
     viewport,
@@ -98,6 +104,9 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         refreshRef={refreshRef}
         initialMode={viewMode === 'timeline' ? 'timeline' : 'stack'}
         onComposerPreset={onComposerPreset}
+        entryHint={entryHint}
+        participantSide={participantSide}
+        onJoinSide={onJoinSide}
       />
     );
   }
@@ -230,9 +239,12 @@ interface FullRoomGameSurfaceMountProps {
   refreshRef?: React.MutableRefObject<(() => void) | null>;
   initialMode: ArgumentSurfaceMode;
   onComposerPreset?: (preset: MoveDraftPatch | null) => void;
+  entryHint?: { activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string } | null;
+  participantSide?: string | null;
+  onJoinSide?: (side: 'affirmative' | 'negative') => void;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -321,6 +333,10 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         latestMessageId={latestId}
         onAction={handleAction}
         onRefresh={refresh}
+        viewerRole={participantSide && participantSide !== 'observer' && participantSide !== 'moderator' ? 'participant' : 'observer'}
+        participantSide={(participantSide || null) as never}
+        onJoinSide={onJoinSide}
+        entryHint={entryHint || undefined}
       />
     </View>
   );
