@@ -49,7 +49,11 @@
     "skills:validate": "node scripts/skills/validateBotSkills.js",
     "engagement:intel:xai:adversarial:dry": "node scripts/engagement-intelligence/xaiAdversarialSourceHarvest.js --stories 5 --replies 3 --dry",
     "engagement:intel:xai:adversarial:tiny": "node scripts/engagement-intelligence/xaiAdversarialSourceHarvest.js --pilot --stories 5 --replies 5",
-    "engagement:intel:xai:adversarial:100": "node scripts/engagement-intelligence/xaiAdversarialSourceHarvest.js --pilot --stories 100 --replies 10"
+    "engagement:intel:xai:adversarial:100": "node scripts/engagement-intelligence/xaiAdversarialSourceHarvest.js --pilot --stories 100 --replies 10",
+    "diagnostics:inspect:dry": "node scripts/diagnostics/buildDiagnosticInspectPackage.js --dry",
+    "diagnostics:inspect": "node scripts/diagnostics/buildDiagnosticInspectPackage.js",
+    "diagnostics:inspect:db": "node scripts/diagnostics/buildDiagnosticInspectPackage.js --include-db",
+    "diagnostics:inspect:all": "node scripts/diagnostics/buildDiagnosticInspectPackage.js --include-db --include-all-reports --include-all-jsonl"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
