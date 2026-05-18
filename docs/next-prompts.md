@@ -168,3 +168,68 @@ See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur
 > For each: how Expo web `homepage` / base-path is configured, how nested route refresh resolves, asset URL behaviour, Supabase public URL env handling.
 >
 > Output a recommendation in `docs/`. Do not configure DNS, do not deploy, do not edit production env.
+
+---
+
+## Prompt A1 — Run one issue agent (the day-to-day pattern)
+
+> `npm run github:agent:queue` — show the prioritized open-issue queue.
+>
+> Pick the top P0 / release-6.5 / smallest-effort item. Then in this session:
+>
+> 1. `node scripts/github/agentIssueRunner.js claim --issue <n> --agent <charter> --apply` — claim it on GitHub.
+> 2. Create a branch: `git checkout -b agent/<n>-<prefix-lowercase>`.
+> 3. Read `docs/agent-workflow.md` § C–E and the charter for `<charter>` in `docs/agent-charters.md`.
+> 4. Read the issue body via `gh issue view <n> --json number,title,body,labels,url`.
+> 5. Implement the smallest complete vertical slice that satisfies the acceptance criteria.
+> 6. Add/update tests. Run `npm run typecheck && npm run lint && npm test -- --testPathPattern="<targeted>" && npm run test`.
+> 7. Commit using the footer format in `docs/agent-workflow.md` § E.
+> 8. `node scripts/github/agentIssueRunner.js signoff --issue <n> --commit <hash> --status "<…>" --agent <charter> --apply`.
+> 9. Append a row to `docs/product-status-ledger.md`.
+> 10. **Do not push** until operator confirms.
+
+---
+
+## Prompt A2 — Run board triage
+
+> `npm run github:agent:queue` and walk the top 20 in order. For each:
+>
+> - Read the issue body.
+> - Confirm Priority / Release / Epic / Effort still make sense.
+> - Note dependencies (block / blocked-by) in the issue if not already there.
+> - Flag any issue whose acceptance criteria are too broad — propose 2–4 child issues in a comment and stop short of creating them until operator approves.
+>
+> Do NOT change Priority / Release / Epic / Effort without operator approval. Triage is **proposals**, not edits.
+
+---
+
+## Prompt A3 — Run QA verifier on last commit
+
+> Charter: `qa-verifier-agent` in `docs/agent-charters.md`.
+>
+> Run the four secret-scan commands from § "Verification commands" against the last commit:
+>
+> ```bash
+> git diff HEAD~1..HEAD -U0 | grep -E '<patterns from charter>'
+> git diff HEAD~1..HEAD --stat | grep -E '\.env|logs/|artifacts/diagnostics/|node_modules|\.expo'
+> ```
+>
+> Report per scan: clean / dirty + line numbers of any match. List safe-to-stage files. List unsafe files with reason. If any scan flags, comment on the issue and request the implementing agent re-commit. Do NOT modify source.
+
+---
+
+## Prompt A4 — Split a large issue into child issues
+
+> Issue `#<n>` has acceptance criteria spanning multiple files / multiple Charter lanes. Propose 2–4 child issues that each fit one charter and one commit.
+>
+> For each child: prefix (next available QOL-NNN or sub-prefix like `<orig>.a`), title, labels (mirror parent + add specifics), acceptance criteria, target charter.
+>
+> Do NOT create the issues until operator says "create them". Output the dry-run plan as Markdown.
+
+---
+
+## Prompt A5 — Update product-status ledger from GitHub Projects
+
+> `node scripts/github/agentIssueRunner.js ledger --dry` re-derives the Not-Started rows from open issues. Diff against `docs/product-status-ledger.md` and propose appended rows for any open issue that's missing.
+>
+> Also: for any row in the ledger whose status disagrees with the live GitHub Project (Status field), flag the disagreement and propose the correction. Do not edit the ledger automatically — append-only by hand after operator review.
