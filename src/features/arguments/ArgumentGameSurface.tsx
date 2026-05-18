@@ -294,6 +294,10 @@ export function ArgumentGameSurface({
               onJumpLatest={() => latestId && setActiveMessageId(latestId)}
               onJumpToRoot={() => timelineMap.rootMessageId && setActiveMessageId(timelineMap.rootMessageId)}
               onToggleMode={handleToggleMode}
+              activeViewModel={activeViewModel}
+              totalCount={timelineMap.nodes.length}
+              onAction={handleAction}
+              onOpenDetails={(id) => { setActiveMessageId(id); setMode('stack'); }}
             />
             <ArgumentReplySidecar
               activeMessage={timelineMap.activeNode}
