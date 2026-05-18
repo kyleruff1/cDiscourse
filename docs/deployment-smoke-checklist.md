@@ -2,6 +2,8 @@
 
 _Target environment: **cdiscourse.com/dev** (Release 6.8 public dev hosting). Last updated: 2026-05-18._
 
+Roadmap card: [HOST-003 in `docs/ux-ui-project-board.md`](ux-ui-project-board.md). Sister cards already merged on `main`: HOST-002 (dev banner + bot/test room marker), TL-001 / TL-002 / TL-003 (Timeline-first room shell), ST-001 (Cards relabel), SW-001 (soft standing bands).
+
 This document is the **exact** pre-launch smoke test that must pass before announcing or sharing a fresh dev deployment with anyone outside the operator. It is intentionally narrower than the full UX checklist in [`docs/browser-visual-test.md`](browser-visual-test.md) and the MVP local-dev smoke in [`docs/mvp-smoke-test.md`](mvp-smoke-test.md).
 
 - Use **this doc** before promoting a build to `cdiscourse.com/dev`.
@@ -50,7 +52,7 @@ After A3 lands on the gallery.
 |---|---|---|---|
 | G1 | **Gallery loads.** | At least one conversation card renders within 3 seconds; no perpetual skeleton | Skeleton never replaced; spinner never resolves; console shows network failure |
 | G2 | **Duplicate generated rooms are visually collapsed.** Rooms with `[xai-adv …]` / `[ai-corpus …]` / `[stress …]` titles share one card per family. | Card shows `N duplicate runs collapsed` inline; one card per canonical conversation | Each generated room shows its own card (Stage 6.3 dedupe regression) |
-| G3 | **Bot / test rooms are visually marked** so a public visitor can't confuse them with real debates. (Depends on HOST-002 banner work landing first.) | Test-room cards carry a `Test / Bot` chip or distinct outline; tooltip explains they are synthetic | Test rooms are indistinguishable from real debates |
+| G3 | **Bot / test rooms are visually marked** so a public visitor can't confuse them with real debates. (HOST-002 has landed: `src/features/devEnvironment/devEnvironmentModel.ts#isBotOrTestDebate` classifies titles carrying the `xai-adv` / `ai-corpus` / `stress-*` / `scenario-*` / `seed-*` suffixes, and `ConversationGalleryScreen.tsx` renders a `Test · <kind>` pill.) | Each suffix-tagged title in the gallery shows a `Test · <kind>` pill alongside the heat/temperament pills | Test rooms are indistinguishable from real debates; or the `Test` pill is missing on a card whose title clearly matches a corpus-runner suffix |
 | G4 | **Empty / loading / error states** all render plain-language copy, not internal codes. | No `topic_satisfaction_lexical`, `evidence_debt`, `synthesis_ready`, etc. visible to the user | Any snake_case code visible (use `gameCopy.toPlainLanguage` or `toPlainLanguageOrSuppress`) |
 | G5 | **Action labels** show `Observe →` / `Continue →` / `Open →` per the Stage 6.4 contract — no `Tap to join →` on the gallery. | Labels match Stage 6.4 entry copy from [`docs/seamless-conversation-entry.md`](seamless-conversation-entry.md) | `Tap to join` appears on a gallery card |
 
@@ -75,9 +77,10 @@ In the same room as C1–C4.
 
 | # | Check | Pass criterion | Fail criterion |
 |---|---|---|---|
-| R1 | **Open to Timeline.** Default mode chip should be Timeline (or Stack — confirm against the live Stage release notes for the deployed commit). Either way the chosen default loads without an extra tap. | Default mode renders within 1s of room open; no flash of other mode | Default is unset; user lands on a blank "pick a mode" screen |
-| R2 | **Post a move.** Compose a short reply with valid body length. Submit. | Edge Function returns 2xx; new node appears on the Timeline and on the Stack; sidecar updates | 4xx with internal code in the user-facing toast; OR submit hangs; OR new move not visible without reload |
-| R3 | **Timeline ↔ Cards (Stack) toggle preserves active message.** Switch back and forth. | Active node stays the same; sidecar stays in sync | Active node drifts; sidecar shows stale parent |
+| R1 | **Open to Timeline by default.** TL-001 has landed — Timeline is the primary view; the toggle chip says "Cards" for the deeper inspector (ST-001), never "Stack". | Default mode renders Timeline within 1s of room open; no flash of Cards first; chip label reads "Cards" not "Stack" | Default is Cards / unset; user lands on a blank "pick a mode" screen; or the chip still says "Stack" |
+| R2 | **Post a move.** Compose a short reply with valid body length. Submit. | Edge Function returns 2xx; new node appears on the Timeline and on the Cards view; sidecar updates | 4xx with internal code in the user-facing toast; OR submit hangs; OR new move not visible without reload |
+| R3 | **Timeline ↔ Cards toggle preserves active message.** Switch back and forth. | Active node stays the same; sidecar stays in sync | Active node drifts; sidecar shows stale parent |
+| R6 | **In-room no-route invariant (TL-003).** All view changes — Cards ↔ Timeline toggle, quick actions, sidecar focus, popovers, composer open/close — happen via state, not URL routes. | URL path does not change when toggling modes / opening sidecar / firing quick actions; no `@react-navigation/*`, `expo-router`, or `react-router*` request in the network panel | URL changes on any in-room interaction; or a routing-library request appears |
 | R4 | **Evidence popover renders** when invoked from a node that has a source claim. (Requires EV-002 to have landed in the deployed commit.) | Popover opens; source chain renders; close returns focus to the rail | Tap registers but popover never opens; or popover crashes the room |
 | R5 | **No console 404s.** Open browser devtools, reload, exercise R1–R4. | Network panel shows zero 404s on app-owned routes; any 404 is a known third-party fetch | Any 404 on `/functions/v1/*`, `/storage/*`, `/rest/*`, or static app assets |
 
@@ -98,6 +101,7 @@ In the same room as C1–C4.
 |---|---|---|---|
 | L1 | **No raw internal codes are visible to a normal user anywhere.** Sweep gallery, room, banners, error toasts, and modals. | No `topic_satisfaction_lexical`, `parent_overlap`, `evidence_debt`, `platform_support_warning`, `validation_failed_after_retries`, `max_depth_reached`, `synthesis_ready`, `submit_failed`, `anti_amplification`, `source_chain`, `observer`, `moderator`, or other snake_case tokens appear to the user | Any snake_case / HTTP-status reason rendered as user copy |
 | L2 | **No verdict tokens** in any visible copy. | No `liar`, `dishonest`, `bad faith`, `manipulative`, `extremist`, `propagandist`, `winner`, `loser`, `stupid`, `idiot`, `troll`, `bot`, `astroturfer` in any rendered text | Any of those words appears in user-facing copy |
+| L3 | **Standing-band labels are SW-001 soft copy.** Sweep any rendered band cell in the Cards view, sidecar score tracker, and Timeline tooltips. | Visible labels match the SW-001 soft map (`Needs work`, `Thin`, `Some support`, `Has a point, but risky`, `Well supported`, `Strongly supported`, `Neutral`, plus `No reading yet` / `Not enough yet`); a shape glyph prefixes the label so the band is distinguishable when desaturated | Any band cell shows the legacy "Pretty wrong" / "Completely right" copy, or any verdict token from L2 |
 
 ---
 
