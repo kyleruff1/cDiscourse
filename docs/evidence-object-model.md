@@ -184,3 +184,29 @@ After EV-003 stabilises the artifact shape, a follow-up card may:
 
 The adapter signature stays stable across the (b) → (c) transition;
 read-time code does not change, only the source it reads from.
+
+---
+
+## How EV-002 consumes the model
+
+EV-002 — the source-chain popover — sits on top of EV-001 and never
+re-derives any of the locked surface. Its dispatch model
+`src/features/evidence/sourceChainPopoverModel.ts` maps every
+`SourceChainStatus` (read straight from `ReceiptChipContract.status`) to
+one `SourceChainPopoverAction` plus the popover headline + helper. The
+chip strings (`"No source yet"`, `"Receipt attached"`, `"Source attached"`,
+`"Source and quote"`, `"Primary source"`, `"Source trail is weak"`) come
+out of `RECEIPT_CHIP_COPY` here verbatim — EV-002 does not fork copy.
+
+Preset bodies that the popover seeds into the composer are frozen in
+`src/features/evidence/sourceChainPresetCopy.ts` (`ASK_SOURCE_PRESET_BODY`,
+`ASK_QUOTE_PRESET_BODY`, `ASK_STRONGER_SOURCE_PRESET_BODY`). Every preset
+is question-shaped, uses *trail / inspection* language, and is asserted
+against the doctrine ban-list (no verdict, no popularity, no person
+labels) in `__tests__/sourceChainPopoverModel.test.ts`.
+
+The popover is inspection-only. No new persistence, no new Edge Function,
+no migration, no `submit-argument` change. Authors never see an "ask"
+CTA on their own moves (`isOwnMessage === true` hides every ask
+affordance); observers see the CTA visible but disabled with the locked
+helper `"Join a side to ask"`.
