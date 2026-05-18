@@ -28,7 +28,7 @@ import type { MoveDraftPatch } from './src/features/arguments/conversationMoves'
 import { TAB_LABELS, getVisibleTabs } from './src/features/arguments/roomNavigation';
 import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
 import { ROOM_COPY } from './src/features/arguments/gameCopy';
-import { VIEW_MODE_COPY } from './src/features/arguments/viewModeCopy';
+import { DEFAULT_VIEW_MODE, VIEW_MODE_COPY } from './src/features/arguments/viewModeCopy';
 import { DevEnvironmentBanner } from './src/features/devEnvironment';
 
 // ── AppRoot: session-gated routing ────────────────────────────
@@ -64,7 +64,10 @@ function MainAppShell() {
   const [tab, setTab] = useState<ArgumentRoomTab>('arguments');
   const [replyTarget, setReplyTarget] = useState<{ id: string; argument: ArgumentRow } | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ArgumentViewMode>('stack');
+  // TL-001 — Timeline is the default landing mode. Cards remains a toggle.
+  // Active-message state is shared across modes, so switching preserves the
+  // currently active node.
+  const [viewMode, setViewMode] = useState<ArgumentViewMode>(DEFAULT_VIEW_MODE);
   const [inviteOpen, setInviteOpen] = useState(false);
   // Stage 6.2 M7 — preset draft patch from sidecar/bubble quick action.
   // Reset on composer close so the next open starts fresh.

@@ -31,3 +31,10 @@ export const VIEW_MODE_COPY: { cards: ViewModeCopy; timeline: ViewModeCopy } = {
     accessibilityHint: 'Primary view — show the full conversation map.',
   },
 };
+
+/**
+ * TL-001 — Timeline is the default room landing mode. Cards is reached
+ * via the toolbar toggle. Internal id stays `'timeline'`; the visible
+ * label comes from `VIEW_MODE_COPY.timeline.label`.
+ */
+export const DEFAULT_VIEW_MODE = 'timeline' as const;
