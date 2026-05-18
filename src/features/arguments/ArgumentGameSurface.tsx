@@ -292,6 +292,7 @@ export function ArgumentGameSurface({
               onPrev={handlePrev}
               onNext={handleNext}
               onJumpLatest={() => latestId && setActiveMessageId(latestId)}
+              onJumpToRoot={() => timelineMap.rootMessageId && setActiveMessageId(timelineMap.rootMessageId)}
               onToggleMode={handleToggleMode}
             />
             <ArgumentReplySidecar
