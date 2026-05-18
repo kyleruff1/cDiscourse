@@ -48,6 +48,9 @@ fixtures/generated-scenarios/
 .env.engagement-intelligence.*
 !.env.engagement-intelligence.example
 logs/engagement-intelligence/
+
+# Diagnostic inspect packages (staging folders + ZIPs are local artifacts).
+artifacts/diagnostics/
 data/engagement-intelligence/raw/
 data/engagement-intelligence/redacted/
 data/engagement-intelligence/classified/
