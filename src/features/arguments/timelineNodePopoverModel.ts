@@ -16,6 +16,7 @@ import {
   type BubbleControlsContext,
 } from './argumentGameSurfaceModel';
 import { formatStandingBandShort } from './standingBandCopy';
+import type { TimelineEvidenceContract } from '../evidence/evidenceModel';
 
 export interface TimelineNodePopoverModel {
   /** The node the popover is bound to. */
@@ -36,6 +37,13 @@ export interface TimelineNodePopoverModel {
   isOwn: boolean;
   /** Accessibility label for the popover root. */
   accessibilityLabel: string;
+  /**
+   * EV-002 — Optional EV-001 evidence contract for this node. When
+   * present, the popover renders a `ReceiptChip` + an inline
+   * `SourceChainPopover` section. When omitted, the popover renders as
+   * before with no evidence affordance.
+   */
+  evidenceContract?: TimelineEvidenceContract;
 }
 
 export interface BuildPopoverModelInput {
@@ -43,6 +51,8 @@ export interface BuildPopoverModelInput {
   actor: ArgumentBubbleActor;
   totalCount: number;
   controlsContext?: BubbleControlsContext;
+  /** EV-002 — Optional evidence contract from EV-001. */
+  evidenceContract?: TimelineEvidenceContract;
 }
 
 /**
@@ -50,7 +60,7 @@ export interface BuildPopoverModelInput {
  * legibly representable (defensive).
  */
 export function buildTimelineNodePopoverModel(input: BuildPopoverModelInput): TimelineNodePopoverModel | null {
-  const { node, actor, totalCount, controlsContext } = input;
+  const { node, actor, totalCount, controlsContext, evidenceContract } = input;
   if (!node) return null;
 
   const actions = getBubbleControlsForActor(actor, controlsContext ?? {});
@@ -83,6 +93,7 @@ export function buildTimelineNodePopoverModel(input: BuildPopoverModelInput): Ti
     actions,
     isOwn,
     accessibilityLabel,
+    ...(evidenceContract ? { evidenceContract } : {}),
   };
 }
 

@@ -6,14 +6,25 @@
  * standing band, tone/temperature, action chips matching the side
  * rail, an "Open details" link, and a Close button.
  *
+ * EV-002 extension: when `model.evidenceContract` is present, renders a
+ * `ReceiptChip` inside the bandRow plus an inline collapsible
+ * `SourceChainPopover` section. The "ask" CTA inside that section
+ * dispatches `ask_for_source` / `ask_for_quote` through the same
+ * `onAction` callback used by the action chips, so no new control type
+ * is introduced.
+ *
  * Pure presentation. State is owned by `ArgumentTimelineMap.tsx`;
  * action dispatch goes through the same `onAction` callback the
  * sidecar uses.
  */
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ArgumentBubbleControl } from './argumentGameSurfaceModel';
 import type { TimelineNodePopoverModel } from './timelineNodePopoverModel';
+import { ReceiptChip } from '../evidence/ReceiptChip';
+import { SourceChainPopover } from '../evidence/SourceChainPopover';
+import { buildSourceChainPopoverModel } from '../evidence/sourceChainPopoverModel';
+import type { EvidenceArtifact } from '../evidence/evidenceModel';
 
 interface ActionButton {
   control: ArgumentBubbleControl;
@@ -40,10 +51,45 @@ interface Props {
   onOpenDetails?: (messageId: string) => void;
   /** Close the popover. */
   onClose: () => void;
+  /**
+   * EV-002 — Optional artifact list for the active message. Read-only
+   * inspection states render the first 3 artifacts' label / host / quote.
+   * Omit (or pass `[]`) to render the `no_source` form.
+   */
+  artifacts?: ReadonlyArray<EvidenceArtifact>;
+  /**
+   * EV-002 — True when the viewer cannot post (observer mode). The "ask"
+   * CTA renders disabled with helper "Join a side to ask".
+   */
+  isReadModeViewer?: boolean;
 }
 
-export function TimelineNodePopover({ model, onAction, onOpenDetails, onClose }: Props) {
+export function TimelineNodePopover({ model, onAction, onOpenDetails, onClose, artifacts, isReadModeViewer }: Props) {
   const buttons = model.actions.map((c) => ACTION_BUTTON_BY_CONTROL[c]).filter(Boolean);
+
+  // EV-002 — reduce-motion preference (one read per mount).
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    try {
+      const maybe = AccessibilityInfo.isReduceMotionEnabled?.();
+      if (maybe && typeof (maybe as Promise<boolean>).then === 'function') {
+        (maybe as Promise<boolean>).then((v) => { if (mounted) setReduceMotion(!!v); }).catch(() => undefined);
+      }
+    } catch {
+      /* swallow */
+    }
+    return () => { mounted = false; };
+  }, []);
+
+  // EV-002 — source-chain popover section state. Parent (this component)
+  // owns expanded/collapsed.
+  const [sourceChainExpanded, setSourceChainExpanded] = useState(false);
+
+  const evidenceContract = model.evidenceContract;
+  const sourceChainModel = evidenceContract
+    ? buildSourceChainPopoverModel(evidenceContract)
+    : null;
 
   return (
     <View
@@ -81,7 +127,28 @@ export function TimelineNodePopover({ model, onAction, onOpenDetails, onClose }:
             <Text style={styles.bandLabel}>Heat</Text>
             <Text style={styles.bandValue} numberOfLines={1}>{model.temperatureBand}</Text>
           </View>
+          {evidenceContract ? (
+            <ReceiptChip
+              contract={evidenceContract.receiptChip}
+              onPress={() => setSourceChainExpanded((v) => !v)}
+              testIDSuffix={model.messageId}
+            />
+          ) : null}
         </View>
+
+        {sourceChainModel && evidenceContract ? (
+          <SourceChainPopover
+            model={sourceChainModel}
+            artifacts={artifacts ?? []}
+            messageId={model.messageId}
+            isExpanded={sourceChainExpanded}
+            onToggleExpanded={() => setSourceChainExpanded((v) => !v)}
+            onAskAction={(control, mid) => onAction?.(control, mid)}
+            isReadModeViewer={isReadModeViewer === true}
+            isOwnMessage={model.isOwn === true}
+            reduceMotion={reduceMotion}
+          />
+        ) : null}
       </ScrollView>
 
       <View style={styles.actionsRow}>
@@ -127,7 +194,7 @@ const styles = StyleSheet.create({
   headerText: { flex: 1, color: '#e2e8f0', fontWeight: '700', fontSize: 12 },
   closeBtn: { paddingHorizontal: 6, paddingVertical: 2 },
   closeText: { color: '#94a3b8', fontSize: 16, fontWeight: '800' },
-  bodyScroll: { maxHeight: 140, marginTop: 6 },
+  bodyScroll: { maxHeight: 220, marginTop: 6 },
   bodyContent: { gap: 6 },
   bodyPreview: { color: '#cbd5e1', fontSize: 13, lineHeight: 18 },
   bandRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },

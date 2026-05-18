@@ -35,6 +35,12 @@ import { VIEW_MODE_COPY } from './viewModeCopy';
 import type { RailActionCode, RailViewerRole } from './ArgumentSideActionRail';
 import type { ArgumentTag, ArgumentFlag } from './types';
 import type { ParticipantSide } from '../debates/types';
+import {
+  getTimelineEvidenceContract,
+  type EvidenceArtifact,
+  type TimelineEvidenceContract,
+} from '../evidence';
+import { buildArtifactsByMessageId } from './argumentGameSurfaceEvidence';
 
 interface Props {
   debate: {
@@ -176,6 +182,23 @@ export function ArgumentGameSurface({
     activeMessageId,
   }), [enrichedMessages, currentUserId, activeMessageId]);
 
+  // EV-002 — Build the artifact map once per render from each message's
+  // optional `attachedEvidence` payload (typed defensively). Empty /
+  // missing payloads yield an empty list, which produces the `no_source`
+  // form downstream. No service-role, no Supabase call.
+  const artifactsByMessageId = useMemo<Record<string, ReadonlyArray<EvidenceArtifact>>>(
+    () => buildArtifactsByMessageId(sorted),
+    [sorted],
+  );
+
+  const evidenceContractFor = useCallback((messageId: string): TimelineEvidenceContract | null => {
+    const arr = artifactsByMessageId[messageId];
+    if (!arr) return null;
+    const msg = sorted.find((m) => m.id === messageId);
+    const argumentType = msg?.argumentType ?? null;
+    return getTimelineEvidenceContract(argumentType, arr);
+  }, [artifactsByMessageId, sorted]);
+
   const activeViewModel = useMemo(() => viewModels.find((v) => v.isActive) || null, [viewModels]);
 
   const participantTrends = useMemo(
@@ -298,6 +321,9 @@ export function ArgumentGameSurface({
               totalCount={timelineMap.nodes.length}
               onAction={handleAction}
               onOpenDetails={(id) => { setActiveMessageId(id); setMode('stack'); }}
+              artifactsByMessageId={artifactsByMessageId}
+              evidenceContractFor={evidenceContractFor}
+              isReadModeViewer={resolvedViewerRole === 'observer'}
             />
             <ArgumentReplySidecar
               activeMessage={timelineMap.activeNode}
