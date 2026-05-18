@@ -28,21 +28,31 @@ import type { MoveDraftPatch } from './src/features/arguments/conversationMoves'
 import { TAB_LABELS, getVisibleTabs } from './src/features/arguments/roomNavigation';
 import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
 import { ROOM_COPY } from './src/features/arguments/gameCopy';
+import { DevEnvironmentBanner } from './src/features/devEnvironment';
 
 // ── AppRoot: session-gated routing ────────────────────────────
 
 function AppRoot() {
   const { state } = useAppSession();
 
+  let content: React.ReactNode;
   if (state.status === 'unconfigured') {
-    return <LoadingNotice message="Starting…" />;
+    content = <LoadingNotice message="Starting…" />;
+  } else if (state.status === 'signed_out') {
+    content = <AuthScreen />;
+  } else {
+    content = <MainAppShell />;
   }
 
-  if (state.status === 'signed_out') {
-    return <AuthScreen />;
-  }
-
-  return <MainAppShell />;
+  // DevEnvironmentBanner renders null in production. In any other deploy
+  // (dev / preview / local / unverified) it docks above the rest of the
+  // app so public visitors cannot mistake the build for production.
+  return (
+    <SafeAreaView style={styles.appRoot}>
+      <DevEnvironmentBanner />
+      <View style={styles.appRootContent}>{content}</View>
+    </SafeAreaView>
+  );
 }
 
 // ── MainAppShell: argument-first tab structure ────────────────
@@ -337,6 +347,8 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  appRoot: { flex: 1, backgroundColor: '#111827' },
+  appRootContent: { flex: 1, backgroundColor: '#f9fafb' },
   root: { flex: 1, backgroundColor: '#f9fafb' },
   tabBar: {
     flexDirection: 'row',

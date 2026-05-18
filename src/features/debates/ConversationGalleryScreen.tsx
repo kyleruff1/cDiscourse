@@ -16,6 +16,7 @@ import { JoinDebatePanel } from './JoinDebatePanel';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import { ConversationMiniTimeline } from './ConversationMiniTimeline';
+import { getBotOrTestDebateLabel } from '../devEnvironment';
 import {
   BUCKET_DEFINITIONS,
   buildConversationGalleryCards,
@@ -351,18 +352,27 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
   const tone = HEAT_TONE[card.heatLevel];
   const headline = BUCKET_HEADLINE[card.bucket];
   const tempLabel = TEMPERAMENT_LABEL[card.temperament];
+  const botKindLabel = getBotOrTestDebateLabel(card.title);
+  const accessibilityLabel = botKindLabel
+    ? `${headline} · ${card.title} · Test room (${botKindLabel})`
+    : `${headline} · ${card.title}`;
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${headline} · ${card.title}`}
+      accessibilityLabel={accessibilityLabel}
       testID={`gallery-card-${card.debateId}`}
     >
       <View style={styles.cardHeaderRow}>
         <View style={styles.cardHeadlineWrap}>
           <Text style={styles.cardHeadline}>{headline}</Text>
         </View>
+        {botKindLabel ? (
+          <View style={styles.botPill} testID={`gallery-card-bot-${card.debateId}`}>
+            <Text style={styles.botPillText}>{`Test · ${botKindLabel}`}</Text>
+          </View>
+        ) : null}
         <View style={[styles.heatPill, { backgroundColor: tone.bg }]}>
           <Text style={[styles.heatPillText, { color: tone.fg }]}>{tone.label}</Text>
         </View>
@@ -491,6 +501,8 @@ const styles = StyleSheet.create({
   heatPillText: { fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
   tempPill: { backgroundColor: '#1f2937', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   tempPillText: { color: '#94a3b8', fontSize: 10, fontWeight: '700' as const },
+  botPill: { backgroundColor: '#78350f', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  botPillText: { color: '#fef3c7', fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
 
   cardTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '700' as const, marginTop: 6 },
   starter: { color: '#64748b', fontSize: 11, marginTop: 2 },
