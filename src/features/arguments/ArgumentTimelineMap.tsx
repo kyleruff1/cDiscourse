@@ -15,16 +15,25 @@
  * No new dependencies. Edges are rendered as 6-segment gradient strips
  * built from <View>s so we never need react-native-svg.
  */
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   mixHex,
   TIMELINE_NODE_SIZE,
   TIMELINE_KIND_COLORS,
+  type ArgumentBubbleControl,
+  type ArgumentBubbleViewModel,
   type ArgumentTimelineMapEdge,
   type ArgumentTimelineMapModel,
   type ArgumentTimelineMapNode,
+  type BubbleControlsContext,
 } from './argumentGameSurfaceModel';
+import {
+  buildTimelineNodePopoverModel,
+  decideInfoIconEffect,
+  decideNodeTapEffect,
+} from './timelineNodePopoverModel';
+import { TimelineNodePopover } from './TimelineNodePopover';
 
 interface Props {
   map: ArgumentTimelineMapModel;
@@ -35,6 +44,20 @@ interface Props {
   /** Activate the root message. When provided AND `map.showBackToRootControl`, the Back-to-root chip renders. */
   onJumpToRoot?: () => void;
   onToggleMode?: () => void;
+  /**
+   * Active message's bubble view-model. When present and the user
+   * double-taps the active node, the per-node popover opens with the
+   * same action set the side rail uses for this actor.
+   */
+  activeViewModel?: ArgumentBubbleViewModel | null;
+  /** Total message count in the room — shown in the popover header. */
+  totalCount?: number;
+  /** Dispatch a quick action from the popover. Same signature as the sidecar. */
+  onAction?: (control: ArgumentBubbleControl, messageId: string) => void;
+  /** Open the deeper Cards / Stack view for a message. */
+  onOpenDetails?: (messageId: string) => void;
+  /** Forwarded to the controls-context for action permission gating. */
+  controlsContext?: BubbleControlsContext;
 }
 
 const RAIL_THICKNESS = 4;
@@ -90,10 +113,12 @@ function EdgeStrip({ edge }: { edge: ArgumentTimelineMapEdge }) {
 
 function NodeDot({
   node,
-  onActivate,
+  onNodeTap,
+  onInfoTap,
 }: {
   node: ArgumentTimelineMapNode;
-  onActivate: (id: string) => void;
+  onNodeTap: (id: string) => void;
+  onInfoTap?: (id: string) => void;
 }) {
   const ring = node.isActive ? styles.nodeRingActive : node.isLatest ? styles.nodeRingLatest : null;
   return (
@@ -105,8 +130,9 @@ function NodeDot({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={node.isRoot ? `${node.accessibilityLabel}, opening claim` : node.accessibilityLabel}
+        accessibilityHint={node.isActive ? 'Tap again to open the per-node popover' : 'Tap to activate this message'}
         accessibilityState={{ selected: node.isActive }}
-        onPress={() => onActivate(node.messageId)}
+        onPress={() => onNodeTap(node.messageId)}
         style={[
           styles.node,
           { backgroundColor: node.kindColor },
@@ -117,6 +143,17 @@ function NodeDot({
       >
         <Text style={styles.nodeOrdinal} numberOfLines={1}>{node.ordinal}</Text>
       </Pressable>
+      {node.isActive && onInfoTap ? (
+        <Pressable
+          onPress={() => onInfoTap(node.messageId)}
+          accessibilityRole="button"
+          accessibilityLabel="Open per-node popover"
+          testID={`timeline-node-info-${node.messageId}`}
+          style={styles.infoIcon}
+        >
+          <Text style={styles.infoIconText}>i</Text>
+        </Pressable>
+      ) : null}
       {node.isRoot ? (
         <View testID={`timeline-root-marker-${node.messageId}`} style={styles.rootMarkerPill}>
           <Text style={styles.rootMarkerPillText}>Root</Text>
@@ -150,8 +187,22 @@ function NodeDot({
   );
 }
 
-export function ArgumentTimelineMap({ map, onActivate, onPrev, onNext, onJumpLatest, onJumpToRoot, onToggleMode }: Props) {
+export function ArgumentTimelineMap({
+  map,
+  onActivate,
+  onPrev,
+  onNext,
+  onJumpLatest,
+  onJumpToRoot,
+  onToggleMode,
+  activeViewModel,
+  totalCount,
+  onAction,
+  onOpenDetails,
+  controlsContext,
+}: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
+  const [popoverMessageId, setPopoverMessageId] = useState<string | null>(null);
 
   // Auto-scroll toward the active node.
   useEffect(() => {
@@ -163,6 +214,45 @@ export function ArgumentTimelineMap({ map, onActivate, onPrev, onNext, onJumpLat
   }, [map.activeNode]);
 
   const handleJumpLatest = useCallback(() => onJumpLatest(), [onJumpLatest]);
+
+  // SC-002 — per-node tap handler delegates to the pure model so the
+  // tap→activate / second-tap→popover / info-icon→popover rules stay
+  // testable.
+  const handleNodeTap = useCallback((messageId: string) => {
+    const effect = decideNodeTapEffect({
+      tappedMessageId: messageId,
+      activeMessageId: map.activeNode?.messageId ?? null,
+      popoverMessageId,
+    });
+    switch (effect.type) {
+      case 'activate':
+        setPopoverMessageId(null);
+        onActivate(effect.messageId);
+        return;
+      case 'open_popover':
+        setPopoverMessageId(effect.messageId);
+        return;
+      case 'close_popover':
+        setPopoverMessageId(null);
+        return;
+    }
+  }, [map.activeNode?.messageId, onActivate, popoverMessageId]);
+
+  const handleInfoTap = useCallback((messageId: string) => {
+    const effect = decideInfoIconEffect(messageId);
+    if (effect.type === 'open_popover') setPopoverMessageId(effect.messageId);
+  }, []);
+
+  const popoverModel = (() => {
+    if (!popoverMessageId || !map.activeNode || !activeViewModel) return null;
+    if (popoverMessageId !== map.activeNode.messageId) return null;
+    return buildTimelineNodePopoverModel({
+      node: map.activeNode,
+      actor: activeViewModel.actor,
+      totalCount: totalCount ?? map.nodes.length,
+      controlsContext,
+    });
+  })();
 
   if (map.nodes.length === 0) {
     return (
@@ -234,6 +324,17 @@ export function ArgumentTimelineMap({ map, onActivate, onPrev, onNext, onJumpLat
         </View>
       ) : null}
 
+      {popoverModel ? (
+        <View style={styles.popoverDock}>
+          <TimelineNodePopover
+            model={popoverModel}
+            onAction={onAction}
+            onOpenDetails={onOpenDetails ? (id) => { setPopoverMessageId(null); onOpenDetails(id); } : undefined}
+            onClose={() => setPopoverMessageId(null)}
+          />
+        </View>
+      ) : null}
+
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -274,7 +375,14 @@ export function ArgumentTimelineMap({ map, onActivate, onPrev, onNext, onJumpLat
           {map.edges.map((e) => <EdgeStrip key={e.edgeId} edge={e} />)}
 
           {/* Nodes */}
-          {map.nodes.map((n) => <NodeDot key={n.messageId} node={n} onActivate={onActivate} />)}
+          {map.nodes.map((n) => (
+            <NodeDot
+              key={n.messageId}
+              node={n}
+              onNodeTap={handleNodeTap}
+              onInfoTap={handleInfoTap}
+            />
+          ))}
         </View>
       </ScrollView>
 
@@ -333,6 +441,27 @@ const styles = StyleSheet.create({
   firstClashPillText: { color: '#fff7ed', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
   onboardingBanner: { backgroundColor: '#1e293b', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#334155' },
   onboardingBannerText: { color: '#fde68a', fontSize: 12, fontWeight: '600' },
+  infoIcon: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#1f2937',
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoIconText: { color: '#e2e8f0', fontWeight: '800', fontSize: 11 },
+  popoverDock: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: '#020617',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1f2937',
+  },
   detachedPill: { marginTop: 4, backgroundColor: '#475569', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
   detachedPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   chipRow: { flexDirection: 'row', gap: 2, marginTop: 4, maxWidth: TIMELINE_NODE_SIZE + 36 },
