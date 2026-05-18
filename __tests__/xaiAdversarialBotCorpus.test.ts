@@ -421,8 +421,8 @@ describe('Runner contract — JSONL emission shape (dry mode)', () => {
     // Every event carries skillGate.
     for (const l of lines) {
       expect(l.skillGate).toBeDefined();
-      expect(l.skillGate.provocateurHash).toMatch(/^[0-9a-f]{16}$/);
-      expect(l.skillGate.revocateurHash).toMatch(/^[0-9a-f]{16}$/);
+      expect(l.skillGate?.provocateurHash).toMatch(/^[0-9a-f]{16}$/);
+      expect(l.skillGate?.revocateurHash).toMatch(/^[0-9a-f]{16}$/);
     }
   });
 });

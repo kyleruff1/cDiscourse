@@ -53,7 +53,10 @@
     "diagnostics:inspect:dry": "node scripts/diagnostics/buildDiagnosticInspectPackage.js --dry",
     "diagnostics:inspect": "node scripts/diagnostics/buildDiagnosticInspectPackage.js",
     "diagnostics:inspect:db": "node scripts/diagnostics/buildDiagnosticInspectPackage.js --include-db",
-    "diagnostics:inspect:all": "node scripts/diagnostics/buildDiagnosticInspectPackage.js --include-db --include-all-reports --include-all-jsonl"
+    "diagnostics:inspect:all": "node scripts/diagnostics/buildDiagnosticInspectPackage.js --include-db --include-all-reports --include-all-jsonl",
+    "bot:engage:existing:dry": "node scripts/bot-fixtures/engageExistingRooms.js --dry --target-moves 20 --sample-pct 50",
+    "bot:engage:existing:pilot": "node scripts/bot-fixtures/engageExistingRooms.js --pilot --target-moves 20 --sample-pct 50 --max-rooms 50",
+    "bot:engage:existing:deep": "node scripts/bot-fixtures/engageExistingRooms.js --pilot --target-moves-min 18 --target-moves-max 25 --sample-pct 60 --max-rooms 60"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
