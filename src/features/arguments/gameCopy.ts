@@ -171,6 +171,11 @@ export const PLAIN_LANGUAGE_COPY = {
   anti_amplification: 'Popularity is not proof',
   evidence_debt: 'Receipts needed',
   platform_support_warning: 'Do not score as proven yet',
+  // RULE-001 — additional semantic axes used by the rule-to-UI map.
+  scope: 'Scope dispute',
+  definition: 'Definition dispute',
+  logic: 'Logic challenge',
+  causal: 'Mechanism challenge',
   // Runner / pipeline status
   validation_failed_after_retries: 'The move needs a clearer shape before it can play well.',
   max_depth_reached: 'Deep unresolved chain',
