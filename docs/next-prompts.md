@@ -114,3 +114,57 @@ See `docs/bot-fixture-runner.md` for runner / fixture authoring rules (updated 6
 See `docs/bot-engagement-corpus.md` for the corpus artifact spec.
 See `docs/bot-topic-bank.md` for the topic library.
 See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur/SKILL.md` for spicy stress-test mode rules.
+
+---
+
+## Prompt 6.5 — Stage 6.5 Timeline-first implementation kickoff
+
+> Implement #1 TL-001 (Timeline as default room landing mode), then #2 TL-002 (root marker), then #3 TL-003 (no-redirect board shell). Stay strictly within Stage 6.5.
+>
+> Read first: `docs/ux-ui-project-board.md`, `docs/argument-stack-timeline-surface.md`, `docs/conversation-gallery-ux.md`.
+>
+> Charter to follow: `docs/agent-charters.md` § "timeline-gameboard-implementer".
+>
+> Acceptance is the criteria in each issue body; tests in `__tests__/roomEntryDefaultMode.test.ts` and adjacent files. Do not skip the existing mode-persistence contract.
+>
+> Do not touch `src/lib/constitution/engine.ts`. Do not call any external AI provider. Do not deploy.
+
+---
+
+## Prompt 6.5-PB — GitHub Projects sync apply
+
+> The dry-run plan in `npm run github:ux-board:dry` is valid. If `scripts/github/uxBoardCards.json` has been edited since the last apply, run `bash scripts/github/applyUxProjectBoard.sh` to push changes to Project #1.
+>
+> The script reads field IDs live from `gh project field-list` (no embedded schema) and dedupes by issue prefix. Re-running is safe.
+>
+> Required: `gh` from cli.github.com (not the npm `gh` package), `gh auth status` showing `project` scope.
+
+---
+
+## Prompt 6.5-AE — Admin email validation dry/mock pass (QOL-015)
+
+> Walk `docs/admin-email-validation-plan.md` steps M1 – M5. Write or extend tests in `__tests__/` for the `request-argument-deletion` Edge Function. Mock Resend. Assert that `Authorization`, `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, JWT tokens, and admin email addresses never appear in test snapshots or response payloads.
+>
+> Do NOT call `npx supabase functions deploy`. Do NOT call `npx supabase secrets set`. Do NOT send a real email. Stop at L1 — operator does the live test.
+
+---
+
+## Prompt 6.6-OE — Open-room engagement runner patch (QOL-020)
+
+> Implement `scripts/bot-fixtures/runOpenRoomEngagementBots.js` patches per #44 acceptance: skip rooms with `moveCount < 1`, respect a bot's already-assigned side, target 33-66% deterministic coverage per run.
+>
+> Dry mode must still emit the full event set. Tests in `__tests__/openRoomEngagementMoveRenderer.test.ts` (and a new `runOpenRoomEngagementBotsFilters.test.ts` if helpful).
+>
+> Do NOT pass `--pilot` in this session. No service-role. No direct insert into `public.arguments` — posts only via `submit-argument`.
+
+---
+
+## Prompt 6.8-HOST — cdiscourse.com/dev hosting spike (HOST-001)
+
+> Spike both options in `docs/`:
+> A) `dev.cdiscourse.com` subdomain (recommended fallback).
+> B) `cdiscourse.com/dev` path with reverse-proxy rewrite + SPA fallback.
+>
+> For each: how Expo web `homepage` / base-path is configured, how nested route refresh resolves, asset URL behaviour, Supabase public URL env handling.
+>
+> Output a recommendation in `docs/`. Do not configure DNS, do not deploy, do not edit production env.
