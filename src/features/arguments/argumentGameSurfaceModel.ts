@@ -554,6 +554,18 @@ export interface ArgumentTimelineMapNode {
   accessibilityLabel: string;
 }
 
+/**
+ * Edge between two timeline nodes. Carries the geometry (`x1,y1,x2,y2`),
+ * lane info, and a `gradientStops` array driving the rail's base color
+ * blend.
+ *
+ * VG-002 — Gradient wave rail. The 6-stop blend in `gradientStops` is
+ * Layer 0 of the rail's 5-layer visual; the rest of the rail's
+ * rendering contract lives in `railSegmentModel.ts` (the
+ * `RailSegmentInput` / `RailSegmentStyle` types and the
+ * `deriveRailSegmentStyle` mapper). Do NOT remove `gradientStops` —
+ * the rail's base layer reads it directly.
+ */
 export interface ArgumentTimelineMapEdge {
   edgeId: string;
   fromMessageId: string;

@@ -15,15 +15,14 @@
  * No new dependencies. Edges are rendered as 6-segment gradient strips
  * built from <View>s so we never need react-native-svg.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { NativeSyntheticEvent, NativeScrollEvent, LayoutChangeEvent } from 'react-native';
 import {
-  mixHex,
   TIMELINE_NODE_SIZE,
   TIMELINE_KIND_COLORS,
   type ArgumentBubbleControl,
   type ArgumentBubbleViewModel,
-  type ArgumentTimelineMapEdge,
   type ArgumentTimelineMapModel,
   type ArgumentTimelineMapNode,
   type BubbleControlsContext,
@@ -35,6 +34,15 @@ import {
 } from './timelineNodePopoverModel';
 import { TimelineNodePopover } from './TimelineNodePopover';
 import type { EvidenceArtifact, TimelineEvidenceContract } from '../evidence/evidenceModel';
+import {
+  buildRailSegmentInput,
+  buildWholeRailAccessibilityLabel,
+  visibleSegmentSlice,
+  VISIBLE_SLICE_DEFAULT_BUFFER_PX,
+  type RailSegmentInput,
+  type RailSegmentStyle,
+} from './railSegmentModel';
+import { GradientWaveRail } from './GradientWaveRail';
 
 interface Props {
   map: ArgumentTimelineMapModel;
@@ -81,55 +89,9 @@ interface Props {
 }
 
 const RAIL_THICKNESS = 4;
-const FIRST_CLASH_RAIL_THICKNESS = 6;
-const EDGE_SEGMENTS = 6;
 
-function EdgeStrip({ edge }: { edge: ArgumentTimelineMapEdge }) {
-  // 6 segments, each colored by interpolating along edge.gradientStops.
-  const dx = edge.x2 - edge.x1;
-  const dy = edge.y2 - edge.y1;
-  const length = Math.max(2, Math.sqrt(dx * dx + dy * dy));
-  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-  const segmentLen = length / EDGE_SEGMENTS;
-  const stops = edge.gradientStops;
-  const segs = Array.from({ length: EDGE_SEGMENTS }, (_, i) => {
-    const t = i / Math.max(1, EDGE_SEGMENTS - 1);
-    const idx = Math.min(stops.length - 2, Math.floor(t * (stops.length - 1)));
-    const localT = t * (stops.length - 1) - idx;
-    return mixHex(stops[idx], stops[idx + 1], localT);
-  });
-  const thickness = edge.isFirstClash ? FIRST_CLASH_RAIL_THICKNESS : RAIL_THICKNESS;
-  return (
-    <View
-      pointerEvents="none"
-      testID={
-        edge.isFirstClash
-          ? `timeline-edge-first-clash-${edge.fromMessageId}-${edge.toMessageId}`
-          : `timeline-edge-${edge.fromMessageId}-${edge.toMessageId}`
-      }
-      style={{
-        position: 'absolute',
-        left: edge.x1 + TIMELINE_NODE_SIZE / 2,
-        top: edge.y1 + TIMELINE_NODE_SIZE / 2 - thickness / 2,
-        width: length,
-        height: thickness,
-        transform: [{ rotateZ: `${angle}deg` }],
-        transformOrigin: '0% 50%',
-        flexDirection: 'row',
-        opacity: edge.isActivePath ? 1 : 0.55,
-        borderRadius: thickness,
-        overflow: 'hidden',
-        ...(edge.isFirstClash
-          ? { borderWidth: 1, borderColor: '#fef3c7' as const }
-          : null),
-      } as object}
-    >
-      {segs.map((c, i) => (
-        <View key={`${edge.edgeId}-seg-${i}`} style={{ width: segmentLen, height: thickness, backgroundColor: c }} />
-      ))}
-    </View>
-  );
-}
+/** Throttle scroll updates to ~60fps. */
+const SCROLL_FRAME_MS = 16;
 
 function NodeDot({
   node,
@@ -226,6 +188,95 @@ export function ArgumentTimelineMap({
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [popoverMessageId, setPopoverMessageId] = useState<string | null>(null);
+
+  // VG-002 — virtualized rail. Track scrollX + measured viewport width so
+  // `visibleSegmentSlice` can return only the segments whose x-range
+  // intersects the visible window (plus a one-viewport-wide buffer on
+  // each side). Bounds peak rail-layer `<View>` count by viewport rather
+  // than by message count.
+  const [scrollX, setScrollX] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const lastScrollFrameMs = useRef<number>(0);
+  const railStyleCacheRef = useRef<Map<string, RailSegmentStyle>>(new Map());
+
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    // Throttle to ~60fps so we don't thrash setState on every native event.
+    const now = Date.now();
+    if (now - lastScrollFrameMs.current < SCROLL_FRAME_MS) return;
+    lastScrollFrameMs.current = now;
+    const x = e?.nativeEvent?.contentOffset?.x;
+    if (typeof x === 'number' && Number.isFinite(x)) setScrollX(x);
+  }, []);
+
+  const handleScrollLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e?.nativeEvent?.layout?.width;
+    if (typeof w === 'number' && Number.isFinite(w)) setViewportWidth(w);
+  }, []);
+
+  // VG-002 — build the rail segment inputs once per render from
+  // `map.edges` + the node lookup + EV-002's `artifactsByMessageId`.
+  const segmentInputs: ReadonlyArray<RailSegmentInput> = useMemo(() => {
+    const nodesById = new Map<string, ArgumentTimelineMapNode>();
+    for (const n of map.nodes) nodesById.set(n.messageId, n);
+    const out: RailSegmentInput[] = [];
+    for (const edge of map.edges) {
+      const fromNode = nodesById.get(edge.fromMessageId);
+      const toNode = nodesById.get(edge.toMessageId);
+      if (!fromNode || !toNode) continue;
+      out.push(
+        buildRailSegmentInput({
+          edge,
+          fromNode,
+          toNode,
+          artifactsByMessageId: artifactsByMessageId ?? {},
+        }),
+      );
+    }
+    return out;
+  }, [map.nodes, map.edges, artifactsByMessageId]);
+
+  const visibleSlice = useMemo(() => {
+    // Effective viewport width: when the layout has not measured yet,
+    // fall back to a wide window so the first paint still includes the
+    // active region. The buffer keeps off-screen scroll deltas cheap.
+    const effectiveViewport = viewportWidth > 0 ? viewportWidth : map.scrollWidth;
+    return visibleSegmentSlice(
+      segmentInputs,
+      scrollX,
+      effectiveViewport,
+      VISIBLE_SLICE_DEFAULT_BUFFER_PX,
+    );
+  }, [segmentInputs, scrollX, viewportWidth, map.scrollWidth]);
+
+  // VG-002 — Whole-rail accessibilityLabel. Plain English, no
+  // snake_case, no verdict / amplification tokens. The label is the
+  // primary screen-reader entry point for the rail.
+  const wholeRailLabel = useMemo(() => {
+    let withSource = 0;
+    let needsSource = 0;
+    let activeBranches = 0;
+    for (const s of segmentInputs) {
+      if (s.branchKind === 'detached') continue;
+      if (s.isActivePath) activeBranches += 1;
+      switch (s.sourceChainStatus) {
+        case 'source_and_quote':
+        case 'primary_present':
+          withSource += 1;
+          break;
+        case 'no_source':
+          needsSource += 1;
+          break;
+        default:
+          break;
+      }
+    }
+    return buildWholeRailAccessibilityLabel({
+      nodeCount: map.nodes.length,
+      activeBranchCount: activeBranches,
+      segmentsWithSourceAttached: withSource,
+      segmentsNeedingSource: needsSource,
+    });
+  }, [segmentInputs, map.nodes.length]);
 
   // Auto-scroll toward the active node.
   useEffect(() => {
@@ -373,7 +424,11 @@ export function ArgumentTimelineMap({
         showsHorizontalScrollIndicator
         style={styles.scroll}
         contentContainerStyle={{ width: map.scrollWidth, minHeight: map.height }}
-        accessibilityLabel="timeline-map-scroll"
+        accessibilityLabel={wholeRailLabel}
+        testID="argument-timeline-map-scroll"
+        onScroll={handleScroll}
+        onLayout={handleScrollLayout}
+        scrollEventThrottle={SCROLL_FRAME_MS}
       >
         <View style={{ width: map.scrollWidth, height: map.height }}>
           {/* Center rail */}
@@ -403,8 +458,8 @@ export function ArgumentTimelineMap({
             </View>
           ))}
 
-          {/* Edges */}
-          {map.edges.map((e) => <EdgeStrip key={e.edgeId} edge={e} />)}
+          {/* VG-002 — Gradient wave rail (virtualized slice). */}
+          <GradientWaveRail segments={visibleSlice} styleCache={railStyleCacheRef.current} />
 
           {/* Nodes */}
           {map.nodes.map((n) => (
