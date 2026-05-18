@@ -57,6 +57,10 @@ Goal: cdiscourse.com/dev hosting + admin-email + auth audit before any public su
 - Per-card acceptance criteria live in the GitHub issue body, not here.
 - Test counts in the per-stage entries below are updated **only after the corresponding implementation lands**, not when this tracker is edited.
 
+### In-room no-route invariant (TL-003)
+
+The room board is a single stateful surface, not a set of routes. All view changes — Cards ↔ Timeline toggle, quick actions, sidecar focus, popovers (when SC-002 lands), composer open/close — happen via `useState` setters in `MainAppShell`. The repo intentionally has **zero** routing libraries installed (no `@react-navigation/*`, no `expo-router`, no `react-router*`). New roadmap cards must preserve this invariant — `__tests__/inRoomNoRoute.test.ts` enforces it by static-scanning the in-room components, `package.json`, and the Cards/Timeline toggle wiring. The dev banner is the single exception that may call `Linking.openURL` (Report-issue link) — and lives outside the room shell.
+
 ## Current Stage
 
 **Stage 6.4 complete — Seamless Conversation Entry + Observer-first Side Action Rail.** UI / UX only. No xAI, Anthropic, or X API calls. No Supabase writes beyond existing user actions. No service-role.
