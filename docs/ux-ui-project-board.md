@@ -175,9 +175,10 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 ## Epic 6 — Evidence and Source-Chain Gameplay
 
 ### EV-001 — Evidence object model v1
-- **Priority:** P0/P1 — **Effort:** L — **Release:** 6.6
-- **Object:** `EvidenceArtifact { id, argumentId, kind: 'url'|'quote'|'source_text'|'dataset'|'screenshot_redacted'|'manual_citation', label, url?, sourceText?, quote?, sourceChainStatus: 'unverified'|'claimed'|'primary_source'|'secondary_source'|'broken_chain', risk: 'low'|'medium'|'high'|'unknown', addedByUserId, createdAt }`.
-- **Acceptance:** Attached to a move. Renders as receipt chip. Source-chain status visible on node. Missing evidence only blocks explicit Evidence posts — ordinary replies stay postable.
+- **Priority:** P0/P1 — **Effort:** L — **Release:** 6.6 — **Status:** Build complete (awaiting Review).
+- **Object:** `EvidenceArtifact { id, argumentId, kind: 'url'|'quote'|'source_text'|'dataset'|'screenshot_redacted'|'manual_citation', label, url?, sourceText?, quote?, sourceChainStatus: 'no_source'|'unverified'|'source_no_quote'|'source_and_quote'|'broken'|'primary_present', risk: 'low'|'medium'|'high'|'unknown', addedByUserId, createdAt }`. `no_source` is aggregate-only (returned by the chip / timeline helpers when the artifact list is empty, never by `deriveSourceChainStatus`).
+- **Acceptance:** Pure-TS adapter over the existing `attached_evidence` payload — zero schema change in v1. Receipt chip + timeline-node contracts exported. Source-chain status visible on node. Missing evidence only blocks explicit Evidence posts — ordinary replies stay postable. EV-002 / EV-003 / EV-004 consume the locked exports.
+- **Implementation:** `src/features/evidence/evidenceModel.ts` (+ `index.ts`); `__tests__/evidenceModel.test.ts` (+64 tests); `docs/evidence-object-model.md`.
 
 ### EV-002 — Source-chain popover
 - **Priority:** P0/P1 — **Effort:** M — **Release:** 6.6
