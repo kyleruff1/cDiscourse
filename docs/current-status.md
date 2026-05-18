@@ -2,6 +2,65 @@
 
 _Last updated: 2026-05-18 (Stage 6.4 — Seamless Conversation Entry + Observer-first Side Action Rail)_
 
+## Now / Next / Later — UX board tracker
+
+Mirror of the UX/UI roadmap on [GitHub Project #1](https://github.com/users/kyleruff1/projects/1). Canonical source: [`docs/ux-ui-project-board.md`](ux-ui-project-board.md). Keep this section in sync with the board doc — do not duplicate per-card acceptance criteria here.
+
+- **Active product stage:** Stage 6.4 (shipped 2026-05-18).
+- **Next UX target:** Release 6.5 — Timeline-first polish. Start with [TL-001 Make Timeline the default room landing mode](https://github.com/kyleruff1/cDiscourse/issues/1) and the rest of the Timeline epic; followed by the Sidecar Rail consolidation (SC-001 / SC-002), Strong-vs-weak bands (SW-001), and the Visual Grammar pass (VG-001 / VG-003). Project-mgmt slice (PM-002 + QOL-017 / QOL-018) lands alongside.
+
+### Now — Release 6.5 (Timeline-first polish)
+
+Goal: make Timeline the primary surface and tighten the side rail / stack / visual grammar around it.
+
+- Timeline epic: TL-001 default landing mode (P0/M), TL-002 onboarding focus on the first point (P0/S), TL-003 board shell with no page redirect (P0/M).
+- Sidecar Rail epic: SC-001 consolidate controls into the side action rail (P0/L), SC-002 timeline node popover (P0/M).
+- Visual Grammar epic: VG-001 shape / color / weight / texture (P0/L), VG-003 Bootstrap-inspired design tokens (P1/M).
+- Strength-Weakness epic: SW-001 strong vs weak talking-point bands (P0/M).
+- Stack Detail epic: ST-001 reposition Stack as Card Details (P1/S).
+- Project Mgmt slice: PM-001 board doc ✅, PM-002 NNL tracker (this card), QOL-017 GitHub Projects sync script, QOL-018 repo-local agent charters.
+
+### Next — Release 6.6 (Branches and evidence)
+
+Goal: branch grammar + first-class evidence layer + heat / momentum visuals without truth claims.
+
+- Branches: BR-001 tangent kink model (P0/L), BR-002 split-screen branch inspector (P2/XL).
+- Evidence: EV-001 object model v1 (P0/L), EV-002 source-chain popover (P0/M), EV-003 debt tracker (P1/L), EV-004 symmetry with game rules (P1/M).
+- Visual Grammar: VG-002 gradient wave rail (P0/L).
+- Strength-Weakness: SW-002 heat / momentum / trend without truth claims (P1/M).
+- Interaction: IX-001 timeline zoom and density modes (P1/L).
+- Sidecar Rail: SC-003 sidecar as detail inspector, not action dumping ground (P1/M).
+- Stack Detail: ST-002 suggested reply flags per bubble card (P1/M).
+- Gallery: GAL-001 sections-as-play-lanes (P1/M), GAL-002 entry cards with first suggested move (P1/M).
+- Rules UX: RULE-001 semantic rule-to-UI map (P1/M), RULE-002 evidence symmetry between validation and visuals (P1/M).
+- Analytics: QOL-019 bot tester prompt refresh (P1/M), QOL-020 open-room engagement runner patch (P1/M).
+
+### Later — Release 6.7 (Profiles + interaction polish)
+
+Goal: profile / preferences surfaces and the deeper interaction-accessibility pass.
+
+- Interaction: IX-002 timeline mini-map overview (P2/L), IX-003 keyboard and accessibility navigation (P1/M).
+- Profile: PR-001 my preferences popout (P1/M), PR-002 profile tag popout (P2/M), PR-003 avatar upload policy and storage (P2/L), PR-004 contact information update (P2/L).
+- Analytics: AN-001 deterministic board diagnostics (P2/M).
+
+### Later — Release 6.8 (Public dev deployment)
+
+Goal: cdiscourse.com/dev hosting + admin-email + auth audit before any public surface goes live.
+
+- Hosting: HOST-001 dev hosting architecture (P0/L), HOST-002 dev environment banner and safety boundary (P0/S), HOST-003 deployment smoke checklist (P0/S).
+- Analytics: AN-002 visual QA snapshots (P2/M).
+- Project Mgmt: QOL-015 admin email delivery validation — mock first, live operator-gated (P0/M), QOL-016 Supabase Auth email + redirect settings audit (P0/M).
+
+### How this section is maintained
+
+- Update only when a card moves between Now / Next / Later, when a release closes, or when a new card is added.
+- Per-card acceptance criteria live in the GitHub issue body, not here.
+- Test counts in the per-stage entries below are updated **only after the corresponding implementation lands**, not when this tracker is edited.
+
+### In-room no-route invariant (TL-003)
+
+The room board is a single stateful surface, not a set of routes. All view changes — Cards ↔ Timeline toggle, quick actions, sidecar focus, popovers (when SC-002 lands), composer open/close — happen via `useState` setters in `MainAppShell`. The repo intentionally has **zero** routing libraries installed (no `@react-navigation/*`, no `expo-router`, no `react-router*`). New roadmap cards must preserve this invariant — `__tests__/inRoomNoRoute.test.ts` enforces it by static-scanning the in-room components, `package.json`, and the Cards/Timeline toggle wiring. The dev banner is the single exception that may call `Linking.openURL` (Report-issue link) — and lives outside the room shell.
+
 ## Current Stage
 
 **Stage 6.4 complete — Seamless Conversation Entry + Observer-first Side Action Rail.** UI / UX only. No xAI, Anthropic, or X API calls. No Supabase writes beyond existing user actions. No service-role.

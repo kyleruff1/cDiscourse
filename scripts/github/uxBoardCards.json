@@ -1,0 +1,192 @@
+{
+  "_doc": "Canonical card catalogue for the CDiscourse UX/UI Roadmap GitHub Project (#1 under kyleruff1). Only contains the QOL-NNN cards that are NOT already covered by an existing TL/VG/BR/SC/ST/EV/SW/IX/PR/HOST/GAL/RULE/AN/PM issue. Source of truth for syncUxProjectBoard.js (dry-run) and applyUxProjectBoard.sh (operator-runnable). Do not put any secret values here. Body fields render verbatim into GitHub issue bodies. Field options are constrained to the live project schema captured 2026-05-18: Priority P0/P1/P2 (no P3), Effort S/M/L/XL (no XS), Release 6.5/6.6/6.7/6.8 (no 6.9), Epic from the existing 14, Phase Backlog/Design/Build/Review/Done/Blocked. Status defaults to Todo on creation.",
+  "projectTitle": "CDiscourse UX/UI Roadmap",
+  "projectNumber": 1,
+  "projectOwner": "kyleruff1",
+  "repo": "kyleruff1/cDiscourse",
+  "labels": [
+    { "name": "area:admin-email", "color": "b60205", "description": "Admin email delivery + Auth emails" },
+    { "name": "area:agents", "color": "d4c5f9", "description": "Claude agent + skill operations" },
+    { "name": "area:testing", "color": "c5def5", "description": "QA / testing / corpus runs" }
+  ],
+  "existingProjectFieldOptions": {
+    "status": ["Todo", "In Progress", "Done"],
+    "priority": ["P0", "P1", "P2"],
+    "effort": ["S", "M", "L", "XL"],
+    "epic": [
+      "Timeline", "Visual Grammar", "Branches", "Sidecar Rail", "Stack Detail",
+      "Evidence", "Strength Weakness", "Interaction", "Profile", "Hosting",
+      "Gallery", "Rules UX", "Analytics", "Project Mgmt"
+    ],
+    "release": ["6.5", "6.6", "6.7", "6.8"],
+    "phase": ["Backlog", "Design", "Build", "Review", "Done", "Blocked"]
+  },
+  "supersededByExisting": {
+    "QOL-001": "#1 TL-001 Make Timeline the default room landing mode",
+    "QOL-002": "#10 SC-002 Timeline node popover",
+    "QOL-003": "#9 SC-001 Consolidate controls into the side action rail",
+    "QOL-004": "#4 VG-001 + #18 SW-001",
+    "QOL-005": "#7 BR-001 + #8 BR-002",
+    "QOL-006": "#15 EV-002 Source-chain popover",
+    "QOL-007": "#16 EV-003 Evidence debt tracker",
+    "QOL-008": "#12 ST-001 + #13 ST-002",
+    "QOL-009": "#23 PR-001 My preferences popout",
+    "QOL-010": "#24 PR-002 Profile tag popout",
+    "QOL-011": "#25 PR-003 Avatar upload policy and storage",
+    "QOL-012": "#27 HOST-001 Dev hosting architecture for cdiscourse.com/dev",
+    "QOL-013": "#28 HOST-002 Dev environment banner and safety boundary",
+    "QOL-014": "#29 HOST-003 Deployment smoke checklist + #35 AN-002 Visual QA snapshots"
+  },
+  "cards": [
+    {
+      "prefix": "QOL-015",
+      "title": "QOL-015 - Admin email delivery validation (mock first, live operator-gated)",
+      "labels": ["priority:p0", "effort:m", "epic:project-mgmt", "release:6.8", "area:roadmap", "area:admin-email", "area:testing"],
+      "epic": "Project Mgmt",
+      "release": "6.8",
+      "priority": "P0",
+      "effort": "M",
+      "phase": "Backlog",
+      "body": [
+        "## Goal",
+        "Validate the `request-argument-deletion` admin notification path end-to-end before public dev hosting goes live.",
+        "",
+        "## Acceptance",
+        "- Local/mock test path proves the Edge Function builds the admin notification payload correctly without sending a real email.",
+        "- Resend `not_configured` fallback is exercised in tests and returns a non-secret response.",
+        "- Test asserts Authorization header, RESEND key, and admin email addresses are never echoed back to the client.",
+        "- Dry-run path documented in `docs/admin-email-validation-plan.md`.",
+        "- Live email send remains operator-gated; this card does NOT authorise a live send.",
+        "",
+        "## Out of scope",
+        "- Sending real emails to real admin inboxes (deferred to QOL-016 operator step).",
+        "- Adding new admin notification surfaces.",
+        "",
+        "## Non-negotiables",
+        "- No service-role usage from client code.",
+        "- No raw admin email addresses printed in test fixtures, snapshots, or commit messages."
+      ]
+    },
+    {
+      "prefix": "QOL-016",
+      "title": "QOL-016 - Supabase Auth email + redirect settings audit for cdiscourse.com/dev",
+      "labels": ["priority:p0", "effort:m", "epic:hosting", "release:6.8", "area:roadmap", "area:admin-email"],
+      "epic": "Hosting",
+      "release": "6.8",
+      "priority": "P0",
+      "effort": "M",
+      "phase": "Backlog",
+      "body": [
+        "## Goal",
+        "Audit Supabase Auth email settings (signup confirmation, password reset, magic link, email change, invite) against the cdiscourse.com/dev hosting target before public dev deployment.",
+        "",
+        "## Acceptance",
+        "- Checklist enumerates every Auth email template, its sender, its subject, its redirect URL.",
+        "- All redirect URLs include cdiscourse.com/dev (or whichever URL HOST-001 lands on) and exclude localhost from production allow-list.",
+        "- Local docs note required Supabase project settings (Auth -> URL Configuration, Auth -> Email Templates).",
+        "- No live email send by this card.",
+        "- No secret values written to docs.",
+        "",
+        "## Depends on",
+        "- HOST-001 chooses final URL shape (cdiscourse.com/dev vs dev.cdiscourse.com).",
+        "- QOL-015 admin notification path proven on the mock side first."
+      ]
+    },
+    {
+      "prefix": "QOL-017",
+      "title": "QOL-017 - GitHub Projects automation script (sync roadmap to Project #1)",
+      "labels": ["priority:p1", "effort:m", "epic:project-mgmt", "release:6.5", "area:roadmap", "area:testing"],
+      "epic": "Project Mgmt",
+      "release": "6.5",
+      "priority": "P1",
+      "effort": "M",
+      "phase": "Design",
+      "body": [
+        "## Goal",
+        "Keep `docs/ux-ui-project-board.md`, repo issues, and Project #1 in sync via a small, safe, dry-run-default script. Avoid hand-editing 35+ project items in the GitHub UI when a doc/issue rename or rebucket happens.",
+        "",
+        "## Acceptance",
+        "- `scripts/github/syncUxProjectBoard.js` exists, defaults to `--dry-run`, only mutates GitHub when `--apply` is passed AND `gh` is installed AND `gh auth status` is clean with `project` scope.",
+        "- `scripts/github/uxBoardCards.json` is the single source-of-truth catalogue with field options validated against the live project schema.",
+        "- `scripts/github/applyUxProjectBoard.sh` is the operator-runnable equivalent (Bash-only, no Node deps) for environments where Node isn't available.",
+        "- npm scripts `github:ux-board:dry` and `github:ux-board:apply` wired up.",
+        "- Tests cover catalogue validation, prefix dedupe, secret-shape rejection, and dry-run-no-network.",
+        "- Script never prints `gh` tokens, Bearer tokens, or any `Authorization:` header value.",
+        "",
+        "## Status",
+        "Initial scaffold landed in this commit. Future iteration: add `--apply` path that actually issues `gh issue create / project item-add / project item-edit` calls deterministically, not just delegates to the bash script."
+      ]
+    },
+    {
+      "prefix": "QOL-018",
+      "title": "QOL-018 - Repo-local Claude agent charters for CDiscourse",
+      "labels": ["priority:p1", "effort:s", "epic:project-mgmt", "release:6.5", "area:roadmap", "area:agents"],
+      "epic": "Project Mgmt",
+      "release": "6.5",
+      "priority": "P1",
+      "effort": "S",
+      "phase": "Design",
+      "body": [
+        "## Goal",
+        "Define repo-local charters for the recurring agent roles future Claude Code sessions take on (project-board-manager, ux-board-designer, timeline-gameboard-implementer, sidecar-tools-implementer, supabase-email-validation-tester, bot-corpus-runner, qa-secret-scan-verifier).",
+        "",
+        "## Acceptance",
+        "- `docs/agent-charters.md` enumerates each role with mission, allowed tools, forbidden actions, files to read first, verification commands, and final-report format.",
+        "- Charters are documentation only — they do NOT create `.claude/agents/*.md` files unless the repo establishes that convention later.",
+        "- Bot skill SKILL.md files under `.claude/skills/bot-provocateur/` and `.claude/skills/bot-revocateur/` are unchanged (validator hashes must match).",
+        "- `npm run skills:validate` continues to pass.",
+        "",
+        "## Why not .claude/agents",
+        "- Charters are role guidance, not executable subagent definitions. The skills convention (`disable-model-invocation: true`, manual operator-only) intentionally rejects model-spawned bot behaviour. Charters preserve that boundary while still giving future sessions clear scope."
+      ]
+    },
+    {
+      "prefix": "QOL-019",
+      "title": "QOL-019 - Bot tester prompt refresh: more dynamic, still safe",
+      "labels": ["priority:p1", "effort:m", "epic:analytics", "release:6.6", "area:roadmap", "area:agents", "area:testing"],
+      "epic": "Analytics",
+      "release": "6.6",
+      "priority": "P1",
+      "effort": "M",
+      "phase": "Backlog",
+      "body": [
+        "## Goal",
+        "Make bot-fixture prompts (open-room engagement + existing-room engagement + xAI adversarial thread continuation) more dynamic and lifelike while preserving the existing safety contract (no persona pretends to be a real human, no canned phrases, structured quote + axis + mechanism + evidenceDebt pressure).",
+        "",
+        "## Acceptance",
+        "- Prompt variants pull from a wider lexicon without introducing forbidden tokens (`troll`, `bot`, `astroturfer`, etc. — see anti-amplification doctrine).",
+        "- Anti-axis-repeat doctrine continues to rotate disagreement axes inside a single room.",
+        "- Heat-band escalation copy varies but never claims correctness/truth/winner.",
+        "- Some dev/test rooms reach HOT band naturally inside `bot:engage:open:tiny` and `bot:engage:existing:pilot`.",
+        "- No live run by this card; tests + dry-run only.",
+        "- Operator approval still required for any live `--pilot` invocation.",
+        "",
+        "## Non-negotiables",
+        "- No raw hostile text from xAI source-harvest input is rendered verbatim into a generated move.",
+        "- No new external AI provider added."
+      ]
+    },
+    {
+      "prefix": "QOL-020",
+      "title": "QOL-020 - Open-room engagement runner patch: filter, side-respect, coverage targeting",
+      "labels": ["priority:p1", "effort:m", "epic:analytics", "release:6.6", "area:roadmap", "area:testing"],
+      "epic": "Analytics",
+      "release": "6.6",
+      "priority": "P1",
+      "effort": "M",
+      "phase": "Backlog",
+      "body": [
+        "## Goal",
+        "Tighten `scripts/bot-fixtures/runOpenRoomEngagementBots.js` and `scripts/bot-fixtures/engageExistingRooms.js` against three classes of issue surfaced by the 2026-05-18 dry/live runs.",
+        "",
+        "## Acceptance",
+        "- Rooms with `moveCount < 1` are skipped (no bot enters an empty room with no opening claim).",
+        "- When a bot user is already a participant on a side, the runner respects that existing side and does not re-enrol on the opposite side.",
+        "- Coverage targeting hits 33-66% of eligible open rooms per run, deterministic given the same seed.",
+        "- `--dry` mode still emits the full event set (`run_start`, `room_candidate`, `bot_assignment`, `move_prompt_built`, `move_rendered`, `move_validated`, `submit_attempt`, `submit_result`, `room_heat_update`, `room_summary`, `run_summary`).",
+        "- No service-role usage. No direct insert into `public.arguments`. Posts go only through `submit-argument`.",
+        "- Operator approval gate intact for `--pilot`."
+      ]
+    }
+  ]
+}

@@ -58,7 +58,13 @@
     "bot:engage:existing:pilot": "node scripts/bot-fixtures/engageExistingRooms.js --pilot --target-moves 20 --sample-pct 50 --max-rooms 50",
     "bot:engage:existing:deep": "node scripts/bot-fixtures/engageExistingRooms.js --pilot --target-moves-min 18 --target-moves-max 25 --sample-pct 60 --max-rooms 60",
     "bot:engage:open:dry": "node scripts/bot-fixtures/runOpenRoomEngagementBots.js --dry --max-rooms 20 --target-min-moves 15 --target-max-moves 25",
-    "bot:engage:open:tiny": "node scripts/bot-fixtures/runOpenRoomEngagementBots.js --pilot --max-rooms 10 --target-min-moves 8 --target-max-moves 12 --target-coverage 0.10"
+    "bot:engage:open:tiny": "node scripts/bot-fixtures/runOpenRoomEngagementBots.js --pilot --max-rooms 10 --target-min-moves 8 --target-max-moves 12 --target-coverage 0.10",
+    "github:ux-board:dry": "node scripts/github/syncUxProjectBoard.js --dry-run",
+    "github:ux-board:apply": "node scripts/github/syncUxProjectBoard.js --apply",
+    "github:agent:queue": "node scripts/github/agentIssueRunner.js queue",
+    "github:agent:ledger": "node scripts/github/agentIssueRunner.js ledger",
+    "github:agent:claim": "node scripts/github/agentIssueRunner.js claim",
+    "github:agent:signoff": "node scripts/github/agentIssueRunner.js signoff"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -97,6 +103,10 @@
     ],
     "testMatch": [
       "**/__tests__/**/*.test.(ts|tsx)"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/.claude/worktrees/"
     ]
   }
 }

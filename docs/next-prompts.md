@@ -114,3 +114,122 @@ See `docs/bot-fixture-runner.md` for runner / fixture authoring rules (updated 6
 See `docs/bot-engagement-corpus.md` for the corpus artifact spec.
 See `docs/bot-topic-bank.md` for the topic library.
 See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur/SKILL.md` for spicy stress-test mode rules.
+
+---
+
+## Prompt 6.5 — Stage 6.5 Timeline-first implementation kickoff
+
+> Implement #1 TL-001 (Timeline as default room landing mode), then #2 TL-002 (root marker), then #3 TL-003 (no-redirect board shell). Stay strictly within Stage 6.5.
+>
+> Read first: `docs/ux-ui-project-board.md`, `docs/argument-stack-timeline-surface.md`, `docs/conversation-gallery-ux.md`.
+>
+> Charter to follow: `docs/agent-charters.md` § "timeline-gameboard-implementer".
+>
+> Acceptance is the criteria in each issue body; tests in `__tests__/roomEntryDefaultMode.test.ts` and adjacent files. Do not skip the existing mode-persistence contract.
+>
+> Do not touch `src/lib/constitution/engine.ts`. Do not call any external AI provider. Do not deploy.
+
+---
+
+## Prompt 6.5-PB — GitHub Projects sync apply
+
+> The dry-run plan in `npm run github:ux-board:dry` is valid. If `scripts/github/uxBoardCards.json` has been edited since the last apply, run `bash scripts/github/applyUxProjectBoard.sh` to push changes to Project #1.
+>
+> The script reads field IDs live from `gh project field-list` (no embedded schema) and dedupes by issue prefix. Re-running is safe.
+>
+> Required: `gh` from cli.github.com (not the npm `gh` package), `gh auth status` showing `project` scope.
+
+---
+
+## Prompt 6.5-AE — Admin email validation dry/mock pass (QOL-015)
+
+> Walk `docs/admin-email-validation-plan.md` steps M1 – M5. Write or extend tests in `__tests__/` for the `request-argument-deletion` Edge Function. Mock Resend. Assert that `Authorization`, `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, JWT tokens, and admin email addresses never appear in test snapshots or response payloads.
+>
+> Do NOT call `npx supabase functions deploy`. Do NOT call `npx supabase secrets set`. Do NOT send a real email. Stop at L1 — operator does the live test.
+
+---
+
+## Prompt 6.6-OE — Open-room engagement runner patch (QOL-020)
+
+> Implement `scripts/bot-fixtures/runOpenRoomEngagementBots.js` patches per #44 acceptance: skip rooms with `moveCount < 1`, respect a bot's already-assigned side, target 33-66% deterministic coverage per run.
+>
+> Dry mode must still emit the full event set. Tests in `__tests__/openRoomEngagementMoveRenderer.test.ts` (and a new `runOpenRoomEngagementBotsFilters.test.ts` if helpful).
+>
+> Do NOT pass `--pilot` in this session. No service-role. No direct insert into `public.arguments` — posts only via `submit-argument`.
+
+---
+
+## Prompt 6.8-HOST — cdiscourse.com/dev hosting spike (HOST-001)
+
+> Spike both options in `docs/`:
+> A) `dev.cdiscourse.com` subdomain (recommended fallback).
+> B) `cdiscourse.com/dev` path with reverse-proxy rewrite + SPA fallback.
+>
+> For each: how Expo web `homepage` / base-path is configured, how nested route refresh resolves, asset URL behaviour, Supabase public URL env handling.
+>
+> Output a recommendation in `docs/`. Do not configure DNS, do not deploy, do not edit production env.
+
+---
+
+## Prompt A1 — Run one issue agent (the day-to-day pattern)
+
+> `npm run github:agent:queue` — show the prioritized open-issue queue.
+>
+> Pick the top P0 / release-6.5 / smallest-effort item. Then in this session:
+>
+> 1. `node scripts/github/agentIssueRunner.js claim --issue <n> --agent <charter> --apply` — claim it on GitHub.
+> 2. Create a branch: `git checkout -b agent/<n>-<prefix-lowercase>`.
+> 3. Read `docs/agent-workflow.md` § C–E and the charter for `<charter>` in `docs/agent-charters.md`.
+> 4. Read the issue body via `gh issue view <n> --json number,title,body,labels,url`.
+> 5. Implement the smallest complete vertical slice that satisfies the acceptance criteria.
+> 6. Add/update tests. Run `npm run typecheck && npm run lint && npm test -- --testPathPattern="<targeted>" && npm run test`.
+> 7. Commit using the footer format in `docs/agent-workflow.md` § E.
+> 8. `node scripts/github/agentIssueRunner.js signoff --issue <n> --commit <hash> --status "<…>" --agent <charter> --apply`.
+> 9. Append a row to `docs/product-status-ledger.md`.
+> 10. **Do not push** until operator confirms.
+
+---
+
+## Prompt A2 — Run board triage
+
+> `npm run github:agent:queue` and walk the top 20 in order. For each:
+>
+> - Read the issue body.
+> - Confirm Priority / Release / Epic / Effort still make sense.
+> - Note dependencies (block / blocked-by) in the issue if not already there.
+> - Flag any issue whose acceptance criteria are too broad — propose 2–4 child issues in a comment and stop short of creating them until operator approves.
+>
+> Do NOT change Priority / Release / Epic / Effort without operator approval. Triage is **proposals**, not edits.
+
+---
+
+## Prompt A3 — Run QA verifier on last commit
+
+> Charter: `qa-verifier-agent` in `docs/agent-charters.md`.
+>
+> Run the four secret-scan commands from § "Verification commands" against the last commit:
+>
+> ```bash
+> git diff HEAD~1..HEAD -U0 | grep -E '<patterns from charter>'
+> git diff HEAD~1..HEAD --stat | grep -E '\.env|logs/|artifacts/diagnostics/|node_modules|\.expo'
+> ```
+>
+> Report per scan: clean / dirty + line numbers of any match. List safe-to-stage files. List unsafe files with reason. If any scan flags, comment on the issue and request the implementing agent re-commit. Do NOT modify source.
+
+---
+
+## Prompt A4 — Split a large issue into child issues
+
+> Issue `#<n>` has acceptance criteria spanning multiple files / multiple Charter lanes. Propose 2–4 child issues that each fit one charter and one commit.
+>
+> For each child: prefix (next available QOL-NNN or sub-prefix like `<orig>.a`), title, labels (mirror parent + add specifics), acceptance criteria, target charter.
+>
+> Do NOT create the issues until operator says "create them". Output the dry-run plan as Markdown.
+
+---
+
+## Prompt A5 — Update product-status ledger from GitHub Projects
+
+> `node scripts/github/agentIssueRunner.js ledger --dry` re-derives the Not-Started rows from open issues. Diff against `docs/product-status-ledger.md` and propose appended rows for any open issue that's missing.
+>
+> Also: for any row in the ledger whose status disagrees with the live GitHub Project (Status field), flag the disagreement and propose the correction. Do not edit the ledger automatically — append-only by hand after operator review.

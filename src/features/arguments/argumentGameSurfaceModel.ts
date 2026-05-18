@@ -527,6 +527,10 @@ export interface ArgumentTimelineMapNode {
   isLatest: boolean;
   isDetached: boolean;
   isActivePath: boolean;
+  /** True for the chronological first message with no parent — the opening claim. */
+  isRoot: boolean;
+  /** True for the first reply to the root (chronologically). */
+  isFirstRebuttal: boolean;
   standingBand: TimelineStandingBand;
   toneBand: TimelineToneBand;
   temperatureBand: TimelineTemperatureBand;
@@ -549,6 +553,8 @@ export interface ArgumentTimelineMapEdge {
   toLane: number;
   isActivePath: boolean;
   isDetached: boolean;
+  /** True for the root → first-rebuttal edge. The "first clash". */
+  isFirstClash: boolean;
   kindColor: string;
   standingColor: string;
   toneColor: string;
@@ -612,6 +618,23 @@ export interface ArgumentTimelineMapModel {
   endLabel: string;
   participantTrends: TimelineParticipantTrend[];
   legend: TimelineLegendEntry[];
+  /** Chronological first message with no parent. Null only for empty timelines. */
+  rootMessageId: string | null;
+  /** First reply to the root, if any. */
+  firstRebuttalMessageId: string | null;
+  /** True when the root has at least one reply. */
+  hasRebuttal: boolean;
+  /**
+   * One-line onboarding hint chosen from the timeline's state. Designed
+   * for normal-user surfaces — no internal codes, no verdict tokens.
+   *   - Root active + no rebuttal yet → "Be the first rebuttal."
+   *   - Root active + at least one rebuttal → "This is the opening claim."
+   *   - No rebuttal yet but other messages exist (detached only) → "Be the first rebuttal."
+   *   - Otherwise → null.
+   */
+  rootOnboardingHint: string | null;
+  /** When true, the UI should expose a "Back to root" control. */
+  showBackToRootControl: boolean;
 }
 
 // ── Layout constants (exported so UI can match) ────────────────
@@ -1119,6 +1142,11 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
       width: 0, height: 0, scrollWidth: 0,
       beginningLabel: '', middleLabel: '', endLabel: '',
       participantTrends: [], legend: buildLegend(),
+      rootMessageId: null,
+      firstRebuttalMessageId: null,
+      hasRebuttal: false,
+      rootOnboardingHint: null,
+      showBackToRootControl: false,
     };
   }
 
@@ -1238,6 +1266,9 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
       isLatest: m.id === latestId,
       isDetached,
       isActivePath: false,
+      // Filled below once root/first-rebuttal are identified.
+      isRoot: false,
+      isFirstRebuttal: false,
       standingBand,
       toneBand,
       temperatureBand,
@@ -1297,6 +1328,28 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
     node.accessibilityLabel = parts.join(', ');
   }
 
+  // Pass 4b — identify root and first rebuttal (chronological).
+  // Root = first chronological node with no parent (or whose parent is missing).
+  // First rebuttal = first chronological child of the root.
+  let rootMessageId: string | null = null;
+  for (const node of nodes) {
+    if (!node.parentId || !nodeById.has(node.parentId)) {
+      rootMessageId = node.messageId;
+      node.isRoot = true;
+      break;
+    }
+  }
+  let firstRebuttalMessageId: string | null = null;
+  if (rootMessageId) {
+    for (const node of nodes) {
+      if (node.parentId === rootMessageId) {
+        firstRebuttalMessageId = node.messageId;
+        node.isFirstRebuttal = true;
+        break;
+      }
+    }
+  }
+
   // Pass 5 — edges.
   const edges: ArgumentTimelineMapEdge[] = [];
   for (const node of nodes) {
@@ -1313,6 +1366,11 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
       standingColor,
       toneColor,
     ];
+    const isFirstClash =
+      rootMessageId !== null &&
+      firstRebuttalMessageId !== null &&
+      parent.messageId === rootMessageId &&
+      node.messageId === firstRebuttalMessageId;
     edges.push({
       edgeId: `edge-${parent.messageId}-${node.messageId}`,
       fromMessageId: parent.messageId,
@@ -1325,6 +1383,7 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
       toLane: node.lane,
       isActivePath,
       isDetached: false,
+      isFirstClash,
       kindColor: node.kindColor,
       standingColor,
       toneColor,
@@ -1351,6 +1410,22 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
   // Participant trends.
   const participantTrends = buildParticipantTrends(nodes, rawById);
 
+  // Root onboarding hint + back-to-root control.
+  const hasRebuttal = firstRebuttalMessageId !== null;
+  const activeIsRoot = activeId !== null && activeId === rootMessageId;
+  let rootOnboardingHint: string | null = null;
+  if (rootMessageId !== null && !hasRebuttal) {
+    // No rebuttal anywhere — surface the prompt to invite the first one.
+    rootOnboardingHint = TL_ROOT_HINT_BE_FIRST_REBUTTAL;
+  } else if (activeIsRoot) {
+    // User is focused on root; tell them what root is.
+    rootOnboardingHint = TL_ROOT_HINT_OPENING_CLAIM;
+  }
+  const showBackToRootControl =
+    rootMessageId !== null &&
+    activeId !== rootMessageId &&
+    total >= BACK_TO_ROOT_MIN_MESSAGES;
+
   return {
     nodes,
     edges,
@@ -1366,8 +1441,19 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
     endLabel,
     participantTrends,
     legend: buildLegend(),
+    rootMessageId,
+    firstRebuttalMessageId,
+    hasRebuttal,
+    rootOnboardingHint,
+    showBackToRootControl,
   };
 }
+
+/** Plain-language onboarding strings for the timeline root. */
+export const TL_ROOT_HINT_OPENING_CLAIM = 'This is the opening claim.';
+export const TL_ROOT_HINT_BE_FIRST_REBUTTAL = 'Be the first rebuttal.';
+/** Threshold above which the UI surfaces a Back-to-root control. */
+export const BACK_TO_ROOT_MIN_MESSAGES = 5;
 
 function buildLegend(): TimelineLegendEntry[] {
   return [
