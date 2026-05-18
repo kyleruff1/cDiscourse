@@ -28,6 +28,7 @@ import type { MoveDraftPatch } from './src/features/arguments/conversationMoves'
 import { TAB_LABELS, getVisibleTabs } from './src/features/arguments/roomNavigation';
 import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
 import { ROOM_COPY } from './src/features/arguments/gameCopy';
+import { VIEW_MODE_COPY } from './src/features/arguments/viewModeCopy';
 import { DevEnvironmentBanner } from './src/features/devEnvironment';
 
 // ── AppRoot: session-gated routing ────────────────────────────
@@ -198,27 +199,29 @@ function MainAppShell() {
               >
                 <Text style={styles.roomLabel}>{ROOM_COPY.title}</Text>
                 <View style={styles.toolbarSep} />
-                {/* View toggle — Stack + Timeline are the normal-user chips. */}
+                {/* View toggle — Timeline (primary) + Cards (deeper inspection). */}
                 <Pressable
                   style={[styles.toolbarChip, viewMode === 'stack' && styles.toolbarChipActive]}
                   onPress={() => setViewMode('stack')}
                   accessibilityRole="button"
-                  accessibilityLabel="Stack view"
+                  accessibilityLabel={VIEW_MODE_COPY.cards.accessibilityLabel}
+                  accessibilityHint={VIEW_MODE_COPY.cards.accessibilityHint}
                   testID="room-toolbar-stack"
                 >
                   <Text style={[styles.toolbarChipText, viewMode === 'stack' && styles.toolbarChipTextActive]}>
-                    Stack
+                    {VIEW_MODE_COPY.cards.label}
                   </Text>
                 </Pressable>
                 <Pressable
                   style={[styles.toolbarChip, viewMode === 'timeline' && styles.toolbarChipActive]}
                   onPress={() => setViewMode('timeline')}
                   accessibilityRole="button"
-                  accessibilityLabel="Timeline map"
+                  accessibilityLabel={VIEW_MODE_COPY.timeline.accessibilityLabel}
+                  accessibilityHint={VIEW_MODE_COPY.timeline.accessibilityHint}
                   testID="room-toolbar-timeline"
                 >
                   <Text style={[styles.toolbarChipText, viewMode === 'timeline' && styles.toolbarChipTextActive]}>
-                    Timeline
+                    {VIEW_MODE_COPY.timeline.label}
                   </Text>
                 </Pressable>
                 {__DEV__ && (
