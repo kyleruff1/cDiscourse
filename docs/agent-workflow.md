@@ -1,260 +1,205 @@
-# Agent workflow — CDiscourse
+# Agent workflow — how cards get built
 
-Canonical workflow every CDiscourse agent session follows when working an
-issue from the GitHub Project board down to a verified commit and a
-project sign-off.
+This is the operator's reference for shipping a CDiscourse roadmap card with Claude Code subagents. The roadmap is in `docs/ux-ui-project-board.md` and tracked at https://github.com/users/kyleruff1/projects/1.
 
-> **One issue, one branch, one commit.** Do not mix issues. Do not let
-> two agents share a dirty working tree — use `git worktree add` for
-> parallel work.
+## TL;DR
 
-The minimum safe cadence:
+```powershell
+# 1. Pick a card from the project (e.g. TL-001) and move it to Design phase
+.\.claude\scripts\spawn-card.ps1 TL-001
 
-```
-Queue → Claim → Branch/worktree → Implement → Verify → Commit → Signoff → Project status → (push, when authorized)
-```
+# 2. Paste the printed prompt into Claude Code. The designer agent produces
+#    docs/designs/TL-001.md and commits it on feat/TL-001-<slug>.
 
-Project Status follows **verified commits**. An agent does not mark
-`Done` because it "worked on the issue"; it marks `Done` only when the
-commit footer, the tests, and the issue sign-off comment all agree.
+# 3. Move to Build phase
+.\.claude\scripts\spawn-card.ps1 TL-001 -Phase Build
 
----
+# 4. Paste the printed prompt. The implementer writes code + tests + doc updates.
 
-## A. Select the issue
+# 5. Move to Review phase
+.\.claude\scripts\spawn-card.ps1 TL-001 -Phase Review
 
-```
-npm run github:agent:queue
-```
+# 6. Paste the printed prompt. The reviewer produces docs/reviews/TL-001.md.
 
-The runner orders open roadmap issues by:
-
-1. Priority (P0 → P1 → P2)
-2. Release (6.5 → 6.6 → 6.7 → 6.8)
-3. Effort (S → M → L → XL)
-4. Issue number (lower first)
-
-Prefer **P0 / release 6.5** items first. If the top item is too large
-(spans multiple files / multiple acceptance criteria that don't share a
-core), split it into child issues **before** writing any code. Add a
-comment on the parent linking the children and update
-`scripts/github/uxBoardCards.json` if the children are QOL-NNN cards.
-
----
-
-## B. Claim the issue
-
-```
-node scripts/github/agentIssueRunner.js claim --issue <number> --agent <name>
+# 7. If Approve: push + open PR
+.\.claude\scripts\spawn-card.ps1 TL-001 -Phase Done
+git push -u origin feat/TL-001-<slug>
+gh pr create --title "TL-001: Make Timeline the default room landing mode" --body-file docs/reviews/TL-001.md
 ```
 
-Without `--apply` this is a dry-run that prints the exact `gh` commands
-it would issue.
+## The pieces
 
-Claiming does three things:
+### Agents (`.claude/agents/`)
 
-1. **Comments on the issue:**
-   > Agent started: `<agent-name>`. Branch: `<branch>`. Scope: `<short scope>`. Verification target: `<commands>`.
-2. **Updates Project Status** to `In Progress` and **Project Phase** to
-   `Build` (or `Design` if the agent is still in design mode).
-3. **Adds label** `agent:active` if the label exists, or skips it
-   silently. The runner does not create labels — that's a one-time
-   `gh label create` by the operator.
+Three roles, one per phase. Each is a markdown file with frontmatter that Claude Code reads as a subagent definition.
 
-If the runner cannot resolve the project item id for the issue, it
-prints the manual fallback command and exits without comment.
+| Agent | Phase | Output | Does NOT |
+| --- | --- | --- | --- |
+| `roadmap-designer` | Design | `docs/designs/<code>.md` | write production code, install deps, push |
+| `roadmap-implementer` | Build | Code + tests + `docs/current-status.md` update | redesign, deploy, push |
+| `roadmap-reviewer` | Review | `docs/reviews/<code>.md` with verdict | modify code, push, open PR |
 
----
+Each agent reads `CLAUDE.md`, the relevant skills, and the card's design doc (after designer). They commit on the branch but never push.
 
-## C. Implement
+### Skills (`.claude/skills/`)
 
-Read first, in order:
+Eight knowledge files that the agents invoke to expand the HOW of each technical decision:
 
-1. The issue body (`gh issue view <n> --json number,title,body,labels`).
-2. `docs/ux-ui-project-board.md` for context on epic + release.
-3. Any docs linked from the issue body.
-4. The closest existing implementation (find a sibling file in the same
-   epic and read its tests too).
-5. `docs/current-status.md` and `docs/session-handoff.md` for invariants.
+| Skill | Covers | When agents invoke it |
+| --- | --- | --- |
+| `cdiscourse-doctrine` | Universal product safety + secrets policy | Every card |
+| `expo-rn-patterns` | Expo / RN dep policy + UI primitives | UI cards (Epic 1-9, 11) |
+| `supabase-edge-contract` | RLS, Edge Function shape, migration discipline | DB / Edge / Auth cards (Epic 6, 9, 10) |
+| `test-discipline` | Coverage rules, where tests live, ban-list patterns | Every card (in the test step) |
+| `timeline-grammar` | Shape/color/stroke tokens, branch lanes | Visual + timeline cards (Epic 2, 3, 7) |
+| `evidence-doctrine` | Evidence artifact model, anti-amplification, debt | Evidence cards (Epic 6, 11, 12) |
+| `accessibility-targets` | a11y bar, screen-reader contract, keyboard nav | Any visible UI card |
+| `point-standing-economy` | Scoring economy, bands, concession rules | Scoring + standing cards (Epic 6, 7) |
 
-Write a short implementation note in your own scratch context (not on
-disk) before editing. Then:
+The agents pick the skills they need from the card's epic; you don't manually inject them.
 
-- Modify the **smallest** set of files that satisfies the acceptance
-  criteria. No drive-by cleanup. No speculative abstractions.
-- Add or update tests. Pure-TS / pure-JS models should hit the same
-  coverage bar as the constitution engine.
-- Update `docs/current-status.md` or `docs/ux-ui-project-board.md`
-  **only when product status actually changes** — not when you start
-  working, not when you push a commit that doesn't ship the user a new
-  behaviour.
-- Update `docs/product-status-ledger.md` with the row for this issue.
+### Orchestration (`.claude/scripts/spawn-card.ps1`)
 
-If you discover the issue is wrong (acceptance criteria contradict the
-spec, dependencies aren't met, etc.), **stop, comment on the issue, set
-Project Status to `Blocked` via the signoff command, and ask**.
+One PowerShell script. Given a card code + target phase, it:
 
----
+1. Looks up the GitHub issue by code.
+2. Sets the **Phase** field on the GitHub Project item.
+3. Saves the issue body to a temp file.
+4. Prints the exact Claude Code prompt to paste back into your session.
 
-## D. Verify
+It does NOT actually spawn the subagent — that part you do by pasting the prompt into Claude Code, which uses the Agent tool with `subagent_type='roadmap-designer'` (or implementer/reviewer) and `isolation='worktree'`.
 
-Targeted first, then full:
+### GitHub Project (Project #1)
 
-```bash
-npm run skills:validate || true       # never write bot output through this path
-npm run typecheck
-npm run lint
-npm test -- --testPathPattern="<targeted pattern>"
-npm run test
-```
+Fields:
+- **Status** — default kanban (Todo / In Progress / Done) — optional, not driven by the script
+- **Phase** — driven by the script: Backlog / Design / Build / Review / Done / Blocked
+- **Priority** — P0 / P1 / P2
+- **Effort** — S / M / L / XL
+- **Epic** — 14 epics
+- **Release** — 6.5 / 6.6 / 6.7 / 6.8
 
-If targeted tests fail, fix and re-run. Do not move to full suite until
-targeted is green. Do not move to commit until full suite is green.
+Recommended views (create in the web UI):
+1. **Now / Next / Later** — Board grouped by Release
+2. **By Epic** — Board grouped by Epic
+3. **Current pipeline** — Board grouped by Phase (shows what each agent is doing)
+4. **P0 backlog** — Table filtered Priority=P0, sorted by Release
 
-If a test failure is genuinely unrelated to the issue (pre-existing
-flake, environmental), document it in the commit footer's `Notes:` line
-**and** as a comment on the issue. Don't paper over it.
-
----
-
-## E. Commit
-
-Use this footer format on **every** issue-agent commit:
+## The end-to-end loop per card
 
 ```
-<type>: <issue-prefix-lowercase> <short outcome>
-
-Refs: #<issue-number>
-Product-Status: <Not Started|In Progress|Needs Review|Done|Blocked>
-Project-Status: <Todo|In Progress|Done>
-Project-Phase: <Backlog|Design|Build|Review|Done|Blocked>
-Verification: typecheck=<pass|fail>; lint=<pass|fail>; tests=<count|fail>
-Agent: <agent-name>
-Scope: <one-line scope>
-Docs: <yes|no — list of doc files touched if yes>
-Notes: <optional — only when something unusual needs explanation>
-
-Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
+                ┌────────────────────────────────────────────┐
+                │ Operator picks a card from the Project    │
+                │ Phase: Backlog                            │
+                └────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                ┌────────────────────────────────────────────┐
+                │ .\spawn-card.ps1 <code>                   │
+                │ Phase: Backlog -> Design                  │
+                │ Prints designer prompt                    │
+                └────────────────────────────────────────────┘
+                                  │
+                                  ▼
+                ┌────────────────────────────────────────────┐
+                │ Claude Code: Agent tool                   │
+                │   subagent_type=roadmap-designer          │
+                │   isolation=worktree                      │
+                │   prompt=<designer prompt>                │
+                │                                            │
+                │ Designer reads card + skills, writes      │
+                │ docs/designs/<code>.md, commits.          │
+                └────────────────────────────────────────────┘
+                                  │
+                  ┌───────────────┴────────────────┐
+                  │                                │
+                  ▼                                ▼
+       Design OK              Design says "Cannot proceed"
+                  │                                │
+                  ▼                                ▼
+       .\spawn-card.ps1                  .\spawn-card.ps1
+       <code> -Phase Build               <code> -Phase Blocked
+                                          -Reason "..."
+                  │
+                  ▼
+       Agent tool: roadmap-implementer
+       Writes code + tests + doc updates
+       Commits in coherent slices
+                  │
+                  ▼
+       .\spawn-card.ps1 <code> -Phase Review
+                  │
+                  ▼
+       Agent tool: roadmap-reviewer
+       Writes docs/reviews/<code>.md
+       Verdict: Approve / Changes / Block
+                  │
+       ┌──────────┼──────────────┐
+       │          │              │
+       ▼          ▼              ▼
+    Approve    Changes         Block
+       │       requested        │
+       │          │             ▼
+       │          ▼          Back to Build
+       │       Implementer   or re-spawn
+       │       addresses     Design
+       │          │
+       │          ▼
+       │       Re-Review
+       ▼
+   .\spawn-card.ps1 <code> -Phase Done
+   git push + gh pr create
+   Operator runs deploy steps from design's "Operator steps"
 ```
 
-Rules:
+## Why three agents and not one
 
-- `Closes #<issue>` belongs in the body **only** if every acceptance
-  criterion in the issue is satisfied by this commit. Otherwise use
-  `Refs: #<issue>` so the issue stays open.
-- `Product-Status: Done` is illegal if `tests=fail`. (`Blocked` is the
-  honest answer.)
-- Don't combine multiple issues in one commit. If your change naturally
-  satisfies two issues, ship one, then rebase to ship the second.
-- Stage **only safe files** (see denylist below). Never blanket-stage
-  the working tree.
+A single agent that designs + builds + reviews has all three problems compressed into one context: it can build to its own design and "review" its own code without the friction that catches mistakes. The three-agent split:
 
-### Safe-to-stage denylist
+- Forces the design to be **written down** before code starts (so a fresh implementer can follow it).
+- Lets the implementer fail gracefully — if the design is wrong, the implementer surfaces it without paper-overing.
+- Gives the reviewer an independent context with no investment in the design choices.
 
-Never `git add` any of these:
+The cost is two extra commits per card. The benefit is a clean audit trail and earlier detection of doctrine drift.
 
-- `.env*`
-- `logs/`
-- `artifacts/diagnostics/`
-- `node_modules/`
-- `.expo/`
-- `.claude/worktrees/`
-- raw JSONL (`*.jsonl` under `logs/`, `data/`, `artifacts/`)
-- raw X data (anything under `data/engagement-intelligence/raw/`)
-- screenshots with secrets
-- raw API responses
-- any file the diff shows containing a token-shape string
+## Why one card per worktree
 
-If `git add` would have included one of these, stage individual files
-by path instead of `git add -A` / `git add .`.
+Each card gets `.claude/worktrees/<auto-slug>` (created by `isolation: "worktree"`) and a `feat/<code>-<slug>` branch off `main`. This means:
 
----
+- Multiple cards can be in flight simultaneously (different agents, different worktrees).
+- No agent steps on another agent's changes.
+- Merge to main is per-card, so a stalled card never blocks others.
+- A reverted PR removes only that card's changes.
 
-## F. Sign off
+## Doctrine that ALL agents must respect
 
-```
-node scripts/github/agentIssueRunner.js signoff \
-  --issue <n> --commit <hash> --status "<Done|Needs Review|Blocked|In Progress>" \
-  --agent <name>
-```
+Pulled from `cdiscourse-doctrine` skill — re-stated here so it's visible without invoking the skill:
 
-Default mode is dry-run. Add `--apply` to actually mutate GitHub.
+1. No truth / winner / loser language in user-facing strings.
+2. Score never blocks posting. Validation can, score can't.
+3. Heat = activity, not correctness. Popularity is not evidence.
+4. AI moderator never decides who is right. AI calls only in Edge Functions, not the client app.
+5. The rules engine (`src/lib/constitution/engine.ts`) is pure TS — no React, no Supabase, no fetch.
+6. No service-role key in client. No direct insert into `public.arguments` from client. RLS always on.
+7. Plain language for users — no raw `snake_case_codes` in UI strings.
+8. v1 will not build: voting, search, push notifications, OAuth, public API.
+9. Soft-delete `arguments` only. Soft-dismiss `flags` only.
+10. Tests are part of "done", not a follow-up.
 
-Sign-off does four things:
+## When things break
 
-1. **Comments on the issue** with this template:
-   > Agent finished: `<agent-name>`. Commit: `<hash>` (<short subject>).
-   >
-   > Verification: `typecheck=<…>; lint=<…>; tests=<…>`
-   > Product status: `<…>`
-   > Files changed: `<count>` (<top 5 paths>)
-   > Remaining gaps: `<bullet list or "none">`
-   > Issue status: `<closed|still open>`
-2. **Updates Project Status / Project Phase** by status:
-   | Sign-off status | Project Status | Project Phase |
-   |---|---|---|
-   | `Done` | Done | Done |
-   | `Needs Review` | In Progress | Review |
-   | `Blocked` | In Progress | Blocked |
-   | `In Progress` | In Progress | Build |
-3. **Closes the issue** only when sign-off status is `Done` AND the
-   commit message contains `Closes #<n>`. The runner refuses to close
-   an issue from `Needs Review` — that's an explicit operator gate.
-4. **Removes the `agent:active` label** (if present) and adds either
-   `agent:done` or `agent:blocked` (if those labels exist; the runner
-   does not create labels).
+- **Designer says "Cannot proceed"** — read the design doc; the issue is at the top. Likely doctrine conflict or under-specified card. Fix the card body and re-spawn, or split the card.
+- **Implementer says "Cannot proceed"** — the design has a defect. Re-spawn designer with the implementer's note.
+- **Reviewer says "Block"** — read the review's blockers. If it's an implementation gap, re-spawn implementer. If it's a design defect, re-spawn designer.
+- **Tests fail on main before designer starts** — fix main first. The whole pipeline assumes a green baseline.
+- **A skill is missing/wrong** — edit the skill file. Skills are versioned in `.claude/skills/<name>/SKILL.md`.
 
-### When to use each sign-off status
+## What this workflow does NOT do
 
-| Status | Use when… |
-|---|---|
-| `Done` | Every acceptance criterion is proven by a test that runs in `npm run test`, the commit closes the issue, no follow-up needed. |
-| `Needs Review` | Code is complete and tests pass, but the acceptance criteria include a browser walk-through or visual check the operator needs to do. |
-| `Blocked` | Implementation is impossible until another issue lands, an operator decision is made, or an external constraint changes. The comment must name the blocker. |
-| `In Progress` | Mid-stream save: the agent is pausing the session but has not finished the issue. Rare — usually the agent finishes or doesn't claim in the first place. |
+- Does NOT push to remote automatically. Operator pushes.
+- Does NOT open PRs automatically. Operator runs `gh pr create`.
+- Does NOT deploy Supabase migrations or Edge Functions. Operator runs `npx supabase ...`.
+- Does NOT auto-merge. Operator merges after review and any human review.
+- Does NOT poll the Project board for new cards. You drive cadence via `spawn-card.ps1`.
 
----
-
-## Parallel agents (worktrees)
-
-If two agents must run at the same time, give each its own working tree:
-
-```bash
-git worktree add ../cdiscourse-agent-18 -b agent/18-sw-001-strength-bands main
-git worktree add ../cdiscourse-agent-15 -b agent/15-ev-002-source-chain-popover main
-```
-
-Then one Claude session per worktree. Jest is configured to ignore
-`.claude/worktrees/` (see `package.json` → `jest.testPathIgnorePatterns`)
-so internal worktrees there don't double-run tests. External worktrees
-in sibling directories are isolated by definition.
-
-After each commit lands on `main`, prune:
-
-```bash
-git worktree remove ../cdiscourse-agent-18
-```
-
----
-
-## Push gate
-
-The runner **never** pushes. After sign-off, the operator decides:
-
-```bash
-git push origin <branch-or-main>
-```
-
-If the commit was made on `main` (small docs/scripts changes), push
-`main`. If on a feature branch, push that branch and open a PR — the
-sign-off comment is your PR description prep.
-
----
-
-## What this workflow is not
-
-- **Not a CI replacement.** Local typecheck/lint/test still catches
-  what CI does; this just makes the per-issue cadence explicit.
-- **Not an autonomous loop.** No agent self-assigns the next issue;
-  each turn is operator-triggered.
-- **Not a substitute for issue grooming.** If the issue body is
-  unclear, comment on the issue and stop, don't guess.
+If you want auto-deploy or auto-merge, that's a `/schedule` or CI job, not the per-card agent loop.
