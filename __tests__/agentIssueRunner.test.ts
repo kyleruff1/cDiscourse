@@ -412,6 +412,119 @@ describe('agentIssueRunner', () => {
     });
   });
 
+  // ── resolveGhBin (Windows + non-Windows binary resolution) ───────
+  describe('resolveGhBin', () => {
+    // A working candidate returns status:0; everything else returns status:1.
+    const mkSpawn = (workingCandidates: string[]) =>
+      (bin: string) => ({ status: workingCandidates.includes(bin) ? 0 : 1 });
+
+    it('honors GH_BIN above everything else, even on Windows', () => {
+      const resolved = runner.resolveGhBin({
+        env: { GH_BIN: '/custom/path/gh.exe' },
+        platform: 'win32',
+        spawn: mkSpawn(['/custom/path/gh.exe', 'gh.exe', 'gh']),
+      });
+      expect(resolved).toBe('/custom/path/gh.exe');
+    });
+
+    it('on Windows, prefers gh.exe when GH_BIN is unset', () => {
+      const resolved = runner.resolveGhBin({
+        env: {},
+        platform: 'win32',
+        spawn: mkSpawn(['gh.exe', 'gh.cmd', 'gh']),
+      });
+      expect(resolved).toBe('gh.exe');
+    });
+
+    it('on Windows, falls back to gh.cmd when gh.exe is unavailable', () => {
+      const resolved = runner.resolveGhBin({
+        env: {},
+        platform: 'win32',
+        spawn: mkSpawn(['gh.cmd', 'gh']),
+      });
+      expect(resolved).toBe('gh.cmd');
+    });
+
+    it('on Windows, falls back to bare gh when neither .exe nor .cmd works', () => {
+      const resolved = runner.resolveGhBin({
+        env: {},
+        platform: 'win32',
+        spawn: mkSpawn(['gh']),
+      });
+      expect(resolved).toBe('gh');
+    });
+
+    it('on non-Windows, resolves bare gh', () => {
+      const resolved = runner.resolveGhBin({
+        env: {},
+        platform: 'linux',
+        spawn: mkSpawn(['gh']),
+      });
+      expect(resolved).toBe('gh');
+    });
+
+    it('throws a directive error mentioning GH_BIN when nothing resolves', () => {
+      expect(() => runner.resolveGhBin({
+        env: {},
+        platform: 'win32',
+        spawn: mkSpawn([]),
+      })).toThrow(/GH_BIN/);
+    });
+
+    it('throws a directive error mentioning all tried candidates on Windows', () => {
+      expect(() => runner.resolveGhBin({
+        env: {},
+        platform: 'win32',
+        spawn: mkSpawn([]),
+      })).toThrow(/gh\.exe.*gh\.cmd.*gh/);
+    });
+
+    it('treats spawner that throws (ENOENT-style) the same as status 1', () => {
+      const throwingSpawn = (bin: string) => {
+        if (bin === 'gh.exe') throw new Error('ENOENT');
+        if (bin === 'gh.cmd') return { status: 0 };
+        return { status: 1 };
+      };
+      const resolved = runner.resolveGhBin({
+        env: {},
+        platform: 'win32',
+        spawn: throwingSpawn,
+      });
+      expect(resolved).toBe('gh.cmd');
+    });
+
+    it('does not invoke the spawner at all once a candidate works', () => {
+      const calls: string[] = [];
+      const recordingSpawn = (bin: string) => {
+        calls.push(bin);
+        return { status: bin === 'gh.exe' ? 0 : 1 };
+      };
+      runner.resolveGhBin({
+        env: {},
+        platform: 'win32',
+        spawn: recordingSpawn,
+      });
+      // gh.exe wins on first probe; .cmd / bare gh should never be probed.
+      expect(calls).toEqual(['gh.exe']);
+    });
+
+    it('error message includes a how-to-set-GH_BIN hint', () => {
+      let caught: Error | null = null;
+      try {
+        runner.resolveGhBin({
+          env: {},
+          platform: 'win32',
+          spawn: mkSpawn([]),
+        });
+      } catch (e) {
+        caught = e as Error;
+      }
+      expect(caught).not.toBeNull();
+      expect((caught as Error).message).toMatch(/GH_BIN/);
+      expect((caught as Error).message).toMatch(/path/i);
+    });
+  });
+
   // ── No tokens / no secrets in source ─────────────────────────────
   describe('source-file safety', () => {
     it('source file contains no secret-shape literal', () => {

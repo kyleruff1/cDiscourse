@@ -59,6 +59,11 @@ data/engagement-intelligence/local/
 # Claude Code local settings (user-specific permissions)
 .claude/settings.local.json
 
+# Claude Code agent worktrees (isolated per-card workspaces created by the
+# agent pipeline; local-only, never staged — mirrors SAFE_STAGE_DENYLIST in
+# scripts/github/agentIssueRunner.js)
+.claude/worktrees/
+
 # typescript
 *.tsbuildinfo
 

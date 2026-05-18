@@ -194,6 +194,27 @@ Pulled from `cdiscourse-doctrine` skill — re-stated here so it's visible witho
 - **Tests fail on main before designer starts** — fix main first. The whole pipeline assumes a green baseline.
 - **A skill is missing/wrong** — edit the skill file. Skills are versioned in `.claude/skills/<name>/SKILL.md`.
 
+## Troubleshooting — GitHub CLI on Windows
+
+`scripts/github/agentIssueRunner.js` (used by `npm run github:agent:queue` and `npm run github:agent:ledger`) shells out to `gh`. On Windows the resolver tries `gh.exe`, then `gh.cmd`, then bare `gh`, with `GH_BIN` overriding all three. If `npm run github:agent:queue` exits with `failed to list open issues (gh exit code null)` or `GitHub CLI not found`, walk through this checklist before touching the runner:
+
+```powershell
+where gh                    # confirms a `gh` is on PATH and shows which file
+gh --version                # confirms it actually runs
+gh auth status              # confirms a token is loaded
+gh auth refresh -s project  # add Project v2 scope if "project" is missing
+```
+
+If `where gh` returns an absolute path but the runner still fails, set `GH_BIN` to that exact path for the current session:
+
+```powershell
+$env:GH_BIN = 'C:\Users\<you>\AppData\Local\Microsoft\WinGet\Packages\GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe\bin\gh.exe'
+```
+
+Note on WinGet exit code 43 (`No applicable update found` / `Existing package already installed`): this is **not** a fatal install error — it usually means GitHub CLI is already installed and WinGet found nothing newer. Move on to `gh --version` and `gh auth status`; no reinstall is required.
+
+The runner never logs the token, the `Authorization` header, or `gh auth status` raw output.
+
 ## What this workflow does NOT do
 
 - Does NOT push to remote automatically. Operator pushes.

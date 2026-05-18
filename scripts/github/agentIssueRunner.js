@@ -253,9 +253,58 @@ function planSignoffCommands({ issueNumber, comment, status, projectItemId, clos
 
 // ─── gh shell-out (impure) ───────────────────────────────────────────
 
+/**
+ * Resolve which GitHub CLI binary to call. Pure helper: takes its
+ * environment, platform, and spawner via options so tests can inject
+ * a fake spawner without touching real PATH.
+ *
+ * Order:
+ *   1. `env.GH_BIN` if set (operator override).
+ *   2. On win32: `gh.exe`, then `gh.cmd`, then `gh`.
+ *      (WinGet installs gh.exe; some shells expose only gh.cmd; Git Bash
+ *       resolves bare `gh` to whatever PATH finds first.)
+ *   3. On non-Windows: `gh`.
+ *
+ * A candidate is "working" when `<bin> --version` exits 0. The first
+ * working candidate wins. Throws a directive error if none work.
+ */
+function resolveGhBin({
+  env = process.env,
+  platform = process.platform,
+  spawn = spawnSync,
+} = {}) {
+  const candidates = [];
+  if (env.GH_BIN) candidates.push(env.GH_BIN);
+  if (platform === 'win32') {
+    candidates.push('gh.exe', 'gh.cmd', 'gh');
+  } else {
+    candidates.push('gh');
+  }
+  for (const bin of candidates) {
+    let r;
+    try {
+      r = spawn(bin, ['--version'], { stdio: 'ignore' });
+    } catch {
+      continue;
+    }
+    if (r && r.status === 0) return bin;
+  }
+  const hint = platform === 'win32'
+    ? "Try: $env:GH_BIN = '<absolute path to gh.exe>' (e.g., the WinGet install path)."
+    : 'Try: export GH_BIN=<absolute path to gh>.';
+  throw new Error(
+    'GitHub CLI not found. Install GitHub CLI and ensure `gh` is on PATH, '
+    + 'or set GH_BIN to its absolute path. '
+    + hint + ' '
+    + `Tried: ${candidates.join(', ')}.`,
+  );
+}
+
+let _ghBinCache = null;
 function ghBin() {
-  // Prefer the absolute path injected via GH_BIN env, then PATH.
-  return process.env.GH_BIN || (process.platform === 'win32' ? 'gh.cmd' : 'gh');
+  if (_ghBinCache) return _ghBinCache;
+  _ghBinCache = resolveGhBin();
+  return _ghBinCache;
 }
 
 function runGh(args, { capture = true } = {}) {
@@ -447,6 +496,7 @@ module.exports = {
   renderQueueRow,
   planClaimCommands,
   planSignoffCommands,
+  resolveGhBin,
   // Constants
   STATUS_TO_PROJECT,
   VALID_SIGNOFF_STATUSES,
