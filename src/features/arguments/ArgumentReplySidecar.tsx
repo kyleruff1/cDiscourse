@@ -12,6 +12,7 @@ import type {
   ArgumentBubbleViewModel,
   ArgumentTimelineMapNode,
 } from './argumentGameSurfaceModel';
+import { formatStandingBandShort } from './standingBandCopy';
 
 interface Props {
   activeMessage: ArgumentTimelineMapNode | null;
@@ -127,7 +128,7 @@ export function ArgumentReplySidecar({
         <View style={styles.bandRow}>
           <View style={styles.bandChip} testID={`sidecar-standing-band`}>
             <Text style={styles.bandLabel}>Standing</Text>
-            <Text style={styles.bandValue}>{prettyBand(activeMessage.standingBand)}</Text>
+            <Text style={styles.bandValue}>{formatStandingBandShort(activeMessage.standingBand)}</Text>
           </View>
           <View style={styles.bandChip} testID="sidecar-tone-band">
             <Text style={styles.bandLabel}>Tone</Text>
@@ -169,19 +170,6 @@ export function ArgumentReplySidecar({
   );
 }
 
-function prettyBand(b: string): string {
-  switch (b) {
-    case 'pretty_wrong': return 'Pretty wrong';
-    case 'slightly_wrong': return 'Slightly wrong';
-    case 'neutral': return 'Neutral';
-    case 'slightly_right': return 'Slightly right';
-    case 'maybe_right_misguided': return 'Maybe right, misguided';
-    case 'pretty_right': return 'Pretty right';
-    case 'completely_right': return 'Completely right';
-    case 'not_enough_signal': return 'Not enough signal';
-    default: return 'Unscored';
-  }
-}
 
 const styles = StyleSheet.create({
   root: { backgroundColor: '#0b1220', borderTopWidth: 1, borderTopColor: '#1f2937', padding: 10, maxHeight: 360 },

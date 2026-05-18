@@ -31,6 +31,7 @@ import {
 import { computeParticipantTrends } from './argumentScoreModel';
 import { ArgumentScoreTracker } from './ArgumentScoreTracker';
 import { ArgumentSideActionRail, railActionToBubbleControl } from './ArgumentSideActionRail';
+import { VIEW_MODE_COPY } from './viewModeCopy';
 import type { RailActionCode, RailViewerRole } from './ArgumentSideActionRail';
 import type { ArgumentTag, ArgumentFlag } from './types';
 import type { ParticipantSide } from '../debates/types';
@@ -244,7 +245,7 @@ export function ArgumentGameSurface({
             accessibilityLabel={`Switch surface mode. Currently ${mode}.`}
             testID="surface-mode-toggle"
           >
-            <Text style={styles.modeChipText}>{mode === 'stack' ? 'Stack' : 'Timeline'}</Text>
+            <Text style={styles.modeChipText}>{mode === 'stack' ? VIEW_MODE_COPY.cards.label : VIEW_MODE_COPY.timeline.label}</Text>
           </Pressable>
           <Text style={styles.latestStatus} numberOfLines={1} accessibilityLabel="argument-latest-status">
             Latest: {latestKindLabel}
@@ -291,6 +292,7 @@ export function ArgumentGameSurface({
               onPrev={handlePrev}
               onNext={handleNext}
               onJumpLatest={() => latestId && setActiveMessageId(latestId)}
+              onJumpToRoot={() => timelineMap.rootMessageId && setActiveMessageId(timelineMap.rootMessageId)}
               onToggleMode={handleToggleMode}
             />
             <ArgumentReplySidecar

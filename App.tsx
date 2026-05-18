@@ -28,21 +28,32 @@ import type { MoveDraftPatch } from './src/features/arguments/conversationMoves'
 import { TAB_LABELS, getVisibleTabs } from './src/features/arguments/roomNavigation';
 import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
 import { ROOM_COPY } from './src/features/arguments/gameCopy';
+import { DEFAULT_VIEW_MODE, VIEW_MODE_COPY } from './src/features/arguments/viewModeCopy';
+import { DevEnvironmentBanner } from './src/features/devEnvironment';
 
 // ── AppRoot: session-gated routing ────────────────────────────
 
 function AppRoot() {
   const { state } = useAppSession();
 
+  let content: React.ReactNode;
   if (state.status === 'unconfigured') {
-    return <LoadingNotice message="Starting…" />;
+    content = <LoadingNotice message="Starting…" />;
+  } else if (state.status === 'signed_out') {
+    content = <AuthScreen />;
+  } else {
+    content = <MainAppShell />;
   }
 
-  if (state.status === 'signed_out') {
-    return <AuthScreen />;
-  }
-
-  return <MainAppShell />;
+  // DevEnvironmentBanner renders null in production. In any other deploy
+  // (dev / preview / local / unverified) it docks above the rest of the
+  // app so public visitors cannot mistake the build for production.
+  return (
+    <SafeAreaView style={styles.appRoot}>
+      <DevEnvironmentBanner />
+      <View style={styles.appRootContent}>{content}</View>
+    </SafeAreaView>
+  );
 }
 
 // ── MainAppShell: argument-first tab structure ────────────────
@@ -53,7 +64,10 @@ function MainAppShell() {
   const [tab, setTab] = useState<ArgumentRoomTab>('arguments');
   const [replyTarget, setReplyTarget] = useState<{ id: string; argument: ArgumentRow } | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ArgumentViewMode>('stack');
+  // TL-001 — Timeline is the default landing mode. Cards remains a toggle.
+  // Active-message state is shared across modes, so switching preserves the
+  // currently active node.
+  const [viewMode, setViewMode] = useState<ArgumentViewMode>(DEFAULT_VIEW_MODE);
   const [inviteOpen, setInviteOpen] = useState(false);
   // Stage 6.2 M7 — preset draft patch from sidecar/bubble quick action.
   // Reset on composer close so the next open starts fresh.
@@ -188,27 +202,29 @@ function MainAppShell() {
               >
                 <Text style={styles.roomLabel}>{ROOM_COPY.title}</Text>
                 <View style={styles.toolbarSep} />
-                {/* View toggle — Stack + Timeline are the normal-user chips. */}
+                {/* View toggle — Timeline (primary) + Cards (deeper inspection). */}
                 <Pressable
                   style={[styles.toolbarChip, viewMode === 'stack' && styles.toolbarChipActive]}
                   onPress={() => setViewMode('stack')}
                   accessibilityRole="button"
-                  accessibilityLabel="Stack view"
+                  accessibilityLabel={VIEW_MODE_COPY.cards.accessibilityLabel}
+                  accessibilityHint={VIEW_MODE_COPY.cards.accessibilityHint}
                   testID="room-toolbar-stack"
                 >
                   <Text style={[styles.toolbarChipText, viewMode === 'stack' && styles.toolbarChipTextActive]}>
-                    Stack
+                    {VIEW_MODE_COPY.cards.label}
                   </Text>
                 </Pressable>
                 <Pressable
                   style={[styles.toolbarChip, viewMode === 'timeline' && styles.toolbarChipActive]}
                   onPress={() => setViewMode('timeline')}
                   accessibilityRole="button"
-                  accessibilityLabel="Timeline map"
+                  accessibilityLabel={VIEW_MODE_COPY.timeline.accessibilityLabel}
+                  accessibilityHint={VIEW_MODE_COPY.timeline.accessibilityHint}
                   testID="room-toolbar-timeline"
                 >
                   <Text style={[styles.toolbarChipText, viewMode === 'timeline' && styles.toolbarChipTextActive]}>
-                    Timeline
+                    {VIEW_MODE_COPY.timeline.label}
                   </Text>
                 </Pressable>
                 {__DEV__ && (
@@ -337,6 +353,8 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  appRoot: { flex: 1, backgroundColor: '#111827' },
+  appRootContent: { flex: 1, backgroundColor: '#f9fafb' },
   root: { flex: 1, backgroundColor: '#f9fafb' },
   tabBar: {
     flexDirection: 'row',

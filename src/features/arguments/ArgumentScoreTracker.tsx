@@ -8,10 +8,10 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
-  STANDING_BAND_LABEL,
   standingBandColor,
   type ParticipantTrend,
 } from './argumentScoreModel';
+import { formatStandingBandShort } from './standingBandCopy';
 
 interface Props {
   trends: ParticipantTrend[];
@@ -52,7 +52,7 @@ export function ArgumentScoreTracker({ trends }: Props) {
                   <Text style={styles.actor} numberOfLines={1}>{t.participantLabel}</Text>
                   <Text style={styles.count}>· {t.messageCount}</Text>
                 </View>
-                <Text style={[styles.band, { color }]} numberOfLines={1}>{STANDING_BAND_LABEL[t.currentBand]}</Text>
+                <Text style={[styles.band, { color }]} numberOfLines={1}>{formatStandingBandShort(t.currentBand)}</Text>
                 <View style={styles.metaRow}>
                   <Text style={styles.arrow}>{dirArrow(t.trendDirection)}</Text>
                   <Text style={styles.meta} numberOfLines={1}>last: {t.lastMoveLabel}</Text>

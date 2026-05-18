@@ -32,10 +32,13 @@ interface Props {
   onPrev: () => void;
   onNext: () => void;
   onJumpLatest: () => void;
+  /** Activate the root message. When provided AND `map.showBackToRootControl`, the Back-to-root chip renders. */
+  onJumpToRoot?: () => void;
   onToggleMode?: () => void;
 }
 
 const RAIL_THICKNESS = 4;
+const FIRST_CLASH_RAIL_THICKNESS = 6;
 const EDGE_SEGMENTS = 6;
 
 function EdgeStrip({ edge }: { edge: ArgumentTimelineMapEdge }) {
@@ -52,26 +55,34 @@ function EdgeStrip({ edge }: { edge: ArgumentTimelineMapEdge }) {
     const localT = t * (stops.length - 1) - idx;
     return mixHex(stops[idx], stops[idx + 1], localT);
   });
+  const thickness = edge.isFirstClash ? FIRST_CLASH_RAIL_THICKNESS : RAIL_THICKNESS;
   return (
     <View
       pointerEvents="none"
-      testID={`timeline-edge-${edge.fromMessageId}-${edge.toMessageId}`}
+      testID={
+        edge.isFirstClash
+          ? `timeline-edge-first-clash-${edge.fromMessageId}-${edge.toMessageId}`
+          : `timeline-edge-${edge.fromMessageId}-${edge.toMessageId}`
+      }
       style={{
         position: 'absolute',
         left: edge.x1 + TIMELINE_NODE_SIZE / 2,
-        top: edge.y1 + TIMELINE_NODE_SIZE / 2 - RAIL_THICKNESS / 2,
+        top: edge.y1 + TIMELINE_NODE_SIZE / 2 - thickness / 2,
         width: length,
-        height: RAIL_THICKNESS,
+        height: thickness,
         transform: [{ rotateZ: `${angle}deg` }],
         transformOrigin: '0% 50%',
         flexDirection: 'row',
         opacity: edge.isActivePath ? 1 : 0.55,
-        borderRadius: RAIL_THICKNESS,
+        borderRadius: thickness,
         overflow: 'hidden',
+        ...(edge.isFirstClash
+          ? { borderWidth: 1, borderColor: '#fef3c7' as const }
+          : null),
       } as object}
     >
       {segs.map((c, i) => (
-        <View key={`${edge.edgeId}-seg-${i}`} style={{ width: segmentLen, height: RAIL_THICKNESS, backgroundColor: c }} />
+        <View key={`${edge.edgeId}-seg-${i}`} style={{ width: segmentLen, height: thickness, backgroundColor: c }} />
       ))}
     </View>
   );
@@ -93,7 +104,7 @@ function NodeDot({
       {ring ? <View style={[styles.nodeRing, ring]} /> : null}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={node.accessibilityLabel}
+        accessibilityLabel={node.isRoot ? `${node.accessibilityLabel}, opening claim` : node.accessibilityLabel}
         accessibilityState={{ selected: node.isActive }}
         onPress={() => onActivate(node.messageId)}
         style={[
@@ -101,10 +112,21 @@ function NodeDot({
           { backgroundColor: node.kindColor },
           node.isActive && styles.nodeActive,
           node.isDetached && styles.nodeDetached,
+          node.isRoot && styles.nodeRoot,
         ]}
       >
         <Text style={styles.nodeOrdinal} numberOfLines={1}>{node.ordinal}</Text>
       </Pressable>
+      {node.isRoot ? (
+        <View testID={`timeline-root-marker-${node.messageId}`} style={styles.rootMarkerPill}>
+          <Text style={styles.rootMarkerPillText}>Root</Text>
+        </View>
+      ) : null}
+      {node.isFirstRebuttal ? (
+        <View testID={`timeline-first-clash-marker-${node.messageId}`} style={styles.firstClashPill}>
+          <Text style={styles.firstClashPillText}>First clash</Text>
+        </View>
+      ) : null}
       {node.isJunction ? (
         <View testID={`timeline-junction-${node.messageId}`} style={styles.junctionPill}>
           <Text style={styles.junctionPillText}>{node.junctionChildCount} routes</Text>
@@ -128,7 +150,7 @@ function NodeDot({
   );
 }
 
-export function ArgumentTimelineMap({ map, onActivate, onPrev, onNext, onJumpLatest, onToggleMode }: Props) {
+export function ArgumentTimelineMap({ map, onActivate, onPrev, onNext, onJumpLatest, onJumpToRoot, onToggleMode }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
 
   // Auto-scroll toward the active node.
@@ -149,6 +171,8 @@ export function ArgumentTimelineMap({ map, onActivate, onPrev, onNext, onJumpLat
       </View>
     );
   }
+
+  const showBackToRoot = Boolean(onJumpToRoot && map.showBackToRootControl);
 
   return (
     <View style={styles.root} testID="argument-timeline-map">
@@ -180,18 +204,35 @@ export function ArgumentTimelineMap({ map, onActivate, onPrev, onNext, onJumpLat
         >
           <Text style={styles.controlChipText}>Latest ⏭</Text>
         </Pressable>
+        {showBackToRoot ? (
+          <Pressable
+            style={styles.controlChip}
+            onPress={onJumpToRoot}
+            accessibilityRole="button"
+            accessibilityLabel="Back to opening claim"
+            testID="timeline-jump-root"
+          >
+            <Text style={styles.controlChipText}>↑ Back to root</Text>
+          </Pressable>
+        ) : null}
         {onToggleMode ? (
           <Pressable
             style={styles.controlChip}
             onPress={onToggleMode}
             accessibilityRole="button"
-            accessibilityLabel="Switch to stack mode"
+            accessibilityLabel="Switch to cards mode"
             testID="timeline-toggle-mode"
           >
-            <Text style={styles.controlChipText}>Stack ↺</Text>
+            <Text style={styles.controlChipText}>Cards ↺</Text>
           </Pressable>
         ) : null}
       </View>
+
+      {map.rootOnboardingHint ? (
+        <View style={styles.onboardingBanner} testID="timeline-root-onboarding">
+          <Text style={styles.onboardingBannerText}>{map.rootOnboardingHint}</Text>
+        </View>
+      ) : null}
 
       <ScrollView
         ref={scrollRef}
@@ -282,9 +323,16 @@ const styles = StyleSheet.create({
   },
   nodeActive: { borderColor: '#f8fafc', borderWidth: 2 },
   nodeDetached: { backgroundColor: '#475569', borderStyle: 'dashed' as const },
+  nodeRoot: { borderColor: '#fde68a', borderWidth: 3 },
   nodeOrdinal: { color: '#0b1220', fontWeight: '800', fontSize: 13 },
   junctionPill: { marginTop: 4, backgroundColor: '#a855f7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
   junctionPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  rootMarkerPill: { marginTop: 4, backgroundColor: '#fde68a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
+  rootMarkerPillText: { color: '#78350f', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+  firstClashPill: { marginTop: 4, backgroundColor: '#f97316', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
+  firstClashPillText: { color: '#fff7ed', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+  onboardingBanner: { backgroundColor: '#1e293b', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#334155' },
+  onboardingBannerText: { color: '#fde68a', fontSize: 12, fontWeight: '600' },
   detachedPill: { marginTop: 4, backgroundColor: '#475569', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
   detachedPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   chipRow: { flexDirection: 'row', gap: 2, marginTop: 4, maxWidth: TIMELINE_NODE_SIZE + 36 },
