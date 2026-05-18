@@ -1,6 +1,17 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-18 (Stage 6.5 BRAND — Global CivilDiscourse identity + dark theme)_
+_Last updated: 2026-05-18 (Release 6.6 EV-001 — Evidence object model v1)_
+
+## EV-001 — Evidence object model v1 (Release 6.6)
+
+**Status:** Build complete, awaiting Review.
+
+- New pure-TS module `src/features/evidence/evidenceModel.ts` (+ `index.ts` barrel). No React, no Supabase, no network, no service-role.
+- Public surface: types `EvidenceArtifact`, `EvidenceArtifactKind` (6 values), `SourceChainStatus` (6 values incl. aggregate-only `no_source`), `EvidenceRisk` (4 values), `EvidenceAttachmentInput`, `BuildEvidenceArtifactsInput`, `ReceiptChipContract`, `TimelineEvidenceContract`; helpers `classifyEvidenceKind`, `deriveSourceChainStatus`, `buildEvidenceArtifacts`, `summarizeArtifactsForReceiptChip`, `getTimelineEvidenceContract`; frozen enums `ALL_EVIDENCE_ARTIFACT_KINDS`, `ALL_SOURCE_CHAIN_STATUSES`, `ALL_EVIDENCE_RISKS`.
+- Persistence path is (b) — pure-TS adapter over the existing `attached_evidence` JSONB. No new migration, no new Edge Function, no change to `submit-argument`, no change to `evaluateArgumentDraft`. `broken` and `primary_present` are admin/override-only; the adapter never auto-derives them.
+- Doctrine anchor preserved: missing evidence hard-blocks only `argument_type='evidence'` posts; ordinary replies remain postable. EV-001 asserts this by re-running `evaluateArgumentDraft` with no edits.
+- Tests `__tests__/evidenceModel.test.ts` (+64): shape / enum coverage, decision table, adapter id stability + label fallback + 120-char truncation, override merge, receipt-chip worst-status-wins, timeline-node decoration, ban-list (no verdict / person / snake_case tokens in any system string), anti-amplification (no popularity-shaped kinds), and the doctrine anchor. Pre-existing xAI/Anthropic adapter suites (`xaiAdversarial*`, `aiDrivenBotCorpus`, `xaiSeededStancesLive`) remain failing on `main` and out of scope for EV-001.
+- See `docs/evidence-object-model.md` for the full reference.
 
 ## BRAND-001 — CivilDiscourse global identity (Stage 6.5)
 
