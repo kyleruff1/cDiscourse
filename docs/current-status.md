@@ -1,6 +1,20 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-18 (Release 6.6 EV-002 — Source-chain popover)_
+_Last updated: 2026-05-18 (Release 6.6 VG-002 — Gradient wave rail)_
+
+## VG-002 — Gradient wave rail (Release 6.6)
+
+**Status:** Build complete, awaiting Review.
+
+- New pure-TS model `src/features/arguments/railSegmentModel.ts`: exports `RailBranchKind` (5 values; `main | tangent | kink_start | kink_end | detached`), `ALL_RAIL_BRANCH_KINDS`, `RailSegmentInput`, `RailSegmentStyle`, `RailEvidenceTrackLayer`, `RailGlowLayer`, `deriveRailSegmentStyle`, `derivePlaceholderBranchKind` (BR-001 seam), `buildRailSegmentInput`, `visibleSegmentSlice`, `buildWholeRailAccessibilityLabel`, plus constants `RAIL_SOURCE_CHAIN_TEAL` (= EV-002's `RECEIPT_CHIP_RING_COLOR` = `#0f766e`), `RAIL_ACTIVE_PATH_GLOW` (`#a5b4fc`), `RAIL_THICKNESS_PX`, `FIRST_CLASH_RAIL_THICKNESS_PX`, `EDGE_SEGMENTS`, `VISIBLE_SLICE_DEFAULT_BUFFER_PX`. No React, no Supabase, no network.
+- New RN component `src/features/arguments/GradientWaveRail.tsx`: replaces the inline `EdgeStrip` subcomponent in `ArgumentTimelineMap.tsx`. Renders the 5-layer stacked-View visual (base color band → tone wash → evidence track → branch / kink stubs → active-path glow). Every layer is `pointerEvents="none"` — the rail is not a tap target. No animation; the component carries a documented seam (see source) so future cards (VG-004 / QOL-016) gate any pulse / sweep on `AccessibilityInfo.isReduceMotionEnabled()`.
+- Wiring: `ArgumentTimelineMap.tsx` extended in place. The component now tracks `scrollX` + measured `viewportWidth`, builds `RailSegmentInput[]` once per render from `map.edges` + `nodeById` + the existing EV-002 `artifactsByMessageId` prop (no new prop), virtualises via `visibleSegmentSlice` (default buffer one viewport wide), and exposes the rail-level a11y summary `buildWholeRailAccessibilityLabel(...)` on the horizontal ScrollView. The public `Props` surface is unchanged. `argumentGameSurfaceModel.ts` carries a comment block above `ArgumentTimelineMapEdge` pointing readers to `railSegmentModel.ts`.
+- Performance: virtualized rail bounds the visible slice to ≤ 50 segments at default 800px viewport with one-viewport buffer (measured 34 segments at scrollX=5000 across a 250×72px scroll width). Style derivation is memoizable per `segmentId` via the optional `styleCache` Map prop on `GradientWaveRail`.
+- Doctrine: warm tone wash = activity, never correctness; saturated teal track = trail quality, never claim quality. Every produced `accessibilityFragment` and every whole-rail label passes the verdict-token ban-list (`winner / loser / correct / true / liar / verdict / proof / proven / validated / winning / …`), the amplification ban-list (`likes / retweets / shares / followers / verified / engagement / trending / viral / popular / …`), and `looksLikeInternalCode`. Color-independence test for every color signal (saturated track → "source attached"; dotted broken → "weak source trail"; no_source → "needs a source"; tangent → "tangent off mainline"; active-path → "active branch"; detached → "detached branch").
+- BR-001 seam: `derivePlaceholderBranchKind` is the only function BR-001 swaps. The placeholder rule fires `tangent` only when `isDetached === true` AND (`fromNode.kindColorFamily === 'flag'` OR either endpoint's droppedTags include `branch_this_off` / `tangent_or_joke`). False-positive guard test asserts a flag-family node on the mainline stays `main`. The placeholder NEVER emits `kink_start` / `kink_end`; the dispatch table handles all five `RailBranchKind` values deterministically.
+- No new dependency. No migration. No Edge Function change. No Supabase mutation. No service-role. No `.env*` change.
+- Tests: +83 across 2 new files (`railSegmentModel.test.ts` +73, `GradientWaveRail.test.ts` +10). State-to-style matrix per row, placeholder decision table, tone-wash alpha lookup, `buildRailSegmentInput` worst-status, virtualization slice (incl. 250-segment performance bound), memoization determinism, ban-lists, doctrine anchors (heat is activity / saturated track is trail), color-independence per signal, no-animation guarantee. **2426 tests / 95 suites passing** (+83), typecheck + lint clean.
+- See `docs/designs/VG-002.md` for the full reference.
 
 ## EV-002 — Source-chain popover (Release 6.6)
 
