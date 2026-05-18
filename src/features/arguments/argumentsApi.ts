@@ -107,6 +107,41 @@ export async function listRootArguments(
 }
 
 /**
+ * Stage 6.3 — Batched gallery loader.
+ *
+ * Loads posted arguments for a SET of debate ids in one `.in()` call. The
+ * Conversation Gallery uses this to derive first-post / latest-move
+ * excerpts and move counts for all visible cards without N+1 queries.
+ *
+ * - No service-role.
+ * - RLS still gates row visibility.
+ * - `limit` is the total cap across all returned rows; callers should
+ *   request a budget proportional to debate count × max moves per debate.
+ */
+export async function listArgumentsForDebateIds(
+  debateIds: string[],
+  limit: number = 1500,
+): Promise<ApiResult<ArgumentRow[]>> {
+  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+  if (debateIds.length === 0) return { ok: true, data: [] };
+  // Hard cap input size to keep the request reasonable. PostgREST's `in()`
+  // tolerates up to ~1000 ids but we stop earlier to keep the URL small.
+  const ids = debateIds.slice(0, 200);
+
+  const { data, error } = await supabase
+    .from('arguments')
+    .select(ARG_SELECT)
+    .in('debate_id', ids)
+    .eq('status', 'posted')
+    .order('debate_id', { ascending: true })
+    .order('created_at', { ascending: true })
+    .limit(Math.max(1, Math.min(limit, 5000)));
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: ((data ?? []) as unknown as RawArgument[]).map(mapArgument) };
+}
+
+/**
  * Stage 6.2 — Full-room loader for the game surface (Stack + Timeline).
  *
  * Loads ALL posted arguments visible to RLS in a debate, ordered by

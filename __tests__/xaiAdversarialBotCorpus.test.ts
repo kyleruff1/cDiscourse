@@ -403,8 +403,17 @@ describe('Runner contract — JSONL emission shape (dry mode)', () => {
     if (!fs.existsSync(logsDir)) return; // no run has happened in this CI yet
     const files = fs.readdirSync(logsDir).filter((f) => f.endsWith('-xai-adversarial-semantic-corpus.jsonl'));
     if (files.length === 0) return;
-    const newest = files.sort().pop()!;
-    const lines = fs.readFileSync(path.join(logsDir, newest), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    // Use the NEWEST file that has a `run_summary` event (i.e., a completed
+    // run). Files written by an in-flight background corpus may not yet
+    // have emitted run_summary; those are skipped so the test is not
+    // flaky against concurrent runs.
+    const sorted = files.sort();
+    let lines: { stage?: string; skillGate?: { provocateurHash?: string; revocateurHash?: string } }[] | null = null;
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const parsed = fs.readFileSync(path.join(logsDir, sorted[i]), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      if (parsed.some((e) => e.stage === 'run_summary')) { lines = parsed; break; }
+    }
+    if (!lines) return;
     const stages = new Set(lines.map((l) => l.stage));
     for (const s of ['skill_validation', 'run_start', 'source_harvest', 'dissent_detection', 'scenario_build', 'bot_move_render', 'submit_attempt', 'submit_result', 'annotation', 'room_summary', 'run_summary']) {
       expect(stages.has(s)).toBe(true);

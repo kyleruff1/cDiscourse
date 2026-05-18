@@ -723,11 +723,21 @@ function shortBodyPreview(body: string, cap = 96): string {
 function computeLane(depth: number, siblingIndex: number, parentLane: number): number {
   if (depth <= 0) return 0;
   const maxLane = Math.floor(TIMELINE_MAX_LANES / 2);
-  // Parity-driven direction: even siblingIndex → up, odd → down. Add depth
-  // pressure to keep deep chains separated from siblings.
-  const direction = siblingIndex % 2 === 0 ? -1 : 1;
-  const magnitude = Math.min(Math.abs(parentLane) + 1, maxLane);
-  const lane = direction * magnitude;
+  // Stage 6.3: prefer parent-lane continuity to avoid diagonal scatter.
+  // - The FIRST child of a parent stays on the parent's lane (continues
+  //   the chain on the same horizontal line).
+  // - Additional siblings branch off: even index → above, odd → below.
+  // - Branch magnitude grows ONLY when an additional sibling lands on
+  //   top of an existing chain, keeping the timeline horizontal except
+  //   for genuine branching.
+  if (siblingIndex === 0) {
+    if (parentLane > maxLane) return maxLane;
+    if (parentLane < -maxLane) return -maxLane;
+    return parentLane;
+  }
+  const direction = siblingIndex % 2 === 1 ? -1 : 1;
+  const offset = Math.ceil(siblingIndex / 2);
+  const lane = parentLane + direction * Math.min(offset, maxLane);
   if (lane > maxLane) return maxLane;
   if (lane < -maxLane) return -maxLane;
   return lane;

@@ -1,5 +1,43 @@
 # CDiscourse — Current Status
 
+_Last updated: 2026-05-18 (Stage 6.3 — Conversation Gallery + horizontal timeline UX)_
+
+## Current Stage
+
+**Stage 6.3 complete — Conversation Gallery + horizontal argument timeline.** UI / model only; no xAI, Anthropic, or X API calls; no Supabase writes; no service-role; no DB migration.
+
+- **Visual dedupe.** Replaces the row-per-debate sortable table with a card-per-conversation gallery. `[xai-adv …]` / `[ai-corpus …]` / `[stress …]` rooms collapse into one card per canonical conversation/thread family with `N duplicate runs collapsed` shown inline. Underlying debate rows are untouched.
+- **Pure model** at `src/features/debates/conversationGalleryModel.ts` exports `ConversationGalleryCard`, `ConversationGalleryBucket`, `ConversationHeatLevel`, `ConversationTemperament`, `ConversationSignal`, `ConversationSortMode`, `ConversationDedupeMode`, plus `buildConversationGalleryCards`, `dedupeConversationCards`, `classifyConversationBucket`, `computeConversationHeat`, `computeConversationTemperament`, `getConversationSignals`, `getConversationSearchText`, `sortConversationGalleryCards`, `paginateConversationGalleryCards`.
+- **Buckets**: `needs_rebuttal`, `gaining_heat`, `hot_now`, `source_chain_fight`, `evidence_fight`, `definition_scope_fight`, `pedantic_plain`, `unresolved_deep_chain`, `resolved_or_synthesized`, `my_rooms`, `all_open`.
+- **Heat model**: deterministic score in [0,1] from recency, move count, rebuttal count, participant count, source-chain hits, evidence hits, challenge run length, hostile tone hits, and `platformSupportWarning`. Levels: `cold` / `warming` / `hot` / `overheated`. **Popularity is not factored as truth credit.**
+- **Temperament**: `plain` / `curious` / `sharp` / `pedantic` / `evidence_heavy` / `source_chain_heavy` / `chaotic` / `near_resolution`.
+- **UI**: `ConversationGalleryScreen.tsx` with search, bucket chips, sort chips (latest activity / newest / heat / needs-rebuttal-first / most moves / oldest unresolved), page size (12 / 24 / 48), and a result count showing `N rooms · K duplicate runs collapsed`. Each card shows headline + heat pill + temperament pill, title, starter, FIRST POST excerpt, LATEST move excerpt + author, mini horizontal timeline, moves / replies / participants stats, signal chips.
+- **Mini timeline**: `ConversationMiniTimeline.tsx` — one dot per posted move on a SINGLE horizontal baseline (no diagonal scatter). Tinted band underlays for `first_clash` / `evidence_run` / `hot_zone` / `source_chain_run`. Unresolved (`!`) + resolved (`★`) end markers.
+- **Full timeline rail (in-room) fix**: `argumentGameSurfaceModel.ts:computeLane` now keeps the first child of a parent on the parent's lane (chain continues on the same horizontal line). Additional siblings branch above/below. Prior parity-driven assignment caused diagonal scatter; that is gone.
+- **Data loading**: `listArgumentsForDebateIds(ids, limit=1500)` in `argumentsApi.ts` does one `.in('debate_id', ids)` query for the gallery's batched needs. `useGalleryArguments` hook caches by sorted-id signature. RLS still gates row visibility.
+- **Future voting**: reserved `voteScorePreview?: null`, `winnerPreview?: null`, `promotedArgumentCount?: 0` on the card — no UI in this stage.
+
+### 50-scenario corpus rerun with dynamic axis (parallel verification)
+
+Earlier in this session the **100-harvest + 50-scenario corpus** finished (`bxnblrobb`). With the dynamic-axis upgrade from the prior commit:
+
+- **320 / 320 moves posted, 0 rejected** across 32 rooms (cap by source count from the harvest).
+- 256 renders with `chosenAxis`; **247 / 256 (96.5%) `jsonParsed`**; **210 / 256 (82%) axis-overridden** by Anthropic vs round-robin fallback.
+- 8 distinct disagreement axes used: `source_chain` 50 · `scope` 50 · `evidence` 44 · `logic` 39 · `definition` 39 · `causal` 29 · `fact` 3 · `framing` 2.
+
+### Test commands run
+
+- `npm run typecheck` — pass.
+- `npm run lint` — pass.
+- `npm run test` — **1772 / 69 suites passing** (+50 gallery model + 6 mini-timeline helper tests + 1 timeline-map lane assertion update).
+
+### What's NOT done
+
+- Voting UI (placeholders only).
+- Wide-screen sidecar layout (still single-column docked below the map at all widths).
+- Optional DB view for gallery-scale debate loads.
+- Soft-cleanup of the older `DebateListScreen` (kept mounted behind a `false` guard for back-compat tests).
+
 _Last updated: 2026-05-17 (Stage 6.1.9 follow-up — dry contract stabilized + M1/M2 seed exemption tests)_
 
 ## Current Stage

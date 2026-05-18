@@ -15,6 +15,8 @@ import { AuthScreen } from './src/features/auth/AuthScreen';
 import { LoadingNotice } from './src/components/LoadingNotice';
 import { useAuthSession } from './src/features/auth/useAuthSession';
 import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate } from './src/features/debates';
+import { ConversationGalleryScreen } from './src/features/debates/ConversationGalleryScreen';
+import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
 import { ArgumentTreeScreen, ArgumentComposer } from './src/features/arguments';
 import { AccountScreen } from './src/features/account';
 import { useAccountProfile } from './src/features/account/useAccountProfile';
@@ -60,6 +62,7 @@ function MainAppShell() {
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
+  const galleryArgs = useGalleryArguments(debates.map((d) => d.id));
   const { profile: currentProfile } = useAccountProfile(state.snapshot.userId);
 
   const hasDebate = Boolean(state.snapshot.selectedDebateId);
@@ -131,8 +134,23 @@ function MainAppShell() {
       </View>
 
       <View style={styles.body}>
-        {/* Arguments tab: debate list (no room selected) */}
+        {/* Arguments tab: Conversation Gallery (no room selected). */}
         {activeTab === 'arguments' && !hasDebate && (
+          <ConversationGalleryScreen
+            debates={debates}
+            argumentsByDebateId={galleryArgs.argumentsByDebateId}
+            currentUserId={state.snapshot.userId || null}
+            loading={debatesLoading || galleryArgs.loading}
+            error={debatesError || galleryArgs.error}
+            onRefresh={() => { refresh(); galleryArgs.refresh(); }}
+            onCreate={create}
+            onJoin={join}
+            onSelect={selectDebate}
+          />
+        )}
+        {/* Old sortable table is dev-only behind the chip; keep mount path so
+            admin / tests can still reach it via a separate route if needed. */}
+        {false && activeTab === 'arguments' && !hasDebate && (
           <DebateListScreen
             debates={debates}
             loading={debatesLoading}

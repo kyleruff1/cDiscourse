@@ -243,18 +243,21 @@ describe('buildArgumentTimelineMap — lanes + layout determinism', () => {
     for (const n of map.nodes) expect(n.lane).toBe(0);
   });
 
-  it('replies move above or below the rail by depth/sibling parity', () => {
+  it('first child stays on the parent rail; additional siblings branch above/below (horizontal-first)', () => {
     const map = buildArgumentTimelineMap({
       messages: [
         msg({ id: 'r', createdAt: isoAt(0), argumentType: 'thesis' }),
         msg({ id: 'a', parentId: 'r', createdAt: isoAt(1000) }),
         msg({ id: 'b', parentId: 'r', createdAt: isoAt(2000) }),
+        msg({ id: 'c', parentId: 'r', createdAt: isoAt(3000) }),
       ],
       currentUserId: 'me',
     });
-    // Sibling 0 → lane -1 (above), sibling 1 → lane +1 (below).
-    expect(map.nodes.find((n) => n.messageId === 'a')!.lane).toBe(-1);
-    expect(map.nodes.find((n) => n.messageId === 'b')!.lane).toBe(1);
+    // Stage 6.3: first sibling continues the chain on the parent's lane (0),
+    // additional siblings branch off — odd index above, even index below.
+    expect(map.nodes.find((n) => n.messageId === 'a')!.lane).toBe(0);
+    expect(map.nodes.find((n) => n.messageId === 'b')!.lane).toBe(-1);
+    expect(map.nodes.find((n) => n.messageId === 'c')!.lane).toBe(1);
   });
 
   it('lane assignment is deterministic across repeated builds', () => {
