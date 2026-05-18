@@ -39,17 +39,12 @@ import {
 
 export type StandingBand = TimelineStandingBand;
 
-export const STANDING_BAND_LABEL: Record<StandingBand, string> = {
-  pretty_wrong: 'Pretty wrong',
-  slightly_wrong: 'Slightly wrong',
-  neutral: 'Neutral',
-  slightly_right: 'Slightly right',
-  maybe_right_misguided: 'Maybe right, but misguided',
-  pretty_right: 'Pretty right',
-  completely_right: 'Completely right',
-  unscored: 'Unscored',
-  not_enough_signal: 'Not enough signal',
-};
+// SW-001 — user-facing band labels now come from `standingBandCopy.ts`,
+// which uses softened plain-language copy and bans truth/winner tokens.
+// Re-exported here as `STANDING_BAND_LABEL` for back-compat with the
+// existing call sites in the sidecar and score tracker.
+import { STANDING_BAND_SOFT_LABEL } from './standingBandCopy';
+export const STANDING_BAND_LABEL: Record<StandingBand, string> = STANDING_BAND_SOFT_LABEL;
 
 const STANDING_BAND_COLOR: Record<StandingBand, string> = {
   pretty_wrong: '#b91c1c',
