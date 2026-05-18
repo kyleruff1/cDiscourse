@@ -30,11 +30,13 @@ import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
 import { ROOM_COPY } from './src/features/arguments/gameCopy';
 import { DEFAULT_VIEW_MODE, VIEW_MODE_COPY } from './src/features/arguments/viewModeCopy';
 import { DevEnvironmentBanner } from './src/features/devEnvironment';
+import { AppHeader } from './src/components/AppHeader';
+import { BRAND } from './src/lib/designTokens';
 
 // ── AppRoot: session-gated routing ────────────────────────────
 
 function AppRoot() {
-  const { state } = useAppSession();
+  const { state, dispatch } = useAppSession();
 
   let content: React.ReactNode;
   if (state.status === 'unconfigured') {
@@ -45,11 +47,23 @@ function AppRoot() {
     content = <MainAppShell />;
   }
 
-  // DevEnvironmentBanner renders null in production. In any other deploy
-  // (dev / preview / local / unverified) it docks above the rest of the
-  // app so public visitors cannot mistake the build for production.
+  // BRAND-001 — Tapping the header logo deselects the active debate and
+  // returns to the gallery. Implemented by re-dispatching SIGNED_IN
+  // (the same path `useCurrentDebate.deselectDebate` uses). No router,
+  // so the TL-003 no-route invariant is preserved.
+  const userId = state.snapshot.userId;
+  const handleHomePress = React.useCallback(() => {
+    if (userId) {
+      dispatch({ type: 'SIGNED_IN', userId });
+    }
+  }, [dispatch, userId]);
+
+  // BRAND-001 — global dark backdrop. AppHeader docks above the dev
+  // banner so it persists on every screen. DevEnvironmentBanner renders
+  // null in production.
   return (
     <SafeAreaView style={styles.appRoot}>
+      <AppHeader onHomePress={handleHomePress} />
       <DevEnvironmentBanner />
       <View style={styles.appRootContent}>{content}</View>
     </SafeAreaView>
@@ -353,27 +367,30 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  appRoot: { flex: 1, backgroundColor: '#111827' },
-  appRootContent: { flex: 1, backgroundColor: '#f9fafb' },
-  root: { flex: 1, backgroundColor: '#f9fafb' },
+  // BRAND-001 — `surface.app` (#08060F) is the global app backdrop that
+  // matches the CivilDiscourse logo's black field. `surface.appElevated`
+  // is the one-step-up tone for cards / rails / sidecar.
+  appRoot: { flex: 1, backgroundColor: BRAND.surface.app.bg },
+  appRootContent: { flex: 1, backgroundColor: BRAND.surface.app.bg },
+  root: { flex: 1, backgroundColor: BRAND.surface.app.bg },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: BRAND.surface.appElevated.bg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#1f1c2c',
   },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#6366f1' },
-  tabText: { fontSize: 12, color: '#6b7280', fontWeight: '500' },
-  tabTextActive: { color: '#6366f1' },
-  body: { flex: 1 },
-  debateRoom: { flex: 1 },
+  tabText: { fontSize: 12, color: BRAND.text.muted, fontWeight: '500' },
+  tabTextActive: { color: BRAND.text.primary },
+  body: { flex: 1, backgroundColor: BRAND.surface.app.bg },
+  debateRoom: { flex: 1, backgroundColor: BRAND.surface.app.bg },
 
   // Room toolbar (thread/tracks toggle + invite)
   roomToolbar: {
-    backgroundColor: '#fff',
+    backgroundColor: BRAND.surface.appElevated.bg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#1f1c2c',
   },
   roomToolbarInner: {
     flexDirection: 'row',
@@ -385,32 +402,32 @@ const styles = StyleSheet.create({
   roomLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#6b7280',
+    color: BRAND.text.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   toolbarSep: {
     width: 1,
     height: 16,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#2a2538',
     marginHorizontal: 2,
   },
   toolbarChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#1f1c2c',
   },
   toolbarChipActive: {
-    backgroundColor: '#ede9fe',
+    backgroundColor: '#312e81',
   },
   toolbarChipText: {
     fontSize: 12,
-    color: '#374151',
+    color: BRAND.text.muted,
     fontWeight: '500',
   },
   toolbarChipTextActive: {
-    color: '#6366f1',
+    color: BRAND.text.primary,
     fontWeight: '700',
   },
 
@@ -419,16 +436,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 4,
-    backgroundColor: '#f9fafb',
+    backgroundColor: BRAND.surface.appElevated.bg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#1f1c2c',
   },
 
   // Action bar (primary CTA + secondary moves)
   actionBar: {
-    backgroundColor: '#fff',
+    backgroundColor: BRAND.surface.appElevated.bg,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: '#1f1c2c',
     paddingVertical: 10,
   },
   actionBarInner: {
