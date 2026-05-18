@@ -233,6 +233,7 @@ async function listEligibleRooms(adminClient, args) {
     const hasConcession = msgs.some((m) => m.argument_type === 'concession');
     if (hasSynthesis || hasConcession) continue; // already resolved
     if (moveCount >= args.targetMovesMax) continue; // already deep enough
+    if (moveCount === 0) continue; // empty room — nothing to rebut yet
     out.push({
       debate: d,
       messages: sortedMsgs,
@@ -263,13 +264,56 @@ async function engageRoom({ room, args, jsonl, ctx, bundle, runId }) {
   const botB = ctx.botByAlias[botAliases[1]]; // revocateur seat
   const botC = botAliases.length >= 3 ? ctx.botByAlias[botAliases[2]] : null; // synthesizer seat
 
-  // Ensure participants are joined; tolerate dup-key conflicts.
-  await botA.client.from('debate_participants').insert({ debate_id: debateId, user_id: botA.userId, side: 'affirmative' }).then(() => null, () => null);
-  const joinB = await botB.client.from('debate_participants').insert({ debate_id: debateId, user_id: botB.userId, side: 'negative' });
-  if (joinB.error && joinB.error.code !== '23505') console.warn(`[engage] join B in ${debateId}: ${joinB.error.message}`);
-  if (botC) {
+  // ── Pre-check existing participant sides for these bots in this debate.
+  // submit-argument enforces: a participant on a fixed side may only
+  // post arguments on that side or 'neutral'. If a bot joined a previous
+  // run as 'moderator' (which CAN post any side), we'll keep using the
+  // role-based side. Otherwise we must POST as the side the bot is
+  // already on. Skip the room entirely if both bots are on conflicting
+  // sides (e.g., both 'affirmative') — they can't carry opposed roles.
+  const partSel = await ctx.adminClient
+    .from('debate_participants')
+    .select('user_id, side')
+    .eq('debate_id', debateId)
+    .in('user_id', [botA.userId, botB.userId, ...(botC ? [botC.userId] : [])]);
+  const sideByUserId = new Map();
+  if (partSel.error) {
+    jsonl.write('room_participant_lookup_failed', { debateId, error: String(partSel.error.message).slice(0, 200) });
+  } else {
+    for (const row of partSel.data || []) sideByUserId.set(row.user_id, row.side);
+  }
+
+  function pickSideForBot(bot, defaultSide) {
+    const existing = sideByUserId.get(bot.userId);
+    if (!existing) return defaultSide; // not yet joined → join with the role default
+    if (existing === 'moderator') return defaultSide; // moderator can post anything
+    return existing; // honour the existing side — `submit-argument` will accept it
+  }
+
+  // Ensure participants are joined; tolerate dup-key conflicts. We pick
+  // join-side based on what's already there to avoid clashing with prior
+  // engagements.
+  const sideA = pickSideForBot(botA, 'affirmative');
+  const sideB = pickSideForBot(botB, 'negative');
+
+  if (!sideByUserId.has(botA.userId)) {
+    await botA.client.from('debate_participants').insert({ debate_id: debateId, user_id: botA.userId, side: sideA }).then(() => null, () => null);
+  }
+  if (!sideByUserId.has(botB.userId)) {
+    const joinB = await botB.client.from('debate_participants').insert({ debate_id: debateId, user_id: botB.userId, side: sideB });
+    if (joinB.error && joinB.error.code !== '23505') console.warn(`[engage] join B in ${debateId}: ${joinB.error.message}`);
+  }
+  if (botC && !sideByUserId.has(botC.userId)) {
     const joinC = await botC.client.from('debate_participants').insert({ debate_id: debateId, user_id: botC.userId, side: 'moderator' });
     if (joinC.error && joinC.error.code !== '23505') console.warn(`[engage] join C in ${debateId}: ${joinC.error.message}`);
+  }
+
+  // If both bots ended up on the SAME participant side (because they
+  // both joined earlier as say 'affirmative'), they can't carry opposed
+  // roles. Skip this room cleanly.
+  if (sideA === sideB) {
+    jsonl.write('room_skipped', { debateId, reason: 'bots_on_same_side', sideA, sideB });
+    return { moves: 0 };
   }
 
   // Pick a target depth in [min, max] deterministically per room.
@@ -298,7 +342,10 @@ async function engageRoom({ room, args, jsonl, ctx, bundle, runId }) {
     // Alternate: even i → revocateur (press), odd i → provocateur (defend).
     const role = i % 2 === 0 ? 'bot-revocateur' : 'bot-provocateur';
     const bot = i % 2 === 0 ? botB : botA;
-    const sideStr = role === 'bot-provocateur' ? 'affirmative' : 'negative';
+    // Honour the bot's ACTUAL participant side (set above from
+    // sideByUserId + pickSideForBot). The Edge Function rejects any
+    // attempt to post a side that doesn't match the participant row.
+    const sideStr = role === 'bot-provocateur' ? sideA : sideB;
     const argumentType = parentArgumentType === 'thesis' ? 'rebuttal'
                        : parentArgumentType === 'rebuttal' ? 'counter_rebuttal'
                        : parentArgumentType === 'counter_rebuttal' ? 'rebuttal'

@@ -49,6 +49,11 @@ const REQUIRED_CONTENT_MARKERS = [
   'service-role',
   'direct insert',
   'do not pretend to be human',
+  'dynamic room engagement mode',
+  'heat reason codes',
+  'hot does not mean rude',
+  'avoid repeating the same axis',
+  'do not keyword-stuff',
 ];
 
 const BANNED_CANNED_PHRASES = [
