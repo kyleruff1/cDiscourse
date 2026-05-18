@@ -30,6 +30,10 @@ import {
   type EvidenceArtifact,
   type SourceChainStatus,
 } from '../evidence/evidenceModel';
+import {
+  deriveBranchKindFromConstitutionModel,
+  hasTangentLexicalCode,
+} from './branchTopologyModel';
 
 // ── Public types ─────────────────────────────────────────────────
 
@@ -368,18 +372,18 @@ export function deriveRailSegmentStyle(input: RailSegmentInput): RailSegmentStyl
 }
 
 /**
- * BR-001 seam. Placeholder kink-derivation BR-001 will replace.
+ * BR-001 seam — same signature VG-002 exported. Body now delegates to
+ * `deriveBranchKindFromConstitutionModel` (in `branchTopologyModel.ts`)
+ * with safe defaults for the inputs the three-arg shape does not carry
+ * (`isEvidenceThread: false` and `hasTangentLexicalCode` derived from
+ * the endpoints' `droppedTags`).
  *
- *   - `isDetached === true` AND (`fromNode.kindColorFamily === 'flag'`
- *      OR the from-node's droppedTags include a tangent code
- *      `branch_this_off` or `tangent_or_joke`)
- *      → `'tangent'` (visually kinked off mainline; non-accusatory)
- *   - `isDetached === true` (and the above tangent rule didn't fire)
- *      → `'detached'` (parent not loaded; strip not rendered)
- *   - Otherwise → `'main'`.
- *
- * The placeholder NEVER emits `'kink_start'` / `'kink_end'`. BR-001
- * introduces those when explicit kink objects are modeled.
+ * Renderers / call sites that already pass through this function
+ * continue to work without code changes. New call sites that have an
+ * `evidenceThreadByBranchRoot` map should call
+ * `deriveBranchKindFromConstitutionModel` directly to benefit from the
+ * richer classification (evidence-thread additional siblings → `main`,
+ * non-evidence additional siblings → `kink_start`).
  *
  * Pure. No side effects. No I/O.
  */
@@ -388,33 +392,14 @@ export function derivePlaceholderBranchKind(args: {
   toNode: ArgumentTimelineMapNode;
   isDetached: boolean;
 }): RailBranchKind {
-  const { fromNode, toNode, isDetached } = args;
-
-  const tangentCodes = ((): boolean => {
-    const fromCodes = fromNode.droppedTags.map((t) => t.code);
-    const toCodes = toNode.droppedTags.map((t) => t.code);
-    return (
-      fromCodes.includes('branch_this_off') ||
-      fromCodes.includes('tangent_or_joke') ||
-      toCodes.includes('branch_this_off') ||
-      toCodes.includes('tangent_or_joke')
-    );
-  })();
-
-  // Tangent rule: detached + flag/tangent signal. The "detached + flag"
-  // half is conservative — both conditions must hold so a tangent on
-  // the mainline (e.g. a flagged-but-still-anchored move) is NOT
-  // mis-categorized as a tangent kink.
-  if (
-    isDetached &&
-    (fromNode.kindColorFamily === 'flag' || tangentCodes)
-  ) {
-    return 'tangent';
-  }
-
-  if (isDetached) return 'detached';
-
-  return 'main';
+  return deriveBranchKindFromConstitutionModel({
+    fromNode: args.fromNode,
+    toNode: args.toNode,
+    isDetached: args.isDetached,
+    siblingIndex: args.toNode.siblingIndex,
+    isEvidenceThread: false,
+    hasTangentLexicalCode: hasTangentLexicalCode(args.fromNode, args.toNode),
+  });
 }
 
 /**
@@ -423,14 +408,28 @@ export function derivePlaceholderBranchKind(args: {
  * computed via EV-001's `summarizeArtifactsForReceiptChip` over the
  * union of both endpoints' artifacts (the worst-case across the edge
  * dictates the rail's evidence-track appearance — never re-derived).
+ *
+ * BR-001 — when `evidenceThreadByBranchRoot` is supplied, the helper
+ * routes the richer `deriveBranchKindFromConstitutionModel` classifier
+ * so evidence-thread additional siblings stay on `main` and
+ * non-evidence additional siblings become `kink_start`. When the map
+ * is omitted (legacy call sites / unit tests), behavior falls back to
+ * the legacy adapter via `derivePlaceholderBranchKind` — the four-axis
+ * classification still applies, just with `isEvidenceThread: false`.
+ *
+ * **VG-002 surface lock**: `RailSegmentInput` is unchanged — no new
+ * field. The evidence-thread boolean is a side-channel argument only.
  */
 export function buildRailSegmentInput(args: {
   edge: ArgumentTimelineMapEdge;
   fromNode: ArgumentTimelineMapNode;
   toNode: ArgumentTimelineMapNode;
   artifactsByMessageId: Record<string, ReadonlyArray<EvidenceArtifact>>;
+  /** BR-001 optional evidence-thread map keyed by `branchRootMessageId`.
+   *  When omitted, the helper degrades to the three-rule adapter. */
+  evidenceThreadByBranchRoot?: ReadonlyMap<string, boolean>;
 }): RailSegmentInput {
-  const { edge, fromNode, toNode, artifactsByMessageId } = args;
+  const { edge, fromNode, toNode, artifactsByMessageId, evidenceThreadByBranchRoot } = args;
 
   const fromArtifacts = artifactsByMessageId[edge.fromMessageId] ?? [];
   const toArtifacts = artifactsByMessageId[edge.toMessageId] ?? [];
@@ -441,11 +440,21 @@ export function buildRailSegmentInput(args: {
   const chip = summarizeArtifactsForReceiptChip(combined);
   const sourceChainStatus = chip.status;
 
-  const branchKind = derivePlaceholderBranchKind({
-    fromNode,
-    toNode,
-    isDetached: edge.isDetached,
-  });
+  const branchKind: RailBranchKind = evidenceThreadByBranchRoot
+    ? deriveBranchKindFromConstitutionModel({
+        fromNode,
+        toNode,
+        isDetached: edge.isDetached,
+        siblingIndex: toNode.siblingIndex,
+        isEvidenceThread:
+          evidenceThreadByBranchRoot.get(toNode.branchRootMessageId) ?? false,
+        hasTangentLexicalCode: hasTangentLexicalCode(fromNode, toNode),
+      })
+    : derivePlaceholderBranchKind({
+        fromNode,
+        toNode,
+        isDetached: edge.isDetached,
+      });
 
   return {
     segmentId: edge.edgeId,

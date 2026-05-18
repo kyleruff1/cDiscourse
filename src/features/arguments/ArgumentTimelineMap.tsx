@@ -16,7 +16,7 @@
  * built from <View>s so we never need react-native-svg.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeSyntheticEvent, NativeScrollEvent, LayoutChangeEvent } from 'react-native';
 import {
   TIMELINE_NODE_SIZE,
@@ -43,6 +43,15 @@ import {
   type RailSegmentStyle,
 } from './railSegmentModel';
 import { GradientWaveRail } from './GradientWaveRail';
+import {
+  applyActiveAutoExpand,
+  buildCollapsedRailInputs,
+  buildEvidenceThreadMap,
+  EMPTY_COLLAPSE_STATE,
+  toggleBranchCollapse,
+  type BranchCollapseState,
+} from './branchTopologyModel';
+import { BranchCollapseStub } from './BranchCollapseStub';
 
 interface Props {
   map: ArgumentTimelineMapModel;
@@ -199,6 +208,11 @@ export function ArgumentTimelineMap({
   const lastScrollFrameMs = useRef<number>(0);
   const railStyleCacheRef = useRef<Map<string, RailSegmentStyle>>(new Map());
 
+  // BR-001 — in-memory collapse state. Not persisted across sessions in
+  // v1. Anything not in the map is treated as expanded. The room shell
+  // calls `toggleBranchCollapse` on stub tap and re-renders.
+  const [collapseState, setCollapseState] = useState<BranchCollapseState>(EMPTY_COLLAPSE_STATE);
+
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     // Throttle to ~60fps so we don't thrash setState on every native event.
     const now = Date.now();
@@ -213,11 +227,26 @@ export function ArgumentTimelineMap({
     if (typeof w === 'number' && Number.isFinite(w)) setViewportWidth(w);
   }, []);
 
-  // VG-002 — build the rail segment inputs once per render from
-  // `map.edges` + the node lookup + EV-002's `artifactsByMessageId`.
+  // Shared node-by-id lookup. Used by both VG-002's segment builder
+  // and BR-001's collapse/stub feeder.
+  const nodesById = useMemo(() => {
+    const m = new Map<string, ArgumentTimelineMapNode>();
+    for (const n of map.nodes) m.set(n.messageId, n);
+    return m;
+  }, [map.nodes]);
+
+  // BR-001 — evidence-thread detection. One pass over the tree per
+  // render. The map is consumed by `buildRailSegmentInput` so
+  // evidence-thread additional siblings stay on `main`.
+  const evidenceThreadByBranchRoot = useMemo(
+    () => buildEvidenceThreadMap(map.nodes),
+    [map.nodes],
+  );
+
+  // VG-002 + BR-001 — build the rail segment inputs once per render
+  // from `map.edges` + the node lookup + EV-002's `artifactsByMessageId`
+  // + the BR-001 evidence-thread map.
   const segmentInputs: ReadonlyArray<RailSegmentInput> = useMemo(() => {
-    const nodesById = new Map<string, ArgumentTimelineMapNode>();
-    for (const n of map.nodes) nodesById.set(n.messageId, n);
     const out: RailSegmentInput[] = [];
     for (const edge of map.edges) {
       const fromNode = nodesById.get(edge.fromMessageId);
@@ -229,11 +258,49 @@ export function ArgumentTimelineMap({
           fromNode,
           toNode,
           artifactsByMessageId: artifactsByMessageId ?? {},
+          evidenceThreadByBranchRoot,
         }),
       );
     }
     return out;
-  }, [map.nodes, map.edges, artifactsByMessageId]);
+  }, [map.edges, nodesById, artifactsByMessageId, evidenceThreadByBranchRoot]);
+
+  // BR-001 — auto-expand: when the active node lives inside a
+  // collapsed subtree, silently uncollapse ancestor branch roots so
+  // the active path is always visible. `applyActiveAutoExpand` returns
+  // the same reference when no change is needed, so the effect below
+  // only fires when something actually changed.
+  const activeMessageId = map.activeNode?.messageId ?? null;
+  useEffect(() => {
+    const next = applyActiveAutoExpand(collapseState, activeMessageId, nodesById);
+    if (next !== collapseState) {
+      setCollapseState(next);
+      try {
+        AccessibilityInfo.announceForAccessibility(
+          'Branch expanded to show the active move.',
+        );
+      } catch {
+        // Some platforms (web shim, jest) lack this API — swallow.
+      }
+    }
+  }, [activeMessageId, collapseState, nodesById]);
+
+  // BR-001 — pre-collapsed rail inputs. Filters segments inside
+  // collapsed branches and emits one `RailStubViewModel` per branch.
+  const collapseResult = useMemo(
+    () =>
+      buildCollapsedRailInputs({
+        segments: segmentInputs,
+        nodeById: nodesById,
+        collapseState,
+        activeMessageId,
+      }),
+    [segmentInputs, nodesById, collapseState, activeMessageId],
+  );
+
+  const handleStubPress = useCallback((branchRootMessageId: string) => {
+    setCollapseState((prev) => toggleBranchCollapse(prev, branchRootMessageId));
+  }, []);
 
   const visibleSlice = useMemo(() => {
     // Effective viewport width: when the layout has not measured yet,
@@ -241,12 +308,12 @@ export function ArgumentTimelineMap({
     // active region. The buffer keeps off-screen scroll deltas cheap.
     const effectiveViewport = viewportWidth > 0 ? viewportWidth : map.scrollWidth;
     return visibleSegmentSlice(
-      segmentInputs,
+      collapseResult.visibleSegments,
       scrollX,
       effectiveViewport,
       VISIBLE_SLICE_DEFAULT_BUFFER_PX,
     );
-  }, [segmentInputs, scrollX, viewportWidth, map.scrollWidth]);
+  }, [collapseResult.visibleSegments, scrollX, viewportWidth, map.scrollWidth]);
 
   // VG-002 — Whole-rail accessibilityLabel. Plain English, no
   // snake_case, no verdict / amplification tokens. The label is the
@@ -460,6 +527,18 @@ export function ArgumentTimelineMap({
 
           {/* VG-002 — Gradient wave rail (virtualized slice). */}
           <GradientWaveRail segments={visibleSlice} styleCache={railStyleCacheRef.current} />
+
+          {/* BR-001 — Collapse stubs anchored to each collapsed branch
+              root. Rendered as a separate Pressable layer so the rail's
+              `pointerEvents: 'none'` invariant is preserved. */}
+          {collapseResult.stubs.map((stub) => (
+            <BranchCollapseStub
+              key={stub.stubId}
+              stub={stub}
+              onPress={handleStubPress}
+              testIDSuffix={stub.branchRootMessageId}
+            />
+          ))}
 
           {/* Nodes */}
           {map.nodes.map((n) => (

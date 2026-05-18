@@ -1,6 +1,6 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-18 (Release 6.6 — Timeline Tree Game Board roadmap expansion)_
+_Last updated: 2026-05-18 (Release 6.6 — BR-001 tangent kink model build complete)_
 
 ## Timeline Tree Game Board roadmap expansion (Release 6.6 / 6.7)
 
@@ -15,6 +15,27 @@ _Last updated: 2026-05-18 (Release 6.6 — Timeline Tree Game Board roadmap expa
 - See `docs/ux-ui-project-board.md` for per-card acceptance criteria and the updated dependency graph.
 
 
+
+## BR-001 — Tangent kink model (Release 6.6)
+
+**Status:** Build complete, awaiting Review.
+
+- New pure-TS module `src/features/arguments/branchTopologyModel.ts`. Exports:
+  - `deriveBranchKindFromConstitutionModel(input)` — the four-axis classifier (isDetached / siblingIndex / isEvidenceThread / hasTangentLexicalCode → one of the five locked `RailBranchKind` values).
+  - `buildBranchKindMap({ nodes, edges, evidenceThreadByBranchRoot })` — two-pass O(n) classifier producing a `Map<edgeId, RailBranchKind>`. Pass 1 = main / kink_start / detached; pass 2 fills `tangent` (interior of a kinked subtree) and `kink_end` (leaf of a tangent subtree).
+  - `isEvidenceLikeNode(node)` + `buildEvidenceThreadMap(nodes)` — read-only consumer of `kindColorFamily === 'evidence'` and the existing evidence qualifier codes (`evidence`, `evidence_challenge`, `source_request`, `quote_request`, `ask_receipts`, `quote_exact_bit`). A subtree is an evidence-thread when size ≥ 2 AND ≥ 50% of non-root descendants are evidence-like. Never reads `sourceChainStatus` — evidence-thread describes "this conversation is about evidence", never "this evidence is sufficient / primary / correct".
+  - `BranchCollapseState` (`Readonly<Record<branchRootMessageId, 'expanded' | 'collapsed'>>`) + `EMPTY_COLLAPSE_STATE`, `toggleBranchCollapse(state, branchRootMessageId)` (immutable), `applyActiveAutoExpand(state, activeMessageId, nodeById)` (silently uncollapses ancestor branch roots of the active path; returns the same reference when no change).
+  - `buildCollapsedRailInputs({ segments, nodeById, collapseState, activeMessageId? })` → `{ visibleSegments, stubs }`. Filters segments whose `toMessageId` lives inside a collapsed subtree; keeps the inbound (parent → branchRoot) edge so the stub has a geometric anchor on the rail.
+  - `RailStubViewModel` (visible label, accessibility label, anchor coords, hidden message count, borderColor inherited from `node.kindColor`, `containsActive` defensive flag).
+  - `derivePlaceholderBranchKindBR001Adapter` — same three-arg shape as VG-002's `derivePlaceholderBranchKind`; safe-default delegation.
+- New RN component `src/features/arguments/BranchCollapseStub.tsx`. 24×24 pill with a `+N` count badge, anchored to the branch root node's `(x, y)`. Background reuses VG-001's `BRAND.surface.appElevated.bg`; border reuses `stub.borderColor` (= `node.kindColor` — no new color token). `accessibilityRole='button'`, `accessibilityState={{ expanded: false }}`. `hitSlop` of 14px each side → effective tap target 52×52 (≥ 44 a11y target). No animation (reduce-motion contract preserved).
+- `railSegmentModel.derivePlaceholderBranchKind` body now delegates to `deriveBranchKindFromConstitutionModel`. Signature unchanged. `buildRailSegmentInput` accepts an optional `evidenceThreadByBranchRoot` map; when supplied, the richer classifier runs. `RailSegmentInput` is unchanged (no new field). `RailBranchKind` enum is unchanged. `GradientWaveRail.tsx` is untouched.
+- `ArgumentTimelineMap.tsx` extended in place. Threads `BranchCollapseState`, runs `buildEvidenceThreadMap` once per render, passes the map to `buildRailSegmentInput`, calls `applyActiveAutoExpand` after every active-node change (and fires `AccessibilityInfo.announceForAccessibility('Branch expanded to show the active move.')` only when the state actually changed), and renders one `<BranchCollapseStub />` per collapsed branch on a separate Pressable layer (so VG-002's `pointerEvents: 'none'` rail invariant is preserved). The public `Props` surface is unchanged.
+- Behavior change from VG-002: the legacy "isDetached + flag-family → tangent" placeholder rule is removed. `isDetached === true` now always returns `'detached'`. Explicit-tangent qualifier (`branch_this_off` / `tangent_or_joke`) on a non-detached siblingIndex-0 child → `'kink_start'` (BR-001 row 4). Additional non-evidence siblings → `'kink_start'` (rows 6/7).
+- Doctrine: **a tangent is a topology label, not a verdict.** The classifier never reads heat / tone / temperature / popularity / engagement / standing band / `sourceChainStatus`. Doctrine-anchor test feeds identical trees with different `toneBand` + `temperatureBand` + `standingBand` and asserts deep-equal classifier output. All stub `label` / `accessibilityLabel` strings pass the verdict + amplification ban-lists and `looksLikeInternalCode`.
+- No new dependency. No migration. No Edge Function change. No Supabase mutation. No service-role. No `.env*` change. No AI inference path. Collapse state is in-memory only (not persisted across sessions in v1).
+- Tests: +83 across 2 new files (`branchTopologyModel.test.ts` +62, `BranchCollapseStub.test.tsx` +17) plus updates to `railSegmentModel.test.ts` (+4 new tests for the BR-001 four-axis behavior surfaced via `buildRailSegmentInput`; 7 legacy placeholder tests updated to reflect the new "detached always wins" semantics). The four `[ISSUE]` AC tests from the card body are explicit. 250-message synthetic fixture asserts the classifier runs in < 50 ms. **2509 tests / 97 suites passing** (+83), typecheck + lint clean.
+- See `docs/designs/BR-001.md` for the full reference.
 
 ## VG-002 — Gradient wave rail (Release 6.6)
 

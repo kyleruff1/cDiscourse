@@ -377,67 +377,90 @@ describe('VG-002 — tone wash alpha lookup', () => {
 // ────────────────────────────────────────────────────────────────
 
 describe('VG-002 — derivePlaceholderBranchKind (BR-001 seam)', () => {
-  it('fromNode flag-family + isDetached → tangent', () => {
+  // BR-001 — the legacy three-rule placeholder is now a thin adapter
+  // over `deriveBranchKindFromConstitutionModel`. The signature stays
+  // the same; the body delegates to BR-001. The four-axis classifier
+  // produces:
+  //   - isDetached → detached (regardless of family / tag)
+  //   - !isDetached + siblingIndex 0 + no-tag → main
+  //   - !isDetached + siblingIndex 0 + explicit-tag → kink_start
+  //   - !isDetached + siblingIndex ≥ 1 → kink_start (non-evidence)
+  // The legacy "flag-family + isDetached → tangent" rule was a
+  // workaround in the placeholder; BR-001 explicitly removes it.
+
+  it('isDetached takes precedence over every other axis (row 1)', () => {
     const fromNode = fakeNode({ kindColorFamily: 'flag' });
     const toNode = fakeNode({ messageId: 'm2' });
     const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached: true });
-    expect(k).toBe('tangent');
+    expect(k).toBe('detached');
   });
 
-  it('fromNode droppedTags includes branch_this_off + isDetached → tangent', () => {
+  it('isDetached + branch_this_off tag → detached (row 1)', () => {
     const fromNode = fakeNode({ droppedTags: [{ code: 'branch_this_off', label: 'Branch', color: '#fff' }] });
     const toNode = fakeNode({ messageId: 'm2' });
     const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached: true });
-    expect(k).toBe('tangent');
+    expect(k).toBe('detached');
   });
 
-  it('toNode droppedTags includes tangent_or_joke + isDetached → tangent', () => {
+  it('isDetached + tangent_or_joke tag → detached (row 1)', () => {
     const fromNode = fakeNode();
     const toNode = fakeNode({ messageId: 'm2', droppedTags: [{ code: 'tangent_or_joke', label: 'Tangent', color: '#fff' }] });
     const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached: true });
-    expect(k).toBe('tangent');
+    expect(k).toBe('detached');
   });
 
-  it('isDetached + no flag / tangent signals → detached', () => {
+  it('isDetached + no signals → detached', () => {
     const fromNode = fakeNode();
     const toNode = fakeNode({ messageId: 'm2' });
     const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached: true });
     expect(k).toBe('detached');
   });
 
-  it('NOT detached + flag-family fromNode → main (false-positive guard)', () => {
-    // Doctrine guard: a flagged-but-still-anchored move is NOT a tangent.
+  it('NOT detached + flag-family + siblingIndex 0 → main (doctrine guard)', () => {
+    // Doctrine guard: a flagged-but-still-anchored move is NOT a kink.
     const fromNode = fakeNode({ kindColorFamily: 'flag' });
-    const toNode = fakeNode({ messageId: 'm2' });
+    const toNode = fakeNode({ messageId: 'm2', siblingIndex: 0 });
     const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached: false });
     expect(k).toBe('main');
   });
 
-  it('NOT detached + branch_this_off tag → main (false-positive guard)', () => {
+  it('NOT detached + branch_this_off tag + siblingIndex 0 → kink_start (BR-001 row 4)', () => {
     const fromNode = fakeNode({ droppedTags: [{ code: 'branch_this_off', label: 'Branch', color: '#fff' }] });
-    const toNode = fakeNode({ messageId: 'm2' });
+    const toNode = fakeNode({ messageId: 'm2', siblingIndex: 0 });
     const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached: false });
-    expect(k).toBe('main');
+    expect(k).toBe('kink_start');
   });
 
-  it('all-clean → main', () => {
+  it('NOT detached + siblingIndex ≥ 1 + no tag → kink_start (BR-001 row 6)', () => {
     const fromNode = fakeNode();
-    const toNode = fakeNode({ messageId: 'm2' });
+    const toNode = fakeNode({ messageId: 'm2', siblingIndex: 2 });
+    const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached: false });
+    expect(k).toBe('kink_start');
+  });
+
+  it('all-clean (siblingIndex 0, no tag) → main', () => {
+    const fromNode = fakeNode();
+    const toNode = fakeNode({ messageId: 'm2', siblingIndex: 0 });
     const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached: false });
     expect(k).toBe('main');
   });
 
-  it('placeholder NEVER emits kink_start or kink_end (BR-001 owns those)', () => {
-    // Exhaustive sweep: combinations of isDetached x family x tag.
+  it('exhaustive sweep — adapter never emits tangent or kink_end (those need full-tree context)', () => {
+    // Without the evidence-thread map or the parent-edge classification
+    // from pass 2, the three-arg adapter cannot produce 'tangent' or
+    // 'kink_end' — those require knowing the parent edge's branch kind.
+    // The adapter is restricted to {'main', 'kink_start', 'detached'}.
     const families: TimelineKindColorFamily[] = ['claim', 'challenge', 'evidence', 'clarify', 'concede', 'flag', 'default'];
     const tagSets = [[], [{ code: 'branch_this_off', label: 'B', color: '#000' }], [{ code: 'tangent_or_joke', label: 'T', color: '#000' }]];
     for (const family of families) {
       for (const tags of tagSets) {
         for (const isDetached of [false, true]) {
-          const fromNode = fakeNode({ kindColorFamily: family, droppedTags: tags });
-          const toNode = fakeNode({ messageId: 'm2' });
-          const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached });
-          expect(k === 'kink_start' || k === 'kink_end').toBe(false);
+          for (const siblingIndex of [0, 1, 2, 5]) {
+            const fromNode = fakeNode({ kindColorFamily: family, droppedTags: tags });
+            const toNode = fakeNode({ messageId: 'm2', siblingIndex });
+            const k = derivePlaceholderBranchKind({ fromNode, toNode, isDetached });
+            expect(k === 'tangent' || k === 'kink_end').toBe(false);
+          }
         }
       }
     }
@@ -486,12 +509,44 @@ describe('VG-002 — buildRailSegmentInput', () => {
     expect(input.sourceChainStatus).toBe('primary_present');
   });
 
-  it('propagates the placeholder branchKind into the input', () => {
+  it('propagates the adapter branchKind into the input (isDetached → detached)', () => {
+    // BR-001 — the adapter routes isDetached to 'detached' regardless
+    // of family / tag. The legacy "flag + detached → tangent" rule is
+    // intentionally removed.
     const edge = fakeEdge({ isDetached: true });
     const fromNode = fakeNode({ kindColorFamily: 'flag' });
     const toNode = fakeNode({ messageId: 'm2' });
     const input = buildRailSegmentInput({ edge, fromNode, toNode, artifactsByMessageId: {} });
-    expect(input.branchKind).toBe('tangent');
+    expect(input.branchKind).toBe('detached');
+  });
+
+  it('propagates kink_start when siblingIndex ≥ 1 (BR-001 four-axis classifier)', () => {
+    const edge = fakeEdge({ isDetached: false });
+    const fromNode = fakeNode();
+    const toNode = fakeNode({ messageId: 'm2', siblingIndex: 2 });
+    const input = buildRailSegmentInput({ edge, fromNode, toNode, artifactsByMessageId: {} });
+    expect(input.branchKind).toBe('kink_start');
+  });
+
+  it('propagates main when siblingIndex 0 + non-tagged + non-evidence', () => {
+    const edge = fakeEdge({ isDetached: false });
+    const fromNode = fakeNode();
+    const toNode = fakeNode({ messageId: 'm2', siblingIndex: 0 });
+    const input = buildRailSegmentInput({ edge, fromNode, toNode, artifactsByMessageId: {} });
+    expect(input.branchKind).toBe('main');
+  });
+
+  it('when evidenceThreadByBranchRoot says true, siblingIndex ≥ 1 stays main (row 5)', () => {
+    const edge = fakeEdge({ isDetached: false });
+    const fromNode = fakeNode();
+    const toNode = fakeNode({ messageId: 'm2', siblingIndex: 2, branchRootMessageId: 'br-evidence' });
+    const evidenceMap = new Map<string, boolean>([['br-evidence', true]]);
+    const input = buildRailSegmentInput({
+      edge, fromNode, toNode,
+      artifactsByMessageId: {},
+      evidenceThreadByBranchRoot: evidenceMap,
+    });
+    expect(input.branchKind).toBe('main');
   });
 
   it('uses toNode tone + temperature (the most recent move drives the wash)', () => {
