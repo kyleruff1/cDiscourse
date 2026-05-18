@@ -260,3 +260,52 @@ describe('Control set hygiene', () => {
     expect(ALL_BUBBLE_CONTROLS).not.toContain('edit_body' as never);
   });
 });
+
+// ── EV-002 — artifactsByMessageId pure helper ─────────────────
+
+describe('EV-002 buildArtifactsByMessageId', () => {
+  it('returns an empty list for messages with no attachedEvidence', () => {
+    const { buildArtifactsByMessageId } = require('../src/features/arguments/argumentGameSurfaceEvidence');
+    const msgs = [mkMsg('m1', '2026-05-18T01:00:00Z')];
+    const map = buildArtifactsByMessageId(msgs);
+    expect(map.m1).toEqual([]);
+  });
+
+  it('builds EV-001 artifacts from clientValidation.attachedEvidence-shaped fields', () => {
+    const { buildArtifactsByMessageId } = require('../src/features/arguments/argumentGameSurfaceEvidence');
+    const msgs = [
+      mkMsg('m1', '2026-05-18T01:00:00Z', {
+        attachedEvidence: [{ url: 'https://example.com/x', label: 'example' }],
+      }),
+    ];
+    const map = buildArtifactsByMessageId(msgs);
+    expect(map.m1.length).toBe(1);
+    expect(map.m1[0].kind).toBe('url');
+    expect(map.m1[0].url).toBe('https://example.com/x');
+    expect(map.m1[0].sourceChainStatus).toBe('source_no_quote');
+    expect(map.m1[0].argumentId).toBe('m1');
+  });
+
+  it('drops empty / all-null attachments (EV-001 adapter discipline)', () => {
+    const { buildArtifactsByMessageId } = require('../src/features/arguments/argumentGameSurfaceEvidence');
+    const msgs = [
+      mkMsg('m1', '2026-05-18T01:00:00Z', {
+        attachedEvidence: [{ url: null, sourceText: null, quote: null }],
+      }),
+    ];
+    const map = buildArtifactsByMessageId(msgs);
+    expect(map.m1).toEqual([]);
+  });
+
+  it('defensively maps missing authorId to "unknown" (no service-role inference)', () => {
+    const { buildArtifactsByMessageId } = require('../src/features/arguments/argumentGameSurfaceEvidence');
+    const msgs = [
+      mkMsg('m1', '2026-05-18T01:00:00Z', {
+        authorId: null,
+        attachedEvidence: [{ url: 'https://example.com/x' }],
+      }),
+    ];
+    const map = buildArtifactsByMessageId(msgs);
+    expect(map.m1[0].addedByUserId).toBe('unknown');
+  });
+});
