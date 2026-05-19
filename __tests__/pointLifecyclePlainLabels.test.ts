@@ -69,7 +69,10 @@ describe('LIFE-001 plain-language mapping', () => {
 
   it('backward compat — existing non-lifecycle codes still map', () => {
     expect(PLAIN_LANGUAGE_COPY['source_chain']).toBe('Source trail');
-    expect(PLAIN_LANGUAGE_COPY['evidence_debt']).toBe('Receipts needed');
+    // META-001 updated this label from 'Receipts needed' to 'Evidence debt'
+    // to match the manual-tag vocabulary verbatim. The pipeline reads the
+    // code, not the label, so no runner-side regression.
+    expect(PLAIN_LANGUAGE_COPY['evidence_debt']).toBe('Evidence debt');
     expect(PLAIN_LANGUAGE_COPY['synthesis']).toBe('Resolved');
     expect(PLAIN_LANGUAGE_COPY['concession']).toBe('Conceded');
     expect(PLAIN_LANGUAGE_COPY['observer']).toBe('Watching');
