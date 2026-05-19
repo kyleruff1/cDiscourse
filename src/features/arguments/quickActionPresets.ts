@@ -31,7 +31,44 @@ export type QuickActionLabel =
   | 'branch'
   | 'flag'
   | 'weak_source'
-  | 'inspect_receipt';
+  | 'inspect_receipt'
+  // SC-004 — three new "answer" presets used by the timeline node action dock.
+  // EV-002 set the seed-body precedent for ask actions; SC-004 extends it
+  // to the narrow / confirm / synthesize composer flows so the dock's
+  // primary recommendation never drops the player into a blank composer.
+  | 'narrow'
+  | 'confirm'
+  | 'synthesize';
+
+/**
+ * SC-004 — composer-seeded body for the `narrow` action. Neutral
+ * scaffolding the user edits before posting. Non-accusatory; describes
+ * the move shape, not the author. First-person + bracketed placeholders.
+ */
+export const NARROW_PRESET_BODY =
+  "I'd narrow this to: [the part I still accept]. Where I'd push back is: [the more limited scope].";
+
+/**
+ * SC-004 — composer-seeded body for the `confirm` action. Used when the
+ * other side has narrowed / conceded / clarified and this move accepts
+ * the repaired claim.
+ */
+export const CONFIRM_PRESET_BODY =
+  "I accept this narrowed point. Moving on with the rest of the claim.";
+
+/**
+ * SC-004 — composer-seeded body for the `synthesize` action. Cluster-
+ * level move that summarises what both sides have agreed on so far.
+ */
+export const SYNTHESIZE_PRESET_BODY =
+  "Synthesis: where I think we landed is — [shared point]. Open questions still on the table: [list].";
+
+/** Frozen array of every SC-004 preset body. Fed to the ban-list test. */
+export const ALL_SC004_PRESET_BODIES: ReadonlyArray<string> = Object.freeze([
+  NARROW_PRESET_BODY,
+  CONFIRM_PRESET_BODY,
+  SYNTHESIZE_PRESET_BODY,
+]);
 
 /**
  * Given a quick-action label and the parent argument's type, return a
@@ -110,6 +147,37 @@ export function quickActionToPreset(action: QuickActionLabel, parentType: Argume
     case 'flag':
       // Flag has its own moderation flow; do not invent destructive composer behaviour here.
       return null;
+
+    case 'narrow':
+      // SC-004 — narrow a claim. Use the existing `concession` argument type
+      // with a `narrow_scope` suggested tag so the constitution treats it as
+      // a structural concession of scope, not a withdrawal of the broad
+      // point. Seeded body is scaffolding the user edits.
+      return {
+        argumentType: 'concession',
+        suggestedTagCodes: ['narrow_scope'],
+        body: NARROW_PRESET_BODY,
+      };
+
+    case 'confirm':
+      // SC-004 — confirm a repaired claim. The constitution's ArgumentType
+      // union does not have a dedicated `confirmation` value (LIFE-001
+      // detects confirmations from `kindLabel` + `pure_accept` qualifier),
+      // so we leave argumentType unset and only seed the body. The user
+      // picks the move type in the composer; the seeded scaffolding speaks
+      // to the accept-the-narrowed-point shape regardless of the type
+      // chosen.
+      return {
+        body: CONFIRM_PRESET_BODY,
+      };
+
+    case 'synthesize':
+      // SC-004 — synthesize a cluster. Uses the existing `synthesis`
+      // argument type. Seeded body is scaffolding the user edits.
+      return {
+        argumentType: 'synthesis',
+        body: SYNTHESIZE_PRESET_BODY,
+      };
 
     default:
       return null;

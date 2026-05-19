@@ -165,11 +165,12 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Boundary:** SC-003 is the **detail inspector**. The **action dock** is SC-004. SC-003 surfaces lifecycle state + unresolved axes + suggested next move; SC-004 owns the contextual move palette.
 
 ### SC-004 — Timeline node action dock
-- **Priority:** P0/P1 — **Effort:** M/L — **Release:** 6.6 — **Wave:** 2 — **Agent:** sidecar-tools-agent
+- **Priority:** P0/P1 — **Effort:** M/L — **Release:** 6.6 — **Wave:** 2 — **Agent:** sidecar-tools-agent — **Status:** Build complete (awaiting Review).
 - **Goal:** Compact action dock anchored on the Timeline / Tree surface for the selected node / cluster.
 - **Required actions:** Reply · Challenge · Ask source · Ask quote · Clarify · Add evidence · Narrow · Concede · Confirm · Mark moved on · Mark ignored · Branch · Synthesize · Flag · Open Cards detail.
 - **Acceptance:** Dock appears near selected node/cluster or as bottom rail on narrow screens. Own-message restrictions preserved (only `Open Cards detail · Mark synthesis-ready · Mark narrowed · Request deletion`). Observer matrix preserved. Actions create non-accusatory composer presets. Open Cards detail does not route away.
 - **Tests:** observer action matrix · participant-other matrix · own-message matrix · node selection updates dock · no route transition · preset mapping · ban-list across produced strings.
+- **Implementation:** `src/features/arguments/timelineNodeActionDockModel.ts` (new, pure-TS) · `TimelineNodeActionDock.tsx` (new, RN) · `quickActionPresets.ts` extended (`narrow / confirm / synthesize` + 3 preset bodies) · `ArgumentTimelineMap.tsx` + `ArgumentGameSurface.tsx` integration (5 new optional props, lifecycle + metadata + dock model build, selection state, mutual exclusion with SC-002 popover). Tests: `__tests__/timelineNodeActionDock{Model,Doctrine,ForbiddenImports,SelectionExclusion}.test.ts` (+129 tests). See `docs/designs/SC-004.md`.
 
 ---
 

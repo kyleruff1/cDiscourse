@@ -33,6 +33,12 @@ import {
   decideNodeTapEffect,
 } from './timelineNodePopoverModel';
 import { TimelineNodePopover } from './TimelineNodePopover';
+import { TimelineNodeActionDock } from './TimelineNodeActionDock';
+import type {
+  TimelineNodeActionDockActionCode,
+  TimelineNodeActionDockModel,
+  TimelineNodeActionDockTarget,
+} from './timelineNodeActionDockModel';
 import type { EvidenceArtifact, TimelineEvidenceContract } from '../evidence/evidenceModel';
 import {
   buildRailSegmentInput,
@@ -95,6 +101,34 @@ interface Props {
    * locked helper "Join a side to ask".
    */
   isReadModeViewer?: boolean;
+  /**
+   * SC-004 — Optional currently-selected target for the action dock. When
+   * present and non-null, the dock renders below the popover dock area;
+   * the popover and the dock are mutually exclusive (only one of them is
+   * non-null at a time per the room-shell selection contract).
+   */
+  selectedTarget?: TimelineNodeActionDockTarget | null;
+  /**
+   * SC-004 — Optional pre-built action dock model. The room shell builds
+   * this once per render (memoized by lifecycle/metadata input hashes).
+   */
+  actionDockModel?: TimelineNodeActionDockModel | null;
+  /**
+   * SC-004 — Selection mutation callback. Fired when a node tap should
+   * activate the dock (replaces the popover when both surfaces would
+   * trigger on the same tap; design §"Risks" #1).
+   */
+  onSelectTarget?: (target: TimelineNodeActionDockTarget | null) => void;
+  /**
+   * SC-004 — Dispatch a post-producing dock action back to the room shell.
+   * The room shell threads the action + composer preset into the existing
+   * composer + `submit-argument` Edge Function path.
+   */
+  onActionDockAction?: (action: TimelineNodeActionDockActionCode, target: TimelineNodeActionDockTarget) => void;
+  /**
+   * SC-004 — Open Cards-detail without a route push (surface toggle).
+   */
+  onOpenCardsDetail?: (target: TimelineNodeActionDockTarget) => void;
 }
 
 const RAIL_THICKNESS = 4;
@@ -194,6 +228,11 @@ export function ArgumentTimelineMap({
   artifactsByMessageId,
   evidenceContractFor,
   isReadModeViewer,
+  selectedTarget,
+  actionDockModel,
+  onSelectTarget,
+  onActionDockAction,
+  onOpenCardsDetail,
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [popoverMessageId, setPopoverMessageId] = useState<string | null>(null);
@@ -359,7 +398,30 @@ export function ArgumentTimelineMap({
   // SC-002 — per-node tap handler delegates to the pure model so the
   // tap→activate / second-tap→popover / info-icon→popover rules stay
   // testable.
+  //
+  // SC-004 — When `onSelectTarget` is provided (room shell wires the
+  // action dock), tapping a node activates AND sets the dock target;
+  // the popover STAYS CLOSED on node tap. The info icon is the only way
+  // to open the popover. Tapping the same node again toggles the dock
+  // off. The dock and popover are mutually exclusive.
   const handleNodeTap = useCallback((messageId: string) => {
+    // SC-004 path: if the dock is wired, route through dock-selection.
+    if (onSelectTarget) {
+      const currentSelectedMessageId =
+        selectedTarget && selectedTarget.kind === 'node' ? selectedTarget.messageId : null;
+      // Tap same selected node → dismiss the dock.
+      if (currentSelectedMessageId === messageId) {
+        onSelectTarget(null);
+        // Keep the node active; just close the dock.
+        return;
+      }
+      // Open / switch the dock to this node. Always close the popover.
+      setPopoverMessageId(null);
+      if (map.activeNode?.messageId !== messageId) onActivate(messageId);
+      onSelectTarget({ kind: 'node', messageId });
+      return;
+    }
+    // Legacy SC-002 path (no dock wiring): activate → popover → close.
     const effect = decideNodeTapEffect({
       tappedMessageId: messageId,
       activeMessageId: map.activeNode?.messageId ?? null,
@@ -377,12 +439,16 @@ export function ArgumentTimelineMap({
         setPopoverMessageId(null);
         return;
     }
-  }, [map.activeNode?.messageId, onActivate, popoverMessageId]);
+  }, [map.activeNode?.messageId, onActivate, popoverMessageId, onSelectTarget, selectedTarget]);
 
   const handleInfoTap = useCallback((messageId: string) => {
     const effect = decideInfoIconEffect(messageId);
-    if (effect.type === 'open_popover') setPopoverMessageId(effect.messageId);
-  }, []);
+    if (effect.type === 'open_popover') {
+      // SC-004 — opening the popover dismisses the dock (mutual exclusion).
+      onSelectTarget?.(null);
+      setPopoverMessageId(effect.messageId);
+    }
+  }, [onSelectTarget]);
 
   const popoverModel = (() => {
     if (!popoverMessageId || !map.activeNode || !activeViewModel) return null;
@@ -480,6 +546,26 @@ export function ArgumentTimelineMap({
             onOpenDetails={onOpenDetails ? (id) => { setPopoverMessageId(null); onOpenDetails(id); } : undefined}
             onClose={() => setPopoverMessageId(null)}
             artifacts={popoverArtifacts}
+            isReadModeViewer={isReadModeViewer === true}
+          />
+        </View>
+      ) : null}
+
+      {/* SC-004 — Action dock. Mutually exclusive with the SC-002 popover
+          above. Both surfaces are anchored at the top of the timeline
+          frame; the room shell guarantees they never co-exist by
+          dismissing one when the other opens. */}
+      {selectedTarget && actionDockModel && !popoverModel ? (
+        <View style={styles.actionDock}>
+          <TimelineNodeActionDock
+            model={actionDockModel}
+            onAction={onActionDockAction}
+            onOpenCardsDetail={onOpenCardsDetail}
+            onExpandBranch={(branchRootMessageId) => {
+              setCollapseState((prev) => toggleBranchCollapse(prev, branchRootMessageId));
+              onSelectTarget?.(null);
+            }}
+            onDismiss={() => onSelectTarget?.(null)}
             isReadModeViewer={isReadModeViewer === true}
           />
         </View>
@@ -624,6 +710,13 @@ const styles = StyleSheet.create({
   popoverDock: {
     paddingHorizontal: 8,
     paddingVertical: 6,
+    backgroundColor: '#020617',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1f2937',
+  },
+  // SC-004 — Action dock surface lives just below the popover dock; the
+  // two are mutually exclusive so at most one is visible at a time.
+  actionDock: {
     backgroundColor: '#020617',
     borderBottomWidth: 1,
     borderBottomColor: '#1f2937',

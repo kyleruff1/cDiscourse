@@ -1,6 +1,44 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-18 (Release 6.6 — META-001 move tag / flag / metadata event ledger build complete)_
+_Last updated: 2026-05-19 (Release 6.6 — SC-004 timeline node action dock build complete)_
+
+## SC-004 — Timeline node action dock (Release 6.6 / Wave 2)
+
+**Status:** Build complete, awaiting Review.
+
+- New pure-TS module `src/features/arguments/timelineNodeActionDockModel.ts`. Exports:
+  - The locked 16-code `TimelineNodeActionDockActionCode` vocabulary (15 roadmap §8 codes + the `expand_branch` collapsed-stub UI primitive).
+  - `TimelineNodeActionDockActor` (6 values; mirrors `ArgumentBubbleActor` plus explicit `observer`).
+  - `TimelineNodeActionDockTarget` discriminated union (`node | cluster | collapsed_stub`).
+  - `TimelineNodeActionDockAction` / `TimelineNodeActionDockClusterHeader` / `TimelineNodeActionDockMoveChip` / `TimelineNodeActionDockPrimarySuggestion` / `TimelineNodeActionDockDisabledReason` (10 reasons).
+  - The `TimelineNodeActionDockModel` render contract.
+  - `buildTimelineNodeActionDockModel(input)`, `getPrimaryTimelineNodeAction(input)`, `actionDockToComposerPreset(action, target, parentType)`, `_forbiddenDockTokens`, and a test-only `_debug` namespace exposing the internal tables.
+  - The lifecycle → primary action table covers all 19 LIFE-001 states (`open / answered / rebutted / clarified / sourced / quote_requested / source_requested / narrowed / conceded / confirmed / synthesis_ready / moved_on_by_affirmative / moved_on_by_negative / ignored_by_affirmative / ignored_by_negative / ignored_by_both / exhausted / branch_recommended / archived_or_resolved`).
+  - The manual-tag → action promotion table covers all 10 META-001 codes.
+  - The source-chain → action override table covers all 6 EV-001 statuses.
+- New RN component `src/features/arguments/TimelineNodeActionDock.tsx`. Bottom dock layout. Cluster header strip (lifecycle + manual-tag aggregate + cluster-level auto metadata + evidence label) + per-move chip area + primary action pill (56pt, full-width with 3pt border) + horizontal-scrolling secondary chips (44pt, 1pt border, italic when disabled) + dismiss affordance. RN core primitives only (`Pressable / View / Text / ScrollView / StyleSheet / AccessibilityInfo`). No new dependency.
+- Extended `src/features/arguments/quickActionPresets.ts` with three new `QuickActionLabel` values (`narrow / confirm / synthesize`) and three new preset bodies (`NARROW_PRESET_BODY` / `CONFIRM_PRESET_BODY` / `SYNTHESIZE_PRESET_BODY`) + `ALL_SC004_PRESET_BODIES`. Existing EV-002 cases unchanged.
+- Integration in `ArgumentTimelineMap.tsx` (5 new optional props): `selectedTarget`, `actionDockModel`, `onSelectTarget`, `onActionDockAction`, `onOpenCardsDetail`. Tap handler short-circuits to dock-selection when `onSelectTarget` is wired; info-icon dismisses the dock before opening the popover; JSX renders the dock only when `popoverModel` is null. The SC-002 popover and the SC-004 dock are MUTUALLY EXCLUSIVE.
+- Integration in `ArgumentGameSurface.tsx`: builds `lifecycleMap` (LIFE-001) + `metadataLedger` (META-001) + `dockModel` once per render (memoized by timelineMap / lifecycle / metadata references). Classifies dock actor from `resolvedViewerRole` + active bubble actor. Dispatches actions through the existing `handleAction` path (composer + `submit-argument` Edge Function) plus `open_cards_detail` and `expand_branch` surface-toggle helpers. No service-role, no direct insert into `public.arguments`, no router push, no `Linking.openURL`.
+- Doctrine encoded in code + tests (172 new tests across 4 files):
+  1. **Dock RECOMMENDS, never BLOCKS.** Every one of the 19 lifecycle states keeps `reply` enabled in the action list for participants. Even `exhausted` and `archived_or_resolved` only re-order suggestions.
+  2. **Lifecycle is play state, not truth.** No code path reads `standingBand` / `toneBand` / `temperatureBand`. A wrong-but-loud + a right-but-quiet fixture produce deep-equal action shapes.
+  3. **No verdict tokens in any user-facing copy.** Ban-list scans every action label, accessibility label, helper copy, cluster header label, and the three new preset bodies (`NARROW_PRESET_BODY` / `CONFIRM_PRESET_BODY` / `SYNTHESIZE_PRESET_BODY`). `_forbiddenDockTokens()` returns the full token list.
+  4. **No person-attribution drift.** Cluster header reads via `getPointLifecyclePlainLabel` — `ignored_by_negative` renders as `"Negative did not respond"`, never as a user accusation.
+  5. **No re-derivation of upstream signals.** Forbidden-imports source scan (18 tests) asserts no value import of `deriveMessageCategory` / `derivePrimaryQualifier` / `deriveMessageQualifiers` / `applyAntiAmplification` / `gradeChallenge` / `gradeRepair` / `buildPointLifecycleMap` / `buildMoveMetadataLedger`. No `'react'` / `'react-native'` / supabase-js / `'expo-*'` / `'react-router'` / `Linking`. No `fetch(` / `XMLHttpRequest`. No env secrets.
+  6. **No service-role / no direct insert / no route push.** Source scan asserts no `from('arguments').insert`, no `supabase.from`, no `router.push`, no `router.navigate`, no `Linking.openURL`, no `console.log`.
+  7. **COPY-001 guardrail.** Cluster-level codes (`answered`, `rebutted`, `synthesis_candidate`, `point_stalled`, `branch_suggested`, etc.) render in `clusterHeader`; move-level codes (`has_reply`, `has_rebuttal`, `source_attached`, etc.) render in `moveChips`. When the cluster header's plain-language label would duplicate a move chip's plain-language label (e.g. `answered` + `has_reply` both → `"Has a reply"`), the move chip is suppressed.
+  8. **Heat ≠ correctness.** Identical lifecycle structure + different `standingBand` / `toneBand` / `temperatureBand` → deep-equal action shape + identical primary suggestion.
+- SC-004 ships **no migration, no Edge Function, no schema change, no `.env*` change, no new dependency, no AI inference path, no Supabase write, no production AI call, no service-role usage, no route transition**. The dock is the dispatch surface; the room shell uses the existing composer + `submit-argument` Edge Function.
+- New preset bodies (verbatim — verdict-checked):
+  - `NARROW_PRESET_BODY = "I'd narrow this to: [the part I still accept]. Where I'd push back is: [the more limited scope]."`
+  - `CONFIRM_PRESET_BODY = "I accept this narrowed point. Moving on with the rest of the claim."`
+  - `SYNTHESIZE_PRESET_BODY = "Synthesis: where I think we landed is — [shared point]. Open questions still on the table: [list]."`
+- Tests: +129 across 4 new files (`timelineNodeActionDockModel.test.ts` +86, `timelineNodeActionDockDoctrine.test.ts` +20, `timelineNodeActionDockForbiddenImports.test.ts` +18, `timelineNodeActionDockSelectionExclusion.test.ts` +5). Performance gate: dock build < 50 ms on 250-message tree (measured well under). **3071 tests / 113 suites passing** (+129, baseline 2942 / 109). Typecheck + lint clean.
+- Frozen-surface zero-diff confirmed: BR-001 / LIFE-001 / META-001 / EV-001 / EV-002 / SC-002 / VG-002 module files are unchanged in this card. Only the explicit integration additions in `ArgumentTimelineMap.tsx` (5 new optional props) and `ArgumentGameSurface.tsx` (dock state + wiring) were made.
+- Operator follow-up: **None — pure code change.** Review agent runs `npm run typecheck && npm run lint && npm run test`.
+- Discovery follow-up candidates (P2 unless noted, none block SC-004): SC-1A (inline-on-wide dock variant), META-001 patch for `moved_on_by_<side>` / `ignored_by_<side>` manual tags, EV-001 patch for own-bubble `add_evidence`, AccessibilityInfo reduce-motion subscription (P3), metadata-debug overlay (P3), QOL-022 render tooling (P2), NAV-002 selected-cluster breadcrumb (P2), Branch composer routing (P2).
+- See `docs/designs/SC-004.md` for the full reference (1021 lines, committed at 3965715).
 
 ## META-001 — Move tag / flag / metadata event ledger (Release 6.6)
 
