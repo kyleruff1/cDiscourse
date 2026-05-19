@@ -10,6 +10,8 @@ export type AuthError =
   | 'weak_password'
   | 'network_error'
   | 'config_missing'
+  /** QOL-023 — the auth redirect URL could not be safely constructed. */
+  | 'redirect_invalid'
   | 'unknown';
 
 export interface AuthResult<T = void> {
