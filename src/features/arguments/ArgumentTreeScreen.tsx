@@ -293,7 +293,11 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
 
   const rootRow = messages.find((m) => m.parentId === null);
 
-  const handleAction = (control: ArgumentBubbleControl, messageId: string) => {
+  const handleAction = (
+    control: ArgumentBubbleControl,
+    messageId: string,
+    explicitPreset?: MoveDraftPatch | null,
+  ) => {
     if (
       control === 'reply' ||
       control === 'disagree' ||
@@ -305,14 +309,25 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
       if (arg) {
         // Stage 6.2 M7 — push a typed composer preset BEFORE opening the
         // composer so it applies on first mount.
+        //
+        // COMPOSER-001 — when an upstream caller (the SC-004 dock dispatch)
+        // already resolved a preset (e.g. NARROW / CONFIRM / SYNTHESIZE
+        // bodies, or any other `actionDockToComposerPreset` result), use it
+        // verbatim. Otherwise compute one from the bubble control just like
+        // EV-002 does today. This is what wires the dock's narrow / confirm
+        // / synthesize chips into the composer body.
         if (onComposerPreset) {
-          const presetLabel =
-            control === 'disagree' ? 'challenge' :
-            control === 'ask_for_source' ? 'source' :
-            control === 'ask_for_quote' ? 'quote' :
-            control === 'branch' ? 'branch' :
-            'reply';
-          const preset = quickActionToPreset(presetLabel, arg.argumentType);
+          const preset = explicitPreset !== undefined
+            ? explicitPreset
+            : (() => {
+                const presetLabel =
+                  control === 'disagree' ? 'challenge' :
+                  control === 'ask_for_source' ? 'source' :
+                  control === 'ask_for_quote' ? 'quote' :
+                  control === 'branch' ? 'branch' :
+                  'reply';
+                return quickActionToPreset(presetLabel, arg.argumentType);
+              })();
           onComposerPreset(preset);
         }
         onReply(messageId, arg);

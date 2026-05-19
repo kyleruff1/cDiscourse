@@ -1,6 +1,34 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-19 (Release 6.6 — SC-004 timeline node action dock build complete)_
+_Last updated: 2026-05-19 (Release 6.6 — COMPOSER-001 dock → composer prefill wiring complete)_
+
+## COMPOSER-001 — Wire SC-004 narrow/confirm/synthesize preset bodies into composer prefill (Release 6.6 / Wave 2)
+
+**Status:** Build complete, awaiting Review.
+
+- Seam-wiring patch on top of SC-004 (PR #83). SC-004 shipped the dock model `actionDockToComposerPreset(action, target, parentType)` which returns the correct `MoveDraftPatch` for `narrow` / `confirm` / `synthesize` (plus the existing EV-002 ask presets), but `ArgumentGameSurface.handleActionDockAction` discarded the patch and routed every fall-through case through `handleAction('reply', targetMessageId)`. Downstream, `FullRoomGameSurfaceMount.handleAction` then computed a `presetLabel='reply'` preset (null) and clobbered any preset the dock had chosen. Net effect: the SC-004 dock advertised a one-click playable move, but the user landed in a blank composer.
+- Fix lands in two files:
+  - `src/features/arguments/ArgumentGameSurface.tsx` — extends the `onAction` prop with an optional third `preset?: MoveDraftPatch | null` argument (existing callers ignore it; no breaking change). `handleAction` forwards the preset to `onAction`. `handleActionDockAction` computes the patch via `actionDockToComposerPreset(action, target, parentType)` once and threads it into `handleAction(control, messageId, preset)` for every preset-producing dock action (`narrow` / `confirm` / `synthesize` / `concede` / `clarify` / `add_evidence` / `challenge` / `ask_source` / `ask_quote`). `parentType` is resolved by looking up the target message's `argumentType` from the already-memoized `sorted` array. `reply` and `branch` continue to dispatch with an explicit `null` preset.
+  - `src/features/arguments/ArgumentTreeScreen.tsx` — `FullRoomGameSurfaceMount.handleAction` accepts the optional `explicitPreset` argument and prefers it over the locally-computed EV-002 preset. When no explicit preset is supplied (sidecar / popover / Stack-mode bubble dispatch paths), the existing EV-002 `quickActionToPreset(presetLabel, arg.argumentType)` path runs unchanged.
+- Composer surface (`ArgumentComposer.tsx`) is zero-diff. The composer's existing `initialPatch` reference-equality `useEffect` (Stage 6.2 M7) writes the seeded body / argumentType / suggestedTagCodes into the draft on mount. The user can edit before submit.
+- Doctrine held:
+  1. **The preset body must remain editable by the user before submit.** EV-002 doctrine intact — `initialPatch` is applied once per patch reference; user typing is never overwritten.
+  2. **No accusatory or coercive prefilled copy.** The three SC-004 bodies (`NARROW_PRESET_BODY` / `CONFIRM_PRESET_BODY` / `SYNTHESIZE_PRESET_BODY`) are used verbatim from `quickActionPresets.ts`. The COMPOSER-001 ban-list test (14 banned tokens × 3 bodies = 42 regression assertions) re-locks them.
+  3. **No new `QuickActionLabel` codes.** No new preset bodies. No new `gameCopy.PLAIN_LANGUAGE_COPY` labels. No new dependency. No new lifecycle / metadata / evidence types.
+  4. **No service-role in client. No direct insert into `public.arguments`.** Source-scan of both modified files verifies the doctrine.
+  5. **No Supabase migration. No Edge Function deploy. No `.env*` change. No AI inference path. No live API call.**
+  6. **Frozen-surface zero-diff** for VG-002 / BR-001 / LIFE-001 / META-001 / EV-001 / EV-002 / SC-002 / SC-004 module files. The two modified files are the explicit seam-wiring surfaces this card is about; the SC-004 selection-exclusion test's regex was updated to accept the new `[handleAction, sorted]` deps array (the doctrine assertions about no router push / no `Linking.openURL` are unchanged).
+- New test file `__tests__/argumentGameSurfaceDockComposerWiring.test.ts` (65 tests):
+  - 3 tests assert each SC-004 preset shape (narrow / confirm / synthesize).
+  - 3 tests assert EV-002 regression for `ask_source` / `ask_quote` (via the dock model) and `weak_source` (via the existing popover-quick-action path).
+  - 7 tests assert non-preset actions (`reply` / `branch` / `flag` / `mark_moved_on` / `mark_ignored` / `open_cards_detail` / `expand_branch`) return `null` from `actionDockToComposerPreset` (no auto-fill body).
+  - 6 source-scan tests on `ArgumentGameSurface.tsx` (preset compute call, threaded `handleAction` calls, `onAction` prop signature, forwarded preset).
+  - 4 source-scan tests on `ArgumentTreeScreen.tsx` (`explicitPreset` arg, prefer-over-fallback, EV-002 fallback still present, `onComposerPreset` runs before `onReply`).
+  - 42 verdict-token regression assertions on the three SC-004 preset bodies (14 banned tokens × 3 bodies).
+- Tiny chore bundled in the same PR: added `'COMPOSER'` to `ROADMAP_PREFIXES` in `scripts/github/agentIssueRunner.js` so the agent issue runner discovers `COMPOSER-*` cards (this card #84 and future ones). The existing `agentIssueRunner.test.ts` iterates `runner.ROADMAP_PREFIXES` and parses `<PREFIX>-007 — Something`, so the new prefix is covered automatically.
+- Tests: **+65 across 1 new file** (`argumentGameSurfaceDockComposerWiring.test.ts`), 1 regex update in `timelineNodeActionDockSelectionExclusion.test.ts`. **3117 tests / 114 suites passing** (+65, baseline 3052 / 113 measured locally; pre-existing 19 xAI/anthropic env-file failures persist on main `03f91d6` and are unrelated). Typecheck + lint clean.
+- Frozen-surface zero-diff confirmed: `timelineNodeActionDockModel.ts`, `quickActionPresets.ts`, `gameCopy.ts`, `TimelineNodeActionDock.tsx`, `ArgumentReplySidecar.tsx`, `ArgumentComposer.tsx`, `ArgumentTimelineMap.tsx` are all unchanged in this card.
+- Operator follow-up: **None — pure code change.** Review agent runs `npm run typecheck && npm run lint && npm run test`.
 
 ## SC-004 — Timeline node action dock (Release 6.6 / Wave 2)
 
