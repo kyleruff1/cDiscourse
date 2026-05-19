@@ -73,17 +73,6 @@ export function hasAdditiveAxisInformation(
 }
 
 /**
- * @deprecated Prefer `hasAdditiveAxisInformation` (clearer name).
- * Kept for documentation parity with the design's helper list.
- */
-export function moveAddsAxisInformation(
-  node: ArgumentTimelineMapNode,
-  artifactStatus: SourceChainStatus | null,
-): boolean {
-  return hasAdditiveAxisInformation(node, artifactStatus);
-}
-
-/**
  * Count off-axis pressure moves under the cluster. Used by the
  * branch_recommended advisory.
  *

@@ -1,6 +1,20 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-19 (Release 6.6 — GAME-001 exhaustion + timeout advisory deriver landed on top of RULE-002 / GAL-001 / GAL-002 / EV-004 / SW-002 / ST-002 / SC-003 / RULE-003; Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6; COPY-001 audit + optional ban-list hardening landed in Release 6.6)_
+_Last updated: 2026-05-19 (Release 6.6 — LIFE-1B trivial cleanup landed on top of GAME-001 exhaustion + timeout advisory deriver, RULE-002 / GAL-001 / GAL-002 / EV-004 / SW-002 / ST-002 / SC-003 / RULE-003; Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6; COPY-001 audit + optional ban-list hardening landed in Release 6.6)_
+
+## LIFE-1B — Retire `moveAddsAxisInformation` deprecated alias (Release 6.6 / Wave 3 cleanup)
+
+**Status:** Trivial cleanup that retires the JSDoc-deprecated runtime alias `moveAddsAxisInformation` introduced alongside LIFE-001's canonical `hasAdditiveAxisInformation`. Issue #73.
+
+- **Why this card exists:** LIFE-001 shipped both `hasAdditiveAxisInformation` (canonical, clearer name) and a JSDoc-deprecated `moveAddsAxisInformation` alias that simply forwards to the canonical helper. The LIFE-001 review flagged the alias as removable "right after GAME-001" to avoid two-name confusion in downstream consumers (SC-004 / ST-002 / GAME-001). GAME-001 has landed using only the canonical name, so the alias has zero callers in `src/` or `__tests__/` and can be removed safely.
+- **Deliverables (all in this card):**
+  - `src/features/lifecycle/pointLifecycleAdvisoryInputs.ts` — removed the deprecated alias `export function moveAddsAxisInformation(...)` definition. `hasAdditiveAxisInformation` is now the only additive-axis helper.
+  - `src/features/lifecycle/index.ts` — removed `moveAddsAxisInformation` from the barrel re-export list.
+- **Doctrine encoded:** None — pure naming hygiene. The canonical `hasAdditiveAxisInformation` semantics are untouched. GAME-001's `exhaustionTimeoutModel.ts` was already using `hasAdditiveAxisInformation`, not the alias, so it is unaffected.
+- **Boundary enforcement:** No semantic change. No new helper, no helper signature change, no doctrine surface change. `grep -r moveAddsAxisInformation src/ __tests__/` returns zero matches after the edit.
+- **No xAI, Anthropic, or X API calls; no Supabase writes; no service-role; no migration; no Edge Function change; no new dependency; no `.env*` touched; no hosting file touched; no test file modified (no alias-equivalence test existed); the constitution engine remains sacred.**
+- **Test count unchanged at 4083 passing.** The 19 pre-existing xAI / Anthropic / engagement-intel suite failures remain unrelated to this card and operator-gated by missing `.env.engagement-intelligence` in this worktree. Typecheck + lint clean. `skills:validate` clean.
+- **No operator follow-up** — pure local change. No deploy step.
 
 ## GAME-001 — Point exhaustion + timeout rules (Release 6.6 / Wave 3)
 
