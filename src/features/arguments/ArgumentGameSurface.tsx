@@ -35,6 +35,8 @@ import { VIEW_MODE_COPY } from './viewModeCopy';
 import type { RailActionCode, RailViewerRole } from './ArgumentSideActionRail';
 import type { ArgumentTag, ArgumentFlag } from './types';
 import type { ParticipantSide } from '../debates/types';
+import type { MoveDraftPatch } from './conversationMoves';
+import type { ArgumentType } from '../../domain/constitution/types';
 import {
   getTimelineEvidenceContract,
   type EvidenceArtifact,
@@ -80,8 +82,21 @@ interface Props {
   categoryLabelById?: Record<string, string | null>;
   /** Optional per-message qualifier label (for timeline badges). */
   qualifierLabelById?: Record<string, string | null>;
-  /** Action handlers. Called with the canonical control name + message id. */
-  onAction?: (control: ArgumentBubbleControl, messageId: string) => void;
+  /**
+   * Action handlers. Called with the canonical control name + message id.
+   *
+   * COMPOSER-001 — Optional third `preset` argument is passed when the SC-004
+   * timeline node action dock dispatches a move whose composer body / type
+   * has already been resolved upstream (`narrow` / `confirm` / `synthesize` /
+   * `concede` / `clarify` / `add_evidence` etc.). The room shell (caller)
+   * uses it verbatim instead of computing a preset from the bubble control.
+   * Existing callers that ignore the third argument are unaffected.
+   */
+  onAction?: (
+    control: ArgumentBubbleControl,
+    messageId: string,
+    preset?: MoveDraftPatch | null,
+  ) => void;
   /** Optional refresh trigger (e.g., the room hook's refresh). */
   onRefresh?: () => void;
   /**
@@ -298,12 +313,16 @@ export function ArgumentGameSurface({
     if (next) setActiveMessageId(next);
   }, [chronologicalIds, activeMessageId]);
 
-  const handleAction = useCallback((control: ArgumentBubbleControl, messageId: string) => {
+  const handleAction = useCallback((
+    control: ArgumentBubbleControl,
+    messageId: string,
+    preset?: MoveDraftPatch | null,
+  ) => {
     if (control === 'request_deletion') {
       setDeletionTarget(messageId);
       return;
     }
-    onAction?.(control, messageId);
+    onAction?.(control, messageId, preset);
   }, [onAction]);
 
   // SC-004 — Dock action dispatch. Maps the 15-code SC-004 vocabulary onto
@@ -311,6 +330,15 @@ export function ArgumentGameSurface({
   // submit-argument Edge Function) plus the BR-001 / Cards-detail surface
   // toggles. Never inserts directly into public.arguments. Never invokes a
   // router.
+  //
+  // COMPOSER-001 — `narrow` / `confirm` / `synthesize` (and the other
+  // composer-preset actions: `concede` / `clarify` / `add_evidence` /
+  // `challenge` / `ask_source` / `ask_quote`) thread the
+  // `actionDockToComposerPreset` result through the optional `preset`
+  // argument on `handleAction`. The room shell uses the supplied preset
+  // verbatim instead of recomputing one from the bubble control, so the
+  // dock's chosen scaffolding (e.g. `NARROW_PRESET_BODY`) lands in the
+  // composer body field on mount. The user can still edit before submit.
   const handleActionDockAction = useCallback((
     action: TimelineNodeActionDockActionCode,
     target: TimelineNodeActionDockTarget,
@@ -319,10 +347,16 @@ export function ArgumentGameSurface({
     // collapsed_stub targets we use the branchRoot.
     const targetMessageId =
       target.kind === 'node' ? target.messageId : target.branchRootMessageId;
-    // The composer preset (if any) is computed here so a future
-    // composer-aware caller can adopt it; v1 keeps the existing
-    // handleAction signature untouched.
-    void actionDockToComposerPreset(action, target, null);
+
+    // COMPOSER-001 — Resolve the parent argumentType for the preset
+    // computation. For node targets that's the message's own type (the
+    // composer treats the targeted message as its parent when replying);
+    // for cluster / collapsed_stub targets we use the branch root's type.
+    // null is safe — the SC-004 preset bodies for narrow / confirm /
+    // synthesize don't depend on parent type; only `challenge` does.
+    const targetMsg = sorted.find((m) => m.id === targetMessageId) || null;
+    const parentType = (targetMsg?.argumentType ?? null) as ArgumentType | null;
+    const preset = actionDockToComposerPreset(action, target, parentType);
 
     if (action === 'open_cards_detail') {
       // Surface toggle — switch to Stack/Cards mode and activate the message.
@@ -342,32 +376,34 @@ export function ArgumentGameSurface({
       return;
     }
     if (action === 'reply') {
-      handleAction('reply', targetMessageId);
+      // `reply` produces no preset (composer opens with no forced type).
+      handleAction('reply', targetMessageId, null);
       return;
     }
     if (action === 'challenge') {
-      handleAction('disagree', targetMessageId);
+      handleAction('disagree', targetMessageId, preset);
       return;
     }
     if (action === 'ask_source') {
-      handleAction('ask_for_source', targetMessageId);
+      handleAction('ask_for_source', targetMessageId, preset);
       return;
     }
     if (action === 'ask_quote') {
-      handleAction('ask_for_quote', targetMessageId);
+      handleAction('ask_for_quote', targetMessageId, preset);
       return;
     }
     if (action === 'branch') {
-      handleAction('branch', targetMessageId);
+      handleAction('branch', targetMessageId, null);
       return;
     }
-    // narrow / concede / confirm / synthesize / clarify / add_evidence —
-    // these don't have a single existing bubble control. v1 routes them
-    // through `reply` (composer opens; the player picks the move type).
-    // The composer preset returned by `actionDockToComposerPreset` is
-    // available for future composer wiring (ST-002 follow-up).
-    handleAction('reply', targetMessageId);
-  }, [handleAction]);
+    // COMPOSER-001 — narrow / concede / confirm / synthesize / clarify /
+    // add_evidence have no dedicated bubble control. We dispatch through
+    // `reply` (which opens the composer) but pass the
+    // `actionDockToComposerPreset` patch via the optional third argument,
+    // so the room shell threads the patch into `onComposerPreset` and the
+    // composer applies it on mount.
+    handleAction('reply', targetMessageId, preset);
+  }, [handleAction, sorted]);
 
   // SC-004 — Open Cards-detail surface toggle. Never a router push.
   const handleOpenCardsDetail = useCallback((target: TimelineNodeActionDockTarget) => {
