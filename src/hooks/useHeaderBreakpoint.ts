@@ -26,16 +26,26 @@ export interface HeaderBreakpoint {
   headerHeightPx: number;
 }
 
-export function useHeaderBreakpoint(): HeaderBreakpoint {
-  const { width } = useWindowDimensions();
-  // SSR / static-export safety: a non-positive width (typically 0
-  // during the first render of an `expo export --platform web` output)
-  // defaults to the wide layout so the first paint is the polished
-  // layout. The hydration pass will narrow it down if needed.
+/**
+ * Pure resolver used by `useHeaderBreakpoint`. Extracted so unit
+ * tests can pin the breakpoint logic without depending on React's
+ * hook runtime. Calling code should prefer the hook.
+ *
+ * SSR / static-export safety: a non-positive width (typically 0
+ * during the first render of an `expo export --platform web` output)
+ * defaults to the wide layout so the first paint is the polished
+ * layout. The hydration pass will narrow it down if needed.
+ */
+export function resolveHeaderBreakpoint(width: number): HeaderBreakpoint {
   const isWide = !(width > 0) || width >= BRAND.headerWideBreakpointPx;
   return {
     isWide,
     logoHeightPx: isWide ? BRAND.logoHeightPxWide : BRAND.logoHeightPx,
     headerHeightPx: isWide ? BRAND.headerHeightPxWide : BRAND.headerHeightPx,
   };
+}
+
+export function useHeaderBreakpoint(): HeaderBreakpoint {
+  const { width } = useWindowDimensions();
+  return resolveHeaderBreakpoint(width);
 }
