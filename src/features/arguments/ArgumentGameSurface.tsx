@@ -14,6 +14,7 @@ import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
 import { ArgumentReplySidecar } from './ArgumentReplySidecar';
+import { buildSidecarViewModel } from './argumentReplySidecarModel';
 import { DeletionRequestSheet } from './DeletionRequestSheet';
 import {
   buildArgumentBubbleViewModels,
@@ -517,16 +518,19 @@ export function ArgumentGameSurface({
               onOpenCardsDetail={handleOpenCardsDetail}
             />
             <ArgumentReplySidecar
-              activeMessage={timelineMap.activeNode}
-              activeViewModel={activeViewModel}
-              parentNode={
-                timelineMap.activeNode && timelineMap.activeNode.parentId
-                  ? timelineMap.nodes.find((n) => n.messageId === timelineMap.activeNode!.parentId) || null
-                  : null
-              }
-              totalCount={timelineMap.nodes.length}
-              activePathIds={timelineMap.activePathIds}
-              onAction={handleAction}
+              viewModel={buildSidecarViewModel({
+                activeNode: timelineMap.activeNode,
+                activeViewModel,
+                parentNode:
+                  timelineMap.activeNode && timelineMap.activeNode.parentId
+                    ? timelineMap.nodes.find((n) => n.messageId === timelineMap.activeNode!.parentId) || null
+                    : null,
+                totalCount: timelineMap.nodes.length,
+                activePathIds: timelineMap.activePathIds,
+                lifecycleMap,
+                metadataLedger,
+                viewMode: mode,
+              })}
             />
           </>
         )}

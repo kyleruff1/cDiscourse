@@ -1,6 +1,22 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-19 (Release 6.6 — RULE-003 Lifecycle-to-UX doctrine map landed on top of COPY-001; Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6; COPY-001 audit + optional ban-list hardening landed in Release 6.6)_
+_Last updated: 2026-05-19 (Release 6.6 — SC-003 sidecar detail-inspector refactor landed on top of RULE-003; Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6; COPY-001 audit + optional ban-list hardening landed in Release 6.6)_
+
+## SC-003 — Sidecar as detail inspector (Release 6.6 / Wave 2)
+
+**Status:** Pure-TS view-model + sidecar refactor + 81 tests landed. The sidecar is now the read-only detail inspector; SC-004's `TimelineNodeActionDock` remains the sole owner of the action palette.
+
+- **Why this card exists:** Stage 6.2's `ArgumentReplySidecar` duplicated the action vocabulary (the `OTHER_ACTIONS` / `SELF_ACTIONS` arrays + `actionsRow`) that SC-004's dock already renders directly above it. SC-003 strips the sidecar back to the role its name promises — a detail inspector — and routes every label through RULE-003. The sidecar now explains the selected message in 6 fixed sections (`What this move says`, `Why it matters`, `What is unresolved`, `Where it sits`, `Suggested next move`, `Semantic flags`). Issue #11.
+- **Deliverables (all in this card):**
+  - `src/features/arguments/argumentReplySidecarModel.ts` — pure-TS view-model + builder + `buildSidecarViewModel(input)`. No React, no Supabase, no network, no AI. Reads `getLifecycleUx` / `getManualTagUx` / `getAutoMetadataUx` from RULE-003. Reserves the ST-002 slot via `SuggestedMoveStub = never` so a later card can widen the union without breaking consumers.
+  - `src/features/arguments/ArgumentReplySidecar.tsx` — refactored to consume a single `viewModel: SidecarViewModel` prop. Old action affordances (`OTHER_ACTIONS` / `SELF_ACTIONS` / `actionsRow` / `onAction` callback) removed. No body-edit affordance. No `<TextInput>` mounted. Only interactive is the Timeline-mode "Show details" toggle, which is purely presentational state.
+  - `src/features/arguments/ArgumentGameSurface.tsx` — single call site updated to build the view-model from existing `lifecycleMap` + `metadataLedger` memos and pass it through.
+  - `__tests__/argumentReplySidecarModel.test.ts` — 68 tests covering section ordering, lifecycle parity across all 19 `PointLifecycleState` values, empty-state contract, "what is unresolved" filtering against `hasOpenSourceOrQuoteRequest`, where-it-sits path labels (Root / numbered / standalone / Side branch), ST-002 stub stability (`suggestion === null`, `reason === 'st_002_not_yet_implemented'`, `SuggestedMoveStub = never`), R2 dedup (cluster-lifecycle label suppression), mode-toggle (only `isCondensed` flips), word-boundary body truncation, determinism, no-callback contract (no field is a function, no key matches `/action|dispatch|onPress|onAction|submit/i`), snake_case ban on rendered fields, verdict + amplification ban, and a source-scan boundary against `timelineNodeActionDockModel`.
+  - `__tests__/argumentReplySidecar.test.tsx` — 13 source-scan + contract tests asserting the component has no SC-004 action references, no body-edit affordance, no `onAction` prop, only a `viewModel` prop, preserves the `argument-reply-sidecar` testID, exposes accessibility on the Show-details toggle (`accessibilityRole` + `accessibilityLabel` + `hitSlop`), and contains no router/navigation primitive.
+- **Doctrine encoded:** No body editing on any surface — for any actor. Every label read through RULE-003. No `snake_case` in rendered fields. No verdict or amplification language. No callback / dispatch field in the view-model. SC-003 ↔ SC-004 boundary test-enforced via two source scans (model + component). ST-002 contract reserved via `SuggestedMoveStub = never`.
+- **No xAI, Anthropic, or X API calls; no Supabase writes; no service-role; no migration; no Edge Function change; no new dependency; no `.env*` touched; no hosting file touched.**
+- **+81 tests / +2 suites** (3394 → 3475 tests passing-baseline-delta; 123 → 125 suites). The 5 pre-existing xAI / AI-bot corpus suites that fail in the baseline are unrelated to this card and remain operator-gated. Typecheck + lint clean. `skills:validate` clean.
+- **No operator follow-up** — pure local change. No deploy step.
 
 ## RULE-003 — Lifecycle-to-UX doctrine map (Release 6.6 / Wave 3)
 
