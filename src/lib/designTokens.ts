@@ -185,6 +185,42 @@ export const BRAND = {
   taglineText: 'Just get to the bottom of it' as const,
 } as const;
 
+// ── VG-004 — Timeline node glow / halo tokens ───────────────────
+
+/**
+ * VG-004 — Node-level glow + selected-node halo tokens.
+ *
+ * `activePath` is the indigo navigation glow on nodes that sit on the
+ * active path — reusing VG-002's `RAIL_ACTIVE_PATH_GLOW` indigo
+ * (`#a5b4fc`) so the rail glow and the node glow read as one system.
+ * `selectedHalo` is the cream selection ring on the SC-004 dock target,
+ * reusing `BRAND.accent.cream` so no new color token is introduced.
+ *
+ * The two are deliberately different hues: indigo = "active", cream =
+ * "selected". Neither encodes truth, strength, or heat (doctrine §1/§2).
+ *
+ * `strokeWidthPx` / `ringWidthPx` are geometry — they survive reduce-
+ * motion. `shadowRadiusPx` is the soft drop shadow, dropped to 0 when
+ * reduce-motion is on (the stroke alone then carries the signal).
+ */
+export const GLOW = {
+  activePath: { strokeWidthPx: 2, shadowRadiusPx: 12, color: '#a5b4fc' },
+  selectedHalo: { ringWidthPx: 3, color: BRAND.accent.cream },
+} as const;
+
+/**
+ * VG-004 — Evidence "receipt" inner-mark token. A small corner badge on
+ * the circular timeline node when the node's message has ≥ 1 attached
+ * `EvidenceArtifact`. It signals *artifact presence*, never that a claim
+ * is proven (doctrine §3). Colors reuse the `ARGUMENT.evidence` family —
+ * no new color token.
+ */
+export const RECEIPT_MARK = {
+  sizePx: 12,
+  color: ARGUMENT.evidence.bg,
+  innerColor: ARGUMENT.evidence.fg,
+} as const;
+
 // ── Aggregate ───────────────────────────────────────────────────
 
 export const TOKENS = {
@@ -195,6 +231,8 @@ export const TOKENS = {
   rail: RAIL,
   argument: ARGUMENT,
   brand: BRAND,
+  glow: GLOW,
+  receiptMark: RECEIPT_MARK,
 } as const;
 
 /**
