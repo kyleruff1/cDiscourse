@@ -58,6 +58,11 @@ export function adminErrorMessage(
   if (status === 404 || err.error === 'function_not_found') {
     return 'admin-users function is not deployed yet.';
   }
+  // QOL-024: the invite mechanism needs operator setup. Map the internal code
+  // to plain, operator-directed copy — the user never sees the snake_case code.
+  if (err.error === 'invite_email_not_configured') {
+    return 'Invite could not be sent — email is not configured. Ask the operator.';
+  }
   if (err.detail) return err.detail;
   if (err.reason) return err.reason;
   return err.error;

@@ -347,10 +347,10 @@ async function handleInviteUser(
   sc: SC,
 ): Promise<Response> {
   // inviteUserByEmail creates the auth.users row AND triggers the Supabase
-  // "Invite user" email template. We deliberately use this over
-  // generateLink('invite') so the invite link/token never enters function
-  // memory or the response — the email body stays entirely in the Supabase
-  // template (the doctrine-required source of truth).
+  // "Invite user" email template. We deliberately use this rather than the
+  // generate-invite-link admin API so the invite link/token never enters
+  // function memory or the response — the email body stays entirely in the
+  // Supabase template (the doctrine-required source of truth).
   const { data: inviteRes, error: inviteErr } = await sc.auth.admin.inviteUserByEmail(
     body.email,
     {

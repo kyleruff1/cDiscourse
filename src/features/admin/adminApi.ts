@@ -83,6 +83,50 @@ export async function adminUpdateRole(input: {
   return adminUsers(buildUpdateRolePayload(input));
 }
 
+export interface AdminInviteUserInput {
+  email: string;
+  displayName?: string;
+  role?: 'user' | 'moderator';
+  /** Omitted by the form; adminInviteUser derives it from buildAuthRedirectUrl. */
+  redirectTo?: string;
+}
+
+/**
+ * QOL-024 — invite a new user by email. The Edge Function calls Supabase's
+ * inviteUserByEmail; the invite link/token never reaches the client.
+ *
+ * Derives the invite-email callback URL from buildAuthRedirectUrl so the email
+ * points at the deployed origin, never a hard-coded localhost. A bad origin
+ * degrades to `undefined` — the Edge Function then lets Supabase fall back to
+ * the dashboard Site URL. A redirect-config defect never blocks the invite
+ * (fail-soft, mirrors adminSendPasswordReset).
+ */
+export async function adminInviteUser(
+  input: AdminInviteUserInput,
+): Promise<AdminUsersResult<{ ok: true; invited: true; notification: 'sent' }>> {
+  let redirectTo = input.redirectTo;
+  if (!redirectTo) {
+    try {
+      redirectTo = buildAuthRedirectUrl({
+        kind: 'invite',
+        runtimeOrigin: resolveRuntimeOrigin(),
+        isDev: getIsDev(),
+      });
+    } catch {
+      redirectTo = undefined;
+    }
+  }
+  // Explicit field list (not `...input`) so no stray field can leak into the
+  // payload — asserted by adminInviteUserClient.test.ts.
+  return adminUsers({
+    action: 'invite_user',
+    email: input.email,
+    displayName: input.displayName,
+    role: input.role ?? 'user',
+    redirectTo,
+  });
+}
+
 export async function adminSendPasswordReset(input: {
   userId?: string;
   email?: string;
