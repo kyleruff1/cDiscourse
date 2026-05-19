@@ -122,8 +122,24 @@ export type ArgumentKindKey = keyof typeof ARGUMENT;
  * - `text.primary` is the canonical cream that pairs with `surface.app`
  *   for body text. WCAG AA passes against `#08060F` (contrast > 14:1).
  * - `text.muted` is the secondary text tone for helpers + timestamps.
+ * - `text.taglineFg` is a slightly de-saturated cream used by the
+ *   Stage 2 tagline so it does not visually outshout the wordmark.
+ *   Still ≥ 7:1 against `surface.app` (≈ 14.5:1 measured).
  * - `accent.cream` exposes the same cream value for non-text use
  *   (borders, dividers, focus rings).
+ * - `accent.creamHairline` is a low-opacity cream used by the Stage 2
+ *   header hairline divider — the only `rgba()` color in BRAND.
+ *
+ * Stage 2 (BRAND-001) adds:
+ *   - `text.taglineFg`             — tagline foreground tone
+ *   - `accent.creamHairline`       — header divider color (rgba)
+ *   - `logoHeightPxWide`           — wide-breakpoint logo height (110)
+ *   - `headerHeightPxWide`         — wide-breakpoint header height (152)
+ *   - `headerWideBreakpointPx`     — breakpoint where wide layout activates (720)
+ *   - `taglineText`                — frozen fixture for the tagline copy
+ *
+ * The existing `headerHeightPx` (64) and `logoHeightPx` (44) are
+ * preserved so every Stage 1 consumer keeps working unchanged.
  */
 export const BRAND = {
   surface: {
@@ -131,16 +147,42 @@ export const BRAND = {
     appElevated: { bg: '#13101D' },
   },
   text: {
-    primary: '#F5EDE0',
-    muted:   '#B6AFA1',
+    primary:   '#F5EDE0',
+    muted:     '#B6AFA1',
+    taglineFg: '#E6DCC8',
   },
   accent: {
-    cream: '#F5EDE0',
+    cream:         '#F5EDE0',
+    creamHairline: 'rgba(245, 237, 224, 0.18)',
   },
-  /** Header height target in dp/px. */
+  /** Header height target in dp/px (small / narrow breakpoint). */
   headerHeightPx: 64 as const,
-  /** Logo height target inside the header. */
+  /** Logo height target inside the header (small / narrow breakpoint). */
   logoHeightPx: 44 as const,
+  /**
+   * Wide-breakpoint logo height. Frozen literal (≈ 2.5× the base
+   * `logoHeightPx`). NOT derived at runtime so snapshot tests stay
+   * deterministic.
+   */
+  logoHeightPxWide: 110 as const,
+  /**
+   * Wide-breakpoint header outer height (padding + logo row + divider).
+   * Frozen literal next to `headerHeightPx` so existing consumers
+   * keep using `headerHeightPx` and wide consumers can opt in.
+   */
+  headerHeightPxWide: 152 as const,
+  /**
+   * Breakpoint in dp at which the wide layout activates. Below this
+   * the tagline stacks under the logo at small size; at or above it
+   * the tagline sits to the right of the logo on a shared baseline.
+   */
+  headerWideBreakpointPx: 720 as const,
+  /**
+   * Tagline fixture. Hard-coded ASCII; no i18n, no templating. The
+   * Stage 2 test pins this exact string and ban-lists it against
+   * verdict / popularity vocabulary.
+   */
+  taglineText: 'Just get to the bottom of it' as const,
 } as const;
 
 // ── Aggregate ───────────────────────────────────────────────────
