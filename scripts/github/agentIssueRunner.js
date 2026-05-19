@@ -33,7 +33,7 @@ const PROJECT_NUMBER = 1;
 const PROJECT_OWNER = 'kyleruff1';
 const PROJECT_ID = 'PVT_kwHOAvpEDc4BYA8w';
 
-const ROADMAP_PREFIXES = ['QOL', 'TL', 'VG', 'BR', 'SC', 'ST', 'EV', 'SW', 'IX', 'PR', 'HOST', 'GAL', 'RULE', 'AN', 'PM', 'LIFE', 'META', 'GAME', 'BRAND'];
+const ROADMAP_PREFIXES = ['QOL', 'TL', 'VG', 'BR', 'SC', 'ST', 'EV', 'SW', 'IX', 'PR', 'HOST', 'GAL', 'RULE', 'AN', 'PM', 'LIFE', 'META', 'GAME', 'BRAND', 'COPY', 'HIST', 'NAV', 'LEG', 'A11Y'];
 
 // Static field/option ID map captured live on 2026-05-18 from
 // `gh project field-list 1 --owner kyleruff1 --format json`. The applier
@@ -101,7 +101,7 @@ function parseArgs(argv) {
 /** Extract a roadmap prefix (e.g., "SW-001", "QOL-015") from an issue title. */
 function parseIssuePrefix(title) {
   if (!title || typeof title !== 'string') return null;
-  const m = title.match(/^([A-Z]+)-(\d+)\b/);
+  const m = title.match(/^([A-Z0-9]+)-(\d+[A-Z]?)\b/);
   if (!m) return null;
   if (!ROADMAP_PREFIXES.includes(m[1])) return null;
   return { prefix: `${m[1]}-${m[2]}`, family: m[1], number: parseInt(m[2], 10) };
