@@ -18,19 +18,23 @@ import { EmptyState } from '../../components/EmptyState';
 import { ConversationMiniTimeline } from './ConversationMiniTimeline';
 import { getBotOrTestDebateLabel } from '../devEnvironment';
 import {
-  BUCKET_DEFINITIONS,
   buildConversationGalleryCards,
+  classifyCardToSection,
   dedupeConversationCards,
   deriveGalleryEntryHint,
+  GALLERY_SECTION_DEFINITIONS,
+  groupGalleryCardsBySection,
   paginateConversationGalleryCards,
   sortConversationGalleryCards,
   type ConversationBucket,
   type ConversationGalleryCard,
+  type ConversationGallerySection,
   type ConversationSortMode,
   type GalleryArgumentInput,
   type GalleryEntryHint,
   type GalleryFlagInput,
   type GalleryTagInput,
+  type GallerySectionDefinition,
 } from './conversationGalleryModel';
 
 interface Props {
@@ -113,7 +117,7 @@ export function ConversationGalleryScreen({
   onSelect,
 }: Props) {
   const [search, setSearch] = useState('');
-  const [activeBucket, setActiveBucket] = useState<ConversationBucket | 'any'>('any');
+  const [activeLane, setActiveLane] = useState<ConversationGallerySection | 'all'>('all');
   const [sortMode, setSortMode] = useState<ConversationSortMode>('latest_activity');
   const [pageSize, setPageSize] = useState<number>(12);
   const [pageIndex, setPageIndex] = useState<number>(0);
@@ -136,11 +140,11 @@ export function ConversationGalleryScreen({
   const filteredCards = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return dedupedCards.filter((c) => {
-      if (activeBucket !== 'any' && c.bucket !== activeBucket) return false;
+      if (activeLane !== 'all' && classifyCardToSection(c) !== activeLane) return false;
       if (needle && !c.searchText.includes(needle)) return false;
       return true;
     });
-  }, [dedupedCards, activeBucket, search]);
+  }, [dedupedCards, activeLane, search]);
 
   const sorted = useMemo(() => sortConversationGalleryCards(filteredCards, sortMode), [filteredCards, sortMode]);
   const paged = useMemo(() => paginateConversationGalleryCards(sorted, pageSize, pageIndex), [sorted, pageSize, pageIndex]);
@@ -208,21 +212,43 @@ export function ConversationGalleryScreen({
         </Pressable>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bucketRow} contentContainerStyle={styles.bucketRowInner}>
-        <BucketChip label="Any" active={activeBucket === 'any'} onPress={() => { setActiveBucket('any'); setPageIndex(0); }} testID="bucket-chip-any" />
-        {BUCKET_DEFINITIONS.map((b) => (
-          <BucketChip
-            key={`chip-${b.id}`}
-            label={b.label}
-            active={activeBucket === b.id}
-            onPress={() => { setActiveBucket(b.id); setPageIndex(0); }}
-            testID={`bucket-chip-${b.id}`}
+      {/* GAL-001 — Play-lane filter chip row. Single-select, observer-safe.
+          Replaces the Stage 6.3 bucket chip row; buckets remain as internal
+          classification on `ConversationGalleryCard.bucket` and feed lane
+          derivation but are no longer user-selectable on the gallery UI. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.bucketRow}
+        contentContainerStyle={styles.laneRowContent}
+        accessibilityLabel="Play lane filters"
+      >
+        <LaneChip
+          label="All lanes"
+          helperLine="Show every play lane."
+          active={activeLane === 'all'}
+          onPress={() => { setActiveLane('all'); setPageIndex(0); }}
+          testID="lane-chip-all"
+          accessibilityLabel="Show all lanes"
+        />
+        {GALLERY_SECTION_DEFINITIONS.map((def) => (
+          <LaneChip
+            key={`lane-chip-${def.id}`}
+            label={def.label}
+            helperLine={def.helperLine}
+            active={activeLane === def.id}
+            onPress={() => {
+              setActiveLane((prev) => (prev === def.id ? 'all' : def.id));
+              setPageIndex(0);
+            }}
+            testID={`lane-chip-${def.id}`}
+            accessibilityLabel={`Filter by ${def.label}`}
           />
         ))}
       </ScrollView>
 
       <View style={styles.sortRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRowInner}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRowContent}>
           {SORT_OPTIONS.map((o) => (
             <Pressable
               key={`sort-${o.id}`}
@@ -272,26 +298,54 @@ export function ConversationGalleryScreen({
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {paged.page.length === 0 ? (
           <EmptyState
-            title={emptyTitleForBucket(activeBucket)}
-            body={emptyCopyForBucket(activeBucket)}
+            title={emptyTitleForLane(activeLane)}
+            body={emptyCopyForLane(activeLane)}
           />
         ) : null}
-        {paged.page.map((card) => (
-          <ConversationCard
-            key={`card-${card.canonicalConversationKey}`}
-            card={card}
-            onPress={() => {
-              const debate = debates.find((d) => d.id === card.debateId);
-              if (!debate) return;
-              // Stage 6.4: Observer-first entry. Existing participants
-              // keep their actual side; everyone else enters as observer.
-              // The in-room action rail is the ONLY join surface.
-              const sideToUse: ParticipantSide = debate.myParticipantSide || 'observer';
-              const entryHint = deriveGalleryEntryHint(card);
-              onSelect(debate, sideToUse, entryHint);
-            }}
-          />
-        ))}
+        {/* GAL-001 — Render mode 1: single lane filter active. Show the lane
+            header (label + helperLine) above the paginated cards. */}
+        {activeLane !== 'all' && paged.page.length > 0 ? (
+          <LaneSectionHeader laneId={activeLane} testID={`gallery-lane-header-${activeLane}`} />
+        ) : null}
+        {activeLane !== 'all' ? (
+          paged.page.map((card) => (
+            <ConversationCard
+              key={`card-${card.canonicalConversationKey}`}
+              card={card}
+              onPress={() => {
+                const debate = debates.find((d) => d.id === card.debateId);
+                if (!debate) return;
+                const sideToUse: ParticipantSide = debate.myParticipantSide || 'observer';
+                const entryHint = deriveGalleryEntryHint(card);
+                onSelect(debate, sideToUse, entryHint);
+              }}
+            />
+          ))
+        ) : (
+          /* GAL-001 — Render mode 2: all lanes. Render the paginated card
+             set grouped by lane; each non-empty lane gets a section header. */
+          groupGalleryCardsBySection(paged.page).map((group) => (
+            <View key={`lane-section-${group.id}`} style={styles.laneSection} testID={`gallery-lane-section-${group.id}`}>
+              <LaneSectionHeader laneId={group.id} testID={`gallery-lane-header-${group.id}`} />
+              {group.cards.map((card) => (
+                <ConversationCard
+                  key={`card-${card.canonicalConversationKey}`}
+                  card={card}
+                  onPress={() => {
+                    const debate = debates.find((d) => d.id === card.debateId);
+                    if (!debate) return;
+                    // Stage 6.4: Observer-first entry. Existing participants
+                    // keep their actual side; everyone else enters as observer.
+                    // The in-room action rail is the ONLY join surface.
+                    const sideToUse: ParticipantSide = debate.myParticipantSide || 'observer';
+                    const entryHint = deriveGalleryEntryHint(card);
+                    onSelect(debate, sideToUse, entryHint);
+                  }}
+                />
+              ))}
+            </View>
+          ))
+        )}
       </ScrollView>
 
       {paged.pageCount > 1 ? (
@@ -323,14 +377,40 @@ export function ConversationGalleryScreen({
   );
 }
 
-function BucketChip({ label, active, onPress, testID }: { label: string; active: boolean; onPress: () => void; testID: string }) {
+/**
+ * GAL-001 — Lane filter chip. Replaces the Stage 6.3 BucketChip.
+ *
+ * Accessibility:
+ *  - role=button, label is "Filter by <lane name>" (or "Show all lanes"),
+ *    state.selected mirrors the active state, hint is the lane helperLine
+ *    so screen readers announce what the lane means before activation.
+ *  - hitSlop lifts the visual ~32px height to ~48px effective hit target
+ *    (>= 44 per accessibility-targets §"Minimum bar").
+ */
+function LaneChip({
+  label,
+  helperLine,
+  active,
+  onPress,
+  testID,
+  accessibilityLabel,
+}: {
+  label: string;
+  helperLine: string;
+  active: boolean;
+  onPress: () => void;
+  testID: string;
+  accessibilityLabel: string;
+}) {
   return (
     <Pressable
       style={[styles.bucketChip, active && styles.bucketChipActive]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Filter: ${label}`}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={helperLine}
       accessibilityState={{ selected: active }}
+      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
       testID={testID}
     >
       <Text style={[styles.bucketChipText, active && styles.bucketChipTextActive]}>{label}</Text>
@@ -338,15 +418,32 @@ function BucketChip({ label, active, onPress, testID }: { label: string; active:
   );
 }
 
-function emptyTitleForBucket(b: ConversationBucket | 'any'): string {
-  if (b === 'any') return 'No rooms found';
-  const def = BUCKET_DEFINITIONS.find((d) => d.id === b);
+/**
+ * GAL-001 — Lane section header. Renders the lane label and helper line
+ * above a lane's card list (single-lane filter mode or "all lanes" mode).
+ * Pure presentational — looks up the copy by lane id.
+ */
+function LaneSectionHeader({ laneId, testID }: { laneId: ConversationGallerySection; testID: string }) {
+  const def: GallerySectionDefinition | undefined = GALLERY_SECTION_DEFINITIONS.find((d) => d.id === laneId);
+  if (!def) return null;
+  return (
+    <View style={styles.laneHeader} testID={testID}>
+      <Text style={styles.laneHeaderLabel}>{def.label}</Text>
+      <Text style={styles.laneHeaderHelper} numberOfLines={2}>{def.helperLine}</Text>
+    </View>
+  );
+}
+
+function emptyTitleForLane(laneId: ConversationGallerySection | 'all'): string {
+  if (laneId === 'all') return 'No rooms found';
+  const def = GALLERY_SECTION_DEFINITIONS.find((d) => d.id === laneId);
   return def ? `No rooms in “${def.label}”` : 'No rooms';
 }
-function emptyCopyForBucket(b: ConversationBucket | 'any'): string {
-  if (b === 'any') return 'Try a different bucket or clear search.';
-  const def = BUCKET_DEFINITIONS.find((d) => d.id === b);
-  return def ? def.emptyCopy : 'Try a different bucket.';
+
+function emptyCopyForLane(laneId: ConversationGallerySection | 'all'): string {
+  if (laneId === 'all') return 'Try a different lane or clear search.';
+  const def = GALLERY_SECTION_DEFINITIONS.find((d) => d.id === laneId);
+  return def ? def.emptyCopy : 'Try a different lane.';
 }
 
 function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; onPress: () => void }) {
@@ -466,14 +563,14 @@ const styles = StyleSheet.create({
   newButtonText: { color: '#fff', fontWeight: '700' as const, fontSize: 12 },
 
   bucketRow: { marginTop: 10, maxHeight: 44 },
-  bucketRowInner: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
+  laneRowContent: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
   bucketChip: { backgroundColor: '#0b1220', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: '#1f2937' },
   bucketChipActive: { backgroundColor: '#312e81', borderColor: '#312e81' },
   bucketChipText: { color: '#94a3b8', fontSize: 12, fontWeight: '700' as const },
   bucketChipTextActive: { color: '#fff' },
 
   sortRow: { marginTop: 8, maxHeight: 36 },
-  sortRowInner: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
+  sortRowContent: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
   sortChip: { backgroundColor: 'transparent', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#1f2937' },
   sortChipActive: { borderColor: '#a5b4fc', backgroundColor: '#1e1b4b' },
   sortChipText: { color: '#64748b', fontSize: 11, fontWeight: '700' as const },
@@ -492,6 +589,12 @@ const styles = StyleSheet.create({
 
   list: { flex: 1, marginTop: 8 },
   listContent: { padding: 12, gap: 10 },
+
+  // GAL-001 — Per-lane section in the "all lanes" render mode.
+  laneSection: { gap: 8 },
+  laneHeader: { paddingTop: 4, paddingBottom: 2 },
+  laneHeaderLabel: { color: '#e2e8f0', fontSize: 14, fontWeight: '800' as const, letterSpacing: 0.2 },
+  laneHeaderHelper: { color: '#94a3b8', fontSize: 11, marginTop: 2 },
 
   card: { backgroundColor: '#0b1220', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1f2937' },
   cardPressed: { borderColor: '#a5b4fc' },
