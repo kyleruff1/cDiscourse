@@ -43,7 +43,6 @@ export {
 export {
   countSameAxisPressure,
   hasAdditiveAxisInformation,
-  moveAddsAxisInformation,
   turnsSinceSideEngagedCluster,
   countOffAxisPressure,
 } from './pointLifecycleAdvisoryInputs';
