@@ -151,19 +151,35 @@
 
 ## Phase 3 — Secret Manager (handed to HOST-005)
 
-13. **HOST-005 secret create + IAM binding.** When HOST-005 lands, the operator
-    runs its runbook to:
+13. **HOST-005 secret create + IAM binding.** HOST-005 has landed. The
+    operator follows
+    [`docs/deployment/host-005-secrets-runbook.md`](./host-005-secrets-runbook.md)
+    (9 numbered steps) to:
     - `gcloud secrets create cdiscourse-dev-supabase-url --replication-policy=automatic --project=cdiscourse-host`
-    - `printf %s "<PROJECT_URL_VALUE>" | gcloud secrets versions add cdiscourse-dev-supabase-url --data-file=- --project=cdiscourse-host`
+    - `gcloud secrets versions add cdiscourse-dev-supabase-url --data-file=- --project=cdiscourse-host`
+      (operator types or pastes the value on stdin; Ctrl-D / Ctrl-Z+Enter).
     - Same shape for `cdiscourse-dev-supabase-publishable-key`.
     - Apply the resource-scoped `roles/secretmanager.secretAccessor` bindings
       shown at the bottom of [`infra/iam/cdiscourse-dev-runner.iam.yaml`](../../infra/iam/cdiscourse-dev-runner.iam.yaml).
 
+    Two HOST-005 helper scripts shipped to support this step:
+
+    - [`scripts/deploy/print-secret-commands.mjs`](../../scripts/deploy/print-secret-commands.mjs)
+      prints the operator-runnable `gcloud secrets create` / `versions add` /
+      IAM binding shapes from the manifest at
+      [`infra/secrets/cdiscourse-dev-manifest.json`](../../infra/secrets/cdiscourse-dev-manifest.json).
+      Refuses forbidden names + value-shaped literals. Stdout only; the agent
+      never runs `gcloud`.
+    - [`scripts/deploy/preflight-secrets.mjs`](../../scripts/deploy/preflight-secrets.mjs)
+      verifies each manifest secret exists with state=ENABLED + the runtime
+      SA has the secretAccessor binding. Never calls `gcloud secrets versions
+      access`. Run before step 19 (`gcloud run services replace ...`).
+
     The agent never runs any `gcloud secrets create` /
-    `gcloud secrets versions add` step. Operator pipes the value via
-    `printf %s ... | ... --data-file=-` so the value is never an argv literal.
-    Skip this step until HOST-005 is ready — HOST-001's first build can be
-    validated without secrets (see step 17).
+    `gcloud secrets versions add` step. The operator passes the value via
+    stdin (`--data-file=-`) so the value is never an argv literal.
+    Skip this step until HOST-005 secrets are actually created — HOST-001's
+    first build can be validated without secrets (see step 17).
 
 ---
 
