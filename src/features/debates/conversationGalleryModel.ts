@@ -21,6 +21,7 @@ import type { TimelineNodeActionDockActionCode } from '../arguments/timelineNode
 import type { QuickActionLabel } from '../arguments/quickActionPresets';
 import type { EntryOpportunity } from '../strengthWeakness/heatModel';
 import { getLifecycleUx } from '../rulesUx/lifecycleUxMap';
+import { GALLERY_SECTION_DEFINITIONS, type GallerySectionDefinition } from '../arguments/gameCopy';
 
 // ── Shared input shapes ────────────────────────────────────────
 
@@ -177,16 +178,33 @@ export interface GalleryEntryHint {
 }
 
 /**
- * Stage 6.4 — Gallery section ids the entry screen groups cards under.
- * The section a card belongs to is derived from `bucket` + `heatLevel`.
+ * GAL-001 — Gallery play lanes the entry screen groups cards under.
+ *
+ * Replaces Stage 6.4's 6-section catalogue with 10 "play lanes" that
+ * match the kind of move a user wants to make. The 4 stable codes carry
+ * forward (`my_rooms`, `needs_rebuttal`, `jump_in`, `source_trail`);
+ * `easy_first_move` was renamed to `quiet_beginner_rooms` for plain-
+ * language clarity; `hot_unresolved` was retired (its cards now split
+ * between `jump_in` and `logic_traps` per the priority order in
+ * `classifyCardToSection`). 6 new lanes carry the move-structure /
+ * lifecycle signals downstream of GAL-002 + SW-002 + LIFE-001.
+ *
+ * Lane derivation is pure-TS, deterministic, side-effect-free. Each card
+ * maps to EXACTLY one lane. Inputs are all structural / activity / lifecycle
+ * descriptors — none read popularity, engagement, view counts, or
+ * follower counts (doctrine §3).
  */
 export type ConversationGallerySection =
-  | 'jump_in'           // hot rooms with active back-and-forth
-  | 'needs_rebuttal'    // root posted, 0 rebuttals
-  | 'source_trail'      // source_chain_fight bucket
-  | 'hot_unresolved'    // hot_now OR overheated OR unresolved_deep_chain
-  | 'easy_first_move'   // pedantic_plain / cold / quiet rooms
-  | 'my_rooms';         // user is participant
+  | 'my_rooms'                // user is participant
+  | 'needs_rebuttal'          // root posted, 0 rebuttals
+  | 'jump_in'                 // active back-and-forth
+  | 'source_trail'            // source_chain_fight bucket
+  | 'evidence_needed'         // evidence_fight bucket
+  | 'definition_fights'       // definition_scope_fight bucket
+  | 'logic_traps'             // exhausted / repeated-axis pressure
+  | 'tangents_branches'       // branch_recommended / off-axis pressure
+  | 'almost_synthesis'        // synthesis_ready / narrowed / conceded / confirmed
+  | 'quiet_beginner_rooms';   // cold / plain rooms — easy first move
 
 export interface ConversationSignal {
   code: string;
@@ -1281,39 +1299,120 @@ export function deriveGalleryEntryHint(card: ConversationGalleryCard): GalleryEn
 
 // ── End GAL-002 region ───────────────────────────────────────
 
+// ── GAL-001 — Play-lane grouping ─────────────────────────────
+//
+// 10 play lanes describe the kind of move a user wants to make. Lane
+// derivation is deterministic — each card maps to exactly one lane via
+// the priority chain in `classifyCardToSection`. The priority order is
+// documented in `docs/designs/GAL-001.md` §"Deterministic grouping".
+//
+// All copy (label / helperLine / emptyCopy) lives in
+// `src/features/arguments/gameCopy.ts` (`GALLERY_SECTION_DEFINITIONS`) so
+// the screen and tests share one source of truth.
+
 /**
- * Group cards into Stage 6.4 entry sections. Returns ordered sections
- * with their cards; each card appears in AT MOST one section so a user
- * scrolling top-to-bottom can scan the whole inventory.
+ * Frozen scan-flow priority order. A returning user sees their rooms
+ * first, then the lowest-friction first-move opportunities, then
+ * progressively heavier engagement.
+ */
+export const SECTION_ORDER: ReadonlyArray<ConversationGallerySection> = Object.freeze([
+  'my_rooms',
+  'needs_rebuttal',
+  'jump_in',
+  'source_trail',
+  'evidence_needed',
+  'definition_fights',
+  'logic_traps',
+  'tangents_branches',
+  'almost_synthesis',
+  'quiet_beginner_rooms',
+] as const);
+
+/** Re-export the copy catalogue so screens and tests use one symbol. */
+export { GALLERY_SECTION_DEFINITIONS } from '../arguments/gameCopy';
+export type { GallerySectionDefinition } from '../arguments/gameCopy';
+
+/**
+ * Returns the copy definition for a given lane id. Throws on a code
+ * that drifts from the union — caught at typecheck time by the
+ * exhaustive-switch tests in `__tests__/galleryLaneGrouping.test.ts`.
+ */
+function getSectionDefinition(id: ConversationGallerySection): GallerySectionDefinition {
+  const def = GALLERY_SECTION_DEFINITIONS.find((d) => d.id === id);
+  if (!def) {
+    // Should be unreachable — every union member has an entry per
+    // `gallerySectionCopy.test.ts` totality test.
+    throw new Error(`Missing GALLERY_SECTION_DEFINITIONS entry for ${id}`);
+  }
+  return def;
+}
+
+/**
+ * Group cards into GAL-001 play lanes. Returns ordered groups (one
+ * per non-empty lane) carrying the label, helperLine and card list.
+ * Each card appears in AT MOST one group.
  */
 export interface GallerySectionGroup {
   id: ConversationGallerySection;
   label: string;
+  /** GAL-001 — secondary sub-heading authored alongside the label. */
+  helperLine: string;
   cards: ConversationGalleryCard[];
 }
 
-const SECTION_ORDER: ConversationGallerySection[] = [
-  'jump_in', 'needs_rebuttal', 'source_trail', 'hot_unresolved', 'easy_first_move', 'my_rooms',
-];
-
-const SECTION_LABEL: Record<ConversationGallerySection, string> = {
-  jump_in: 'Jump into a live dispute',
-  needs_rebuttal: 'Needs first rebuttal',
-  source_trail: 'Source trail fights',
-  hot_unresolved: 'Hot but unresolved',
-  easy_first_move: 'Easy first move',
-  my_rooms: 'My rooms',
-};
-
-function classifyCardToSection(card: ConversationGalleryCard): ConversationGallerySection {
-  // Priority order keeps each card in a single section.
+/**
+ * Deterministic lane derivation. Pure, side-effect-free. Each card maps
+ * to exactly one lane via the priority chain below. See
+ * `docs/designs/GAL-001.md` §"Deterministic grouping" for the full table
+ * and the doctrine guards encoded in each branch.
+ *
+ * Inputs read from the card (all structural / activity / lifecycle):
+ *   - `hasUserJoined`              — joined-room override (priority 1)
+ *   - `hasNoRebuttal`              — first-rebuttal short-circuit (priority 2)
+ *   - `rootClusterLifecycleState`  — LIFE-001 lifecycle (priorities 3-5)
+ *   - `bucket`                     — Stage 6.3 bucket (priorities 6-10)
+ *   - `heatLevel`                  — overheated fallback (priority 11)
+ *   - `entryOpportunity`           — SW-002 tie-breaker (priorities 12-13)
+ *
+ * None of these signals reads popularity, engagement, virality, view
+ * count, follower count, or vote count (doctrine §3).
+ */
+export function classifyCardToSection(card: ConversationGalleryCard): ConversationGallerySection {
+  // 1. Joined-room override — user's own rooms always come first.
   if (card.hasUserJoined) return 'my_rooms';
+
+  // 2. No-rebuttal short-circuit — lowest-friction first move.
   if (card.hasNoRebuttal) return 'needs_rebuttal';
+
+  // 3-5. Lifecycle-primary routing (when present).
+  const lc: PointLifecycleState | null = card.rootClusterLifecycleState ?? null;
+  if (
+    lc === 'synthesis_ready'
+    || lc === 'narrowed'
+    || lc === 'conceded'
+    || lc === 'confirmed'
+  ) {
+    return 'almost_synthesis';
+  }
+  if (lc === 'exhausted') return 'logic_traps';
+  if (lc === 'branch_recommended') return 'tangents_branches';
+
+  // 6-10. Bucket-derived routing (Stage 6.4 parity, expanded).
   if (card.bucket === 'source_chain_fight') return 'source_trail';
-  if (card.bucket === 'hot_now' || card.heatLevel === 'overheated' || card.bucket === 'unresolved_deep_chain') return 'hot_unresolved';
-  if (card.heatLevel === 'warming' && card.rebuttalCount >= 1) return 'jump_in';
-  if (card.bucket === 'pedantic_plain' || card.heatLevel === 'cold') return 'easy_first_move';
-  return 'jump_in';
+  if (card.bucket === 'evidence_fight') return 'evidence_needed';
+  if (card.bucket === 'definition_scope_fight') return 'definition_fights';
+  if (card.bucket === 'unresolved_deep_chain') return 'logic_traps';
+  if (card.bucket === 'hot_now' || card.bucket === 'gaining_heat') return 'jump_in';
+
+  // 11. Heat-overheated fallback — overheated is still active back-and-forth.
+  if (card.heatLevel === 'overheated') return 'jump_in';
+
+  // 12-13. SW-002 entryOpportunity tie-breakers for mid-thread cards.
+  if (card.entryOpportunity === 'deep_existing_clash') return 'logic_traps';
+  if (card.entryOpportunity === 'mid_thread_join') return 'jump_in';
+
+  // 14. Default fallback — quiet / plain rooms.
+  return 'quiet_beginner_rooms';
 }
 
 export function groupGalleryCardsBySection(cards: ConversationGalleryCard[]): GallerySectionGroup[] {
@@ -1327,7 +1426,8 @@ export function groupGalleryCardsBySection(cards: ConversationGalleryCard[]): Ga
   for (const id of SECTION_ORDER) {
     const list = byId.get(id) || [];
     if (list.length === 0) continue;
-    groups.push({ id, label: SECTION_LABEL[id], cards: list });
+    const def = getSectionDefinition(id);
+    groups.push({ id, label: def.label, helperLine: def.helperLine, cards: list });
   }
   return groups;
 }

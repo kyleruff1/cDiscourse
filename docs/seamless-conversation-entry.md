@@ -63,14 +63,20 @@ Pure function. When the user opens a gallery card, the room shell pre-activates 
 
 ### Section grouping — `groupGalleryCardsBySection(cards)`
 
-Six entry sections, in display order:
+**Stage 6.4 shipped six entry sections.** GAL-001 (Release 6.6 / Wave 4) replaced them with **ten "play lanes"** matching the kind of move a user wants to make. The current set, in render order:
 
-1. **Jump into a live dispute** — hot rooms with active back-and-forth.
-2. **Needs first rebuttal** — someone planted a claim; nobody has pushed back yet.
-3. **Source trail fights** — disputes over what the source actually says.
-4. **Hot but unresolved** — long threads still searching for resolution.
-5. **Easy first move** — quiet rooms.
-6. **My rooms** — rooms the viewer has joined.
+1. **My active rooms** — rooms the viewer has joined for or against.
+2. **Needs first rebuttal** — someone posted a claim and nobody has replied yet.
+3. **Jump in now** — active back-and-forth; a fresh move lands cleanly.
+4. **Source trail fights** — open disputes over what the source actually says.
+5. **Evidence needed** — open requests for primary evidence are waiting.
+6. **Definition fights** — key terms or scope are being argued out.
+7. **Logic traps** — same-axis pressure has repeated without new information.
+8. **Tangents and branches** — off-axis pressure built up; a branch reads cleaner.
+9. **Almost synthesis** — the two sides have converged enough to summarise.
+10. **Quiet beginner rooms** — low-activity rooms; an easy place to start.
+
+Stage 6.4's `hot_unresolved` lane was retired; cards split between `jump_in` (hot_now / overheated) and `logic_traps` (unresolved_deep_chain). Stage 6.4's `easy_first_move` lane was renamed to `quiet_beginner_rooms` (classification rule unchanged). See `docs/current-status.md` § GAL-001 and `docs/designs/GAL-001.md` § "Deterministic grouping" for the full 14-row priority chain.
 
 Each card lives in **exactly one** section (priority-ordered).
 

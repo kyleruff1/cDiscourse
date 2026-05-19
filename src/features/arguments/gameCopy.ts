@@ -312,18 +312,116 @@ export const OBSERVER_COPY = {
   askQuoteHelp: 'Ask the speaker to quote the exact passage.',
 } as const;
 
-// ── Stage 6.4 — Section headlines for the gallery entry ─────────
+// ── GAL-001 — Section headlines for the gallery entry (10 play lanes) ──
+//
+// Stage 6.4 shipped a 6-entry catalogue (`jump_in` / `needs_rebuttal` /
+// `source_trail` / `hot_unresolved` / `easy_first_move` / `my_rooms`).
+// GAL-001 replaces it with 10 "play lanes" matching the kind of move a
+// user wants to make. The 4 stable codes carry forward; `easy_first_move`
+// was renamed to `quiet_beginner_rooms` for plain-language clarity, and
+// `hot_unresolved` was retired (its cards now split between `jump_in`
+// and `logic_traps` per the lifecycle / bucket priority order in
+// `conversationGalleryModel.ts`).
+//
+// Each entry carries three render-ready strings:
+//   - `label`      ≤ 64 chars AND ≤ 8 whitespace-separated tokens.
+//   - `helperLine` ≤ 80 chars. Secondary sub-heading under the label.
+//   - `emptyCopy`  ≤ 120 chars. Shown when the lane has zero cards.
+//
+// Doctrine: every string is ban-list-clean (no winner / loser / truth /
+// proven / verdict / popular / trending / viral / correct / liar /
+// dishonest / bad faith / manipulative / extremist / propagandist).
+// Heat is framed as activity / friction, never popularity or correctness.
 
-export const GALLERY_SECTIONS = [
-  { id: 'jump_in', label: 'Jump into a live dispute', sub: 'Hot rooms with active back-and-forth.' },
-  { id: 'needs_rebuttal', label: 'Needs first rebuttal', sub: 'Someone planted a claim; nobody has pushed back yet.' },
-  { id: 'source_trail', label: 'Source trail fights', sub: 'Disputes over what the source actually says.' },
-  { id: 'hot_unresolved', label: 'Hot but unresolved', sub: 'Long threads still searching for a resolution.' },
-  { id: 'easy_first_move', label: 'Easy first move', sub: 'Quiet rooms — an easy place to start.' },
-  { id: 'my_rooms', label: 'My rooms', sub: 'Rooms you have already joined.' },
-] as const;
+export interface GallerySectionDefinition {
+  id:
+    | 'my_rooms'
+    | 'needs_rebuttal'
+    | 'jump_in'
+    | 'source_trail'
+    | 'evidence_needed'
+    | 'definition_fights'
+    | 'logic_traps'
+    | 'tangents_branches'
+    | 'almost_synthesis'
+    | 'quiet_beginner_rooms';
+  label: string;
+  helperLine: string;
+  emptyCopy: string;
+}
 
-export type GallerySectionId = typeof GALLERY_SECTIONS[number]['id'];
+export const GALLERY_SECTION_DEFINITIONS: ReadonlyArray<GallerySectionDefinition> = Object.freeze([
+  Object.freeze({
+    id: 'my_rooms',
+    label: 'My active rooms',
+    helperLine: 'Rooms you have joined for or against.',
+    emptyCopy: "You haven't joined a room yet — try another lane to find one.",
+  }),
+  Object.freeze({
+    id: 'needs_rebuttal',
+    label: 'Needs first rebuttal',
+    helperLine: 'Someone posted a claim and nobody has replied yet.',
+    emptyCopy: 'No rooms are waiting on a first rebuttal right now.',
+  }),
+  Object.freeze({
+    id: 'jump_in',
+    label: 'Jump in now',
+    helperLine: 'Active back-and-forth — a fresh move lands cleanly.',
+    emptyCopy: 'No rooms have active back-and-forth at the moment.',
+  }),
+  Object.freeze({
+    id: 'source_trail',
+    label: 'Source trail fights',
+    helperLine: 'Open disputes over what the source actually says.',
+    emptyCopy: 'No active source-trail disputes right now.',
+  }),
+  Object.freeze({
+    id: 'evidence_needed',
+    label: 'Evidence needed',
+    helperLine: 'Open requests for primary evidence are waiting.',
+    emptyCopy: 'No rooms have open evidence requests right now.',
+  }),
+  Object.freeze({
+    id: 'definition_fights',
+    label: 'Definition fights',
+    helperLine: 'Key terms or scope are being argued out.',
+    emptyCopy: 'No rooms have open definition or scope disputes.',
+  }),
+  Object.freeze({
+    id: 'logic_traps',
+    label: 'Logic traps',
+    helperLine: 'Same-axis pressure has repeated without new information.',
+    emptyCopy: 'No rooms are stuck on the same axis right now.',
+  }),
+  Object.freeze({
+    id: 'tangents_branches',
+    label: 'Tangents and branches',
+    helperLine: 'Off-axis pressure built up — a branch reads cleaner.',
+    emptyCopy: 'No rooms are showing branch pressure right now.',
+  }),
+  Object.freeze({
+    id: 'almost_synthesis',
+    label: 'Almost synthesis',
+    helperLine: 'The two sides have converged enough to summarise.',
+    emptyCopy: 'No rooms are close to a synthesis right now.',
+  }),
+  Object.freeze({
+    id: 'quiet_beginner_rooms',
+    label: 'Quiet beginner rooms',
+    helperLine: 'Low-activity rooms — an easy place to start.',
+    emptyCopy: 'No quiet rooms found — every room has back-and-forth.',
+  }),
+] as const);
+
+export type GallerySectionId = GallerySectionDefinition['id'];
+
+/**
+ * Legacy export name retained for one release so existing callers that
+ * import `GALLERY_SECTIONS` keep working without a name-only churn. The
+ * legacy `sub` field is mapped from the new `helperLine` field so any
+ * downstream render that read `s.sub` continues to render the helper line.
+ */
+export const GALLERY_SECTIONS = GALLERY_SECTION_DEFINITIONS;
 
 // ── Helper: look up a copy key by path ────────────────────────
 

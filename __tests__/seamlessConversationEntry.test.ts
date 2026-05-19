@@ -113,9 +113,18 @@ describe('OBSERVER_COPY catalogue', () => {
 });
 
 describe('GALLERY_SECTIONS catalogue', () => {
-  it('declares the six Stage 6.4 entry sections in order', () => {
+  it('declares the ten GAL-001 play lanes in order', () => {
     expect(GALLERY_SECTIONS.map((s) => s.id)).toEqual([
-      'jump_in', 'needs_rebuttal', 'source_trail', 'hot_unresolved', 'easy_first_move', 'my_rooms',
+      'my_rooms',
+      'needs_rebuttal',
+      'jump_in',
+      'source_trail',
+      'evidence_needed',
+      'definition_fights',
+      'logic_traps',
+      'tangents_branches',
+      'almost_synthesis',
+      'quiet_beginner_rooms',
     ]);
   });
 });
@@ -263,17 +272,35 @@ describe('groupGalleryCardsBySection', () => {
     ]);
     expect(groups.find((g) => g.id === 'source_trail')?.cards.length).toBe(1);
   });
-  it('routes hot_now to hot_unresolved', () => {
+  it('routes hot_now bucket to jump_in (GAL-001 replaces hot_unresolved)', () => {
     const groups = groupGalleryCardsBySection([
       makeCard({ debateId: 'a', bucket: 'hot_now', heatLevel: 'hot' }),
     ]);
-    expect(groups.find((g) => g.id === 'hot_unresolved')?.cards.length).toBe(1);
+    expect(groups.find((g) => g.id === 'jump_in')?.cards.length).toBe(1);
   });
-  it('routes cold/plain cards to easy_first_move', () => {
+  it('routes cold/plain cards to quiet_beginner_rooms (renamed from easy_first_move)', () => {
     const groups = groupGalleryCardsBySection([
       makeCard({ debateId: 'a', bucket: 'pedantic_plain', heatLevel: 'cold' }),
     ]);
-    expect(groups.find((g) => g.id === 'easy_first_move')?.cards.length).toBe(1);
+    expect(groups.find((g) => g.id === 'quiet_beginner_rooms')?.cards.length).toBe(1);
+  });
+  it('routes evidence_fight bucket to evidence_needed (GAL-001 new lane)', () => {
+    const groups = groupGalleryCardsBySection([
+      makeCard({ debateId: 'a', bucket: 'evidence_fight' }),
+    ]);
+    expect(groups.find((g) => g.id === 'evidence_needed')?.cards.length).toBe(1);
+  });
+  it('routes definition_scope_fight bucket to definition_fights (GAL-001 new lane)', () => {
+    const groups = groupGalleryCardsBySection([
+      makeCard({ debateId: 'a', bucket: 'definition_scope_fight' }),
+    ]);
+    expect(groups.find((g) => g.id === 'definition_fights')?.cards.length).toBe(1);
+  });
+  it('routes synthesis_ready lifecycle to almost_synthesis (GAL-001 new lane)', () => {
+    const groups = groupGalleryCardsBySection([
+      makeCard({ debateId: 'a', rootClusterLifecycleState: 'synthesis_ready' }),
+    ]);
+    expect(groups.find((g) => g.id === 'almost_synthesis')?.cards.length).toBe(1);
   });
   it('returns only sections that contain at least one card', () => {
     const groups = groupGalleryCardsBySection([makeCard({ debateId: 'a', hasNoRebuttal: true })]);
