@@ -1,0 +1,61 @@
+# HOST-SIMPLE-001 — Netlify build + deploy config for CDiscourse Expo Web.
+#
+# Doctrine:
+#   - This is a TEMPORARY dev host on a managed PaaS so the operator can test
+#     from multiple machines while the Cloud Run + dev.cdiscourse.com path
+#     (HOST-001 / HOST-005 / HOST-006 / HOST-007) is built out separately.
+#   - Supabase URL + publishable key live ONLY in the Netlify dashboard env
+#     vars, never in this file, never in the repo, never in `.env*`.
+#   - Service-role / Anthropic / xAI / Resend keys are NEVER set in Netlify.
+#     They stay in Supabase Function secrets. Edge Functions still run on
+#     Supabase, not on Netlify.
+#   - This config does NOT replace HOST-001's Dockerfile / Cloud Run work,
+#     which remains the long-term hosting path.
+
+[build]
+  # Same script HOST-001 added in package.json. Output goes to ./dist.
+  command  = "npm ci && npm run web:build"
+  publish  = "dist"
+
+[build.environment]
+  # Pin to Node 22 LTS — matches the HOST-001 Dockerfile's `node:22-alpine`
+  # builder stage so local + Cloud Run + Netlify builds all use the same
+  # major Node line.
+  NODE_VERSION  = "22"
+  # Disable Netlify's secrets-scanning false-positive on the bundle's
+  # publishable Supabase key. The publishable / anon key is safe by Supabase
+  # design (RLS protects every table); the scanner can't tell that.
+  # If a scan ever flags a different value, do NOT add it here — investigate.
+  SECRETS_SCAN_OMIT_KEYS = "EXPO_PUBLIC_SUPABASE_URL,EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+
+# SPA fallback — every unknown route serves index.html so React/Expo
+# routing handles it client-side. This is the single most important line
+# in this file; without it, deep links 404.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+  force  = false
+
+# Security headers. Conservative defaults; tightenable later.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options        = "DENY"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    # Permissions-Policy locks down sensors / payment / etc the app doesn't use.
+    Permissions-Policy     = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+
+# Long cache for hashed static assets; Expo emits content-hashed filenames
+# under /static/ and similar bundler-output paths.
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# index.html itself must NOT be cached — it's the SPA entry point.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"

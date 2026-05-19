@@ -1,6 +1,20 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-19 (Release 6.8 hosting prep — HOST-001 + HOST-005 implementation complete, awaiting operator deploy; COMPOSER-001 merged in Release 6.6)_
+_Last updated: 2026-05-19 (Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6)_
+
+## HOST-SIMPLE-001 — Netlify dev deploy (Release 6.8 / hosting stopgap)
+
+**Status:** Config + runbook + tests landed; awaiting operator-driven first deploy in the Netlify dashboard.
+
+- **Why this card exists:** The Cloud Run path (HOST-001 → HOST-005 → HOST-006 → HOST-007) is a 20+-step operator runbook spread across four cards. The operator paused mid-pipeline (HOST-006 + HOST-007 designs were pushed but never built) in favor of a 5-minute managed-PaaS path that gets the app reachable from multiple machines NOW so they can test from any browser instead of only `localhost`. Cloud Run remains the long-term track.
+- **Deliverables (all in this card):**
+  - `netlify.toml` — build command `npm ci && npm run web:build`, publish dir `dist`, Node 22 pin (matches HOST-001 Dockerfile builder), SPA fallback `/* → /index.html 200`, baseline security headers, cache rules (`/static/*` immutable, `/index.html` no-cache), `SECRETS_SCAN_OMIT_KEYS` whitelist for the two `EXPO_PUBLIC_*` Supabase keys (publishable / anon — safe by Supabase design).
+  - `docs/deployment/host-simple-001-netlify-runbook.md` — 6-step operator runbook covering: GitHub connect, env-var setup in the Netlify dashboard (`EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` only — NO service-role / Anthropic / xAI / Resend in Netlify), first deploy trigger, smoke checks (TLS / auth screen / Supabase connect / SPA refresh / no secret leakage / no service-role in bundle), URL sharing, daily-deploy loop, supersede-by-Cloud-Run plan, rollback, cost watchpoints.
+  - `__tests__/hostSimpleNetlifyConfig.test.ts` — sanity tests asserting: build command shape, publish dir, Node pin, SPA fallback, security headers, cache rules, `SECRETS_SCAN_OMIT_KEYS` whitelist, no value-shaped strings or service-role references in the config, runbook warns against forbidden keys, runbook references HOST-001/006/007 as the long-term path, cross-card invariants (Netlify build command + HOST-001 Dockerfile + `package.json` `web:build` all reference the same script + output dir).
+- **Operator-locked decisions still apply** (D1–D11 from the master plan): the agent never reads any secret value; the operator pastes the two `EXPO_PUBLIC_*` values directly into the Netlify dashboard, never into Claude or any agent. Per D11, no `.env*` audit gate; per §7.5, rotation criteria still apply going forward.
+- **Cross-card relationship**: HOST-SIMPLE-001 and HOST-001/006/007 **coexist**. HOST-001's Dockerfile + Cloud Run YAML + IAM templates stay in the repo unchanged; Netlify ignores them. When the Cloud Run path lands at `https://dev.cdiscourse.com` with IAP (HOST-006 + HOST-007), the operator stops Netlify auto-deploy and optionally deletes the Netlify site after a week of side-by-side stability.
+- **What the operator does after this PR merges:** walk the 6-step runbook. Estimated time-to-live-URL: 5–10 minutes (most of it is the first `npm ci` build on Netlify's runners).
+- **Frozen-surface zero-diff** for every existing file outside `netlify.toml`, `docs/deployment/host-simple-001-netlify-runbook.md`, `__tests__/hostSimpleNetlifyConfig.test.ts`, and this `current-status.md` entry. No code change in the app itself. No new dependency. No migration. No Edge Function deploy. No GCP / Cloud Run / Supabase / DNS mutation by the agent.
 
 ## HOST-005 — Secret Manager migration + Cloud Run secret binding (Release 6.8 / hosting prep)
 
