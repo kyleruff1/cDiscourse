@@ -1,6 +1,27 @@
 # Google Cloud Run Hosting Plan — cdiscourse.com
 
-_Status: **PLAN ONLY**. No deployment scripts have been executed. No DNS records have been mutated. No secrets have been moved. No production deployment has happened. Plan authored 2026-05-19 by the hosting agent. Operator decisions and execution remain manual._
+_Status: **PLAN + LOCKED DECISIONS** (operator confirmed 2026-05-19). No deployment scripts have been executed yet. No DNS records have been mutated. No secrets have been moved. No production deployment has happened. Implementation cards (HOST-001/004/005/006/007) target the locked decisions below._
+
+> ## Locked decisions (2026-05-19, operator confirmation)
+>
+> | # | Decision | Value |
+> |---|---|---|
+> | D1 | GCP project ID | **`cdiscourse-host`** |
+> | D2 | Region | **`us-central1`** |
+> | D3 | Dev subdomain | **`dev.cdiscourse.com`** |
+> | D4 | IP allowlist | **NOT used** — Cloud Armor IP allowlist path retired from active scope |
+> | D5 | DNS authority | **GoDaddy stays as authority for v0** (Option A in §6); Cloud DNS migration deferred |
+> | D6 | Dev access control | **IAM + IAP (Option A in §9)** — Google sign-in in front of the Supabase sign-in. No Cloud Armor IP rules. |
+> | D7 | Operator public IP / CIDR capture | **N/A** — not required because D4 / D6 use IAP, not IP allowlisting |
+> | D8 | Secret Manager migration execution | **Operator runs every `gcloud secrets create` / `gcloud secrets versions add --data-file=-`** when prompted by the agent. Agent never executes. Values piped from stdin; no command-line history. |
+> | D9 | Production cutover timing | **Get the dev site live first** so daily changes flow to an online dev environment instead of only `localhost`. Production cutover follows after dev stabilizes. |
+>
+> **Effect on this plan:**
+> - §9 Option B (Cloud Armor IP allowlist) is documented for completeness but **not the chosen path**. HOST-007 implements Option A (IAM + IAP) only.
+> - §6 Option B (Cloud DNS migration) is deferred. HOST-006 implements Option A (GoDaddy stays + Cloud Run-printed CNAME) only.
+> - Because IAP — not Cloud Armor / HTTPS LB — is the gate, **direct Cloud Run domain mapping** (no HTTPS LB, no serverless NEG) becomes the default in §4. The HTTPS LB path stays in the doc only as fallback if IAP setup hits an unexpected blocker.
+> - Every script template defaults to `--project=cdiscourse-host --region=us-central1` (overridable via flags). Service names: `cdiscourse-dev` (now), `cdiscourse-prod` (deferred).
+> - HOST-008 (production promotion) stays **p1 and stub-only** until dev is live and stable.
 
 This document is the master plan for moving CDiscourse from purely-local dev onto a real hosted dev / sandbox environment on Google Cloud Run, using the existing `cdiscourse.com` domain (registered at GoDaddy) and the existing Supabase backend. It supersedes the original `HOST-001` scope (which only asked "spike `dev.cdiscourse.com` vs `cdiscourse.com/dev`") with concrete Google Cloud architecture, secret-migration discipline, and a promotion path to production.
 
@@ -551,20 +572,24 @@ Set a **GCP budget alert** at $20/month for the dev project. Alert email to oper
 
 ## 15. Risks and decision points
 
-| # | Risk / decision | Default plan | Operator action needed |
+Locked decisions D1–D9 are in the table at the top of this doc. Items below are operational risks that survive even after the decisions are settled.
+
+| # | Risk / decision | Status | Notes |
 |---|---|---|---|
-| R1 | Subdomain choice | `dev.cdiscourse.com` | Confirm or specify `sandbox.cdiscourse.com` |
-| R2 | GCP project ID | TBD — agent does not invent one | Operator picks (e.g. `cdiscourse-host`) |
-| R3 | Region | `us-central1` | Confirm or override |
-| R4 | Direct domain mapping (Option A) vs HTTPS LB (Option B) | Option A — direct mapping | Confirm |
-| R5 | Dev access control | Option A — IAM + IAP | Confirm or pick B (IP allowlist) |
-| R6 | DNS authority | Option A — keep GoDaddy | Confirm |
-| R7 | Dev Supabase project: reuse existing or create new | Reuse existing dev project for v0 | Confirm |
-| R8 | Production cutover timing | Deferred to its own card | None now |
-| R9 | Existing `.env*` keys ever leaked | Unverified | Run §7.1 inventory + §7.2 history audit |
-| R10 | Cloud Run domain mappings are labelled **preview** by GCP and not recommended for production | Acceptable for **dev** | For prod, plan to use HTTPS LB + managed cert + serverless NEG; capture as HOST-006 |
-| R11 | Cold start latency on Cloud Run min-instances 0 | Acceptable for dev | If testers complain, bump min-instances to 1 (~$10/month extra) |
-| R12 | Supabase rate limits during smoke runs | Unknown | Watch dashboard during first dev smoke; raise if needed |
+| R1 | Subdomain choice | **LOCKED — D3** | `dev.cdiscourse.com` |
+| R2 | GCP project ID | **LOCKED — D1** | `cdiscourse-host` |
+| R3 | Region | **LOCKED — D2** | `us-central1` |
+| R4 | Direct domain mapping vs HTTPS LB | **LOCKED — direct mapping** (consequence of D6 — IAP gate, no LB needed) | HTTPS LB stays in plan as fallback only |
+| R5 | Dev access control | **LOCKED — D6** | IAM + IAP. No Cloud Armor IP rules. |
+| R6 | DNS authority | **LOCKED — D5** | Keep GoDaddy for v0 |
+| R7 | Dev Supabase project: reuse existing or create new | **OPEN** | Default = reuse existing dev project. Operator can flip when external testers begin posting. |
+| R8 | Production cutover timing | **DEFERRED — D9** | Dev must stabilize first |
+| R9 | Existing `.env*` keys ever leaked | **OPEN** | Run §7.1 inventory + §7.2 history audit before any Secret Manager migration |
+| R10 | Cloud Run domain mappings are labelled **preview** by GCP and not recommended for production | Acceptable for **dev** | For prod, plan to use HTTPS LB + managed cert + serverless NEG; captured in HOST-008 design |
+| R11 | Cold start latency on Cloud Run min-instances 0 | **OPEN** | Acceptable for dev. Bump min-instances to 1 (~$10/mo) only if testers complain. |
+| R12 | Supabase rate limits during smoke runs | **OPEN** | Watch the Supabase dashboard during first dev smoke; raise the limit only if reached. |
+| R13 | IAP OAuth consent screen branding | **OPEN** | Internal vs external user type; "CDiscourse Dev" product name; logo. Operator decides during HOST-007. |
+| R14 | IAP tester onboarding cost | **OPEN** | Every tester needs a Google identity. For an invite-only sandbox this is acceptable; revisit before any wider release. |
 
 ---
 
