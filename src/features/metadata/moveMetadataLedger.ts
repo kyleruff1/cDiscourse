@@ -454,6 +454,11 @@ export function _forbiddenMetadataTokens(): string[] {
     'liar', 'dishonest', 'bad faith', 'manipulative',
     'extremist', 'propagandist', 'troll', 'bot', 'astroturfer',
     'verdict', 'proof', 'proven', 'disproven', 'lost', 'defeated', 'won',
+    // COPY-001 gap-token hardening — verdict-flavored adjacencies.
+    // `hot` is deliberately NOT in this list — doctrine §2 carves out
+    // a legitimate "hot = activity" usage in `GALLERY_SECTIONS`. See
+    // docs/copy-review/plain-language-labels-pass-1.md §5.1 + §8.
+    'right', 'wrong', 'validated',
     // Amplification tokens
     'likes', 'retweets', 'shares', 'views', 'followers', 'verified',
     'engagement', 'amplification', 'trending', 'virality', 'popular', 'viral',

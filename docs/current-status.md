@@ -1,6 +1,21 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-19 (Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6)_
+_Last updated: 2026-05-19 (Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6; COPY-001 audit + optional ban-list hardening landed in Release 6.6)_
+
+## COPY-001 — Plain-language label review pass + ban-list gap hardening (Release 6.6 / Wave 1 follow-up)
+
+**Status:** Audit deliverable landed + optional ban-list hardening applied. Pure docs + ban-list arrays + new regression test — zero label change, zero behavior change.
+
+- **Why this card exists:** Post-Wave 1 (BR-001 + LIFE-001 + META-001 merged) the `PLAIN_LANGUAGE_COPY` map needed a focused audit pass to confirm (a) every internal code a user-facing surface renders has a non-empty plain-language label; (b) no label drifts into verdict / amplification / person-attribution / block-semantics territory; (c) cross-level codes that share a semantic surface (the known `answered` vs `has_reply` collision plus newly-surfaced `sourced` vs `source_attached` and `branch_recommended` vs `branch_suggested` collisions) are disambiguated at the **consumer** level via 5 render-time qualification rules (R1–R5), never at the **copy** level. Issue #71.
+- **Deliverables (all in this card):**
+  - `docs/copy-review/plain-language-labels-pass-1.md` — the audit itself: scope + method, entry-by-entry categorization by semantic level (validation_code / semantic_axis / runner_status / participant_role / lifecycle_state / manual_tag / auto_metadata), collision + near-collision catalogue, the R1–R5 render-time qualification rule index, ban-list re-confirmation, surprising-mapping callouts, follow-up recommendations, cross-references to SC-004 / ST-002 / RULE-003.
+  - `docs/designs/COPY-001.md` — pointer + render-rule index doc.
+  - **Optional ban-list hardening landed in this card (operator explicitly opted in):** three verdict-flavored adjacency tokens — `right`, `wrong`, `validated` — appended to `_forbiddenLifecycleTokens()` in `src/features/lifecycle/pointLifecycleModel.ts` and to `_forbiddenMetadataTokens()` in `src/features/metadata/moveMetadataLedger.ts`. `hot` is **deliberately not** added — doctrine §2 carves out a legitimate "hot = activity" usage in `GALLERY_SECTIONS` ("Hot rooms…", "Hot but unresolved"). Audit §5.1 + §8 record the carve-out.
+  - `__tests__/copyReviewBanListGaps.test.ts` — new 7-test regression suite asserts each of `right`, `wrong`, `validated` is present in both ban-list helpers, that `hot` is NOT in either array (pins the doctrine §2 carve-out as a test invariant), and re-runs the per-label scan against the expanded ban-list to prove zero current labels in `PLAIN_LANGUAGE_COPY` trip the new tokens.
+- **Label policy held:** zero entry in `PLAIN_LANGUAGE_COPY` changed. Audit found zero drifts; the hardening is purely additive — it catches future drift without forcing any current label rewrite or snapshot update. The 5 render-rules (R1 scope-strict positioning, R2 same-label dedup, R3 provenance suffix on cross-level reuse, R4 runner-status suppression in normal-user surfaces, R5 axis-vs-manual-tag dedup) are owned by consumer cards (SC-004 already implements R1+R2; ST-002 and RULE-003 are pending consumers).
+- **No xAI, Anthropic, or X API calls; no Supabase writes; no service-role; no migration; no Edge Function change; no new dependency; no `.env*` touched; no hosting file touched.**
+- **+7 tests / +1 suite** (3356 → 3363 tests passing-baseline-delta; 121 → 122 suites). The 5 pre-existing xAI / AI-bot corpus suites that fail in the baseline are unrelated to this card and remain operator-gated. Typecheck + lint clean. `skills:validate` clean.
+- **No operator follow-up** — pure local change. No deploy step. The audit pass-2 is queued for after Wave 2 (SC-004 + ST-002 + IX-001) lands.
 
 ## HOST-SIMPLE-001 — Netlify dev deploy (Release 6.8 / hosting stopgap)
 
