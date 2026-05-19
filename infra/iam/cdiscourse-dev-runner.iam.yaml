@@ -1,0 +1,96 @@
+# HOST-001 — IAM policy template for the Cloud Run runtime service account.
+#
+# This file documents the MINIMUM roles `cdiscourse-dev-runner` needs. The
+# operator (NOT the agent) applies it via the gcloud commands at the bottom.
+# Do NOT use this YAML with `gcloud iam service-accounts set-iam-policy`
+# wholesale — runtime SA permissions are split between project-scoped and
+# resource-scoped bindings.
+#
+# Doctrine encoded:
+#   - NO roles/owner, roles/editor, roles/*Admin, roles/iam.* on this SA.
+#   - secretmanager.secretAccessor is RESOURCE-scoped to the two named secrets,
+#     never project-wide.
+#   - artifactregistry.reader is RESOURCE-scoped to the cdiscourse-web repo,
+#     never project-wide.
+#   - NO service-account key download. ADC + Workload Identity only.
+
+serviceAccount:
+  email: cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+  displayName: CDiscourse dev Cloud Run runtime
+  description: |
+    Runtime identity for cdiscourse-dev Cloud Run service. NOT for human use.
+    No key download. Owns access to two named Secret Manager secrets only.
+
+projectBindings:
+  # Project-wide roles. Both are minimum-required for any Cloud Run service.
+  - role: roles/logging.logWriter
+    member: serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+  - role: roles/monitoring.metricWriter
+    member: serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+
+resourceBindings:
+  # Secret Manager — each secret receives an explicit binding. HOST-005 creates
+  # the secrets; the binding is applied AFTER the secret exists.
+  - resource:
+      type: secretmanager.googleapis.com/Secret
+      name: cdiscourse-dev-supabase-url
+    role: roles/secretmanager.secretAccessor
+    member: serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+  - resource:
+      type: secretmanager.googleapis.com/Secret
+      name: cdiscourse-dev-supabase-publishable-key
+    role: roles/secretmanager.secretAccessor
+    member: serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+  # Artifact Registry — pull the cdiscourse-web image at cold start.
+  - resource:
+      type: artifactregistry.googleapis.com/Repository
+      location: us-central1
+      name: cdiscourse-web
+    role: roles/artifactregistry.reader
+    member: serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+
+forbiddenRoles:
+  - roles/owner
+  - roles/editor
+  - roles/iam.securityAdmin
+  - roles/iam.serviceAccountAdmin
+  - roles/iam.serviceAccountKeyAdmin
+  - roles/iam.serviceAccountTokenCreator
+  - roles/secretmanager.admin
+  - roles/secretmanager.secretVersionAdder
+  - roles/run.admin
+  - roles/artifactregistry.admin
+  - roles/artifactregistry.writer
+
+# Operator-runnable commands (agent never runs these):
+#
+# gcloud iam service-accounts create cdiscourse-dev-runner \
+#   --display-name="CDiscourse dev Cloud Run runtime" \
+#   --description="Runtime identity for cdiscourse-dev Cloud Run service. NOT for human use. No key download." \
+#   --project=cdiscourse-host
+#
+# gcloud projects add-iam-policy-binding cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/logging.logWriter"
+#
+# gcloud projects add-iam-policy-binding cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/monitoring.metricWriter"
+#
+# # Resource-scoped — applied AFTER HOST-005 creates each secret.
+# gcloud secrets add-iam-policy-binding cdiscourse-dev-supabase-url \
+#   --project=cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/secretmanager.secretAccessor"
+#
+# gcloud secrets add-iam-policy-binding cdiscourse-dev-supabase-publishable-key \
+#   --project=cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/secretmanager.secretAccessor"
+#
+# # Resource-scoped — applied AFTER the Artifact Registry repo exists.
+# gcloud artifacts repositories add-iam-policy-binding cdiscourse-web \
+#   --location=us-central1 \
+#   --project=cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/artifactregistry.reader"
