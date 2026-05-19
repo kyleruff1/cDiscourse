@@ -47,3 +47,20 @@ export {
   turnsSinceSideEngagedCluster,
   countOffAxisPressure,
 } from './pointLifecycleAdvisoryInputs';
+
+// GAME-001 — sibling exhaustion / timeout advisory deriver.
+export type {
+  ExhaustionTimeoutAdvisoryState,
+  ExhaustionTimeoutInput,
+  ExhaustionTimeoutConfig,
+  ExhaustionTimeoutAdvisory,
+  BuildExhaustionTimeoutInputFromLifecycleInput,
+} from './exhaustionTimeoutModel';
+
+export {
+  ALL_EXHAUSTION_TIMEOUT_ADVISORY_STATES,
+  DEFAULT_EXHAUSTION_TIMEOUT_CONFIG,
+  deriveExhaustionTimeoutAdvisory,
+  buildExhaustionTimeoutInputFromLifecycle,
+  _forbiddenExhaustionTimeoutTokens,
+} from './exhaustionTimeoutModel';
