@@ -55,6 +55,15 @@ const UpdateRole = z.object({
   { message: 'confirmAdminGrant=true required to promote to admin', path: ['confirmAdminGrant'] },
 );
 
+const InviteUser = z.object({
+  action: z.literal('invite_user'),
+  email: z.string().email().max(320),
+  displayName: z.string().min(1).max(120).optional(),
+  // 'admin' is intentionally excluded — an invite must never mint an admin.
+  role: z.enum(['user', 'moderator']).default('user'),
+  redirectTo: z.string().url().max(500).optional(),
+});
+
 const SoftDeleteUser = z.object({
   action: z.literal('soft_delete_user'),
   userId: z.string().uuid(),
@@ -74,6 +83,7 @@ const Union = z.discriminatedUnion('action', [
   CreateUser,
   CreateBotUser,
   UpdateRole,
+  InviteUser,
   SoftDeleteUser,
   AddBlock,
 ]);
@@ -159,6 +169,31 @@ describe('adminSchemas (mirror of Edge Function)', () => {
 
     it('rejects invalid email', () => {
       const r = Union.safeParse({ action: 'create_user', email: 'not-an-email' });
+      expect(r.success).toBe(false);
+    });
+  });
+
+  describe('invite_user', () => {
+    it('accepts a valid email with no other fields (role defaults to user)', () => {
+      const r = Union.safeParse({ action: 'invite_user', email: 'tester@example.com' });
+      expect(r.success).toBe(true);
+      if (r.success) {
+        expect(r.data).toMatchObject({ action: 'invite_user', role: 'user' });
+      }
+    });
+
+    it('rejects role=admin (an invite must never mint an admin)', () => {
+      const r = Union.safeParse({ action: 'invite_user', email: 'tester@example.com', role: 'admin' });
+      expect(r.success).toBe(false);
+    });
+
+    it('accepts role=moderator', () => {
+      const r = Union.safeParse({ action: 'invite_user', email: 'mod@example.com', role: 'moderator' });
+      expect(r.success).toBe(true);
+    });
+
+    it('rejects an invalid email', () => {
+      const r = Union.safeParse({ action: 'invite_user', email: 'not-an-email' });
       expect(r.success).toBe(false);
     });
   });

@@ -11,6 +11,7 @@ export const WHITELISTED_ACTIONS = [
   'create_user',
   'create_bot_user',
   'update_role',
+  'invite_user',
   'send_password_reset',
   'set_temporary_password',
   'disable_user',
