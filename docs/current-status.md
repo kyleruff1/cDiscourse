@@ -1,6 +1,29 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-18 (Release 6.6 — BR-001 tangent kink model build complete)_
+_Last updated: 2026-05-18 (Release 6.6 — LIFE-001 point lifecycle metadata model build complete)_
+
+## LIFE-001 — Point lifecycle metadata model (Release 6.6)
+
+**Status:** Build complete, awaiting Review.
+
+- New pure-TS module `src/features/lifecycle/`. Files:
+  - `pointLifecycleModel.ts` — the locked 18-state `PointLifecycleState` vocabulary (`open / answered / rebutted / clarified / sourced / quote_requested / source_requested / narrowed / conceded / confirmed / synthesis_ready / moved_on_by_affirmative / moved_on_by_negative / ignored_by_affirmative / ignored_by_negative / ignored_by_both / exhausted / branch_recommended / archived_or_resolved`), the `LIFECYCLE_PRIORITY` worst-priority-wins table (`archived_or_resolved=0 / synthesis_ready=5 / conceded=narrowed=confirmed=10 / sourced=clarified=20 / open=answered=30 / rebutted=quote_requested=source_requested=50 / branch_recommended=60 / moved_on_by_*=70 / ignored_by_*=80 / ignored_by_both=85 / exhausted=90`), the per-message `PointLifecycleSnapshot`, the per-cluster `PointLifecycleClusterSummary`, the per-tree `PointLifecycleMap` (`byCluster` / `byMessage` / `clusterOrder` / `cumulativeStateSequence` / `inputHash`), the `LifecycleAdvisoryConfig` thresholds + `DEFAULT_LIFECYCLE_ADVISORY_CONFIG` (`exhaustionRepeatThreshold=3 / movedOnTurnThreshold=4 / ignoredBySideTurnThreshold=3 / ignoredByBothTurnThreshold=6 / branchRecommendedRepeatThreshold=2`), the three derivers (`derivePointLifecycleSnapshot` / `deriveClusterLifecycleSummary` / `buildPointLifecycleMap`), the `getPointLifecyclePlainLabel` typed lookup helper, and the `_forbiddenLifecycleTokens` ban-list.
+  - `pointLifecycleClusters.ts` — internal helpers `groupNodesByCluster` / `findSameAxisAncestor` / `buildSideTurnSequence` / `deriveAxis` / `nodeHasQualifierCode`. The axis deriver reads existing `droppedTags[].code` fields produced by `mapDroppedTags` — it NEVER calls `messageQualifiers.deriveMessageCategory` or any qualifier deriver function.
+  - `pointLifecycleAdvisoryInputs.ts` — advisory threshold helpers `countSameAxisPressure` / `hasAdditiveAxisInformation` / `moveAddsAxisInformation` (alias) / `turnsSinceSideEngagedCluster` / `countOffAxisPressure`.
+  - `index.ts` — public re-exports for SC-004 / ST-002 / GAME-001 / RULE-003 / GAL-002 / AN-003 / META-001 consumption.
+- Extended `src/features/arguments/gameCopy.ts` `PLAIN_LANGUAGE_COPY` with the 17 new lifecycle codes; updated the existing `synthesis_ready` value from `'Near resolution'` to `'Ready for synthesis'` per roadmap §6 verbatim. The runner pipeline reads the code, not the label, so no runner-side regression — only `__tests__/seamlessConversationEntry.test.ts` needed its `toContain('Near resolution')` assertion updated to `toContain('Ready for synthesis')`.
+- Doctrine encoded in code + tests:
+  1. **A lifecycle state is a gameplay signal, never a verdict.** No code path infers truth / winner / loser / correctness.
+  2. **Heat / popularity / engagement / virality / strength bands never feed lifecycle derivation.** Deep-equal classifier output across `standingBand`, `toneBand`, `temperatureBand` — proven by 3 doctrine-anchor tests.
+  3. **`ignored_by_*` describes a cluster, never a person.** Plain labels `'Affirmative did not respond'` / `'Negative did not respond'` / `'Nobody followed up'` — never person-attribution tokens.
+  4. **Concession is a scoring repair, not a defeat.** No `lost` / `defeated` / `won` token in any label. The cluster state reports the move structure; the point-standing economy reports the score outcome — separate concerns.
+  5. **Exhaustion / moved-on / ignored / branch-recommended are ADVISORIES, never blocking.** Programmatic JSON-scan test: zero `block` / `prevent` / `reject` / `forbid` / `disallow` / `denied` tokens in any produced snapshot field.
+- LIFE-001 reads existing surface-model fields and EV-001 contract output. It NEVER re-derives `MessageCategory`, never re-classifies a challenge axis, never re-runs anti-amplification. The forbidden-imports test (`__tests__/pointLifecycleClustersIntegration.test.ts`) source-scans the lifecycle files for any value import of `deriveMessageCategory` / `derivePrimaryQualifier` / `deriveMessageQualifiers` / `applyAntiAmplification` / `gradeChallenge` / `gradeRepair` — fails on accidental coupling.
+- `flagCodes` upstream wiring confirmed in place at `src/features/arguments/ArgumentGameSurface.tsx:176` — `flagsByArgumentId` populates each input row's `flagCodes` from `argument_flags`. The `archived_or_resolved` rule consumes this path. No upstream change needed in this card.
+- LIFE-001 ships **no production UI surface**. The model is built and unused until SC-004 (timeline node action dock) / ST-002 (suggested reply flags) / GAME-001 (exhaustion advisories) / RULE-003 (lifecycle-to-UX map) / GAL-002 (gallery first-suggested-move) / IX-002 (mini-map) / AN-003 (diagnostics) / META-001 (metadata ledger) wire it.
+- No new dependency. No migration. No Edge Function. No schema change. No AI inference path. No Supabase write. No `.env*` change. No service-role usage. No direct insert into `public.arguments`. No production AI call. Pure-TS hygiene matches `src/lib/constitution/engine.ts` rules.
+- Tests: +115 across 4 new files (`pointLifecycleModel.test.ts` +73, `pointLifecycleAdvisories.test.ts` +20, `pointLifecyclePlainLabels.test.ts` +10, `pointLifecycleClustersIntegration.test.ts` +12). 250-message synthetic fixture asserts `buildPointLifecycleMap` runs in < 120 ms (design budget < 30 ms; CI headroom). JSON-serializability round-trip test. Deep-equal doctrine anchors (3 × standing / tone / temperature bands). Ban-lists (verdict + amplification + snake_case). Forbidden-imports doctrine anchor (7 categories). 22-code plain-language coverage. **2624 tests / 101 suites passing** (+115, baseline 2509 / 97). Typecheck + lint clean.
+- See `docs/designs/LIFE-001.md` for the full reference.
 
 ## Timeline Tree Game Board roadmap expansion (Release 6.6 / 6.7)
 

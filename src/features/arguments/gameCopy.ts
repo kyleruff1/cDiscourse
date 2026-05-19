@@ -179,7 +179,10 @@ export const PLAIN_LANGUAGE_COPY = {
   // Runner / pipeline status
   validation_failed_after_retries: 'The move needs a clearer shape before it can play well.',
   max_depth_reached: 'Deep unresolved chain',
-  synthesis_ready: 'Near resolution',
+  // LIFE-001 — synthesis_ready is also a lifecycle state. Updated from the
+  // earlier "Near resolution" to match roadmap §6 verbatim. The runner
+  // pipeline reads the code, not the label, so no runner-side regression.
+  synthesis_ready: 'Ready for synthesis',
   synthesis: 'Resolved',
   concession: 'Conceded',
   submit_failed: 'Posting failed',
@@ -190,6 +193,28 @@ export const PLAIN_LANGUAGE_COPY = {
   affirmative: 'For',
   negative: 'Against',
   neutral: 'Neutral',
+  // LIFE-001 — Point lifecycle state vocabulary. 17 new entries (the
+  // 18th, `synthesis_ready`, is updated in place above). Each label is a
+  // gameplay signal, NEVER a verdict. Zero verdict tokens / amplification
+  // tokens / person-attribution tokens. ≤ 32 chars. Plain English.
+  open: 'Open for response',
+  answered: 'Has a reply',
+  rebutted: 'Under pressure',
+  clarified: 'Clarified',
+  sourced: 'Source attached',
+  quote_requested: 'Quote requested',
+  source_requested: 'Source requested',
+  narrowed: 'Narrowed',
+  conceded: 'Conceded by author',
+  confirmed: 'Confirmed by other side',
+  moved_on_by_affirmative: 'Affirmative moved on',
+  moved_on_by_negative: 'Negative moved on',
+  ignored_by_affirmative: 'Affirmative did not respond',
+  ignored_by_negative: 'Negative did not respond',
+  ignored_by_both: 'Nobody followed up',
+  exhausted: 'Out of new angles',
+  branch_recommended: 'Branch suggested',
+  archived_or_resolved: 'Resolved',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;
