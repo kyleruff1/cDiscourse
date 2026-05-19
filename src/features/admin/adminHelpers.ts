@@ -45,6 +45,45 @@ export function summarizeAuditPayload(payload: Record<string, unknown>): string 
   return keys.map((k) => `${k}=${JSON.stringify(payload[k]).slice(0, 60)}`).join(', ');
 }
 
+// ── AdminCreateUserForm pure UI logic (QOL-024) ───────────────────
+//
+// The form's mode/visibility/dispatch rules are extracted here as pure
+// functions so they can be unit-tested directly (the repo's preferred
+// pattern — see buildUpdateRolePayload). The component wires these in.
+
+/** Human-account provisioning mode. Invite is the default. */
+export type CreateUserMode = 'invite' | 'password';
+
+/** Which client wrapper a submit should call. */
+export type CreateUserDispatch = 'bot' | 'invite' | 'password';
+
+/**
+ * True when the form is provisioning a human account via the invite path.
+ * A bot always gets a password, so invite never applies to a bot.
+ */
+export function isInvitingHuman(isBot: boolean, mode: CreateUserMode): boolean {
+  return !isBot && mode === 'invite';
+}
+
+/**
+ * The Invite/Password mode toggle row is shown only for the human branch —
+ * invite is meaningless for a bot.
+ */
+export function isModeToggleVisible(isBot: boolean): boolean {
+  return !isBot;
+}
+
+/** The password field is hidden only when inviting a human. */
+export function isPasswordFieldVisible(isBot: boolean, mode: CreateUserMode): boolean {
+  return !isInvitingHuman(isBot, mode);
+}
+
+/** Which submit dispatch the form takes for the current toggle state. */
+export function resolveCreateUserDispatch(isBot: boolean, mode: CreateUserMode): CreateUserDispatch {
+  if (isBot) return 'bot';
+  return mode === 'invite' ? 'invite' : 'password';
+}
+
 export function adminErrorMessage(
   err: { error: string; reason?: string; detail?: string },
   status: number,
