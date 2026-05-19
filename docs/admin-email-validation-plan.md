@@ -146,6 +146,37 @@ verified:
 - [ ] **Secrets** — `RESEND_API_KEY` and `ADMIN_NOTIFICATION_EMAILS` set
       via `npx supabase secrets set …`. Never committed.
 
+### QOL-023 — auth redirect URL configuration
+
+The app now sets `emailRedirectTo` / `redirectTo` on signup, magic-link,
+password-reset, and admin-triggered reset emails via `buildAuthRedirectUrl`.
+For the constructed URLs to be honoured, the Supabase Dashboard must allow
+them:
+
+- [ ] **Auth → URL Configuration → Site URL** = `https://dev.cdiscourse.com`
+      (no trailing slash, no `/dev` path segment — a bare origin).
+- [ ] **Auth → URL Configuration → Additional Redirect URLs** includes both:
+  - `https://dev.cdiscourse.com/auth/callback`
+  - `https://dev.cdiscourse.com/auth/reset`
+- [ ] Remove any `http://localhost…` entry from the **production** redirect
+      allow-list. (A localhost entry MAY remain on a separate dev/preview
+      project for local testing.)
+- [ ] Set the Cloud Run secret / env var `EXPO_PUBLIC_APP_ORIGIN` =
+      `https://dev.cdiscourse.com` so the runtime-env injector forwards it
+      into the web bundle. Without it the app falls back to the browser
+      origin (web) or the hosted fallback constant (native) — correct for
+      `dev.cdiscourse.com` today, but set it explicitly for any other host.
+- [ ] Trigger one signup confirmation to the operator's own inbox; click the
+      link; confirm the callback lands on `dev.cdiscourse.com` and not
+      `localhost`.
+- [ ] Trigger one password-reset to the operator's own inbox; confirm it
+      lands on `https://dev.cdiscourse.com/auth/reset`.
+
+Note: `/auth/callback` and `/auth/reset` may not yet resolve to a dedicated
+screen (the SPA fallback serves `index.html`). The token-exchange screens are
+a follow-up card; the redirect *target* being correct is what QOL-023
+delivers.
+
 ---
 
 ## What Claude must never do here
