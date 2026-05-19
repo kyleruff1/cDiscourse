@@ -63,6 +63,7 @@ import {
   getLifecycleUx,
   getManualTagUx,
 } from '../rulesUx/lifecycleUxMap';
+import type { SuggestedMove } from './suggestedMovesModel';
 
 // ── View mode ────────────────────────────────────────────────
 
@@ -176,12 +177,14 @@ export interface SidecarSection_WhereItSits {
 }
 
 /**
- * Typed stub reserved for ST-002 (issue #13). SC-003 ALWAYS returns null
- * for this slot. ST-002 will later widen the slot to a real
- * `SuggestedNextMove` union via a type re-export. Until then the slot
- * is structurally stable but never populated.
+ * Typed slot for ST-002 (issue #13). SC-003's builder ALWAYS returns null
+ * for this slot in v1; ST-002 widens the slot from `never` to
+ * `SuggestedMove` so a downstream caller can populate it with a real
+ * suggestion later without breaking existing consumers. The SC-003
+ * builder's behaviour is UNCHANGED — `suggestion` is still set to `null`
+ * with `reason === 'st_002_not_yet_implemented'`.
  */
-export type SuggestedMoveStub = never;
+export type SuggestedMoveStub = SuggestedMove;
 
 export interface SidecarSection_SuggestedNextMove {
   kind: 'suggested_next_move';
