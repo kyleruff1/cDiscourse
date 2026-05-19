@@ -55,7 +55,10 @@ describe('toPlainLanguage', () => {
   it('maps semantic-corpus axes (source_chain → Source trail, anti_amplification → Popularity is not proof)', () => {
     expect(toPlainLanguage('source_chain')).toBe('Source trail');
     expect(toPlainLanguage('anti_amplification')).toBe('Popularity is not proof');
-    expect(toPlainLanguage('evidence_debt')).toBe('Receipts needed');
+    // META-001 updated this label from 'Receipts needed' to 'Evidence debt'
+    // to match the manual-tag vocabulary verbatim. The pipeline reads the
+    // code, not the label, so no runner-side regression.
+    expect(toPlainLanguage('evidence_debt')).toBe('Evidence debt');
     expect(toPlainLanguage('platform_support_warning')).toBe('Do not score as proven yet');
   });
 

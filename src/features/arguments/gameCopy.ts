@@ -169,7 +169,11 @@ export const PLAIN_LANGUAGE_COPY = {
   // Semantic-corpus axes / risks
   source_chain: 'Source trail',
   anti_amplification: 'Popularity is not proof',
-  evidence_debt: 'Receipts needed',
+  // META-001 — `evidence_debt` updated from prior 'Receipts needed' to
+  // 'Evidence debt' to match the manual-tag table verbatim. The pipeline
+  // reads the code, not the label, so no runner-side regression. This is
+  // the same precedent LIFE-001 set when it updated `synthesis_ready`.
+  evidence_debt: 'Evidence debt',
   platform_support_warning: 'Do not score as proven yet',
   // RULE-001 — additional semantic axes used by the rule-to-UI map.
   scope: 'Scope dispute',
@@ -215,6 +219,37 @@ export const PLAIN_LANGUAGE_COPY = {
   exhausted: 'Out of new angles',
   branch_recommended: 'Branch suggested',
   archived_or_resolved: 'Resolved',
+  // META-001 — Manual tag plain labels (9 new; `evidence_debt` is updated
+  // above to match the manual-tag table). Each label is a gameplay signal,
+  // NEVER a verdict. Zero verdict / amplification / person-attribution
+  // tokens. ≤ 32 chars. Plain English.
+  needs_source: 'Needs source',
+  needs_quote: 'Needs quote',
+  definition_issue: 'Definition fight',
+  scope_issue: 'Scope challenge',
+  causal_mechanism: 'Mechanism challenge',
+  concession_offered: 'Concession offered',
+  narrowed_claim: 'Narrowed claim',
+  tangent: 'Tangent / side issue',
+  ready_for_synthesis: 'Ready for synthesis',
+  // META-001 — Auto-derived metadata plain labels (14 new; shared codes
+  // `source_requested`, `quote_requested`, `synthesis_ready` are owned by
+  // LIFE-001 above and reused here intentionally — the two layers describe
+  // the same observation from two angles).
+  has_reply: 'Has a reply',
+  has_rebuttal: 'Has a challenge',
+  has_counter_rebuttal: 'Has a counter-challenge',
+  has_evidence: 'Evidence attached',
+  source_attached: 'Source attached',
+  quote_attached: 'Quote attached',
+  participant_skipped_node: 'Same side skipped',
+  no_response_after_n_turns: 'No follow-up yet',
+  repeated_axis_pressure: 'Repeated challenge on same axis',
+  branch_suggested: 'Branch suggested',
+  branch_created: 'Branch created here',
+  point_stalled: 'Point stalled',
+  point_exhausted: 'Point exhausted',
+  synthesis_candidate: 'Synthesis candidate',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;
