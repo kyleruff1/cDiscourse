@@ -111,6 +111,39 @@ export function buildBranchCollapseStubPositionStyle(stub: RailStubViewModel): {
   };
 }
 
+/**
+ * VG-004 — generic side-branch glyph.
+ *
+ * `RailStubViewModel` carries no `branchKind` field today (it is a
+ * BR-001 surface and VG-004 deliberately does not modify
+ * `branchTopologyModel.ts`). Until a kind-specific glyph is wanted, the
+ * stub renders one generic "side branch" character. The glyph is
+ * decorative: the `accessibilityLabel` carries the real meaning, so the
+ * glyph `<Text>` is hidden from screen readers (no double-announce).
+ *
+ * `⤳` is a plain Unicode character — no icon library (per
+ * `expo-rn-patterns`). It is not a verdict / amplification / snake_case
+ * token, which the ban-list test enforces.
+ */
+export const BRANCH_COLLAPSE_STUB_GLYPH = '⤳';
+
+/**
+ * VG-004 — Pure. Splits the stub display into a branch-kind glyph and
+ * the count text. `countText` is taken verbatim from `stub.label` (the
+ * existing `+N` string built by `branchTopologyModel.formatStubLabel`),
+ * so the count rendering is unchanged — only the layout splits into two
+ * `<Text>` spans.
+ */
+export function buildBranchCollapseStubLabelParts(stub: RailStubViewModel): {
+  glyph: string;
+  countText: string;
+} {
+  return {
+    glyph: BRANCH_COLLAPSE_STUB_GLYPH,
+    countText: stub.label,
+  };
+}
+
 // ── Component ────────────────────────────────────────────────────
 
 export function BranchCollapseStub({
@@ -121,6 +154,8 @@ export function BranchCollapseStub({
   const containerStyle = buildBranchCollapseStubContainerStyle(stub);
   const positionStyle = buildBranchCollapseStubPositionStyle(stub);
   const testID = `branch-collapse-stub${testIDSuffix ? `-${testIDSuffix}` : ''}`;
+  // VG-004 — split the display into a branch-kind glyph + the count.
+  const { glyph, countText } = buildBranchCollapseStubLabelParts(stub);
 
   return (
     <View style={positionStyle} testID={`${testID}-anchor`}>
@@ -133,8 +168,19 @@ export function BranchCollapseStub({
         style={containerStyle}
         testID={testID}
       >
-        <Text style={styles.label} numberOfLines={1}>
-          {stub.label}
+        {/* VG-004 — decorative branch-kind glyph. Hidden from screen
+            readers so the full accessibilityLabel is not double-spoken. */}
+        <Text
+          style={styles.glyph}
+          numberOfLines={1}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          testID={`${testID}-glyph`}
+        >
+          {glyph}
+        </Text>
+        <Text style={styles.label} numberOfLines={1} testID={`${testID}-count`}>
+          {countText}
         </Text>
       </Pressable>
     </View>
@@ -142,9 +188,16 @@ export function BranchCollapseStub({
 }
 
 const styles = StyleSheet.create({
+  glyph: {
+    color: BRAND.text.muted,
+    fontSize: 8,
+    fontWeight: '700',
+    lineHeight: 9,
+  },
   label: {
     color: BRAND.text.primary,
     fontSize: 11,
     fontWeight: '800',
+    lineHeight: 12,
   },
 });
