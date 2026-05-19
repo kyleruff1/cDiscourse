@@ -21,7 +21,7 @@ import {
   railActionToBubbleControl,
 } from '../src/features/arguments/ArgumentSideActionRail';
 import {
-  deriveConversationEntryHint,
+  deriveGalleryEntryHint,
   groupGalleryCardsBySection,
   type ConversationGalleryCard,
 } from '../src/features/debates/conversationGalleryModel';
@@ -191,42 +191,50 @@ function makeCard(over: Partial<ConversationGalleryCard>): ConversationGalleryCa
   };
 }
 
-describe('deriveConversationEntryHint', () => {
+describe('deriveGalleryEntryHint', () => {
   it('needs-rebuttal card activates root + says "Be the first rebuttal"', () => {
-    const hint = deriveConversationEntryHint(makeCard({ hasNoRebuttal: true, bucket: 'needs_rebuttal' }));
+    const hint = deriveGalleryEntryHint(makeCard({ hasNoRebuttal: true, bucket: 'needs_rebuttal' }));
     expect(hint.activate).toBe('root');
-    expect(hint.microMomentLabel).toMatch(/first rebuttal/i);
+    expect(hint.code).toBe('be_first_rebuttal');
+    expect(hint.verbPhrase).toMatch(/first rebuttal/i);
   });
   it('source-chain card activates the most recent challenge/source move', () => {
-    const hint = deriveConversationEntryHint(makeCard({ bucket: 'source_chain_fight' }));
+    const hint = deriveGalleryEntryHint(makeCard({ bucket: 'source_chain_fight' }));
     expect(hint.activate).toBe('first_open_challenge');
-    expect(hint.microMomentLabel).toMatch(/source/i);
+    expect(hint.code).toBe('ask_source');
+    expect(hint.verbPhrase.toLowerCase()).toMatch(/source/);
   });
   it('evidence-fight card asks for the mechanism', () => {
-    const hint = deriveConversationEntryHint(makeCard({ bucket: 'evidence_fight' }));
+    const hint = deriveGalleryEntryHint(makeCard({ bucket: 'evidence_fight' }));
     expect(hint.activate).toBe('first_open_challenge');
-    expect(hint.microMomentLabel).toMatch(/mechanism|narrow/i);
+    expect(hint.code).toBe('challenge_mechanism');
+    expect(hint.verbPhrase.toLowerCase()).toMatch(/mechanism|narrow/);
   });
-  it('hot-now card activates latest + says "Jump into"', () => {
-    const hint = deriveConversationEntryHint(makeCard({ bucket: 'hot_now', heatLevel: 'hot' }));
+  it('hot-now card activates latest with the narrow first move', () => {
+    const hint = deriveGalleryEntryHint(makeCard({ bucket: 'hot_now', heatLevel: 'hot' }));
     expect(hint.activate).toBe('latest');
+    expect(hint.code).toBe('narrow');
   });
-  it('unresolved deep-chain card suggests synthesis', () => {
-    const hint = deriveConversationEntryHint(makeCard({ bucket: 'unresolved_deep_chain' }));
-    expect(hint.microMomentLabel).toMatch(/narrow|synthesis/i);
+  it('unresolved deep-chain card suggests narrow', () => {
+    const hint = deriveGalleryEntryHint(makeCard({ bucket: 'unresolved_deep_chain' }));
+    expect(hint.code).toBe('narrow');
+    expect(hint.verbPhrase.toLowerCase()).toMatch(/narrow|synthesis/);
   });
   it('pedantic_plain card activates root + says "Watch first"', () => {
-    const hint = deriveConversationEntryHint(makeCard({ bucket: 'pedantic_plain', heatLevel: 'cold' }));
+    const hint = deriveGalleryEntryHint(makeCard({ bucket: 'pedantic_plain', heatLevel: 'cold' }));
     expect(hint.activate).toBe('root');
-    expect(hint.microMomentLabel.toLowerCase()).toContain('watch');
+    expect(hint.code).toBe('watch_first');
+    expect(hint.verbPhrase.toLowerCase()).toContain('watch');
   });
-  it('resolved card says "Resolved — read how it closed"', () => {
-    const hint = deriveConversationEntryHint(makeCard({ bucket: 'resolved_or_synthesized' }));
-    expect(hint.microMomentLabel.toLowerCase()).toContain('resolved');
+  it('resolved card routes to watch_first (room is closed for new moves)', () => {
+    const hint = deriveGalleryEntryHint(makeCard({ bucket: 'resolved_or_synthesized' }));
+    expect(hint.code).toBe('watch_first');
+    expect(hint.verbPhrase.toLowerCase()).toContain('watch');
   });
-  it('default all_open says "Watch first — join when ready"', () => {
-    const hint = deriveConversationEntryHint(makeCard({ bucket: 'all_open' }));
-    expect(hint.microMomentLabel.toLowerCase()).toContain('watch');
+  it('default all_open says "Watch first"', () => {
+    const hint = deriveGalleryEntryHint(makeCard({ bucket: 'all_open' }));
+    expect(hint.code).toBe('watch_first');
+    expect(hint.verbPhrase.toLowerCase()).toContain('watch');
   });
 });
 

@@ -16,6 +16,7 @@ import { getKnownChildCount } from './argumentCache';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import type { Debate } from '../debates/types';
+import type { GalleryEntryHint } from '../debates/conversationGalleryModel';
 import type { ArgumentRow } from './types';
 import type { ArgumentMessageInput, ArgumentBubbleControl, ArgumentSurfaceMode } from './argumentGameSurfaceModel';
 import type { MoveDraftPatch } from './conversationMoves';
@@ -43,8 +44,8 @@ interface Props {
    * into the composer. Called BEFORE / alongside onReply.
    */
   onComposerPreset?: (preset: MoveDraftPatch | null) => void;
-  /** Stage 6.4 — entry hint passed from the Conversation Gallery. */
-  entryHint?: { activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string } | null;
+  /** Stage 6.4 / GAL-002 — entry hint passed from the Conversation Gallery. */
+  entryHint?: GalleryEntryHint | null;
   /** Stage 6.4 — current viewer's participant side (null = observer entry). */
   participantSide?: string | null;
   /** Stage 6.4 — handler invoked when the in-room action rail picks Join Aff/Neg. */
@@ -239,7 +240,7 @@ interface FullRoomGameSurfaceMountProps {
   refreshRef?: React.MutableRefObject<(() => void) | null>;
   initialMode: ArgumentSurfaceMode;
   onComposerPreset?: (preset: MoveDraftPatch | null) => void;
-  entryHint?: { activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string } | null;
+  entryHint?: GalleryEntryHint | null;
   participantSide?: string | null;
   onJoinSide?: (side: 'affirmative' | 'negative') => void;
 }

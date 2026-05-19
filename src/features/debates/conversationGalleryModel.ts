@@ -16,6 +16,11 @@
  * `duplicateDebateIds`.
  */
 import type { Debate, ParticipantSide } from './types';
+import type { PointLifecycleState } from '../lifecycle';
+import type { TimelineNodeActionDockActionCode } from '../arguments/timelineNodeActionDockModel';
+import type { QuickActionLabel } from '../arguments/quickActionPresets';
+import type { EntryOpportunity } from '../strengthWeakness/heatModel';
+import { getLifecycleUx } from '../rulesUx/lifecycleUxMap';
 
 // ── Shared input shapes ────────────────────────────────────────
 
@@ -107,11 +112,56 @@ export type ConversationSortMode =
 export type ConversationDedupeMode = 'collapse_generated' | 'show_all';
 
 /**
- * Stage 6.4 — Smart entry hint: tells the room shell which message to
- * activate when the user opens a card, plus a short prose hint to show
- * inside the room ("Be the first challenge", "Try narrowing", etc.).
+ * GAL-002 — Gallery entry hint vocabulary. Seven structural verbs that
+ * cover every gallery card's "first suggested move":
+ *
+ *   - `be_first_rebuttal` / `watch_first` / `join_when_ready`  — gallery-only
+ *     room-entry meta-actions; no ST-002 equivalent because these are not
+ *     argument moves.
+ *   - `ask_source` / `challenge_mechanism` / `narrow` / `synthesize` —
+ *     overlap with ST-002's `SuggestedMoveCode` and reuse the exact
+ *     spelling so the two models stay in lockstep.
+ *
+ * Codes never reach the rendered UI. They drive `presetKey` / `dockAction`
+ * routing and the `code` field on `GalleryEntryHint` for analytics.
  */
-export interface ConversationEntryHint {
+export type GalleryEntryHintCode =
+  | 'be_first_rebuttal'
+  | 'ask_source'
+  | 'challenge_mechanism'
+  | 'narrow'
+  | 'synthesize'
+  | 'watch_first'
+  | 'join_when_ready';
+
+/** Frozen list of every hint code. Tests iterate this. */
+export const ALL_GALLERY_ENTRY_HINT_CODES: ReadonlyArray<GalleryEntryHintCode> = Object.freeze([
+  'be_first_rebuttal',
+  'ask_source',
+  'challenge_mechanism',
+  'narrow',
+  'synthesize',
+  'watch_first',
+  'join_when_ready',
+]);
+
+/**
+ * GAL-002 — Hint shape. Replaces Stage 6.4 `ConversationEntryHint`.
+ *
+ * - `activate` preserves the Stage 6.4 semantic (which message the room
+ *   shell pre-activates on entry).
+ * - `code` is the typed union member.
+ * - `verbPhrase` ≤ 8 words. The call-to-action the gallery card renders.
+ * - `helperLine` is the RULE-003 helper line (lifecycle-derived hints) or
+ *   a constant gallery-meta helper (the three room-entry meta-actions).
+ *   `verbPhrase + helperLine` stays ≤ 200 chars after the render layer's
+ *   `' — '` separator (≤ 197 chars of content + 3 chars of separator).
+ * - `presetKey` is an existing `QuickActionLabel` value, or `null` for the
+ *   three gallery-only meta-actions that do not open the composer.
+ * - `dockAction` is the matching SC-004 dock action code, or `null` when
+ *   no dock action lines up.
+ */
+export interface GalleryEntryHint {
   /**
    * Which message to focus on entry.
    *  - `root`   → root message (root claim).
@@ -119,8 +169,11 @@ export interface ConversationEntryHint {
    *  - `first_open_challenge` → the most recent challenge or ask_source move.
    */
   activate: 'root' | 'latest' | 'first_open_challenge';
-  /** Short prose hint shown to the user inside the room. */
-  microMomentLabel: string;
+  code: GalleryEntryHintCode;
+  verbPhrase: string;
+  helperLine: string;
+  presetKey: QuickActionLabel | null;
+  dockAction: TimelineNodeActionDockActionCode | null;
 }
 
 /**
@@ -202,6 +255,21 @@ export interface ConversationGalleryCard {
   voteScorePreview?: null;
   winnerPreview?: null;
   promotedArgumentCount?: 0;
+
+  /**
+   * GAL-002 — Root-cluster lifecycle state (LIFE-001). When present, the
+   * primary signal for `deriveGalleryEntryHint`. When null/undefined, the
+   * deriver falls back to the bucket-driven parity branch. Loader-populated;
+   * the gallery model does not derive it.
+   */
+  rootClusterLifecycleState?: PointLifecycleState | null;
+
+  /**
+   * GAL-002 — Optional SW-002 `entryOpportunity` snapshot. Used by the
+   * deriver as a tie-breaker between `watch_first` / `join_when_ready` /
+   * `narrow`. Loader-populated.
+   */
+  entryOpportunity?: EntryOpportunity | null;
 
   sortKeys: {
     latestActivityMs: number;
@@ -892,40 +960,326 @@ export function sortConversationGalleryCards(
 
 // ── Pagination ──────────────────────────────────────────────
 
-// ── Stage 6.4 — Smart entry hints + section grouping ─────────
+// ── GAL-002 — Gallery entry-hint deriver ─────────────────────
 
 /**
- * Decide which message to activate when the user opens a card, plus a
- * short prose hint to show inside the room. Pure / deterministic.
+ * GAL-002 — Verb-phrase table. The 4 lifecycle-overlap hints read their
+ * verb from RULE-003 (`getLifecycleUx(state).label`) so RULE-003 is the
+ * single source of plain-language truth. The 3 gallery-meta hints use
+ * short, plain, ban-list-clean constants — the ONLY new authored strings
+ * GAL-002 introduces.
+ *
+ * Each entry is ≤ 8 words by inspection (RULE-003 labels are ≤ 32 chars
+ * and the meta phrases are 2-4 words). A defensive word-cap pass below
+ * truncates anything that drifts past 8 words at runtime, so a future
+ * RULE-003 label change cannot break the contract silently.
  */
-export function deriveConversationEntryHint(card: ConversationGalleryCard): ConversationEntryHint {
-  if (card.hasNoRebuttal) return { activate: 'root', microMomentLabel: 'Be the first rebuttal' };
-  switch (card.bucket) {
-    case 'source_chain_fight':
-      return { activate: 'first_open_challenge', microMomentLabel: 'Ask for the source' };
-    case 'evidence_fight':
-      return { activate: 'first_open_challenge', microMomentLabel: 'Challenge the mechanism' };
-    case 'definition_scope_fight':
-      return { activate: 'latest', microMomentLabel: 'Narrow the claim' };
-    case 'unresolved_deep_chain':
-      return { activate: 'latest', microMomentLabel: 'Try narrowing or offer a synthesis' };
-    case 'hot_now':
-      return { activate: 'latest', microMomentLabel: 'Jump into the live exchange' };
-    case 'gaining_heat':
-      return { activate: 'latest', microMomentLabel: 'Add the next move' };
-    case 'pedantic_plain':
-      return { activate: 'root', microMomentLabel: 'Watch first — quiet room' };
-    case 'resolved_or_synthesized':
-      return { activate: 'latest', microMomentLabel: 'Resolved — read how it closed' };
-    case 'my_rooms':
-      return { activate: 'latest', microMomentLabel: 'Continue where you left off' };
-    case 'needs_rebuttal':
-      return { activate: 'root', microMomentLabel: 'Be the first rebuttal' };
-    case 'all_open':
-    default:
-      return { activate: 'latest', microMomentLabel: 'Watch first — join when ready' };
+const META_VERB_PHRASES: Readonly<Record<'be_first_rebuttal' | 'watch_first' | 'join_when_ready', string>> = Object.freeze({
+  be_first_rebuttal: 'Be the first rebuttal',
+  watch_first: 'Watch first',
+  join_when_ready: 'Join when ready',
+});
+
+/**
+ * GAL-002 — Helper-line table for the 3 gallery-meta hints. The remaining
+ * 4 hints pull their helper from RULE-003. Plain-language, no verdict /
+ * popularity / engagement / person-attribution tokens.
+ */
+const META_HELPER_LINES: Readonly<Record<'be_first_rebuttal' | 'watch_first' | 'join_when_ready', string>> = Object.freeze({
+  be_first_rebuttal: 'No reply yet — your move lands first.',
+  watch_first: 'Quiet room — get a feel before posting.',
+  join_when_ready: 'Open room — observe or step in.',
+});
+
+/**
+ * GAL-002 — Preset routing table. Maps each hint to an existing
+ * `QuickActionLabel` (COMPOSER-001) or `null` for the gallery-only
+ * meta-actions that should NOT open the composer.
+ */
+const HINT_PRESET: Readonly<Record<GalleryEntryHintCode, QuickActionLabel | null>> = Object.freeze({
+  be_first_rebuttal: 'reply',
+  ask_source: 'source',
+  challenge_mechanism: 'challenge',
+  narrow: 'narrow',
+  synthesize: 'synthesize',
+  watch_first: null,
+  join_when_ready: null,
+});
+
+/**
+ * GAL-002 — Dock-action routing table. Maps each hint to an existing
+ * `TimelineNodeActionDockActionCode` (SC-004) or `null` when the
+ * meta-action does not have a dock equivalent.
+ */
+const HINT_DOCK_ACTION: Readonly<Record<GalleryEntryHintCode, TimelineNodeActionDockActionCode | null>> = Object.freeze({
+  be_first_rebuttal: 'reply',
+  ask_source: 'ask_source',
+  challenge_mechanism: 'challenge',
+  narrow: 'narrow',
+  synthesize: 'synthesize',
+  watch_first: null,
+  join_when_ready: null,
+});
+
+/**
+ * GAL-002 — Word cap. Trims a verb phrase to ≤ 8 whitespace-separated
+ * tokens. RULE-003 labels do not exceed this today; the cap is a
+ * forward-compatibility guard against future copy changes.
+ */
+function capVerbPhraseToEightWords(phrase: string): string {
+  const tokens = phrase.split(/\s+/).filter(Boolean);
+  if (tokens.length <= 8) return phrase;
+  return tokens.slice(0, 8).join(' ');
+}
+
+/**
+ * GAL-002 — Builds the verb phrase for a given hint code. Lifecycle-overlap
+ * codes read RULE-003's `label`; meta codes read the local constant table.
+ */
+function verbPhraseForCode(code: GalleryEntryHintCode): string {
+  switch (code) {
+    case 'be_first_rebuttal':
+      return META_VERB_PHRASES.be_first_rebuttal;
+    case 'watch_first':
+      return META_VERB_PHRASES.watch_first;
+    case 'join_when_ready':
+      return META_VERB_PHRASES.join_when_ready;
+    case 'ask_source':
+      return capVerbPhraseToEightWords(getLifecycleUx('source_requested').label);
+    case 'challenge_mechanism':
+      // Reuse the ST-002 spelling so both models stay in lockstep without
+      // inventing a new phrase. ST-002's `challenge_mechanism` label is
+      // 'Challenge mechanism' (2 words) — see suggestedMovesModel.ts.
+      return 'Challenge mechanism';
+    case 'narrow':
+      return capVerbPhraseToEightWords(getLifecycleUx('narrowed').label);
+    case 'synthesize':
+      return capVerbPhraseToEightWords(getLifecycleUx('synthesis_ready').label);
   }
 }
+
+/**
+ * GAL-002 — Helper line for a given hint code. Meta codes use the local
+ * table; lifecycle-overlap codes read the matching RULE-003 helper.
+ *
+ * For the lifecycle-derived path we also honour the card's actual lifecycle
+ * state when the hint code derives from it — e.g. an `ask_source` hint on
+ * a card with `quote_requested` lifecycle uses the `quote_requested`
+ * helper line so the surface copy stays specific to what the cluster
+ * actually shows.
+ */
+function helperLineForHint(
+  code: GalleryEntryHintCode,
+  resolvedLifecycle: PointLifecycleState | null,
+): string {
+  switch (code) {
+    case 'be_first_rebuttal':
+      return META_HELPER_LINES.be_first_rebuttal;
+    case 'watch_first':
+      if (resolvedLifecycle === 'archived_or_resolved') {
+        return getLifecycleUx('archived_or_resolved').helperLine;
+      }
+      return META_HELPER_LINES.watch_first;
+    case 'join_when_ready':
+      return META_HELPER_LINES.join_when_ready;
+    case 'ask_source':
+      if (resolvedLifecycle === 'quote_requested') {
+        return getLifecycleUx('quote_requested').helperLine;
+      }
+      return getLifecycleUx('source_requested').helperLine;
+    case 'challenge_mechanism':
+      return getLifecycleUx('sourced').helperLine;
+    case 'narrow':
+      if (resolvedLifecycle === 'exhausted') {
+        return getLifecycleUx('exhausted').helperLine;
+      }
+      if (resolvedLifecycle === 'branch_recommended') {
+        return getLifecycleUx('branch_recommended').helperLine;
+      }
+      if (resolvedLifecycle === 'rebutted') {
+        return getLifecycleUx('rebutted').helperLine;
+      }
+      return getLifecycleUx('narrowed').helperLine;
+    case 'synthesize':
+      if (resolvedLifecycle === 'conceded') return getLifecycleUx('conceded').helperLine;
+      if (resolvedLifecycle === 'confirmed') return getLifecycleUx('confirmed').helperLine;
+      if (resolvedLifecycle === 'narrowed') return getLifecycleUx('narrowed').helperLine;
+      if (resolvedLifecycle === 'ignored_by_both') return getLifecycleUx('ignored_by_both').helperLine;
+      return getLifecycleUx('synthesis_ready').helperLine;
+  }
+}
+
+/**
+ * GAL-002 — Lifecycle → hint mapping. Returns the code + `activate` value
+ * for a given lifecycle state. The same table also pins each row's
+ * `activate` choice so the existing Stage 6.4 behaviour is preserved for
+ * the bucket-fallback path below.
+ */
+interface HintChoice {
+  code: GalleryEntryHintCode;
+  activate: GalleryEntryHint['activate'];
+}
+
+function lifecycleToHint(state: PointLifecycleState, hasNoRebuttal: boolean): HintChoice {
+  switch (state) {
+    case 'open':
+      return hasNoRebuttal
+        ? { code: 'be_first_rebuttal', activate: 'root' }
+        : { code: 'watch_first', activate: 'latest' };
+    case 'answered':
+      return { code: 'watch_first', activate: 'latest' };
+    case 'rebutted':
+      return { code: 'narrow', activate: 'latest' };
+    case 'clarified':
+      return { code: 'watch_first', activate: 'latest' };
+    case 'sourced':
+      return { code: 'challenge_mechanism', activate: 'latest' };
+    case 'quote_requested':
+      return { code: 'ask_source', activate: 'first_open_challenge' };
+    case 'source_requested':
+      return { code: 'ask_source', activate: 'first_open_challenge' };
+    case 'narrowed':
+      return { code: 'synthesize', activate: 'latest' };
+    case 'conceded':
+      return { code: 'synthesize', activate: 'latest' };
+    case 'confirmed':
+      return { code: 'synthesize', activate: 'latest' };
+    case 'synthesis_ready':
+      return { code: 'synthesize', activate: 'latest' };
+    case 'moved_on_by_affirmative':
+      return { code: 'join_when_ready', activate: 'latest' };
+    case 'moved_on_by_negative':
+      return { code: 'join_when_ready', activate: 'latest' };
+    case 'ignored_by_affirmative':
+      return { code: 'join_when_ready', activate: 'latest' };
+    case 'ignored_by_negative':
+      return { code: 'join_when_ready', activate: 'latest' };
+    case 'ignored_by_both':
+      return { code: 'synthesize', activate: 'latest' };
+    case 'exhausted':
+      return { code: 'narrow', activate: 'latest' };
+    case 'branch_recommended':
+      return { code: 'narrow', activate: 'latest' };
+    case 'archived_or_resolved':
+      return { code: 'watch_first', activate: 'latest' };
+  }
+}
+
+/**
+ * GAL-002 — Bucket → hint fallback. Preserves Stage 6.4 `activate` choices
+ * verbatim so existing seamless-entry tests pass without per-test rewrites.
+ */
+function bucketToHint(bucket: ConversationBucket, hasNoRebuttal: boolean): HintChoice {
+  if (hasNoRebuttal) return { code: 'be_first_rebuttal', activate: 'root' };
+  switch (bucket) {
+    case 'needs_rebuttal':
+      return { code: 'be_first_rebuttal', activate: 'root' };
+    case 'source_chain_fight':
+      return { code: 'ask_source', activate: 'first_open_challenge' };
+    case 'evidence_fight':
+      return { code: 'challenge_mechanism', activate: 'first_open_challenge' };
+    case 'definition_scope_fight':
+      return { code: 'narrow', activate: 'latest' };
+    case 'unresolved_deep_chain':
+      return { code: 'narrow', activate: 'latest' };
+    case 'hot_now':
+      return { code: 'narrow', activate: 'latest' };
+    case 'gaining_heat':
+      return { code: 'watch_first', activate: 'latest' };
+    case 'pedantic_plain':
+      return { code: 'watch_first', activate: 'root' };
+    case 'resolved_or_synthesized':
+      return { code: 'watch_first', activate: 'latest' };
+    case 'my_rooms':
+      return { code: 'join_when_ready', activate: 'latest' };
+    case 'all_open':
+    default:
+      return { code: 'watch_first', activate: 'latest' };
+  }
+}
+
+/**
+ * GAL-002 — Apply the SW-002 `entryOpportunity` tie-breaker. Only promotes
+ * `watch_first` to a more actionable hint when the activity profile
+ * supports it. Never overrides a non-`watch_first` decision (lifecycle
+ * and bucket dispatches stay primary).
+ */
+function applyEntryOpportunity(
+  choice: HintChoice,
+  entryOpportunity: EntryOpportunity | null | undefined,
+): HintChoice {
+  if (choice.code !== 'watch_first') return choice;
+  if (!entryOpportunity) return choice;
+  if (entryOpportunity === 'deep_existing_clash') {
+    return { code: 'narrow', activate: 'latest' };
+  }
+  if (entryOpportunity === 'mid_thread_join') {
+    return { code: 'join_when_ready', activate: 'latest' };
+  }
+  // 'easy_first_move' — keep watch_first; the existing default for quiet
+  // rooms is the correct first move.
+  return choice;
+}
+
+/**
+ * GAL-002 — Decide which message to activate when the user opens a card,
+ * plus a typed verb / helper / preset / dock payload. Pure, deterministic,
+ * uncached. Replaces Stage 6.4 `deriveConversationEntryHint`.
+ *
+ * Priority (first match wins):
+ *   1. Empty-thread / no-rebuttal short-circuit → `be_first_rebuttal`.
+ *   2. `openStatus !== 'open'` override → `watch_first` (the cluster is
+ *      closed/draft/locked; reading is the only safe first move).
+ *   3. `rootClusterLifecycleState` present → dispatch via lifecycle table.
+ *   4. Bucket fallback (Stage 6.4 parity behaviour).
+ *   5. SW-002 `entryOpportunity` tie-breaker applied last to promote
+ *      `watch_first` into `narrow` / `join_when_ready` where appropriate.
+ *
+ * Doctrine guards encoded:
+ *   - Never reads `moveCount` / `rebuttalCount` / `participantCount` /
+ *     `heatScore` / `heatLevel` as primary signals. `heatLevel` is not
+ *     consulted at all by the deriver — heat is descriptive activity, not
+ *     a hint signal.
+ *   - Never returns a verdict / amplification / person-attribution string.
+ *   - Per-call recomputation. No module-level cache, no memoisation.
+ */
+export function deriveGalleryEntryHint(card: ConversationGalleryCard): GalleryEntryHint {
+  const resolvedLifecycle: PointLifecycleState | null =
+    card.rootClusterLifecycleState != null ? card.rootClusterLifecycleState : null;
+
+  let choice: HintChoice;
+
+  // 1. Empty-thread / no-rebuttal short-circuit.
+  if (card.hasNoRebuttal === true || card.moveCount === 0) {
+    choice = { code: 'be_first_rebuttal', activate: 'root' };
+  } else if (card.openStatus !== 'open') {
+    // 2. Archived / locked / draft override. Reading is the only safe move.
+    choice = { code: 'watch_first', activate: 'latest' };
+  } else if (resolvedLifecycle != null) {
+    // 3. Lifecycle-primary dispatch.
+    choice = lifecycleToHint(resolvedLifecycle, card.hasNoRebuttal);
+  } else {
+    // 4. Bucket-fallback (Stage 6.4 parity).
+    choice = bucketToHint(card.bucket, card.hasNoRebuttal);
+  }
+
+  // 5. SW-002 tie-breaker.
+  choice = applyEntryOpportunity(choice, card.entryOpportunity);
+
+  const verbPhrase = verbPhraseForCode(choice.code);
+  const helperLine = helperLineForHint(choice.code, resolvedLifecycle);
+
+  return {
+    activate: choice.activate,
+    code: choice.code,
+    verbPhrase,
+    helperLine,
+    presetKey: HINT_PRESET[choice.code],
+    dockAction: HINT_DOCK_ACTION[choice.code],
+  };
+}
+
+// ── End GAL-002 region ───────────────────────────────────────
 
 /**
  * Group cards into Stage 6.4 entry sections. Returns ordered sections

@@ -16,6 +16,7 @@ import { LoadingNotice } from './src/components/LoadingNotice';
 import { useAuthSession } from './src/features/auth/useAuthSession';
 import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate } from './src/features/debates';
 import { ConversationGalleryScreen } from './src/features/debates/ConversationGalleryScreen';
+import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
 import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
 import { ArgumentTreeScreen, ArgumentComposer } from './src/features/arguments';
 import { AccountScreen } from './src/features/account';
@@ -89,7 +90,7 @@ function MainAppShell() {
   // Stage 6.4: entry hint set by the Conversation Gallery when the user
   // opens a card. Tells the room shell which message to activate first
   // and what one-line "micro-moment" prompt to show.
-  const [entryHint, setEntryHint] = useState<{ activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string } | null>(null);
+  const [entryHint, setEntryHint] = useState<GalleryEntryHint | null>(null);
   const refreshTreeRef = useRef<(() => void) | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();

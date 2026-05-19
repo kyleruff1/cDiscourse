@@ -36,6 +36,7 @@ import { VIEW_MODE_COPY } from './viewModeCopy';
 import type { RailActionCode, RailViewerRole } from './ArgumentSideActionRail';
 import type { ArgumentTag, ArgumentFlag } from './types';
 import type { ParticipantSide } from '../debates/types';
+import type { GalleryEntryHint } from '../debates/conversationGalleryModel';
 import type { MoveDraftPatch } from './conversationMoves';
 import type { ArgumentType } from '../../domain/constitution/types';
 import {
@@ -117,7 +118,7 @@ interface Props {
    * opened. The room shell uses it to pre-activate the right message
    * and to show a small "micro-moment" hint near the timeline.
    */
-  entryHint?: { activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string };
+  entryHint?: GalleryEntryHint;
 }
 
 export function ArgumentGameSurface({
@@ -465,9 +466,20 @@ export function ArgumentGameSurface({
         </View>
       </View>
 
-      {entryHint?.microMomentLabel ? (
-        <View style={styles.microMoment} testID="argument-micro-moment">
-          <Text style={styles.microMomentText}>{entryHint.microMomentLabel}</Text>
+      {entryHint?.verbPhrase ? (
+        <View
+          style={styles.microMoment}
+          testID="argument-micro-moment"
+          accessibilityLabel={
+            entryHint.helperLine && entryHint.helperLine !== entryHint.verbPhrase
+              ? `${entryHint.verbPhrase}. ${entryHint.helperLine}`
+              : entryHint.verbPhrase
+          }
+        >
+          <Text style={styles.microMomentText}>{entryHint.verbPhrase}</Text>
+          {entryHint.helperLine && entryHint.helperLine !== entryHint.verbPhrase ? (
+            <Text style={styles.microMomentHelper}>{entryHint.helperLine}</Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -571,4 +583,5 @@ const styles = StyleSheet.create({
   body: { flex: 1, paddingHorizontal: 8, paddingBottom: 8 },
   microMoment: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1e1b4b', borderBottomWidth: 1, borderBottomColor: '#312e81' },
   microMomentText: { color: '#a5b4fc', fontSize: 12, fontWeight: '700' as const },
+  microMomentHelper: { color: '#94a3b8', fontSize: 11, fontWeight: '400' as const, marginTop: 2 },
 });
