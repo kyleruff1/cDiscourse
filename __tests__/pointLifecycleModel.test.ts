@@ -1176,8 +1176,12 @@ describe('LIFE-001 performance', () => {
     });
     const elapsed = performance.now() - start;
     expect(map.byCluster.size).toBe(50);
-    // Generous bound; design says < 30 ms. Allow some headroom for CI.
-    expect(elapsed).toBeLessThan(120);
+    // LIFE-1A — threshold tightened to the LIFE-001 design target of 30 ms.
+    // Characterized over 15 cold local jest runs of this test: samples (ms)
+    // = [4,4,4,4,4,5,5,5,5,5,5,5,5,6,7], p95 = 7, max = 7. The budget
+    // formula is max(30, p95 * 1.5) = max(30, 10.5) = 30, so the budget
+    // floors at the design target with ~4x headroom over observed p95.
+    expect(elapsed).toBeLessThan(30);
   });
 });
 
