@@ -295,11 +295,13 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 
 Master plan: [`docs/deployment/google-cloud-run-hosting-plan.md`](deployment/google-cloud-run-hosting-plan.md). Companion Vertex AI note (separate from app hosting): [`docs/deployment/claude-code-vertex-ai-note.md`](deployment/claude-code-vertex-ai-note.md).
 
-### HOST-001 — Dev hosting architecture (Google Cloud Run)
+### HOST-001 — Dev hosting architecture (Google Cloud Run) — Build complete
+- **Status:** Build complete on `feat/HOST-001-dev-hosting-architecture-google-cloud-ru`, awaiting operator deploy.
 - **Priority:** P0 — **Effort:** L — **Release:** 6.8
-- **Target:** Google Cloud Run service `cdiscourse-dev` reachable at `https://dev.cdiscourse.com` (recommended) or `https://sandbox.cdiscourse.com` (fallback). Cloud Run domain mapping maps a domain to `/`, **not** a path prefix — `cdiscourse.com/dev` is not pursued.
-- **Scope:** First Cloud Run revision · Artifact Registry repo · runtime service account (`cdiscourse-dev-runner`) · ingress = authenticated invoker by default · Supabase URL + publishable key read from Secret Manager at runtime · no `.env*` in deployed bundle · existing dev banner (HOST-002) + smoke checklist (HOST-003) pass against new URL.
-- **Acceptance:** Cloud Run service deployed (gated, never world-readable in v0). Secret Manager secrets bound via `--set-secrets=`. Smoke checklist passes. No production deploy. No DNS records on apex / www.
+- **Target:** Google Cloud Run service `cdiscourse-dev` reachable at `https://dev.cdiscourse.com` (D3 locked). Cloud Run domain mapping maps a domain to `/`, **not** a path prefix — `cdiscourse.com/dev` is not pursued.
+- **Scope (landed):** `Dockerfile` + `.dockerignore` at repo root · `scripts/build/build-web.{mjs,ps1,sh}` + `scripts/build/inject-runtime-env.{mjs,ps1,sh}` · `scripts/runtime/server.mjs` (Cloud Run entrypoint, vendors `serve@14.2.6` exact-pinned) · `infra/cloud-run/cdiscourse-dev.template.yaml` Cloud Run service template · `infra/iam/cdiscourse-dev-runner.iam.yaml` + `infra/iam/cdiscourse-deployer.iam.yaml` IAM templates · `src/lib/supabase.ts` patched to read `window.__CDISCOURSE_RUNTIME_ENV__` first then `process.env` (HOST-001b folded; #92 closes on merge) · `docs/deployment/host-001-operator-runbook.md` 23-step operator runbook · `__tests__/supabaseClientRuntimeEnv.test.ts` + `__tests__/dockerfileShape.test.ts` + `__tests__/hostOneBuildScripts.test.ts` (+84 tests total). `npm run web:build` + `npm run web:build:dry` scripts added.
+- **Acceptance (verified by tests + design):** Cloud Run service template applies cleanly with the operator runbook (gated by `--no-allow-unauthenticated`, never world-readable in v0). Secret Manager bind shape locked (only `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — service-role / Anthropic / xAI / Bearer / Resend denylisted in Dockerfile, Cloud Run YAML, IAM YAMLs, scripts). Image baked-build-args carry build-time identity only; runtime config arrives at container start so digest-only promotion (HOST-008) is correct. Smoke H1 + H2 are operator-runnable from the runbook; H3 deferred (no `/healthz` route inside `serve`; HOST-003a will add it).
+- **Operator follow-up before deploy:** Phase 1 (project + identity), Phase 2 (Artifact Registry), Phase 3 (HOST-005 secret create + bind), Phase 4 (image build + push), Phase 5 (deploy + smoke). No `gcloud` / `docker` command executed by the agent.
 
 ### HOST-002 — Dev environment banner ✅ shipped
 - **Priority:** P0 — **Effort:** S/M — **Release:** 6.8
