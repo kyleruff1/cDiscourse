@@ -86,6 +86,11 @@ export type IconHint =
   | 'double_diamond'        // has_counter_rebuttal
   | 'scope_brackets'        // scope_issue / scope axis
   | 'gear'                  // causal_mechanism / mechanism axis
+  // EV-004 — evidence-symmetry additions (additive only).
+  | 'key_term'              // definition axis — issue-named "key-term icon"
+  | 'logic_chain'           // logic axis — issue-named "chain icon"
+  | 'causal_arrow'          // causal axis — issue-named "arrow icon"
+  | 'crowd_slash'           // anti_amplification — issue-named "crowd-slash icon"
   // Positional — describe board state.
   | 'pause_dots'            // moved_on / no_response / point_stalled
   | 'crossed_lines'         // ignored_by_both
@@ -115,6 +120,11 @@ export const ALL_ICON_HINTS: ReadonlyArray<IconHint> = Object.freeze([
   'double_diamond',
   'scope_brackets',
   'gear',
+  // EV-004 — evidence-symmetry additions (additive only).
+  'key_term',
+  'logic_chain',
+  'causal_arrow',
+  'crowd_slash',
   'pause_dots',
   'crossed_lines',
   'fade',
