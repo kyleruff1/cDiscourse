@@ -33,7 +33,7 @@ const PROJECT_NUMBER = 1;
 const PROJECT_OWNER = 'kyleruff1';
 const PROJECT_ID = 'PVT_kwHOAvpEDc4BYA8w';
 
-const ROADMAP_PREFIXES = ['QOL', 'TL', 'VG', 'BR', 'SC', 'ST', 'EV', 'SW', 'IX', 'PR', 'HOST', 'GAL', 'RULE', 'AN', 'PM', 'LIFE', 'META', 'GAME', 'BRAND', 'COPY', 'HIST', 'NAV', 'LEG', 'A11Y'];
+const ROADMAP_PREFIXES = ['QOL', 'TL', 'VG', 'BR', 'SC', 'ST', 'EV', 'SW', 'IX', 'PR', 'HOST', 'GAL', 'RULE', 'AN', 'PM', 'LIFE', 'META', 'GAME', 'BRAND', 'COPY', 'HIST', 'NAV', 'LEG', 'A11Y', 'COMPOSER'];
 
 // Static field/option ID map captured live on 2026-05-18 from
 // `gh project field-list 1 --owner kyleruff1 --format json`. The applier
