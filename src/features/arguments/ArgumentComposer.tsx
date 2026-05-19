@@ -28,6 +28,8 @@ import { ConversationMoveNavigator } from './ConversationMoveNavigator';
 import type { MoveDraftPatch } from './conversationMoves';
 import { getAllowedArgumentTypesForParent, getTagDefsForArgumentType } from './composerHelpers';
 import { buildEvaluationInput } from './composerValidation';
+import { quickActionToPreset } from './quickActionPresets';
+import type { ValidationActionUx } from '../rulesUx/validationActionMap';
 import type { ArgumentRow, ArgumentType, ArgumentSide, DisagreementAxis } from './types';
 import type { Debate } from '../debates/types';
 import { evaluateArgumentDraft } from '../../domain/constitution';
@@ -181,6 +183,25 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
       });
     },
     [draft, updateField],
+  );
+
+  /**
+   * RULE-002 — Press handler for the suggested-move chip rendered by
+   * ComposerValidationPanel. Routes through the existing
+   * `quickActionToPreset` + `handleMovePatch` machinery (COMPOSER-001 +
+   * EV-002 preset round-trip). Adds NO new code paths.
+   *
+   * Doctrine §1: the chip is additive — it pre-seeds a draft patch.
+   * The submit button gate (`canSubmit`) is unchanged.
+   */
+  const handleValidationAction = useCallback(
+    (action: ValidationActionUx) => {
+      if (!action.presetKey) return;
+      const patch = quickActionToPreset(action.presetKey, parentType);
+      if (!patch) return;
+      handleMovePatch(patch);
+    },
+    [parentType, handleMovePatch],
   );
 
   const handleSubmit = async () => {
@@ -556,7 +577,11 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
 
         {/* Validation preview */}
         {evaluationResult && (
-          <ComposerValidationPanel result={evaluationResult} source={constitution.source} />
+          <ComposerValidationPanel
+            result={evaluationResult}
+            source={constitution.source}
+            onSuggestedMove={handleValidationAction}
+          />
         )}
 
         {/* Server validation errors (422 from Edge Function) */}
