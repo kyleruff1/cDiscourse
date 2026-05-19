@@ -41,6 +41,20 @@ import {
   type TimelineEvidenceContract,
 } from '../evidence';
 import { buildArtifactsByMessageId } from './argumentGameSurfaceEvidence';
+// SC-004 — Build the dock model + thread selection state into the
+// timeline map. Lifecycle + metadata maps are built once per render and
+// memoized by their inputHashes; the dock model is cheap (O(cluster
+// members)) and rebuilds whenever the target / actor / upstream inputs
+// change.
+import { buildPointLifecycleMap } from '../lifecycle';
+import { buildMoveMetadataLedger } from '../metadata';
+import {
+  buildTimelineNodeActionDockModel,
+  actionDockToComposerPreset,
+  type TimelineNodeActionDockActionCode,
+  type TimelineNodeActionDockActor,
+  type TimelineNodeActionDockTarget,
+} from './timelineNodeActionDockModel';
 
 interface Props {
   debate: {
@@ -131,6 +145,10 @@ export function ArgumentGameSurface({
   }, [sorted, latestId, entryHint]);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(initialActiveId);
   const [deletionTarget, setDeletionTarget] = useState<string | null>(null);
+  // SC-004 — currently-selected target for the action dock. Null = no
+  // selection, no dock. Mutually exclusive with the SC-002 popover; opening
+  // the popover dismisses the dock and vice versa.
+  const [selectedDockTarget, setSelectedDockTarget] = useState<TimelineNodeActionDockTarget | null>(null);
   // Resolved viewer role: explicit prop, else infer from participant side.
   const resolvedViewerRole: RailViewerRole = viewerRole
     ?? (participantSide && participantSide !== 'observer' && participantSide !== 'moderator' ? 'participant' : 'observer');
@@ -199,7 +217,67 @@ export function ArgumentGameSurface({
     return getTimelineEvidenceContract(argumentType, arr);
   }, [artifactsByMessageId, sorted]);
 
+  // SC-004 — Convert the record-shaped artifacts map to a ReadonlyMap form
+  // for the lifecycle / metadata builders, which prefer that interface.
+  const artifactsByMessageIdMap = useMemo(() => {
+    const m = new Map<string, ReadonlyArray<EvidenceArtifact>>();
+    for (const k of Object.keys(artifactsByMessageId)) m.set(k, artifactsByMessageId[k]);
+    return m;
+  }, [artifactsByMessageId]);
+
+  // SC-004 — Build LIFE-001 lifecycle map once per timelineMap change.
+  // Memoization key is the timelineMap reference (already memoized above).
+  const lifecycleMap = useMemo(
+    () => buildPointLifecycleMap({
+      timelineMap,
+      artifactsByMessageId: artifactsByMessageIdMap,
+    }),
+    [timelineMap, artifactsByMessageIdMap],
+  );
+
+  // SC-004 — Build META-001 metadata ledger once per lifecycleMap change.
+  // v1: no persisted manual tags; passes an empty map.
+  const metadataLedger = useMemo(
+    () => buildMoveMetadataLedger({
+      timelineMap,
+      lifecycleMap,
+      artifactsByMessageId: artifactsByMessageIdMap,
+      manualTagsByMessageId: new Map(),
+    }),
+    [timelineMap, lifecycleMap, artifactsByMessageIdMap],
+  );
+
   const activeViewModel = useMemo(() => viewModels.find((v) => v.isActive) || null, [viewModels]);
+
+  // SC-004 — Classify the actor for the dock from the currently-active
+  // bubble. Observer comes from the resolved viewer role; otherwise we
+  // mirror the bubble view-model's actor (mapped onto the dock's
+  // observer-inclusive union).
+  const dockActor: TimelineNodeActionDockActor = useMemo(() => {
+    if (resolvedViewerRole === 'observer') return 'observer';
+    const ba = activeViewModel?.actor;
+    if (ba === 'self') return 'self';
+    if (ba === 'bot') return 'bot';
+    if (ba === 'admin') return 'admin';
+    if (ba === 'unknown') return 'unknown';
+    return 'other';
+  }, [resolvedViewerRole, activeViewModel?.actor]);
+
+  // SC-004 — Build the dock model whenever selection / actor / upstream
+  // inputs change. Returns null when no target is selected (component
+  // renders nothing).
+  const dockModel = useMemo(() => {
+    if (!selectedDockTarget) return null;
+    return buildTimelineNodeActionDockModel({
+      target: selectedDockTarget,
+      actor: dockActor,
+      timelineMap,
+      lifecycleMap,
+      metadataLedger,
+      evidenceContractFor,
+      isReadModeViewer: resolvedViewerRole === 'observer',
+    });
+  }, [selectedDockTarget, dockActor, timelineMap, lifecycleMap, metadataLedger, evidenceContractFor, resolvedViewerRole]);
 
   const participantTrends = useMemo(
     () => computeParticipantTrends({ messages: enrichedMessages, currentUserId }),
@@ -227,6 +305,78 @@ export function ArgumentGameSurface({
     }
     onAction?.(control, messageId);
   }, [onAction]);
+
+  // SC-004 — Dock action dispatch. Maps the 15-code SC-004 vocabulary onto
+  // the existing handleAction path (which routes to the composer +
+  // submit-argument Edge Function) plus the BR-001 / Cards-detail surface
+  // toggles. Never inserts directly into public.arguments. Never invokes a
+  // router.
+  const handleActionDockAction = useCallback((
+    action: TimelineNodeActionDockActionCode,
+    target: TimelineNodeActionDockTarget,
+  ) => {
+    // Resolve a target message id for control dispatch. For cluster /
+    // collapsed_stub targets we use the branchRoot.
+    const targetMessageId =
+      target.kind === 'node' ? target.messageId : target.branchRootMessageId;
+    // The composer preset (if any) is computed here so a future
+    // composer-aware caller can adopt it; v1 keeps the existing
+    // handleAction signature untouched.
+    void actionDockToComposerPreset(action, target, null);
+
+    if (action === 'open_cards_detail') {
+      // Surface toggle — switch to Stack/Cards mode and activate the message.
+      if (target.kind === 'node') setActiveMessageId(targetMessageId);
+      setMode('stack');
+      setSelectedDockTarget(null);
+      return;
+    }
+    if (action === 'expand_branch') {
+      // BR-001 toggle is handled inside ArgumentTimelineMap via the
+      // onExpandBranch prop. No room-shell action needed.
+      setSelectedDockTarget(null);
+      return;
+    }
+    if (action === 'flag') {
+      handleAction('flag', targetMessageId);
+      return;
+    }
+    if (action === 'reply') {
+      handleAction('reply', targetMessageId);
+      return;
+    }
+    if (action === 'challenge') {
+      handleAction('disagree', targetMessageId);
+      return;
+    }
+    if (action === 'ask_source') {
+      handleAction('ask_for_source', targetMessageId);
+      return;
+    }
+    if (action === 'ask_quote') {
+      handleAction('ask_for_quote', targetMessageId);
+      return;
+    }
+    if (action === 'branch') {
+      handleAction('branch', targetMessageId);
+      return;
+    }
+    // narrow / concede / confirm / synthesize / clarify / add_evidence —
+    // these don't have a single existing bubble control. v1 routes them
+    // through `reply` (composer opens; the player picks the move type).
+    // The composer preset returned by `actionDockToComposerPreset` is
+    // available for future composer wiring (ST-002 follow-up).
+    handleAction('reply', targetMessageId);
+  }, [handleAction]);
+
+  // SC-004 — Open Cards-detail surface toggle. Never a router push.
+  const handleOpenCardsDetail = useCallback((target: TimelineNodeActionDockTarget) => {
+    const targetMessageId =
+      target.kind === 'node' ? target.messageId : target.branchRootMessageId;
+    setActiveMessageId(targetMessageId);
+    setMode('stack');
+    setSelectedDockTarget(null);
+  }, []);
 
   // Stage 6.4 — Action rail action dispatch. Routes rail-only codes
   // (join_aff, join_neg, share, open_timeline, watch) locally; bubble
@@ -324,6 +474,11 @@ export function ArgumentGameSurface({
               artifactsByMessageId={artifactsByMessageId}
               evidenceContractFor={evidenceContractFor}
               isReadModeViewer={resolvedViewerRole === 'observer'}
+              selectedTarget={selectedDockTarget}
+              actionDockModel={dockModel}
+              onSelectTarget={setSelectedDockTarget}
+              onActionDockAction={handleActionDockAction}
+              onOpenCardsDetail={handleOpenCardsDetail}
             />
             <ArgumentReplySidecar
               activeMessage={timelineMap.activeNode}
