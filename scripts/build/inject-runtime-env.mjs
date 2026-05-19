@@ -8,8 +8,10 @@
 // Inputs:
 //   - process.env.EXPO_PUBLIC_SUPABASE_URL (required at runtime)
 //   - process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY (required at runtime)
+//   - process.env.EXPO_PUBLIC_APP_ORIGIN (QOL-023; optional)
 //   - --url=<url>            CLI override (preferred for local invocations)
 //   - --publishable-key=<key> CLI override (preferred for local invocations)
+//   - --app-origin=<url>     CLI override for EXPO_PUBLIC_APP_ORIGIN (optional)
 //   - --dist-dir=dist        Output directory (default: dist)
 //   - --dry                  Plan only; do not write file
 //
@@ -30,11 +32,12 @@ const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(__filename, '..', '..', '..');
 
 function parseArgs(argv) {
-  const out = { url: '', publishableKey: '', distDir: 'dist', dry: false };
+  const out = { url: '', publishableKey: '', appOrigin: '', distDir: 'dist', dry: false };
   for (const arg of argv) {
     if (arg === '--dry' || arg === '--dry-run') out.dry = true;
     else if (arg.startsWith('--url=')) out.url = arg.slice('--url='.length);
     else if (arg.startsWith('--publishable-key=')) out.publishableKey = arg.slice('--publishable-key='.length);
+    else if (arg.startsWith('--app-origin=')) out.appOrigin = arg.slice('--app-origin='.length);
     else if (arg.startsWith('--dist-dir=')) out.distDir = arg.slice('--dist-dir='.length);
     else if (arg === '--help' || arg === '-h') {
       printHelp();
@@ -52,6 +55,7 @@ function printHelp() {
       'Flags:',
       '  --url=<url>                  EXPO_PUBLIC_SUPABASE_URL value.',
       '  --publishable-key=<key>      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY value.',
+      '  --app-origin=<url>           EXPO_PUBLIC_APP_ORIGIN value (optional).',
       '  --dist-dir=<path>            Output directory (default: dist).',
       '  --dry / --dry-run            Plan only. Do not write file.',
       '  --help / -h                  Show this help.',
@@ -100,6 +104,14 @@ function looksLikePublishableKey(value) {
   return false;
 }
 
+// QOL-023 — EXPO_PUBLIC_APP_ORIGIN must look like a bare http(s) origin.
+// http is accepted because a hosted-but-local preview may inject
+// http://localhost:8081; the helper (buildAuthRedirectUrl) still enforces
+// https-in-prod. The injector only refuses garbage.
+function looksLikeHttpOrigin(value) {
+  return /^https?:\/\/[A-Za-z0-9.-]+(?::\d+)?\/?$/.test(value);
+}
+
 function refuseEscape(repoRoot, target) {
   const absolute = resolve(repoRoot, target);
   if (!absolute.startsWith(repoRoot + sep) && absolute !== repoRoot) {
@@ -111,11 +123,17 @@ function refuseEscape(repoRoot, target) {
 
 // Build the file body. The values are JSON-encoded so injection-prone
 // characters (`<`, `'`, etc.) cannot escape the string context.
-export function buildRuntimeEnvFileContents({ url, publishableKey }) {
-  const payload = JSON.stringify({
+// QOL-023: EXPO_PUBLIC_APP_ORIGIN is optional — the key is included only when
+// a non-empty value is present, so the emitted object stays minimal.
+export function buildRuntimeEnvFileContents({ url, publishableKey, appOrigin }) {
+  const env = {
     EXPO_PUBLIC_SUPABASE_URL: url,
     EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
-  });
+  };
+  if (appOrigin) {
+    env.EXPO_PUBLIC_APP_ORIGIN = appOrigin;
+  }
+  const payload = JSON.stringify(env);
   return (
     '// HOST-001 runtime-env shim. Written at container start; not committed.\n' +
     '// Read by src/lib/supabase.ts via window.__CDISCOURSE_RUNTIME_ENV__.\n' +
@@ -128,11 +146,13 @@ function main() {
 
   const url = (args.url || process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
   const key = (args.publishableKey || process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '').trim();
+  const appOrigin = (args.appOrigin || process.env.EXPO_PUBLIC_APP_ORIGIN || '').trim();
 
   const have = { url: Boolean(url), key: Boolean(key) };
   process.stdout.write(
     `[inject-runtime-env] loaded ${(have.url ? 1 : 0) + (have.key ? 1 : 0)}/2 ` +
-      `(url=${have.url ? 'present' : 'missing'}, publishable-key=${have.key ? 'present' : 'missing'})\n`,
+      `(url=${have.url ? 'present' : 'missing'}, publishable-key=${have.key ? 'present' : 'missing'}, ` +
+      `app-origin=${appOrigin ? 'present' : 'absent'})\n`,
   );
 
   if (!have.url || !have.key) {
@@ -142,7 +162,7 @@ function main() {
     return 4;
   }
 
-  if (looksForbidden(url) || looksForbidden(key)) {
+  if (looksForbidden(url) || looksForbidden(key) || looksForbidden(appOrigin)) {
     process.stderr.write(
       '[inject-runtime-env] refused: a value carries a forbidden secret shape (service-role / Anthropic / xAI / Bearer). Cloud Run binding must use the publishable key, not service-role.\n',
     );
@@ -161,6 +181,16 @@ function main() {
       '[inject-runtime-env] refused: EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY does not match a Supabase publishable / anon key shape.\n',
     );
     return 7;
+  }
+
+  // QOL-023 — EXPO_PUBLIC_APP_ORIGIN is OPTIONAL. When absent the file is
+  // written without the key and the helper's fallback covers it. When present
+  // it must look like a bare http(s) origin.
+  if (appOrigin && !looksLikeHttpOrigin(appOrigin)) {
+    process.stderr.write(
+      '[inject-runtime-env] refused: EXPO_PUBLIC_APP_ORIGIN does not look like a bare http(s) origin.\n',
+    );
+    return 10;
   }
 
   const distAbs = refuseEscape(REPO_ROOT, args.distDir);
@@ -185,7 +215,7 @@ function main() {
   const target = join(distAbs, 'runtime-env.js');
   // Best-effort dir guarantee for safety (no-op if already there).
   mkdirSync(distAbs, { recursive: true });
-  writeFileSync(target, buildRuntimeEnvFileContents({ url, publishableKey: key }), 'utf8');
+  writeFileSync(target, buildRuntimeEnvFileContents({ url, publishableKey: key, appOrigin }), 'utf8');
   process.stdout.write(`[inject-runtime-env] wrote ${target}\n`);
   return 0;
 }

@@ -75,11 +75,17 @@ function looksForbidden(value) {
   return FORBIDDEN_SHAPES.some((re) => re.test(value));
 }
 
-function buildRuntimeEnvFileContents({ url, publishableKey }) {
-  const payload = JSON.stringify({
+// QOL-023: EXPO_PUBLIC_APP_ORIGIN is optional — the key is included only when
+// a non-empty value is present.
+function buildRuntimeEnvFileContents({ url, publishableKey, appOrigin }) {
+  const env = {
     EXPO_PUBLIC_SUPABASE_URL: url,
     EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
-  });
+  };
+  if (appOrigin) {
+    env.EXPO_PUBLIC_APP_ORIGIN = appOrigin;
+  }
+  const payload = JSON.stringify(env);
   return (
     '// HOST-001 runtime-env shim. Written at container start.\n' +
     '// Read by src/lib/supabase.ts via window.__CDISCOURSE_RUNTIME_ENV__.\n' +
@@ -90,12 +96,16 @@ function buildRuntimeEnvFileContents({ url, publishableKey }) {
 function preflight() {
   const url = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
   const key = (process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '').trim();
+  // QOL-023 — EXPO_PUBLIC_APP_ORIGIN is OPTIONAL. Its absence must NOT fail the
+  // 2/2 required-value check; that check stays scoped to the two Supabase keys.
+  const appOrigin = (process.env.EXPO_PUBLIC_APP_ORIGIN || '').trim();
   const have = { url: Boolean(url), key: Boolean(key) };
   process.stdout.write(
     '[server] env loaded ' +
       `${(have.url ? 1 : 0) + (have.key ? 1 : 0)}/2 ` +
       `(url=${have.url ? 'present' : 'missing'}, ` +
-      `publishable-key=${have.key ? 'present' : 'missing'})\n`,
+      `publishable-key=${have.key ? 'present' : 'missing'}, ` +
+      `app-origin=${appOrigin ? 'present' : 'absent'})\n`,
   );
 
   if (!have.url || !have.key) {
@@ -104,9 +114,9 @@ function preflight() {
     );
     process.exit(4);
   }
-  if (looksForbidden(url) || looksForbidden(key)) {
+  if (looksForbidden(url) || looksForbidden(key) || looksForbidden(appOrigin)) {
     process.stderr.write(
-      '[server] refused: a bound value carries a forbidden secret shape (service-role / Anthropic / xAI / Bearer).\n',
+      '[server] refused: a bound value carries a forbidden secret shape (service-role / Anthropic / xAI / Bearer / app-origin).\n',
     );
     process.exit(5);
   }
@@ -117,7 +127,7 @@ function preflight() {
   mkdirSync(DIST_DIR, { recursive: true });
   writeFileSync(
     join(DIST_DIR, 'runtime-env.js'),
-    buildRuntimeEnvFileContents({ url, publishableKey: key }),
+    buildRuntimeEnvFileContents({ url, publishableKey: key, appOrigin }),
     'utf8',
   );
   process.stdout.write(`[server] wrote runtime-env.js into ${DIST_DIR}\n`);
