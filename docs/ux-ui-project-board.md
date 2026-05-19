@@ -127,6 +127,13 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Recommendation:** Do **not** add Bootstrap as an RN dep. Build a token layer: `spacing.xs/s/m/l/xl`, `radius.sm/md/lg/pill`, `status.info/warning/danger/success/neutral`, `surface.base/elevated/overlay`, `rail.active/inactive`, `argument.claim/challenge/evidence/clarify/concede/branch`.
 - **Acceptance:** Single token source for timeline / rail / sidecar / quick actions / profile popout. Web + mobile share naming.
 
+### VG-004 — High-tech board visual polish without new dependencies
+- **Priority:** P1 — **Effort:** M — **Release:** 6.6
+- **Status:** Build complete. See `docs/designs/VG-004.md` + `docs/current-status.md` VG-004 entry.
+- **Scope:** Six render-only refinements on `ArgumentTimelineMap`'s `NodeDot`: node-level active-path glow, selected-node halo, evidence "receipt" inner mark, branch-stub glyph refinement, tone tint on active-path nodes only, density-aware inter-node spacing (`resolveNodeGapPx`). New pure model `timelineNodeVisualModel.ts`. `GLOW` + `RECEIPT_MARK` token blocks added to `designTokens.ts` (reuse existing hex — no new color). No `react-native-svg`, no new dependency. Operator Q1 answered option (b): default board density loosened 28→44px (`{ compact: 28, normal: 44, expanded: 64 }`).
+- **Acceptance:** Glow / halo are strength-independent (never read standing / heat / score). Tone tint reads tone/temperature only, active-path nodes only, alpha ≤ 0.18. Every state has a non-color signal + plain-English `accessibilityFragment` with no verdict / amplification copy. Reduce-motion drops the soft shadow, keeps the 2px stroke + halo + tint + receipt mark.
+- **Tests:** density resolution · glow / halo / receipt / tone-tint derivation · doctrine strength-independence · `accessibilityFragment` ban-list · `buildBranchCollapseStubLabelParts` · token assertions · source-scan invariants · density-preserves-active-node.
+
 ---
 
 ## Epic 3 — Branches, Tangents, and Kinks
