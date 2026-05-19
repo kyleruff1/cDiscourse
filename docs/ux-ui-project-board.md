@@ -336,10 +336,11 @@ Master plan: [`docs/deployment/google-cloud-run-hosting-plan.md`](deployment/goo
 
 ## Epic 11 — Conversation Gallery and Project Board Entry
 
-### GAL-001 — Upgrade gallery sections into play lanes
-- **Priority:** P1 — **Effort:** M — **Release:** 6.6
-- **Sections:** Jump in now · Needs first rebuttal · Source trail fights · Evidence needed · Definition fights · Logic traps · Tangents/branches · Almost synthesis · Quiet beginner rooms · My active rooms.
-- **Acceptance:** Deterministic grouping. Filter by action. Duplicate generated rooms remain collapsed. Heat framed as activity.
+### GAL-001 — Upgrade gallery sections into play lanes ✅ (Wave 4)
+- **Priority:** P1 — **Effort:** M — **Release:** 6.6 — **Status:** Implemented
+- **Sections (rendered order):** My active rooms · Needs first rebuttal · Jump in now · Source trail fights · Evidence needed · Definition fights · Logic traps · Tangents and branches · Almost synthesis · Quiet beginner rooms.
+- **Acceptance met:** Deterministic 14-row priority chain in `classifyCardToSection` (joined > no-rebuttal > 4 lifecycle priorities > 5 bucket priorities > overheated-heat fallback > SW-002 entryOpportunity tie-breakers > quiet_beginner_rooms fallback). Single-select lane chip row replaces the Stage 6.3 bucket chip row. Duplicate generated rooms remain collapsed via the existing dedupe model. Heat framed as activity / friction (`jump_in` helper: "Active back-and-forth — a fresh move lands cleanly.").
+- **Behaviour change:** Stage 6.4's `hot_unresolved` lane is retired; cards split between `jump_in` (hot_now / overheated) and `logic_traps` (unresolved_deep_chain). `easy_first_move` renamed to `quiet_beginner_rooms`. See `docs/current-status.md` § GAL-001.
 
 ### GAL-002 — Entry cards with first suggested move
 - **Priority:** P1 — **Effort:** M — **Release:** 6.6 — **Wave:** 4
