@@ -17,6 +17,13 @@
  */
 
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
+// VG-004 — density-aware inter-node spacing. `timelineNodeVisualModel`
+// only imports *types* from this file (erased at compile time), so this
+// is a one-directional runtime dependency, not a runtime import cycle.
+import {
+  resolveNodeGapPx,
+  type TimelineDensityMode,
+} from './timelineNodeVisualModel';
 
 // ── Public types ───────────────────────────────────────────────
 
@@ -665,7 +672,18 @@ export interface ArgumentTimelineMapModel {
 // ── Layout constants (exported so UI can match) ────────────────
 
 export const TIMELINE_NODE_SIZE = 44; // matches a11y min touch target
-export const TIMELINE_NODE_GAP = 28;
+/**
+ * Default inter-node horizontal gap in px.
+ *
+ * VG-004 (operator Q1, option b): the board's default density was
+ * deliberately loosened from the historical 28 to 44. This constant is
+ * the `'normal'` density value and is kept consistent with
+ * `resolveNodeGapPx(undefined) === 44`. `buildArgumentTimelineMap` no
+ * longer reads this constant directly — it calls `resolveNodeGapPx`
+ * with the optional `density` input — but the export is preserved for
+ * any consumer that wants the default spacing value.
+ */
+export const TIMELINE_NODE_GAP = 44;
 export const TIMELINE_LANE_HEIGHT = 56;
 export const TIMELINE_RAIL_Y = 120; // center rail vertical position
 export const TIMELINE_MAX_LANES = 6; // root + 3 above + 3 below by depth
@@ -925,6 +943,11 @@ export interface BuildTimelineMapInput {
   height?: number;
   /** Optional bot-id classification. */
   isAdmin?: boolean;
+  /**
+   * VG-004 — Optional density preset for inter-node spacing. When
+   * omitted, `resolveNodeGapPx` resolves to `'normal'` (44px).
+   */
+  density?: TimelineDensityMode;
 }
 
 // ── Band detection (deterministic) ─────────────────────────────
@@ -1203,7 +1226,11 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
   }
 
   // First pass: layout + node creation.
-  const xStep = TIMELINE_NODE_SIZE + TIMELINE_NODE_GAP;
+  // VG-004 — density-aware horizontal step. `resolveNodeGapPx(undefined)`
+  // returns the `'normal'` default (44px). Changing `density` reflows
+  // every node's `x` but never changes node ids or ordinal order, so
+  // the active node (identified by id) is preserved.
+  const xStep = TIMELINE_NODE_SIZE + resolveNodeGapPx(input.density);
   const nodes: ArgumentTimelineMapNode[] = [];
   const nodeById = new Map<string, ArgumentTimelineMapNode>();
   const laneById = new Map<string, number>();
