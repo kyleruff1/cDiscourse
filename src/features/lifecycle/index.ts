@@ -31,21 +31,11 @@ export {
   _forbiddenLifecycleTokens,
 } from './pointLifecycleModel';
 
-// Internal helpers (re-exported for unit tests + advanced consumers).
-export {
-  groupNodesByCluster,
-  findSameAxisAncestor,
-  buildSideTurnSequence,
-  deriveAxis,
-  nodeHasQualifierCode,
-} from './pointLifecycleClusters';
-
-export {
-  countSameAxisPressure,
-  hasAdditiveAxisInformation,
-  turnsSinceSideEngagedCluster,
-  countOffAxisPressure,
-} from './pointLifecycleAdvisoryInputs';
+// `pointLifecycleClusters.ts` and `pointLifecycleAdvisoryInputs.ts` are
+// internal helpers (per LIFE-001 design §"API / interface contracts").
+// They are consumed only by sibling modules inside this folder via direct
+// `./pointLifecycleClusters` / `./pointLifecycleAdvisoryInputs` imports and
+// are intentionally NOT part of the public barrel surface.
 
 // GAME-001 — sibling exhaustion / timeout advisory deriver.
 export type {
