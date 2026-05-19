@@ -1,6 +1,19 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-19 (Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6; COPY-001 audit + optional ban-list hardening landed in Release 6.6)_
+_Last updated: 2026-05-19 (Release 6.6 — RULE-003 Lifecycle-to-UX doctrine map landed on top of COPY-001; Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6; COPY-001 audit + optional ban-list hardening landed in Release 6.6)_
+
+## RULE-003 — Lifecycle-to-UX doctrine map (Release 6.6 / Wave 3)
+
+**Status:** Pure-TS constants + readers + 31 tests landed. Render-ready map for SC-003 / ST-002 / GAL-002 / IX-002 consumers; no UI surface bound yet.
+
+- **Why this card exists:** Single source of truth that maps every LIFE-001 point-lifecycle state (19), every META-001 manual tag (10), and every META-001 auto-derived metadata code (16) to a `{ label, helperLine, iconHint, allowedDockActions[] }` UX triple. The `label` field is READ through `getPointLifecyclePlainLabel` / `getManualTagPlainLabel` / `getAutoMetadataPlainLabel` at module-load time — never freshly authored — so a future rename in `PLAIN_LANGUAGE_COPY` cannot silently drift this surface. Consumers (SC-003 cluster headers, ST-002 suggested-move chips, GAL-002 gallery cards, IX-002 keyboard hint surface) read one map and stay doctrine-clean by construction. Issue #65.
+- **Deliverables (all in this card):**
+  - `src/features/rulesUx/lifecycleUxMap.ts` — 3 frozen `Record<Union, Entry>` maps (19 + 10 + 16 = 45 entries), 24-value `IconHint` semantic vocabulary (verdict glyphs excluded), `DockAction` type alias re-using SC-004's `TimelineNodeActionDockActionCode`, and three total-lookup readers (`getLifecycleUx` / `getManualTagUx` / `getAutoMetadataUx`).
+  - `__tests__/lifecycleUxMap.test.ts` — 31 tests covering coverage, label parity (anti-drift), ban-list scans against `_forbiddenLifecycleTokens()` + `_forbiddenMetadataTokens()` with word-boundary matching for the longer helper-line surface, snake_case + internal-code scans, person-attribution scan, heat/popularity/engagement scan, ≤ 80-char length cap, icon-hint validity + no-verdict-glyph check, action-vocabulary subset check + `expand_branch` / `mark_moved_on` / `mark_ignored` exclusion, reader reference-equality, cross-map label reuse for the truly shared `quote_requested` + `source_requested` codes, and `Object.isFrozen` invariants.
+- **Doctrine encoded:** No verdict tokens in any label or helperLine. No person-attribution in any helperLine (side labels "Affirmative" / "Negative" are OK; "the author" / "you" / "they" are not). No truth / popularity / heat language. `allowedDockActions[]` is advisory only — SC-004's actor matrix (own-bubble / observer / etc.) still applies on top. `expand_branch` / `mark_moved_on` / `mark_ignored` intentionally never recommended.
+- **No xAI, Anthropic, or X API calls; no Supabase writes; no service-role; no migration; no Edge Function change; no new dependency; no `.env*` touched; no hosting file touched.**
+- **+31 tests / +1 suite** (3363 → 3394 tests passing-baseline-delta; 122 → 123 suites). The 5 pre-existing xAI / AI-bot corpus suites that fail in the baseline are unrelated to this card and remain operator-gated. Typecheck + lint clean. `skills:validate` clean.
+- **No operator follow-up** — pure local change. No deploy step.
 
 ## COPY-001 — Plain-language label review pass + ban-list gap hardening (Release 6.6 / Wave 1 follow-up)
 
