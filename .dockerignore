@@ -1,0 +1,82 @@
+# HOST-001 — Files NEVER copied into the Cloud Run image.
+#
+# Doctrine notes embedded here:
+#   - .env* files are NEVER in the image. Cloud Run injects runtime config via
+#     --set-secrets= bindings at container start.
+#   - Service-account JSON keys never exist in this repo. The path exclusion
+#     below is a belt-and-suspenders guard against accidental drops.
+#   - Test fixtures, docs, agent worktrees, logs, generated artifacts: none of
+#     these belong in the runtime image.
+
+# Build context never includes the image build's own scratch space.
+node_modules
+npm-debug.log
+.npm
+
+# Git + agent metadata
+.git
+.gitignore
+.gitattributes
+.github
+.claude
+.scratch
+AGENTS.md
+CLAUDE.md
+
+# All env files — Cloud Run + Secret Manager owns runtime config.
+.env
+.env.*
+!.env.example
+!.env.bot-tests.example
+!.env.engagement-intelligence.example
+
+# Expo / metro caches (we rebuild dist/ in the image).
+.expo
+.metro-health-check*
+dist
+web-build
+
+# Tests + fixtures never run inside the runtime image.
+__tests__
+fixtures
+coverage
+
+# Docs are not served from Cloud Run.
+docs
+
+# Test + diagnostic logs.
+logs
+artifacts
+data/engagement-intelligence
+
+# Native build outputs (not used by web).
+ios
+android
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Editor + OS noise.
+.DS_Store
+*.orig.*
+.vscode
+.idea
+.cursor
+
+# Defence in depth: refuse to ship any GCP service-account key file that
+# accidentally lands on disk during local dev. ADC + Workload Identity only.
+gcp-key*.json
+service-account*.json
+*-credentials.json
+*-svc-account*.json
+
+# TypeScript incremental compile artifacts.
+*.tsbuildinfo
+
+# Supabase local state (migrations are applied by `supabase db push --linked`,
+# not from inside the image).
+supabase/.temp
+supabase/.branches
