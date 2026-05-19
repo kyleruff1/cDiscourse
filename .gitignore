@@ -80,3 +80,4 @@ scripts/admin/bootstrap-admin.sql
 # generated native folders
 /ios
 /android
+.scratch/
