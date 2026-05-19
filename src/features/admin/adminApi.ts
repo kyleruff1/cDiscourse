@@ -7,6 +7,8 @@
  */
 import { adminUsers } from '../../lib/edgeFunctions';
 import type { AdminUsersResult } from '../../lib/edgeFunctions';
+import { buildAuthRedirectUrl } from '../../lib/auth/buildAuthRedirectUrl';
+import { resolveRuntimeOrigin, getIsDev } from '../../lib/auth/resolveRuntimeOrigin';
 import type {
   AdminUserSummary,
   AdminUserDetail,
@@ -86,7 +88,24 @@ export async function adminSendPasswordReset(input: {
   email?: string;
   redirectTo?: string;
 }): Promise<AdminUsersResult<{ sent: true }>> {
-  return adminUsers({ action: 'send_password_reset', ...input });
+  // QOL-023: when the caller passes no explicit redirectTo, derive one from
+  // buildAuthRedirectUrl so the admin-triggered reset email points at the
+  // deployed origin's /auth/reset route instead of the dashboard Site URL.
+  // A bad origin degrades to `undefined` — the Edge Function then falls back
+  // to the dashboard Site URL. The function signature is unchanged.
+  let redirectTo = input.redirectTo;
+  if (!redirectTo) {
+    try {
+      redirectTo = buildAuthRedirectUrl({
+        kind: 'password_reset',
+        runtimeOrigin: resolveRuntimeOrigin(),
+        isDev: getIsDev(),
+      });
+    } catch {
+      redirectTo = undefined;
+    }
+  }
+  return adminUsers({ action: 'send_password_reset', ...input, redirectTo });
 }
 
 export async function adminSetTemporaryPassword(input: {

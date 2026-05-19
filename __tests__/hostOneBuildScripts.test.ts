@@ -160,11 +160,15 @@ describe('inject-runtime-env — shell wrappers + Node entrypoint', () => {
   });
 
   it('the runtime-env.js shim contents bind both EXPO_PUBLIC_ keys with JSON-encoded values', () => {
-    // Source-scan the entrypoint to confirm the shim builder emits both keys
-    // via JSON.stringify (so injection-prone characters cannot escape the
-    // string context).
+    // Source-scan the entrypoint to confirm the shim builder emits both
+    // required keys and JSON-encodes the payload (so injection-prone
+    // characters cannot escape the string context).
+    // QOL-023: the builder now assembles an `env` object — including the
+    // optional EXPO_PUBLIC_APP_ORIGIN key only when present — and then calls
+    // JSON.stringify(env). Both required keys still appear in that object.
     const src = readFile('scripts/build/inject-runtime-env.mjs');
-    expect(src).toMatch(/JSON\.stringify\(\{[\s\S]*?EXPO_PUBLIC_SUPABASE_URL[\s\S]*?EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+    expect(src).toMatch(/EXPO_PUBLIC_SUPABASE_URL[\s\S]*?EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+    expect(src).toMatch(/JSON\.stringify\(env\)/);
     expect(src).toMatch(/window\.__CDISCOURSE_RUNTIME_ENV__\s*=\s*Object\.freeze/);
   });
 });

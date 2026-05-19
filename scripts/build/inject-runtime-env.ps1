@@ -13,6 +13,7 @@
 param(
   [string] $Url,
   [string] $PublishableKey,
+  [string] $AppOrigin,
   [string] $DistDir = 'dist',
   [switch] $DryRun
 )
@@ -30,6 +31,9 @@ if ($PSBoundParameters.ContainsKey('Url') -and -not [string]::IsNullOrEmpty($Url
 }
 if ($PSBoundParameters.ContainsKey('PublishableKey') -and -not [string]::IsNullOrEmpty($PublishableKey)) {
   $nodeArgs += "--publishable-key=$PublishableKey"
+}
+if ($PSBoundParameters.ContainsKey('AppOrigin') -and -not [string]::IsNullOrEmpty($AppOrigin)) {
+  $nodeArgs += "--app-origin=$AppOrigin"
 }
 
 Push-Location $RepoRoot

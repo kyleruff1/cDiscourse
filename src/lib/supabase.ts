@@ -17,6 +17,8 @@ import { createClient } from '@supabase/supabase-js';
 interface CDiscourseRuntimeEnv {
   EXPO_PUBLIC_SUPABASE_URL?: string;
   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?: string;
+  /** QOL-023 — public deployed origin, e.g. https://dev.cdiscourse.com. */
+  EXPO_PUBLIC_APP_ORIGIN?: string;
 }
 
 /**
@@ -39,7 +41,13 @@ export function readRuntimeEnv(): CDiscourseRuntimeEnv {
     typeof obj.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY === 'string'
       ? obj.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
       : undefined;
-  return { EXPO_PUBLIC_SUPABASE_URL: url, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key };
+  const appOrigin =
+    typeof obj.EXPO_PUBLIC_APP_ORIGIN === 'string' ? obj.EXPO_PUBLIC_APP_ORIGIN : undefined;
+  return {
+    EXPO_PUBLIC_SUPABASE_URL: url,
+    EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: key,
+    EXPO_PUBLIC_APP_ORIGIN: appOrigin,
+  };
 }
 
 const runtimeEnv = readRuntimeEnv();
