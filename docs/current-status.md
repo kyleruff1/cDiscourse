@@ -1,6 +1,58 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-19 (Release 6.8 hosting prep — HOST-001 implementation complete, awaiting operator deploy; COMPOSER-001 merged in Release 6.6)_
+_Last updated: 2026-05-19 (Release 6.8 hosting prep — HOST-001 + HOST-005 implementation complete, awaiting operator deploy; COMPOSER-001 merged in Release 6.6)_
+
+## HOST-005 — Secret Manager migration + Cloud Run secret binding (Release 6.8 / hosting prep)
+
+**Status:** Implementation complete on `feat/HOST-005-secret-manager-migration-and-cloud-run-s`. **No GCP mutation has been executed by the agent.** Operator runs every `gcloud secrets create` / `versions add` / `add-iam-policy-binding` command themselves per the new runbook.
+
+**Headline:** Two-secret manifest + JSON Schema + two operator helper scripts (`print-secret-commands` and `preflight-secrets`) + 9-step runbook + a HOST-001 runbook step-13 patch. **+106 new tests across 3 new files. Typecheck + lint clean.**
+
+**Files (high level):**
+
+- `infra/secrets/cdiscourse-dev-manifest.json` — names-only manifest. Two entries: `cdiscourse-dev-supabase-url` -> `EXPO_PUBLIC_SUPABASE_URL`; `cdiscourse-dev-supabase-publishable-key` -> `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Cross-checks against `infra/cloud-run/cdiscourse-dev.template.yaml` `secretKeyRef.name` entries and against `infra/iam/cdiscourse-dev-runner.iam.yaml` resource-scoped bindings — a test fails if either drifts.
+- `infra/secrets/manifest.schema.json` — draft-07 JSON Schema. Enforces `^EXPO_PUBLIC_[A-Z0-9_]+$` on every `cloudRunEnvVar` and `^cdiscourse-(dev|prod)-[a-z0-9-]+$` on every `name`. Schema permits prod manifests but HOST-005 ships only the dev one.
+- `scripts/deploy/print-secret-commands.{mjs,ps1,sh}` — emits operator-runnable `gcloud secrets create` / `versions add --data-file=-` / `add-iam-policy-binding` shapes from the manifest. **Never accepts a value as input, never reads `.env*`, never runs `gcloud`.** Refuses forbidden names (service-role / Anthropic / xAI / X bearer / Resend / `*-api-key` / `*-secret-key`) with exit 3 and value-shaped literals (JWT, `sk-ant-`, `xai-`, `sb_secret_`, `sb_publishable_`, Bearer prefix, `.supabase.co` URL) with exit 4. Stdout only.
+- `scripts/deploy/preflight-secrets.{mjs,ps1,sh}` — verifies every manifest secret exists with state=ENABLED + has the runtime SA's `secretAccessor` binding. **Only invokes `gcloud --version`, `gcloud config get-value project`, `gcloud secrets describe`, `gcloud secrets versions list`, `gcloud secrets get-iam-policy`.** **NEVER calls `gcloud secrets versions access`.** Source-scan test enforces this absence. `--strict-project` flag (default off for humans, on for HOST-004) refuses if `gcloud config get-value project` mismatches `manifest.project`.
+- `docs/deployment/host-005-secrets-runbook.md` — 9 numbered operator-runnable steps (authenticate, project + region, enable API, generate command list, create each secret, add the first version via stdin + clear history/clipboard, bind runtime SA, run preflight, hand off back to HOST-001 Phase 4). Every section carries an explicit "Agent does NOT run" marker; rollback guidance per step.
+- `__tests__/fixtures/host-005-gcloud-stub.mjs` — gcloud stub that the preflight test suite spawns via `--gcloud-bin=<path>` (test-only injection; preflight detects `.mjs`/`.js` suffix and invokes via `process.execPath`). Driven by `HOST_005_STUB_PROJECT` / `_MISSING` / `_NO_ENABLED` / `_NO_IAM` / `_VERSION_EXIT` env vars.
+- **HOST-001 patch:** `docs/deployment/host-001-operator-runbook.md` Phase 3 step 13 — body updated to link to `host-005-secrets-runbook.md` + both helper scripts. The previous `printf %s "<VALUE>" | gcloud ...` shape is replaced with the `--data-file=-` stdin path so the value is never argv-literal.
+
+**Locked decisions held (subset of HOST-001's D1-D11):**
+
+- D1 project `cdiscourse-host`, D2 region `us-central1`.
+- D8 operator runs every `gcloud secrets create` / `gcloud secrets versions add` themselves; agent never executes any `gcloud` command (helpers print or verify, never apply).
+- D10 reuse existing dev Supabase project; manifest names target the existing project. Two secrets at v0.
+- D11 `.env*` history audit skipped; §7.5 rotation criteria are the going-forward policy. The runbook restates §7.5 verbatim under "Rotation procedure (§7.5 reminder)".
+
+**Cross-card contract:**
+
+- HOST-004 (deploy scripts) will read `infra/secrets/cdiscourse-dev-manifest.json` to assemble `--set-secrets=EXPO_PUBLIC_SUPABASE_URL=cdiscourse-dev-supabase-url:latest,EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=cdiscourse-dev-supabase-publishable-key:latest`. HOST-004 must run `node scripts/deploy/preflight-secrets.mjs --manifest=infra/secrets/cdiscourse-dev-manifest.json --strict-project` before every `gcloud run deploy ...`.
+- HOST-008 (prod) inherits the manifest shape under `cdiscourse-prod-manifest.json`. The schema already permits `environment: "prod"` and `name` pattern `cdiscourse-prod-*`. Helpers are environment-agnostic — they read whatever manifest is passed via `--manifest=`.
+
+**Doctrine self-check (re-walked):**
+
+1. Score is gameplay analysis, never truth — no scoring copy added. PASS.
+2. Heat != truth — no heat copy. PASS.
+3. Popularity is not evidence — no engagement copy. PASS.
+4. AI moderator hard limits — no AI surface touched. PASS.
+5. Rules engine sacred — `src/lib/constitution/*` unchanged. PASS.
+6. Secrets policy — entire card enforces it: helpers reject forbidden names + value-shape literals; manifest never references service-role / Anthropic / xAI / X / Resend; agent never reads a value; helpers never call `gcloud secrets versions access`. PASS.
+7. No AI calls from production app — no AI surface. PASS.
+8. Supabase conventions — no migration, no RLS change, no Edge Function change. PASS.
+9. Plain language for users — no user-facing string. PASS.
+10. v1 scope guards — no voting, no collaborative editing, no OAuth, no public API, no push, no search. PASS.
+
+**Operator action items (when ready to deploy):**
+
+1. Re-read `docs/deployment/host-005-secrets-runbook.md`.
+2. Run steps 1-9 in order. Each step is operator-runnable; no agent involvement.
+3. Confirm `node scripts/deploy/preflight-secrets.mjs --manifest=infra/secrets/cdiscourse-dev-manifest.json --strict-project` exits 0.
+4. Return to HOST-001 Phase 4 step 19 (`gcloud run services replace ...`). The container will now boot successfully because both secrets exist and are bound.
+
+No `npx supabase db push --linked`, no `npx supabase functions deploy ...`, no DNS mutation. Pure ops plumbing.
+
+---
 
 ## HOST-001 — Dev hosting architecture (Google Cloud Run + `dev.cdiscourse.com`) (Release 6.8 / hosting prep)
 
