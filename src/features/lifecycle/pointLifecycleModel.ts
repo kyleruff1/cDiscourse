@@ -708,27 +708,30 @@ function clusterHasOpenSourceOrQuoteRequest(
   let openRequestAxis: PointLifecycleAxis | null = null;
   let openRequestOrdinal = -1;
   let openRequestParentId: string | null = null;
+  let openRequestAskerId: string | null = null;
   let foundOpen = false;
   for (const m of sortedMembers) {
     if (isAskSource(m) || isAskQuote(m)) {
       openRequestAxis = deriveAxis(m) || (isAskSource(m) ? 'source' : 'quote');
       openRequestOrdinal = m.ordinal;
       openRequestParentId = m.parentId;
+      openRequestAskerId = m.messageId;
       foundOpen = true;
       continue;
     }
     if (foundOpen) {
       const status = artifactStatusByMessageId.get(m.messageId) ?? null;
       if (isSourcedMove(m, status)) {
-        // Closing match: parent is the asked-about node OR axis matches.
         const sameParent = openRequestParentId !== null && m.parentId === openRequestParentId;
+        const repliesToAsker = openRequestAskerId !== null && m.parentId === openRequestAskerId;
         const memberAxis = deriveAxis(m);
         const sameAxis = openRequestAxis !== null && memberAxis === openRequestAxis;
-        if (sameParent || sameAxis) {
+        if (sameParent || repliesToAsker || sameAxis) {
           foundOpen = false;
           openRequestAxis = null;
           openRequestOrdinal = -1;
           openRequestParentId = null;
+          openRequestAskerId = null;
         }
       }
     }
@@ -744,7 +747,10 @@ function lastSourceOrQuoteRequestState(
   // tie-break per design (more specific).
   let latest: { state: 'source_requested' | 'quote_requested'; ordinal: number } | null = null;
   // We need to re-scan with state tracking: a request is open if no later
-  // sourced same-axis-or-parent move closes it.
+  // sourced move closes it. A close happens when:
+  //   (a) the sourced move shares the asker's parent (same target), OR
+  //   (b) the sourced move replies to the asker itself, OR
+  //   (c) the sourced move shares the same axis as the request.
   for (let i = 0; i < sortedMembers.length; i++) {
     const m = sortedMembers[i];
     const isS = isAskSource(m);
@@ -752,15 +758,19 @@ function lastSourceOrQuoteRequestState(
     if (!isS && !isQ) continue;
     const reqAxis = deriveAxis(m) || (isS ? 'source' : 'quote');
     const reqParent = m.parentId;
+    const reqId = m.messageId;
     let closed = false;
     for (let j = i + 1; j < sortedMembers.length; j++) {
       const after = sortedMembers[j];
       const status = artifactStatusByMessageId.get(after.messageId) ?? null;
       if (!isSourcedMove(after, status)) continue;
       const sameParent = reqParent !== null && after.parentId === reqParent;
+      const repliesToAsker = after.parentId === reqId;
       const afterAxis = deriveAxis(after);
       const sameAxis = afterAxis === reqAxis;
-      if (sameParent || sameAxis) {
+      // Source-axis ask closed by any sourced evidence move under the
+      // same parent or replying to the asker.
+      if (sameParent || repliesToAsker || sameAxis) {
         closed = true;
         break;
       }
@@ -834,9 +844,30 @@ function composeClusterState(
     return 'confirmed';
   }
 
-  // Rule 5 — Open request dominance.
+  // Rule 5 — Open request dominance, modulated by advisory pass (ignored_*).
+  // Per design, advisories ARE the more specific signal once enough turns
+  // pass with the request unanswered. We check the ignored_* advisories
+  // first; if any fires, it wins; otherwise the bare open-request state
+  // applies.
   const openReqState = lastSourceOrQuoteRequestState(sortedMembers, artifactStatusByMessageId);
-  if (openReqState) return openReqState;
+  if (openReqState) {
+    if (hasOpenSourceOrQuoteRequest) {
+      const ignoredBoth = isIgnoredByBoth(
+        sortedMembers,
+        sideTurnSequence,
+        advisoryConfig.ignoredByBothTurnThreshold,
+      );
+      if (ignoredBoth) return 'ignored_by_both';
+      const ignoredSide = isIgnoredBySide(
+        sortedMembers,
+        sideTurnSequence,
+        advisoryConfig.ignoredBySideTurnThreshold,
+      );
+      if (ignoredSide === 'affirmative') return 'ignored_by_affirmative';
+      if (ignoredSide === 'negative') return 'ignored_by_negative';
+    }
+    return openReqState;
+  }
 
   // Rule 6 — Sourced dominance (no open request).
   if (lastContribution === 'sourced') return 'sourced';
