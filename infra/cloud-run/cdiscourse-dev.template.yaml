@@ -1,0 +1,106 @@
+# HOST-001 — Cloud Run service template for `cdiscourse-dev`.
+#
+# This is a TEMPLATE. The operator (not the agent) substitutes:
+#   <COMMIT_SHA_7>   short git hash, e.g. 904143e
+#   <REVISION_SUFFIX> human-readable revision tag, e.g. dev-20260519-120000
+#
+# Apply with:
+#   gcloud run services replace infra/cloud-run/cdiscourse-dev.template.yaml \
+#     --region=us-central1 --project=cdiscourse-host
+#
+# Locked decisions:
+#   - Project:        cdiscourse-host
+#   - Region:         us-central1
+#   - Service:        cdiscourse-dev
+#   - Ingress:        all (IAP fronts this; --no-allow-unauthenticated gates)
+#   - SA:             cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+#   - Image registry: us-central1-docker.pkg.dev/cdiscourse-host/cdiscourse-web
+#
+# Forbidden in this file:
+#   - SUPABASE_SERVICE_ROLE_KEY        NEVER bind to Cloud Run.
+#   - ANTHROPIC_API_KEY                NEVER bind to Cloud Run.
+#   - XAI_API_KEY / X_BEARER_TOKEN     NEVER bind to Cloud Run.
+#   - RESEND_API_KEY                   NEVER bind to Cloud Run for v0.
+#
+# Only EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY are bound.
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: cdiscourse-dev
+  namespace: cdiscourse-host
+  annotations:
+    # Direct domain mapping path (D6) — no HTTPS LB.
+    run.googleapis.com/ingress: all
+    run.googleapis.com/launch-stage: GA
+    run.googleapis.com/description: |
+      CDiscourse dev environment. IAP gates external access. Public ingress is
+      blocked by IAM (--no-allow-unauthenticated); IAP forwards authenticated
+      requests via the runtime service-account identity.
+  labels:
+    env: dev
+    card: host-001
+    commit: <COMMIT_SHA_7>
+spec:
+  template:
+    metadata:
+      name: cdiscourse-dev-<REVISION_SUFFIX>
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "4"
+        run.googleapis.com/startup-cpu-boost: "true"
+      labels:
+        env: dev
+        card: host-001
+        commit: <COMMIT_SHA_7>
+    spec:
+      serviceAccountName: cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+      timeoutSeconds: 60
+      containerConcurrency: 80
+      containers:
+        - name: cdiscourse-web
+          image: us-central1-docker.pkg.dev/cdiscourse-host/cdiscourse-web/cdiscourse-web:dev-<COMMIT_SHA_7>
+          ports:
+            - name: http1
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          env:
+            - name: NODE_ENV
+              value: production
+            # Build-time identity (already baked into the bundle) is here only
+            # so the dev banner can read EXPO_PUBLIC_COMMIT_HASH at request
+            # time as a defence in depth (if a future change moves the banner
+            # away from baked-in vars). These are NOT secrets.
+            - name: EXPO_PUBLIC_DEPLOY_ENV
+              value: dev
+            - name: EXPO_PUBLIC_APP_URL
+              value: https://dev.cdiscourse.com
+            # Runtime secrets — bound from Secret Manager. HOST-005 creates
+            # these secrets; only the two below are ever bound to Cloud Run.
+            - name: EXPO_PUBLIC_SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cdiscourse-dev-supabase-url
+                  key: latest
+            - name: EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cdiscourse-dev-supabase-publishable-key
+                  key: latest
+          startupProbe:
+            # TCP probe because the vendored `serve` static server has no
+            # dedicated health endpoint. HOST-003a (deferred) adds a /healthz
+            # smoke item once the entrypoint can answer it.
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 30
+  traffic:
+    - percent: 100
+      latestRevision: true

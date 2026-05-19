@@ -1,0 +1,99 @@
+# HOST-001 — IAM policy template for the deployer service account.
+#
+# Operator impersonates this SA via:
+#   gcloud config set auth/impersonate_service_account cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com
+#
+# Doctrine encoded:
+#   - NO roles/owner, roles/editor on this SA.
+#   - roles/iam.serviceAccountUser is RESOURCE-scoped to cdiscourse-dev-runner,
+#     NOT project-wide. (Allows --service-account=cdiscourse-dev-runner@... on
+#     deploys; does NOT permit acting as any other SA.)
+#   - artifactregistry.writer is RESOURCE-scoped to the cdiscourse-web repo.
+#   - NO service-account key download. ADC + Workload Identity only.
+#   - roles/serviceAccountTokenCreator on this SA is held by the OPERATOR
+#     personal account, never by another SA.
+
+serviceAccount:
+  email: cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com
+  displayName: CDiscourse deployer (Cloud Run + Artifact Registry)
+  description: |
+    Used by operator-run deploy scripts. Impersonated via ADC; no key download.
+
+projectBindings:
+  - role: roles/run.admin
+    member: serviceAccount:cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com
+  - role: roles/logging.viewer
+    member: serviceAccount:cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com
+
+resourceBindings:
+  # Resource-scoped: deployer can act AS the runtime SA on deploys, but only
+  # this specific SA.
+  - resource:
+      type: iam.googleapis.com/ServiceAccount
+      name: cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com
+    role: roles/iam.serviceAccountUser
+    member: serviceAccount:cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com
+  # Artifact Registry writer — push container images to the cdiscourse-web repo.
+  - resource:
+      type: artifactregistry.googleapis.com/Repository
+      location: us-central1
+      name: cdiscourse-web
+    role: roles/artifactregistry.writer
+    member: serviceAccount:cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com
+
+forbiddenRoles:
+  - roles/owner
+  - roles/editor
+  - roles/iam.securityAdmin
+  - roles/iam.serviceAccountAdmin
+  - roles/iam.serviceAccountKeyAdmin
+  - roles/secretmanager.admin
+  - roles/secretmanager.secretAccessor
+  - roles/secretmanager.secretVersionAdder
+  - roles/artifactregistry.admin
+  - roles/artifactregistry.repoAdmin
+
+# Operator impersonation grant. <OPERATOR_EMAIL> is the operator's personal
+# Google account (e.g. kyleruff@gmail.com). NEVER fill this in from the agent.
+operatorImpersonationGrant:
+  resource:
+    type: iam.googleapis.com/ServiceAccount
+    name: cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com
+  role: roles/iam.serviceAccountTokenCreator
+  member: user:<OPERATOR_EMAIL>
+
+# Operator-runnable commands (agent never runs these):
+#
+# gcloud iam service-accounts create cdiscourse-deployer \
+#   --display-name="CDiscourse deployer (Cloud Run + Artifact Registry)" \
+#   --description="Used by operator-run deploy scripts. Impersonated via ADC; no key download." \
+#   --project=cdiscourse-host
+#
+# gcloud projects add-iam-policy-binding cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/run.admin"
+#
+# gcloud projects add-iam-policy-binding cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/logging.viewer"
+#
+# # Resource-scoped — deployer can pass --service-account=cdiscourse-dev-runner@... on deploys.
+# gcloud iam service-accounts add-iam-policy-binding \
+#   cdiscourse-dev-runner@cdiscourse-host.iam.gserviceaccount.com \
+#   --project=cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/iam.serviceAccountUser"
+#
+# # Resource-scoped — applied AFTER the Artifact Registry repo exists.
+# gcloud artifacts repositories add-iam-policy-binding cdiscourse-web \
+#   --location=us-central1 \
+#   --project=cdiscourse-host \
+#   --member="serviceAccount:cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com" \
+#   --role="roles/artifactregistry.writer"
+#
+# # Operator-impersonation grant (operator runs this themselves, substituting their email):
+# gcloud iam service-accounts add-iam-policy-binding \
+#   cdiscourse-deployer@cdiscourse-host.iam.gserviceaccount.com \
+#   --project=cdiscourse-host \
+#   --member="user:<OPERATOR_EMAIL>" \
+#   --role="roles/iam.serviceAccountTokenCreator"
