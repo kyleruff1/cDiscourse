@@ -293,20 +293,42 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 
 ## Epic 10 — Hosting cdiscourse.com/dev
 
-### HOST-001 — Dev hosting architecture
-- **Priority:** P0 (if public testing imminent) — **Effort:** M/L — **Release:** 6.8
-- **Decision:** `/dev` path is riskier than `dev.cdiscourse.com` for an Expo web app (asset paths + router paths + SPA fallback must respect subpath). **Spike required before commit.**
-- **Options:** A) `dev.cdiscourse.com` (recommended fallback) · B) `cdiscourse.com/dev` via reverse proxy rewrite.
-- **Scope:** Web dev build profile · base path config · hosting provider · DNS · SPA fallback · safe public env only · deploy checklist.
-- **Acceptance:** App loads at chosen URL. Nested-route refresh works. Static assets resolve. Supabase public URL/key from safe env. No service-role / API keys. No console 404s.
+Master plan: [`docs/deployment/google-cloud-run-hosting-plan.md`](deployment/google-cloud-run-hosting-plan.md). Companion Vertex AI note (separate from app hosting): [`docs/deployment/claude-code-vertex-ai-note.md`](deployment/claude-code-vertex-ai-note.md).
 
-### HOST-002 — Dev environment banner
+### HOST-001 — Dev hosting architecture (Google Cloud Run)
+- **Priority:** P0 — **Effort:** L — **Release:** 6.8
+- **Target:** Google Cloud Run service `cdiscourse-dev` reachable at `https://dev.cdiscourse.com` (recommended) or `https://sandbox.cdiscourse.com` (fallback). Cloud Run domain mapping maps a domain to `/`, **not** a path prefix — `cdiscourse.com/dev` is not pursued.
+- **Scope:** First Cloud Run revision · Artifact Registry repo · runtime service account (`cdiscourse-dev-runner`) · ingress = authenticated invoker by default · Supabase URL + publishable key read from Secret Manager at runtime · no `.env*` in deployed bundle · existing dev banner (HOST-002) + smoke checklist (HOST-003) pass against new URL.
+- **Acceptance:** Cloud Run service deployed (gated, never world-readable in v0). Secret Manager secrets bound via `--set-secrets=`. Smoke checklist passes. No production deploy. No DNS records on apex / www.
+
+### HOST-002 — Dev environment banner ✅ shipped
 - **Priority:** P0 — **Effort:** S/M — **Release:** 6.8
 - **Scope:** "CDiscourse Dev" banner · commit hash/build version · "Test data may be reset" notice · "Report issue" link · bot/test rooms clearly labeled.
 
-### HOST-003 — Deployment smoke checklist
+### HOST-003 — Deployment smoke checklist ✅ shipped
 - **Priority:** P0 — **Effort:** S — **Release:** 6.8
 - **Checks:** signup/login · gallery loads · duplicate-gen rooms collapsed · open room → Timeline · observer rail collapsed · explicit join · post a move · Timeline ↔ Cards · evidence popover · preferences popout · default avatar · no console 404s · no service-role · no raw validation codes.
+- **Pending amendment** (proposed in hosting plan §12): add H1 (TLS healthy via `curl -I`) and H2 (Cloud Run revision matches expected SHA) for the Cloud Run path.
+
+### HOST-004 — Google Cloud Run dev deploy scripts + Artifact Registry
+- **Priority:** P0 — **Effort:** M — **Release:** 6.8
+- **Scope:** `scripts/deploy/gcloud-preflight.*` (gcloud installed, project set, git clean, branch expected) · `scripts/deploy/deploy-cloud-run-dev.*` (build → push → `gcloud run deploy`, dry-run default, never echoes secrets) · `scripts/deploy/README.md`. No production deploy. Refuse to grant `roles/run.invoker` to `allUsers` without explicit `--allow-public` flag.
+
+### HOST-005 — Secret Manager migration + Cloud Run binding
+- **Priority:** P0 — **Effort:** S — **Release:** 6.8
+- **Scope:** Operator-run secret creation + version-add commands (documented, never agent-run). `scripts/deploy/secrets-template.md` listing required secret names. Cloud Run binds Supabase URL + publishable key via `--set-secrets=`. Service-role / Anthropic / xAI keys do **not** appear in Cloud Run bindings — they stay in Supabase Function secrets.
+
+### HOST-006 — DNS strategy for dev.cdiscourse.com
+- **Priority:** P0 — **Effort:** S — **Release:** 6.8
+- **Scope:** Documented decision (Option A keep GoDaddy as authority, Option B migrate to Cloud DNS). Operator-run GoDaddy DNS record set required by chosen Cloud Run mapping or HTTPS LB path. `docs/deployment/dns-runbook.md` with both options + rollback. No DNS records on apex / www.
+
+### HOST-007 — Dev access control
+- **Priority:** P0 — **Effort:** M — **Release:** 6.8
+- **Scope:** Either Option A (`--no-allow-unauthenticated` + IAP + IAM `roles/run.invoker` grants per tester) or Option B (HTTPS LB + serverless NEG + Cloud Armor IP allowlist with operator-captured CIDR). Plan recommends A. Anonymous browser requests return 401 / 403; allowlisted requests return the app.
+
+### HOST-008 — Production promotion pipeline (stub + design)
+- **Priority:** P1 — **Effort:** L — **Release:** 6.8
+- **Scope:** `scripts/deploy/promote-cloud-run-prod.*` stub that refuses without `--i-understand-this-is-production` flag. Design doc covering separate Supabase project for prod, separate service account `cdiscourse-prod-runner`, separate Secret Manager namespace (`cdiscourse-prod-*`), prod DNS cutover plan. **No production deploy in this card.**
 
 ---
 

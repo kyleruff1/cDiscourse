@@ -1,6 +1,22 @@
 # CDiscourse — Current Status
 
-_Last updated: 2026-05-19 (Release 6.6 — COMPOSER-001 dock → composer prefill wiring complete)_
+_Last updated: 2026-05-19 (Release 6.8 hosting prep — Google Cloud Run plan landed; COMPOSER-001 merged in Release 6.6)_
+
+## HOST — Google Cloud Run hosting plan for cdiscourse.com (Release 6.8 / hosting prep)
+
+**Status:** Plan written, no deploy executed.
+
+- New doc [`docs/deployment/google-cloud-run-hosting-plan.md`](deployment/google-cloud-run-hosting-plan.md) is the master architecture plan for moving CDiscourse onto a real public dev / sandbox environment on Google Cloud Run, using the existing `cdiscourse.com` domain (GoDaddy) and the existing Supabase backend. 18 sections covering goal, current app assumptions, environment topology (local / dev / prod), recommended GCP architecture (Cloud Run + Artifact Registry + Secret Manager + service accounts), domain strategy (`dev.cdiscourse.com` recommended over `cdiscourse.com/dev` because Cloud Run domain mapping maps a domain to `/`, not a path), DNS strategy (Option A keep GoDaddy / Option B migrate to Cloud DNS — recommendation A for v0), secret migration (inventory names only, history-leak audit, `gcloud secrets versions add --data-file=-` from stdin, never agent-run), Supabase integration (no schema change, redirect URLs + site URL config only), dev access control (Option A IAM + IAP / Option B Cloud Armor IP allowlist via HTTPS LB + serverless NEG — recommendation A), deploy script plan (`scripts/deploy/gcloud-preflight.*` / `deploy-cloud-run-dev.*` / `promote-cloud-run-prod.*` stub; all dry-run default, refuse on dirty git, never echo secret values), manual operator steps, smoke plan (existing HOST-003 checklist + 2 new hosting checks H1 TLS / H2 revision-match), rollback (one `gcloud run services update-traffic` command), cost watchpoints, risks/decisions table, do-not-implement-in-this-card boundary, proposed issue changes, and next implementation sequence.
+- Companion doc [`docs/deployment/claude-code-vertex-ai-note.md`](deployment/claude-code-vertex-ai-note.md) keeps the Claude Code Vertex AI routing setup explicitly separate from app hosting — Vertex AI is the operator's local model-routing convenience, **not** part of `cdiscourse.com` infrastructure.
+- HOST-001 (#27) is refreshed to point at the plan doc; HOST-002 (#28) and HOST-003 (#29) remain closed (banner + smoke checklist already shipped). Plan proposes splitting hosting work into HOST-001 (architecture design + first Cloud Run revision) plus new cards HOST-004 (deploy scripts + Artifact Registry), HOST-005 (Secret Manager migration + Cloud Run binding), HOST-006 (DNS strategy + GoDaddy record set), HOST-007 (dev access control — IAM+IAP or Cloud Armor), HOST-008 (prod promotion pipeline stub). Each card has a distinct manual-operator gate and rollback surface.
+- Hard rules held in writing:
+  1. **No `.env*` value is ever read or printed by the agent.** Operator runs §7.1 inventory locally and shares only key names.
+  2. **No service-role key, Anthropic key, xAI key, or X Bearer in Cloud Run env or Secret Manager.** Service-role stays in Supabase Function secrets; bot-fixture keys stay operator-gated and out of Cloud Run.
+  3. **No DNS mutation, no Supabase migration, no Supabase Function deploy, no production deploy** in this card.
+  4. **Cloud Run dev defaults to gated access** (`--no-allow-unauthenticated` or Cloud Armor deny-default) — never world-readable in v0.
+  5. **Scripts default to dry-run**, refuse on dirty git, refuse on non-`main` branch unless overridden, never echo secret values, never grant `roles/run.invoker` to `allUsers` without explicit `--allow-public` double-confirmation.
+- Operator decisions needed before HOST-001 implementation starts (R1–R12 in the plan): subdomain choice (`dev` vs `sandbox`), GCP project ID, region (`us-central1` default), direct domain mapping vs HTTPS LB, dev access option (IAP vs IP allowlist), DNS authority (stay on GoDaddy), whether to use the existing dev Supabase project or create a separate one, when to begin production cutover. All defaults documented; operator can override.
+- No code change in the app itself. No new dependency. No migration. No Edge Function deploy. No Anthropic / xAI / X / Supabase write by the agent in this card.
 
 ## COMPOSER-001 — Wire SC-004 narrow/confirm/synthesize preset bodies into composer prefill (Release 6.6 / Wave 2)
 
