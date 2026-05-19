@@ -11,7 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { DEFAULT_VIEW_MODE } from '../src/features/arguments/viewModeCopy';
 import {
-  deriveConversationEntryHint,
+  deriveGalleryEntryHint,
   type ConversationGalleryCard,
 } from '../src/features/debates/conversationGalleryModel';
 
@@ -50,7 +50,8 @@ describe('TL-001 App.tsx wires DEFAULT_VIEW_MODE', () => {
 // ── Gallery-driven entry hints (the four issue scenarios) ────────
 
 /**
- * `deriveConversationEntryHint` only reads `bucket` + `hasNoRebuttal`.
+ * `deriveGalleryEntryHint` reads `bucket` + `hasNoRebuttal` + `moveCount` +
+ * `openStatus` + optional `rootClusterLifecycleState` + `entryOpportunity`.
  * We cast through `unknown` to keep this test focused on the contract
  * without recreating the full card shape on every call.
  */
@@ -60,20 +61,22 @@ function card(partial: { bucket?: ConversationGalleryCard['bucket']; hasNoRebutt
     hasNoRebuttal: partial.hasNoRebuttal ?? true,
     hasUserJoined: partial.hasUserJoined ?? false,
     mySide: partial.mySide ?? null,
+    moveCount: 1,
+    openStatus: 'open',
   } as unknown as ConversationGalleryCard;
 }
 
 describe('TL-001 entry-hint contract under Timeline default', () => {
   it('non-participant opening a needs-first-rebuttal room activates root with "Be the first rebuttal"', () => {
-    const hint = deriveConversationEntryHint(
+    const hint = deriveGalleryEntryHint(
       card({ bucket: 'needs_rebuttal', hasNoRebuttal: true, hasUserJoined: false }),
     );
     expect(hint.activate).toBe('root');
-    expect(hint.microMomentLabel).toMatch(/be the first rebuttal/i);
+    expect(hint.verbPhrase).toMatch(/be the first rebuttal/i);
   });
 
   it('existing participant returning to one of their rooms activates latest, not root', () => {
-    const hint = deriveConversationEntryHint(
+    const hint = deriveGalleryEntryHint(
       card({
         bucket: 'my_rooms',
         hasNoRebuttal: false,
@@ -85,18 +88,18 @@ describe('TL-001 entry-hint contract under Timeline default', () => {
   });
 
   it('a brand-new debate (just the root) activates root, no matter the bucket', () => {
-    const hint = deriveConversationEntryHint(
+    const hint = deriveGalleryEntryHint(
       card({ bucket: 'all_open', hasNoRebuttal: true }),
     );
     // `hasNoRebuttal` short-circuits to root regardless of bucket.
     expect(hint.activate).toBe('root');
-    expect(hint.microMomentLabel).toMatch(/be the first rebuttal/i);
+    expect(hint.verbPhrase).toMatch(/be the first rebuttal/i);
   });
 
   it('no JoinDebatePanel modal is in the gallery onSelect path (Stage 6.4 contract)', () => {
     const appTsx = fs.readFileSync(path.join(process.cwd(), 'App.tsx'), 'utf8');
     // The gallery `onSelect` should take (debate, side, hint) — the side is
-    // chosen by `deriveConversationEntryHint` / explicit rail Join, never
+    // chosen by `deriveGalleryEntryHint` / explicit rail Join, never
     // through a modal popped on entry.
     expect(appTsx).toMatch(/onSelect=\{\(debate,\s*side,\s*hint\)/);
     // Confirm no `JoinDebatePanel` is mounted along the gallery onSelect chain
@@ -104,7 +107,7 @@ describe('TL-001 entry-hint contract under Timeline default', () => {
     expect(appTsx).not.toMatch(/onSelect=\{[^}]*JoinDebatePanel/);
   });
 
-  it('entry-hint microMomentLabels contain no internal codes or verdict tokens', () => {
+  it('entry-hint strings contain no internal codes or verdict tokens', () => {
     const forbidden = /\b(winner|loser|truth|liar|dishonest|extremist|propagandist|topic_satisfaction|evidence_debt|max_depth)\b/i;
     const snake = /[a-z]_[a-z]/;
     const buckets = [
@@ -121,11 +124,13 @@ describe('TL-001 entry-hint contract under Timeline default', () => {
       'all_open',
     ] as const;
     for (const b of buckets) {
-      const hint = deriveConversationEntryHint(
+      const hint = deriveGalleryEntryHint(
         card({ bucket: b, hasNoRebuttal: b === 'needs_rebuttal' }),
       );
-      expect(hint.microMomentLabel).not.toMatch(forbidden);
-      expect(hint.microMomentLabel).not.toMatch(snake);
+      expect(hint.verbPhrase).not.toMatch(forbidden);
+      expect(hint.verbPhrase).not.toMatch(snake);
+      expect(hint.helperLine).not.toMatch(forbidden);
+      expect(hint.helperLine).not.toMatch(snake);
     }
   });
 });
