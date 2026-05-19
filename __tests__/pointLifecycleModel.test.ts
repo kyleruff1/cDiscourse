@@ -1421,6 +1421,119 @@ describe('LIFE-001 edge cases', () => {
     });
     expect(map.byCluster.get('r')!.state).toBe('archived_or_resolved');
   });
+
+  // LIFE-1C — named fixtures that trace 1:1 to docs/designs/LIFE-001.md §"Edge cases".
+  // These cases are covered indirectly by other tests above; the named blocks below
+  // add the traceability pointer ("design edge case N - ...") so future readers can
+  // grep the design doc and find the exact test.
+
+  it('design edge case 5 - concurrent edits / new message arrives invalidates memoization (inputHash changes, rebuild is coherent)', () => {
+    // Design: "Memoization invalidates because `inputHash` changes
+    //          (the last message id changes). One O(n) rebuild — no cumulative growth in cost."
+    const root = fakeNode({ messageId: 'r', isRoot: true, branchRootMessageId: 'r' });
+    const reply1 = fakeNode({
+      messageId: 'a', parentId: 'r', ordinal: 2,
+      kindLabel: 'rebuttal',
+      droppedTags: [{ code: 'fact_challenge', label: 'F', color: '#000' }],
+      branchRootMessageId: 'r',
+    });
+    const before = buildPointLifecycleMap({
+      timelineMap: buildTimelineMap([root, reply1]),
+      artifactsByMessageId: new Map(),
+    });
+
+    // New message arrives mid-conversation — same first N inputs, plus one more.
+    const reply2 = fakeNode({
+      messageId: 'b', parentId: 'a', ordinal: 3,
+      kindLabel: 'counter-rebuttal',
+      droppedTags: [{ code: 'fact_challenge', label: 'F', color: '#000' }],
+      branchRootMessageId: 'r',
+    });
+    const after = buildPointLifecycleMap({
+      timelineMap: buildTimelineMap([root, reply1, reply2]),
+      artifactsByMessageId: new Map(),
+    });
+
+    // inputHash must differ when the last message id changes.
+    expect(after.inputHash).not.toBe(before.inputHash);
+    // Rebuild must be coherent: the new message is present in byMessage with a contribution.
+    expect(after.byMessage.has('b')).toBe(true);
+    expect(after.byMessage.get('b')!.messageContribution).toBeTruthy();
+    // Same cluster, but state reflects the new pressure move.
+    expect(after.byCluster.size).toBe(1);
+    expect(after.byCluster.get('r')!.state).toBe('rebutted');
+  });
+
+  it('design edge case 7 - observer mode: lifecycle derivation is identical for observers (no viewer parameter exists)', () => {
+    // Design: "Lifecycle derivation is identical for observers. No state changes
+    //          based on viewer identity; lifecycle describes the cluster, not the viewer."
+    // Anchor: buildPointLifecycleMap accepts only (timelineMap, artifactsByMessageId,
+    // flagCodesByMessageId?, advisoryConfig?) — no viewer parameter. Two identical inputs
+    // produce deep-equal output regardless of who is "looking at" them.
+    const root = fakeNode({ messageId: 'r', isRoot: true, branchRootMessageId: 'r' });
+    const reply = fakeNode({
+      messageId: 'a', parentId: 'r', ordinal: 2,
+      kindLabel: 'synthesis',
+      branchRootMessageId: 'r',
+    });
+    const input = {
+      timelineMap: buildTimelineMap([root, reply]),
+      artifactsByMessageId: new Map<string, EvidenceArtifact[]>(),
+    };
+    // Run the model twice with the same input — represents "participant viewer" and
+    // "observer viewer" both calling the pure model. Output must be deep-equal.
+    const asParticipant = buildPointLifecycleMap(input);
+    const asObserver = buildPointLifecycleMap(input);
+
+    expect(asObserver.inputHash).toBe(asParticipant.inputHash);
+    expect(asObserver.clusterOrder).toEqual(asParticipant.clusterOrder);
+    expect(asObserver.cumulativeStateSequence).toEqual(asParticipant.cumulativeStateSequence);
+    expect(Array.from(asObserver.byCluster.entries())).toEqual(
+      Array.from(asParticipant.byCluster.entries()),
+    );
+    expect(Array.from(asObserver.byMessage.entries())).toEqual(
+      Array.from(asParticipant.byMessage.entries()),
+    );
+  });
+
+  it('design edge case 8 - very deep trees (depth ≥ 50): same-axis ancestor walk classifies the chain without overflow', () => {
+    // Design: "Same-axis ancestor walk is O(depth). At depth 50 with 250 messages,
+    //          the worst case is 250 × 50 = 12,500 comparisons — < 1 ms in V8."
+    // Build a linear chain of 60 nodes (root + 59 same-axis replies). Depth ≥ 50.
+    const nodes: ArgumentTimelineMapNode[] = [];
+    const total = 60;
+    for (let i = 0; i < total; i++) {
+      const id = `n-${i}`;
+      const parentId = i === 0 ? null : `n-${i - 1}`;
+      nodes.push(fakeNode({
+        messageId: id,
+        parentId,
+        ordinal: i + 1,
+        isRoot: i === 0,
+        depth: i,
+        kindLabel: i === 0 ? 'claim' : (i % 2 ? 'rebuttal' : 'counter-rebuttal'),
+        droppedTags: i === 0
+          ? []
+          : [{ code: 'fact_challenge', label: 'F', color: '#000' }],
+        branchRootMessageId: 'n-0',
+        sideLabel: i % 2 ? 'Aff' : 'Neg',
+      }));
+    }
+    const map = buildPointLifecycleMap({
+      timelineMap: buildTimelineMap(nodes),
+      artifactsByMessageId: new Map(),
+    });
+
+    // Single cluster keyed by root, every non-deleted node classified.
+    expect(map.byCluster.size).toBe(1);
+    expect(map.byMessage.size).toBe(total);
+    for (let i = 0; i < total; i++) {
+      expect(map.byMessage.get(`n-${i}`)!.messageContribution).toBeTruthy();
+    }
+    // With ≥ 3 same-axis pressure moves and no new info, exhaustion fires.
+    // If exhaustion thresholds change, this still must not crash and must produce a defined state.
+    expect(map.byCluster.get('n-0')!.state).toBeTruthy();
+  });
 });
 
 // ── Custom advisory config (operator passes 0 / 999) ─
