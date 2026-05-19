@@ -21,13 +21,14 @@ import {
   BUCKET_DEFINITIONS,
   buildConversationGalleryCards,
   dedupeConversationCards,
-  deriveConversationEntryHint,
+  deriveGalleryEntryHint,
   paginateConversationGalleryCards,
   sortConversationGalleryCards,
   type ConversationBucket,
   type ConversationGalleryCard,
   type ConversationSortMode,
   type GalleryArgumentInput,
+  type GalleryEntryHint,
   type GalleryFlagInput,
   type GalleryTagInput,
 } from './conversationGalleryModel';
@@ -50,7 +51,7 @@ interface Props {
    * the right message and show a micro-moment label. Existing callers can
    * ignore it.
    */
-  onSelect: (debate: Debate, side: ParticipantSide, entryHint?: { activate: 'root' | 'latest' | 'first_open_challenge'; microMomentLabel: string }) => void;
+  onSelect: (debate: Debate, side: ParticipantSide, entryHint?: GalleryEntryHint) => void;
 }
 
 const SORT_OPTIONS: { id: ConversationSortMode; label: string }[] = [
@@ -286,7 +287,7 @@ export function ConversationGalleryScreen({
               // keep their actual side; everyone else enters as observer.
               // The in-room action rail is the ONLY join surface.
               const sideToUse: ParticipantSide = debate.myParticipantSide || 'observer';
-              const entryHint = deriveConversationEntryHint(card);
+              const entryHint = deriveGalleryEntryHint(card);
               onSelect(debate, sideToUse, entryHint);
             }}
           />
