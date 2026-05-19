@@ -26,6 +26,7 @@ import { writeAdminAudit, isWhitelistedAction } from '../_shared/adminAudit.ts';
 import { AdminUsersRequestSchema, normalizeBlockValue } from '../_shared/adminSchemas.ts';
 import type { AdminUsersRequest } from '../_shared/adminSchemas.ts';
 import type { createServiceClient } from '../_shared/supabaseClients.ts';
+import { buildInviteAuditPayload, buildInviteResponse } from '../_shared/adminInvitePayload.ts';
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
@@ -72,6 +73,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return await handleCreateBotUser(body, caller, serviceClient);
       case 'update_role':
         return await handleUpdateRole(body, caller, serviceClient);
+      case 'invite_user':
+        return await handleInviteUser(body, caller, serviceClient);
       case 'send_password_reset':
         return await handleSendPasswordReset(body, caller, serviceClient);
       case 'set_temporary_password':
@@ -336,6 +339,68 @@ async function handleUpdateRole(
   });
 
   return ok({ userId: body.userId, role: body.role });
+}
+
+async function handleInviteUser(
+  body: Req<'invite_user'>,
+  caller: Caller,
+  sc: SC,
+): Promise<Response> {
+  // inviteUserByEmail creates the auth.users row AND triggers the Supabase
+  // "Invite user" email template. We deliberately use this rather than the
+  // generate-invite-link admin API so the invite link/token never enters
+  // function memory or the response — the email body stays entirely in the
+  // Supabase template (the doctrine-required source of truth).
+  const { data: inviteRes, error: inviteErr } = await sc.auth.admin.inviteUserByEmail(
+    body.email,
+    {
+      data: body.displayName ? { display_name: body.displayName } : {},
+      // undefined => Supabase falls back to the dashboard Site URL.
+      redirectTo: body.redirectTo,
+    },
+  );
+
+  if (inviteErr || !inviteRes?.user) {
+    const msg = inviteErr?.message ?? 'unknown';
+    if (/smtp|email.*not.*config|email provider|sending.*disabled/i.test(msg)) {
+      // Plain-mappable: the invite mechanism itself needs operator setup.
+      // Distinct from a bad email address. The client maps this to operator-
+      // directed copy. ('send_failed' stays in the response union for
+      // forward-compat — current @supabase/supabase-js@2 treats invite
+      // failures atomically, so it is not emitted today.)
+      return validationFailed({
+        error: 'invite_email_not_configured',
+        invited: false,
+        notification: 'not_configured',
+      });
+    }
+    // Generic failure — never special-case "already exists" into a precise
+    // message (that would leak account-existence to the caller).
+    return validationFailed({ error: 'invite_user_failed', detail: msg });
+  }
+
+  const newId = inviteRes.user.id;
+
+  // Profile is auto-created by trigger; set role + displayName if provided.
+  // role is 'user' | 'moderator' only (schema-enforced) — never 'admin'.
+  await sc.from('profiles')
+    .update({ display_name: body.displayName ?? null, role: body.role })
+    .eq('id', newId);
+
+  await writeAdminAudit({
+    actorUserId: caller.userId,
+    targetUserId: newId,
+    targetAuthUserId: newId,
+    action: 'invite_user',
+    payload: buildInviteAuditPayload({
+      email: body.email,
+      role: body.role,
+      redirectToProvided: Boolean(body.redirectTo),
+    }),
+  });
+
+  // Response carries no userId, no email, no link, no token.
+  return ok(buildInviteResponse());
 }
 
 async function handleSendPasswordReset(

@@ -63,6 +63,17 @@ const UpdateRole = z.object({
   { message: 'confirmAdminGrant=true required to promote to admin', path: ['confirmAdminGrant'] },
 );
 
+const InviteUser = z.object({
+  action: z.literal('invite_user'),
+  email: z.string().email().max(320),
+  displayName: z.string().min(1).max(120).optional(),
+  // 'admin' is intentionally NOT allowed — an unauthenticated invite link must
+  // never be able to mint an admin. Admin promotion stays with update_role +
+  // confirmAdminGrant. See QOL-024 design § "Role restriction".
+  role: z.enum(['user', 'moderator']).default('user'),
+  redirectTo: z.string().url().max(500).optional(),
+});
+
 const SendPasswordReset = z.object({
   action: z.literal('send_password_reset'),
   userId: z.string().uuid().optional(),
@@ -136,6 +147,7 @@ export const AdminUsersRequestSchema = z.discriminatedUnion('action', [
   CreateUser,
   CreateBotUser,
   UpdateRole,
+  InviteUser,
   SendPasswordReset,
   SetTemporaryPassword,
   DisableUser,

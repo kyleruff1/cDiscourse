@@ -2,6 +2,26 @@
 
 _Last updated: 2026-05-19 (Release 6.6 — LIFE-1B trivial cleanup landed on top of GAME-001 exhaustion + timeout advisory deriver, RULE-002 / GAL-001 / GAL-002 / EV-004 / SW-002 / ST-002 / SC-003 / RULE-003; Release 6.8 hosting prep — HOST-SIMPLE-001 Netlify stopgap added; HOST-001 + HOST-005 implementation complete on Cloud Run path, awaiting operator deploy; HOST-006 + HOST-007 designs paused; COMPOSER-001 merged in Release 6.6; COPY-001 audit + optional ban-list hardening landed in Release 6.6)_
 
+## QOL-024 — Admin user invite/create workflow (Release 6.5 / admin tooling)
+
+**Status:** Complete (code-only — Edge Function deploy is an operator step). Issue #110.
+
+- **Why this card exists:** the admin Create-user form could only mint an already-confirmed user with a password — there was no path that emails a new human tester a self-serve first-sign-in link, forcing the operator to hand-issue credentials out-of-band.
+- **Deliverables (all in this card):**
+  - `supabase/functions/admin-users/index.ts` — new `handleInviteUser` handler + `case 'invite_user'` in the switch. Uses `inviteUserByEmail` (not generate-link) so the invite link/token never enters function memory or the response; the response is `{ ok, invited, notification }` only — no link, token, email, or userId.
+  - `supabase/functions/_shared/adminSchemas.ts` — new `InviteUser` zod object in the `AdminUsersRequestSchema` discriminated union. `role` is `z.enum(['user','moderator'])` — `'admin'` is rejected (an invite can never mint an admin).
+  - `supabase/functions/_shared/adminAudit.ts` — `'invite_user'` appended to `WHITELISTED_ACTIONS`.
+  - `supabase/functions/_shared/adminInvitePayload.ts` — new pure, Deno-import-free builders `buildInviteAuditPayload` / `buildInviteResponse`. The audit payload stores `emailDomain` (domain only, never the raw email) and `redirectToProvided` (boolean, never the URL).
+  - `src/lib/edgeFunctions.ts` — `'invite_user'` added to the client `AdminUsersAction` union.
+  - `src/features/admin/adminApi.ts` — new `adminInviteUser` wrapper. Derives the invite callback URL via `buildAuthRedirectUrl({ kind: 'invite' })` with the same fail-soft try/catch as `adminSendPasswordReset`; passes an explicit field list (no `...input` spread).
+  - `src/features/admin/adminHelpers.ts` — `adminErrorMessage` maps the `invite_email_not_configured` code to plain operator-directed copy; new pure UI helpers `isInvitingHuman` / `isModeToggleVisible` / `isPasswordFieldVisible` / `resolveCreateUserDispatch`.
+  - `src/features/admin/AdminCreateUserForm.tsx` — new Invite/Password mode toggle for the human branch (invite is the default); invite mode hides the password field and shows an "Invite sent." status line. The Human/Bot toggle and the entire Bot branch are untouched.
+  - 3 new test suites: `adminInviteUserClient.test.ts` (12), `adminInviteUserAuditShape.test.ts` (14), `AdminCreateUserForm.test.tsx` (22); `adminSchemas.test.ts` extended with the `InviteUser` mirror (+4).
+- **Doctrine encoded:** an invite can only create `user` / `moderator` — `admin` is a 422 at schema validation. No service-role in client code (the invite call runs on the service client built inside the Edge Function, after the admin check). No invite link / token / raw email / userId in the response or any log. Audit row stores `emailDomain` + `redirectToProvided` only. Plain-language copy — the user never sees `invite_user` / `invite_email_not_configured`. Fail-soft — a bad redirect origin degrades to no `redirectTo`, never blocks the invite.
+- **No migration:** verified `admin_audit_events.action` is a `text` column (not a Postgres enum), so the new audit action needed only a JS-array edit. No xAI / Anthropic / X API calls; no Supabase write by Claude; no real email sent; no new dependency.
+- **+52 tests / +3 suites.** Full suite passes **4211 tests / 144 suites** (4159 / 141 pre-card baseline + this card). Typecheck + lint clean. No existing tests required changes.
+- **Operator follow-up (post-merge):** the feature is effective only after the operator runs `npx supabase functions deploy admin-users --linked` and enables the Supabase "Invite user" email template + the `/auth/callback` redirect allow-list entry. See `docs/admin-email-validation-plan.md` § "QOL-024 — admin user invite-by-email runbook". No `db push`.
+
 ## QOL-023 — Supabase auth redirect helper (Release 6.5 / deployment hardening)
 
 **Status:** Complete. Auth emails sent by Supabase (signup confirmation, magic link, password reset, admin-triggered reset) now carry an `emailRedirectTo` / `redirectTo` pointing at the deployed origin instead of the dashboard `localhost` Site URL. Issue #109.

@@ -177,6 +177,47 @@ screen (the SPA fallback serves `index.html`). The token-exchange screens are
 a follow-up card; the redirect *target* being correct is what QOL-023
 delivers.
 
+### QOL-024 — admin user invite-by-email runbook
+
+The admin screen now offers an **Invite by email** path on the Create-user
+form. It calls a new `invite_user` action on the `admin-users` Edge Function,
+which uses Supabase's `inviteUserByEmail` admin API. The invite link / token
+is never returned to the client or logged — the email body comes entirely
+from the Supabase **"Invite user"** template.
+
+The feature is **code-only until the operator completes these steps**:
+
+- [ ] **Deploy the Edge Function:** `npx supabase functions deploy admin-users --linked`.
+      Until this runs, the deployed `admin-users` has no `invite_user` case and
+      the invite button returns an error (the UI degrades safely — shows the
+      error and stays open).
+- [ ] **No migration required.** Verified during QOL-024 build:
+      `admin_audit_events.action` is a `text` column (not a Postgres enum), so
+      adding the `invite_user` audit action needed only a JS-array edit. No
+      `npx supabase db push`.
+- [ ] **Enable the "Invite user" email template** — Supabase Dashboard →
+      Auth → Email Templates → Invite user.
+- [ ] **Confirm the invite redirect allow-list** — Auth → URL Configuration →
+      Additional Redirect URLs must include `https://dev.cdiscourse.com/auth/callback`
+      (the same `/auth/callback` route QOL-023's runbook already covers). The
+      invite link lands on `/auth/callback`.
+- [ ] **Operator-only smoke test:** send exactly one invite to the operator's
+      own inbox via the Admin screen. Confirm the email arrives, the link lands
+      on `dev.cdiscourse.com/auth/callback` (not `localhost`), and the invited
+      account can set a password and sign in.
+
+Doctrine notes for this path:
+
+- An invite can only create a `user` or `moderator` — `role: 'admin'` is
+  rejected at schema validation (a 422). Admin promotion stays with the
+  `update_role` action + its `confirmAdminGrant` gate. An unauthenticated
+  invite link must never be able to mint an admin.
+- The audit row stores `emailDomain` (the part after `@`) only — never the raw
+  address — and `redirectToProvided` as a boolean — never the URL.
+- A bad redirect origin fails soft: `adminInviteUser` degrades to no
+  `redirectTo` and Supabase falls back to the dashboard Site URL. A
+  redirect-config defect never blocks an invite.
+
 ---
 
 ## What Claude must never do here

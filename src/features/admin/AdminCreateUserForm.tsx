@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { adminCreateUser, adminCreateBotUser, adminErrorMessage } from './adminApi';
+import { adminCreateUser, adminCreateBotUser, adminInviteUser, adminErrorMessage } from './adminApi';
+import {
+  isInvitingHuman,
+  isModeToggleVisible,
+  isPasswordFieldVisible,
+  resolveCreateUserDispatch,
+} from './adminHelpers';
+import type { CreateUserMode } from './adminHelpers';
 
 interface Props {
   onCreated: () => void;
@@ -12,39 +19,57 @@ export function AdminCreateUserForm({ onCreated, onCancel }: Props) {
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [isBot, setIsBot] = useState(true);
+  const [mode, setMode] = useState<CreateUserMode>('invite');
   const [persona, setPersona] = useState('');
   const [label, setLabel] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  // The invite branch applies only to a human account; a bot always gets a
+  // password (auto-generated if blank), so invite is meaningless for a bot.
+  const invitingHuman = isInvitingHuman(isBot, mode);
+  const showModeToggle = isModeToggleVisible(isBot);
+  const showPassword = isPasswordFieldVisible(isBot, mode);
 
   const handleCreate = async () => {
     setError(null);
+    setStatus(null);
     if (!email.trim() || !email.includes('@')) {
       setError('Valid email required.');
       return;
     }
     setBusy(true);
-    const fn = isBot
-      ? () => adminCreateBotUser({
-          label: label.trim() || displayName.trim() || email.trim(),
-          email: email.trim(),
-          password: password || undefined,
-          persona: persona.trim() || undefined,
-          displayName: displayName.trim() || undefined,
-          enabled: true,
-        })
-      : () => adminCreateUser({
-          email: email.trim(),
-          password: password || undefined,
-          displayName: displayName.trim() || undefined,
-          role: 'user',
-          isBot: false,
-          emailConfirm: true,
-        });
+    const dispatch = resolveCreateUserDispatch(isBot, mode);
+    const fn =
+      dispatch === 'bot'
+        ? () => adminCreateBotUser({
+            label: label.trim() || displayName.trim() || email.trim(),
+            email: email.trim(),
+            password: password || undefined,
+            persona: persona.trim() || undefined,
+            displayName: displayName.trim() || undefined,
+            enabled: true,
+          })
+        : dispatch === 'invite'
+          ? () => adminInviteUser({
+              email: email.trim(),
+              displayName: displayName.trim() || undefined,
+              role: 'user',
+            })
+          : () => adminCreateUser({
+              email: email.trim(),
+              password: password || undefined,
+              displayName: displayName.trim() || undefined,
+              role: 'user',
+              isBot: false,
+              emailConfirm: true,
+            });
     const r = await fn();
     setBusy(false);
     if (r.ok) {
       setEmail(''); setDisplayName(''); setPassword(''); setPersona(''); setLabel('');
+      if (invitingHuman) setStatus('Invite sent.');
       onCreated();
     } else {
       setError(adminErrorMessage(r.error, r.status));
@@ -70,6 +95,24 @@ export function AdminCreateUserForm({ onCreated, onCancel }: Props) {
           <Text style={[styles.toggleText, isBot && styles.toggleTextActive]}>Bot / Test</Text>
         </Pressable>
       </View>
+      {showModeToggle && (
+        <View style={styles.toggleRow}>
+          <Pressable
+            style={[styles.toggle, mode === 'invite' && styles.toggleActive]}
+            onPress={() => setMode('invite')}
+            accessibilityLabel="invite-mode-toggle"
+          >
+            <Text style={[styles.toggleText, mode === 'invite' && styles.toggleTextActive]}>Invite by email</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.toggle, mode === 'password' && styles.toggleActive]}
+            onPress={() => setMode('password')}
+            accessibilityLabel="password-mode-toggle"
+          >
+            <Text style={[styles.toggleText, mode === 'password' && styles.toggleTextActive]}>Create with password</Text>
+          </Pressable>
+        </View>
+      )}
       <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" accessibilityLabel="new-user-email" />
       <TextInput style={styles.input} placeholder="Display name (optional)" value={displayName} onChangeText={setDisplayName} accessibilityLabel="new-user-display-name" />
       {isBot && (
@@ -78,21 +121,28 @@ export function AdminCreateUserForm({ onCreated, onCancel }: Props) {
           <TextInput style={styles.input} placeholder="Bot persona (optional)" value={persona} onChangeText={setPersona} accessibilityLabel="new-bot-persona" />
         </>
       )}
-      <TextInput
-        style={styles.input}
-        placeholder={isBot ? 'Password (optional — auto-generated if blank)' : 'Password (optional — recovery email if blank)'}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        accessibilityLabel="new-user-password"
-      />
+      {showPassword && (
+        <TextInput
+          style={styles.input}
+          placeholder={isBot ? 'Password (optional — auto-generated if blank)' : 'Password (optional — recovery email if blank)'}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          accessibilityLabel="new-user-password"
+        />
+      )}
       <Text style={styles.notice}>
-        Passwords are never logged. {isBot ? 'Bot accounts are test/dev only.' : 'Human accounts should use recovery email when possible.'}
+        {invitingHuman
+          ? 'An invite email will be sent. The new user sets their own password.'
+          : `Passwords are never logged. ${isBot ? 'Bot accounts are test/dev only.' : 'Human accounts should use recovery email when possible.'}`}
       </Text>
+      {status && <Text style={styles.status} accessibilityLabel="invite-status">{status}</Text>}
       {error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.actions}>
         <Pressable style={[styles.btn, styles.btnPrimary]} onPress={handleCreate} disabled={busy} accessibilityLabel="submit-create-user">
-          <Text style={styles.btnPrimaryText}>{busy ? 'Creating…' : 'Create'}</Text>
+          <Text style={styles.btnPrimaryText}>
+            {invitingHuman ? (busy ? 'Sending…' : 'Send invite') : (busy ? 'Creating…' : 'Create')}
+          </Text>
         </Pressable>
         <Pressable style={styles.btn} onPress={onCancel} accessibilityLabel="cancel-create-user">
           <Text style={styles.btnText}>Cancel</Text>
@@ -112,6 +162,7 @@ const styles = StyleSheet.create({
   toggleTextActive: { color: '#6366f1', fontWeight: '700' },
   input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, padding: 6, fontSize: 12, marginBottom: 6, backgroundColor: '#fff' },
   notice: { fontSize: 10, color: '#6b7280', marginBottom: 6, fontStyle: 'italic' },
+  status: { color: '#047857', fontSize: 12, marginBottom: 6, fontWeight: '600' },
   error: { color: '#dc2626', fontSize: 12, marginBottom: 6 },
   actions: { flexDirection: 'row', gap: 6 },
   btn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, backgroundColor: '#e5e7eb' },
