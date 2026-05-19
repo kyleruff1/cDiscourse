@@ -15,6 +15,8 @@ _Status: **PLAN + LOCKED DECISIONS** (operator confirmed 2026-05-19). No deploym
 > | D7 | Operator public IP / CIDR capture | **N/A** — not required because D4 / D6 use IAP, not IP allowlisting |
 > | D8 | Secret Manager migration execution | **Operator runs every `gcloud secrets create` / `gcloud secrets versions add --data-file=-`** when prompted by the agent. Agent never executes. Values piped from stdin; no command-line history. |
 > | D9 | Production cutover timing | **Get the dev site live first** so daily changes flow to an online dev environment instead of only `localhost`. Production cutover follows after dev stabilizes. |
+> | D10 | Dev Supabase project | **Reuse the existing dev Supabase project** for the hosted dev URL. If external testers later post test data we want to wipe, split into a separate Supabase project then. |
+> | D11 | `.env*` history audit (R9) | **Skipped — operator confirmation 2026-05-19** that keys lived only in gitignored local `.env*` files and were never committed, screenshotted, pasted into GitHub, or shipped off-laptop. Rotation criteria in §7.5 still apply going forward. |
 >
 > **Effect on this plan:**
 > - §9 Option B (Cloud Armor IP allowlist) is documented for completeness but **not the chosen path**. HOST-007 implements Option A (IAM + IAP) only.
@@ -582,9 +584,9 @@ Locked decisions D1–D9 are in the table at the top of this doc. Items below ar
 | R4 | Direct domain mapping vs HTTPS LB | **LOCKED — direct mapping** (consequence of D6 — IAP gate, no LB needed) | HTTPS LB stays in plan as fallback only |
 | R5 | Dev access control | **LOCKED — D6** | IAM + IAP. No Cloud Armor IP rules. |
 | R6 | DNS authority | **LOCKED — D5** | Keep GoDaddy for v0 |
-| R7 | Dev Supabase project: reuse existing or create new | **OPEN** | Default = reuse existing dev project. Operator can flip when external testers begin posting. |
+| R7 | Dev Supabase project: reuse existing or create new | **LOCKED — D10** | Reuse existing dev project. Split only if external testers' posts need wiping. |
 | R8 | Production cutover timing | **DEFERRED — D9** | Dev must stabilize first |
-| R9 | Existing `.env*` keys ever leaked | **OPEN** | Run §7.1 inventory + §7.2 history audit before any Secret Manager migration |
+| R9 | Existing `.env*` keys ever leaked | **LOCKED — D11** | Audit skipped per operator confirmation that keys never left local gitignored `.env*` files. §7.5 rotation criteria still apply. |
 | R10 | Cloud Run domain mappings are labelled **preview** by GCP and not recommended for production | Acceptable for **dev** | For prod, plan to use HTTPS LB + managed cert + serverless NEG; captured in HOST-008 design |
 | R11 | Cold start latency on Cloud Run min-instances 0 | **OPEN** | Acceptable for dev. Bump min-instances to 1 (~$10/mo) only if testers complain. |
 | R12 | Supabase rate limits during smoke runs | **OPEN** | Watch the Supabase dashboard during first dev smoke; raise the limit only if reached. |
