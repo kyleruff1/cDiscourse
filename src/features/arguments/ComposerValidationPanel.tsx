@@ -1,17 +1,80 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import type { EvaluationResult } from '../../domain/constitution/types';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import type { EvaluationResult, EvaluationFlagDetail } from '../../domain/constitution/types';
+import {
+  mapValidationActionOrSuppress,
+  shouldRenderValidationActionChip,
+  type ValidationActionUx,
+} from '../rulesUx/validationActionMap';
 
 interface Props {
   result: EvaluationResult;
   source: 'supabase' | 'local_fallback';
+  /**
+   * RULE-002 — Optional press handler for the suggested-move chip. When
+   * absent, the chip still renders (as informational) but is not
+   * Pressable; this preserves the panel's pure-display contract for
+   * tests / Storybook surfaces while letting the composer wire a
+   * one-click affordance when it owns the press path.
+   */
+  onSuggestedMove?: (action: ValidationActionUx) => void;
+}
+
+/**
+ * RULE-002 — Chip subcomponent. Renders next to (NOT in place of) the
+ * engine warning text. The warning text owns the message; the chip
+ * owns the affordance.
+ *
+ * Accessibility (accessibility-targets):
+ *   - `accessibilityRole="button"` when pressable, otherwise `"text"`.
+ *   - `accessibilityLabel` combines chipLabel + helperLine into a
+ *     single screen-reader utterance.
+ *   - `hitSlop` lifts the visible chip (~24px tall) to a ≥ 44×44
+ *     effective tap target.
+ */
+function ValidationActionChip({
+  action,
+  onPress,
+}: {
+  action: ValidationActionUx;
+  onPress?: (action: ValidationActionUx) => void;
+}) {
+  const isPressable = typeof onPress === 'function';
+  const a11yLabel = `${action.chipLabel}. ${action.helperLine}`;
+  return (
+    <Pressable
+      onPress={isPressable ? () => onPress!(action) : undefined}
+      accessibilityRole={isPressable ? 'button' : 'text'}
+      accessibilityLabel={a11yLabel}
+      accessibilityHint={isPressable ? 'Opens this move shape in the composer.' : undefined}
+      accessibilityState={{ disabled: !isPressable }}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={styles.actionChip}
+      testID={`validation-action-chip-${action.code}`}
+    >
+      <Text style={styles.actionChipText}>{action.chipLabel}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Derive the chip for a given engine warning. Returns null when the
+ * action either doesn't exist (unknown code) or has all-null routing
+ * fields (suppressed by design — e.g. invalid_transition needs the
+ * user to re-author, no chip is offered).
+ */
+function chipFor(detail: EvaluationFlagDetail): ValidationActionUx | null {
+  const action = mapValidationActionOrSuppress(detail.flagCode);
+  if (!action) return null;
+  if (!shouldRenderValidationActionChip(action)) return null;
+  return action;
 }
 
 function pct(score: number) {
   return `${(score * 100).toFixed(0)}%`;
 }
 
-export function ComposerValidationPanel({ result, source }: Props) {
+export function ComposerValidationPanel({ result, source, onSuggestedMove }: Props) {
   const { allowPost, blockingErrors, warnings, topicSatisfactionCheck } = result;
   const tsc = topicSatisfactionCheck;
 
@@ -46,24 +109,36 @@ export function ComposerValidationPanel({ result, source }: Props) {
       {blockingErrors.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitleError}>Structural issue — please resolve</Text>
-          {blockingErrors.map((e, i) => (
-            <View key={i} style={styles.errorRow}>
-              <Text style={styles.bullet}>✕</Text>
-              <Text style={styles.errorText}>{e.message}</Text>
-            </View>
-          ))}
+          {blockingErrors.map((e, i) => {
+            const chip = chipFor(e);
+            return (
+              <View key={i} style={styles.errorRow}>
+                <Text style={styles.bullet}>✕</Text>
+                <View style={styles.errorBody}>
+                  <Text style={styles.errorText}>{e.message}</Text>
+                  {chip ? <ValidationActionChip action={chip} onPress={onSuggestedMove} /> : null}
+                </View>
+              </View>
+            );
+          })}
         </View>
       )}
 
       {warnings.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitleWarn}>Advisory</Text>
-          {warnings.slice(0, 3).map((w, i) => (
-            <View key={i} style={styles.warningRow}>
-              <Text style={styles.bulletWarn}>·</Text>
-              <Text style={styles.warningText}>{w.message}</Text>
-            </View>
-          ))}
+          {warnings.slice(0, 3).map((w, i) => {
+            const chip = chipFor(w);
+            return (
+              <View key={i} style={styles.warningRow}>
+                <Text style={styles.bulletWarn}>·</Text>
+                <View style={styles.warningBody}>
+                  <Text style={styles.warningText}>{w.message}</Text>
+                  {chip ? <ValidationActionChip action={chip} onPress={onSuggestedMove} /> : null}
+                </View>
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -119,8 +194,22 @@ const styles = StyleSheet.create({
   warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 4 },
   bullet: { fontSize: 12, fontWeight: '700', color: '#b91c1c', width: 14 },
   bulletWarn: { fontSize: 12, fontWeight: '700', color: '#b45309', width: 14 },
-  errorText: { flex: 1, fontSize: 12, color: '#b91c1c', lineHeight: 16 },
-  warningText: { flex: 1, fontSize: 12, color: '#92400e', lineHeight: 16 },
+  errorBody: { flex: 1, gap: 4 },
+  warningBody: { flex: 1, gap: 4 },
+  errorText: { fontSize: 12, color: '#b91c1c', lineHeight: 16 },
+  warningText: { fontSize: 12, color: '#92400e', lineHeight: 16 },
+  // RULE-002 — suggested-move chip. Neutral surface; the chipLabel
+  // carries the meaning (color is not the only signal).
+  actionChip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#e5e7eb',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  actionChipText: { fontSize: 11, fontWeight: '700', color: '#374151' },
   topicSection: { paddingTop: 6, borderTopWidth: 1, borderTopColor: '#e5e7eb', marginTop: 4 },
   topicHeader: { fontSize: 11, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
   topicScoreRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
