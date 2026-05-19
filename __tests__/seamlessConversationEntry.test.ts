@@ -42,7 +42,8 @@ describe('toPlainLanguage', () => {
   it('maps runner pipeline codes to human prose', () => {
     expect(toPlainLanguage('validation_failed_after_retries')).toContain('clearer shape');
     expect(toPlainLanguage('max_depth_reached')).toContain('Deep unresolved');
-    expect(toPlainLanguage('synthesis_ready')).toContain('Near resolution');
+    // LIFE-001 updated this label from 'Near resolution' to 'Ready for synthesis'.
+    expect(toPlainLanguage('synthesis_ready')).toContain('Ready for synthesis');
     expect(toPlainLanguage('submit_failed')).toContain('Posting failed');
   });
 
