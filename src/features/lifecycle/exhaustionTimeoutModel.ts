@@ -21,8 +21,8 @@
  *     `LIFECYCLE_UX_MAP`. It NEVER authors a new plain-language string.
  *   - No heat / popularity / engagement input. The `ExhaustionTimeoutInput`
  *     shape has no `heatScore` / `recentActivityWeight` / `engagementVelocity`.
- *   - No AI inference. No `fetch`. No `@anthropic-ai/sdk`. No xAI client.
- *   - No `Date.now()`. No `Math.random()`. No module-level mutable state.
+ *   - No AI inference. No fetch. No Anthropic SDK import. No xAI client.
+ *   - No clock reads. No random reads. No module-level mutable state.
  *     The deriver is pure / total / deterministic.
  *   - No import from `src/lib/constitution/engine` — the sacred engine
  *     is untouched.
@@ -202,7 +202,7 @@ export interface ExhaustionTimeoutInput {
   /**
    * The room's chronological move count at the moment of evaluation.
    * Used to derive `clusterAgeInRoomTurns`. Caller passes the integer;
-   * no `Date.now` in the deriver.
+   * the deriver never reads the wall clock.
    */
   roomMoveCountAtEvaluation: number;
 
