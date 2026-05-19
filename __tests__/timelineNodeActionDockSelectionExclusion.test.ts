@@ -67,7 +67,10 @@ describe('SC-004 mutual exclusion — opening cards-detail dismisses the dock', 
   });
 
   it('handleActionDockAction never calls a router method', () => {
-    const match = GAME_SURFACE_SRC.match(/handleActionDockAction[\s\S]*?\}, \[handleAction\]\);/);
+    // COMPOSER-001 — useCallback deps may include `sorted` (needed for parent
+    // argumentType lookup when computing the composer preset). Accept either
+    // `[handleAction]` (pre-COMPOSER-001) or `[handleAction, sorted]`.
+    const match = GAME_SURFACE_SRC.match(/handleActionDockAction[\s\S]*?\}, \[handleAction(?:, sorted)?\]\);/);
     expect(match).not.toBeNull();
     if (match) {
       expect(match[0].includes('router.push')).toBe(false);
