@@ -58,8 +58,18 @@ describe('VG-003 token structure', () => {
     expect(Object.keys(ARGUMENT).sort()).toEqual(['branch', 'challenge', 'claim', 'clarify', 'concede', 'evidence']);
   });
 
-  it('TOKENS aggregate contains all seven categories (BRAND added in BRAND-001)', () => {
-    expect(Object.keys(TOKENS).sort()).toEqual(['argument', 'brand', 'radius', 'rail', 'spacing', 'status', 'surface']);
+  it('TOKENS aggregate contains all nine categories (glow / receiptMark added in VG-004)', () => {
+    expect(Object.keys(TOKENS).sort()).toEqual([
+      'argument',
+      'brand',
+      'glow',
+      'radius',
+      'rail',
+      'receiptMark',
+      'spacing',
+      'status',
+      'surface',
+    ]);
   });
 });
 
