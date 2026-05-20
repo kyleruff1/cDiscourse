@@ -6,7 +6,9 @@ import type {
   TopicSatisfactionCheck,
   ArgumentRelations,
   DisagreementAxis,
+  PersistedPointTag,
 } from './types';
+import type { ManualTagCode } from '../metadata/moveMetadataLedger';
 
 type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -22,6 +24,10 @@ interface RawArgument {
 }
 
 interface RawTag { argument_id: string; tag_code: string; created_at: string; }
+interface RawPointTag {
+  id: string; debate_id: string; argument_id: string; tag_code: string;
+  tagged_by: string; created_at: string; removed_at: string | null;
+}
 interface RawFlag {
   id: string; debate_id: string; argument_id: string; flag_code: string;
   rule_code: string | null; source: string; confidence: number | null;
@@ -52,6 +58,18 @@ function mapArgument(r: RawArgument): ArgumentRow {
 
 function mapTag(r: RawTag): ArgumentTag {
   return { argumentId: r.argument_id, tagCode: r.tag_code, createdAt: r.created_at };
+}
+
+function mapPointTag(r: RawPointTag): PersistedPointTag {
+  return {
+    id: r.id,
+    debateId: r.debate_id,
+    argumentId: r.argument_id,
+    tagCode: r.tag_code as ManualTagCode,
+    taggedBy: r.tagged_by,
+    createdAt: r.created_at,
+    removedAt: r.removed_at,
+  };
 }
 
 function mapFlag(r: RawFlag): ArgumentFlag {
@@ -201,10 +219,10 @@ export async function listChildArguments(
 export async function fetchArgumentRelations(
   argumentIds: string[],
 ): Promise<ApiResult<ArgumentRelations>> {
-  if (!SUPABASE_CONFIGURED) return { ok: true, data: { tags: [], flags: [], checks: [] } };
-  if (argumentIds.length === 0) return { ok: true, data: { tags: [], flags: [], checks: [] } };
+  if (!SUPABASE_CONFIGURED) return { ok: true, data: { tags: [], flags: [], checks: [], pointTags: [] } };
+  if (argumentIds.length === 0) return { ok: true, data: { tags: [], flags: [], checks: [], pointTags: [] } };
 
-  const [tagsRes, flagsRes, checksRes] = await Promise.all([
+  const [tagsRes, flagsRes, checksRes, pointTagsRes] = await Promise.all([
     supabase
       .from('argument_tags')
       .select('argument_id,tag_code,created_at')
@@ -218,6 +236,14 @@ export async function fetchArgumentRelations(
       .from('topic_satisfaction_checks')
       .select('id,debate_id,argument_id,method,score,threshold,status,matched_terms,missing_terms,created_at')
       .in('argument_id', argumentIds),
+    // META-1A — persisted manual tags. Active rows only (`removed_at is
+    // null`). This is a read-only SELECT — the documented exception to the
+    // "Edge Function is the only write path" rule.
+    supabase
+      .from('point_tags')
+      .select('id,debate_id,argument_id,tag_code,tagged_by,created_at,removed_at')
+      .in('argument_id', argumentIds)
+      .is('removed_at', null),
   ]);
 
   return {
@@ -226,6 +252,7 @@ export async function fetchArgumentRelations(
       tags: ((tagsRes.data ?? []) as RawTag[]).map(mapTag),
       flags: ((flagsRes.data ?? []) as RawFlag[]).map(mapFlag),
       checks: ((checksRes.data ?? []) as RawCheck[]).map(mapCheck),
+      pointTags: ((pointTagsRes.data ?? []) as RawPointTag[]).map(mapPointTag),
     },
   };
 }

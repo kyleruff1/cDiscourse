@@ -1,3 +1,7 @@
+import type { PersistedPointTag } from '../metadata/pointTagsApi';
+
+export type { PersistedPointTag };
+
 export type ArgumentType =
   | 'thesis'
   | 'claim'
@@ -71,6 +75,11 @@ export interface ArgumentRelations {
   tags: ArgumentTag[];
   flags: ArgumentFlag[];
   checks: TopicSatisfactionCheck[];
+  /**
+   * META-1A — Persisted manual-tag rows (`public.point_tags`), active only
+   * (`removed_at is null`). Empty when META-1A is not yet deployed.
+   */
+  pointTags: PersistedPointTag[];
 }
 
 export interface ArgumentCache {

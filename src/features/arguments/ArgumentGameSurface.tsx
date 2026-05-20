@@ -54,6 +54,14 @@ import { buildArtifactsByMessageId } from './argumentGameSurfaceEvidence';
 import { buildPointLifecycleMap } from '../lifecycle';
 import { buildMoveMetadataLedger } from '../metadata';
 import {
+  applyManualTag,
+  removeManualTag,
+  persistedTagsToManualTagEntries,
+  type ApplyManualTagResult,
+} from '../metadata/pointTagsApi';
+import type { ManualTagCode } from '../metadata';
+import type { PersistedPointTag } from './types';
+import {
   buildTimelineNodeActionDockModel,
   actionDockToComposerPreset,
   type TimelineNodeActionDockActionCode,
@@ -77,6 +85,12 @@ interface Props {
   flagsByArgumentId?: Record<string, ArgumentFlag[]>;
   /** Optional per-message tags from argument_tags. */
   tagsByArgumentId?: Record<string, ArgumentTag[]>;
+  /**
+   * META-1A — Optional per-message persisted manual-tag rows
+   * (`public.point_tags`, active only). When supplied the surface hydrates
+   * the metadata ledger with persisted tags instead of an empty map.
+   */
+  pointTagsByArgumentId?: Record<string, PersistedPointTag[]>;
   /** Optional latest-message-id hint from the full-room loader (used to snap active when new messages arrive). */
   latestMessageId?: string | null;
   /** Optional map of (messageId → boolean) for "I have an open deletion request on this". */
@@ -142,6 +156,7 @@ export function ArgumentGameSurface({
   initialMode,
   flagsByArgumentId,
   tagsByArgumentId,
+  pointTagsByArgumentId,
   latestMessageId: latestIdHint,
   deletionRequestedMap,
   categoryLabelById: _categoryLabelById,
@@ -271,16 +286,34 @@ export function ArgumentGameSurface({
     [timelineMap, artifactsByMessageIdMap],
   );
 
+  // META-1A — Convert persisted point_tags rows into the META-001
+  // ManualTagEntry map the metadata ledger consumes. Empty input (META-1A
+  // not deployed yet, or no tags applied) yields an empty map — identical
+  // behavior to the pre-META-1A placeholder.
+  const manualTagsByMessageId = useMemo(
+    () => {
+      const allRows: PersistedPointTag[] = [];
+      if (pointTagsByArgumentId) {
+        for (const key of Object.keys(pointTagsByArgumentId)) {
+          const rows = pointTagsByArgumentId[key];
+          if (rows) allRows.push(...rows);
+        }
+      }
+      return persistedTagsToManualTagEntries(allRows);
+    },
+    [pointTagsByArgumentId],
+  );
+
   // SC-004 — Build META-001 metadata ledger once per lifecycleMap change.
-  // v1: no persisted manual tags; passes an empty map.
+  // META-1A — hydrates persisted manual tags from `pointTagsByArgumentId`.
   const metadataLedger = useMemo(
     () => buildMoveMetadataLedger({
       timelineMap,
       lifecycleMap,
       artifactsByMessageId: artifactsByMessageIdMap,
-      manualTagsByMessageId: new Map(),
+      manualTagsByMessageId,
     }),
-    [timelineMap, lifecycleMap, artifactsByMessageIdMap],
+    [timelineMap, lifecycleMap, artifactsByMessageIdMap, manualTagsByMessageId],
   );
 
   const activeViewModel = useMemo(() => viewModels.find((v) => v.isActive) || null, [viewModels]);
@@ -452,6 +485,44 @@ export function ArgumentGameSurface({
     // Caller is responsible for re-fetching deletionRequestedMap; we just close.
     setDeletionTarget(null);
   }, []);
+
+  // META-1A — Persisted manual-tag write path. These route through the
+  // apply-manual-tag Edge Function (the single write path; never a direct
+  // client insert) and refresh the room on success so the persisted tag
+  // hydrates the metadata ledger. No tag-apply UI control is wired yet —
+  // SC-004 / TimelineNodeActionDock's tag affordance is a thin follow-up
+  // card (META-1A's acceptance criterion "UI reflects persisted state" is
+  // met by the read path above). These callbacks are exposed so that
+  // follow-up control can call them without re-plumbing the Edge Function.
+  const handleApplyManualTag = useCallback(async (
+    messageId: string,
+    tagCode: ManualTagCode,
+  ): Promise<ApplyManualTagResult> => {
+    const result = await applyManualTag({
+      debateId: debate.id,
+      argumentId: messageId,
+      tagCode,
+    });
+    if (result.ok) _onRefresh?.();
+    return result;
+  }, [debate.id, _onRefresh]);
+
+  const handleRemoveManualTag = useCallback(async (
+    messageId: string,
+    tagCode: ManualTagCode,
+  ): Promise<ApplyManualTagResult> => {
+    const result = await removeManualTag({
+      debateId: debate.id,
+      argumentId: messageId,
+      tagCode,
+    });
+    if (result.ok) _onRefresh?.();
+    return result;
+  }, [debate.id, _onRefresh]);
+  // Referenced here so the exposed write-path callbacks are retained until
+  // the follow-up tag-apply control is wired. (Read path is already live.)
+  void handleApplyManualTag;
+  void handleRemoveManualTag;
 
   const rootBody = debate.rootBody || (sorted.length > 0 ? sorted[0].body : null);
   const displayTitle = getDisplayTitle({ debateTitle: debate.title, rootBody });

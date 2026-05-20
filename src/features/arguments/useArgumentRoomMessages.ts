@@ -18,6 +18,7 @@ import type {
   ArgumentTag,
   ArgumentFlag,
   TopicSatisfactionCheck,
+  PersistedPointTag,
 } from './types';
 
 export interface ArgumentRoomMessagesResult {
@@ -29,6 +30,8 @@ export interface ArgumentRoomMessagesResult {
   flagsByArgumentId: Record<string, ArgumentFlag[]>;
   /** Per-message topic-satisfaction-check rows. */
   checksByArgumentId: Record<string, TopicSatisfactionCheck[]>;
+  /** META-1A — Per-message persisted manual-tag rows (active only). */
+  pointTagsByArgumentId: Record<string, PersistedPointTag[]>;
   /** Whether the initial load is still pending. */
   loading: boolean;
   /** Last fetch error, if any. */
@@ -56,6 +59,7 @@ export function useArgumentRoomMessages(
   const [tagsByArgumentId, setTags] = useState<Record<string, ArgumentTag[]>>({});
   const [flagsByArgumentId, setFlags] = useState<Record<string, ArgumentFlag[]>>({});
   const [checksByArgumentId, setChecks] = useState<Record<string, TopicSatisfactionCheck[]>>({});
+  const [pointTagsByArgumentId, setPointTags] = useState<Record<string, PersistedPointTag[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadedAt, setLoadedAt] = useState<string | null>(null);
@@ -97,6 +101,7 @@ export function useArgumentRoomMessages(
         const tagMap: Record<string, ArgumentTag[]> = {};
         const flagMap: Record<string, ArgumentFlag[]> = {};
         const checkMap: Record<string, TopicSatisfactionCheck[]> = {};
+        const pointTagMap: Record<string, PersistedPointTag[]> = {};
         if (rel.ok) {
           for (const t of rel.data.tags) {
             (tagMap[t.argumentId] = tagMap[t.argumentId] || []).push(t);
@@ -107,11 +112,15 @@ export function useArgumentRoomMessages(
           for (const c of rel.data.checks) {
             (checkMap[c.argumentId] = checkMap[c.argumentId] || []).push(c);
           }
+          for (const pt of rel.data.pointTags) {
+            (pointTagMap[pt.argumentId] = pointTagMap[pt.argumentId] || []).push(pt);
+          }
         }
         setMessages(rows);
         setTags(tagMap);
         setFlags(flagMap);
         setChecks(checkMap);
+        setPointTags(pointTagMap);
         setLoadedAt(new Date().toISOString());
         setInitialized(true);
         setLoading(false);
@@ -134,6 +143,7 @@ export function useArgumentRoomMessages(
     tagsByArgumentId,
     flagsByArgumentId,
     checksByArgumentId,
+    pointTagsByArgumentId,
     loading,
     error,
     latestId,

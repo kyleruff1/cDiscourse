@@ -57,7 +57,7 @@ function arg(
   };
 }
 
-const RELATIONS_EMPTY: ArgumentRelations = { tags: [], flags: [], checks: [] };
+const RELATIONS_EMPTY: ArgumentRelations = { tags: [], flags: [], checks: [], pointTags: [] };
 
 // ── 1. Cache insert and merge ─────────────────────────────────
 
@@ -202,6 +202,7 @@ describe('argumentCache — mergeRelations', () => {
       ],
       flags: [],
       checks: [],
+      pointTags: [],
     });
     expect(cache.tagsByArgumentId['a1']).toHaveLength(2);
     expect(cache.tagsByArgumentId['a2']).toHaveLength(1);
@@ -209,8 +210,8 @@ describe('argumentCache — mergeRelations', () => {
 
   test('duplicate tags (same argumentId + tagCode) are not duplicated', () => {
     const tag = { argumentId: 'a1', tagCode: 't1', createdAt: '' };
-    let cache = mergeRelations(EMPTY_CACHE, { tags: [tag], flags: [], checks: [] });
-    cache = mergeRelations(cache, { tags: [tag], flags: [], checks: [] });
+    let cache = mergeRelations(EMPTY_CACHE, { tags: [tag], flags: [], checks: [], pointTags: [] });
+    cache = mergeRelations(cache, { tags: [tag], flags: [], checks: [], pointTags: [] });
     expect(cache.tagsByArgumentId['a1']).toHaveLength(1);
   });
 
@@ -345,7 +346,7 @@ describe('composerHandoff — getArgumentRelationsForDisplay', () => {
 
   test('returns cached relations for a known argument', () => {
     const tag = { argumentId: 'a1', tagCode: 'claim', createdAt: '' };
-    const cache = mergeRelations(EMPTY_CACHE, { tags: [tag], flags: [], checks: [] });
+    const cache = mergeRelations(EMPTY_CACHE, { tags: [tag], flags: [], checks: [], pointTags: [] });
     const rel = getArgumentRelationsForDisplay(cache, 'a1');
     expect(rel.tags).toHaveLength(1);
     expect(rel.tags[0].tagCode).toBe('claim');
