@@ -40,6 +40,9 @@ import { PreferencesPopout, useUserPreferences } from './src/features/preference
 import type { UseUserPreferencesResult } from './src/features/preferences';
 import { PREFERENCES_COPY } from './src/features/preferences/preferencesCopy';
 import { densityToTimelineMode } from './src/features/preferences/userPreferencesModel';
+// PR-002 — "Profile tags" popout. Reached via a row inside the PR-001
+// preferences popout; mounted alongside it as a second core Modal.
+import { ProfileTagPopout, useProfileTags } from './src/features/profileTags';
 
 // ── AppRoot: session-gated routing ────────────────────────────
 
@@ -61,6 +64,12 @@ function AppRoot() {
   const accountProfile = useAccountProfile(userId);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [contactEmail, setContactEmail] = useState<string | null>(null);
+
+  // PR-002 — device-local profile-tag selection + the second popout's
+  // open state. The hook tolerates a null userId defensively, mirroring
+  // useUserPreferences. The tag popout layers above the preferences one.
+  const profileTags = useProfileTags(userId);
+  const [profileTagsOpen, setProfileTagsOpen] = useState(false);
 
   // PR-001 — read the contact email once for read-only display.
   React.useEffect(() => {
@@ -134,6 +143,22 @@ function AppRoot() {
           effectiveReduceMotion={prefs.effectiveReduceMotion}
           osReduceMotion={prefs.osReduceMotion}
           onUpdatePreference={prefs.updatePreference}
+          onOpenProfileTags={() => setProfileTagsOpen(true)}
+          profileTagCount={profileTags.count}
+        />
+      ) : null}
+      {/* PR-002 — the second core Modal layers above the preferences
+          popout. Closing it returns to the preferences popout intact. */}
+      {signedIn ? (
+        <ProfileTagPopout
+          visible={profileTagsOpen}
+          onClose={() => setProfileTagsOpen(false)}
+          selection={profileTags.selection}
+          count={profileTags.count}
+          atLimit={profileTags.atLimit}
+          onToggleTag={profileTags.toggleTag}
+          onClearTags={profileTags.clearTags}
+          reduceMotion={prefs.effectiveReduceMotion}
         />
       ) : null}
     </SafeAreaView>
