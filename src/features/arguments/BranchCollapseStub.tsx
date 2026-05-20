@@ -34,6 +34,7 @@ import React, { type ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BRAND } from '../../lib/designTokens';
 import type { RailStubViewModel } from './branchTopologyModel';
+import type { CollapsedBranchSummary } from './branchGrammarModel';
 
 export interface BranchCollapseStubProps {
   stub: RailStubViewModel;
@@ -43,6 +44,15 @@ export interface BranchCollapseStubProps {
   onPress: (branchRootMessageId: string) => void;
   /** Optional test-id suffix to disambiguate when multiple stubs render. */
   testIDSuffix?: string;
+  /**
+   * BR-004 — the four-field collapsed-branch summary (count · recency ·
+   * unresolved · primary-party-engaged). Optional and ADDITIVE: when
+   * supplied, the stub renders the summary's verbose accessibility label
+   * and exposes a `summary-line` test text; when `null`/omitted, the
+   * stub falls back to BR-001's existing `+N` label exactly as it
+   * shipped. BR-004 never makes this prop required.
+   */
+  summary?: CollapsedBranchSummary | null;
 }
 
 // ── Pure helpers (consumed directly by tests) ─────────────────────
@@ -150,19 +160,26 @@ export function BranchCollapseStub({
   stub,
   onPress,
   testIDSuffix,
+  summary,
 }: BranchCollapseStubProps): ReactElement {
   const containerStyle = buildBranchCollapseStubContainerStyle(stub);
   const positionStyle = buildBranchCollapseStubPositionStyle(stub);
   const testID = `branch-collapse-stub${testIDSuffix ? `-${testIDSuffix}` : ''}`;
   // VG-004 — split the display into a branch-kind glyph + the count.
   const { glyph, countText } = buildBranchCollapseStubLabelParts(stub);
+  // BR-004 — when a four-field summary is supplied, its verbose
+  // accessibilityLabel replaces BR-001's shorter sentence (it describes
+  // the direction + count + recency + unresolved + principal
+  // engagement). When absent, the stub keeps BR-001's existing label.
+  const accessibilityLabel =
+    summary != null ? summary.accessibilityLabel : stub.accessibilityLabel;
 
   return (
     <View style={positionStyle} testID={`${testID}-anchor`}>
       <Pressable
         onPress={() => onPress(stub.branchRootMessageId)}
         accessibilityRole="button"
-        accessibilityLabel={stub.accessibilityLabel}
+        accessibilityLabel={accessibilityLabel}
         accessibilityState={{ expanded: false }}
         hitSlop={BRANCH_COLLAPSE_STUB_HIT_SLOP}
         style={containerStyle}
@@ -183,6 +200,22 @@ export function BranchCollapseStub({
           {countText}
         </Text>
       </Pressable>
+      {/* BR-004 — the four-field collapsed-branch summary line. Hidden
+          from screen readers (the Pressable's accessibilityLabel already
+          carries the verbose version) but exposed for tests + any future
+          density mode that surfaces it as visible caption text. Rendered
+          only when a summary is supplied — additive, never required. */}
+      {summary != null ? (
+        <Text
+          style={styles.summaryLine}
+          numberOfLines={1}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          testID={`${testID}-summary-line`}
+        >
+          {summary.summaryLine}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -199,5 +232,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     lineHeight: 12,
+  },
+  // BR-004 — collapsed-branch summary caption. Kept off-screen-narrow
+  // (the rail pill is 24px) but laid out so a future density mode can
+  // promote it to a visible caption without a component change.
+  summaryLine: {
+    color: BRAND.text.muted,
+    fontSize: 9,
+    lineHeight: 11,
+    marginTop: 2,
+    width: 0,
+    height: 0,
+    overflow: 'hidden',
   },
 });

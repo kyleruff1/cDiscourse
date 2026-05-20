@@ -568,6 +568,45 @@ export const TANGENT_ROUTING_COPY = Object.freeze({
     'The main thread has drifted. A direct reply brings it back on point.',
 } as const);
 
+/**
+ * BR-004 — plain-language copy for the three teachable branch
+ * directions, the collapsed-summary templates, and the depth-cap
+ * advisory prompt. Every string describes a STRUCTURAL position — never
+ * a verdict, never amplification, never the person. `evidence_passthrough`
+ * has no label here on purpose: BR-004 yields to BR-001/VG-002 for
+ * evidence branches and does not relabel them. OD-2 confirms final
+ * wording.
+ */
+export const BRANCH_GRAMMAR_COPY = Object.freeze({
+  // Direction labels (the teachable names).
+  direction_mainline: 'Main thread',
+  direction_chime_in_vertical: 'Chime-in',
+  direction_tangent_diagonal: 'Side issue',
+
+  // One-line direction explainers (for a legend / first-run teach).
+  explain_mainline: 'The main back-and-forth between the two main debaters.',
+  explain_chime_in: 'A new voice weighing in on the same topic.',
+  explain_tangent: 'A side issue kept off the main thread so it stays clear.',
+
+  // Collapsed-summary fragments (assembled into summaryLine).
+  summary_replies_one: '1 reply',
+  summary_replies_many: '{count} replies',
+  summary_people_one: '1 person',
+  summary_people_many: '{count} people',
+  summary_open_one: '1 open item',
+  summary_open_many: '{count} open items',
+  summary_no_open: 'nothing open',
+  summary_principals_in: 'main debaters joined in',
+  summary_principals_out: 'a side conversation',
+
+  // Relative-recency fallback when a branch has no parsable timestamp.
+  recency_none: 'no activity yet',
+
+  // Depth-cap advisory — describes the offshoot, never the person.
+  depth_cap_prompt:
+    'This side thread has gone a few layers deep. A short summary keeps it readable.',
+} as const);
+
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
   header: 'One quick look before you post',
