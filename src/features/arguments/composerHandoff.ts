@@ -52,6 +52,9 @@ export function getArgumentRelationsForDisplay(
     tags: cache.tagsByArgumentId[argumentId] ?? [],
     flags: cache.flagsByArgumentId[argumentId] ?? [],
     checks: cache.checksByArgumentId[argumentId] ?? [],
+    // META-1A — the ArgumentCache (legacy viewport) does not track
+    // persisted point_tags; the room-shell loader does. Empty here.
+    pointTags: [],
   };
 }
 
