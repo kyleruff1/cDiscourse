@@ -698,6 +698,36 @@ export const JUMP_BRANCH_COPY = Object.freeze({
   when_unknown: 'a little while ago',
 } as const);
 
+/**
+ * GAME-008 — plain-language copy for the bot marker. Neutral, never
+ * alarming, never a verdict, never a "this is a human" framing.
+ * "Test bot" / "Test room" are deliberately calm and honest. OD-1
+ * confirms final wording + placement.
+ */
+export const BOT_MARKER_COPY = Object.freeze({
+  // In-room, per-participant.
+  participant_marker: 'Test bot',
+  participant_marker_persona: '{persona} · test bot', // when a persona label exists
+  participant_a11y:
+    'This participant is a test bot, not a person. Test bots help '
+    + 'exercise public rooms; they never judge a debate.',
+
+  // Gallery card + in-room room-level marker.
+  room_marker: 'Test room',
+  room_marker_seeded: 'Bot-seeded test room',
+  room_a11y_seeded:
+    'This is a public test room seeded by a test bot. You can read and '
+    + 'follow along; a test bot started it.',
+  room_a11y_has_bot:
+    'This public room includes one or more test bots. Each test bot is '
+    + 'marked individually.',
+
+  // Short helper line shown under a bot-seeded gallery card.
+  gallery_helper:
+    'A test bot started this public room. Test bots help exercise '
+    + 'public-room features.',
+} as const);
+
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
   header: 'One quick look before you post',
