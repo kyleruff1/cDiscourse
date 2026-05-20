@@ -32,6 +32,7 @@ import type {
 import { FLAG_CODES } from '../src/domain/constitution/types';
 import type { ChannelSuggestion } from '../src/features/arguments/channelModel';
 import type { MoveLinkageRecord } from '../src/features/metadata';
+import type { AssessTangentRiskInput } from '../src/features/arguments/tangentRoutingModel';
 
 // ── Fixtures ───────────────────────────────────────────────────
 
@@ -597,5 +598,153 @@ describe('channelMismatchPlainLanguage', () => {
     const fallback = channelMismatchPlainLanguage(null);
     expect(fallback.length).toBeGreaterThan(0);
     expect(fallback).not.toBe('A specific RULE-005 rationale line.');
+  });
+});
+
+// ── 9. BR-003 — tangent_redirect derivation step (step 9) ───────
+
+describe('buildPreSendReview — BR-003 tangent_redirect (step 9)', () => {
+  /** A tangentContext that yields `risk: 'strong'` (introduces_new_axis). */
+  function strongTangentContext(): AssessTangentRiskInput {
+    return {
+      draft: makeDraft({ disagreementAxis: 'value' }),
+      parent: makeParent(),
+      lifecycle: {
+        parentSnapshot: {
+          messageId: 'parent-1',
+          clusterId: 'parent-1',
+          clusterState: 'open',
+          messageContribution: 'open',
+          axis: 'fact',
+          opensRequest: false,
+          resolvesRequest: false,
+          isConcessionShape: false,
+          isSynthesisShape: false,
+          plainLabel: 'Open for response',
+        },
+        parentClusterSummary: null,
+        parentLinkage: null,
+      },
+      manualTags: [],
+    };
+  }
+
+  it('appends a tangent_redirect advisory when risk is strong', () => {
+    const review = buildPreSendReview(
+      makeInput({ tangentContext: strongTangentContext() }),
+    );
+    expect(kinds(review)).toContain('tangent_redirect');
+    const advisory = review.advisories.find(
+      (a) => a.kind === 'tangent_redirect',
+    );
+    expect(advisory?.severity).toBe('soft');
+    expect(advisory?.plainLanguage.length).toBeGreaterThan(0);
+  });
+
+  it('appends a tangent_redirect advisory when risk is possible', () => {
+    const review = buildPreSendReview(
+      makeInput({
+        tangentContext: {
+          draft: makeDraft(),
+          parent: makeParent(),
+          lifecycle: {
+            parentSnapshot: null,
+            parentClusterSummary: null,
+            parentLinkage: {
+              ...makeLinkage(false),
+              autoDerivedMetadata: [
+                {
+                  code: 'branch_suggested' as const,
+                  detectedAt: '2026-05-20T00:00:00.000Z',
+                  inputSignals: [],
+                },
+              ],
+            },
+          },
+          manualTags: [] as string[],
+          selectedChannel: 'meta_process' as const,
+        },
+      }),
+    );
+    expect(kinds(review)).toContain('tangent_redirect');
+  });
+
+  it('appends nothing when the assessment risk is none', () => {
+    const review = buildPreSendReview(
+      makeInput({
+        tangentContext: {
+          draft: makeDraft(),
+          parent: makeParent(),
+          lifecycle: {
+            parentSnapshot: null,
+            parentClusterSummary: null,
+            parentLinkage: null,
+          },
+          manualTags: [] as string[],
+          selectedChannel: 'reply' as const,
+        },
+      }),
+    );
+    expect(kinds(review)).not.toContain('tangent_redirect');
+  });
+
+  it('omitting tangentContext yields a byte-identical review (§3.3)', () => {
+    const withoutContext = buildPreSendReview(makeInput());
+    const withNullContext = buildPreSendReview(
+      makeInput({ tangentContext: null }),
+    );
+    expect(JSON.stringify(withNullContext)).toBe(
+      JSON.stringify(withoutContext),
+    );
+  });
+
+  it('a tangent_redirect advisory never sets hasStructuralBlock', () => {
+    const review = buildPreSendReview(
+      makeInput({ tangentContext: strongTangentContext() }),
+    );
+    expect(review.hasStructuralBlock).toBe(false);
+  });
+
+  // De-dup (§7 #6): when assessTangentRisk fires purely because of a
+  // tangent qualifier tag AND asks_new_question already fired for the same
+  // tag, tangent_redirect is suppressed — one card, not two.
+  it('suppresses tangent_redirect when asks_new_question fired for the same tangent tag', () => {
+    const tangentDraft = makeDraft({ selectedTagCodes: ['tangent'] });
+    const review = buildPreSendReview(
+      makeInput({
+        draft: tangentDraft,
+        tangentContext: {
+          draft: tangentDraft,
+          parent: makeParent(),
+          lifecycle: {
+            parentSnapshot: null,
+            parentClusterSummary: null,
+            parentLinkage: null,
+          },
+          manualTags: ['tangent'] as string[],
+        },
+      }),
+    );
+    // asks_new_question fires (tangent tag); tangent_redirect is suppressed.
+    expect(kinds(review)).toContain('asks_new_question');
+    expect(kinds(review)).not.toContain('tangent_redirect');
+  });
+
+  it('still appends tangent_redirect when its reason is not the user tag', () => {
+    // A `strong` introduces_new_axis assessment carries information
+    // asks_new_question does not — it is NOT suppressed even when
+    // asks_new_question also fired for an unrelated reason.
+    const review = buildPreSendReview(
+      makeInput({
+        tangentContext: strongTangentContext(),
+        lifecycle: {
+          parentSnapshot: null,
+          parentClusterSummary: null,
+          parentLinkage: makeLinkage(true), // -> asks_new_question fires too
+        },
+      }),
+    );
+    expect(kinds(review)).toContain('asks_new_question');
+    expect(kinds(review)).toContain('tangent_redirect');
   });
 });

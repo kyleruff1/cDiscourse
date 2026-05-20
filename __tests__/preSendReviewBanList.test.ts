@@ -196,6 +196,54 @@ function allProducedStrings(): Array<{ where: string; value: string }> {
       isMismatch: true,
     },
     isFirstPostInSession: true,
+    // BR-003 — a tangentContext that yields a `strong` introduces_new_axis
+    // assessment so the maximal review also exercises `tangent_redirect`.
+    // Its own draft carries a declared axis that mismatches the parent's
+    // lifecycle axis; it is not suppressed by the asks_new_question de-dup
+    // because the reason is structural, not a tangent tag.
+    tangentContext: {
+      draft: {
+        ...makeDraft(),
+        selectedTagCodes: [],
+        disagreementAxis: 'value',
+      },
+      parent: {
+        id: 'p1',
+        debateId: 'db1',
+        parentId: null,
+        authorId: 'u1',
+        argumentType: 'thesis',
+        side: 'affirmative',
+        body: 'parent',
+        depth: 8,
+        status: 'posted',
+        targetExcerpt: null,
+        disagreementAxis: null,
+        railPayload: {},
+        clientValidation: {},
+        serverValidation: {},
+        clientSubmissionId: null,
+        createdAt: 'n',
+        updatedAt: 'n',
+      },
+      lifecycle: {
+        parentSnapshot: {
+          messageId: 'p1',
+          clusterId: 'p1',
+          clusterState: 'open',
+          messageContribution: 'open',
+          axis: 'fact',
+          opensRequest: false,
+          resolvesRequest: false,
+          isConcessionShape: false,
+          isSynthesisShape: false,
+          plainLabel: 'Open for response',
+        },
+        parentClusterSummary: null,
+        parentLinkage: null,
+      },
+      manualTags: [],
+    },
   };
   const review = buildPreSendReview(input);
   for (const advisory of review.advisories) {
@@ -224,7 +272,8 @@ describe('preSendReview copy — ban-list scan', () => {
   });
 
   it('exercises every advisory kind in the model output', () => {
-    // The maximal input should surface all 7 advisory kinds.
+    // The maximal input should surface all 8 advisory kinds (BR-003 added
+    // `tangent_redirect`; the maximal input carries a tangentContext).
     const advisoryStrings = strings.filter((s) =>
       s.where.startsWith('advisory.'),
     );
