@@ -40,9 +40,11 @@ interface RawArgumentRow {
   created_at: string;
   updated_at: string;
   disagreement_axis: string | null;
-  selected_tag_codes: string[] | null;
+  // QOL-026: tags are not a scalar column on `public.arguments`. They live
+  // in the `public.argument_tags` join table; PostgREST resolves them as a
+  // nested embed keyed by the selected columns.
+  argument_tags: { tag_code: string }[] | null;
   target_excerpt: string | null;
-  attached_evidence: unknown[] | null;
   server_validation: Record<string, unknown> | null;
   is_deleted?: boolean;
   debates: { title: string | null } | { title: string | null }[] | null;
@@ -59,6 +61,20 @@ function asDisplayName(j: RawArgumentRow['profiles']): string | null {
   if (!j) return null;
   if (Array.isArray(j)) return j[0]?.display_name ?? null;
   return j.display_name ?? null;
+}
+
+/**
+ * QOL-026: Flattens the embedded `argument_tags` relation into a plain
+ * tag-code array. Returns `null` when no tag rows came back so the public
+ * `AdminArgumentRow.selectedTagCodes: string[] | null` contract is unchanged
+ * (null = "no tag data"). Non-string `tag_code` values are filtered out
+ * defensively rather than crashing the whole page.
+ */
+export function asTagCodes(j: RawArgumentRow['argument_tags']): string[] | null {
+  if (!j || !Array.isArray(j) || j.length === 0) return null;
+  return j
+    .map((t) => (t && typeof t.tag_code === 'string' ? t.tag_code : null))
+    .filter((c): c is string => c !== null);
 }
 
 function extractTopicScore(serverValidation: Record<string, unknown> | null): number | null {
@@ -80,8 +96,8 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
     .select(
       [
         'id', 'debate_id', 'author_id', 'argument_type', 'side', 'body', 'status',
-        'created_at', 'updated_at', 'disagreement_axis', 'selected_tag_codes',
-        'target_excerpt', 'attached_evidence', 'server_validation', 'is_deleted',
+        'created_at', 'updated_at', 'disagreement_axis', 'argument_tags(tag_code)',
+        'target_excerpt', 'server_validation', 'is_deleted',
         'debates(title)', 'profiles(display_name)',
       ].join(','),
     )
@@ -107,9 +123,8 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     disagreementAxis: r.disagreement_axis,
-    selectedTagCodes: r.selected_tag_codes,
+    selectedTagCodes: asTagCodes(r.argument_tags),
     targetExcerpt: r.target_excerpt,
-    hasEvidence: Array.isArray(r.attached_evidence) && r.attached_evidence.length > 0,
     hasFlags: false, // populated by a follow-up query below if needed
     topicSatisfactionScore: extractTopicScore(r.server_validation),
   }));

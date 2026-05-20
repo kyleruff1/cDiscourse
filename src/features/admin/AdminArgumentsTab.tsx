@@ -322,7 +322,6 @@ export function AdminArgumentsTab() {
                     {qualifier && (
                       <Badge label={formatQualifierLabel(qualifier)} variant="qualifier" />
                     )}
-                    {r.hasEvidence && <Badge label="evidence" variant="evidence" />}
                     {flagCount > 0 && <Badge label={`flags: ${flagCount}`} variant="flag" />}
                     {typeof r.topicSatisfactionScore === 'number' && (
                       <Badge label={`topic ${(r.topicSatisfactionScore * 100).toFixed(0)}%`} variant="topic" />
@@ -371,7 +370,6 @@ function Badge({ label, variant }: { label: string; variant: string }) {
     category: { bg: '#ecfdf5', fg: '#065f46' },
     qualifier: { bg: '#fce7f3', fg: '#9d174d' },
     axis: { bg: '#fef2f2', fg: '#991b1b' },
-    evidence: { bg: '#e0e7ff', fg: '#3730a3' },
     flag: { bg: '#ffe4e6', fg: '#9f1239' },
     topic: { bg: '#e0f2fe', fg: '#075985' },
     status: { bg: '#f1f5f9', fg: '#334155' },

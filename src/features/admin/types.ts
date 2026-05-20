@@ -127,7 +127,6 @@ export interface AdminArgumentRow {
   disagreementAxis: string | null;
   selectedTagCodes: string[] | null;
   targetExcerpt: string | null;
-  hasEvidence: boolean;
   hasFlags: boolean;
   topicSatisfactionScore: number | null;
 }
