@@ -59,6 +59,7 @@ import {
 import { GradientWaveRail } from './GradientWaveRail';
 import {
   applyActiveAutoExpand,
+  buildBranchKindMap,
   buildCollapsedRailInputs,
   buildEvidenceThreadMap,
   EMPTY_COLLAPSE_STATE,
@@ -66,6 +67,11 @@ import {
   type BranchCollapseState,
 } from './branchTopologyModel';
 import { BranchCollapseStub } from './BranchCollapseStub';
+import {
+  buildBranchGrammarMap,
+  buildCollapsedBranchSummary,
+  type CollapsedBranchSummary,
+} from './branchGrammarModel';
 import {
   deriveTimelineNodeVisualStyle,
   type TimelineNodeVisualStyle,
@@ -159,6 +165,15 @@ interface Props {
    * OS read (back-compat for any caller that does not thread it).
    */
   reduceMotionOverride?: boolean;
+  /**
+   * BR-004 — the room's principal actor labels (the OP + the Primary
+   * Opponent). Threaded through to `buildBranchGrammarMap` so a collapsed
+   * branch stub can report whether a principal engaged inside the
+   * branch. Optional — when omitted, `primaryPartyEngaged` degrades to
+   * `false` for non-mainline branches (it never throws). Back-compat for
+   * any caller that does not yet know its principals.
+   */
+  principalActorLabels?: ReadonlyArray<string>;
 }
 
 const RAIL_THICKNESS = 4;
@@ -390,6 +405,7 @@ export function ArgumentTimelineMap({
   onOpenCardsDetail,
   actingOnLabel,
   reduceMotionOverride,
+  principalActorLabels,
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [popoverMessageId, setPopoverMessageId] = useState<string | null>(null);
@@ -544,6 +560,60 @@ export function ArgumentTimelineMap({
     [segmentInputs, nodesById, collapseState, activeMessageId],
   );
 
+  // BR-004 — branch grammar map. One `BranchGrammarNode` per branch:
+  // the teachable direction + the four collapsed-summary fields. Built
+  // from the timeline map + BR-001's topology + evidence-thread maps.
+  // The grammar is structural (it never reads heat / activity), so the
+  // memo only needs to recompute when the tree topology changes. No AI,
+  // no network — deterministic pure TS.
+  const branchKindByEdgeId = useMemo(
+    () =>
+      buildBranchKindMap({
+        nodes: map.nodes,
+        edges: map.edges,
+        evidenceThreadByBranchRoot,
+      }),
+    [map.nodes, map.edges, evidenceThreadByBranchRoot],
+  );
+  const branchGrammarMap = useMemo(
+    () =>
+      buildBranchGrammarMap({
+        timelineMap: map,
+        branchKindByEdgeId,
+        evidenceThreadByBranchRoot,
+        principalActorLabels: principalActorLabels ?? [],
+      }),
+    [map, branchKindByEdgeId, evidenceThreadByBranchRoot, principalActorLabels],
+  );
+
+  // BR-004 — the four-field collapsed-branch summary for each collapse
+  // stub, keyed by the branch root message id. When a branch's grammar
+  // node is not found (defensive) the stub falls back to its existing
+  // `+N` label — `BranchCollapseStub` treats the summary as optional.
+  const collapsedSummaryByRoot = useMemo(() => {
+    const out = new Map<string, CollapsedBranchSummary>();
+    for (const stub of collapseResult.stubs) {
+      // The stub's branch root message id IS a node's `branchRootMessageId`;
+      // find the grammar node by matching `originNodeId`.
+      let grammarNode: ReturnType<typeof branchGrammarMap.get> | undefined;
+      for (const node of branchGrammarMap.values()) {
+        if (node.originNodeId === stub.branchRootMessageId) {
+          grammarNode = node;
+          break;
+        }
+      }
+      if (!grammarNode) continue;
+      out.set(
+        stub.branchRootMessageId,
+        buildCollapsedBranchSummary({
+          grammarNode,
+          hiddenMessageCount: stub.hiddenMessageCount,
+        }),
+      );
+    }
+    return out;
+  }, [collapseResult.stubs, branchGrammarMap]);
+
   const handleStubPress = useCallback((branchRootMessageId: string) => {
     setCollapseState((prev) => toggleBranchCollapse(prev, branchRootMessageId));
     // IX-004 — tapping a collapsed branch stub also selects the branch
@@ -551,7 +621,10 @@ export function ArgumentTimelineMap({
     // BR-001 contract: "branch stub click selects the branch root and
     // expands if collapsed"). The collapse toggle above handles the
     // expand; this routes selection through the same callback a node
-    // tap uses, so the readout follows automatically.
+    // tap uses, so the readout follows automatically. BR-004 reuses
+    // this same `activeMessageId` channel for branch selection — the
+    // `resolveBranchSelectionHandoff` shape ({ branchRootMessageId,
+    // status: 'explicit' }) is exactly what IX-004 already consumes.
     onActivate(branchRootMessageId);
   }, [onActivate]);
 
@@ -905,6 +978,7 @@ export function ArgumentTimelineMap({
               stub={stub}
               onPress={handleStubPress}
               testIDSuffix={stub.branchRootMessageId}
+              summary={collapsedSummaryByRoot.get(stub.branchRootMessageId) ?? null}
             />
           ))}
 
