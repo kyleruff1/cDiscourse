@@ -27,3 +27,14 @@ export function draftIndexKey(userId: string, debateId: string): string {
 export function userPreferencesKey(userId: string): string {
   return `${PREFIX}:preferences:${userId}`;
 }
+
+/**
+ * PR-002 — AsyncStorage key for the per-user profile-tag blob. Mirrors
+ * `userPreferencesKey`: `userId` is the signed-in user id, or the
+ * literal `anon` when signed out (the popout is only reachable while
+ * signed in; the anon key is a defensive fallback). A SEPARATE blob from
+ * the preferences one — see the PR-002 design's §Reuse-vs-new decision.
+ */
+export function profileTagsKey(userId: string): string {
+  return `${PREFIX}:profile-tags:${userId}`;
+}
