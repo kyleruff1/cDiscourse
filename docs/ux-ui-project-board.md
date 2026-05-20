@@ -279,6 +279,7 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Priority:** P1 — **Effort:** M — **Release:** 6.7
 - **Fields:** display name · avatar preview · contact email · notification stub · default room entry preference · visual density · color accessibility · reduce motion · default side label preference.
 - **Acceptance:** Popout/drawer. No role escalation. No hidden auth fields.
+- **Status:** Complete — `src/features/preferences/` ships the nine-field core-`Modal` bottom-sheet (no router drawer, no new dependency), device-local AsyncStorage preference blob (`schemaVersion: 1`, no migration), the VG-004 density wire, and the reduce-motion override. Display name stays an account write; contact email is read-only with an honest "changes coming later" note (PR-004 owns the email-change flow); the notification toggle and the 3 colour-blind sim modes persist-but-inert with honest copy. +63 tests. See `docs/current-status.md`.
 
 ### PR-002 — Profile tag popout
 - **Priority:** P2 — **Effort:** M — **Release:** 6.7

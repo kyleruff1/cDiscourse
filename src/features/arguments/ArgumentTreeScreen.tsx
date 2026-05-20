@@ -19,6 +19,7 @@ import type { Debate } from '../debates/types';
 import type { GalleryEntryHint } from '../debates/conversationGalleryModel';
 import type { ArgumentRow } from './types';
 import type { ArgumentMessageInput, ArgumentBubbleControl, ArgumentSurfaceMode } from './argumentGameSurfaceModel';
+import type { TimelineDensityMode } from './timelineNodeVisualModel';
 import type { MoveDraftPatch } from './conversationMoves';
 import { useAppSession } from '../session/useAppSession';
 import { useArgumentRoomMessages } from './useArgumentRoomMessages';
@@ -50,9 +51,21 @@ interface Props {
   participantSide?: string | null;
   /** Stage 6.4 — handler invoked when the in-room action rail picks Join Aff/Neg. */
   onJoinSide?: (side: 'affirmative' | 'negative') => void;
+  /**
+   * PR-001 — user's visual-density preference. Threaded into the
+   * timeline map's `buildArgumentTimelineMap({ density })` call, which
+   * drives VG-004's `resolveNodeGapPx`. Defaults to `'normal'`.
+   */
+  density?: TimelineDensityMode;
+  /**
+   * PR-001 — user's effective reduce-motion preference (the OS value
+   * composed with the user's `system`/`on`/`off` override). When
+   * supplied it replaces the timeline board's independent OS read.
+   */
+  reduceMotionOverride?: boolean;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride }: Props) {
   const {
     cache,
     viewport,
@@ -108,6 +121,8 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         entryHint={entryHint}
         participantSide={participantSide}
         onJoinSide={onJoinSide}
+        density={density}
+        reduceMotionOverride={reduceMotionOverride}
       />
     );
   }
@@ -243,9 +258,13 @@ interface FullRoomGameSurfaceMountProps {
   entryHint?: GalleryEntryHint | null;
   participantSide?: string | null;
   onJoinSide?: (side: 'affirmative' | 'negative') => void;
+  /** PR-001 — visual-density preference. */
+  density?: TimelineDensityMode;
+  /** PR-001 — effective reduce-motion preference. */
+  reduceMotionOverride?: boolean;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -365,6 +384,8 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         participantSide={(participantSide || null) as never}
         onJoinSide={onJoinSide}
         entryHint={entryHint || undefined}
+        density={density}
+        reduceMotionOverride={reduceMotionOverride}
       />
     </View>
   );

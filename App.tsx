@@ -21,6 +21,7 @@ import { useGalleryArguments } from './src/features/debates/useGalleryArguments'
 import { ArgumentTreeScreen, ArgumentComposer } from './src/features/arguments';
 import { AccountScreen } from './src/features/account';
 import { useAccountProfile } from './src/features/account/useAccountProfile';
+import { fetchCurrentAuthUser } from './src/features/account/accountApi';
 import { AdminScreen } from './src/features/admin';
 import { InvitePanel } from './src/features/invites/InvitePanel';
 import type { ArgumentRow } from './src/features/arguments';
@@ -33,11 +34,48 @@ import { DEFAULT_VIEW_MODE, VIEW_MODE_COPY } from './src/features/arguments/view
 import { DevEnvironmentBanner } from './src/features/devEnvironment';
 import { AppHeader } from './src/components/AppHeader';
 import { BRAND } from './src/lib/designTokens';
+// PR-001 — "My preferences" popout. The header gear opens a core Modal
+// bottom-sheet of device-local UI preferences. No router, no new dep.
+import { PreferencesPopout, useUserPreferences } from './src/features/preferences';
+import type { UseUserPreferencesResult } from './src/features/preferences';
+import { PREFERENCES_COPY } from './src/features/preferences/preferencesCopy';
+import { densityToTimelineMode } from './src/features/preferences/userPreferencesModel';
 
 // ── AppRoot: session-gated routing ────────────────────────────
 
 function AppRoot() {
   const { state, dispatch } = useAppSession();
+
+  // PR-001 — the signed-in user id drives the device-local preference
+  // blob and the display-name account write. Null while signed out.
+  // "Signed in" is any state past the unconfigured / signed_out gate —
+  // the same condition that picks `MainAppShell` for `content` below.
+  const userId = state.snapshot.userId;
+  const signedIn =
+    state.status !== 'unconfigured' && state.status !== 'signed_out';
+
+  // PR-001 — preferences hook + popout open state live at the root so
+  // the header trigger and the popout overlay share one source of
+  // truth. The hook tolerates a null userId defensively.
+  const prefs = useUserPreferences(userId);
+  const accountProfile = useAccountProfile(userId);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [contactEmail, setContactEmail] = useState<string | null>(null);
+
+  // PR-001 — read the contact email once for read-only display.
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!signedIn) {
+      setContactEmail(null);
+      return;
+    }
+    void fetchCurrentAuthUser().then((u) => {
+      if (!cancelled) setContactEmail(u?.email ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn, userId]);
 
   let content: React.ReactNode;
   if (state.status === 'unconfigured') {
@@ -45,35 +83,71 @@ function AppRoot() {
   } else if (state.status === 'signed_out') {
     content = <AuthScreen />;
   } else {
-    content = <MainAppShell />;
+    content = <MainAppShell preferences={prefs} />;
   }
 
   // BRAND-001 — Tapping the header logo deselects the active debate and
   // returns to the gallery. Implemented by re-dispatching SIGNED_IN
   // (the same path `useCurrentDebate.deselectDebate` uses). No router,
   // so the TL-003 no-route invariant is preserved.
-  const userId = state.snapshot.userId;
   const handleHomePress = React.useCallback(() => {
     if (userId) {
       dispatch({ type: 'SIGNED_IN', userId });
     }
   }, [dispatch, userId]);
 
+  // PR-001 — the header gear. Only rendered while signed in (the popout
+  // is a signed-in self-service surface only).
+  const preferencesTrigger = signedIn ? (
+    <Pressable
+      testID="preferences-trigger"
+      onPress={() => setPreferencesOpen(true)}
+      accessibilityRole="button"
+      accessibilityLabel={PREFERENCES_COPY.triggerLabel}
+      accessibilityHint={PREFERENCES_COPY.triggerHint}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      style={styles.preferencesTrigger}
+    >
+      <Text style={styles.preferencesTriggerGlyph}>⚙</Text>
+    </Pressable>
+  ) : undefined;
+
   // BRAND-001 — global dark backdrop. AppHeader docks above the dev
   // banner so it persists on every screen. DevEnvironmentBanner renders
   // null in production.
   return (
     <SafeAreaView style={styles.appRoot}>
-      <AppHeader onHomePress={handleHomePress} />
+      <AppHeader onHomePress={handleHomePress} rightSlot={preferencesTrigger} />
       <DevEnvironmentBanner />
       <View style={styles.appRootContent}>{content}</View>
+      {signedIn ? (
+        <PreferencesPopout
+          visible={preferencesOpen}
+          onClose={() => setPreferencesOpen(false)}
+          userId={userId}
+          displayName={accountProfile.profile?.displayName ?? null}
+          displayNameSaving={accountProfile.saving}
+          displayNameSaveError={accountProfile.saveError}
+          onSaveDisplayName={accountProfile.updateDisplayName}
+          contactEmail={contactEmail}
+          preferences={prefs.preferences}
+          effectiveReduceMotion={prefs.effectiveReduceMotion}
+          osReduceMotion={prefs.osReduceMotion}
+          onUpdatePreference={prefs.updatePreference}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
 
 // ── MainAppShell: argument-first tab structure ────────────────
 
-function MainAppShell() {
+interface MainAppShellProps {
+  /** PR-001 — device-local UI preferences, lifted from AppRoot. */
+  preferences: UseUserPreferencesResult;
+}
+
+function MainAppShell({ preferences }: MainAppShellProps) {
   const { state, dispatch } = useAppSession();
   const { signOut, loading: signOutLoading } = useAuthSession();
   const [tab, setTab] = useState<ArgumentRoomTab>('arguments');
@@ -303,6 +377,12 @@ function MainAppShell() {
               onComposerPreset={setComposerPreset}
               entryHint={entryHint}
               participantSide={participantSide}
+              // PR-001 — thread the user's visual-density preference into
+              // the timeline map (drives VG-004's resolveNodeGapPx) and
+              // the reduce-motion override (OS value composed with the
+              // user's choice) into the timeline board.
+              density={densityToTimelineMode(preferences.preferences.density)}
+              reduceMotionOverride={preferences.effectiveReduceMotion}
               onJoinSide={async (side) => {
                 if (!currentDebate) return;
                 const joined = await join(currentDebate.id, side);
@@ -466,5 +546,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+
+  // PR-001 — header preferences gear. ≥ 44×44 effective target via
+  // hitSlop; the glyph is intentionally simple text (no icon dep).
+  preferencesTrigger: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND.surface.appElevated.bg,
+  },
+  preferencesTriggerGlyph: {
+    color: BRAND.text.primary,
+    fontSize: 18,
   },
 });

@@ -17,3 +17,13 @@ export function draftKey(userId: string, draftId: string): string {
 export function draftIndexKey(userId: string, debateId: string): string {
   return `${PREFIX}:draft-index:${userId}:${debateId}`;
 }
+
+/**
+ * PR-001 — AsyncStorage key for the per-user "My preferences" blob.
+ * `userId` is the signed-in user id, or the literal `anon` when signed
+ * out (the popout is only reachable while signed in; the anon key is a
+ * defensive fallback).
+ */
+export function userPreferencesKey(userId: string): string {
+  return `${PREFIX}:preferences:${userId}`;
+}
