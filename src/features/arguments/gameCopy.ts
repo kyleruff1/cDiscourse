@@ -423,6 +423,71 @@ export type GallerySectionId = GallerySectionDefinition['id'];
  */
 export const GALLERY_SECTIONS = GALLERY_SECTION_DEFINITIONS;
 
+// ── RULE-005 — Structured argument channel copy ─────────────────
+//
+// A "channel" describes the STRUCTURAL PURPOSE of a composed move
+// ("you are challenging", "you are asking for a source"). It is never a
+// verdict — it labels what the move DOES, never whether it is right,
+// popular, or strong. RULE-005 adds three frozen copy blocks:
+//
+//   - `CHANNEL_LABEL_COPY`    — the short plain-language chip label.
+//   - `CHANNEL_PURPOSE_COPY`  — a one-sentence purpose line per channel.
+//   - `CHANNEL_RATIONALE_COPY`— a one-line "why this channel" line keyed
+//                               by suggestion reason.
+//
+// Doctrine: every string is plain English (no snake_case leak), ≤ 48
+// chars for labels, ≤ 90 chars for purpose / rationale, and carries zero
+// verdict / amplification / person-attribution tokens. The 12 active
+// channel codes are deliberately DISTINCT from existing PLAIN_LANGUAGE_COPY
+// keys: the channel code `synthesize` ≠ the existing `synthesis` key, and
+// `branch_tangent` ≠ the existing `tangent` key (RULE-005 design §3.3 / R1).
+//
+// `channelModel.ts` reads these tables — it never authors a label inline
+// (mirrors `getPointLifecyclePlainLabel` / `getManualTagPlainLabel`).
+
+/** RULE-005 — short plain-language label for each move channel. */
+export const CHANNEL_LABEL_COPY = Object.freeze({
+  reply: 'Reply',
+  challenge: 'Challenge',
+  clarify: 'Clarify',
+  ask_source: 'Ask for a source',
+  ask_quote: 'Ask for a quote',
+  add_evidence: 'Add evidence',
+  narrow: 'Narrow the claim',
+  concede: 'Concede the point',
+  confirm: 'Confirm the point',
+  synthesize: 'Synthesize the thread',
+  branch_tangent: 'Branch a side issue',
+  meta_process: 'Process note',
+} as const);
+
+/** RULE-005 — one-sentence purpose line for each move channel. */
+export const CHANNEL_PURPOSE_COPY = Object.freeze({
+  reply: 'Add your move on this point.',
+  challenge: 'Push back on the point and name where it falls short.',
+  clarify: 'Ask the other side to pin down a term, scope, or premise.',
+  ask_source: 'Ask the other side for the primary source behind a claim.',
+  ask_quote: 'Ask the other side to quote the exact passage they mean.',
+  add_evidence: 'Back a factual point with a cited source.',
+  narrow: 'Keep the broad point but tighten the part under dispute.',
+  concede: 'Acknowledge the point and move the thread forward.',
+  confirm: 'Confirm the point so the thread can move on.',
+  synthesize: 'Summarize where the two sides have landed.',
+  branch_tangent: 'Open a side issue without losing the main thread.',
+  meta_process: 'Leave a note about the room, not the argument itself.',
+} as const);
+
+/** RULE-005 — one-line rationale, keyed by suggestion reason. */
+export const CHANNEL_RATIONALE_COPY = Object.freeze({
+  deterministic_match: 'This matches the move you started composing.',
+  lifecycle_state: 'This is the move that usually fits the parent here.',
+  parent_demands_evidence: 'The parent asked for a source — adding evidence fits here.',
+  no_signal: 'Start anywhere — Reply works when nothing else is set.',
+  // `branch_tangent` gets its own non-punitive line: it describes the
+  // move shape ("a new issue"), never the person ("you are dodging").
+  branch_tangent: 'This reads like a new issue — branching keeps the thread clear.',
+} as const);
+
 // ── Helper: look up a copy key by path ────────────────────────
 
 export type CopyGroup =
