@@ -434,27 +434,15 @@ function MainAppShell({ preferences }: MainAppShellProps) {
                 const joined = await join(currentDebate.id, side);
                 if (joined) selectDebate(currentDebate, joined);
               }}
+              // SC-005 — the old separate bottom actionBar is gone; the
+              // "Start an argument" CTA now folds into the side action
+              // rail's expanded dock, so the room has a single bottom
+              // action surface.
+              startArgumentAction={{
+                label: ROOM_COPY.startArgument,
+                onPress: handleStartArgument,
+              }}
             />
-
-            {/* Gamified action bar */}
-            <View style={styles.actionBar}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.actionBarInner}
-              >
-                <Pressable
-                  style={styles.actionPrimary}
-                  onPress={handleStartArgument}
-                  accessibilityRole="button"
-                  accessibilityLabel="button-start-argument"
-                >
-                  <Text style={styles.actionPrimaryText}>
-                    {ROOM_COPY.startArgument}
-                  </Text>
-                </Pressable>
-              </ScrollView>
-            </View>
 
             {/* COMPOSER-002 — in-room composer dock. Overlays the room
                 surface; the room itself stays mounted behind it so the
@@ -572,31 +560,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#1f1c2c',
   },
 
-  // Action bar (primary CTA + secondary moves)
-  actionBar: {
-    backgroundColor: BRAND.surface.appElevated.bg,
-    borderTopWidth: 1,
-    borderTopColor: '#1f1c2c',
-    paddingVertical: 10,
-  },
-  actionBarInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  actionPrimary: {
-    backgroundColor: '#6366f1',
-    borderRadius: 10,
-    paddingVertical: 11,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  actionPrimaryText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  // SC-005 — the separate bottom actionBar (and its actionBar /
+  // actionBarInner / actionPrimary / actionPrimaryText styles) was
+  // removed: the "Start an argument" CTA now folds into the side action
+  // rail's expanded dock, so the room has a single bottom action surface.
 
   // PR-001 — header preferences gear. ≥ 44×44 effective target via
   // hitSlop; the glyph is intentionally simple text (no icon dep).
