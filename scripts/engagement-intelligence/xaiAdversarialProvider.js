@@ -157,7 +157,10 @@ async function drainEventLoop() {
 
 function assertLiveAllowed({ pilot, providerLabel }) {
   const snap = envSnapshot();
-  if (!snap.fileExists) throw new XaiAdversarialProviderDisabled('env_file_missing', providerLabel);
+  // File-existence is intentionally NOT a gate. loadEngagementEnv / readMergedEnv
+  // merge process.env over the .env file, so CI and git worktrees authorize via
+  // process.env without a file on disk. The real kill-switches are the three
+  // checks below: the enable flag, the API key, and the --pilot flag.
   if (!snap.enableXai) throw new XaiAdversarialProviderDisabled('env_flag_off', providerLabel);
   if (!snap.hasXaiKey) throw new XaiAdversarialProviderDisabled('api_key_missing', providerLabel);
   if (!pilot) throw new XaiAdversarialProviderDisabled('no_pilot_flag', providerLabel);

@@ -110,7 +110,9 @@ class AnthropicBudgetExceededError extends Error {
  */
 function createClient(options = {}) {
   const cfg = loadConfig();
-  if (!cfg.fileExists) throw new AnthropicAdapterDisabledError('env_file_missing');
+  // File-existence is intentionally NOT a gate: loadConfig merges process.env over
+  // the .env file, so CI / worktrees authorize via process.env without a file on
+  // disk. The enable flag + key + --pilot below are the real kill-switches.
   if (!cfg.enableAnthropic) throw new AnthropicAdapterDisabledError('env_flag_off');
   if (!cfg.hasAnthropicKey) throw new AnthropicAdapterDisabledError('api_key_missing');
   if (options.requirePilotFlag && !options.pilot) throw new AnthropicAdapterDisabledError('no_pilot_flag');

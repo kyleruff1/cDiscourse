@@ -351,7 +351,12 @@ describe('runner harvest-JSONL reader', () => {
   const runner = require('../scripts/bot-fixtures/runXaiAdversarialBotCorpus');
 
   it('readHarvestFile reconstructs shaped sources from scenario_build events', () => {
-    const tmpDir = fs.mkdtempSync(path.join(repoRoot, 'logs', 'engagement-intelligence', 'test-'));
+    // `logs/engagement-intelligence/` is gitignored, so it is absent in fresh
+    // git worktrees / CI checkouts. mkdtempSync needs its parent to exist —
+    // create it recursively so the test is hermetic anywhere.
+    const logsDir = path.join(repoRoot, 'logs', 'engagement-intelligence');
+    fs.mkdirSync(logsDir, { recursive: true });
+    const tmpDir = fs.mkdtempSync(path.join(logsDir, 'test-'));
     const filePath = path.join(tmpDir, 'sample.jsonl');
     const events = [
       { stage: 'run_start', runId: 'r' },

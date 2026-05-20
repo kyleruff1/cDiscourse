@@ -231,7 +231,9 @@ async function collectReplyCandidates({
 } = {}) {
   if (!source || !source.sourceClaimSummary) throw new Error('collectReplyCandidates requires a source object');
   const snap = envSnapshot();
-  if (!snap.fileExists) throw new XaiAdversarialProviderDisabled('env_file_missing', providerLabel || 'xai_responses');
+  // File-existence is intentionally NOT a gate: the merged env (file + process.env)
+  // lets CI / worktrees authorize via process.env without a file on disk. The
+  // enable flag + key + --pilot below are the real kill-switches.
   if (!snap.enableXai) throw new XaiAdversarialProviderDisabled('env_flag_off', providerLabel || 'xai_responses');
   if (!snap.hasXaiKey) throw new XaiAdversarialProviderDisabled('api_key_missing', providerLabel || 'xai_responses');
   if (!pilot) throw new XaiAdversarialProviderDisabled('no_pilot_flag', providerLabel || 'xai_responses');
