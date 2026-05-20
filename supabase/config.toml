@@ -150,12 +150,24 @@ max_indexes = 5
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
-site_url = "http://127.0.0.1:3000"
+# in emails. This is the LOCAL dev value (Expo web serves on :8081). The deployed
+# project's Site URL is set per-environment in the Supabase Dashboard
+# (https://dev-cdiscourse.netlify.app for the current Netlify dev env).
+site_url = "http://localhost:8081"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
-# A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# URLs auth providers may redirect to post-authentication. Covers local Expo web
+# (:8081), the stable Netlify dev alias, and per-deploy Netlify preview hashes.
+# The `**` suffix matches the /auth/callback + /auth/reset paths buildAuthRedirectUrl
+# (QOL-023) constructs. If a CLI version rejects glob patterns here, keep the
+# `*--…` wildcard entry in the Supabase Dashboard redirect list only.
+additional_redirect_urls = [
+  "http://localhost:8081",
+  "http://localhost:8081/**",
+  "https://dev-cdiscourse.netlify.app",
+  "https://dev-cdiscourse.netlify.app/**",
+  "https://*--dev-cdiscourse.netlify.app/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
