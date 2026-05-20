@@ -14,7 +14,7 @@ import { SessionDebugPanel } from './src/features/session/SessionDebugPanel';
 import { AuthScreen } from './src/features/auth/AuthScreen';
 import { LoadingNotice } from './src/components/LoadingNotice';
 import { useAuthSession } from './src/features/auth/useAuthSession';
-import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate } from './src/features/debates';
+import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate, useRoomContract } from './src/features/debates';
 import { ConversationGalleryScreen } from './src/features/debates/ConversationGalleryScreen';
 import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
 import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
@@ -247,6 +247,19 @@ function MainAppShell({ preferences }: MainAppShellProps) {
 
   const participantSide = state.snapshot.participantSide;
 
+  // GAME-004 — derive the 1v1 PvP room contract for the open room. The hook
+  // is called unconditionally (Rules of Hooks); when no room is selected the
+  // empty roomId makes it return `viewModel: null` and the header renders
+  // unchanged. `roomType` has no persisted source in v1 — it defaults to
+  // 'public' inside the model, which keeps the opponent seat open and
+  // claimable (the doctrine-safe default; see docs/designs/GAME-004.md).
+  const roomContract = useRoomContract({
+    roomId: currentDebate?.id ?? '',
+    initiatorUserId: currentDebate?.createdBy ?? '',
+    openedAt: currentDebate?.createdAt ?? '',
+    viewerUserId: state.snapshot.userId || null,
+  });
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
@@ -312,6 +325,7 @@ function MainAppShell({ preferences }: MainAppShellProps) {
               debate={currentDebate}
               participantSide={participantSide}
               onLeave={handleLeaveRoom}
+              roomContract={roomContract.viewModel ?? undefined}
             />
 
             {/* Gamified room toolbar */}
