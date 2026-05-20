@@ -18,7 +18,10 @@ import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate } fr
 import { ConversationGalleryScreen } from './src/features/debates/ConversationGalleryScreen';
 import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
 import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
-import { ArgumentTreeScreen, ArgumentComposer } from './src/features/arguments';
+import { ArgumentTreeScreen } from './src/features/arguments';
+// COMPOSER-002 — the composer renders as an in-room dock, not a full-page
+// "Your Move" screen swap. The room stays mounted behind the dock.
+import { ArgumentComposerDock } from './src/features/arguments/ArgumentComposerDock';
 import { AccountScreen } from './src/features/account';
 import { useAccountProfile } from './src/features/account/useAccountProfile';
 import { fetchCurrentAuthUser } from './src/features/account/accountApi';
@@ -297,8 +300,12 @@ function MainAppShell({ preferences }: MainAppShellProps) {
           />
         )}
 
-        {/* Arguments tab: room view */}
-        {activeTab === 'arguments' && hasDebate && currentDebate && !composerOpen && (
+        {/* Arguments tab: room view.
+            COMPOSER-002 — the room stays mounted while composing; the
+            composer renders as an in-room dock overlay (below). Keeping
+            ArgumentTreeScreen mounted preserves viewMode, the active node,
+            the entry-hint micro-moment, and scroll position for free. */}
+        {activeTab === 'arguments' && hasDebate && currentDebate && (
           <View style={styles.debateRoom}>
             {/* Room header */}
             <DebateDetailHeader
@@ -434,20 +441,24 @@ function MainAppShell({ preferences }: MainAppShellProps) {
                 </Pressable>
               </ScrollView>
             </View>
-          </View>
-        )}
 
-        {/* Arguments tab: inline composer (replaces room while open) */}
-        {activeTab === 'arguments' && hasDebate && currentDebate && composerOpen && (
-          <ArgumentComposer
-            debate={currentDebate}
-            selectedParentId={replyTarget?.id ?? null}
-            parentArgument={replyTarget?.argument ?? null}
-            onClearParent={handleClearParent}
-            onSubmitSuccess={handleSubmitSuccess}
-            onClose={handleComposerClose}
-            initialPatch={composerPreset}
-          />
+            {/* COMPOSER-002 — in-room composer dock. Overlays the room
+                surface; the room itself stays mounted behind it so the
+                view mode, active node, micro-moment, and scroll position
+                survive a compose-cancel round trip. `composerOpen` now
+                toggles the dock instead of swapping the screen. */}
+            <ArgumentComposerDock
+              visible={composerOpen}
+              debate={currentDebate}
+              selectedParentId={replyTarget?.id ?? null}
+              parentArgument={replyTarget?.argument ?? null}
+              onClearParent={handleClearParent}
+              onSubmitSuccess={handleSubmitSuccess}
+              onClose={handleComposerClose}
+              initialPatch={composerPreset}
+              reduceMotionOverride={preferences.effectiveReduceMotion}
+            />
+          </View>
         )}
 
         {activeTab === 'account' && (
