@@ -22,7 +22,8 @@
 
 /**
  * META-001 — the locked 10-code manual-tag vocabulary. Each value is a
- * gameplay signal, NEVER a verdict.
+ * gameplay signal that marks a move's state, never a ruling on a person
+ * and never a factual assertion.
  */
 export type ManualTagCode =
   | 'needs_source'

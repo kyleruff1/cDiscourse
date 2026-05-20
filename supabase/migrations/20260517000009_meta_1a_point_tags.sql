@@ -8,12 +8,14 @@
 --   participant sees on reload.
 --
 --   Doctrine:
---     - A manual tag is a participant GAMEPLAY annotation, never a verdict.
---       The 10 tag codes below are the META-001 `ManualTagCode` vocabulary
---       verbatim — see src/features/metadata/moveMetadataLedger.ts
---       `ALL_MANUAL_TAG_CODES`. None is a truth / winner / loser label.
---     - Popularity / heat / engagement NEVER feed a tag — `point_tags` has
---       no count, no score, no engagement column.
+--     - A manual tag is a participant GAMEPLAY annotation. It marks a move's
+--       gameplay state ("this point lacks a source"); it never rules on a
+--       person or asserts a fact. The 10 tag codes below are the META-001
+--       `ManualTagCode` vocabulary verbatim — see
+--       src/features/metadata/moveMetadataLedger.ts `ALL_MANUAL_TAG_CODES`.
+--     - A tag is created only by an explicit participant action. The table
+--       has no count, no score, and no activity-volume column — recency or
+--       reach of a move can neither create nor weight a tag.
 --     - The `apply-manual-tag` Edge Function is the ONLY write path. The
 --       room-shell loader does a read-only SELECT (the documented exception).
 --     - Soft-delete only: `removed_at` is set; rows are never hard-deleted.
@@ -115,4 +117,4 @@ create policy pt_update_soft_delete
 --    through PostgREST. ──
 
 comment on table public.point_tags is
-  'META-1A: persisted manual-tag ledger. A manual tag is a participant gameplay annotation (one of the 10 META-001 ManualTagCode values), never a verdict. Written only via the apply-manual-tag Edge Function. Soft-delete via removed_at; rows are never hard-deleted.';
+  'META-1A: persisted manual-tag ledger. A manual tag is a participant gameplay annotation (one of the 10 META-001 ManualTagCode values) that marks a move gameplay state; it never rules on a person or asserts a fact. Written only via the apply-manual-tag Edge Function. Soft-delete via removed_at; rows are never hard-deleted.';

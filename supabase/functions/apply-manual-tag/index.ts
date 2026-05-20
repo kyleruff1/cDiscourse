@@ -20,7 +20,8 @@
  *   10. Best-effort audit row in admin_audit_events (service-role).
  *
  * Hard rules:
- *   - A manual tag is a participant gameplay annotation, never a verdict.
+ *   - A manual tag is a participant gameplay annotation; it marks a move's
+ *     gameplay state, never rules on a person or asserts a fact.
  *   - The Edge Function is the ONLY write path into `point_tags`.
  *   - Soft-delete only — this function NEVER calls `.delete()` on
  *     `point_tags`.
