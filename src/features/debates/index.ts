@@ -78,3 +78,29 @@ export type {
   UseChimeInGovernanceResult,
   ApplyChimeInReactionInput,
 } from './useChimeInGovernance';
+
+// GAME-006 — Jump Branch: once-per-room cross-branch participation.
+export { JumpBranchControl } from './JumpBranchControl';
+export { JumpBranchMarker } from './JumpBranchMarker';
+export {
+  canJump,
+  jumpsUsed,
+  listJumpsForParticipant,
+  deriveParticipantHomeBranch,
+  buildBranchEngagementMap,
+  buildJumpControlViewModel,
+  buildJumpMarkers,
+  jumpDenyReasonLabel,
+  MAX_JUMPS_PER_ROOM,
+  ALL_JUMP_DENY_REASONS,
+  _forbiddenJumpBranchTokens,
+} from './jumpBranchModel';
+export type {
+  JumpBranchRecord,
+  JumpDenyReason,
+  JumpEligibility,
+  BranchEngagementState,
+  JumpControlViewModel,
+  JumpMarkerKind,
+  JumpMarkerViewModel,
+} from './jumpBranchModel';
