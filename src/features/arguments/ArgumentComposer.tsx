@@ -50,6 +50,15 @@ interface Props {
    * overwrites the user's body after they start typing.
    */
   initialPatch?: MoveDraftPatch | null;
+  /**
+   * COMPOSER-002 — Render mode.
+   *  - 'dock' (default): no "Your Move" page header; the dock chrome
+   *    (handle + Cancel) is supplied by ArgumentComposerDock.
+   *  - 'page': legacy full-screen "Your Move" header + "Discard" link.
+   *    Only reachable behind `__DEV__`. No normal-user action routes here.
+   * Omitting the prop defaults to 'dock'.
+   */
+  mode?: 'dock' | 'page';
 }
 
 const TYPE_LABELS: Record<ArgumentType, string> = {
@@ -83,7 +92,7 @@ const MAX_BODY = 2000;
 
 const NEEDS_AXIS: ArgumentType[] = ['rebuttal', 'counter_rebuttal'];
 
-export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess, onClose, initialPatch }: Props) {
+export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess, onClose, initialPatch, mode = 'dock' }: Props) {
   const { draft, isRecovered, updateField, discardDraft } = useArgumentComposer(
     debate.id,
     selectedParentId,
@@ -294,18 +303,26 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
 
   const showEvidenceFields = draft.argumentType === 'evidence';
 
+  // COMPOSER-002 — the legacy full-page "Your Move" header survives only
+  // in `mode === 'page'` behind `__DEV__`. In the default `'dock'` mode the
+  // ArgumentComposerDock supplies the handle + Cancel chrome instead, and
+  // no normal-user action routes to a full-page composer screen.
+  const showPageHeader = mode === 'page' && __DEV__;
+
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Move</Text>
-        <Pressable
-          onPress={() => { discardDraft(); onClose?.(); }}
-          accessibilityRole="button"
-          accessibilityLabel="Discard draft"
-        >
-          <Text style={styles.discardText}>Discard</Text>
-        </Pressable>
-      </View>
+      {showPageHeader && (
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Your Move</Text>
+          <Pressable
+            onPress={() => { discardDraft(); onClose?.(); }}
+            accessibilityRole="button"
+            accessibilityLabel="Discard draft"
+          >
+            <Text style={styles.discardText}>Discard</Text>
+          </Pressable>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scroll}
