@@ -40,3 +40,41 @@ export type {
   UseRoomContractOptions,
   UseRoomContractResult,
 } from './useRoomContract';
+
+// GAME-005 — public-room participant seats + chime-in governance.
+export { ChimeInGovernanceControl } from './ChimeInGovernanceControl';
+export { PublicRoomMetricsStrip } from './PublicRoomMetricsStrip';
+export { useChimeInGovernance } from './useChimeInGovernance';
+export {
+  buildPublicRoomSeatMap,
+  evaluateChimeInStanding,
+  canApplyGovernanceReaction,
+  buildPublicRoomMetricsViewModel,
+  buildGovernanceControlViewModel,
+  governanceReactionLabel,
+  ALL_GOVERNANCE_REACTION_KINDS,
+  PUBLIC_ROOM_SEAT_CAP,
+  PRIMARY_SEAT_COUNT,
+  CHIME_IN_GOVERNANCE_WINDOW_MS,
+  _forbiddenChimeInGovernanceTokens,
+} from './publicSeatModel';
+export type {
+  SeatRole,
+  PublicSeat,
+  ChimeInStanding,
+  PublicRoomSeatMap,
+  MovedToObserverRecord,
+  ObserverFallbackReason,
+  GovernanceReaction,
+  GovernanceReactionKind,
+  GovernanceDenyReason,
+  GovernanceActorResult,
+  PublicRoomMetricsViewModel,
+  GovernanceControlViewModel,
+  BuildPublicRoomSeatMapInput,
+  EvaluateChimeInStandingOptions,
+} from './publicSeatModel';
+export type {
+  UseChimeInGovernanceResult,
+  ApplyChimeInReactionInput,
+} from './useChimeInGovernance';
