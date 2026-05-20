@@ -286,6 +286,7 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Allowed:** topic interests · debate style · availability · accessibility preference.
 - **Disallowed:** protected-class targeting, party-affiliation requirement, "expert" without verification, hostile labels, ideology/personality scoring.
 - **Acceptance:** Optional. Max 3–5 visible. No effect on truth/score. No effect on validation gates.
+- **Status:** Complete — `src/features/profileTags/` ships a closed, curated 28-tag vocabulary across the four allowed categories (no free-text entry, no "custom/other" escape hatch — the closed list is the doctrine mechanism that makes the DISALLOWED list test-enforceable), a separate device-local AsyncStorage tag blob (`schemaVersion: 1`, no migration), and a `ProfileTagPopout` core-`Modal` reached from a new "Profile tags" row inside PR-001's preferences popout. `MAX_PROFILE_TAGS = 5` enforced on read, in the model, and in the UI; tags are optional (0 valid). v1 ships tags self-visible only; shared/other-user visibility is a noted v2 follow-up. The named validation-gate immutability test proves byte-identical engine/score/anti-amplification output with and without tags plus bidirectional import isolation; the named tag-vocabulary safety test exhaustively scans the vocabulary for forbidden tokens. +87 tests. See `docs/current-status.md`.
 
 ### PR-003 — Avatar upload policy and storage
 - **Priority:** P1/P2 — **Effort:** L — **Release:** 6.7
