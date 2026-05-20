@@ -426,7 +426,9 @@ synthesis_ready   -> "Offer synthesis"
 
 ### AN-002 — Visual QA snapshots
 - **Priority:** P2 — **Effort:** M — **Release:** 6.8
+- **Status:** Pure-TS fixtures module + 34-test suite complete (`src/features/analytics/visualQaFixtures.ts`). 8 named deterministic builders + `VISUAL_QA_FIXTURES` registry; hand-authored browser visual checklist at `docs/visual-qa-snapshots.md`. Dev / QA-only — never imported by `app/`.
 - **Fixtures:** no-rebuttal · straight 10-move chain · source-chain fight · evidence-heavy branch · tangent/kink · synthesis path · 250-node stress · avatar/profile display.
+- **Acceptance:** Pure model. Fixture model tests pass. Checklist doc references every fixture. No AI / Supabase / verdict / popularity signal.
 
 ---
 
