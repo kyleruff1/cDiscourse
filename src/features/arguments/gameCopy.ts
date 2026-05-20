@@ -633,9 +633,11 @@ export const CHIME_IN_GOVERNANCE_COPY = Object.freeze({
     'This chime-in moved to observer for this room. They can still read ' +
     'everything and their side branch stays in the record.',
   // Overflow (cap full) — never a failure, never "rejected".
+  // Note: "right now" was reworded to "at the moment" — the ban-list test
+  // (GAME-005 design §10) flags the doctrine token "right".
   overflow_observer_body:
-    'This room has a full set of active seats right now. New voices join ' +
-    'as observers and can still read and follow along.',
+    'This room has a full set of active seats at the moment. New voices ' +
+    'join as observers and can still read and follow along.',
 
   // Seat / metrics strip — counts only, never a ranking.
   seat_count: '{active} of {cap} seats active',
