@@ -607,6 +607,46 @@ export const BRANCH_GRAMMAR_COPY = Object.freeze({
     'This side thread has gone a few layers deep. A short summary keeps it readable.',
 } as const);
 
+/**
+ * GAME-005 — plain-language copy for chime-in governance. Structural,
+ * never a verdict, never person-attribution, never "booted/kicked/banned".
+ * A governance reaction describes participation STRUCTURE, never
+ * correctness; a moved-to-observer transition is a structural transition,
+ * never a penalty. OD-2 confirms final wording.
+ */
+export const CHIME_IN_GOVERNANCE_COPY = Object.freeze({
+  // Reaction labels — participation-structure, never correctness.
+  reaction_useful: 'Helpful here',
+  reaction_off_track: 'Off the current thread',
+  reaction_needs_source: 'Ask for a source',
+  reaction_move_to_tangent: 'Better as a side issue',
+
+  // Reaction one-line explainers (for the control's a11y hint).
+  explain_useful: 'Marks this chime-in as helping the current thread.',
+  explain_off_track: 'Notes this chime-in does not fit the current thread.',
+  explain_needs_source: 'Asks this chime-in for a primary source.',
+  explain_move_to_tangent: 'Suggests moving this chime-in to a side branch.',
+
+  // Observer-fallback — calm, non-punitive. Explains access remains.
+  moved_to_observer_title: 'Moved to observer',
+  moved_to_observer_body:
+    'This chime-in moved to observer for this room. They can still read ' +
+    'everything and their side branch stays in the record.',
+  // Overflow (cap full) — never a failure, never "rejected".
+  // Note: "right now" was reworded to "at the moment" — the ban-list test
+  // (GAME-005 design §10) flags the doctrine token "right".
+  overflow_observer_body:
+    'This room has a full set of active seats at the moment. New voices ' +
+    'join as observers and can still read and follow along.',
+
+  // Seat / metrics strip — counts only, never a ranking.
+  seat_count: '{active} of {cap} seats active',
+  chime_in_count_one: '1 person chiming in',
+  chime_in_count_many: '{count} people chiming in',
+  chime_in_count_none: 'No chime-ins yet',
+  side_branches_heading: 'Side branches',
+} as const);
+
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
   header: 'One quick look before you post',
