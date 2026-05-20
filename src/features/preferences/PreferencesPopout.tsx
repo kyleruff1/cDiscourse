@@ -42,6 +42,9 @@ import {
   ROOM_ENTRY_COPY,
   SIDE_LABEL_COPY,
 } from './preferencesCopy';
+// PR-002 — copy for the new "Profile tags" row that opens the
+// ProfileTagPopout. The popout itself is a separate feature folder.
+import { PROFILE_TAGS_ROW_COPY } from '../profileTags/profileTagCopy';
 import {
   isHighContrast,
   type ColorAccessibilityMode,
@@ -72,6 +75,10 @@ export interface PreferencesPopoutProps {
     key: K,
     value: UserPreferences[K],
   ) => void;
+  // PR-002 — opens the separate ProfileTagPopout (mounted by App.tsx).
+  onOpenProfileTags: () => void;
+  /** PR-002 — number of selected profile tags, shown in the new row. */
+  profileTagCount: number;
 }
 
 const DISPLAY_NAME_MAX = 60;
@@ -89,6 +96,8 @@ export function PreferencesPopout({
   effectiveReduceMotion,
   osReduceMotion,
   onUpdatePreference,
+  onOpenProfileTags,
+  profileTagCount,
 }: PreferencesPopoutProps) {
   const [draftName, setDraftName] = useState(displayName ?? '');
   const [savedFlash, setSavedFlash] = useState(false);
@@ -328,6 +337,33 @@ export function PreferencesPopout({
             <Text style={styles.noteText} testID="pref-side-label-note">
               {SIDE_LABEL_COPY.persistOnlyNote}
             </Text>
+
+            {/* Field 10 — Profile tags (PR-002). A Pressable that opens
+                the separate ProfileTagPopout. NOT a TextInput — the
+                preferences popout still has exactly one TextInput. */}
+            <View style={styles.field} testID="pref-field-profile-tags">
+              <Text style={styles.label}>{PROFILE_TAGS_ROW_COPY.label}</Text>
+              <Text style={styles.helper}>{PROFILE_TAGS_ROW_COPY.helper}</Text>
+              <Pressable
+                testID="pref-profile-tags-open"
+                onPress={onOpenProfileTags}
+                accessibilityRole="button"
+                accessibilityLabel={PROFILE_TAGS_ROW_COPY.open}
+                accessibilityHint={PROFILE_TAGS_ROW_COPY.openHint}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[
+                  styles.profileTagsRow,
+                  highContrast && styles.profileTagsRowHighContrast,
+                ]}
+              >
+                <Text style={styles.profileTagsRowCount} testID="pref-profile-tags-count">
+                  {profileTagCount > 0
+                    ? PROFILE_TAGS_ROW_COPY.countSome(profileTagCount)
+                    : PROFILE_TAGS_ROW_COPY.countNone}
+                </Text>
+                <Text style={styles.profileTagsRowChevron}>›</Text>
+              </Pressable>
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -472,5 +508,32 @@ const styles = StyleSheet.create({
     color: '#fca5a5',
     fontSize: 12,
     marginTop: 6,
+  },
+  // PR-002 — the "Profile tags" row Pressable.
+  profileTagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    backgroundColor: '#020617',
+  },
+  profileTagsRowHighContrast: {
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+  },
+  profileTagsRowCount: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  profileTagsRowChevron: {
+    color: '#94a3b8',
+    fontSize: 20,
+    fontWeight: '700',
   },
 });
