@@ -1,0 +1,47 @@
+{
+  // AN-003 §5 — dedicated CommonJS-targeted tsconfig for the dev/debug
+  // tree-playability snapshot generator. Used ONLY by the
+  // `diagnostics:tree-playability:build` npm script. It is NEVER picked up
+  // by `npm run typecheck` (root tsconfig), `npm run lint`, or `npm run test`.
+  //
+  // This config is intentionally STANDALONE (it does not `extends` the
+  // root tsconfig). The root tsconfig inherits Expo's bundler-targeted
+  // `customConditions: ["react-native"]`, which TypeScript only accepts
+  // with a bundler/node16 resolver — incompatible with the plain `node`
+  // CommonJS resolver this script needs to run under bare `node`. The
+  // entire imported closure was verified React-Native-free (see AN-003 §5)
+  // and uses only relative imports (no `@/*` aliases), so a clean
+  // CommonJS config with `strict` mode is sufficient.
+  "compilerOptions": {
+    "strict": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false,
+    // Pin the emit layout so the compiled entry path in package.json is
+    // exact: `<outDir>/scripts/diagnostics/buildTreePlayabilitySnapshot.js`.
+    "rootDir": ".",
+    "outDir": "artifacts/diagnostics/tree-playability-build",
+    "types": ["node"]
+  },
+  // Only the script entry is listed. `tsc` compiles the transitive import
+  // closure automatically — that closure is the verified React-Native-free
+  // pure-model graph (AN-003 §5). Listing `src/**/*.ts` would force-compile
+  // unreferenced barrels that re-export `.tsx` components and DOM/Supabase
+  // code; scoping to the entry keeps the compile to exactly what runs.
+  "files": ["scripts/diagnostics/buildTreePlayabilitySnapshot.ts"],
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}
