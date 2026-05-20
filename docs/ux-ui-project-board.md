@@ -150,6 +150,13 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Priority:** P2 — **Effort:** L/XL — **Release:** 6.6+
 - **Scope:** Click branch label → branch inspector. Left: main timeline context. Right/bottom: branch timeline. "Return to mainline" CTA. No new route.
 
+### BR-003 — Tangent / outer-orbit routing (structural redirect, no person labels)
+- **Priority:** P1 — **Effort:** M — **Release:** 6.6-adjacent — **Agent:** roadmap-implementer. Issue #117.
+- **Status:** Build complete, awaiting Review. See `docs/designs/BR-003.md` + `docs/current-status.md` BR-003 entry.
+- **Model:** New pure-TS `src/features/arguments/tangentRoutingModel.ts` — `assessTangentRisk({ draft, parent, lifecycle, manualTags, tangentContext?, selectedChannel? })` returns `{ risk: 'none' | 'possible' | 'strong', reason, suggestedAction }` from typed structural fields only (argument type, RULE-005 channel, qualifier tag codes, parent META-001 auto-metadata, parent LIFE-001 axis, BR-001 `RailBranchKind`). Five `RedirectReason`s — `introduces_new_axis` / `no_signal_about_parent` / `mode_demands_response` / `repeated_off_path` / `user_marked_tangent` — each describes the move's relationship to its parent, never the person. `countRecentTangentMoves` is BR-003's own deterministic per-side off-path counter over BR-001 topology (`REPEATED_OFF_PATH_THRESHOLD = 3`). `buildMainlineDemotionAdvisory` is a reversible, person-free thread advisory. `suggestedActionToQuickAction` reuses the existing `branch` / `clarify` quick actions.
+- **Integration:** plugs into RULE-004's merged `preSendReviewModel` — `AdvisoryKind` gains one member (`tangent_redirect`), `ADVISORY_DEFINITIONS` one entry, `PreSendReviewInput` one optional `tangentContext` field, `buildPreSendReview` one derivation step. `PreSendReviewSheet.tsx` is unchanged (its generic advisory loop renders the new kind). When `tangentContext` is omitted the review is byte-identical to merged RULE-004. De-dup: `tangent_redirect` is suppressed when it would only echo RULE-004's `asks_new_question` for the same tangent tag.
+- **Acceptance:** advisory only — adds zero blocking rules; "Send to side branch" carries via RULE-005's existing `branch_tangent` channel + `branch_this_off` qualifier through the unchanged `submit-argument` path (BR-001 topology then classifies the edge as `kink_start`). Deterministic — no AI, no keyword-gate on body text, no heat/popularity input. No migration, no Edge Function, no operator deploy.
+
 ---
 
 ## Epic 4 — Sidecars, Popovers, Quick Tools
