@@ -40,7 +40,9 @@ class XaiXSearchClientDisabled extends Error {
 
 function assertLiveAllowed({ pilot }) {
   const snap = envSnapshot();
-  if (!snap.fileExists) throw new XaiXSearchClientDisabled('env_file_missing');
+  // File-existence is intentionally NOT a gate: the merged env (file + process.env)
+  // lets CI / worktrees authorize via process.env without a file on disk. The
+  // enable flag + key + --pilot below are the real kill-switches.
   if (!snap.enableXai) throw new XaiXSearchClientDisabled('env_flag_off');
   if (!snap.hasXaiKey) throw new XaiXSearchClientDisabled('api_key_missing');
   if (!pilot) throw new XaiXSearchClientDisabled('no_pilot_flag');

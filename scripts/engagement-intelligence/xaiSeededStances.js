@@ -199,7 +199,9 @@ function sanitizeSeed(t) {
  */
 async function loadXaiSeedsLive(count, opts) {
   const env = loadEngagementEnv();
-  if (!env.fileExists) throw new XaiSeedDisabledError('env_file_missing');
+  // File-existence is intentionally NOT a gate: loadEngagementEnv merges
+  // process.env over the .env file, so CI / worktrees authorize via process.env
+  // without a file on disk. The enable flag + key + --pilot below are the gates.
   if (!env.enableXai) throw new XaiSeedDisabledError('env_flag_off');
   if (!env.hasXaiKey) throw new XaiSeedDisabledError('api_key_missing');
   if (!opts || !opts.pilot) throw new XaiSeedDisabledError('no_pilot_flag');
