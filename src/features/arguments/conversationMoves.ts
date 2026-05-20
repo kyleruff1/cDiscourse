@@ -243,8 +243,15 @@ const CHALLENGE_AXIS_OPTIONS: ChallengeAxisOption[] = [
 
 // ── Challenge type resolution ──────────────────────────────────
 
-/** Resolves challenge_parent → the best available challenge-compatible argument type. */
-function resolveChallengeType(
+/**
+ * Resolves challenge_parent → the best available challenge-compatible
+ * argument type.
+ *
+ * Exported (RULE-005) so `channelModel.channelToDraftPatch` reuses this
+ * single source of rebuttal-vs-counter_rebuttal resolution rather than
+ * duplicating it. Pure: reads only the Constitution transition rules.
+ */
+export function resolveChallengeType(
   parentType: ArgumentType,
   rules: ConstitutionRule[],
 ): ArgumentType | null {
