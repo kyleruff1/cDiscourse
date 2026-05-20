@@ -7,7 +7,14 @@
  * nothing into a running surface (MCP-011 §14).
  */
 
+// ── MCP-011 (existing — do not touch) ──
 export * from './semanticRefereeTypes';
 export * from './semanticRefereeValidator';
 export * from './semanticRefereeCacheKey';
 export * from './semanticRefereeFixtures';
+// ── MCP-012 (appended — semantic call router, mock-only) ──
+export * from './triggerGates';
+export * from './classifierBatching';
+export * from './semanticCache';
+export * from './tokenBudget';
+export * from './retryPolicy';
