@@ -9,7 +9,7 @@
  * Editing message bodies is not exposed.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
@@ -150,6 +150,12 @@ interface Props {
    * timeline board's independent OS read.
    */
   reduceMotionOverride?: boolean;
+  /**
+   * SC-005 — optional "Start an argument" CTA folded into the side action
+   * rail's expanded dock (replaces App.tsx's separate bottom actionBar).
+   * When omitted, no CTA chip renders in the dock.
+   */
+  startArgumentAction?: { label: string; onPress: () => void } | null;
 }
 
 export function ArgumentGameSurface({
@@ -174,7 +180,9 @@ export function ArgumentGameSurface({
   entryHint,
   density,
   reduceMotionOverride,
+  startArgumentAction,
 }: Props) {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const sorted = useMemo(() => sortMessagesChronologically(messages || []), [messages]);
   const latestId = useMemo(() => latestIdHint ?? getLatestMessageId(sorted), [sorted, latestIdHint]);
   const [mode, setMode] = useState<ArgumentSurfaceMode>(initialMode || 'stack');
@@ -554,6 +562,20 @@ export function ArgumentGameSurface({
     setDeletionTarget(null);
   }, []);
 
+  // SC-005 — mutual exclusion between the side action rail's dock and the
+  // SC-002/SC-004 timeline node selection. Expanding the rail clears the
+  // node-action target (one-open-at-a-time); selecting a node target
+  // collapses the rail reactively via the `isAnyPanelOpen` prop the rail
+  // already receives. This extends the existing single-owner pattern; it
+  // adds no competing exclusion mechanism. (Implementer note: the design
+  // floated a parent-owned `railExpanded` boolean — but the rail is the
+  // source of truth for its own expansion, so the parent only needs to
+  // clear the node target here and feed `isAnyPanelOpen` back. Carrying a
+  // separate `railExpanded` state would be dead duplication.)
+  const handleRailExpandedChange = useCallback((expanded: boolean) => {
+    if (expanded) setSelectedDockTarget(null);
+  }, []);
+
   // META-1A — Persisted manual-tag write path. These route through the
   // apply-manual-tag Edge Function (the single write path; never a direct
   // client insert) and refresh the room on success so the persisted tag
@@ -709,13 +731,28 @@ export function ArgumentGameSurface({
         )}
       </View>
 
-      {/* Stage 6.4 — Side action rail. Collapsed by default for observers. */}
+      {/* Stage 6.4 / SC-005 — Side action rail. Collapsed by default for
+          observers; SC-005 renders it as a contextual dock (side-anchored
+          on wide viewports, a capped bottom sheet on narrow ones) and folds
+          the old App.tsx actionBar "Start an argument" CTA in. */}
       <ArgumentSideActionRail
         viewerRole={resolvedViewerRole}
         bubbleActor={activeViewModel?.actor || 'unknown'}
         participantSide={participantSide ?? null}
         activeMessageId={activeMessageId}
         onAction={handleRailAction}
+        windowWidth={windowWidth}
+        windowHeight={windowHeight}
+        reduceMotionOverride={reduceMotionOverride}
+        // SC-005 — "selected node" means an EXPLICIT SC-002/SC-004 node
+        // selection, not the always-present default-active message. This
+        // is what keeps the default room-entry collapsed label "Watch"
+        // (per the design's edge-case table) rather than "Actions on this
+        // point" the moment the room mounts.
+        hasSelectedNode={Boolean(selectedDockTarget)}
+        isAnyPanelOpen={Boolean(selectedDockTarget)}
+        onExpandedChange={handleRailExpandedChange}
+        startArgumentAction={startArgumentAction}
       />
 
       {deletionTarget && (

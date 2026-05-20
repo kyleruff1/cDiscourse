@@ -63,9 +63,15 @@ interface Props {
    * supplied it replaces the timeline board's independent OS read.
    */
   reduceMotionOverride?: boolean;
+  /**
+   * SC-005 — optional "Start an argument" CTA. Threaded down to the side
+   * action rail's expanded dock so the room has a single bottom action
+   * surface (replaces App.tsx's separate bottom actionBar).
+   */
+  startArgumentAction?: { label: string; onPress: () => void } | null;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction }: Props) {
   const {
     cache,
     viewport,
@@ -123,6 +129,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         onJoinSide={onJoinSide}
         density={density}
         reduceMotionOverride={reduceMotionOverride}
+        startArgumentAction={startArgumentAction}
       />
     );
   }
@@ -262,9 +269,11 @@ interface FullRoomGameSurfaceMountProps {
   density?: TimelineDensityMode;
   /** PR-001 — effective reduce-motion preference. */
   reduceMotionOverride?: boolean;
+  /** SC-005 — "Start an argument" CTA folded into the side action rail. */
+  startArgumentAction?: { label: string; onPress: () => void } | null;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -388,6 +397,7 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         entryHint={entryHint || undefined}
         density={density}
         reduceMotionOverride={reduceMotionOverride}
+        startArgumentAction={startArgumentAction}
       />
     </View>
   );
