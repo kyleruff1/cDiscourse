@@ -17,6 +17,8 @@ import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import { ConversationMiniTimeline } from './ConversationMiniTimeline';
 import { getBotOrTestDebateLabel } from '../devEnvironment';
+import { BotRoomMarker } from './BotRoomMarker';
+import { buildBotMarkingViewModel, looksLikeBotSeedTag } from './botRoomPolicyModel';
 import {
   buildConversationGalleryCards,
   classifyCardToSection,
@@ -451,6 +453,39 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
   const headline = BUCKET_HEADLINE[card.bucket];
   const tempLabel = TEMPERAMENT_LABEL[card.temperament];
   const botKindLabel = getBotOrTestDebateLabel(card.title);
+  /*
+   * GAME-008 — the gallery card has the title but no loaded per-author bot
+   * hints, so it uses the design's documented no-query degraded fallback:
+   * a deterministic title-tag convention. A bot-seeded title => a synthetic
+   * BotMarkingViewModel with isBotSeededRoom true and no participant
+   * markings (the per-participant marker is mounted in-room where hints are
+   * available). The marker renders nothing when the title carries no tag.
+   */
+  const botMarkingViewModel = useMemo(
+    () =>
+      buildBotMarkingViewModel({
+        roomId: card.debateId,
+        roomType: 'public',
+        arguments: looksLikeBotSeedTag(card.title)
+          ? [
+              {
+                id: `${card.debateId}-root`,
+                parentId: null,
+                authorId: `${card.debateId}-bot-seed`,
+                argumentType: 'thesis',
+                body: '',
+                status: 'posted',
+                createdAt: new Date(0).toISOString(),
+                isBot: true,
+              },
+            ]
+          : [],
+        botHintsByUserId: looksLikeBotSeedTag(card.title)
+          ? [{ userId: `${card.debateId}-bot-seed`, isBot: true }]
+          : [],
+      }),
+    [card.debateId, card.title],
+  );
   const accessibilityLabel = botKindLabel
     ? `${headline} · ${card.title} · Test room (${botKindLabel})`
     : `${headline} · ${card.title}`;
@@ -484,6 +519,13 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
         Started by {card.starterDisplayName}
         {card.duplicateCount > 1 ? ` · ${card.duplicateCount} duplicate runs collapsed` : ''}
       </Text>
+
+      {/* GAME-008 — non-alarming "test room" marker for a bot-seeded room. */}
+      {botMarkingViewModel.roomMarkerLabel.length > 0 ? (
+        <View style={styles.botRoomMarkerRow}>
+          <BotRoomMarker viewModel={botMarkingViewModel} context="gallery" />
+        </View>
+      ) : null}
 
       {card.firstPostExcerpt ? (
         <View style={styles.excerptBlock}>
@@ -610,6 +652,7 @@ const styles = StyleSheet.create({
 
   cardTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '700' as const, marginTop: 6 },
   starter: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  botRoomMarkerRow: { marginTop: 6 },
 
   excerptBlock: { marginTop: 8 },
   excerptLabel: { color: '#64748b', fontSize: 9, fontWeight: '800' as const, letterSpacing: 0.4 },
