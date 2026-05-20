@@ -70,13 +70,18 @@ describe('COMPOSER-002 — the dock is mounted inside the room, not as a screen 
     expect(APP_SRC).toMatch(/<ArgumentComposerDock[\s\S]*?visible=\{composerOpen\}/);
   });
 
-  it('the dock is rendered after the action bar, inside the debateRoom view', () => {
-    const actionBarIdx = APP_SRC.indexOf('styles.actionBar');
+  it('the dock is rendered after the room surface, inside the debateRoom view', () => {
+    // SC-005 removed the separate bottom actionBar (its "Start an argument"
+    // CTA folded into the side action rail). The COMPOSER-002 invariant —
+    // the dock is a sibling rendered inside the room view, after the room
+    // surface — is unchanged; this anchors on the room surface instead of
+    // the now-deleted actionBar.
+    const treeScreenIdx = APP_SRC.indexOf('<ArgumentTreeScreen');
     const dockIdx = APP_SRC.indexOf('<ArgumentComposerDock');
     const debateRoomIdx = APP_SRC.indexOf('styles.debateRoom');
     expect(debateRoomIdx).toBeGreaterThan(-1);
-    expect(actionBarIdx).toBeGreaterThan(-1);
-    expect(dockIdx).toBeGreaterThan(actionBarIdx);
+    expect(treeScreenIdx).toBeGreaterThan(-1);
+    expect(dockIdx).toBeGreaterThan(treeScreenIdx);
   });
 
   it('the dock receives the same composer props App previously passed to ArgumentComposer', () => {
