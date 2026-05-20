@@ -402,6 +402,32 @@ export const PLAIN_LANGUAGE_COPY = {
   pacing_cooldown_is_active: 'A short cooldown is on — the next move is soon.',
   pacing_one_move_at_a_time: 'One move at a time keeps the thread followable.',
   pacing_a_pause_before_sending: 'A pause before sending is worth it here.',
+  // MCP-015 — Semantic override UX copy. Each string is about WHERE the move
+  // goes / WHAT the user decided — never about the move being wrong, never
+  // about the person. Plain English, no snake_case leak, ban-list-clean.
+  // Overriding is never a penalty: no "you were warned" framing anywhere.
+  // Append-only — no existing key changed. `tangent` is NOT re-declared here:
+  // the existing META-001 `tangent` key (value 'Tangent / side issue') already
+  // covers the override layer's `tangent` lane — the two layers describe the
+  // same lane vocabulary (MCP-015 design § "gameCopy.ts copy extension"
+  // key-collision check).
+  mainline: 'Mainline reply',
+  branch: 'Branch',
+  answers_parent: 'Marked as a direct reply',
+  semantic_override_prompt_low_conf: 'Not a reply? Choose where this goes.',
+  semantic_override_prompt_conflict: 'You choose the lane for this move.',
+  semantic_override_prompt_soft: 'You decide the lane here.',
+  semantic_override_lane_mainline: 'Reply here — this stays on the mainline.',
+  semantic_override_lane_branch: 'Branch — this opens a related thread.',
+  semantic_override_lane_tangent: 'Tangent — this is a separate side issue.',
+  semantic_override_answers_parent:
+    'This answers the parent — count it as a direct reply.',
+  semantic_override_confirm_changed: 'Set the lane',
+  semantic_override_confirm_keep: 'Keep referee suggestion',
+  semantic_override_recorded_lane: 'You set the lane.',
+  semantic_override_recorded_answers: 'You marked this as a direct reply.',
+  semantic_override_original_suggestion: 'Referee had suggested another lane.',
+  semantic_override_change: 'Change',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;

@@ -358,8 +358,11 @@ export interface MetadataEvent {
   eventId: string;
   /** What kind of event. */
   kind: 'add' | 'remove' | 'transition';
-  /** Which code family. */
-  codeFamily: 'manual_tag' | 'auto_metadata' | 'lifecycle_causation';
+  /** Which code family. MCP-015 added the additive `semantic_override`
+   *  member — a `semantic_override` event is built by
+   *  `toSemanticOverrideMetadataEvent` in `src/features/semanticOverride/`,
+   *  never by this file's internal `composeMetadataEvents` helper. */
+  codeFamily: 'manual_tag' | 'auto_metadata' | 'lifecycle_causation' | 'semantic_override';
   /** The code that changed (manual tag code, auto metadata code, or
    *  `${fromState}->${toState}` for lifecycle_causation). */
   code: string;
