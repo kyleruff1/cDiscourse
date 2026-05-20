@@ -1,11 +1,19 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import type { Debate, ParticipantSide } from './types';
+import { RoomContractSeatStrip } from './RoomContractSeatStrip';
+import type { RoomContractViewModel } from './roomContractModel';
 
 interface Props {
   debate: Debate;
   participantSide: ParticipantSide | string | null;
   onLeave: () => void;
+  /**
+   * GAME-004 — the derived 1v1 room contract projection. Optional: when
+   * absent the header renders exactly as before (zero behavior change for any
+   * caller that does not pass it).
+   */
+  roomContract?: RoomContractViewModel;
 }
 
 const SIDE_COLORS: Record<string, { bg: string; text: string }> = {
@@ -22,7 +30,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   archived: { bg: '#f3f4f6', text: '#6b7280' },
 };
 
-export function DebateDetailHeader({ debate, participantSide, onLeave }: Props) {
+export function DebateDetailHeader({ debate, participantSide, onLeave, roomContract }: Props) {
   const sideColor = participantSide ? (SIDE_COLORS[participantSide] ?? SIDE_COLORS.observer) : null;
   const statusColor = STATUS_COLORS[debate.status] ?? STATUS_COLORS.open;
 
@@ -54,6 +62,9 @@ export function DebateDetailHeader({ debate, participantSide, onLeave }: Props) 
       </View>
       <Text style={styles.title} numberOfLines={2}>{debate.title}</Text>
       <Text style={styles.resolution} numberOfLines={3}>{debate.resolution}</Text>
+      {/* GAME-004 — 1v1 PvP seat strip. Renders only when the contract
+          projection is supplied; absent → header is unchanged. */}
+      {roomContract ? <RoomContractSeatStrip viewModel={roomContract} /> : null}
     </View>
   );
 }
