@@ -527,6 +527,47 @@ export const PRESEND_BLOCK_COPY = Object.freeze({
   cooldown_active: 'A short cooldown is active — you can post again shortly.',
 } as const);
 
+// ── BR-003 — Tangent / outer-orbit routing copy ──────────────────
+//
+// BR-003 surfaces ONE advisory inside RULE-004's existing
+// `PreSendReviewSheet` when a draft reads as a structural redirect away
+// from the point it replies to. The copy describes the MOVE's structural
+// relationship to its parent — "this move", "the thread" — NEVER the
+// person. "Side issue" is the consistent user-facing term (it matches
+// `timeline-grammar`'s `branch` node label and RULE-005's `branch_tangent`
+// channel label "Branch a side issue"). The internal "Outer Realm" framing
+// is NOT used, not even in code.
+//
+// Doctrine: every string is plain English (no snake_case leak), ≤ 100
+// chars, carries zero verdict / amplification / person-attribution tokens,
+// and is non-punitive. `reason_user_marked_tangent` uses "You marked" —
+// the author describing their OWN prior action, not an accusation.
+// `tangentRoutingModel.ts` reads this table — it never authors a line
+// inline (mirrors `channelModel.ts` / `preSendReviewModel.ts`). Enforced
+// by `__tests__/tangentRoutingNoPersonLabel.test.ts`.
+
+/** BR-003 — plain-language line per redirect reason. Move-level, never
+ *  person-level. Read by tangentRoutingModel; authored nowhere else. */
+export const TANGENT_ROUTING_COPY = Object.freeze({
+  // The advisory headline shown inside the RULE-004 sheet.
+  advisory_possible:
+    'This may open a new issue — a side branch keeps the main thread clear.',
+  advisory_strong:
+    'This reads like a new issue — a side branch is a better home for it.',
+  // Per-reason detail line (optional second line in the advisory card).
+  reason_introduces_new_axis: 'It picks up a different point than the one above.',
+  reason_no_signal_about_parent:
+    'It does not connect back to the point it replies to.',
+  reason_mode_demands_response:
+    'The point above is still waiting for a direct reply.',
+  reason_repeated_off_path:
+    'The thread has drifted from its main point a few times.',
+  reason_user_marked_tangent: 'You marked this as a side issue.',
+  // Mainline-demotion advisory — describes the THREAD, never the person.
+  demotion_advisory:
+    'The main thread has drifted. A direct reply brings it back on point.',
+} as const);
+
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
   header: 'One quick look before you post',

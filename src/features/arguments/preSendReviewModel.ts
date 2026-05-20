@@ -52,6 +52,11 @@ import {
   PRESEND_ADVISORY_COPY,
   PRESEND_BLOCK_COPY,
 } from './gameCopy';
+import {
+  assessTangentRisk,
+  tangentAdvisoryPlainLanguage,
+} from './tangentRoutingModel';
+import type { AssessTangentRiskInput } from './tangentRoutingModel';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -63,7 +68,8 @@ export type AdvisoryKind =
   | 'no_source_attached'
   | 'depth_warning'
   | 'permanent_record_warning'
-  | 'channel_mismatch'; // absorbs RULE-005's channel-mismatch — see §0 D6.
+  | 'channel_mismatch' // absorbs RULE-005's channel-mismatch — see §0 D6.
+  | 'tangent_redirect'; // BR-003 — structural redirect to a side branch.
 
 /** Frozen list of every advisory kind. Tests iterate this. */
 export const ALL_ADVISORY_KINDS: ReadonlyArray<AdvisoryKind> = Object.freeze([
@@ -74,6 +80,7 @@ export const ALL_ADVISORY_KINDS: ReadonlyArray<AdvisoryKind> = Object.freeze([
   'depth_warning',
   'permanent_record_warning',
   'channel_mismatch',
+  'tangent_redirect',
 ]);
 
 /** Advisory severity. There is NO blocking severity — see §2. */
@@ -202,6 +209,17 @@ export interface PreSendReviewInput {
    * flag (resets when the dock re-opens).
    */
   isFirstPostInSession: boolean;
+  /**
+   * BR-003 — context the tangent-risk assessment needs. Optional: when
+   * omitted or null, `buildPreSendReview` skips derivation step 9 entirely
+   * and behaves exactly as the merged RULE-004 model — the review is
+   * byte-identical to the pre-BR-003 output. Additive — no existing caller
+   * breaks. The caller (dock / composer) assembles this from the
+   * already-loaded draft + parent + LIFE-001 / META-001 structures + the
+   * BR-001 topology map; `tangentContext.draft` / `.parent` should mirror
+   * this input's `draft` / `parent`.
+   */
+  tangentContext?: AssessTangentRiskInput | null;
 }
 
 // ── Frozen tuning constants ────────────────────────────────────
@@ -278,6 +296,13 @@ export const ADVISORY_DEFINITIONS: Readonly<
     'post_anyway',
   ]),
   channel_mismatch: freezeDef('channel_mismatch', 'info', [
+    'branch_tangent',
+    'post_anyway',
+  ]),
+  // BR-003 — `soft` in casual mode; the suggested transformations are the
+  // EXISTING `branch_tangent` ("Branch a side issue") + `post_anyway`.
+  // BR-003 adds no new `AdvisoryTransformation` and no new `QuickActionLabel`.
+  tangent_redirect: freezeDef('tangent_redirect', 'soft', [
     'branch_tangent',
     'post_anyway',
   ]),
@@ -418,17 +443,27 @@ function bodyEndsWithQuestion(body: string): boolean {
   return body.trim().endsWith('?');
 }
 
-/** Builds a `PreSendAdvisory` from its frozen definition + severity. */
+/**
+ * Builds a `PreSendAdvisory` from its frozen definition + severity. The
+ * `plainLanguage` defaults to the frozen `PRESEND_ADVISORY_COPY` line for
+ * the kind; an explicit `plainLanguageOverride` is used for advisories
+ * whose copy lives in a sibling frozen block (BR-003's `tangent_redirect`
+ * reads `TANGENT_ROUTING_COPY`, not `PRESEND_ADVISORY_COPY`).
+ */
 function buildAdvisory(
   kind: AdvisoryKind,
   severity: AdvisorySeverity,
+  plainLanguageOverride?: string,
 ): PreSendAdvisory {
   const def = advisoryDefinition(kind);
   return {
     kind,
     severity,
     suggested: def.suggested,
-    plainLanguage: PRESEND_ADVISORY_COPY[kind],
+    plainLanguage:
+      plainLanguageOverride !== undefined
+        ? plainLanguageOverride
+        : PRESEND_ADVISORY_COPY[kind as keyof typeof PRESEND_ADVISORY_COPY],
   };
 }
 
@@ -515,7 +550,9 @@ export function buildPreSendReview(input: PreSendReviewInput): PreSendReview {
   const questionShape =
     bodyEndsWithQuestion(draft.body) &&
     draft.argumentType !== 'clarification_request';
-  if (metaBranchSuggested || draftHasTangentTag || questionShape) {
+  const asksNewQuestionFired =
+    metaBranchSuggested || draftHasTangentTag || questionShape;
+  if (asksNewQuestionFired) {
     advisories.push(
       buildAdvisory(
         'asks_new_question',
@@ -548,6 +585,40 @@ export function buildPreSendReview(input: PreSendReviewInput): PreSendReview {
   if (input.isFirstPostInSession === true) {
     const severity: AdvisorySeverity = mode === 'strict' ? 'soft' : 'info';
     advisories.push(buildAdvisory('permanent_record_warning', severity));
+  }
+
+  // ── 9. tangent_redirect — BR-003. Calls assessTangentRisk on the
+  // draft + parent. When the assessment's `risk` is 'possible' OR
+  // 'strong', append a `tangent_redirect` advisory. When `risk` is
+  // 'none', append nothing. When `tangentContext` is omitted or null,
+  // step 9 is a NO-OP — the review is byte-identical to merged RULE-004
+  // (§3.3, §7 #5).
+  //
+  // De-dup with `asks_new_question` (§3.4 / §7 #6): when the tangent
+  // assessment fired PURELY because of `user_marked_tangent` (a tangent
+  // qualifier tag) AND `asks_new_question` already fired for that same
+  // tag, the `tangent_redirect` advisory is SUPPRESSED — the user sees
+  // one card, not two, for one tag. `tangent_redirect` is appended only
+  // when its reason carries axis-mismatch / no-signal / mode-demands /
+  // repeated-off-path information `asks_new_question` does not.
+  if (input.tangentContext !== undefined && input.tangentContext !== null) {
+    const tangentAssessment = assessTangentRisk(input.tangentContext);
+    const isUserMarkedOnly =
+      tangentAssessment.reason === 'user_marked_tangent';
+    const dedupSuppressed = isUserMarkedOnly && asksNewQuestionFired;
+    if (
+      (tangentAssessment.risk === 'possible' ||
+        tangentAssessment.risk === 'strong') &&
+      !dedupSuppressed
+    ) {
+      advisories.push(
+        buildAdvisory(
+          'tangent_redirect',
+          advisoryDefinition('tangent_redirect').baseSeverity,
+          tangentAdvisoryPlainLanguage(tangentAssessment),
+        ),
+      );
+    }
   }
 
   return {
