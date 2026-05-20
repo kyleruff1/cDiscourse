@@ -647,6 +647,57 @@ export const CHIME_IN_GOVERNANCE_COPY = Object.freeze({
   side_branches_heading: 'Side branches',
 } as const);
 
+/**
+ * GAME-006 — plain-language copy for Jump Branch. A Jump describes structural
+ * MOVEMENT, never a verdict, never the person. No "booted / kicked / abandoned
+ * / quit" — a participant who jumps has not "left" in a punitive sense; their
+ * old branch is kept on the record. OD-1 / OD-2 confirm wording.
+ */
+export const JUMP_BRANCH_COPY = Object.freeze({
+  // The action control.
+  action_label: 'Jump to this branch',
+  action_explainer:
+    'Move your participation to this branch. You can do this once per room.',
+
+  // The confirm step — deliberate, never one-tap-accidental.
+  confirm_prompt:
+    'Move your participation to this branch? You can only Jump Branch ' +
+    'once per room, so this uses your jump.',
+  confirm_label: 'Yes, jump',
+  cancel_label: 'Stay here',
+
+  // The screen-reader hint shown on the disabled control.
+  disabled_hint: 'This action is not available. The reason is shown next to it.',
+
+  // Disabled-state reasons — one per JumpDenyReason. No silent no-op.
+  disabled_not_a_chime_in:
+    'Jump Branch is for chime-in participants. The two main debaters ' +
+    'stay on the main thread.',
+  disabled_no_active_seat:
+    'You are observing this room, so there is no branch to jump from.',
+  disabled_jump_already_used:
+    'You have already used your one jump for this room.',
+  disabled_destination_is_home: 'You are already engaging on this branch.',
+  disabled_destination_closed:
+    'This branch is not open to join at the moment.',
+  disabled_destination_unknown: 'That branch is no longer part of this room.',
+  disabled_destination_needs_approval:
+    'This branch asks new voices to be welcomed in first.',
+
+  // Old-branch marker — structural, never punitive.
+  marker_departed_title: 'Moved to another branch',
+  marker_departed_body: 'This chime-in moved to engage another branch.',
+
+  // Destination arrival marker — auditable, structural.
+  marker_arrived_title: 'A chime-in joined this branch',
+  marker_arrived_body: 'A chime-in jumped here from another branch.',
+
+  // Relative-time fragments.
+  when_moved: 'moved {rel}',
+  when_joined: 'joined {rel}',
+  when_unknown: 'a little while ago',
+} as const);
+
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
   header: 'One quick look before you post',
