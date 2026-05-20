@@ -77,9 +77,11 @@ describe('COMPOSER-002 — App.tsx threads composerPreset into the dock', () => 
 // ── 2. The dock forwards the preset into ArgumentComposer ───────
 //
 // RULE-005 merges the structured-channel patch onto the caller's
-// `initialPatch` before forwarding it. The dock now passes the merged
-// `composerInitialPatch` (which equals `initialPatch ?? null` when no
-// channel is selected, so the COMPOSER-001 preset still flows unchanged).
+// `initialPatch` before forwarding it; RULE-004 additionally merges its
+// advisory-transformation patch. The dock passes the merged
+// `composerInitialPatch` (which still equals `initialPatch ?? null` when
+// no channel is selected AND no RULE-004 transformation is pending, so
+// the COMPOSER-001 preset round trip is unchanged).
 
 describe('COMPOSER-002 / RULE-005 — the dock forwards the preset to ArgumentComposer', () => {
   it('the dock declares an initialPatch prop', () => {
@@ -91,10 +93,14 @@ describe('COMPOSER-002 / RULE-005 — the dock forwards the preset to ArgumentCo
     expect(composerBlock).toMatch(/initialPatch=\{composerInitialPatch\}/);
   });
 
-  it('composerInitialPatch falls back to the caller initialPatch when no channel is picked', () => {
-    // The RULE-005 merge preserves the COMPOSER-001 preset round trip:
-    // with no channel selected the merged patch is `initialPatch ?? null`.
-    expect(DOCK_SRC).toMatch(/if \(selectedChannel === null\) return initialPatch \?\? null;/);
+  it('composerInitialPatch falls back to the caller initialPatch when nothing is merged', () => {
+    // RULE-004 extended the merge to also fold in a transformation patch.
+    // When no channel is picked AND no transformation is pending, the
+    // merged patch is still `initialPatch ?? null` (COMPOSER-001 round
+    // trip preserved).
+    expect(DOCK_SRC).toMatch(
+      /if \(channelPatch === null && transformationPatch === null\) \{\s*return initialPatch \?\? null;/,
+    );
   });
 });
 

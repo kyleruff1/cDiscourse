@@ -488,6 +488,63 @@ export const CHANNEL_RATIONALE_COPY = Object.freeze({
   branch_tangent: 'This reads like a new issue — branching keeps the thread clear.',
 } as const);
 
+// ── RULE-004 — Pause-before-send move review copy ────────────────
+//
+// RULE-004 shows one short, NON-JUDGEMENTAL review chance on the Post
+// intent. The advisories are info / soft only — they never block a post;
+// "Post anyway" is always available unless an EXISTING structural block
+// (from `evaluateArgumentDraft`) is already hit.
+//
+// Doctrine: every string is plain English (no snake_case leak), ≤ 90
+// chars, carries zero verdict / amplification / person-attribution
+// tokens, and is non-punitive ("friction with payoff", not scolding).
+// The `permanent_record_warning` line is HONEST and NEUTRAL — it states
+// the record is permanent and offers a non-punitive option; it is NOT
+// fear-based ("you will be judged" is forbidden). Enforced by
+// `__tests__/preSendReviewBanList.test.ts`.
+//
+// `preSendReviewModel.ts` reads these tables — it never authors a line
+// inline (mirrors `channelModel.ts` reading `CHANNEL_*` blocks).
+
+/** RULE-004 — plain-language line per advisory kind. */
+export const PRESEND_ADVISORY_COPY = Object.freeze({
+  broad_claim: 'This is a wide claim — narrowing it makes it easier to defend.',
+  topic_drift: 'This may be drifting from the resolution.',
+  asks_new_question: 'This opens a new question — a side branch keeps it tidy.',
+  no_source_attached: 'This is an Evidence move with no source attached yet.',
+  depth_warning: 'This sits deep in the thread — a fresh branch may read clearer.',
+  permanent_record_warning:
+    'Posted moves stay on the record. Take a beat if you need it.',
+  channel_mismatch: 'This reads more like a different move — switch channel?',
+} as const);
+
+/** RULE-004 — plain-language line per structural-block display kind. */
+export const PRESEND_BLOCK_COPY = Object.freeze({
+  empty_body: 'Add a body before posting.',
+  invalid_transition: 'This move type is not allowed as a reply here.',
+  evidence_without_source: 'An Evidence move needs at least one source.',
+  over_length: 'This move is over the length limit — trim it to post.',
+  cooldown_active: 'A short cooldown is active — you can post again shortly.',
+} as const);
+
+/** RULE-004 — header + button labels for the pre-send review sheet. */
+export const PRESEND_SHEET_COPY = Object.freeze({
+  header: 'One quick look before you post',
+  blocksHeading: 'Fix this before posting',
+  advisoriesHeading: 'A couple of things to consider',
+  postAnyway: 'Post anyway',
+  saveDraft: 'Save draft',
+  backToEditing: 'Back to editing',
+  // Per-advisory transformation button labels.
+  transformation_narrow: 'Narrow the claim',
+  transformation_branch_tangent: 'Branch a side issue',
+  transformation_ask_source: 'Ask for a source',
+  transformation_add_quote: 'Ask for a quote',
+  transformation_add_evidence: 'Add a source',
+  transformation_save_draft: 'Save draft',
+  transformation_post_anyway: 'Post anyway',
+} as const);
+
 // ── Helper: look up a copy key by path ────────────────────────
 
 export type CopyGroup =
