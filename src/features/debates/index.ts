@@ -104,3 +104,27 @@ export type {
   JumpMarkerKind,
   JumpMarkerViewModel,
 } from './jumpBranchModel';
+
+// GAME-008 — bot public-room policy + public argument seeding.
+export { BotParticipantMarker } from './BotParticipantMarker';
+export { BotRoomMarker } from './BotRoomMarker';
+export {
+  BOT_ROOM_POLICY,
+  ALL_BOT_POLICY_DENY_REASONS,
+  isBotSeededRoom,
+  looksLikeBotSeedTag,
+  buildBotMarkingViewModel,
+  assertBotRoomEligibility,
+  _forbiddenBotMarkerTokens,
+} from './botRoomPolicyModel';
+export type {
+  BotRoomPolicy,
+  BotParticipantHint,
+  BotRoomInputs,
+  BotParticipantMarking,
+  BotMarkingViewModel,
+  BotRoomAction,
+  BotPolicyDenyReason,
+  BotRoomEligibilityResult,
+  AssertBotRoomEligibilityInput,
+} from './botRoomPolicyModel';
