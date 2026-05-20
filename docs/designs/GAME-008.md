@@ -955,3 +955,30 @@ no corpus run, no harvest, no scheduler, no Edge Function.
 allowance would let a loader populate `BotParticipantHint` without the display-name convention.
 Named and scoped in §1.3 / §4 / §11. The operator should expect this as the natural follow-up if
 bot marking needs to be robust beyond corpus-tagged titles.
+
+---
+
+## Implementer note (GAME-008 build — 2026-05-20)
+
+The build followed this design exactly. One isolated, single-spot copy fix was needed; it is
+within OD-1 scope (`BOT_MARKER_COPY` is a single frozen block — wording is a one-spot edit) and
+required no logic change, no redesign.
+
+**`participant_a11y` reworded — design §1.5 vs §10 self-contradiction.** The §1.5 `BOT_MARKER_COPY`
+authored `participant_a11y` as *"…they never decide who is **right**."* — but the §10 ban-list
+(and the §14 doctrine self-check) correctly forbid the verdict token **"right"** in any marker /
+a11y string. The §10 ban-list test would have failed on the design's own copy. The doctrine
+*intent* is clear and correct (a bot marker must state that bots do not judge a debate), so the
+phrase was reworded to *"…they never **judge a debate**."* — same doctrine meaning, ban-list
+clean. This is the only copy deviation from §1.5; every other `BOT_MARKER_COPY` string ships
+verbatim. OD-1 (final copy + placement review) still applies.
+
+Everything else shipped as specified: the frozen `BOT_ROOM_POLICY` constant; `isBotSeededRoom` as
+a pure fail-safe-human predicate over the GAME-004 `isBot` seam (no DB query, no `profiles.is_bot`
+column); `looksLikeBotSeedTag` reusing the gallery `SUFFIX_TAG_PATTERNS` family; the four-reason
+`assertBotRoomEligibility` GATE (the §6 edge-case matrix is the test plan); `buildBotMarkingViewModel`;
+the two non-interactive marker components; the additive gallery wiring (the §5 documented no-query
+degraded fallback — gallery card has the title, not loaded per-author hints); and the §10 test
+plan including the API-surface omission proof. No migration, no Edge Function, no Supabase write,
+no service-role, no live bot posting, no new dependency. The per-participant in-room marker mount
+remains the §5 optional-prop follow-up step.
