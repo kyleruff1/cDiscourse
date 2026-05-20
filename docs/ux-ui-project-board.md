@@ -413,6 +413,13 @@ synthesis_ready   -> "Offer synthesis"
 - **Acceptance:** No raw internal codes in UI. No truth labels. No user / person labels. Every lifecycle state has a safe label / helper / action mapping. Ban-list assertion across produced strings.
 - **Tests:** all states have labels · ban-list assertion · no snake_case visible · no produced action creates a blocked ordinary reply path.
 
+### RULE-005 — Structured argument channels (move-type field model)
+- **Priority:** P0 — **Effort:** L — **Release:** 6.6 — **Status:** Complete. Issue #115.
+- **Goal:** A thin plain-language "channel" layer above the 8 Constitution argument types — a small vocabulary (`reply · challenge · clarify · ask_source · ask_quote · add_evidence · narrow · concede · confirm · synthesize · branch_tangent · meta_process`, plus 2 reserved for EV-005 / GAME-003) describing the *structural purpose* of a composed move so the composer can deterministically suggest the fitting channel and optionally reveal helper fields.
+- **Delivered:** pure-TS `src/features/arguments/channelModel.ts` (`MoveChannel` enum, `CHANNEL_DEFINITIONS`, deterministic 6-rule `suggestChannelFromDraft`, `channelToDraftPatch`, render-time `deriveChannelForPostedMove`) + `ChannelChipRow` selector + collapsed `ChannelHelperFields`, wired into the COMPOSER-002 dock. A channel suggestion is advisory — it never blocks a post, never reads heat / popularity, never makes an AI call (RULE-006 owns AI channel detection). The channel is a draft-time advisory field — it does NOT persist in v1; a posted move's channel is re-derived at render time. No migration, no Edge Function. See `docs/designs/RULE-005.md`.
+- **Acceptance:** every channel has a definition with plain-language purpose + optional fields + suggested followups · the suggestion is deterministic and never blocks · no verdict / amplification / snake_case in any produced string · the chip row meets the accessibility bar (radio role, 44×44, color-independent suggested affordance).
+- **Tests:** the model vocabulary + definitions · the 6-rule derivation table + forward/reverse parity · advisory-not-block + heat-independence guarantee · ban-list across produced strings · chip-row / helper-field pure helpers. +123 tests / +5 suites.
+
 ---
 
 ## Epic 13 — Board-Level Analytics Without AI Calls
