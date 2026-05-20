@@ -136,10 +136,16 @@ describe('TL-003 — timeline quick actions use setActiveMessageId, not routing'
   const surface = read('src/features/arguments/ArgumentGameSurface.tsx');
 
   it('the ArgumentTimelineMap callbacks are wired to local state setters', () => {
-    // onJumpLatest closure
-    expect(surface).toMatch(/onJumpLatest=\{[^}]*setActiveMessageId\([^}]*\)\}/);
-    // onJumpToRoot closure (TL-002)
-    expect(surface).toMatch(/onJumpToRoot=\{[^}]*setActiveMessageId\([^}]*\)\}/);
+    // onJumpLatest / onJumpToRoot closures call setActiveMessageId (local
+    // state). IX-004 expanded these inline arrows into block bodies that
+    // also set the readout's selectionStatus, so the scan is window-based
+    // rather than a tight single-line regex.
+    const latestIdx = surface.indexOf('onJumpLatest=');
+    expect(latestIdx).toBeGreaterThan(-1);
+    expect(surface.slice(latestIdx, latestIdx + 220)).toMatch(/setActiveMessageId\(/);
+    const rootIdx = surface.indexOf('onJumpToRoot=');
+    expect(rootIdx).toBeGreaterThan(-1);
+    expect(surface.slice(rootIdx, rootIdx + 220)).toMatch(/setActiveMessageId\(/);
   });
 
   it('no navigation call sits in the ArgumentTimelineMap callback path', () => {

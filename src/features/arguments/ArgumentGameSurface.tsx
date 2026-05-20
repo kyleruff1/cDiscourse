@@ -13,8 +13,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
-import { ArgumentReplySidecar } from './ArgumentReplySidecar';
 import { buildSidecarViewModel } from './argumentReplySidecarModel';
+import { TimelineSelectedReadoutPanel } from './TimelineSelectedReadoutPanel';
+import {
+  buildTimelineSelectedReadoutViewModel,
+  type ReadoutSelectionStatus,
+} from './timelineSelectedReadoutModel';
 import { DeletionRequestSheet } from './DeletionRequestSheet';
 import {
   buildArgumentBubbleViewModels,
@@ -191,6 +195,14 @@ export function ArgumentGameSurface({
     return latestId;
   }, [sorted, latestId, entryHint]);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(initialActiveId);
+  // IX-004 — companion state describing WHY the readout subject is what it
+  // is. `activeMessageId` stays the single selection source of truth; this
+  // value only labels the selection (entry-hint pre-activation, default
+  // latest, an explicit user pick, or a stale auto-snap to latest). It
+  // never picks the message — it only drives the readout's stale banner.
+  const [selectionStatus, setSelectionStatus] = useState<ReadoutSelectionStatus>(
+    entryHint ? 'entry_hint' : 'default_latest',
+  );
   const [deletionTarget, setDeletionTarget] = useState<string | null>(null);
   // SC-004 — currently-selected target for the action dock. Null = no
   // selection, no dock. Mutually exclusive with the SC-002 popover; opening
@@ -208,7 +220,11 @@ export function ArgumentGameSurface({
     }
     if (activeMessageId && !sorted.find((m) => m.id === activeMessageId)) {
       // Active message disappeared (e.g., admin removal). Snap to latest.
+      // IX-004 — mark the snap as a stale fallback so the readout panel
+      // shows the "That message is no longer here" banner. The next
+      // explicit user action resets the status back to 'explicit'.
       setActiveMessageId(latestId);
+      setSelectionStatus('stale_fallback');
     }
   }, [latestId, activeMessageId, sorted]);
 
@@ -353,18 +369,66 @@ export function ArgumentGameSurface({
     [enrichedMessages, currentUserId],
   );
 
+  // IX-004 — Selected-message readout. The SC-003 sidecar view-model is
+  // built once per render (reused, not rebuilt — IX-004 introduces no new
+  // standing / lifecycle / metadata derivation). The readout projection
+  // adds the direct-reply count + the "Acting on:" short label + the
+  // stale-fallback banner on top of it.
+  const sidecarViewModel = useMemo(
+    () =>
+      buildSidecarViewModel({
+        activeNode: timelineMap.activeNode,
+        activeViewModel,
+        parentNode:
+          timelineMap.activeNode && timelineMap.activeNode.parentId
+            ? timelineMap.nodes.find((n) => n.messageId === timelineMap.activeNode!.parentId) || null
+            : null,
+        totalCount: timelineMap.nodes.length,
+        activePathIds: timelineMap.activePathIds,
+        lifecycleMap,
+        metadataLedger,
+        viewMode: mode,
+      }),
+    [timelineMap, activeViewModel, lifecycleMap, metadataLedger, mode],
+  );
+
+  const timelineReadoutViewModel = useMemo(
+    () =>
+      buildTimelineSelectedReadoutViewModel({
+        sidecar: sidecarViewModel,
+        timelineMap,
+        selectedMessageId: activeMessageId,
+        status: selectionStatus,
+      }),
+    [sidecarViewModel, timelineMap, activeMessageId, selectionStatus],
+  );
+
   const handleToggleMode = useCallback(() => {
     setMode((m) => toggleSurfaceMode(m));
   }, []);
 
-  const handleActivate = useCallback((id: string) => setActiveMessageId(id), []);
+  // IX-004 — every explicit selection mutation (tap, Prev, Next, Latest,
+  // Back-to-root, keyboard nav) marks the selection 'explicit' so a
+  // lingering 'stale_fallback' banner is cleared the moment the user
+  // moves on. Only the auto-snap on a vanished message stays
+  // 'stale_fallback'.
+  const handleActivate = useCallback((id: string) => {
+    setActiveMessageId(id);
+    setSelectionStatus('explicit');
+  }, []);
   const handlePrev = useCallback(() => {
     const prev = getPreviousMessageId(chronologicalIds, activeMessageId);
-    if (prev) setActiveMessageId(prev);
+    if (prev) {
+      setActiveMessageId(prev);
+      setSelectionStatus('explicit');
+    }
   }, [chronologicalIds, activeMessageId]);
   const handleNext = useCallback(() => {
     const next = getNextMessageId(chronologicalIds, activeMessageId);
-    if (next) setActiveMessageId(next);
+    if (next) {
+      setActiveMessageId(next);
+      setSelectionStatus('explicit');
+    }
   }, [chronologicalIds, activeMessageId]);
 
   const handleAction = useCallback((
@@ -414,7 +478,10 @@ export function ArgumentGameSurface({
 
     if (action === 'open_cards_detail') {
       // Surface toggle — switch to Stack/Cards mode and activate the message.
-      if (target.kind === 'node') setActiveMessageId(targetMessageId);
+      if (target.kind === 'node') {
+        setActiveMessageId(targetMessageId);
+        setSelectionStatus('explicit');
+      }
       setMode('stack');
       setSelectedDockTarget(null);
       return;
@@ -464,6 +531,7 @@ export function ArgumentGameSurface({
     const targetMessageId =
       target.kind === 'node' ? target.messageId : target.branchRootMessageId;
     setActiveMessageId(targetMessageId);
+    setSelectionStatus('explicit');
     setMode('stack');
     setSelectedDockTarget(null);
   }, []);
@@ -598,42 +666,44 @@ export function ArgumentGameSurface({
         ) : (
           <>
             <ArgumentScoreTracker trends={participantTrends} />
+            {/* IX-004 — the selected-message readout is now a prominent,
+                persistent panel ABOVE the timeline map (not the
+                subordinate sidecar that used to render below it). It
+                refreshes on every selection change and is the loud
+                in-surface confirmation of which message is selected. */}
+            <TimelineSelectedReadoutPanel viewModel={timelineReadoutViewModel} />
             <ArgumentTimelineMap
               map={timelineMap}
               onActivate={handleActivate}
               onPrev={handlePrev}
               onNext={handleNext}
-              onJumpLatest={() => latestId && setActiveMessageId(latestId)}
-              onJumpToRoot={() => timelineMap.rootMessageId && setActiveMessageId(timelineMap.rootMessageId)}
+              onJumpLatest={() => {
+                if (latestId) {
+                  setActiveMessageId(latestId);
+                  setSelectionStatus('explicit');
+                }
+              }}
+              onJumpToRoot={() => {
+                if (timelineMap.rootMessageId) {
+                  setActiveMessageId(timelineMap.rootMessageId);
+                  setSelectionStatus('explicit');
+                }
+              }}
               onToggleMode={handleToggleMode}
               activeViewModel={activeViewModel}
               totalCount={timelineMap.nodes.length}
               onAction={handleAction}
-              onOpenDetails={(id) => { setActiveMessageId(id); setMode('stack'); }}
+              onOpenDetails={(id) => { setActiveMessageId(id); setSelectionStatus('explicit'); setMode('stack'); }}
               artifactsByMessageId={artifactsByMessageId}
               evidenceContractFor={evidenceContractFor}
               isReadModeViewer={resolvedViewerRole === 'observer'}
               selectedTarget={selectedDockTarget}
               actionDockModel={dockModel}
+              actingOnLabel={timelineReadoutViewModel.actingOnShortLabel}
               onSelectTarget={setSelectedDockTarget}
               onActionDockAction={handleActionDockAction}
               onOpenCardsDetail={handleOpenCardsDetail}
               reduceMotionOverride={reduceMotionOverride}
-            />
-            <ArgumentReplySidecar
-              viewModel={buildSidecarViewModel({
-                activeNode: timelineMap.activeNode,
-                activeViewModel,
-                parentNode:
-                  timelineMap.activeNode && timelineMap.activeNode.parentId
-                    ? timelineMap.nodes.find((n) => n.messageId === timelineMap.activeNode!.parentId) || null
-                    : null,
-                totalCount: timelineMap.nodes.length,
-                activePathIds: timelineMap.activePathIds,
-                lifecycleMap,
-                metadataLedger,
-                viewMode: mode,
-              })}
             />
           </>
         )}
