@@ -419,6 +419,7 @@ synthesis_ready   -> "Offer synthesis"
 
 ### AN-003 — Tree playability diagnostics
 - **Priority:** P2 — **Effort:** M — **Release:** 6.7 — **Wave:** 4 — **Agent:** analytics-agent
+- **Status:** Pure model + 29-test suite complete (`src/features/analytics/treePlayabilityDiagnostics.ts`). The §5 dev-script snapshot generator is blocked on a repo-level TS-runtime constraint — see the Implementer note in `docs/designs/AN-003.md`.
 - **Goal:** Pure-model diagnostics for whether a tree is playable: number of unresolved points · number of exhausted / stale points · branch depth · average actions to reach active unresolved point · source / evidence debt concentration · nodes with no available suggested action.
 - **Acceptance:** Pure model. Dev / debug output only. No public scoring verdict. No xAI / Anthropic call.
 - **Tests:** deep-tree fixture · unresolved-point count · branch-overload indicator · no truth / verdict copy.

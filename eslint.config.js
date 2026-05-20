@@ -7,7 +7,10 @@ const reactHooksPlugin = require('eslint-plugin-react-hooks');
 /** @type {import('eslint').Linter.Config[]} */
 module.exports = [
   {
-    ignores: ['node_modules/**', '.expo/**', 'dist/**', 'web-build/**', '*.config.js'],
+    // `artifacts/**` holds gitignored throwaway build output — including the
+    // AN-003 §5 `tsc` emit dir (`artifacts/diagnostics/tree-playability-build/`).
+    // ESLint must never lint generated build artifacts.
+    ignores: ['node_modules/**', '.expo/**', 'dist/**', 'web-build/**', 'artifacts/**', '*.config.js'],
   },
   {
     files: ['**/*.{ts,tsx}'],
