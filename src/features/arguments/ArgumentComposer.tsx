@@ -59,6 +59,24 @@ interface Props {
    * Omitting the prop defaults to 'dock'.
    */
   mode?: 'dock' | 'page';
+  /**
+   * RULE-004 — pause-before-send gate. Called on the Post intent BEFORE
+   * the composer's own submit. Return `false` to suppress the composer's
+   * submit (the dock is taking over to show the pre-send review sheet);
+   * return `true` to let the composer post straight through. Additive
+   * optional prop — every existing caller that omits it behaves
+   * identically (the Post button calls `handleSubmit` directly).
+   */
+  onBeforeSubmit?: () => boolean;
+  /**
+   * RULE-004 — one-shot "Post anyway" trigger. The dock increments this
+   * counter when the user taps "Post anyway" on the pre-send review
+   * sheet; each new value submits the draft ONCE, bypassing
+   * `onBeforeSubmit` (the review already happened). Additive optional
+   * prop — `0` / omitted means no programmatic submit. This is the
+   * `bypassReview` one-shot of the design (OD-3) — no imperative handle.
+   */
+  postSignal?: number;
 }
 
 const TYPE_LABELS: Record<ArgumentType, string> = {
@@ -92,7 +110,7 @@ const MAX_BODY = 2000;
 
 const NEEDS_AXIS: ArgumentType[] = ['rebuttal', 'counter_rebuttal'];
 
-export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess, onClose, initialPatch, mode = 'dock' }: Props) {
+export function ArgumentComposer({ debate, selectedParentId, parentArgument, onClearParent, onSubmitSuccess, onClose, initialPatch, mode = 'dock', onBeforeSubmit, postSignal }: Props) {
   const { draft, isRecovered, updateField, discardDraft } = useArgumentComposer(
     debate.id,
     selectedParentId,
@@ -213,6 +231,20 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
     [parentType, handleMovePatch],
   );
 
+  /**
+   * RULE-004 — the Post button's press handler. When the dock supplies
+   * `onBeforeSubmit`, consult it first: a `false` return means the dock
+   * has taken over (it is showing the pre-send review sheet) and the
+   * composer must NOT post. A `true` return — or the absence of the prop
+   * — posts straight through. This is a gate BEFORE submit; the existing
+   * `handleSubmit` / `evaluateArgumentDraft` / `submit-argument` path is
+   * untouched.
+   */
+  const handlePostIntent = () => {
+    if (onBeforeSubmit && onBeforeSubmit() === false) return;
+    void handleSubmit();
+  };
+
   const handleSubmit = async () => {
     if (!draft || !draft.argumentType || !draft.side) return;
     if (!evaluationResult?.allowPost || isSubmitting || !SUPABASE_CONFIGURED) return;
@@ -256,6 +288,22 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
       }
     }
   };
+
+  // RULE-004 — one-shot "Post anyway" trigger. The dock increments
+  // `postSignal` after the user clears the pre-send review sheet; each
+  // new value submits the draft once, bypassing `onBeforeSubmit` (the
+  // review already happened). A ref guards against re-firing on an
+  // unrelated re-render, and `handleSubmitRef` always points at the
+  // latest closure so the effect does not need `handleSubmit` as a dep.
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
+  const lastPostSignalRef = useRef<number>(postSignal ?? 0);
+  useEffect(() => {
+    const signal = postSignal ?? 0;
+    if (signal === 0 || signal === lastPostSignalRef.current) return;
+    lastPostSignalRef.current = signal;
+    void handleSubmitRef.current();
+  }, [postSignal]);
 
   if (!draft) {
     return <LoadingNotice message="Initializing draft…" />;
@@ -615,7 +663,7 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
 
         <Button
           label={isSubmitting ? 'Posting…' : 'Post move'}
-          onPress={() => { void handleSubmit(); }}
+          onPress={handlePostIntent}
           disabled={!canSubmit}
         />
 

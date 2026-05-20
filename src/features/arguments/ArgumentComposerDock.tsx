@@ -56,6 +56,19 @@ import {
   type MoveChannel,
 } from './channelModel';
 import { useConstitution } from './useConstitution';
+import { useAppSession } from '../session/useAppSession';
+import { sessionToDraft } from './composerState';
+import { buildEvaluationInput } from './composerValidation';
+import { evaluateArgumentDraft } from '../../domain/constitution';
+import { quickActionToPreset } from './quickActionPresets';
+import { PreSendReviewSheet } from './PreSendReviewSheet';
+import {
+  buildPreSendReview,
+  transformationToQuickAction,
+  DEFAULT_PRESEND_ROOM_CONTEXT,
+  type AdvisoryTransformation,
+  type PreSendReview,
+} from './preSendReviewModel';
 import {
   PacingChip,
   buildPacingChipViewModel,
@@ -272,6 +285,11 @@ export function ArgumentComposerDock({
   const [helperFieldValues, setHelperFieldValues] = useState<
     Partial<Record<ChannelOptionalField, string>>
   >({});
+  // RULE-004 — the transformation patch from a pre-send advisory's
+  // "Narrow / Branch / Add a source" action. Merged onto the composer's
+  // initialPatch so the prefilled change applies when the sheet closes.
+  const [transformationPatch, setTransformationPatch] =
+    useState<MoveDraftPatch | null>(null);
 
   // Reset the channel selection whenever the dock re-opens or the reply
   // target changes — a new compose session starts with no channel picked.
@@ -305,18 +323,34 @@ export function ArgumentComposerDock({
     [selectedChannel],
   );
 
-  // Merge the channel-derived patch onto the caller's `initialPatch`. The
-  // composer applies an `initialPatch` only when its reference changes, so
-  // this memo produces a new object exactly when the channel changes.
+  // Merge the channel-derived patch + any RULE-004 transformation patch
+  // onto the caller's `initialPatch`. The composer applies an
+  // `initialPatch` only when its reference changes, so this memo produces
+  // a new object exactly when the channel or the transformation changes.
   const composerInitialPatch = useMemo<MoveDraftPatch | null>(() => {
-    if (selectedChannel === null) return initialPatch ?? null;
-    const channelPatch = channelToDraftPatch(
-      selectedChannel,
-      parentArgument?.argumentType ?? null,
-      constitution.activeRules,
-    );
-    return { ...(initialPatch ?? {}), ...channelPatch };
-  }, [selectedChannel, parentArgument, constitution.activeRules, initialPatch]);
+    const channelPatch =
+      selectedChannel === null
+        ? null
+        : channelToDraftPatch(
+            selectedChannel,
+            parentArgument?.argumentType ?? null,
+            constitution.activeRules,
+          );
+    if (channelPatch === null && transformationPatch === null) {
+      return initialPatch ?? null;
+    }
+    return {
+      ...(initialPatch ?? {}),
+      ...(channelPatch ?? {}),
+      ...(transformationPatch ?? {}),
+    };
+  }, [
+    selectedChannel,
+    parentArgument,
+    constitution.activeRules,
+    initialPatch,
+    transformationPatch,
+  ]);
 
   const handleSelectChannel = useCallback((channel: MoveChannel) => {
     setSelectedChannel(channel);
@@ -327,6 +361,135 @@ export function ArgumentComposerDock({
       setHelperFieldValues((prev) => ({ ...prev, [field]: value }));
     },
     [],
+  );
+
+  // ── RULE-004 pause-before-send review ──
+  // The dock owns the review state. On the Post intent the composer
+  // calls `handleBeforeSubmit`; the dock builds the `PreSendReview` from
+  // the active draft (read from session — the composer writes it there)
+  // plus the already-computed Constitution evaluation. When the review
+  // is non-empty the sheet shows and the composer's submit is suppressed.
+  // RULE-004 adds no block — `evaluateArgumentDraft` stays the single
+  // source of truth for what can block a post.
+  const { state: appSession } = useAppSession();
+  const activeDraftSession = appSession.snapshot.activeDraft;
+  const [presendReview, setPresendReview] = useState<PreSendReview | null>(null);
+  const [presendVisible, setPresendVisible] = useState(false);
+  // One-shot "Post anyway" counter — incremented to trigger the
+  // composer's real submit once, bypassing the review (design OD-3).
+  const [postSignal, setPostSignal] = useState(0);
+  // First contentful post attempt in this dock session — drives the
+  // `permanent_record_warning` advisory. Resets when the dock re-opens.
+  const isFirstPostRef = useRef(true);
+
+  // Reset the review whenever the dock re-opens or the reply target
+  // changes — a new compose session starts with a fresh review state.
+  useEffect(() => {
+    if (!visible) return;
+    setPresendReview(null);
+    setPresendVisible(false);
+    setTransformationPatch(null);
+    isFirstPostRef.current = true;
+  }, [visible, selectedParentId]);
+
+  /**
+   * RULE-004 — the Post-intent gate threaded into <ArgumentComposer>.
+   * Returns `true` to let the composer post straight through (no
+   * friction — clean move), `false` to suppress its submit because the
+   * dock is showing the pre-send review sheet.
+   */
+  const handleBeforeSubmit = useCallback((): boolean => {
+    if (
+      !activeDraftSession ||
+      activeDraftSession.debateId !== debate.id
+    ) {
+      // No draft to review — let the composer's own guards handle it.
+      return true;
+    }
+    const draft = sessionToDraft(activeDraftSession);
+    const evaluationInput = buildEvaluationInput(draft, debate, parentArgument, {
+      activeConstitution: constitution.activeConstitution,
+      activeRules: constitution.activeRules,
+      tagDefinitions: constitution.tagDefinitions,
+      flagDefinitions: constitution.flagDefinitions,
+    });
+    const evaluation = evaluationInput
+      ? evaluateArgumentDraft(evaluationInput)
+      : null;
+    const review = buildPreSendReview({
+      draft,
+      mode: 'casual',
+      parent: parentArgument,
+      room: DEFAULT_PRESEND_ROOM_CONTEXT,
+      lifecycle: {
+        parentSnapshot: null,
+        parentClusterSummary: null,
+        parentLinkage: null,
+      },
+      evaluation,
+      channelSuggestion,
+      isFirstPostInSession: isFirstPostRef.current,
+    });
+    isFirstPostRef.current = false;
+    if (!review.shouldShowSheet) {
+      // Clean ordinary reply — zero friction; the composer posts.
+      return true;
+    }
+    setPresendReview(review);
+    setPresendVisible(true);
+    return false;
+  }, [
+    activeDraftSession,
+    debate,
+    parentArgument,
+    constitution.activeConstitution,
+    constitution.activeRules,
+    constitution.tagDefinitions,
+    constitution.flagDefinitions,
+    channelSuggestion,
+  ]);
+
+  /** RULE-004 — "Post anyway": close the sheet, trigger the real submit. */
+  const handlePresendPostAnyway = useCallback(() => {
+    setPresendVisible(false);
+    setPresendReview(null);
+    setPostSignal((n) => n + 1);
+  }, []);
+
+  /** RULE-004 — "Back to editing": close the sheet, keep the draft. */
+  const handlePresendBackToEditing = useCallback(() => {
+    setPresendVisible(false);
+    setPresendReview(null);
+  }, []);
+
+  /** RULE-004 — "Save draft": close the whole dock; the draft persists
+   *  via the composer's existing session-backed draft storage. */
+  const handlePresendSaveDraft = useCallback(() => {
+    setPresendVisible(false);
+    setPresendReview(null);
+    onClose();
+  }, [onClose]);
+
+  /**
+   * RULE-004 — apply a transformation preset and return to the composer
+   * so the user sees the prefilled change. Routes through the existing
+   * `quickActionToPreset` machinery; `save_draft` / `post_anyway` are
+   * sheet actions and never reach this handler (they map to `null`).
+   */
+  const handlePresendTransformation = useCallback(
+    (t: AdvisoryTransformation) => {
+      const quickAction = transformationToQuickAction(t);
+      if (!quickAction) return;
+      const patch = quickActionToPreset(
+        quickAction,
+        parentArgument?.argumentType ?? null,
+      );
+      setPresendVisible(false);
+      setPresendReview(null);
+      if (!patch) return;
+      setTransformationPatch(patch);
+    },
+    [parentArgument],
   );
 
   // Reduce-motion: opacity fade only, no translate. Otherwise translate
@@ -442,7 +605,9 @@ export function ArgumentComposerDock({
 
           {/* The composer body. `mode="dock"` drops the legacy "Your
               Move" page header — the dock supplies the handle + Cancel.
-              The composer keeps its own ScrollView + Post move button. */}
+              The composer keeps its own ScrollView + Post move button.
+              RULE-004 threads the pause-before-send gate (`onBeforeSubmit`)
+              and the one-shot "Post anyway" trigger (`postSignal`). */}
           <View style={styles.composerBody}>
             <ArgumentComposer
               mode="dock"
@@ -453,7 +618,26 @@ export function ArgumentComposerDock({
               onSubmitSuccess={onSubmitSuccess}
               onClose={onClose}
               initialPatch={composerInitialPatch}
+              onBeforeSubmit={handleBeforeSubmit}
+              postSignal={postSignal}
             />
+
+            {/* RULE-004 — pause-before-send review sheet. A nested overlay
+                ABOVE the composer body (not a second RN <Modal>), so the
+                composer stays mounted behind it and the draft is never
+                lost. Advisory only — it never blocks a post. */}
+            {presendReview ? (
+              <PreSendReviewSheet
+                visible={presendVisible}
+                review={presendReview}
+                mode="casual"
+                reduceMotionOverride={effectiveReducedMotion}
+                onApplyTransformation={handlePresendTransformation}
+                onPostAnyway={handlePresendPostAnyway}
+                onSaveDraft={handlePresendSaveDraft}
+                onBackToEditing={handlePresendBackToEditing}
+              />
+            ) : null}
           </View>
         </Animated.View>
       </View>
