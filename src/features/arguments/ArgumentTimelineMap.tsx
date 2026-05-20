@@ -143,6 +143,14 @@ interface Props {
    */
   onOpenCardsDetail?: (target: TimelineNodeActionDockTarget) => void;
   /**
+   * IX-004 — short label of the selected message, rendered as
+   * "Acting on: <actingOnLabel>" above the action dock so the dock
+   * target is never ambiguous. Optional — omitting it keeps the dock
+   * exactly as SC-004 shipped it. The label string is built by the
+   * IX-004 readout model (`timelineSelectedReadoutModel`), not here.
+   */
+  actingOnLabel?: string | null;
+  /**
    * PR-001 — user's effective reduce-motion preference (the OS value
    * composed with the user's `system`/`on`/`off` override). When
    * supplied it REPLACES the component's own `AccessibilityInfo` read,
@@ -380,6 +388,7 @@ export function ArgumentTimelineMap({
   onSelectTarget,
   onActionDockAction,
   onOpenCardsDetail,
+  actingOnLabel,
   reduceMotionOverride,
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
@@ -537,7 +546,14 @@ export function ArgumentTimelineMap({
 
   const handleStubPress = useCallback((branchRootMessageId: string) => {
     setCollapseState((prev) => toggleBranchCollapse(prev, branchRootMessageId));
-  }, []);
+    // IX-004 — tapping a collapsed branch stub also selects the branch
+    // root so the readout panel shows that branch root's detail (the
+    // BR-001 contract: "branch stub click selects the branch root and
+    // expands if collapsed"). The collapse toggle above handles the
+    // expand; this routes selection through the same callback a node
+    // tap uses, so the readout follows automatically.
+    onActivate(branchRootMessageId);
+  }, [onActivate]);
 
   const visibleSlice = useMemo(() => {
     // Effective viewport width: when the layout has not measured yet,
@@ -815,6 +831,14 @@ export function ArgumentTimelineMap({
           dismissing one when the other opens. */}
       {selectedTarget && actionDockModel && !popoverModel ? (
         <View style={styles.actionDock}>
+          {/* IX-004 — the dock's target, named. Purely additive chrome;
+              the dock model itself is untouched. Shown only for a node
+              target with a non-empty label. */}
+          {selectedTarget.kind === 'node' && actingOnLabel ? (
+            <Text style={styles.actingOnLine} testID="timeline-acting-on">
+              Acting on: {actingOnLabel}
+            </Text>
+          ) : null}
           <TimelineNodeActionDock
             model={actionDockModel}
             onAction={onActionDockAction}
@@ -1035,6 +1059,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#020617',
     borderBottomWidth: 1,
     borderBottomColor: '#1f2937',
+  },
+  // IX-004 — "Acting on: <kind · #ordinal>" line above the action dock.
+  actingOnLine: {
+    color: '#a5b4fc',
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 10,
+    paddingTop: 6,
   },
   detachedPill: { marginTop: 4, backgroundColor: '#475569', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
   detachedPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
