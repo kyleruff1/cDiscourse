@@ -268,8 +268,9 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Tests:** region summary · click-to-focus model · collapsed branch count · active path indicator.
 
 ### IX-003 — Keyboard and accessibility navigation
-- **Priority:** P1 — **Effort:** M — **Release:** 6.7
+- **Priority:** P1 — **Effort:** M — **Release:** 6.7 — **Status:** Build complete. See `docs/designs/IX-003.md` + `docs/current-status.md` IX-003 entry.
 - **Acceptance:** Arrow L/R moves active node. Home/End → root/latest on web. Accessibility roles + selected state. Nodes expose type, ordinal, strength, branch, active.
+- **Tests:** traversal resolver (arrows / Home / End / cold-start / Enter-Space / Escape / unhandled / empty / single-node / detached / no-mutation) · `isTimelineNavKey` · `deriveBranchLabel` · `buildNodeAccessibilityLabel` per-band strength + verdict ban-list · source-scan wiring (web `onKeyDown` guard, `preventDefault`, Prev/Next disabled state, `tabIndex`, no new dependency, pure-model isolation).
 
 ---
 

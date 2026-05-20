@@ -69,9 +69,13 @@ describe('TL-002 root identification', () => {
     expect(map.rootMessageId).toBe('m1');
     expect(map.activeNode?.messageId).toBe('m3');
     // Root remains a navigable node — accessibility label is preserved.
+    // IX-003 changed the node label format: the ordinal fragment is now
+    // "position N of M" (was "Message N of M") and the label also carries
+    // strength + branch + the "opening claim" root marker.
     const root = map.nodes.find((n) => n.messageId === 'm1');
     expect(root?.isRoot).toBe(true);
-    expect(root?.accessibilityLabel).toMatch(/Message 1 of 3/);
+    expect(root?.accessibilityLabel).toMatch(/position 1 of 3/);
+    expect(root?.accessibilityLabel).toMatch(/opening claim/);
   });
 
   it('returns null rootMessageId on an empty timeline', () => {

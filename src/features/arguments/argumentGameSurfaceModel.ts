@@ -24,6 +24,15 @@ import {
   resolveNodeGapPx,
   type TimelineDensityMode,
 } from './timelineNodeVisualModel';
+// IX-003 — shared node accessibility-label builder. `keyboardNavigationModel`
+// imports only *types* from this file (erased at compile time), so this is
+// a one-directional runtime dependency, not a runtime import cycle. Pass 4
+// below calls `buildNodeAccessibilityLabel` so the model's stored label and
+// the `NodeDot` rendered label never drift.
+import {
+  buildNodeAccessibilityLabel,
+  deriveBranchLabel,
+} from './keyboardNavigationModel';
 
 // ── Public types ───────────────────────────────────────────────
 
@@ -1365,22 +1374,7 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
     node.isActivePath = activeSet.has(node.messageId);
   }
 
-  // Pass 4 — accessibility labels (now that all flags are stable).
-  for (const node of nodes) {
-    const parts: string[] = [];
-    parts.push(`Message ${node.ordinal} of ${total}`);
-    parts.push(node.kindLabel);
-    parts.push(node.actorLabel);
-    if (node.sideLabel && node.sideLabel !== '—') parts.push(`side ${node.sideLabel}`);
-    parts.push(node.relativeLabel || node.createdAtLabel);
-    if (node.isActive) parts.push('active');
-    if (node.isLatest) parts.push('latest');
-    if (node.isJunction) parts.push(`junction with ${node.junctionChildCount} replies`);
-    if (node.isDetached) parts.push('detached — parent unavailable');
-    node.accessibilityLabel = parts.join(', ');
-  }
-
-  // Pass 4b — identify root and first rebuttal (chronological).
+  // Pass 4 — identify root and first rebuttal (chronological).
   // Root = first chronological node with no parent (or whose parent is missing).
   // First rebuttal = first chronological child of the root.
   let rootMessageId: string | null = null;
@@ -1400,6 +1394,30 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
         break;
       }
     }
+  }
+
+  // Pass 4c — accessibility labels (now that every flag, including
+  // `isRoot`, is stable). IX-003: built via the shared
+  // `buildNodeAccessibilityLabel` helper so the model's stored label and
+  // the `NodeDot` rendered label never drift. The label exposes type,
+  // side, ordinal, STRENGTH band (plain language) and BRANCH
+  // (mainline / side / detached) plus active / latest / junction state.
+  for (const node of nodes) {
+    node.accessibilityLabel = buildNodeAccessibilityLabel({
+      ordinal: node.ordinal,
+      totalNodes: total,
+      kindLabel: node.kindLabel,
+      sideLabel: node.sideLabel,
+      standingBand: node.standingBand,
+      branchLabel: deriveBranchLabel({ lane: node.lane, isDetached: node.isDetached }),
+      isActive: node.isActive,
+      isLatest: node.isLatest,
+      isRoot: node.isRoot,
+      isDetached: node.isDetached,
+      isJunction: node.isJunction,
+      junctionChildCount: node.junctionChildCount,
+      relativeOrAbsoluteTime: node.relativeLabel || node.createdAtLabel,
+    });
   }
 
   // Pass 5 — edges.

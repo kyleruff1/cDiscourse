@@ -16,7 +16,7 @@
  * built from <View>s so we never need react-native-svg.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeSyntheticEvent, NativeScrollEvent, LayoutChangeEvent } from 'react-native';
 import {
   TIMELINE_NODE_SIZE,
@@ -27,6 +27,14 @@ import {
   type ArgumentTimelineMapNode,
   type BubbleControlsContext,
 } from './argumentGameSurfaceModel';
+// IX-003 — keyboard nav (web-only) + the shared screen-reader label
+// builder. `keyboardNavigationModel` is a pure model file (no React).
+import {
+  buildNodeAccessibilityLabel,
+  deriveBranchLabel,
+  isTimelineNavKey,
+  resolveTimelineNavEffect,
+} from './keyboardNavigationModel';
 import {
   buildTimelineNodePopoverModel,
   decideInfoIconEffect,
@@ -152,6 +160,7 @@ const SCROLL_FRAME_MS = 16;
 
 function NodeDot({
   node,
+  totalNodes,
   onNodeTap,
   onInfoTap,
   isSelected,
@@ -159,6 +168,8 @@ function NodeDot({
   prefersReducedMotion,
 }: {
   node: ArgumentTimelineMapNode;
+  /** IX-003 — total node count, for the "position N of M" a11y fragment. */
+  totalNodes: number;
   onNodeTap: (id: string) => void;
   onInfoTap?: (id: string) => void;
   /** VG-004 — node.messageId === SC-004 dock target's messageId. */
@@ -198,10 +209,31 @@ function NodeDot({
         }
       : null;
 
+  // IX-003 — build the node's screen-reader label via the shared helper
+  // so it always includes strength (the standingBand, in plain language)
+  // and branch (mainline / side / detached). The helper is the single
+  // source of truth — `buildArgumentTimelineMap` Pass 4 calls the SAME
+  // function, so the model's `node.accessibilityLabel` and this rendered
+  // label can never drift. The "opening claim" root suffix is folded into
+  // the helper (via `isRoot`); the VG-004 navigation fragment is still
+  // appended (it carries "active move" / "selected for actions" /
+  // "has an attached source" — navigation/selection, not strength).
   const accessibilityLabel = (() => {
-    const base = node.isRoot
-      ? `${node.accessibilityLabel}, opening claim`
-      : node.accessibilityLabel;
+    const base = buildNodeAccessibilityLabel({
+      ordinal: node.ordinal,
+      totalNodes,
+      kindLabel: node.kindLabel,
+      sideLabel: node.sideLabel,
+      standingBand: node.standingBand,
+      branchLabel: deriveBranchLabel({ lane: node.lane, isDetached: node.isDetached }),
+      isActive: node.isActive,
+      isLatest: node.isLatest,
+      isRoot: node.isRoot,
+      isDetached: node.isDetached,
+      isJunction: node.isJunction,
+      junctionChildCount: node.junctionChildCount,
+      relativeOrAbsoluteTime: node.relativeLabel || node.createdAtLabel,
+    });
     return visual.accessibilityFragment
       ? `${base}, ${visual.accessibilityFragment}`
       : base;
@@ -242,6 +274,11 @@ function NodeDot({
         accessibilityHint={node.isActive ? 'Tap again to open the per-node popover' : 'Tap to activate this message'}
         accessibilityState={{ selected: node.isActive }}
         onPress={() => onNodeTap(node.messageId)}
+        // IX-003 — on web, nodes are NOT in the Tab sequence (tabIndex
+        // -1): the timeline group owns the single Tab stop and Arrow
+        // keys do the roving selection. Nodes stay reachable by screen
+        // reader and programmatically. Native ignores the prop.
+        {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})}
         style={[
           styles.node,
           { backgroundColor: node.kindColor },
@@ -611,6 +648,55 @@ export function ArgumentTimelineMap({
     }
   }, [onSelectTarget]);
 
+  // IX-003 — web-only keyboard navigation. The handler is wired onto the
+  // outer root <View> (which carries a single tabIndex=0 Tab stop). It
+  // delegates the traversal decision to the pure `resolveTimelineNavEffect`
+  // model and routes the result through the SAME callbacks tap already
+  // uses — `onActivate` for selection, `handleInfoTap` to open detail —
+  // so keyboard and touch never diverge. Arrow / Home / End / Enter /
+  // Space are prevent-defaulted (so the page does not scroll / page-down);
+  // Escape only prevent-defaults when an overlay is actually open.
+  const handleKeyDown = useCallback(
+    (e: { key: string; preventDefault?: () => void }) => {
+      if (Platform.OS !== 'web') return;
+      if (!e || !isTimelineNavKey(e.key)) return;
+      const effect = resolveTimelineNavEffect({
+        key: e.key,
+        activeMessageId: map.activeNode?.messageId ?? null,
+        map,
+        hasOpenOverlay: popoverMessageId !== null || selectedTarget != null,
+      });
+      if (effect.type === 'none') return;
+      // A real effect — stop the browser default (arrows scrolling the
+      // page, Space paging down, Escape bubbling to a parent modal).
+      e.preventDefault?.();
+      if (effect.type === 'activate') {
+        onActivate(effect.messageId);
+      } else if (effect.type === 'open_detail') {
+        handleInfoTap(effect.messageId);
+      } else if (effect.type === 'close_overlay') {
+        setPopoverMessageId(null);
+        onSelectTarget?.(null);
+      }
+    },
+    [map, onActivate, popoverMessageId, selectedTarget, onSelectTarget, handleInfoTap],
+  );
+
+  // IX-003 — Prev/Next are at an end when the active node is the first /
+  // last chronological node. Drives the disabled a11y state + dimmed
+  // style on the two control chips. With no active node, neither end is
+  // reached (a keyboard / tap user can still move in either direction).
+  const isAtFirst = Boolean(
+    map.activeNode &&
+      map.nodes.length > 0 &&
+      map.activeNode.messageId === map.nodes[0].messageId,
+  );
+  const isAtLatest = Boolean(
+    map.activeNode &&
+      map.latestMessageId !== null &&
+      map.activeNode.messageId === map.latestMessageId,
+  );
+
   const popoverModel = (() => {
     if (!popoverMessageId || !map.activeNode || !activeViewModel) return null;
     if (popoverMessageId !== map.activeNode.messageId) return null;
@@ -640,22 +726,33 @@ export function ArgumentTimelineMap({
   const showBackToRoot = Boolean(onJumpToRoot && map.showBackToRootControl);
 
   return (
-    <View style={styles.root} testID="argument-timeline-map">
+    <View
+      style={styles.root}
+      testID="argument-timeline-map"
+      // IX-003 — web-only keyboard capture. The timeline frame is a
+      // single focusable group (tabIndex 0): one Tab stop for the whole
+      // node set, with Arrow keys doing roving selection within it. RN-web
+      // forwards `onKeyDown` + `tabIndex` to the underlying DOM node; on
+      // native these props are simply not passed. No new dependency.
+      {...(Platform.OS === 'web' ? { onKeyDown: handleKeyDown, tabIndex: 0 } : {})}
+    >
       <View style={styles.controlsRow}>
         <Pressable
-          style={styles.controlChip}
+          style={[styles.controlChip, isAtFirst && styles.controlChipDisabled]}
           onPress={onPrev}
           accessibilityRole="button"
           accessibilityLabel="Previous message"
+          accessibilityState={{ disabled: isAtFirst }}
           testID="timeline-prev"
         >
           <Text style={styles.controlChipText}>‹ Prev</Text>
         </Pressable>
         <Pressable
-          style={styles.controlChip}
+          style={[styles.controlChip, isAtLatest && styles.controlChipDisabled]}
           onPress={onNext}
           accessibilityRole="button"
           accessibilityLabel="Next message"
+          accessibilityState={{ disabled: isAtLatest }}
           testID="timeline-next"
         >
           <Text style={styles.controlChipText}>Next ›</Text>
@@ -792,6 +889,7 @@ export function ArgumentTimelineMap({
             <NodeDot
               key={n.messageId}
               node={n}
+              totalNodes={map.nodes.length}
               onNodeTap={handleNodeTap}
               onInfoTap={handleInfoTap}
               isSelected={
@@ -945,6 +1043,12 @@ const styles = StyleSheet.create({
   chipText: { color: '#0b1220', fontWeight: '700', fontSize: 8 },
   controlsRow: { flexDirection: 'row', gap: 6, padding: 8, alignItems: 'center', backgroundColor: '#0b1220', borderBottomWidth: 1, borderBottomColor: '#1f2937' },
   controlChip: { backgroundColor: '#1f2937', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, minHeight: 28 },
+  // IX-003 — dimmed Prev/Next chip when the active node is at an end.
+  // Paired with `accessibilityState={{ disabled }}` so the disabled
+  // state is conveyed both visually and to screen readers. The chip
+  // still no-ops on press (the underlying handler already does), so no
+  // behaviour change — only the visual + a11y signal is added.
+  controlChipDisabled: { opacity: 0.4 },
   controlChipPrimary: { backgroundColor: '#312e81' },
   controlChipText: { color: '#e2e8f0', fontWeight: '700', fontSize: 12 },
   legendRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 4 },
