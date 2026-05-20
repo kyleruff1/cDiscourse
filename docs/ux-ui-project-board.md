@@ -376,6 +376,7 @@ Master plan: [`docs/deployment/google-cloud-run-hosting-plan.md`](deployment/goo
 - **Auto metadata:** `has_reply · has_rebuttal · has_counter_rebuttal · has_evidence · source_requested · quote_requested · source_attached · quote_attached · participant_skipped_node · no_response_after_n_turns · repeated_axis_pressure · branch_suggested · branch_created · point_stalled · point_exhausted · synthesis_candidate`.
 - **Acceptance:** Manual tag model exists (render-time only in v1, no persistence). Auto metadata derivation model exists. UI contract exposes plain-language labels via RULE-003. Existing semantic flags map cleanly into the model. Moderation flags remain isolated.
 - **Tests:** no raw code labels in UI contract · manual tag dedupe · auto-tag derivation table · card detail contract shape · timeline summary contract · ban-list across produced strings.
+- **META-1A follow-up (Release 6.8, complete):** the manual-tag ledger is now **persisted** — new `public.point_tags` table + RLS, the `apply-manual-tag` Edge Function as the single write path, a client wrapper, and a room-shell loader extension that hydrates persisted tags on every refresh. Auto-derived metadata stays render-time-derived per META-001. Write-trigger UI is a thin follow-up; the read path is live. See `docs/designs/META-1A.md`.
 
 ### GAME-001 — Point exhaustion and timeout rules
 - **Priority:** P1 — **Effort:** M/L — **Release:** 6.6 — **Wave:** 3 — **Agent:** evidence-rules-agent / point-standing-economy
