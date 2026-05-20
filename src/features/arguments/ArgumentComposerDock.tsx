@@ -45,6 +45,13 @@ import { ArgumentComposer } from './ArgumentComposer';
 import type { MoveDraftPatch } from './conversationMoves';
 import type { ArgumentRow } from './types';
 import type { Debate } from '../debates/types';
+import {
+  PacingChip,
+  buildPacingChipViewModel,
+  getDevPacingOverride,
+  DEFAULT_CASUAL_PACING_RULE,
+} from '../modes';
+import type { PacingRule, PacingMoveRecord } from '../modes';
 
 /** Width (logical px) at or above which the dock is a right-side panel. */
 export const DOCK_SIDE_BREAKPOINT = 720;
@@ -85,10 +92,24 @@ interface ArgumentComposerDockProps {
    * preference). When omitted the dock reads AccessibilityInfo itself.
    */
   reduceMotionOverride?: boolean;
+  /**
+   * GAME-002 — mode-level turn pacing rule. Defaults to the casual
+   * no-pacing baseline; the chip is then a no-op render. GAME-003 mode
+   * templates supply a non-casual rule.
+   */
+  pacingRule?: PacingRule;
+  /**
+   * GAME-002 — this participant's recent moves, used for the pacing chip's
+   * cap + cooldown math. Derived in-memory; defaults to none.
+   */
+  pacingRecentMoves?: readonly PacingMoveRecord[];
 }
 
 /** Slide travel distance (logical px) for the open animation. */
 const SLIDE_TRAVEL = 64;
+
+/** Stable empty default for `pacingRecentMoves` (avoids new-array churn). */
+const EMPTY_PACING_MOVES: readonly PacingMoveRecord[] = Object.freeze([]);
 
 export function ArgumentComposerDock({
   visible,
@@ -100,6 +121,8 @@ export function ArgumentComposerDock({
   onClose,
   onSubmitSuccess,
   reduceMotionOverride,
+  pacingRule,
+  pacingRecentMoves,
 }: ArgumentComposerDockProps) {
   const { width } = useWindowDimensions();
   const variant = resolveDockLayoutVariant(width);
@@ -163,6 +186,47 @@ export function ArgumentComposerDock({
     animation.start();
     return () => animation.stop();
   }, [visible, effectiveReducedMotion, progress]);
+
+  // ── GAME-002 pacing chip ──
+  // The pacing rule + this participant's recent moves drive a status chip
+  // in the dock header. Casual default → the chip renders nothing and no
+  // interval is mounted. A DEV-only override can force a rule for manual
+  // testing; it is never surfaced in any UI.
+  let effectivePacingRule: PacingRule = pacingRule ?? DEFAULT_CASUAL_PACING_RULE;
+  if (__DEV__) {
+    // getDevPacingOverride is itself __DEV__-guarded; this whole branch is
+    // dead-code-eliminated from production bundles.
+    const devOverride = getDevPacingOverride();
+    if (devOverride) effectivePacingRule = devOverride;
+  }
+  const pacingMoves = pacingRecentMoves ?? EMPTY_PACING_MOVES;
+
+  // `now` is read once per render and advanced by a 1s tick ONLY while the
+  // dock is visible and the chip is in a countdown state.
+  const [pacingNow, setPacingNow] = useState(() => Date.now());
+
+  // Build the view model with the current `now`. Cheap pure call.
+  const pacingViewModel = useMemo(
+    () =>
+      buildPacingChipViewModel({
+        rule: effectivePacingRule,
+        recentMoves: pacingMoves,
+        now: pacingNow,
+      }),
+    [effectivePacingRule, pacingMoves, pacingNow],
+  );
+
+  // The interval is keyed on `visible` + whether a countdown is currently
+  // active. When the countdown reaches zero, `countdownLabel` becomes null,
+  // the effect re-runs, and the interval is cleared — no idle ticking.
+  const pacingHasCountdown = pacingViewModel.countdownLabel !== null;
+  useEffect(() => {
+    if (!visible || !pacingHasCountdown) return;
+    const id = setInterval(() => {
+      setPacingNow(Date.now());
+    }, 1000);
+    return () => clearInterval(id);
+  }, [visible, pacingHasCountdown]);
 
   // ── web Escape close ──
   const onCloseRef = useRef(onClose);
@@ -255,6 +319,13 @@ export function ArgumentComposerDock({
             ) : null}
             <View style={styles.headerRow}>
               <Text style={styles.headerLabel}>Compose your move</Text>
+              {/* GAME-002 — pacing status chip. Renders null for the
+                  casual default (no pacing). It is a status display, not
+                  a button, and never disables the composer. */}
+              <PacingChip
+                viewModel={pacingViewModel}
+                reduceMotionOverride={effectiveReducedMotion}
+              />
               <Pressable
                 onPress={handleCancel}
                 accessibilityRole="button"
