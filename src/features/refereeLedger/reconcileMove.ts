@@ -263,7 +263,6 @@ export function reconcileMove(input: LedgerMoveInput): LedgerResult {
   // ── Stage 0 — classify the move and call the economy. ──
   let economyDelta: PointStandingDelta | null = null;
   let ineligibilityReasons: string[] = [];
-  let economyEligible = true;
   // Economy deltas the reconciler adopts bit-for-bit for economy-owned categories.
   let narrowingDelta = 0;
   let concessionDelta = 0;
@@ -273,7 +272,6 @@ export function reconcileMove(input: LedgerMoveInput): LedgerResult {
 
   if (input.moveRole === 'challenge') {
     const result = gradeChallenge(input.economyInput as ChallengeGradingInput);
-    economyEligible = result.eligible;
     ineligibilityReasons = [...result.ineligibilityReasons];
     economyDelta = result.delta;
     if (result.newDebt) {
@@ -299,7 +297,6 @@ export function reconcileMove(input: LedgerMoveInput): LedgerResult {
       };
     }
     const result = gradeRepair(input.economyInput as RepairGradingInput, input.repairOptions);
-    economyEligible = result.eligible;
     ineligibilityReasons = [...result.ineligibilityReasons];
     economyDelta = result.delta;
     if (result.updatedDebt) {
@@ -318,8 +315,17 @@ export function reconcileMove(input: LedgerMoveInput): LedgerResult {
 
   const exploitRiskScore = economyDelta?.exploitRiskScore ?? 0;
 
-  // ── Economy-ineligible path: short-circuit, no penalty. ──
-  if (!economyEligible || economyDelta === null) {
+  // ── Economy-no-delta path: short-circuit, no penalty. ──
+  //
+  // The short-circuit is keyed on a NULL economy delta — not on `eligible`
+  // alone. A challenge that fails the eligibility gate always returns
+  // `delta: null`. A REPAIR can return `eligible: false` with a NON-null
+  // penalty delta (the evasion path — `no_concession`): that delta MUST be
+  // adopted verbatim (MCP-013 design test plan, "evasion path"), so Stage 3
+  // still runs and the economy-owned `concession` reading adopts the
+  // economy's negative `broadStandingDelta` bit-for-bit. The ledger itself
+  // never adds a penalty — the only negative comes from the economy.
+  if (economyDelta === null) {
     return {
       pointId: input.pointId,
       moveArgumentId: input.moveArgumentId,

@@ -102,10 +102,14 @@ export type CreditAxis = 'engagement' | 'factual_standing' | 'hygiene';
 // ── RefereeFeedbackCode family (MCP-003 §8) ───────────────────────
 
 /**
- * A closed union of exactly 21 bounded `snake_case` tokens. Every member MUST
- * have a matching entry in `gameCopy.PLAIN_LANGUAGE_COPY` (the MCP-013
- * extension) or the plain-language-coverage test fails. A feedbackCode is a
- * gameplay signal about the MOVE — never a verdict, never a person label.
+ * A closed union of bounded `snake_case` tokens — 22 codes: the 20 from
+ * MCP-003 §8 plus the two the MCP-013 deviation note adds
+ * (`broad_point_set_down`, `synthesis_named`). (MCP-013 design prose says
+ * "21" — an arithmetic slip; the design's own union and gameCopy block both
+ * list 22. 20 + 2 = 22.) Every member MUST have a matching entry in
+ * `gameCopy.PLAIN_LANGUAGE_COPY` (the MCP-013 extension) or the
+ * plain-language-coverage test fails. A feedbackCode is a gameplay signal
+ * about the MOVE — never a verdict, never a person label.
  */
 export type RefereeFeedbackCode =
   | 'clean_parent_tie' // continuity (positive)
