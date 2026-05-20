@@ -134,6 +134,15 @@ interface Props {
    * SC-004 — Open Cards-detail without a route push (surface toggle).
    */
   onOpenCardsDetail?: (target: TimelineNodeActionDockTarget) => void;
+  /**
+   * PR-001 — user's effective reduce-motion preference (the OS value
+   * composed with the user's `system`/`on`/`off` override). When
+   * supplied it REPLACES the component's own `AccessibilityInfo` read,
+   * so the preferences popout's reduce-motion choice drives the board's
+   * node-glow shadow. When omitted, the component keeps its independent
+   * OS read (back-compat for any caller that does not thread it).
+   */
+  reduceMotionOverride?: boolean;
 }
 
 const RAIL_THICKNESS = 4;
@@ -334,6 +343,7 @@ export function ArgumentTimelineMap({
   onSelectTarget,
   onActionDockAction,
   onOpenCardsDetail,
+  reduceMotionOverride,
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [popoverMessageId, setPopoverMessageId] = useState<string | null>(null);
@@ -394,6 +404,14 @@ export function ArgumentTimelineMap({
       }
     };
   }, []);
+
+  // PR-001 — when the room shell threads the preferences popout's
+  // effective reduce-motion value, it WINS over the component's own OS
+  // read. Omitting the prop keeps the independent OS read (back-compat).
+  const effectiveReducedMotion =
+    typeof reduceMotionOverride === 'boolean'
+      ? reduceMotionOverride
+      : prefersReducedMotion;
 
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     // Throttle to ~60fps so we don't thrash setState on every native event.
@@ -783,7 +801,7 @@ export function ArgumentTimelineMap({
               hasEvidenceArtifact={
                 (artifactsByMessageId?.[n.messageId]?.length ?? 0) > 0
               }
-              prefersReducedMotion={prefersReducedMotion}
+              prefersReducedMotion={effectiveReducedMotion}
             />
           ))}
         </View>

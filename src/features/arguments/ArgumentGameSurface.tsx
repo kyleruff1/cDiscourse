@@ -30,6 +30,7 @@ import {
   type ArgumentSurfaceMode,
 } from './argumentGameSurfaceModel';
 import { computeParticipantTrends } from './argumentScoreModel';
+import type { TimelineDensityMode } from './timelineNodeVisualModel';
 import { ArgumentScoreTracker } from './ArgumentScoreTracker';
 import { ArgumentSideActionRail, railActionToBubbleControl } from './ArgumentSideActionRail';
 import { VIEW_MODE_COPY } from './viewModeCopy';
@@ -119,6 +120,18 @@ interface Props {
    * and to show a small "micro-moment" hint near the timeline.
    */
   entryHint?: GalleryEntryHint;
+  /**
+   * PR-001 — user's visual-density preference. Passed to
+   * `buildArgumentTimelineMap({ density })`, which drives VG-004's
+   * `resolveNodeGapPx`. Defaults to `'normal'` when omitted.
+   */
+  density?: TimelineDensityMode;
+  /**
+   * PR-001 — user's effective reduce-motion preference (OS value
+   * composed with the user's override). When supplied it replaces the
+   * timeline board's independent OS read.
+   */
+  reduceMotionOverride?: boolean;
 }
 
 export function ArgumentGameSurface({
@@ -140,6 +153,8 @@ export function ArgumentGameSurface({
   onJoinSide,
   onShareRoom,
   entryHint,
+  density,
+  reduceMotionOverride,
 }: Props) {
   const sorted = useMemo(() => sortMessagesChronologically(messages || []), [messages]);
   const latestId = useMemo(() => latestIdHint ?? getLatestMessageId(sorted), [sorted, latestIdHint]);
@@ -215,10 +230,11 @@ export function ArgumentGameSurface({
     messages: enrichedMessages,
     currentUserId,
     activeMessageId,
-    // VG-004 — explicit density. 'normal' is the resolved default; a
-    // future card may surface a density picker that swaps this value.
-    density: 'normal',
-  }), [enrichedMessages, currentUserId, activeMessageId]);
+    // VG-004 / PR-001 — explicit density. PR-001 threads the user's
+    // visual-density preference here; `resolveNodeGapPx` falls back to
+    // 'normal' (44px) when the preference is undefined.
+    density: density ?? 'normal',
+  }), [enrichedMessages, currentUserId, activeMessageId, density]);
 
   // EV-002 — Build the artifact map once per render from each message's
   // optional `attachedEvidence` payload (typed defensively). Empty /
@@ -531,6 +547,7 @@ export function ArgumentGameSurface({
               onSelectTarget={setSelectedDockTarget}
               onActionDockAction={handleActionDockAction}
               onOpenCardsDetail={handleOpenCardsDetail}
+              reduceMotionOverride={reduceMotionOverride}
             />
             <ArgumentReplySidecar
               viewModel={buildSidecarViewModel({
