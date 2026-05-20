@@ -96,7 +96,14 @@ export interface AdminViewAsSnapshot {
   recentAuditEvents: AdminAuditEvent[];
 }
 
-export type AdminTab = 'users' | 'view_as' | 'history' | 'blocks' | 'bot_users' | 'arguments';
+export type AdminTab =
+  | 'users'
+  | 'view_as'
+  | 'history'
+  | 'blocks'
+  | 'bot_users'
+  | 'arguments'
+  | 'metadata_events';
 
 export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   users: 'Users',
@@ -105,6 +112,7 @@ export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   blocks: 'Blocks',
   bot_users: 'Bot Users',
   arguments: 'Arguments',
+  metadata_events: 'Metadata Events',
 };
 
 /**
