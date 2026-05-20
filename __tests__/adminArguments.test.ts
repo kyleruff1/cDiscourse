@@ -20,9 +20,15 @@ describe('AdminArgumentRow type surface', () => {
     for (const field of [
       'AdminArgumentRow', 'createdAt', 'updatedAt', 'debateTitle', 'authorDisplayName',
       'argumentType', 'disagreementAxis', 'targetExcerpt', 'topicSatisfactionScore',
+      'selectedTagCodes',
     ]) {
       expect(src).toContain(field);
     }
+  });
+
+  it('no longer declares the removed hasEvidence field (QOL-026)', () => {
+    const src = fs.readFileSync(path.join(repoRoot, 'src/features/admin/types.ts'), 'utf8');
+    expect(src).not.toContain('hasEvidence');
   });
 });
 
@@ -66,6 +72,34 @@ describe('adminArgumentsApi — safety + shape', () => {
   it('joins debates(title) and profiles(display_name)', () => {
     expect(src).toContain('debates(title)');
     expect(src).toContain('profiles(display_name)');
+  });
+
+  // QOL-026: the loader must not select columns that do not exist on
+  // `public.arguments`. `selected_tag_codes` and `attached_evidence` were
+  // both bad scalar columns — PostgREST reports unknown columns one at a
+  // time, so the page failed on the first and would fail on the second.
+  it('does not select the non-existent selected_tag_codes column', () => {
+    expect(src).not.toContain('selected_tag_codes');
+  });
+
+  it('does not select the non-existent attached_evidence column', () => {
+    expect(src).not.toContain('attached_evidence');
+  });
+
+  it('does not map a hasEvidence field (evidence indicator removed in QOL-026)', () => {
+    expect(src).not.toContain('hasEvidence');
+  });
+
+  it('requests tags via the argument_tags(tag_code) nested embed', () => {
+    expect(src).toContain('argument_tags(tag_code)');
+  });
+
+  it('RawArgumentRow declares the embedded argument_tags relation', () => {
+    expect(src).toMatch(/argument_tags:\s*\{\s*tag_code/);
+  });
+
+  it('maps the embed into selectedTagCodes via the asTagCodes helper', () => {
+    expect(src).toContain('selectedTagCodes: asTagCodes(r.argument_tags)');
   });
 
   it('exposes a sortField + sortDirection option to the loader', () => {
@@ -216,6 +250,14 @@ describe('AdminArgumentsTab — Stage 6.1.6b table layout', () => {
   it('uses an arrow indicator for the active sort column', () => {
     expect(src).toMatch(/↓|↑/);
     expect(src).toMatch(/function sortArrow/);
+  });
+
+  // QOL-026: the evidence badge was gated on `r.hasEvidence`, derived from
+  // a column (`attached_evidence`) that never existed. The badge therefore
+  // never showed real data and is removed entirely.
+  it('no longer renders the evidence badge (QOL-026)', () => {
+    expect(src).not.toContain('variant="evidence"');
+    expect(src).not.toContain('hasEvidence');
   });
 
   it('sortable headers are buttons with accessibility role + state', () => {
