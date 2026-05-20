@@ -215,6 +215,9 @@ export function ArgumentGameSurface({
     messages: enrichedMessages,
     currentUserId,
     activeMessageId,
+    // VG-004 — explicit density. 'normal' is the resolved default; a
+    // future card may surface a density picker that swaps this value.
+    density: 'normal',
   }), [enrichedMessages, currentUserId, activeMessageId]);
 
   // EV-002 — Build the artifact map once per render from each message's

@@ -58,6 +58,11 @@ import {
   type BranchCollapseState,
 } from './branchTopologyModel';
 import { BranchCollapseStub } from './BranchCollapseStub';
+import {
+  deriveTimelineNodeVisualStyle,
+  type TimelineNodeVisualStyle,
+} from './timelineNodeVisualModel';
+import { GLOW, RECEIPT_MARK } from '../../lib/designTokens';
 
 interface Props {
   map: ArgumentTimelineMapModel;
@@ -140,21 +145,91 @@ function NodeDot({
   node,
   onNodeTap,
   onInfoTap,
+  isSelected,
+  hasEvidenceArtifact,
+  prefersReducedMotion,
 }: {
   node: ArgumentTimelineMapNode;
   onNodeTap: (id: string) => void;
   onInfoTap?: (id: string) => void;
+  /** VG-004 — node.messageId === SC-004 dock target's messageId. */
+  isSelected: boolean;
+  /** VG-004 — node's message has ≥ 1 EvidenceArtifact. */
+  hasEvidenceArtifact: boolean;
+  /** VG-004 — AccessibilityInfo.isReduceMotionEnabled state (parent). */
+  prefersReducedMotion: boolean;
 }) {
   const ring = node.isActive ? styles.nodeRingActive : node.isLatest ? styles.nodeRingLatest : null;
+
+  // VG-004 — derive the additive visual treatment (glow / halo / receipt
+  // mark / tone tint) from the node's existing navigation + tone fields
+  // via the pure helper. Glow and halo are strength-independent.
+  const visual: TimelineNodeVisualStyle = deriveTimelineNodeVisualStyle({
+    isActive: node.isActive,
+    isActivePath: node.isActivePath,
+    isSelected,
+    toneBand: node.toneBand,
+    temperatureBand: node.temperatureBand,
+    hasEvidenceArtifact,
+    prefersReducedMotion,
+  });
+
+  // Glow: a 2px indigo stroke (geometry, survives reduce-motion) plus a
+  // soft drop shadow that is dropped to radius 0 under reduce-motion.
+  const glowStyle =
+    visual.glowTier !== 'none'
+      ? {
+          borderWidth: visual.glowStrokeWidthPx,
+          borderColor: GLOW.activePath.color,
+          shadowColor: GLOW.activePath.color,
+          shadowOpacity: visual.glowShadowRadiusPx > 0 ? 0.9 : 0,
+          shadowRadius: visual.glowShadowRadiusPx,
+          shadowOffset: { width: 0, height: 0 },
+          elevation: visual.glowShadowRadiusPx > 0 ? 6 : 0,
+        }
+      : null;
+
+  const accessibilityLabel = (() => {
+    const base = node.isRoot
+      ? `${node.accessibilityLabel}, opening claim`
+      : node.accessibilityLabel;
+    return visual.accessibilityFragment
+      ? `${base}, ${visual.accessibilityFragment}`
+      : base;
+  })();
+
   return (
     <View
       style={[styles.nodeWrap, { left: node.x, top: node.y }]}
       testID={`timeline-node-${node.messageId}`}
     >
+      {/* VG-004 — active-path glow. Behind the node; reduce-motion keeps
+          the 2px stroke and drops only the soft shadow. */}
+      {glowStyle ? (
+        <View
+          testID={`timeline-node-glow-${node.messageId}`}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[styles.nodeGlow, glowStyle]}
+        />
+      ) : null}
+      {/* VG-004 — selected-node halo. Outermost cream ring; static
+          stroke, kept under reduce-motion. SC-004 dock target only. */}
+      {visual.haloRingWidthPx > 0 ? (
+        <View
+          testID={`timeline-node-halo-${node.messageId}`}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.nodeHalo,
+            { borderWidth: visual.haloRingWidthPx, borderColor: GLOW.selectedHalo.color },
+          ]}
+        />
+      ) : null}
       {ring ? <View style={[styles.nodeRing, ring]} /> : null}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={node.isRoot ? `${node.accessibilityLabel}, opening claim` : node.accessibilityLabel}
+        accessibilityLabel={accessibilityLabel}
         accessibilityHint={node.isActive ? 'Tap again to open the per-node popover' : 'Tap to activate this message'}
         accessibilityState={{ selected: node.isActive }}
         onPress={() => onNodeTap(node.messageId)}
@@ -167,7 +242,33 @@ function NodeDot({
         ]}
       >
         <Text style={styles.nodeOrdinal} numberOfLines={1}>{node.ordinal}</Text>
+        {/* VG-004 — tone tint. Active-path nodes only; static low-alpha
+            overlay describing activity, never correctness. */}
+        {visual.toneTint ? (
+          <View
+            testID={`timeline-node-tone-tint-${node.messageId}`}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            pointerEvents="none"
+            style={[
+              styles.nodeToneTint,
+              { backgroundColor: visual.toneTint.color, opacity: visual.toneTint.alpha },
+            ]}
+          />
+        ) : null}
       </Pressable>
+      {/* VG-004 — evidence receipt mark. Shape-agnostic corner badge
+          shown when the node's message has an attached source. */}
+      {visual.showsReceiptMark ? (
+        <View
+          testID={`timeline-node-receipt-${node.messageId}`}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.receiptMark}
+        >
+          <View style={styles.receiptMarkInner} />
+        </View>
+      ) : null}
       {node.isActive && onInfoTap ? (
         <Pressable
           onPress={() => onInfoTap(node.messageId)}
@@ -251,6 +352,48 @@ export function ArgumentTimelineMap({
   // v1. Anything not in the map is treated as expanded. The room shell
   // calls `toggleBranchCollapse` on stub tap and re-renders.
   const [collapseState, setCollapseState] = useState<BranchCollapseState>(EMPTY_COLLAPSE_STATE);
+
+  // VG-004 — reduce-motion gate for the node glow's soft shadow. Read
+  // once on mount and subscribed for mid-session OS changes, mirroring
+  // the existing try/catch pattern around `announceForAccessibility`.
+  // First render defaults to `false`; the effect settles within a frame.
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const result = AccessibilityInfo.isReduceMotionEnabled();
+      if (result && typeof result.then === 'function') {
+        result
+          .then((enabled) => {
+            if (!cancelled) setPrefersReducedMotion(enabled === true);
+          })
+          .catch(() => {
+            // Some platforms (web shim, jest) reject — keep the default.
+          });
+      }
+    } catch {
+      // API unavailable — keep `prefersReducedMotion = false`.
+    }
+    let subscription: { remove: () => void } | null = null;
+    try {
+      subscription = AccessibilityInfo.addEventListener(
+        'reduceMotionChanged',
+        (enabled) => {
+          if (!cancelled) setPrefersReducedMotion(enabled === true);
+        },
+      );
+    } catch {
+      // Listener API unavailable — the one-shot read above still works.
+    }
+    return () => {
+      cancelled = true;
+      try {
+        subscription?.remove();
+      } catch {
+        // Swallow — listener may already be torn down.
+      }
+    };
+  }, []);
 
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     // Throttle to ~60fps so we don't thrash setState on every native event.
@@ -633,6 +776,14 @@ export function ArgumentTimelineMap({
               node={n}
               onNodeTap={handleNodeTap}
               onInfoTap={handleInfoTap}
+              isSelected={
+                selectedTarget?.kind === 'node' &&
+                selectedTarget.messageId === n.messageId
+              }
+              hasEvidenceArtifact={
+                (artifactsByMessageId?.[n.messageId]?.length ?? 0) > 0
+              }
+              prefersReducedMotion={prefersReducedMotion}
             />
           ))}
         </View>
@@ -672,6 +823,54 @@ const styles = StyleSheet.create({
   nodeRing: { position: 'absolute', width: TIMELINE_NODE_SIZE + 14, height: TIMELINE_NODE_SIZE + 14, top: -7, left: -7, borderRadius: (TIMELINE_NODE_SIZE + 14) / 2 },
   nodeRingActive: { backgroundColor: 'rgba(99,102,241,0.25)', borderWidth: 2, borderColor: '#a5b4fc' },
   nodeRingLatest: { borderWidth: 2, borderColor: '#22d3ee', backgroundColor: 'rgba(34,211,238,0.12)' },
+  // VG-004 — active-path glow. Sits behind the node + rings. The 2px
+  // border is set inline (it survives reduce-motion); the soft shadow
+  // is also inline so reduce-motion can zero just the radius.
+  nodeGlow: {
+    position: 'absolute',
+    width: TIMELINE_NODE_SIZE + 22,
+    height: TIMELINE_NODE_SIZE + 22,
+    top: -11,
+    left: -11,
+    borderRadius: (TIMELINE_NODE_SIZE + 22) / 2,
+  },
+  // VG-004 — selected-node halo. Outermost cream ring; static stroke,
+  // kept on under reduce-motion. Border width / color set inline.
+  nodeHalo: {
+    position: 'absolute',
+    width: TIMELINE_NODE_SIZE + 30,
+    height: TIMELINE_NODE_SIZE + 30,
+    top: -15,
+    left: -15,
+    borderRadius: (TIMELINE_NODE_SIZE + 30) / 2,
+  },
+  // VG-004 — tone tint overlay on active-path nodes only. The color +
+  // alpha are set inline from the pure helper's `toneTint`.
+  nodeToneTint: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: TIMELINE_NODE_SIZE / 2,
+  },
+  // VG-004 — evidence receipt mark. A small corner badge composed from
+  // two <View>s — no react-native-svg, no icon dependency.
+  receiptMark: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: RECEIPT_MARK.sizePx,
+    height: RECEIPT_MARK.sizePx,
+    borderRadius: RECEIPT_MARK.sizePx / 2,
+    backgroundColor: RECEIPT_MARK.color,
+    borderWidth: 1,
+    borderColor: '#020617',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  receiptMarkInner: {
+    width: RECEIPT_MARK.sizePx / 3,
+    height: RECEIPT_MARK.sizePx / 3,
+    borderRadius: RECEIPT_MARK.sizePx / 6,
+    backgroundColor: RECEIPT_MARK.innerColor,
+  },
   node: {
     width: TIMELINE_NODE_SIZE,
     height: TIMELINE_NODE_SIZE,
