@@ -6,10 +6,19 @@ import { AdminHistoryTab } from './AdminHistoryTab';
 import { AdminBlocksTab } from './AdminBlocksTab';
 import { AdminBotUsersTab } from './AdminBotUsersTab';
 import { AdminArgumentsTab } from './AdminArgumentsTab';
+import { AdminMetadataEventsTab } from './AdminMetadataEventsTab';
 import type { AdminTab } from './types';
 import { ADMIN_TAB_LABELS } from './types';
 
-const TABS: AdminTab[] = ['users', 'view_as', 'history', 'blocks', 'bot_users', 'arguments'];
+const TABS: AdminTab[] = [
+  'users',
+  'view_as',
+  'history',
+  'blocks',
+  'bot_users',
+  'arguments',
+  'metadata_events',
+];
 
 export function AdminScreen() {
   const [tab, setTab] = useState<AdminTab>('users');
@@ -38,6 +47,7 @@ export function AdminScreen() {
         {tab === 'blocks' && <AdminBlocksTab />}
         {tab === 'bot_users' && <AdminBotUsersTab />}
         {tab === 'arguments' && <AdminArgumentsTab />}
+        {tab === 'metadata_events' && <AdminMetadataEventsTab />}
       </View>
     </View>
   );
