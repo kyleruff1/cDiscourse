@@ -250,6 +250,35 @@ export const PLAIN_LANGUAGE_COPY = {
   point_stalled: 'Point stalled',
   point_exhausted: 'Point exhausted',
   synthesis_candidate: 'Synthesis candidate',
+  // MCP-013 — Referee ledger feedbackCode family (21 codes). Every code is a
+  // gameplay signal about the MOVE, never a verdict, never a person label.
+  // Plain English, no snake_case leak, ban-list-clean. Read by refereeLedgerCopy.ts
+  // and MCP-008's banner library. `source_attached` is NOT re-declared here —
+  // the existing META-001 `source_attached` key (value 'Source attached')
+  // already covers the ledger's `source_attached` feedback code; the ledger and
+  // META-001 describe the same observation (MCP-013 design § "gameCopy.ts
+  // extension" key-collision check).
+  clean_parent_tie: 'Clean parent tie.',
+  partial_parent_tie: 'Answers part of it — the main point is still open.',
+  answered_the_question: 'That answers the question on the table.',
+  question_still_open: 'The question on the table is still waiting for an answer.',
+  evidence_debt_open: 'Good pressure — evidence debt opened.',
+  evidence_connects: 'The evidence lines up with the claim.',
+  evidence_needs_connecting: 'Evidence is here — connect it to the exact claim.',
+  nicely_anchored: 'Nicely anchored to their words.',
+  nice_narrowing: 'Nice narrowing move — the broader point holds.',
+  concession_noted: 'Narrow concession noted — the broad point still stands.',
+  broad_point_set_down: 'Broad point set down — an honest move.',
+  clarification_in_play: "Good — that clears up what's being argued.",
+  almost_a_synthesis: 'Almost a synthesis — name the shared point.',
+  synthesis_named: 'Shared ground named — nice synthesis.',
+  clean_branch: 'Clean branch — both threads stay readable.',
+  belongs_on_a_branch: 'This probably belongs on a branch.',
+  back_to_the_claim: 'This is about the claim, not the person — bring it back to the claim.',
+  debt_resolved: 'Evidence debt resolved — nice.',
+  fits_the_room: 'Fits the room.',
+  pacing_is_on: 'Pacing is on in this room — a short beat helps.',
+  you_decide_the_lane: 'Reply here, branch, or tangent? — you decide.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;
