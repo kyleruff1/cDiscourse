@@ -37,6 +37,52 @@ The doctrine that survives every card on this board:
 
 ---
 
+## Supersession map — the one-box interface (QOL-030…033)
+
+> Added 2026-05-21 from [`docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md`](project-audits/2026-05-21-roadmap-collision-supersession-analysis.md).
+> **Read this before picking up any SC / RULE-005 / IX-001 / IX-002 / COMPOSER / ST-001 card.**
+
+The one-box interface design (QOL-030 foundation + QOL-031/032/033 popouts)
+**supersedes the build requirements** of a web of earlier cards. "Supersede"
+here is precise:
+
+- **Pure models survive.** `channelModel`, `timelineNodeActionDockModel`,
+  `sourceChainPopoverModel`, `timelineMiniMapModel`, `ObserverActionDockLayout`,
+  and `buildSidecarViewModel` are reused unchanged.
+- **The React shell re-houses** under the QOL-030 popout chassis / one-box
+  composer. **Do not implement a superseded card as a standalone bespoke
+  surface.**
+
+| Superseded / amended card | Status | Re-housed under |
+|---|---|---|
+| SC-001 side action rail | Superseded | QOL-031 Act popout |
+| SC-002 timeline node popover | Superseded | QOL-032 Inspect popout |
+| SC-003 sidecar detail inspector | Superseded | QOL-032 Inspect popout |
+| SC-004 timeline node action dock | Superseded | QOL-031 Act popout |
+| RULE-005 `ChannelChipRow` surface | Superseded — chip-row UI only; the channel model survives | QOL-031 Act popout (the flash-popout decision menu) |
+| IX-001 density + focus lenses | Partially superseded | QOL-033 Go popout consumes the lenses; the **density core remains undefined** — see the `docs/designs/IX-001.md` stub |
+| IX-002 mini-map | Superseded — surface only; the `timelineMiniMapModel` projection survives | QOL-033 Go popout |
+| COMPOSER-001 composer prefill wiring | Superseded | QOL-030 one-box composer |
+| COMPOSER-002 in-room composer dock | Superseded | QOL-030 one-box composer |
+| ST-001 "Card Details" Stack mode | **Amended, not superseded** | QOL-030 decision D2 — Cards view becomes *authorable* through the one-box surface; ST-001's "inspection only" contract is widened, not removed |
+
+### Roadmap conflict resolution
+
+- **QOL-030** is the foundation — the one-box composer + the flash-popout
+  chassis. Build it first.
+- **QOL-031 / QOL-032 / QOL-033** are the popout-specific expansions (Act /
+  Inspect / Go). Build them sequentially — each only after the previous is green.
+- **QOL-034…042** are the storyboard-pass cards (renumbered from QOL-021…029
+  after the collision fix — see the analysis doc). Independent of the one-box
+  build order.
+- **EV-003, IX-001, GAME-003B** are blank cards the storyboards depend on; each
+  now has a design stub under `docs/designs/` and must be designed before
+  confident implementation.
+- The semantic-referee stack (MCP-011…016) stays **separate** from the
+  deterministic flash menu — the Act popout is engine-gated, not AI-gated.
+
+---
+
 ## Board lanes
 
 | Lane | Window | Releases |
@@ -169,23 +215,31 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 ## Epic 4 — Sidecars, Popovers, Quick Tools
 
 ### SC-001 — Consolidate controls into the side action rail
+
+> ⚠ **Superseded — re-housed by QOL-031 (Act popout).** The role-gated action-set model survives; the rail React shell folds into the Act popout. Do not build as a standalone surface. See the Supersession map.
 - **Priority:** P0 — **Effort:** M/L — **Release:** 6.5
 - **Baseline:** `ArgumentSideActionRail` already exists (Stage 6.4) with observer / participant-other / own-bubble action sets.
 - **Scope:** Rail always available in Timeline mode, collapsed by default. Expanding shows grouped tools: Watch/Observe · Join side · Reply · Evidence · Branch · Review/flag · Share. Tap updates active node + contextual rail. Long-press → mini popover when feasible.
 - **Acceptance:** No side declaration before entering. Join only via explicit Join For / Join Against. No redirects. Own-bubble safety unchanged.
 
 ### SC-002 — Timeline node popover
+
+> ⚠ **Superseded — re-housed by QOL-032 (Inspect popout).** The `sourceChainPopoverModel` pure model survives; the popover React shell folds into the Inspect popout. Do not build as a standalone surface. See the Supersession map.
 - **Priority:** P0/P1 — **Effort:** M — **Release:** 6.5
 - **Contents:** message preview · node status · strength band · tone/temperature · quick actions (Reply, Challenge, Source?, Quote?, Evidence, Concede, Branch) · "Open details" → sidecar.
 - **Acceptance:** Tap node → active. Second tap / info icon → popover. Popover doesn't block timeline nav. Uses same action mapping as rail.
 
 ### SC-003 — Sidecar as detail inspector, not action dumping ground
+
+> ⚠ **Superseded — re-housed by QOL-032 (Inspect popout).** `buildSidecarViewModel` survives; the sidecar surface folds into the Inspect popout. Do not build as a standalone surface. See the Supersession map.
 - **Priority:** P1 — **Effort:** M — **Release:** 6.6 — **Wave:** 2
 - **Sections:** "What this move says" · "Why it matters" · "What is unresolved" · "Where it sits" · "Suggested next move" · "Semantic flags" (deeper in Stack mode).
 - **Acceptance:** Timeline sidecar concise. No body editing. No internal snake_case codes.
 - **Boundary:** SC-003 is the **detail inspector**. The **action dock** is SC-004. SC-003 surfaces lifecycle state + unresolved axes + suggested next move; SC-004 owns the contextual move palette.
 
 ### SC-004 — Timeline node action dock
+
+> ⚠ **Superseded — re-housed by QOL-031 (Act popout).** `timelineNodeActionDockModel` survives; the dock React shell folds into the Act popout. Do not build as a standalone surface. See the Supersession map.
 - **Priority:** P0/P1 — **Effort:** M/L — **Release:** 6.6 — **Wave:** 2 — **Agent:** sidecar-tools-agent — **Status:** Build complete (awaiting Review).
 - **Goal:** Compact action dock anchored on the Timeline / Tree surface for the selected node / cluster.
 - **Required actions:** Reply · Challenge · Ask source · Ask quote · Clarify · Add evidence · Narrow · Concede · Confirm · Mark moved on · Mark ignored · Branch · Synthesize · Flag · Open Cards detail.
@@ -194,6 +248,8 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Implementation:** `src/features/arguments/timelineNodeActionDockModel.ts` (new, pure-TS) · `TimelineNodeActionDock.tsx` (new, RN) · `quickActionPresets.ts` extended (`narrow / confirm / synthesize` + 3 preset bodies) · `ArgumentTimelineMap.tsx` + `ArgumentGameSurface.tsx` integration (5 new optional props, lifecycle + metadata + dock model build, selection state, mutual exclusion with SC-002 popover). Tests: `__tests__/timelineNodeActionDock{Model,Doctrine,ForbiddenImports,SelectionExclusion}.test.ts` (+129 tests). See `docs/designs/SC-004.md`.
 
 ### COMPOSER-001 — Wire SC-004 narrow/confirm/synthesize preset bodies into composer prefill
+
+> ⚠ **Superseded — re-housed by QOL-030 (one-box composer).** The composer dock becomes the OneBox; preset prefill is the per-type schema. Do not build as a standalone surface. See the Supersession map.
 - **Priority:** P2 — **Effort:** S — **Release:** 6.6 — **Wave:** 2 — **Agent:** roadmap-implementer — **Status:** Build complete (awaiting Review).
 - **Goal:** Close the seam-wiring gap from the SC-004 review: the dock model returns the right `MoveDraftPatch` for `narrow` / `confirm` / `synthesize`, but `ArgumentGameSurface.handleActionDockAction` discarded it and the user landed in a blank composer.
 - **Acceptance:** Dispatching `action=narrow` opens the composer with `argumentType='concession'` + `body=NARROW_PRESET_BODY` + `narrow_scope` tag. `confirm` opens with `body=CONFIRM_PRESET_BODY` (no forced argumentType). `synthesize` opens with `argumentType='synthesis'` + `body=SYNTHESIZE_PRESET_BODY`. EV-002 presets (`source` / `quote` / `weak_source`) still prefill correctly (regression). Non-preset actions (`reply` / `branch` / `flag` / `mark_moved_on` / `mark_ignored` / `open_cards_detail` / `expand_branch`) open the composer with `null` patch (no auto-fill).
@@ -204,6 +260,8 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 ## Epic 5 — Stack Mode as Semantic Detail View
 
 ### ST-001 — Reposition Stack as "Card Details"
+
+> ⚠ **Amended (not superseded) by QOL-030 decision D2.** Cards view becomes *authorable* through the one-box surface; ST-001's "inspection only / no body editing" contract is widened, not removed. See the Supersession map.
 - **Priority:** P1 — **Effort:** S/M — **Release:** 6.5
 - **Recommended label:** `Timeline` and `Cards`.
 - **Scope:** Card view shows semantic flags · suggested reply flags · evidence/source-chain hints · parent/child path · score/trend detail · moderation-safe advisories · "Back to map" CTA.
@@ -275,6 +333,8 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 ## Epic 8 — Timeline Interaction Mechanics
 
 ### IX-001 — Timeline zoom and density modes
+
+> ⚠ **Partially superseded by QOL-033 (Go popout).** The Go popout consumes the focus lenses; the **density core is (re)defined** by the design stub at `docs/designs/IX-001.md`. See the Supersession map.
 - **Priority:** P0/P1 — **Effort:** L — **Release:** 6.6 — **Wave:** 2
 - **Density modes:** Compact (dots, label on active) · Normal (shapes + short labels) · Expanded (shapes + badges + snippets).
 - **Focus lenses (new):** Active path · Branch cluster · Unresolved only · Evidence / source only.
@@ -283,6 +343,8 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Tests:** density model · focus filter model · active node preserved across density change · tap target minimums · accessibility labels.
 
 ### IX-002 — Timeline mini-map overview
+
+> ⚠ **Superseded — re-housed by QOL-033 (Go popout).** The `timelineMiniMapModel` projection survives; the mini-map surface folds into the Go popout. Do not build as a standalone surface. See the Supersession map.
 - **Priority:** P1 — **Effort:** M/L — **Release:** 6.6/6.7 — **Wave:** 3
 - **Scope additions (Timeline Tree Game Board):** Mini-map summarizes branch clusters, unresolved points, exhausted points, active path. Clicking mini-map region pans / focuses the tree. Supports branch collapse / expand.
 - **Acceptance:** Mini-map visually distinct from main map. No route transition. Works with 250+ messages.
@@ -456,6 +518,8 @@ synthesis_ready   -> "Offer synthesis"
 - **Tests:** all states have labels · ban-list assertion · no snake_case visible · no produced action creates a blocked ordinary reply path.
 
 ### RULE-005 — Structured argument channels (move-type field model)
+
+> ⚠ **Chip-row surface superseded — re-housed by QOL-031 (Act popout).** The `channelModel` pure model survives unchanged; only the `ChannelChipRow` UI folds into the flash-popout decision menu. See the Supersession map.
 - **Priority:** P0 — **Effort:** L — **Release:** 6.6 — **Status:** Complete. Issue #115.
 - **Goal:** A thin plain-language "channel" layer above the 8 Constitution argument types — a small vocabulary (`reply · challenge · clarify · ask_source · ask_quote · add_evidence · narrow · concede · confirm · synthesize · branch_tangent · meta_process`, plus 2 reserved for EV-005 / GAME-003) describing the *structural purpose* of a composed move so the composer can deterministically suggest the fitting channel and optionally reveal helper fields.
 - **Delivered:** pure-TS `src/features/arguments/channelModel.ts` (`MoveChannel` enum, `CHANNEL_DEFINITIONS`, deterministic 6-rule `suggestChannelFromDraft`, `channelToDraftPatch`, render-time `deriveChannelForPostedMove`) + `ChannelChipRow` selector + collapsed `ChannelHelperFields`, wired into the COMPOSER-002 dock. A channel suggestion is advisory — it never blocks a post, never reads heat / popularity, never makes an AI call (RULE-006 owns AI channel detection). The channel is a draft-time advisory field — it does NOT persist in v1; a posted move's channel is re-derived at render time. No migration, no Edge Function. See `docs/designs/RULE-005.md`.

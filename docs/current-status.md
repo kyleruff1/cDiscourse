@@ -1,5 +1,16 @@
 # CDiscourse — Current Status
-<!-- QOL-034 (UX storyboard canon) section is first; full-suite is now 7144 tests / 275 suites (+53 storyboard-pass tests / +2 suites over the 7091/273 IX-002 baseline). -->
+<!-- Roadmap supersession + design-cycle section is first; full-suite is 7147 tests / 275 suites (docs-only pass — no test delta). -->
+
+## Roadmap supersession rewrite + design-cycle handoff (post-#194/#195)
+
+**Status:** Docs / roadmap / design-stub pass complete — **stopped at the implementation gate** (QOL-030 is the next implementer card). Builds on PR #194 (`ef5434e`) + PR #195 (`2a17e09`). No app code changed; no test delta (7147 tests / 275 suites). No Anthropic / xAI / OpenAI / X API call, no Supabase write, no service-role, no migration, no deploy.
+
+- **P1 — Board-doc supersession rewrite:** `docs/ux-ui-project-board.md` gains a "Supersession map" section + 9 inline `⚠ Superseded` marks (SC-001/002/003/004, RULE-005, IX-001, IX-002, COMPOSER-001, ST-001). 5 existing superseded design docs (`SC-003`, `SC-004`, `RULE-005`, `IX-002`, `COMPOSER-002`) gain a `## Superseded by` section. Doctrine: pure models survive (`channelModel`, `timelineNodeActionDockModel`, `sourceChainPopoverModel`, `timelineMiniMapModel`, `buildSidecarViewModel`); React shells re-house under QOL-030's chassis; ST-001 is *amended* by QOL-030 D2 (Cards view becomes authorable), not superseded. Nothing deleted.
+- **P2 — Design stubs:** new `docs/designs/EV-003.md` (evidence debt tracker), `IX-001.md` (density + focus lenses — the density core QOL-033 consumes), `GAME-003B.md` (Argument setup screen — user-facing copy never says "game"). Each carries problem statement, fields, UI states, dependencies, acceptance criteria, test targets, open questions.
+- **P3 — Mandatory designer-cycle handoff:** new `docs/ux-storyboards/designer-cycle-brief.md`, `priority-implementation-queue.md` (the staged P0→Later work list), `design-cycle-handoff.md` (who-gets-what + the sequential gate: QOL-030 first, 031/032/033 only after the prior is green, corpus testing shelved until the UX is coherent).
+- **P4 — Validation:** terminology audit **0 live prohibited** / 29 discouraged / 250 files; catalogue **19 cards, 0 duplicate prefixes**, QOL-030…042 present, `_doc` partial-snapshot warning present, `validateCatalogue` clean.
+- **P5 — Implementation gate:** all P1–P4 gates green; **QOL-030 implementation deferred to its own pass** (XL — a new component architecture; deserves a focused, fully-tested pass rather than the tail of a docs sweep). The QOL-030 implementer prompt is in `docs/next-prompts.md`.
+- **No operator step.** Docs + design stubs only. No `db push`, no `functions deploy`, no migration, no dependency install.
 
 ## QOL-034 — UX storyboard canon + storyline-narrative-officer skill (Epic 14 — Project Mgmt)
 

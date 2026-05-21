@@ -1,5 +1,19 @@
 # RULE-005 — Structured argument channels (move-type field model)
 
+## Superseded by — the one-box interface (QOL-030…033)
+
+> Added 2026-05-21 from `docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md`.
+
+**Partial supersession.** RULE-005's pure model — `channelModel`,
+`CHANNEL_DEFINITIONS`, `suggestChannelFromDraft` — is **shipped and stays**: it
+is the box-type vocabulary the one-box composer consumes. Only the
+**`ChannelChipRow` React surface** is superseded — it re-houses under **QOL-031
+(Act popout)** as the flash-popout decision menu. **Do not rebuild
+`ChannelChipRow` as a standalone surface.** See `docs/ux-ui-project-board.md` →
+"Supersession map" and the QOL-031 design doc.
+
+---
+
 **Status:** Design draft
 **Epic:** Epic 12 — Evidence-Enhanced Game Rules and Flow (Rules-UX)
 **Release:** 6.6 (Branches and evidence)
