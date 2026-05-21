@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { CONTROL, STATUS } from '../../lib/designTokens';
 
 interface Props {
   draftBody: string;
@@ -46,16 +47,16 @@ export function ComposerDraftRecoveryNotice({ draftBody, onResume, onDiscard }: 
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: STATUS.warning.bg,
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: STATUS.warning.fg,
     borderRadius: 10,
     padding: 14,
     marginHorizontal: 16,
     marginTop: 12,
   },
-  title: { fontSize: 13, fontWeight: '700', color: '#92400e', marginBottom: 4 },
-  preview: { fontSize: 13, color: '#78350f', fontStyle: 'italic', marginBottom: 12 },
+  title: { fontSize: 13, fontWeight: '700', color: STATUS.warning.fg, marginBottom: 4 },
+  preview: { fontSize: 13, color: STATUS.warning.fg, fontStyle: 'italic', marginBottom: 12 },
   actions: { flexDirection: 'row', gap: 10 },
   button: {
     flex: 1,
@@ -63,8 +64,9 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     alignItems: 'center',
   },
-  resumeButton: { backgroundColor: '#6366f1' },
-  discardButton: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#d1d5db' },
-  resumeLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  discardLabel: { color: '#374151', fontSize: 13, fontWeight: '500' },
+  resumeButton: { backgroundColor: CONTROL.primary.bg },
+  // Discard — destructive, bordered (not a full-bleed red flood) per BRAND-002.
+  discardButton: { backgroundColor: CONTROL.danger.bg, borderWidth: 1, borderColor: CONTROL.danger.borderColor },
+  resumeLabel: { color: CONTROL.primary.fg, fontSize: 13, fontWeight: '600' },
+  discardLabel: { color: CONTROL.danger.fg, fontSize: 13, fontWeight: '500' },
 });

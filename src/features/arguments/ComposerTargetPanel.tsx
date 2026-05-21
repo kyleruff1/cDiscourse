@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import type { ArgumentRow, ArgumentType } from './types';
+import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
 const TYPE_LABEL: Record<string, string> = {
   thesis: 'Thesis',
@@ -102,7 +103,7 @@ export function ComposerTargetPanel({
           value={targetExcerpt}
           onChangeText={onChangeTargetExcerpt}
           placeholder="Optional — paste a quote from the parent argument…"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={SURFACE_TOKENS.placeholder}
           multiline
           style={styles.excerptInput}
           accessibilityLabel="Target excerpt"
@@ -121,20 +122,20 @@ export function ComposerTargetPanel({
 
 const styles = StyleSheet.create({
   rootContainer: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: STATUS.success.bg,
     borderWidth: 1,
-    borderColor: '#bbf7d0',
+    borderColor: STATUS.success.fg,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
   },
-  rootTitle: { fontSize: 12, fontWeight: '700', color: '#15803d', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.4 },
-  rootBody: { fontSize: 13, color: '#166534', lineHeight: 18 },
+  rootTitle: { fontSize: 12, fontWeight: '700', color: STATUS.success.fg, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.4 },
+  rootBody: { fontSize: 13, color: STATUS.success.fg, lineHeight: 18 },
   emphasis: { fontWeight: '700' },
   replyContainer: {
-    backgroundColor: '#f0f9ff',
+    backgroundColor: STATUS.info.bg,
     borderWidth: 1,
-    borderColor: '#bae6fd',
+    borderColor: STATUS.info.fg,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
@@ -145,40 +146,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  headerLabel: { fontSize: 11, fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', letterSpacing: 0.4 },
-  clearText: { fontSize: 12, color: '#6366f1', fontWeight: '600' },
+  headerLabel: { fontSize: 11, fontWeight: '700', color: STATUS.info.fg, textTransform: 'uppercase', letterSpacing: 0.4 },
+  clearText: { fontSize: 12, color: CONTROL.primary.bg, fontWeight: '600' },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#e0f2fe',
+    backgroundColor: SURFACE_TOKENS.overlay,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginBottom: 6,
   },
-  badgeText: { fontSize: 11, fontWeight: '700', color: '#0369a1' },
-  parentPreview: { fontSize: 13, color: '#374151', lineHeight: 18, marginBottom: 12 },
+  badgeText: { fontSize: 11, fontWeight: '700', color: STATUS.info.fg },
+  parentPreview: { fontSize: 13, color: SURFACE_TOKENS.textPrimary, lineHeight: 18, marginBottom: 12 },
   excerptSection: { marginBottom: 8 },
-  excerptLabel: { fontSize: 12, fontWeight: '700', color: '#374151', marginBottom: 2 },
-  excerptHint: { fontSize: 11, color: '#6b7280', marginBottom: 6 },
+  excerptLabel: { fontSize: 12, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, marginBottom: 2 },
+  excerptHint: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, marginBottom: 6 },
   excerptInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: SURFACE_TOKENS.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: SURFACE_TOKENS.textPrimary,
+    backgroundColor: SURFACE_TOKENS.inputBg,
     minHeight: 56,
     textAlignVertical: 'top',
   },
   guidanceRow: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: STATUS.warning.bg,
     borderRadius: 6,
     padding: 8,
     marginTop: 4,
     borderLeftWidth: 3,
-    borderLeftColor: '#fbbf24',
+    borderLeftColor: STATUS.warning.fg,
   },
-  guidanceText: { fontSize: 12, color: '#92400e', lineHeight: 17 },
+  guidanceText: { fontSize: 12, color: STATUS.warning.fg, lineHeight: 17 },
 });

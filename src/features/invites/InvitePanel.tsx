@@ -17,7 +17,7 @@ import {
 } from './inviteCopy';
 import { emptyInviteForm, validateInviteInput } from './inviteTypes';
 import type { InviteFormState } from './inviteTypes';
-import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
+import { SURFACE_TOKENS, STATUS } from '../../lib/designTokens';
 
 interface Props {
   roomTitle: string;

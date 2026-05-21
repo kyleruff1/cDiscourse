@@ -14,7 +14,6 @@ import path from 'path';
 import {
   SURFACE_TOKENS,
   CONTROL,
-  STATUS,
   SURFACE,
   TOKENS,
   FORBIDDEN_TOKEN_TOKENS,

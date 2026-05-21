@@ -35,6 +35,7 @@ import type { Debate } from '../debates/types';
 import { evaluateArgumentDraft } from '../../domain/constitution';
 import { Button } from '../../components/Button';
 import { LoadingNotice } from '../../components/LoadingNotice';
+import { SURFACE_TOKENS, CONTROL, STATUS, ARGUMENT } from '../../lib/designTokens';
 
 interface Props {
   debate: Debate;
@@ -424,7 +425,7 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
             value={draft.body}
             onChangeText={handleBodyChange}
             placeholder="Write your move…"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={SURFACE_TOKENS.placeholder}
             multiline
             style={styles.bodyInput}
             accessibilityLabel="Argument body"
@@ -589,7 +590,7 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
             value={evidenceItem.url ?? ''}
             onChangeText={(text) => updateEvidence({ url: text })}
             placeholder="URL (optional)"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={SURFACE_TOKENS.placeholder}
             style={styles.evidenceInput}
             accessibilityLabel="Evidence URL"
             autoCapitalize="none"
@@ -599,7 +600,7 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
             value={evidenceItem.label ?? ''}
             onChangeText={(text) => updateEvidence({ label: text })}
             placeholder="Citation label (optional)"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={SURFACE_TOKENS.placeholder}
             style={styles.evidenceInput}
             accessibilityLabel="Evidence label"
             autoCapitalize="sentences"
@@ -608,7 +609,7 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
             value={evidenceItem.sourceText ?? ''}
             onChangeText={(text) => updateEvidence({ sourceText: text })}
             placeholder="Source text or excerpt (optional)"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={SURFACE_TOKENS.placeholder}
             multiline
             style={[styles.evidenceInput, styles.evidenceTextarea]}
             accessibilityLabel="Source text"
@@ -678,75 +679,76 @@ export function ArgumentComposer({ debate, selectedParentId, parentArgument, onC
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#f9fafb' },
+  safe: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.raised,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: SURFACE_TOKENS.border,
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  discardText: { fontSize: 13, color: '#ef4444', fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
+  // Discard — destructive text link; recolor only (text links keep no border).
+  discardText: { fontSize: 13, color: CONTROL.danger.fg, fontWeight: '600' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 48 },
   resolutionBar: {
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.elevated,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: SURFACE_TOKENS.border,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
   },
-  resolutionLabel: { fontSize: 10, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-  resolutionText: { fontSize: 13, color: '#374151', lineHeight: 18 },
-  parentBlock: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 12, marginBottom: 12 },
-  parentPreview: { fontSize: 13, color: '#374151', lineHeight: 18, marginVertical: 4 },
-  clearTargetLink: { fontSize: 12, color: '#6366f1', fontWeight: '600', marginTop: 4 },
+  resolutionLabel: { fontSize: 10, fontWeight: '700', color: SURFACE_TOKENS.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  resolutionText: { fontSize: 13, color: SURFACE_TOKENS.textSecondary, lineHeight: 18 },
+  parentBlock: { backgroundColor: SURFACE_TOKENS.elevated, borderWidth: 1, borderColor: SURFACE_TOKENS.border, borderRadius: 10, padding: 12, marginBottom: 12 },
+  parentPreview: { fontSize: 13, color: SURFACE_TOKENS.textSecondary, lineHeight: 18, marginVertical: 4 },
+  clearTargetLink: { fontSize: 12, color: CONTROL.primary.bg, fontWeight: '600', marginTop: 4 },
   section: { marginBottom: 20 },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 6 },
-  sectionHint: { fontSize: 11, color: '#6b7280', marginBottom: 8 },
-  required: { fontSize: 11, fontWeight: '600', color: '#b91c1c' },
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: SURFACE_TOKENS.textSecondary, marginBottom: 6 },
+  sectionHint: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, marginBottom: 8 },
+  required: { fontSize: 11, fontWeight: '600', color: STATUS.danger.fg },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  charCount: { fontSize: 12, color: '#9ca3af' },
-  charCountOver: { color: '#ef4444' },
+  charCount: { fontSize: 12, color: SURFACE_TOKENS.textMuted },
+  charCountOver: { color: STATUS.danger.fg },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   typeChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
+    borderColor: SURFACE_TOKENS.inputBorder,
+    backgroundColor: SURFACE_TOKENS.elevated,
   },
-  typeChipSelected: { backgroundColor: '#6366f1', borderColor: '#6366f1' },
-  typeChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  typeChipTextSelected: { color: '#fff' },
+  typeChipSelected: { backgroundColor: CONTROL.primary.bg, borderColor: CONTROL.primary.bg },
+  typeChipText: { fontSize: 13, fontWeight: '600', color: SURFACE_TOKENS.textSecondary },
+  typeChipTextSelected: { color: CONTROL.primary.fg },
   sideRow: { flexDirection: 'row', gap: 10 },
   sideChip: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
+    borderColor: SURFACE_TOKENS.inputBorder,
+    backgroundColor: SURFACE_TOKENS.elevated,
     alignItems: 'center',
   },
-  sideChipSelected: { backgroundColor: '#6366f1', borderColor: '#6366f1' },
-  sideChipText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  sideChipTextSelected: { color: '#fff' },
+  sideChipSelected: { backgroundColor: CONTROL.primary.bg, borderColor: CONTROL.primary.bg },
+  sideChipText: { fontSize: 13, fontWeight: '600', color: SURFACE_TOKENS.textSecondary },
+  sideChipTextSelected: { color: CONTROL.primary.fg },
   bodyInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: SURFACE_TOKENS.inputBorder,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: SURFACE_TOKENS.textPrimary,
+    backgroundColor: SURFACE_TOKENS.inputBg,
     minHeight: 140,
     textAlignVertical: 'top',
     lineHeight: 22,
@@ -756,47 +758,47 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#c4b5fd',
-    backgroundColor: '#faf5ff',
+    borderColor: ARGUMENT.concede.bg,
+    backgroundColor: SURFACE_TOKENS.raised,
   },
-  axisChipSelected: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
-  axisChipText: { fontSize: 12, fontWeight: '600', color: '#4c1d95' },
-  axisChipTextSelected: { color: '#fff' },
+  axisChipSelected: { backgroundColor: ARGUMENT.concede.bg, borderColor: ARGUMENT.concede.fg },
+  axisChipText: { fontSize: 12, fontWeight: '600', color: ARGUMENT.concede.fg },
+  axisChipTextSelected: { color: ARGUMENT.concede.fg },
   tagChip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
+    borderColor: SURFACE_TOKENS.inputBorder,
+    backgroundColor: SURFACE_TOKENS.elevated,
   },
-  tagChipSelected: { backgroundColor: '#e0e7ff', borderColor: '#6366f1' },
-  tagChipText: { fontSize: 12, fontWeight: '500', color: '#374151' },
-  tagChipTextSelected: { color: '#4338ca' },
-  axisTagChip: { borderColor: '#c4b5fd', backgroundColor: '#faf5ff' },
-  axisTagChipSelected: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
-  axisTagChipTextSelected: { color: '#fff' },
+  tagChipSelected: { backgroundColor: STATUS.info.bg, borderColor: CONTROL.primary.bg },
+  tagChipText: { fontSize: 12, fontWeight: '500', color: SURFACE_TOKENS.textSecondary },
+  tagChipTextSelected: { color: STATUS.info.fg },
+  axisTagChip: { borderColor: ARGUMENT.concede.bg, backgroundColor: SURFACE_TOKENS.raised },
+  axisTagChipSelected: { backgroundColor: ARGUMENT.concede.bg, borderColor: ARGUMENT.concede.fg },
+  axisTagChipTextSelected: { color: ARGUMENT.concede.fg },
   evidenceInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: SURFACE_TOKENS.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: SURFACE_TOKENS.textPrimary,
+    backgroundColor: SURFACE_TOKENS.inputBg,
     marginBottom: 8,
   },
   evidenceTextarea: { minHeight: 60, textAlignVertical: 'top' },
   serverErrorBox: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: STATUS.danger.bg,
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: STATUS.danger.fg,
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
   },
-  serverErrorTitle: { fontSize: 13, fontWeight: '700', color: '#b91c1c', marginBottom: 6 },
-  serverErrorMsg: { fontSize: 13, color: '#991b1b', lineHeight: 20, marginBottom: 2 },
-  configWarning: { fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: 6 },
+  serverErrorTitle: { fontSize: 13, fontWeight: '700', color: STATUS.danger.fg, marginBottom: 6 },
+  serverErrorMsg: { fontSize: 13, color: STATUS.danger.fg, lineHeight: 20, marginBottom: 2 },
+  configWarning: { fontSize: 11, color: SURFACE_TOKENS.textMuted, textAlign: 'center', marginTop: 6 },
 });
