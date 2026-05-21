@@ -313,3 +313,120 @@ no Edge Function, no `submit-argument` change** — a debt is visible
 exactly when its rows are, gated by the existing `public.arguments`
 RLS. A future persistence card would store rows of the `EvidenceDebt`
 shape and backfill via this same derivation.
+
+---
+
+## QOL-036 — Payment / screenshot evidence metadata
+
+QOL-036 is an **additive extension** of the EV-001 `EvidenceArtifact`. It
+lets a payment / transfer screenshot be attached as a *structured* object
+instead of being pasted as un-disputable free text into the argument body.
+It adds **one kind, one optional nested sub-object, supporting sub-types,
+and redaction helpers** — every existing `EvidenceArtifact` field keeps its
+name, type, and meaning, and every existing consumer (EV-002, EV-003,
+EV-005, `ReceiptChip`, the timeline contract) compiles and behaves
+identically. Design: `docs/designs/QOL-036.md`.
+
+### The `payment` sub-object
+
+`EvidenceArtifact` gains an optional `payment?: PaymentEvidenceMetadata`,
+present only when `kind === 'payment_screenshot'` (the seventh
+`EvidenceArtifactKind`). `PaymentEvidenceMetadata` fields:
+
+| Field | Type | Notes |
+|---|---|---|
+| `confidence` | `EvidenceConfidence` | **Pinned** to `'user_asserted'`. The only value the type carries. A payment screenshot is a user's assertion, never a system-proven fact. |
+| `platform` | `string?` | Generic label ("a payment app"). Never a required brand. Max 48. |
+| `paidAt` | `string?` | ISO-8601 date as asserted. Stored **verbatim** — never parsed into a `Date`, never validated as "correct". |
+| `amount` | `EvidenceAmount?` | `{ value, currency }`. Negative `value` clamps to 0; `NaN`/non-finite drops the amount. |
+| `payer` / `payee` | `PaymentParty?` | A **redacted** `{ displayToken, roleLabel? }` — never a raw account number. |
+| `noteText` | `string?` | The memo on the record. Max 280. |
+| `claimedApplicability` | `ClaimedApplicability?` | The **claimed** side only — `{ statement, periodLabel?, obligationRef? }`. |
+| `hasScreenshotImage` | `boolean?` | True when an image exists. QOL-036 stores the flag + redaction state, **not the binary** (upload is a deferred card). |
+| `redactionConfirmed` | `boolean?` | The submitter affirmed the record is redacted before attaching. |
+
+### Doctrine
+
+- **Existence ≠ applicability.** A payment screenshot proves *at most that a
+  payment object exists* — never what it was *for*. `amount` / `paidAt` /
+  `noteText` / `claimedApplicability` are **separate axes** so a dispute
+  (QOL-037) can target one precisely. QOL-036 stores only the *claimed*
+  side; the *disputed* side and the applicability *status* are QOL-037's,
+  added additively on a dispute record, never by mutating this object.
+- **A payment object is inert.** It carries no truth value and emits **no**
+  `PointStandingDelta`. `evidenceModel.ts` imports nothing from
+  `src/features/pointStanding/`. Standing moves only when a later *move*
+  does something the point-standing engine already grades.
+- **No raw financial account data — ever.** `payer`/`payee` carry only a
+  redacted display token. The adapter runs `findRawAccountDataFields` over
+  every payment field; if any field carries a card / account / routing /
+  IBAN digit shape it **strips the whole `payment` sub-object** and
+  downgrades the kind to `screenshot_redacted` — a missing screenshot beats
+  a leaked account number. Raw account data is rejected at the model
+  boundary, never masked-and-stored.
+
+### Redaction helpers
+
+- `detectRawAccountData(text)` — conservative digit-run heuristic. Flags a
+  12–19 digit run (card / account, tolerating spaces / hyphens between
+  groups), an IBAN-shaped token, and a 9-digit routing-number run adjacent
+  to a bank keyword. Over-redacts deliberately — a false positive only
+  over-masks a benign long number; a false negative leaks PII.
+- `findRawAccountDataFields(payment)` — throw-free guard; returns the
+  offending dotted field path(s) (`noteText`, `payer.displayToken`, …), or
+  `[]` when clean. The QOL-030 box calls it before post to show an inline
+  warning; the adapter calls it to decide degradation.
+- `redactPaymentParty(rawText, roleLabel?)` — masks any account-data run to
+  `•••• ` + last 4 and returns a `PaymentParty`. Role-only inputs
+  ("the landlord") pass through. The QOL-030 box calls it on the
+  payer/payee fields before building the metadata value.
+
+### Adapter behaviour (`buildEvidenceArtifacts`)
+
+Non-payment attachments are byte-for-byte unchanged. With a `payment`
+input the adapter: (1) counts a payment-only attachment as **non-empty**
+(it is no longer dropped); (2) classifies the kind as `payment_screenshot`
+unless an explicit `kind` wins; (3) runs the redaction guard and strips +
+downgrades on raw account data; (4) **pins `confidence` to
+`'user_asserted'`** regardless of input; (5) runs the existing EV-001
+source-chain table over `(url, sourceText, quote)` only — a payment object
+alone yields `unverified` and never auto-promotes to `source_and_quote` /
+`primary_present` (a payment screenshot is an artifact, not a primary-
+source chain); (6) leaves `risk` at `'unknown'`.
+
+### `add_evidence` box field contract (for QOL-030)
+
+QOL-036 ships the *data the box binds to*, not a `.tsx` component. The
+QOL-030 `renderSchema('add_evidence', …)` lays out: amount value (numeric,
+non-negative), amount currency (≤8), paid-at date (date picker, ISO-8601,
+no "is this correct?" check), payer / payee (text → `redactPaymentParty`,
+≤48, redacted on blur), note text (≤280), claimed-applicability statement
+(≤160) + period label (≤32, advisory only), screenshot-attached toggle
+(sets `hasScreenshotImage`), redaction-confirmed checkbox (required when an
+image is attached — the box blocks post if unconfirmed). `confidence` is
+not a field — it is shown as read-only helper text ("Marked as: your
+assertion"). The box surfaces the `findRawAccountDataFields` warning near
+submit; even if ignored, the adapter degrades safely.
+
+### Display
+
+A payment artifact flows through the **already-shipped EV-001 display
+path** unchanged — it contributes its `kind` to the receipt chip's `kinds`
+array and a label, and **never a status upgrade**. `getPaymentEvidenceLabel`
+returns the locked plain-language label "Payment record";
+`summarizePaymentEvidence` builds a one-line, redaction-safe summary
+("Payment record — $120 on 2026-03-03, noted 'practice space'"), omitting
+absent fields and re-redacting defensively. Every QOL-036 system-generated
+string is plain English, ban-list-asserted — no `proof` / `true` /
+`winner` / `case closed`, no amplification or person-attribution token.
+
+### Persistence
+
+Adapter-only, per EV-001's path (b): **no migration, no
+`argument_evidence_artifacts` table, no Edge Function, no `submit-argument`
+change**. The `payment` sub-object rides inside the existing
+`client_validation` / `server_validation` JSONB snapshot, gated by the
+existing `public.arguments` RLS. Threading `payment` into the
+`submit-argument` request is a downstream wiring step owned by the QOL-030
+box submit path or the EV-001 path-(c) persistence card — QOL-036 is
+consumable as a pure model today.
