@@ -32,9 +32,10 @@ Renaming stable code identifiers is churn with no user benefit. The user never
 sees these names.
 
 **The audit enforces exactly this split.** `scripts/ux/auditUserFacingTerminology.js`
-scans only normal-user-mode source — it skips `src/features/admin/`, dev/test
-tooling, docs, tests, scripts, and the Supabase functions. A "debate" /
-"moderator" string in an admin screen is **not** an audit finding.
+scans only normal-user-mode source — it skips `src/features/admin/`, the
+dev-only Debug tab (`SessionDebugPanel`), dev/test tooling, docs, tests,
+scripts, and the Supabase functions. A "debate" / "moderator" string in an
+admin screen is **not** an audit finding.
 
 ---
 

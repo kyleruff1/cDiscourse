@@ -20,6 +20,8 @@
  *     terminology rules are normal-user-mode doctrine; admin surfaces serve
  *     operators, who legitimately see "debate" / "moderator" / technical
  *     terms — they are out of scope by design, not by oversight.
+ *   - It does not scan the dev-only Debug tab (SessionDebugPanel) — it is
+ *     __DEV__-gated and never part of normal-user mode.
  *   - It does not scan tests, scripts, supabase/ Edge Functions, or migrations.
  *   - It does not flag internal identifiers (`gameCopy`, `argumentGameSurface`)
  *     or database table names (`debates`) — only strings that look like copy a
@@ -71,6 +73,14 @@ const SKIP_DIR_NAMES = new Set([
   'engagementIntelligence',
   'devFixtures',
 ]);
+
+// Individual files skipped — dev-only surfaces that sit inside an otherwise
+// user-facing directory, so a directory skip cannot reach them. The Debug tab
+// (SessionDebugPanel) is __DEV__-gated and never part of normal-user mode.
+// Paths use `/`; the walk normalizes before comparing.
+const SKIP_FILE_SUFFIXES = [
+  'src/features/session/SessionDebugPanel.tsx',
+];
 
 // Files that still contain legacy copy but are NOT currently mounted in the
 // running app (dead code behind a disabled render branch). Their findings are
@@ -284,6 +294,8 @@ function walk(absDir, acc) {
       walk(abs, acc);
     } else if (entry.isFile()) {
       if (entry.name.includes('.test.')) continue;
+      const normAbs = abs.replace(/\\/g, '/');
+      if (SKIP_FILE_SUFFIXES.some((suffix) => normAbs.endsWith(suffix))) continue;
       if (SCAN_EXTENSIONS.includes(path.extname(entry.name))) acc.push(abs);
     }
   }
@@ -480,6 +492,8 @@ if (require.main === module) {
 module.exports = {
   REPORT_PATH,
   SCAN_ROOTS,
+  SKIP_DIR_NAMES,
+  SKIP_FILE_SUFFIXES,
   LEGACY_NOT_MOUNTED,
   PROHIBITED_PATTERNS,
   DISCOURAGED_PATTERNS,
@@ -488,6 +502,7 @@ module.exports = {
   classifyText,
   auditFile,
   isLegacyFile,
+  collectScanFiles,
   runAudit,
   renderReport,
 };
