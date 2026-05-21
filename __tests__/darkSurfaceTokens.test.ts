@@ -126,39 +126,98 @@ describe('BRAND-002 TOKENS aggregate wiring', () => {
 });
 
 // ── Contrast pairs (WCAG AA — pinned) ────────────────────────────
+//
+// Ratios pinned here are the real WCAG 2.x measured values from the
+// amended design's corrected contrast table (BRAND-002 design amendment,
+// 2026-05-20). Body text + button labels are held to the 4.5:1 bar; the
+// focus ring (meaningful non-text UI — required to identify the focused
+// component) is held to 3:1. The decorative hairlines (`border` /
+// `divider` / `inputBorder`) carry NO contrast-ratio bar — WCAG 1.4.11
+// does not impose 3:1 on a card/input/table separator — so they are only
+// pinned to the lighter-than-backdrop luminance ordering.
 
-describe('BRAND-002 contrast pairs meet WCAG AA', () => {
+/** Two-decimal rounding so a pinned ratio reads as the design's table value. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+describe('BRAND-002 body text + button labels meet the 4.5:1 AA bar', () => {
   it('textPrimary on base / elevated / overlay >= 4.5:1 (body text)', () => {
+    expect(round2(contrastRatio(SURFACE_TOKENS.textPrimary, SURFACE_TOKENS.base))).toBe(16.36);
+    expect(round2(contrastRatio(SURFACE_TOKENS.textPrimary, SURFACE_TOKENS.elevated))).toBe(15.19);
+    expect(round2(contrastRatio(SURFACE_TOKENS.textPrimary, SURFACE_TOKENS.overlay))).toBe(14.48);
     expect(contrastRatio(SURFACE_TOKENS.textPrimary, SURFACE_TOKENS.base)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(SURFACE_TOKENS.textPrimary, SURFACE_TOKENS.elevated)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(SURFACE_TOKENS.textPrimary, SURFACE_TOKENS.overlay)).toBeGreaterThanOrEqual(4.5);
   });
 
   it('textSecondary on base / elevated >= 4.5:1 (labels)', () => {
+    expect(round2(contrastRatio(SURFACE_TOKENS.textSecondary, SURFACE_TOKENS.base))).toBe(7.87);
+    expect(round2(contrastRatio(SURFACE_TOKENS.textSecondary, SURFACE_TOKENS.elevated))).toBe(7.3);
     expect(contrastRatio(SURFACE_TOKENS.textSecondary, SURFACE_TOKENS.base)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(SURFACE_TOKENS.textSecondary, SURFACE_TOKENS.elevated)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('border on base >= 3.0:1 (non-text UI)', () => {
-    expect(contrastRatio(SURFACE_TOKENS.border, SURFACE_TOKENS.base)).toBeGreaterThanOrEqual(3.0);
-  });
-
-  it('inputBorder on inputBg >= 3.0:1 (non-text UI)', () => {
-    expect(contrastRatio(SURFACE_TOKENS.inputBorder, SURFACE_TOKENS.inputBg)).toBeGreaterThanOrEqual(3.0);
-  });
-
-  it('focusRing on base / elevated >= 3.0:1 (non-text UI)', () => {
-    expect(contrastRatio(SURFACE_TOKENS.focusRing, SURFACE_TOKENS.base)).toBeGreaterThanOrEqual(3.0);
-    expect(contrastRatio(SURFACE_TOKENS.focusRing, SURFACE_TOKENS.elevated)).toBeGreaterThanOrEqual(3.0);
-  });
-
-  it('CONTROL.primary.fg on primary.bg >= 4.5:1 (button label)', () => {
+  it('CONTROL.primary.fg (#ffffff) on primary.bg (#4f46e5) >= 4.5:1 (button label)', () => {
+    expect(CONTROL.primary.fg).toBe('#ffffff');
+    expect(CONTROL.primary.bg).toBe('#4f46e5');
+    expect(round2(contrastRatio(CONTROL.primary.fg, CONTROL.primary.bg))).toBe(6.29);
     expect(contrastRatio(CONTROL.primary.fg, CONTROL.primary.bg)).toBeGreaterThanOrEqual(4.5);
   });
 
   it('CONTROL.danger.fg on base / elevated >= 4.5:1 (destructive label)', () => {
+    expect(round2(contrastRatio(CONTROL.danger.fg, SURFACE_TOKENS.base))).toBe(10.63);
+    expect(round2(contrastRatio(CONTROL.danger.fg, SURFACE_TOKENS.elevated))).toBe(9.86);
     expect(contrastRatio(CONTROL.danger.fg, SURFACE_TOKENS.base)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(CONTROL.danger.fg, SURFACE_TOKENS.elevated)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('BRAND-002 meaningful non-text UI meets the 3:1 AA bar', () => {
+  it('textMuted on base / elevated >= 3.0:1 (large / non-body text only)', () => {
+    expect(round2(contrastRatio(SURFACE_TOKENS.textMuted, SURFACE_TOKENS.base))).toBe(4.24);
+    expect(round2(contrastRatio(SURFACE_TOKENS.textMuted, SURFACE_TOKENS.elevated))).toBe(3.93);
+    expect(contrastRatio(SURFACE_TOKENS.textMuted, SURFACE_TOKENS.base)).toBeGreaterThanOrEqual(3.0);
+    expect(contrastRatio(SURFACE_TOKENS.textMuted, SURFACE_TOKENS.elevated)).toBeGreaterThanOrEqual(3.0);
+  });
+
+  it('focusRing on base / elevated >= 3.0:1 (required to identify the focused component)', () => {
+    expect(round2(contrastRatio(SURFACE_TOKENS.focusRing, SURFACE_TOKENS.base))).toBe(10.12);
+    expect(round2(contrastRatio(SURFACE_TOKENS.focusRing, SURFACE_TOKENS.elevated))).toBe(9.39);
+    expect(contrastRatio(SURFACE_TOKENS.focusRing, SURFACE_TOKENS.base)).toBeGreaterThanOrEqual(3.0);
+    expect(contrastRatio(SURFACE_TOKENS.focusRing, SURFACE_TOKENS.elevated)).toBeGreaterThanOrEqual(3.0);
+  });
+});
+
+describe('BRAND-002 decorative hairlines are lighter than their backdrop', () => {
+  // WCAG 1.4.11 (Non-text Contrast) imposes a 3:1 bar only on non-text UI
+  // *required to identify* a component or its state. A card outline, a
+  // table-cell separator, and a resting (unfocused) input border do not
+  // carry required information — they are decorative elevation. They carry
+  // NO 3:1 ratio bar; the load-bearing assertion is the luminance ordering.
+  it('border is lighter than base (decorative separator)', () => {
+    expect(relativeLuminance(SURFACE_TOKENS.border)).toBeGreaterThan(
+      relativeLuminance(SURFACE_TOKENS.base),
+    );
+  });
+
+  it('divider is lighter than elevated (decorative separator)', () => {
+    expect(relativeLuminance(SURFACE_TOKENS.divider)).toBeGreaterThan(
+      relativeLuminance(SURFACE_TOKENS.elevated),
+    );
+  });
+
+  it('inputBorder is lighter than inputBg (decorative input hairline)', () => {
+    expect(relativeLuminance(SURFACE_TOKENS.inputBorder)).toBeGreaterThan(
+      relativeLuminance(SURFACE_TOKENS.inputBg),
+    );
+  });
+
+  it('stays below the 3:1 ceiling so each still reads as a quiet hairline', () => {
+    // Documents intent: a hairline that hit 3:1 would become a bright line.
+    expect(contrastRatio(SURFACE_TOKENS.border, SURFACE_TOKENS.base)).toBeLessThan(3.0);
+    expect(contrastRatio(SURFACE_TOKENS.divider, SURFACE_TOKENS.elevated)).toBeLessThan(3.0);
+    expect(contrastRatio(SURFACE_TOKENS.inputBorder, SURFACE_TOKENS.inputBg)).toBeLessThan(3.0);
   });
 });
 
