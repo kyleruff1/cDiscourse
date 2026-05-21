@@ -312,10 +312,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const depth = parentArg ? parentArg.depth + 1 : 0;
 
   // ── Insert argument (service role = bypasses RLS) ─────────────
-  const serverValidation = {
+  // QOL-037 — copy the optional advisory evidenceResponse block VERBATIM into
+  // the server validation snapshot. It is advisory metadata only: the function
+  // does not validate it, does not hard-block on it, and does not branch the
+  // insert path on it. The applicability status is render-time-derived by the
+  // client from these blocks across the room's argument rows. A malformed
+  // block can never block a post — the body validation above is the only gate.
+  const serverValidation: Record<string, unknown> = {
     ...evalResult.serverValidationPayload,
     railPayload: railsResult.railPayload,
   };
+  if (data.evidence_response) {
+    serverValidation.evidenceResponse = data.evidence_response;
+  }
 
   // Build the insert row — include new columns only if they exist in the schema.
   // The migration adds target_excerpt, disagreement_axis, rail_payload to arguments.

@@ -12,6 +12,7 @@ import {
   getVisibleMoveSteps,
   getMoveWarnings,
   type ConversationMoveSelection,
+  type MoveDraftPatch,
 } from '../src/features/arguments/conversationMoves';
 import type { ArgumentType, ConstitutionRule } from '../src/domain/constitution/types';
 import { RULE_CODES } from '../src/domain/constitution/types';
@@ -464,5 +465,50 @@ describe('getMoveWarnings', () => {
   it('no warnings for valid concede_or_narrow with parent', () => {
     const sel: ConversationMoveSelection = { moveKind: 'concede_or_narrow', challengeAxis: null, targetExcerpt: null };
     expect(getMoveWarnings(sel, { argumentType: 'claim' })).toHaveLength(0);
+  });
+});
+
+// ── QOL-037 — MoveDraftPatch.evidenceResponse (optional, additive) ──
+
+describe('MoveDraftPatch — QOL-037 evidenceResponse field', () => {
+  it('mapMoveToDraftPatch never sets evidenceResponse (existing builders untouched)', () => {
+    // The QOL-037 block is attached by the respond_to_evidence host, NOT by
+    // mapMoveToDraftPatch. Every existing move kind produces a patch with no
+    // evidenceResponse — proving the field is purely additive.
+    const cases: ConversationMoveSelection[] = [
+      { moveKind: 'start_thesis', challengeAxis: null, targetExcerpt: null },
+      { moveKind: 'make_claim', challengeAxis: null, targetExcerpt: null },
+      { moveKind: 'challenge_parent', challengeAxis: 'fact', targetExcerpt: 'x' },
+      { moveKind: 'ask_clarification', challengeAxis: null, targetExcerpt: null },
+      { moveKind: 'add_evidence', challengeAxis: null, targetExcerpt: null },
+      { moveKind: 'concede_or_narrow', challengeAxis: null, targetExcerpt: null },
+      { moveKind: 'synthesize_thread', challengeAxis: null, targetExcerpt: null },
+    ];
+    const parent = { argumentType: 'claim' as ArgumentType };
+    for (const sel of cases) {
+      const patch = mapMoveToDraftPatch(sel, parent, RULES);
+      expect(patch.evidenceResponse).toBeUndefined();
+    }
+  });
+
+  it('a MoveDraftPatch may carry an explicit evidenceResponse block', () => {
+    // The field is optional; a QOL-037 host assembles it. Asserting the shape
+    // round-trips proves the type accepts the contract.
+    const patch: MoveDraftPatch = {
+      argumentType: 'rebuttal',
+      evidenceResponse: {
+        evidenceArtifactId: 'art-1',
+        choice: 'dispute_applicability',
+        clarificationBody: 'The note covers February, not March.',
+      },
+    };
+    expect(patch.evidenceResponse?.choice).toBe('dispute_applicability');
+    expect(patch.evidenceResponse?.evidenceArtifactId).toBe('art-1');
+    expect(patch.evidenceResponse?.clarificationBody).toContain('February');
+  });
+
+  it('a MoveDraftPatch with no evidenceResponse is still valid (optional)', () => {
+    const patch: MoveDraftPatch = { argumentType: 'claim' };
+    expect(patch.evidenceResponse).toBeUndefined();
   });
 });
