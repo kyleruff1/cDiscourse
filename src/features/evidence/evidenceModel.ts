@@ -38,7 +38,10 @@ export type EvidenceArtifactKind =
   | 'source_text' // Free-text excerpt of a source (no URL).
   | 'dataset' // Pointer to a dataset (URL or identifier).
   | 'screenshot_redacted' // Image artifact with PII / handles stripped.
-  | 'manual_citation'; // Bibliographic-style citation (book, paper, broadcast).
+  | 'manual_citation' // Bibliographic-style citation (book, paper, broadcast).
+  | 'payment_screenshot'; // QOL-036 — a payment / transfer record. Carries a
+//                          structured `payment` sub-object; proves at most
+//                          that a payment object exists, never what it was for.
 
 /**
  * Status of the chain from claim → cited evidence. Strictly advisory; the
@@ -81,6 +84,7 @@ export const ALL_EVIDENCE_ARTIFACT_KINDS: ReadonlyArray<EvidenceArtifactKind> = 
   'dataset',
   'screenshot_redacted',
   'manual_citation',
+  'payment_screenshot',
 ]);
 
 export const ALL_SOURCE_CHAIN_STATUSES: ReadonlyArray<SourceChainStatus> = Object.freeze([
@@ -125,6 +129,13 @@ export interface EvidenceArtifact {
   addedByUserId: string;
   /** ISO-8601. Adapter copies from arguments.created_at. */
   createdAt: string;
+  /**
+   * QOL-036 — structured payment / transfer metadata. Present ONLY when
+   * `kind === 'payment_screenshot'`. Optional and additive: every existing
+   * consumer that ignores this field behaves identically. A payment object is
+   * INERT — it carries no truth value and emits no point-standing delta.
+   */
+  payment?: PaymentEvidenceMetadata;
 }
 
 // ── Adapter input shape ───────────────────────────────────────
@@ -141,6 +152,12 @@ export interface EvidenceAttachmentInput {
   quote?: string | null;
   /** Optional explicit kind. When omitted, classifyEvidenceKind derives it. */
   kind?: EvidenceArtifactKind;
+  /**
+   * QOL-036 — optional structured payment metadata. When present, the adapter
+   * classifies the kind as `payment_screenshot` (unless an explicit `kind`
+   * wins) and runs the redaction guard before storing it.
+   */
+  payment?: PaymentEvidenceMetadata;
 }
 
 export interface BuildEvidenceArtifactsInput {
@@ -201,6 +218,12 @@ function isDatasetUrl(rawUrl: string): boolean {
  */
 export function classifyEvidenceKind(att: EvidenceAttachmentInput): EvidenceArtifactKind {
   if (att.kind) return att.kind;
+  // QOL-036 — a payment sub-object classifies the attachment as a payment
+  // screenshot. A url / sourceText / quote on the SAME attachment is still
+  // honoured by `buildEvidenceArtifacts` (the source-chain table runs over
+  // them); the kind, however, names the payment record. An explicit
+  // `att.kind` above still wins.
+  if (att.payment) return 'payment_screenshot';
   if (isPresent(att.url)) {
     return isDatasetUrl(att.url) ? 'dataset' : 'url';
   }
@@ -258,7 +281,15 @@ function deriveLabel(att: EvidenceAttachmentInput): string {
 }
 
 function isAttachmentEmpty(att: EvidenceAttachmentInput): boolean {
-  return !isPresent(att.url) && !isPresent(att.sourceText) && !isPresent(att.quote);
+  // QOL-036 — a payment-only attachment (no url / sourceText / quote, but a
+  // `payment` sub-object) is NOT empty. EV-001's first three fields plus
+  // `payment` are the four that count.
+  return (
+    !isPresent(att.url) &&
+    !isPresent(att.sourceText) &&
+    !isPresent(att.quote) &&
+    att.payment === undefined
+  );
 }
 
 /**
@@ -278,10 +309,31 @@ export function buildEvidenceArtifacts(
     if (isAttachmentEmpty(att)) continue;
 
     const id = `${argumentId}:evidence:${index}`;
+    let kind = classifyEvidenceKind(att);
+
+    // QOL-036 — payment handling. Decide BEFORE building `base` so the kind
+    // reflects a redaction degradation. `prepareStoredPayment` returns the
+    // cleaned, confidence-pinned, amount-normalised payment object — or null
+    // when the redaction guard found raw account data (the artifact is still
+    // emitted, downgraded to `screenshot_redacted`; a missing screenshot
+    // beats a leaked account number). Throw-free, deterministic.
+    let storedPayment: PaymentEvidenceMetadata | undefined;
+    if (att.payment !== undefined) {
+      const cleaned = prepareStoredPayment(att.payment);
+      if (cleaned === null) {
+        // Redaction degradation — strip the payment object. Only downgrade a
+        // kind the payment branch itself produced; an explicit `att.kind`
+        // (e.g. 'url') is left intact.
+        if (kind === 'payment_screenshot') kind = 'screenshot_redacted';
+      } else {
+        storedPayment = cleaned;
+      }
+    }
+
     const base: EvidenceArtifact = {
       id,
       argumentId,
-      kind: classifyEvidenceKind(att),
+      kind,
       label: deriveLabel(att),
       sourceChainStatus: deriveSourceChainStatus(att),
       risk: 'unknown',
@@ -291,6 +343,7 @@ export function buildEvidenceArtifacts(
     if (isPresent(att.url)) base.url = att.url.trim();
     if (isPresent(att.sourceText)) base.sourceText = att.sourceText.trim();
     if (isPresent(att.quote)) base.quote = att.quote.trim();
+    if (storedPayment !== undefined) base.payment = storedPayment;
 
     const ov = overrides ? overrides[id] : undefined;
     if (ov) {
@@ -1209,5 +1262,506 @@ export function _forbiddenAnnotationTokens(): ReadonlyArray<string> {
     'lied',
     'deceived',
     'misleading reader',
+  ]);
+}
+
+// ══════════════════════════════════════════════════════════════
+// QOL-036 — Payment / screenshot evidence metadata object
+// ══════════════════════════════════════════════════════════════
+//
+// QOL-036 is an ADDITIVE extension of the EV-001 EvidenceArtifact. It lets a
+// payment / transfer screenshot be attached as a STRUCTURED object — an
+// amount, a date, a REDACTED payer/payee, a note, a CLAIMED applicability,
+// and a `confidence` field PINNED to 'user_asserted'.
+//
+// Doctrine (verbatim from docs/designs/QOL-036.md):
+//   - "A payment screenshot proves at most that a payment object exists —
+//      never automatically what it was for." `confidence` is pinned to
+//      'user_asserted'; the model carries no `verified` / `proven` / `valid`
+//      / `isTrue` field.
+//   - Existence != applicability. `amount` / `paidAt` / `noteText` /
+//     `claimedApplicability` are SEPARATE axes so a dispute (QOL-037) can be
+//     precise. QOL-036 stores only the CLAIMED side; the disputed side + the
+//     applicability status are QOL-037's, added additively on a dispute
+//     record, never by mutating PaymentEvidenceMetadata.
+//   - No raw financial account data — ever. payer/payee are PaymentParty
+//     objects carrying only a redacted display token + an optional role
+//     label. The adapter REJECTS a payment sub-object whose fields contain a
+//     card / account / routing / IBAN digit shape — it strips the object and
+//     downgrades the kind, it never silently stores raw account data.
+//   - A payment object is INERT — no truth value, no PointStandingDelta.
+//     This module imports nothing from src/features/pointStanding/.
+//
+// Still pure TypeScript. No React. No Supabase. No network. No async. No
+// Date.now() / new Date() — the adapter copies timestamps from its input.
+
+// ── Confidence enum ───────────────────────────────────────────
+
+/**
+ * QOL-036 — how confidently the SYSTEM treats the evidence's contribution.
+ * For a payment object this is ALWAYS 'user_asserted' — a payment screenshot
+ * is a user's assertion, never a system-proven fact. The type is a union so a
+ * future card *could* add admin-confirmed states, but QOL-036 pins every
+ * payment object to 'user_asserted' and `buildEvidenceArtifacts` + a test
+ * enforce it.
+ */
+export type EvidenceConfidence = 'user_asserted';
+
+/** Frozen, for exhaustive tests. Exactly one entry in QOL-036. */
+export const ALL_EVIDENCE_CONFIDENCES: ReadonlyArray<EvidenceConfidence> = Object.freeze([
+  'user_asserted',
+]);
+
+/** The single pinned confidence value. Exported so the adapter + box agree. */
+export const PINNED_PAYMENT_CONFIDENCE: EvidenceConfidence = 'user_asserted';
+
+// ── Payment sub-shapes ────────────────────────────────────────
+
+/**
+ * QOL-036 — a monetary amount. Structured so a challenger can dispute the
+ * amount axis alone (QOL-037). `currency` is an ISO-4217-style code; free-form
+ * is allowed for informal use ("USD", "GBP"). No field implies the amount is
+ * verified — the amount is the submitter's assertion.
+ */
+export interface EvidenceAmount {
+  /** The numeric amount. Non-negative after adapter normalisation. Stored as
+   *  a number, not a string. */
+  value: number;
+  /** Currency code or short label. Max 8 chars after normalisation. */
+  currency: string;
+}
+
+/**
+ * QOL-036 — a redacted party on a payment record. Carries NO raw account
+ * data. `displayToken` is a user-or-adapter-redacted string ("•••• 4821",
+ * "the landlord", "me"); `roleLabel` is an optional plain-language role.
+ * `findRawAccountDataFields` runs over both fields.
+ */
+export interface PaymentParty {
+  /** Redacted, display-safe token. Max 48 chars. Never a raw account number. */
+  displayToken: string;
+  /** Optional plain-language role, e.g. "payer", "the landlord". Max 48 chars. */
+  roleLabel?: string;
+}
+
+/**
+ * QOL-036 — what the submitter ASSERTS the payment applies to. This is the
+ * CLAIMED side only. QOL-037 adds the disputed side + the applicability
+ * status as separate, additive fields on a dispute record — never by mutating
+ * this object.
+ */
+export interface ClaimedApplicability {
+  /** Free-text plain-language statement: "March practice-room rent". Max 160. */
+  statement: string;
+  /** Optional coarse period label the submitter asserts: "March 2026". Max 32.
+   *  Advisory only — never parsed into a Date, never validated as "correct". */
+  periodLabel?: string;
+  /** Optional opaque reference to the obligation this is claimed to cover
+   *  (e.g. a room-scoped obligation id minted by a future card). QOL-036 does
+   *  not create obligations; the field is reserved so QOL-037 can link one. */
+  obligationRef?: string;
+}
+
+/**
+ * QOL-036 — structured metadata for a payment / transfer screenshot. Every
+ * field is OPTIONAL except `confidence`, which is pinned to 'user_asserted'.
+ * The object itself is optional on EvidenceArtifact — present only for
+ * payment evidence.
+ *
+ * DOCTRINE: this object is INERT. It carries no truth value and emits no
+ * point-standing delta. It is the data QOL-030's add_evidence box writes and
+ * QOL-037's applicability dispute reads.
+ */
+export interface PaymentEvidenceMetadata {
+  /** Always 'user_asserted'. Pinned. A test asserts no other value is stored. */
+  confidence: EvidenceConfidence;
+  /** Generic platform label: "a payment app". Never a required brand. Max 48. */
+  platform?: string;
+  /** ISO-8601 date (YYYY-MM-DD) the payment was made, as asserted. Optional.
+   *  Stored verbatim — QOL-036 never parses or validates it into a Date. */
+  paidAt?: string;
+  /** The monetary amount, if any. */
+  amount?: EvidenceAmount;
+  /** Redacted payer. */
+  payer?: PaymentParty;
+  /** Redacted payee. */
+  payee?: PaymentParty;
+  /** The memo / note text on the record. Plain text. Max 280. */
+  noteText?: string;
+  /** What the submitter asserts the payment covers. */
+  claimedApplicability?: ClaimedApplicability;
+  /** True when an image artifact is attached. QOL-036 stores only that an
+   *  image exists + its redaction state — NOT the binary. Upload is a
+   *  deferred card. */
+  hasScreenshotImage?: boolean;
+  /** Confirms the submitter affirmed the screenshot/record is redacted of
+   *  payer/payee account data before attaching. Defaults false. The box must
+   *  set this true via an explicit user affirmation. */
+  redactionConfirmed?: boolean;
+}
+
+// ── Raw-account-data detection ────────────────────────────────
+
+/**
+ * QOL-036 — account-data shapes the model refuses to store. Conservative
+ * digit-run detection — NOT a Luhn check (false negatives are unacceptable
+ * for PII, so the heuristic over-redacts; a false positive only over-masks a
+ * benign long number, which is the safe direction). Detects:
+ *   - a 12–19 digit run (card / account number), tolerating spaces / hyphens
+ *     between digit groups;
+ *   - an IBAN-shaped token (2 letters, 2 digits, then ≥10 alphanumerics);
+ *   - a 9-digit run (routing-number shape) adjacent to a bank keyword
+ *     ("routing", "aba", "account", "acct", "iban", "sort code").
+ *
+ * Exported for tests + the QOL-030 box's inline pre-post warning.
+ */
+export function detectRawAccountData(text: string): boolean {
+  if (typeof text !== 'string' || text.trim().length === 0) return false;
+
+  // Collapse spaces / hyphens that sit BETWEEN digits, so "4111 1111 1111
+  // 1111" and "4111-1111-1111-1111" read as one 16-digit run. Other
+  // characters are left so non-digit gaps still break a run.
+  const joined = text.replace(/(\d)[\s-]+(?=\d)/g, '$1');
+
+  // 12–19 consecutive digits → card / account-number shape.
+  if (/\d{12,19}/.test(joined)) return true;
+
+  // IBAN shape: 2 letters, 2 digits, then ≥10 alphanumerics (no separators —
+  // IBAN groups have already been joined where they were digit-adjacent; we
+  // also strip ALL whitespace for this single check).
+  const ibanCandidate = text.replace(/\s+/g, '');
+  if (/[A-Za-z]{2}\d{2}[A-Za-z0-9]{10,30}/.test(ibanCandidate)) return true;
+
+  // Routing-number shape: a 9-digit run adjacent to a bank keyword.
+  if (/\d{9}/.test(joined)) {
+    if (/\b(routing|aba|account|acct|iban|sort\s*code|bank)\b/i.test(text)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * QOL-036 — throw-free guard. Returns the offending field path(s) when any
+ * payment field contains raw account data; returns [] when clean. The adapter
+ * calls this and DROPS the payment sub-object (keeping the artifact,
+ * downgrading the kind) when it is non-empty — it never silently stores raw
+ * account data, and never throws in production (a thrown error in a render
+ * path is worse than a degraded artifact). The QOL-030 box calls it BEFORE
+ * post to show an inline warning.
+ *
+ * Field paths use dotted notation so the box can point at the exact input:
+ * `noteText`, `payer.displayToken`, `payer.roleLabel`, `payee.displayToken`,
+ * `payee.roleLabel`, `platform`, `claimedApplicability.statement`,
+ * `claimedApplicability.periodLabel`.
+ */
+export function findRawAccountDataFields(
+  payment: PaymentEvidenceMetadata,
+): ReadonlyArray<string> {
+  const offenders: string[] = [];
+  if (!payment || typeof payment !== 'object') return Object.freeze(offenders);
+
+  const checkField = (value: string | undefined, path: string): void => {
+    if (typeof value === 'string' && detectRawAccountData(value)) {
+      offenders.push(path);
+    }
+  };
+
+  checkField(payment.platform, 'platform');
+  checkField(payment.noteText, 'noteText');
+  if (payment.payer) {
+    checkField(payment.payer.displayToken, 'payer.displayToken');
+    checkField(payment.payer.roleLabel, 'payer.roleLabel');
+  }
+  if (payment.payee) {
+    checkField(payment.payee.displayToken, 'payee.displayToken');
+    checkField(payment.payee.roleLabel, 'payee.roleLabel');
+  }
+  if (payment.claimedApplicability) {
+    checkField(payment.claimedApplicability.statement, 'claimedApplicability.statement');
+    checkField(payment.claimedApplicability.periodLabel, 'claimedApplicability.periodLabel');
+  }
+
+  return Object.freeze(offenders);
+}
+
+// ── Redaction ─────────────────────────────────────────────────
+
+/** Cap a string to a max length; trim first; whitespace-only → ''. */
+function clampText(raw: string | undefined, max: number): string {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  return trimmed.length <= max ? trimmed : trimmed.slice(0, max);
+}
+
+/**
+ * Mask every raw account-data run inside a string. A run of ≥12 digits
+ * (tolerating spaces / hyphens between groups) is replaced with "•••• " +
+ * its last 4 digits when it has ≥4 trailing digits, else fully masked with
+ * "••••". Shorter digit runs (already-masked tails like "4821") are left
+ * untouched. Pure.
+ */
+function maskRawAccountRuns(raw: string): string {
+  // Match a 12+ digit run that may contain single spaces / hyphens between
+  // digits. The capture keeps only the digits so we can take the last 4.
+  return raw.replace(/\d(?:[\s-]?\d){11,}/g, (run) => {
+    const digits = run.replace(/[^\d]/g, '');
+    if (digits.length >= 4) {
+      return `•••• ${digits.slice(-4)}`;
+    }
+    return '••••';
+  });
+}
+
+/**
+ * QOL-036 — redact a free-text party string into a PaymentParty. If the input
+ * contains a raw account-data run, the run is masked to "•••• " + last 4 (or
+ * fully masked when <4 trailing digits). Role-only inputs ("the landlord")
+ * pass through unchanged. The result `displayToken` is clamped to 48 chars;
+ * an empty input yields a displayToken of "" (the caller decides whether to
+ * keep the party at all). The QOL-030 add_evidence box calls this on the
+ * payer/payee text fields before it builds the PaymentEvidenceMetadata value.
+ */
+export function redactPaymentParty(rawText: string, roleLabel?: string): PaymentParty {
+  const masked = typeof rawText === 'string' ? maskRawAccountRuns(rawText) : '';
+  const displayToken = clampText(masked, 48);
+  const role = clampText(roleLabel, 48);
+  const party: PaymentParty = { displayToken };
+  if (role.length > 0) party.roleLabel = role;
+  return party;
+}
+
+// ── Amount normalisation ──────────────────────────────────────
+
+/**
+ * QOL-036 — normalise an EvidenceAmount for storage. A negative value is
+ * clamped to 0; a NaN / non-finite value drops the whole amount (returns
+ * null — the adapter treats `amount` as absent). `currency` is clamped to 8
+ * chars; an empty currency falls back to a neutral label. Throw-free.
+ */
+function normalizeEvidenceAmount(amount: EvidenceAmount | undefined): EvidenceAmount | null {
+  if (!amount || typeof amount !== 'object') return null;
+  const rawValue = amount.value;
+  if (typeof rawValue !== 'number' || !Number.isFinite(rawValue)) return null;
+  const value = rawValue < 0 ? 0 : rawValue;
+  const currency = clampText(amount.currency, 8) || 'amount';
+  return { value, currency };
+}
+
+// ── Stored-payment preparation (adapter helper) ───────────────
+
+/**
+ * QOL-036 — prepare a raw payment input for storage on an EvidenceArtifact.
+ *
+ *   - If `findRawAccountDataFields` flags any field → return null. The adapter
+ *     drops the payment object and downgrades the kind. Raw account data is
+ *     REJECTED at the model boundary, never masked-and-stored.
+ *   - Otherwise → return a normalised copy: `confidence` pinned to
+ *     'user_asserted', every text field clamped to its max, the amount
+ *     normalised (negative → 0, NaN → absent), absent fields omitted.
+ *
+ * Pure, throw-free, deterministic. Not exported — the adapter is the only
+ * caller; the box uses `findRawAccountDataFields` + `redactPaymentParty`
+ * directly before it builds its input.
+ */
+function prepareStoredPayment(
+  raw: PaymentEvidenceMetadata,
+): PaymentEvidenceMetadata | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  // Redaction guard — the doctrine core. Any raw account data → reject.
+  if (findRawAccountDataFields(raw).length > 0) return null;
+
+  // confidence is always pinned — the input cannot smuggle a different value.
+  const out: PaymentEvidenceMetadata = { confidence: PINNED_PAYMENT_CONFIDENCE };
+
+  const platform = clampText(raw.platform, 48);
+  if (platform.length > 0) out.platform = platform;
+
+  if (typeof raw.paidAt === 'string' && raw.paidAt.trim().length > 0) {
+    // Stored verbatim — never parsed into a Date (parsing would imply the
+    // date is "verified"). Clamped defensively to a generous 64 chars.
+    out.paidAt = clampText(raw.paidAt, 64);
+  }
+
+  const amount = normalizeEvidenceAmount(raw.amount);
+  if (amount !== null) out.amount = amount;
+
+  if (raw.payer) {
+    const payer = normalizeStoredParty(raw.payer);
+    if (payer !== null) out.payer = payer;
+  }
+  if (raw.payee) {
+    const payee = normalizeStoredParty(raw.payee);
+    if (payee !== null) out.payee = payee;
+  }
+
+  const noteText = clampText(raw.noteText, 280);
+  if (noteText.length > 0) out.noteText = noteText;
+
+  if (raw.claimedApplicability) {
+    const applicability = normalizeStoredApplicability(raw.claimedApplicability);
+    if (applicability !== null) out.claimedApplicability = applicability;
+  }
+
+  if (raw.hasScreenshotImage === true) out.hasScreenshotImage = true;
+  if (raw.redactionConfirmed === true) out.redactionConfirmed = true;
+
+  return out;
+}
+
+/** Clamp a stored PaymentParty's fields; null when it carries no display
+ *  token and no role (nothing worth storing). */
+function normalizeStoredParty(party: PaymentParty): PaymentParty | null {
+  if (!party || typeof party !== 'object') return null;
+  const displayToken = clampText(party.displayToken, 48);
+  const roleLabel = clampText(party.roleLabel, 48);
+  if (displayToken.length === 0 && roleLabel.length === 0) return null;
+  const out: PaymentParty = { displayToken };
+  if (roleLabel.length > 0) out.roleLabel = roleLabel;
+  return out;
+}
+
+/** Clamp a stored ClaimedApplicability; null when the statement is empty. */
+function normalizeStoredApplicability(
+  applicability: ClaimedApplicability,
+): ClaimedApplicability | null {
+  if (!applicability || typeof applicability !== 'object') return null;
+  const statement = clampText(applicability.statement, 160);
+  const periodLabel = clampText(applicability.periodLabel, 32);
+  const obligationRef = clampText(applicability.obligationRef, 120);
+  // The statement is the required core; with no statement there is nothing to
+  // claim. A period label / obligation ref alone is not a claim.
+  if (statement.length === 0) return null;
+  const out: ClaimedApplicability = { statement };
+  if (periodLabel.length > 0) out.periodLabel = periodLabel;
+  if (obligationRef.length > 0) out.obligationRef = obligationRef;
+  return out;
+}
+
+// ── Display helpers ───────────────────────────────────────────
+
+/** QOL-036 — the locked plain-language label for the payment kind. Used by
+ *  the receipt chip + a11y. Never a snake_case code, never a verdict token. */
+const PAYMENT_EVIDENCE_LABEL = 'Payment record';
+
+/**
+ * QOL-036 — plain-language label for the payment kind. Returns "Payment
+ * record". NEVER returns a snake_case code, never a verdict token.
+ */
+export function getPaymentEvidenceLabel(): string {
+  return PAYMENT_EVIDENCE_LABEL;
+}
+
+/**
+ * QOL-036 — build a one-line, plain-language, redaction-safe summary of a
+ * payment object for the receipt chip / side-panel header, e.g.
+ *   "Payment record — $120 on 2026-03-03, noted "practice space""
+ * Omits any absent field. NEVER includes a raw account-data run — even when
+ * the input somehow does, the summary re-redacts as defence-in-depth. NEVER
+ * a verdict token (the scaffold words are clean; a user `noteText` is quoted
+ * verbatim and is the user's own free text, governed elsewhere).
+ *
+ * An empty-but-`confidence` payment returns just "Payment record".
+ */
+export function summarizePaymentEvidence(payment: PaymentEvidenceMetadata): string {
+  if (!payment || typeof payment !== 'object') return PAYMENT_EVIDENCE_LABEL;
+
+  const parts: string[] = [];
+
+  // Amount — re-normalised so a stray negative / NaN never reaches the chip.
+  const amount = normalizeEvidenceAmount(payment.amount);
+  if (amount !== null) {
+    parts.push(formatAmountForSummary(amount));
+  }
+
+  // Date — verbatim, re-redacted defensively.
+  if (typeof payment.paidAt === 'string' && payment.paidAt.trim().length > 0) {
+    const safeDate = maskRawAccountRuns(payment.paidAt.trim());
+    parts.push(`on ${safeDate}`);
+  }
+
+  // Note — quoted, re-redacted defensively (the scaffold word "noted" is the
+  // app's; the quoted text is the user's own free text).
+  if (typeof payment.noteText === 'string' && payment.noteText.trim().length > 0) {
+    const safeNote = maskRawAccountRuns(payment.noteText.trim());
+    parts.push(`noted "${safeNote}"`);
+  }
+
+  // Claimed applicability — the submitter's assertion, prefixed so a reader
+  // sees it is a claim, never a verified fact.
+  const applicability = payment.claimedApplicability;
+  if (
+    applicability &&
+    typeof applicability.statement === 'string' &&
+    applicability.statement.trim().length > 0
+  ) {
+    const safeStatement = maskRawAccountRuns(applicability.statement.trim());
+    parts.push(`claimed to cover ${safeStatement}`);
+  }
+
+  if (parts.length === 0) return PAYMENT_EVIDENCE_LABEL;
+  return `${PAYMENT_EVIDENCE_LABEL} — ${parts.join(', ')}`;
+}
+
+/** Format an EvidenceAmount for the summary line. A bare currency code is
+ *  rendered after the value ("120 USD"); a single-character symbol-like code
+ *  is rendered before ("$120"). Pure. */
+function formatAmountForSummary(amount: EvidenceAmount): string {
+  const value = String(amount.value);
+  const currency = amount.currency;
+  // A 1-char non-alphanumeric code reads as a symbol → prefix it.
+  if (currency.length === 1 && !/[A-Za-z0-9]/.test(currency)) {
+    return `${currency}${value}`;
+  }
+  return `${value} ${currency}`;
+}
+
+// ── Ban-list seam (test consumer) ─────────────────────────────
+
+/**
+ * QOL-036 — the tokens the payment ban-list test scans every app-authored
+ * payment string against (`getPaymentEvidenceLabel`, the `summarizePayment-
+ * Evidence` scaffold words). Verdict, amplification, and person-attribution
+ * groups — none may appear in any QOL-036 system-generated string.
+ *
+ * Exposed as a function (not a const) so the ban-list test can assert it is
+ * non-empty and actually iterated.
+ */
+export function _forbiddenPaymentTokens(): ReadonlyArray<string> {
+  return Object.freeze([
+    // Verdict tokens.
+    'winner',
+    'loser',
+    'correct',
+    'incorrect',
+    'true',
+    'false',
+    'liar',
+    'dishonest',
+    'bad faith',
+    'manipulative',
+    'extremist',
+    'propagandist',
+    'troll',
+    'bot',
+    'astroturfer',
+    'verdict',
+    'proof',
+    'proven',
+    'disproven',
+    'case closed',
+    // Amplification tokens.
+    'likes',
+    'retweets',
+    'shares',
+    'views',
+    'followers',
+    'verified',
+    'engagement',
+    'virality',
+    'viral',
+    'trending',
   ]);
 }
