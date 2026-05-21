@@ -74,3 +74,44 @@ export {
   extractServerValidationError,
   isIdempotentSuccess,
 } from './composerSubmit';
+// IX-001 — timeline density + focus-lens model (pure model + thin session hook).
+export {
+  ALL_GALLERY_DENSITY_MODES,
+  DEFAULT_GALLERY_DENSITY,
+  GALLERY_DENSITY_SPECS,
+  resolveGalleryDensitySpec,
+  toTimelineDensityMode,
+  densityChangePreservesActive,
+  ALL_FOCUS_LENSES,
+  TIMELINE_LENS_IDS,
+  DEFAULT_FOCUS_LENS,
+  FOCUS_LENS_COPY,
+  GALLERY_LENS_PREDICATES,
+  TIMELINE_LENS_PREDICATES,
+  activePathLens,
+  applyGalleryLens,
+  applyTimelineLens,
+  ALL_GALLERY_SORT_AXES,
+  toConversationSortMode,
+  DEFAULT_DENSITY_LENS_VIEW_CONFIG,
+  applyViewConfigChange,
+  RECENTLY_UPDATED_WINDOW_MS,
+} from './timelineDensityLensModel';
+export type {
+  GalleryDensityMode,
+  GalleryDensitySpec,
+  FocusLensId,
+  FocusLensCopy,
+  LensContext,
+  TimelineLensContext,
+  TimelineLensNode,
+  GalleryLensPredicate,
+  TimelineLensPredicate,
+  LensEmphasis,
+  LensedItem,
+  LensApplication,
+  GallerySortAxis,
+  DensityLensViewConfig,
+} from './timelineDensityLensModel';
+export { useDensityLens } from './useDensityLens';
+export type { UseDensityLensResult } from './useDensityLens';
