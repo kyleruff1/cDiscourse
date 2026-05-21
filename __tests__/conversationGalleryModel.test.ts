@@ -55,6 +55,11 @@ function arg(partial: Partial<GalleryArgumentInput> & { id: string; debateId: st
     status: partial.status ?? 'posted',
     createdAt: partial.createdAt ?? isoAt(1715000000000),
     updatedAt: partial.updatedAt ?? null,
+    // EV-003 — propagate the optional attached-evidence payload so debt
+    // derivation tests can supply a resolving artifact.
+    ...(partial.attachedEvidence !== undefined
+      ? { attachedEvidence: partial.attachedEvidence }
+      : {}),
   };
 }
 
@@ -332,6 +337,15 @@ describe('signals', () => {
       unresolvedReason: null,
       temperament: 'sharp' as const,
       rebuttalCount: 0,
+      evidenceDebtSummary: {
+        debateId: 'd1',
+        totalCount: 0,
+        openCount: 0,
+        staleCount: 0,
+        settledCount: 0,
+        hasOpenEvidenceDebt: false,
+        statusLine: '',
+      },
     };
     const sigs = getConversationSignals(card);
     expect(sigs.find((s) => s.code === 'no_rebuttal')).toBeTruthy();
@@ -390,6 +404,10 @@ describe('sortConversationGalleryCards', () => {
       issueFrame: 'unknown', dominantAxis: 'none',
       sourceChainRisk: 'unknown', evidentiaryRisk: 'unknown', amplificationRisk: 'none_observed',
       platformSupportWarning: false, unresolvedReason: null, stopReason: null,
+      evidenceDebtSummary: {
+        debateId: 'd1', totalCount: 0, openCount: 0, staleCount: 0,
+        settledCount: 0, hasOpenEvidenceDebt: false, statusLine: '',
+      },
       timelinePreviewSegments: [], signals: [], searchText: '',
       voteScorePreview: null, winnerPreview: null, promotedArgumentCount: 0,
       sortKeys: {
@@ -520,6 +538,191 @@ describe('safety — derived fields preserve upstream redaction placeholders wit
     expect(cards[0].searchText).toContain('<x-link>');
     // No raw x.com / twitter.com / t.co URL surface from the gallery model.
     expect(cards[0].searchText).not.toMatch(/https?:\/\/(?:x|twitter|t)\.co/);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────
+// EV-003 — evidence-debt roll-up on the gallery card
+// ──────────────────────────────────────────────────────────────
+
+describe('EV-003 — buildConversationGalleryCards evidenceDebtSummary', () => {
+  const NOW = 1715000000000 + 3 * 86_400_000;
+
+  it('attaches an evidenceDebtSummary to every card', () => {
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'd1' })],
+      argumentsByDebateId: { d1: [arg({ id: 'm1', debateId: 'd1' })] },
+      nowMs: NOW,
+    });
+    expect(cards[0].evidenceDebtSummary).toBeDefined();
+    expect(cards[0].evidenceDebtSummary.debateId).toBe('d1');
+  });
+
+  it('a room with an OPEN source request yields hasOpenEvidenceDebt + the evidence_debt_open signal', () => {
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'd1' })],
+      argumentsByDebateId: {
+        d1: [
+          arg({ id: 'root', debateId: 'd1', argumentType: 'thesis', createdAt: isoAt(1715000000000) }),
+          arg({
+            id: 'ask',
+            debateId: 'd1',
+            parentId: 'root',
+            argumentType: 'clarification_request',
+            createdAt: isoAt(1715000000000 + 1000),
+          }),
+        ],
+      },
+      tagsByArgumentId: {
+        ask: [{ argumentId: 'ask', tagCode: 'source_request' }],
+      },
+      nowMs: NOW,
+    });
+    expect(cards[0].evidenceDebtSummary.hasOpenEvidenceDebt).toBe(true);
+    expect(cards[0].evidenceDebtSummary.openCount).toBe(1);
+    expect(cards[0].signals.some((s) => s.code === 'evidence_debt_open')).toBe(true);
+  });
+
+  it('a room whose source request was RESOLVED two moves later yields no open debt and no signal', () => {
+    // The precision fix — the central gallery acceptance test.
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'd1' })],
+      argumentsByDebateId: {
+        d1: [
+          arg({ id: 'root', debateId: 'd1', argumentType: 'thesis', createdAt: isoAt(1715000000000) }),
+          arg({
+            id: 'ask',
+            debateId: 'd1',
+            parentId: 'root',
+            argumentType: 'clarification_request',
+            createdAt: isoAt(1715000000000 + 1000),
+          }),
+          arg({
+            id: 'answer',
+            debateId: 'd1',
+            parentId: 'ask',
+            argumentType: 'evidence',
+            createdAt: isoAt(1715000000000 + 2000),
+            attachedEvidence: [{ url: 'https://example.org/report' }],
+          }),
+        ],
+      },
+      tagsByArgumentId: {
+        ask: [{ argumentId: 'ask', tagCode: 'source_request' }],
+      },
+      nowMs: NOW,
+    });
+    expect(cards[0].evidenceDebtSummary.totalCount).toBe(1);
+    expect(cards[0].evidenceDebtSummary.hasOpenEvidenceDebt).toBe(false);
+    expect(cards[0].signals.some((s) => s.code === 'evidence_debt_open')).toBe(false);
+  });
+
+  it('routes a room with an open debt into the source_chain_fight bucket', () => {
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'd1' })],
+      argumentsByDebateId: {
+        d1: [
+          arg({ id: 'root', debateId: 'd1', argumentType: 'thesis', createdAt: isoAt(1715000000000) }),
+          arg({
+            id: 'reb',
+            debateId: 'd1',
+            parentId: 'root',
+            argumentType: 'rebuttal',
+            createdAt: isoAt(1715000000000 + 500),
+          }),
+          arg({
+            id: 'ask',
+            debateId: 'd1',
+            parentId: 'reb',
+            argumentType: 'clarification_request',
+            createdAt: isoAt(1715000000000 + 1000),
+          }),
+        ],
+      },
+      tagsByArgumentId: {
+        ask: [{ argumentId: 'ask', tagCode: 'source_request' }],
+      },
+      nowMs: NOW,
+    });
+    expect(cards[0].bucket).toBe('source_chain_fight');
+  });
+
+  it('keeps a room whose source debt is fully resolved OUT of the source_chain_fight bucket', () => {
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'd1' })],
+      argumentsByDebateId: {
+        d1: [
+          arg({ id: 'root', debateId: 'd1', argumentType: 'thesis', createdAt: isoAt(1715000000000) }),
+          arg({
+            id: 'reb',
+            debateId: 'd1',
+            parentId: 'root',
+            argumentType: 'rebuttal',
+            createdAt: isoAt(1715000000000 + 500),
+          }),
+          arg({
+            id: 'ask',
+            debateId: 'd1',
+            parentId: 'reb',
+            argumentType: 'clarification_request',
+            createdAt: isoAt(1715000000000 + 1000),
+          }),
+          arg({
+            id: 'answer',
+            debateId: 'd1',
+            parentId: 'ask',
+            argumentType: 'evidence',
+            createdAt: isoAt(1715000000000 + 2000),
+            attachedEvidence: [{ url: 'https://example.org/report' }],
+          }),
+        ],
+      },
+      tagsByArgumentId: {
+        ask: [{ argumentId: 'ask', tagCode: 'source_request' }],
+      },
+      nowMs: NOW,
+    });
+    // Debts exist but all resolved → not a live source-trail fight.
+    expect(cards[0].evidenceDebtSummary.totalCount).toBe(1);
+    expect(cards[0].bucket).not.toBe('source_chain_fight');
+  });
+
+  it('surfaces the evidence_debt_stale signal for a long-dormant request', () => {
+    const STALE_NOW = 1715000000000 + 10 * 86_400_000;
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'd1' })],
+      argumentsByDebateId: {
+        d1: [
+          arg({ id: 'root', debateId: 'd1', argumentType: 'thesis', createdAt: isoAt(1715000000000) }),
+          arg({
+            id: 'ask',
+            debateId: 'd1',
+            parentId: 'root',
+            argumentType: 'clarification_request',
+            createdAt: isoAt(1715000000000),
+          }),
+        ],
+      },
+      tagsByArgumentId: {
+        ask: [{ argumentId: 'ask', tagCode: 'source_request' }],
+      },
+      nowMs: STALE_NOW,
+    });
+    expect(cards[0].evidenceDebtSummary.staleCount).toBe(1);
+    expect(cards[0].signals.some((s) => s.code === 'evidence_debt_stale')).toBe(true);
+  });
+
+  it('a room with no request tags carries an empty evidence-debt summary and no signal', () => {
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'd1' })],
+      argumentsByDebateId: {
+        d1: [arg({ id: 'm1', debateId: 'd1', argumentType: 'thesis' })],
+      },
+      nowMs: NOW,
+    });
+    expect(cards[0].evidenceDebtSummary.totalCount).toBe(0);
+    expect(cards[0].evidenceDebtSummary.hasOpenEvidenceDebt).toBe(false);
+    expect(cards[0].signals.some((s) => s.code.startsWith('evidence_debt'))).toBe(false);
   });
 });
 

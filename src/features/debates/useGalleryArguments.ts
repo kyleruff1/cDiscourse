@@ -56,6 +56,22 @@ export function useGalleryArguments(debateIds: string[]): State & { refresh: () 
       }
       const map: Record<string, GalleryArgumentInput[]> = {};
       for (const row of result.data as ArgumentRow[]) {
+        // EV-003 — surface optional attached evidence from `client_validation`
+        // so `buildGallery` can derive evidence debts via EV-001's
+        // `buildEvidenceArtifacts`. Typed defensively; the JSONB shape is
+        // loose. No new query — this rides the existing batched `in()` fetch.
+        const rawAttached =
+          row.clientValidation && typeof row.clientValidation === 'object'
+            ? (row.clientValidation as { attachedEvidence?: unknown }).attachedEvidence
+            : undefined;
+        const attachedEvidence = Array.isArray(rawAttached)
+          ? (rawAttached as Array<{
+              url?: string | null;
+              label?: string | null;
+              sourceText?: string | null;
+              quote?: string | null;
+            }>)
+          : null;
         const projection: GalleryArgumentInput = {
           id: row.id,
           debateId: row.debateId,
@@ -67,6 +83,7 @@ export function useGalleryArguments(debateIds: string[]): State & { refresh: () 
           status: row.status,
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
+          attachedEvidence,
         };
         (map[row.debateId] = map[row.debateId] || []).push(projection);
       }

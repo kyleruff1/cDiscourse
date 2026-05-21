@@ -309,3 +309,34 @@ describe('EV-002 buildArtifactsByMessageId', () => {
     expect(map.m1[0].addedByUserId).toBe('unknown');
   });
 });
+
+// ── EV-003 — room-shell evidence-debt wiring (source scan) ─────
+
+describe('EV-003 ArgumentGameSurface — evidence-debt wiring', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src: string = fs.readFileSync(
+    path.join(process.cwd(), 'src/features/arguments/ArgumentGameSurface.tsx'),
+    'utf8',
+  );
+
+  it('derives the room evidence debts via deriveEvidenceDebts', () => {
+    expect(src).toMatch(/deriveEvidenceDebts\(/);
+  });
+
+  it('builds a per-node debt summary lookup via getNodeEvidenceDebtSummary', () => {
+    expect(src).toMatch(/getNodeEvidenceDebtSummary/);
+    expect(src).toMatch(/evidenceDebtSummaryFor/);
+  });
+
+  it('threads evidenceDebtSummaryFor into the timeline map', () => {
+    expect(src).toMatch(/evidenceDebtSummaryFor=\{evidenceDebtSummaryFor\}/);
+  });
+
+  it('reuses the already-built artifact map — adds no new Supabase fetch', () => {
+    // The debt derivation reads `artifactsByMessageId` (built once) and the
+    // existing tag map; it never opens its own query / client.
+    expect(src).toMatch(/artifacts: artifactsByMessageId\[m\.id\]/);
+    expect(src).not.toMatch(/SERVICE_ROLE/);
+  });
+});

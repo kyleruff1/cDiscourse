@@ -17,6 +17,7 @@ import {
 } from './argumentGameSurfaceModel';
 import { formatStandingBandShort } from './standingBandCopy';
 import type { TimelineEvidenceContract } from '../evidence/evidenceModel';
+import type { NodeEvidenceDebtSummary } from '../evidence/evidenceDebtModel';
 
 export interface TimelineNodePopoverModel {
   /** The node the popover is bound to. */
@@ -44,6 +45,14 @@ export interface TimelineNodePopoverModel {
    * before with no evidence affordance.
    */
   evidenceContract?: TimelineEvidenceContract;
+  /**
+   * EV-003 — Optional per-node evidence-debt roll-up. When present and the
+   * node carries any debt, the popover renders an `EvidenceDebtChip` (the
+   * OBLIGATION axis) beside the EV-002 receipt chip (the EXISTENCE axis) —
+   * a node can show both at once. When omitted, the popover renders as
+   * before with no debt chip. Advisory only — a debt never blocks an action.
+   */
+  evidenceDebtSummary?: NodeEvidenceDebtSummary;
 }
 
 export interface BuildPopoverModelInput {
@@ -53,6 +62,8 @@ export interface BuildPopoverModelInput {
   controlsContext?: BubbleControlsContext;
   /** EV-002 — Optional evidence contract from EV-001. */
   evidenceContract?: TimelineEvidenceContract;
+  /** EV-003 — Optional per-node evidence-debt roll-up. */
+  evidenceDebtSummary?: NodeEvidenceDebtSummary;
 }
 
 /**
@@ -60,7 +71,7 @@ export interface BuildPopoverModelInput {
  * legibly representable (defensive).
  */
 export function buildTimelineNodePopoverModel(input: BuildPopoverModelInput): TimelineNodePopoverModel | null {
-  const { node, actor, totalCount, controlsContext, evidenceContract } = input;
+  const { node, actor, totalCount, controlsContext, evidenceContract, evidenceDebtSummary } = input;
   if (!node) return null;
 
   const actions = getBubbleControlsForActor(actor, controlsContext ?? {});
@@ -94,6 +105,7 @@ export function buildTimelineNodePopoverModel(input: BuildPopoverModelInput): Ti
     isOwn,
     accessibilityLabel,
     ...(evidenceContract ? { evidenceContract } : {}),
+    ...(evidenceDebtSummary ? { evidenceDebtSummary } : {}),
   };
 }
 
