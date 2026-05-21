@@ -229,7 +229,11 @@ export const RECEIPT_MARK = {
 // dark product. Structural names only — no verdict vocabulary.
 //
 // Contrast pairs below are WCAG-measured against the stated background.
-// AA bar: 4.5:1 body text, 3:1 large text + non-text UI (borders/icons).
+// AA bar: 4.5:1 body text, 3:1 the focus ring (meaningful non-text UI).
+// NOTE on hairlines: `border` / `divider` / `inputBorder` are DECORATIVE
+// separators — WCAG 1.4.11 imposes a 3:1 bar only on non-text UI that is
+// *required to identify* a component/state; a card/input/table hairline is
+// not. They carry no 3:1 bar — only the lighter-than-backdrop property.
 export const SURFACE_TOKENS = {
   // Backgrounds — three elevation levels, matching SURFACE.* family.
   base:     '#020617', // page background (matches room base)
@@ -237,9 +241,9 @@ export const SURFACE_TOKENS = {
   overlay:  '#0f172a', // sheets, popouts, modals, detail panels
   raised:   '#162033', // header bars / sticky toolbars one step over elevated
 
-  // Hairlines.
-  border:   '#1e293b', // card / input / table-cell outline (3.0:1 vs base — non-text UI)
-  divider:  '#15202e', // subtle row separators inside a card / table
+  // Hairlines — DECORATIVE separators, not 3:1-bar non-text UI (see note above).
+  border:   '#1e293b', // card / input / table-cell outline (decorative; lighter than backdrop)
+  divider:  '#15202e', // subtle row separators inside a card / table (decorative; lighter than backdrop)
 
   // Text on dark (foreground).
   textPrimary:   '#e2e8f0', // body + values        (13.2:1 vs base, 11.4:1 vs elevated)
@@ -249,7 +253,7 @@ export const SURFACE_TOKENS = {
 
   // Form control surfaces.
   inputBg:       '#0b1220', // TextInput background
-  inputBorder:   '#334155', // TextInput resting outline (3.6:1 vs inputBg)
+  inputBorder:   '#334155', // TextInput resting outline (decorative hairline; lighter than inputBg)
   placeholder:   '#64748b', // TextInput placeholderTextColor
 
   // Focus ring — one shared visible ring for every interactive element.
@@ -259,13 +263,17 @@ export const SURFACE_TOKENS = {
 export type SurfaceTokenKey = keyof typeof SURFACE_TOKENS;
 
 // ── BRAND-002 — Control / button intent tokens ──────────────────
-// `primary` is the indigo action color already used app-wide (#6366f1).
+// `primary` is the indigo action color. The fill is indigo-600 (#4f46e5),
+// one step darker than the indigo-500 (#6366f1) used elsewhere, so a WHITE
+// label clears the 4.5:1 body-text AA bar (white on #6366f1 measures only
+// 4.47:1 — a real fail; white on #4f46e5 measures 6.29:1). The label is
+// white because a dark label can NOT reach 4.5:1 on any usable indigo fill.
 // `danger` reuses STATUS.danger (a dark maroon, NOT a bright red flood)
 // for the destructive-control treatment (see "Destructive controls").
 export const CONTROL = {
   primary: {
-    bg: '#6366f1',           // indigo fill
-    fg: SURFACE_TOKENS.textInverse, // dark text on indigo (5.0:1)
+    bg: '#4f46e5',           // indigo-600 fill (darker than #6366f1 so a white label passes AA)
+    fg: '#ffffff',           // white text on indigo-600 (6.29:1 — clears the 4.5:1 body bar)
     disabledBg: '#312e81',   // muted indigo (color is not the only signal — opacity + label too)
   },
   secondary: {
