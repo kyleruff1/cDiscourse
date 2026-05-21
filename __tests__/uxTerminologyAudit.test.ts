@@ -191,4 +191,31 @@ describe('uxTerminologyAudit — runAudit', () => {
     expect(report).toContain('# CDiscourse — User-Facing Terminology Audit');
     expect(report).toContain('## Live prohibited violations');
   });
+
+  it('scopes to normal-user mode — admin screens + the Debug tab are not scanned', () => {
+    // The terminology rule is normal-user-mode doctrine. Admin/operator screens
+    // and the __DEV__-gated Debug tab serve operators/developers, not normal
+    // users — they must never enter the scan set.
+    const scanned = audit.collectScanFiles().map((f: string) => f.replace(/\\/g, '/'));
+    expect(scanned.some((f: string) => f.includes('/src/features/admin/'))).toBe(false);
+    expect(scanned.some((f: string) => f.includes('SessionDebugPanel'))).toBe(false);
+  });
+
+  it('admin + the Debug tab produce zero audit findings', () => {
+    const all = [...result.liveFindings, ...result.legacyFindings];
+    const offscope = all.filter((f: { file: string }) => {
+      const p = f.file.replace(/\\/g, '/');
+      return p.includes('src/features/admin/') || p.includes('SessionDebugPanel');
+    });
+    expect(offscope).toEqual([]);
+  });
+
+  it('the audit declares the admin + Debug-tab exclusions deliberately', () => {
+    // Defense in depth — both exclusions are explicit config entries, not an
+    // accident of the directory walk.
+    const fs2 = require('fs');
+    const src = fs2.readFileSync(SCRIPT, 'utf8');
+    expect(src).toMatch(/SKIP_DIR_NAMES[\s\S]*'admin'/);
+    expect(src).toMatch(/SKIP_FILE_SUFFIXES[\s\S]*SessionDebugPanel/);
+  });
 });

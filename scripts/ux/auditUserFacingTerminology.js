@@ -8,14 +8,20 @@
  *   - docs/ux-storyboards/terminology-and-copy-rules.md
  *
  * What it does
- *   Scans app source (src/ and App.tsx) for user-facing string literals and
- *   JSX text, then flags terminology that breaks the CDiscourse copy rules:
- *   the app is an "argument" product — its normal-user UI must not say "game"
- *   and should not say "debate".
+ *   Scans normal-user-mode app source (src/ and App.tsx) for user-facing
+ *   string literals and JSX text, then flags terminology that breaks the
+ *   CDiscourse copy rules: the app is an "argument" product — its normal-user
+ *   UI must not say "game" and should not say "debate".
  *
  * What it does NOT do
  *   - It does not scan docs/ (design docs intentionally discuss legacy terms
  *     and quote prohibited words as examples).
+ *   - It does not scan admin / operator screens (src/features/admin/). The
+ *     terminology rules are normal-user-mode doctrine; admin surfaces serve
+ *     operators, who legitimately see "debate" / "moderator" / technical
+ *     terms — they are out of scope by design, not by oversight.
+ *   - It does not scan the dev-only Debug tab (SessionDebugPanel) — it is
+ *     __DEV__-gated and never part of normal-user mode.
  *   - It does not scan tests, scripts, supabase/ Edge Functions, or migrations.
  *   - It does not flag internal identifiers (`gameCopy`, `argumentGameSurface`)
  *     or database table names (`debates`) — only strings that look like copy a
@@ -55,15 +61,26 @@ const REPORT_PATH = path.join('docs', 'ux-storyboards', 'terminology-audit.md');
 const SCAN_ROOTS = ['src', 'App.tsx'];
 const SCAN_EXTENSIONS = ['.ts', '.tsx'];
 
-// Directory names skipped entirely — dev/test tooling, not shipped UI. The
-// engagement-intelligence and dev-fixture modules contain analysis prompts and
-// scenario builders, never normal-user copy.
+// Directory names skipped entirely — not normal-user-mode UI. The terminology
+// rules are normal-user doctrine, so admin / operator screens are exempt: an
+// admin legitimately sees "debate", "moderator", and technical terms, and the
+// admin tooling sits over the `debates` table by name. The
+// engagement-intelligence and dev-fixture modules are dev/test tooling.
 const SKIP_DIR_NAMES = new Set([
   '__tests__',
   'node_modules',
+  'admin', // src/features/admin/ — operator screens, not normal-user mode
   'engagementIntelligence',
   'devFixtures',
 ]);
+
+// Individual files skipped — dev-only surfaces that sit inside an otherwise
+// user-facing directory, so a directory skip cannot reach them. The Debug tab
+// (SessionDebugPanel) is __DEV__-gated and never part of normal-user mode.
+// Paths use `/`; the walk normalizes before comparing.
+const SKIP_FILE_SUFFIXES = [
+  'src/features/session/SessionDebugPanel.tsx',
+];
 
 // Files that still contain legacy copy but are NOT currently mounted in the
 // running app (dead code behind a disabled render branch). Their findings are
@@ -277,6 +294,8 @@ function walk(absDir, acc) {
       walk(abs, acc);
     } else if (entry.isFile()) {
       if (entry.name.includes('.test.')) continue;
+      const normAbs = abs.replace(/\\/g, '/');
+      if (SKIP_FILE_SUFFIXES.some((suffix) => normAbs.endsWith(suffix))) continue;
       if (SCAN_EXTENSIONS.includes(path.extname(entry.name))) acc.push(abs);
     }
   }
@@ -385,11 +404,13 @@ function renderReport(result) {
   L.push('> Companion: `docs/ux-storyboards/terminology-and-copy-rules.md`.');
   L.push('');
   L.push('CDiscourse is an **argument** product. Normal-user UI must not say');
-  L.push('"game" and should not say "debate". This report scans app source');
-  L.push('(`src/`, `App.tsx`) for user-facing string literals and JSX text that');
-  L.push('break those rules. It does **not** scan docs, tests, scripts, or the');
-  L.push('Supabase functions — database table names like `debates` are allowed to');
-  L.push('keep their internal names.');
+  L.push('"game" and should not say "debate". This report scans **normal-user-');
+  L.push('mode** app source (`src/`, `App.tsx`) for user-facing string literals');
+  L.push('and JSX text that break those rules. It does **not** scan docs, tests,');
+  L.push('scripts, the Supabase functions, or **admin / operator screens**');
+  L.push('(`src/features/admin/`) — admin surfaces serve operators, not normal');
+  L.push('users, and may use "debate" / "moderator" / technical terms. Database');
+  L.push('table names like `debates` keep their internal names.');
   L.push('');
   L.push('## Summary');
   L.push('');
@@ -471,6 +492,8 @@ if (require.main === module) {
 module.exports = {
   REPORT_PATH,
   SCAN_ROOTS,
+  SKIP_DIR_NAMES,
+  SKIP_FILE_SUFFIXES,
   LEGACY_NOT_MOUNTED,
   PROHIBITED_PATTERNS,
   DISCOURAGED_PATTERNS,
@@ -479,6 +502,7 @@ module.exports = {
   classifyText,
   auditFile,
   isLegacyFile,
+  collectScanFiles,
   runAudit,
   renderReport,
 };

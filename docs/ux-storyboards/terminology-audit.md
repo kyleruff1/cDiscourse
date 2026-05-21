@@ -5,17 +5,19 @@
 > Companion: `docs/ux-storyboards/terminology-and-copy-rules.md`.
 
 CDiscourse is an **argument** product. Normal-user UI must not say
-"game" and should not say "debate". This report scans app source
-(`src/`, `App.tsx`) for user-facing string literals and JSX text that
-break those rules. It does **not** scan docs, tests, scripts, or the
-Supabase functions — database table names like `debates` are allowed to
-keep their internal names.
+"game" and should not say "debate". This report scans **normal-user-
+mode** app source (`src/`, `App.tsx`) for user-facing string literals
+and JSX text that break those rules. It does **not** scan docs, tests,
+scripts, the Supabase functions, or **admin / operator screens**
+(`src/features/admin/`) — admin surfaces serve operators, not normal
+users, and may use "debate" / "moderator" / technical terms. Database
+table names like `debates` keep their internal names.
 
 ## Summary
 
-- Files scanned: **269**
+- Files scanned: **250**
 - Live prohibited violations: **0**
-- Live discouraged usages: **35**
+- Live discouraged usages: **29**
 - Legacy (not-mounted) findings: **7**
 
 No prohibited terminology in live, mounted user-facing surfaces. ✅
@@ -36,12 +38,6 @@ not a hard blocker.
 | `src/domain/constitution/constitution.v1.ts` | 358 | discouraged | debate | argument | Challenging the scope or framing of the debate. |
 | `src/domain/constitution/constitution.v1.ts` | 508 | discouraged | moderator | observer / admin (context-dependent) | Moderator review needed |
 | `src/domain/constitution/constitution.v1.ts` | 509 | discouraged | moderator | observer / admin (context-dependent) | Flagged for moderator review. |
-| `src/features/admin/AdminArgumentsTab.tsx` | 245 | discouraged | debate | argument | Debate / Argument |
-| `src/features/admin/AdminMetadataEventsTab.tsx` | 139 | discouraged | debate | argument | No debates have tag activity yet. |
-| `src/features/admin/AdminMetadataEventsTab.tsx` | 150 | discouraged | debate | argument | Select debate |
-| `src/features/admin/AdminMetadataEventsTab.tsx` | 169 | discouraged | debate | argument | Filter by move, actor, debate, or tag… |
-| `src/features/admin/adminMetadataEventsApi.ts` | 291 | discouraged | debate | argument | debates!inner ( id, title ), |
-| `src/features/admin/adminMetadataEventsApi.ts` | 410 | discouraged | debate | argument | debate_id, debates!inner ( id, title ) |
 | `src/features/arguments/ArgumentTreeScreen.tsx` | 171 | discouraged | debate | argument | This debate has no posted arguments. Be the first to submit. |
 | `src/features/arguments/gameCopy.ts` | 487 | discouraged | moderator | observer / admin (context-dependent) | Send to moderators for review. |
 | `src/features/arguments/gameCopy.ts` | 891 | discouraged | debate | argument | exercise public rooms; they never judge a debate. |
