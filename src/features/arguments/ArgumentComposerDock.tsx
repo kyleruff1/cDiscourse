@@ -76,6 +76,7 @@ import {
   DEFAULT_CASUAL_PACING_RULE,
 } from '../modes';
 import type { PacingRule, PacingMoveRecord } from '../modes';
+import { SURFACE_TOKENS } from '../../lib/designTokens';
 
 /** Width (logical px) at or above which the dock is a right-side panel. */
 export const DOCK_SIDE_BREAKPOINT = 720;
@@ -664,14 +665,14 @@ const styles = StyleSheet.create({
   },
   sheetPanel: {
     height: '88%',
-    backgroundColor: '#f9fafb',
+    backgroundColor: SURFACE_TOKENS.base,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
-    borderColor: '#1f2937',
+    borderColor: SURFACE_TOKENS.border,
     overflow: 'hidden',
-    // Clean shadow so the light panel reads as an intentional surface
-    // over the dark room, not a glitch (COMPOSER-002 risk note).
+    // Clean shadow so the dock panel reads as an intentional surface
+    // over the room, not a glitch (COMPOSER-002 risk note).
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.4,
@@ -682,9 +683,9 @@ const styles = StyleSheet.create({
     width: 420,
     maxWidth: '92%',
     height: '100%',
-    backgroundColor: '#f9fafb',
+    backgroundColor: SURFACE_TOKENS.base,
     borderLeftWidth: 1,
-    borderLeftColor: '#1f2937',
+    borderLeftColor: SURFACE_TOKENS.border,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: -4, height: 0 },
@@ -693,9 +694,9 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   handleStrip: {
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.raised,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: SURFACE_TOKENS.border,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 10,
@@ -705,7 +706,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#cbd5e1',
+    backgroundColor: SURFACE_TOKENS.inputBorder,
     marginBottom: 8,
   },
   headerRow: {
@@ -716,7 +717,7 @@ const styles = StyleSheet.create({
   headerLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: SURFACE_TOKENS.textPrimary,
   },
   cancelButton: {
     minWidth: 44,
@@ -728,7 +729,7 @@ const styles = StyleSheet.create({
   cancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4b5563',
+    color: SURFACE_TOKENS.textSecondary,
   },
   composerBody: {
     flex: 1,

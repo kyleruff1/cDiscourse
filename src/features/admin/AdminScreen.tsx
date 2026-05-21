@@ -9,6 +9,7 @@ import { AdminArgumentsTab } from './AdminArgumentsTab';
 import { AdminMetadataEventsTab } from './AdminMetadataEventsTab';
 import type { AdminTab } from './types';
 import { ADMIN_TAB_LABELS } from './types';
+import { SURFACE_TOKENS, CONTROL } from '../../lib/designTokens';
 
 const TABS: AdminTab[] = [
   'users',
@@ -54,16 +55,16 @@ export function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
   subtabs: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.raised,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: SURFACE_TOKENS.border,
   },
   subtab: { flex: 1, paddingVertical: 10, alignItems: 'center' },
-  subtabActive: { borderBottomWidth: 2, borderBottomColor: '#dc2626' },
-  subtabText: { fontSize: 11, color: '#6b7280', fontWeight: '500' },
-  subtabTextActive: { color: '#dc2626', fontWeight: '700' },
+  subtabActive: { borderBottomWidth: 2, borderBottomColor: CONTROL.primary.bg },
+  subtabText: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, fontWeight: '500' },
+  subtabTextActive: { color: CONTROL.primary.bg, fontWeight: '700' },
   body: { flex: 1 },
 });

@@ -12,6 +12,7 @@ import { useAppSession } from '../session/useAppSession';
 import { useAccountProfile } from './useAccountProfile';
 import { fetchCurrentAuthUser, formatProfileRole } from './accountApi';
 import { SUPABASE_CONFIGURED } from '../../lib/supabase';
+import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
 interface Props {
   onSignOut: () => Promise<void>;
@@ -70,7 +71,7 @@ export function AccountScreen({ onSignOut, signOutLoading }: Props) {
       <Text style={styles.title}>Account</Text>
 
       {loading && !profile && (
-        <ActivityIndicator style={{ marginTop: 24 }} color="#6366f1" />
+        <ActivityIndicator style={{ marginTop: 24 }} color={CONTROL.primary.bg} />
       )}
 
       {error && (
@@ -178,15 +179,15 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f9fafb' },
+  scroll: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
   content: { padding: 20, paddingBottom: 48 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  title: { fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 20 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: SURFACE_TOKENS.base },
+  title: { fontSize: 22, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, marginBottom: 20 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.elevated,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: SURFACE_TOKENS.border,
     padding: 16,
     marginBottom: 16,
     gap: 12,
@@ -197,74 +198,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: SURFACE_TOKENS.divider,
   },
-  rowLabel: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
-  rowValue: { fontSize: 13, color: '#111827', fontWeight: '600', maxWidth: '65%', textAlign: 'right' },
-  placeholder: { color: '#9ca3af', fontStyle: 'italic' },
+  rowLabel: { fontSize: 13, color: SURFACE_TOKENS.textSecondary, fontWeight: '500' },
+  rowValue: { fontSize: 13, color: SURFACE_TOKENS.textPrimary, fontWeight: '600', maxWidth: '65%', textAlign: 'right' },
+  placeholder: { color: SURFACE_TOKENS.textMuted, fontStyle: 'italic' },
   nameRow: { paddingVertical: 4 },
   nameDisplay: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
   nameEdit: { marginTop: 8, gap: 8 },
   nameInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: SURFACE_TOKENS.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: SURFACE_TOKENS.textPrimary,
+    backgroundColor: SURFACE_TOKENS.inputBg,
   },
   nameActions: { flexDirection: 'row', gap: 8 },
   saveBtn: {
     flex: 1,
-    backgroundColor: '#6366f1',
+    backgroundColor: CONTROL.primary.bg,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
   },
-  saveBtnDisabled: { backgroundColor: '#a5b4fc' },
-  saveBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  saveBtnDisabled: { backgroundColor: CONTROL.primary.disabledBg },
+  saveBtnText: { color: CONTROL.primary.fg, fontSize: 14, fontWeight: '600' },
   cancelBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: SURFACE_TOKENS.inputBorder,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.elevated,
   },
-  cancelBtnText: { color: '#374151', fontSize: 14, fontWeight: '600' },
-  saveError: { fontSize: 12, color: '#b91c1c', marginTop: 4 },
-  savedNotice: { fontSize: 12, color: '#059669', textAlign: 'center', marginTop: 4 },
-  editBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: '#f3f4f6' },
-  editBtnText: { fontSize: 13, color: '#6366f1', fontWeight: '600' },
+  cancelBtnText: { color: SURFACE_TOKENS.textSecondary, fontSize: 14, fontWeight: '600' },
+  saveError: { fontSize: 12, color: STATUS.danger.fg, marginTop: 4 },
+  savedNotice: { fontSize: 12, color: STATUS.success.fg, textAlign: 'center', marginTop: 4 },
+  editBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: SURFACE_TOKENS.raised },
+  editBtnText: { fontSize: 13, color: CONTROL.primary.bg, fontWeight: '600' },
   noteCard: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: STATUS.success.bg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#bbf7d0',
+    borderColor: STATUS.success.fg,
     padding: 12,
     marginBottom: 24,
   },
-  noteText: { fontSize: 12, color: '#166534', lineHeight: 18 },
+  noteText: { fontSize: 12, color: STATUS.success.fg, lineHeight: 18 },
   noteCode: { fontFamily: 'monospace', fontSize: 11 },
   errorBox: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: STATUS.danger.bg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: STATUS.danger.fg,
     padding: 12,
     marginBottom: 16,
   },
-  errorText: { fontSize: 13, color: '#b91c1c', fontWeight: '600', marginBottom: 4 },
-  errorHint: { fontSize: 12, color: '#991b1b', lineHeight: 18 },
+  errorText: { fontSize: 13, color: STATUS.danger.fg, fontWeight: '600', marginBottom: 4 },
+  errorHint: { fontSize: 12, color: STATUS.danger.fg, lineHeight: 18 },
+  // Sign Out — destructive, bordered (not a full-bleed red flood) per BRAND-002.
   signOutButton: {
-    backgroundColor: '#ef4444',
+    backgroundColor: CONTROL.danger.bg,
+    borderWidth: 1,
+    borderColor: CONTROL.danger.borderColor,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
   },
   signOutDisabled: { opacity: 0.45 },
-  signOutLabel: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  signOutLabel: { color: CONTROL.danger.fg, fontSize: 15, fontWeight: '700' },
 });

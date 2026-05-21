@@ -1,5 +1,15 @@
 # CDiscourse — Current Status
-<!-- MCP-016 section is first; full-suite is now 6659 tests / 258 suites (+210 MCP-016 tests / +14 suites over the 6449/244 MCP-015 baseline). -->
+<!-- BRAND-002 section is first; full-suite is now 6733 tests / 259 suites (+74 BRAND-002 tests / +1 suite over the 6659/258 MCP-016 baseline). -->
+
+## BRAND-002 — App-wide dark surface cohesion pass (UI/UX Behavior Repair Wave / Branding)
+
+**Status:** Build complete, awaiting Review — a visual-only pass that extends `src/lib/designTokens.ts` with a reusable dark surface-token scale (`SURFACE_TOKENS`) and a control/button intent set (`CONTROL`), then replaces every raw light hex literal across 18 screen/component files (Account, Auth, Invite, the Admin screen + 9 tabs/panels, the 5 composer files) with a token reference so switching tabs no longer flashes from a dark game-board to a white form. No logic, copy, action, dependency, migration, or operator step. Issue #138.
+
+- **What it ships:** `SURFACE_TOKENS` (14 keys — `base`/`elevated`/`overlay`/`raised` backgrounds, `border`/`divider` hairlines, `textPrimary`/`textSecondary`/`textMuted`/`textInverse`, `inputBg`/`inputBorder`/`placeholder`, `focusRing`), `CONTROL` (`primary`/`secondary`/`danger`), both wired into the `TOKENS` aggregate and `getToken`. 18 converted files have zero raw light hex. New suite `__tests__/darkSurfaceTokens.test.ts` pins the token shape, the contrast pairs, the no-raw-light-hex screen scan, and the structural-name ban-list.
+- **Design amendment applied (2026-05-20 finishing pass):** the designer's amended contrast table fixed three numerically-wrong ratios. `CONTROL.primary.bg` changed `#6366f1` → `#4f46e5` (indigo-600) and `CONTROL.primary.fg` changed from `SURFACE_TOKENS.textInverse` (`#0b1220`) to `#ffffff` — white on indigo-600 measures 6.29:1 and clears the 4.5:1 body-text AA bar (`SURFACE_TOKENS.textInverse` is kept as a token; it is only no longer the primary button label). The three decorative hairlines (`border`/`divider`/`inputBorder`) are reclassified per WCAG 1.4.11 — a card/input/table separator does not encode a required component boundary, so they carry no 3:1 ratio bar; `darkSurfaceTokens.test.ts` now asserts only the lighter-than-backdrop luminance ordering for them. The focus ring keeps the full 3:1 bar (clears it at ~9–10:1). Every contrast-pair number in the suite is pinned to its real WCAG 2.x measured value.
+- **Doctrine:** token names stay structural — no verdict vocabulary (`CONTROL.danger` = "irreversible action", never "wrong"). No scoring/validation/post path touched. No secrets, no network, no AI call. No copy changed. cdiscourse-doctrine + accessibility-targets + expo-rn-patterns all hold.
+- **+74 tests / +1 suite.** Full suite **6733 tests / 259 suites passing**. Typecheck + lint + skills:validate clean.
+- **No operator step** — pure client code. No `db push`, no `functions deploy`, no env var, no migration, no Edge Function, no dependency install.
 
 ## MCP-016 — Edge Function mock boundary scaffold (Release 6.8 / Epic 12 — Rules UX)
 
