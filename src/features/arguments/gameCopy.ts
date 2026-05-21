@@ -1041,7 +1041,7 @@ export const ARGUMENT_MODE_COPY = Object.freeze({
   view_co_parenting_custody:
     'Take a calm beat between moves. The room stays on one question, what you post is kept, and this room is just for the two of you.',
   view_political_debate:
-    'Bring a source for each claim. A short pause cools reactivity, and an advisory note may appear — it is never a verdict.',
+    'Bring a source for each claim. A short pause cools reactivity, and an advisory note may appear — it only suggests a move, it never rules on a claim.',
   view_historical_debate:
     'Work the question through with sources. Side issues are welcome, and a short wrap-up names where you both landed.',
   view_recollection_disconnect:
