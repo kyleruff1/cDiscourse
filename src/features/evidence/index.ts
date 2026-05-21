@@ -100,3 +100,33 @@ export { ReceiptChip, RECEIPT_CHIP_RING_COLOR } from './ReceiptChip';
 export type { ReceiptChipProps } from './ReceiptChip';
 export { SourceChainPopover } from './SourceChainPopover';
 export type { SourceChainPopoverProps } from './SourceChainPopover';
+
+// EV-003 — Evidence debt tracker (render-time-derived obligation model).
+export type {
+  EvidenceDebt,
+  EvidenceDebtKind,
+  EvidenceDebtStatus,
+  EvidenceDebtChipContract,
+  NodeEvidenceDebtSummary,
+  RoomEvidenceDebtSummary,
+  EvidenceDebtArgumentInput,
+  EvidenceResponseLite,
+  DeriveEvidenceDebtsInput,
+} from './evidenceDebtModel';
+
+export {
+  ALL_EVIDENCE_DEBT_KINDS,
+  ALL_EVIDENCE_DEBT_STATUSES,
+  OPEN_EVIDENCE_DEBT_STATUSES,
+  STALE_DEBT_THRESHOLD_DAYS,
+  deriveEvidenceDebts,
+  getNodeEvidenceDebtSummary,
+  getRoomEvidenceDebtSummary,
+  summarizeEvidenceDebtChip,
+  getNodeEvidenceDebtChip,
+  evidenceDebtKindWord,
+} from './evidenceDebtModel';
+
+// EV-003 — React Native obligation-axis status chip.
+export { EvidenceDebtChip, EVIDENCE_DEBT_CHIP_HIT_SLOP } from './EvidenceDebtChip';
+export type { EvidenceDebtChipProps } from './EvidenceDebtChip';
