@@ -3,7 +3,15 @@
  *
  * Pure-function tests for `buildArgumentTimelineMap` and helpers in
  * argumentGameSurfaceModel.ts. No React, no Supabase, no network.
+ *
+ * IX-002 extends this suite (per the design's test plan — "do not create a
+ * parallel one") with a source-scan `describe` block proving
+ * `ArgumentTimelineMap.tsx` wires the mini-map in: rendered above the
+ * onboarding banner, jumps routed through `onActivate` (no route
+ * transition), branch jumps toggle `collapseState`.
  */
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   buildArgumentTimelineMap,
   timelineMapPrevId,
@@ -17,6 +25,7 @@ import {
   type ArgumentTimelineMapMessageInput,
   type ArgumentTimelineMapModel,
 } from '../src/features/arguments/argumentGameSurfaceModel';
+import { buildTimelineMiniMapModel } from '../src/features/arguments/timelineMiniMapModel';
 
 function isoAt(offsetMs: number): string {
   // Anchor to a fixed timestamp so tests are deterministic.
@@ -484,5 +493,92 @@ describe('mixHex', () => {
     const mid = mixHex('#ff0000', '#0000ff', 0.5);
     expect(mid.length).toBe(7);
     expect(mid[0]).toBe('#');
+  });
+});
+
+// ── IX-002 — TimelineMiniMap wiring inside ArgumentTimelineMap ──
+
+describe('IX-002 — ArgumentTimelineMap wires the mini-map overview', () => {
+  const HOST_SRC = fs.readFileSync(
+    path.join(__dirname, '..', 'src', 'features', 'arguments', 'ArgumentTimelineMap.tsx'),
+    'utf8',
+  );
+
+  it('imports TimelineMiniMap + the mini-map model builders', () => {
+    expect(HOST_SRC).toContain("from './TimelineMiniMap'");
+    expect(HOST_SRC).toContain('buildTimelineMiniMapModel');
+    expect(HOST_SRC).toContain('buildViewportWindow');
+  });
+
+  it('builds the mini-map model via useMemo from the map + collapseState', () => {
+    expect(HOST_SRC).toMatch(/buildTimelineMiniMapModel\(\{\s*timelineMap:\s*map/);
+    expect(HOST_SRC).toContain('collapseState');
+  });
+
+  it('builds the viewport window from the already-tracked scrollX + viewportWidth', () => {
+    expect(HOST_SRC).toMatch(/buildViewportWindow\(\{/);
+    expect(HOST_SRC).toContain('scrollWidth: map.scrollWidth');
+  });
+
+  it('renders <TimelineMiniMap> above the onboarding banner', () => {
+    const miniIdx = HOST_SRC.indexOf('<TimelineMiniMap');
+    const bannerIdx = HOST_SRC.indexOf('timeline-root-onboarding');
+    expect(miniIdx).toBeGreaterThan(0);
+    expect(bannerIdx).toBeGreaterThan(0);
+    expect(miniIdx).toBeLessThan(bannerIdx);
+  });
+
+  it('routes every mini-map jump through the existing onActivate channel (no route transition)', () => {
+    // handleMiniMapJump calls onActivate — proves there is no navigation /
+    // route push; the mini-map only uses in-component callbacks.
+    expect(HOST_SRC).toContain('handleMiniMapJump');
+    expect(HOST_SRC).toMatch(/handleMiniMapJump[\s\S]{0,400}onActivate\(req\.messageId\)/);
+    // No router / navigation / Linking is introduced for the jump.
+    expect(HOST_SRC.includes('Linking')).toBe(false);
+    expect(HOST_SRC.includes('navigation.navigate')).toBe(false);
+  });
+
+  it('routes a mini-map jump through the imperative scrollRef scroll', () => {
+    expect(HOST_SRC).toMatch(/handleMiniMapJump[\s\S]{0,600}scrollRef\.current\.scrollTo/);
+  });
+
+  it("a branch jump into a collapsed branch toggles collapseState (expand-first)", () => {
+    expect(HOST_SRC).toMatch(/req\.kind\s*===\s*'branch'/);
+    expect(HOST_SRC).toMatch(/handleMiniMapJump[\s\S]{0,400}toggleBranchCollapse/);
+  });
+
+  it('passes the effective reduce-motion preference to the mini-map', () => {
+    expect(HOST_SRC).toMatch(/<TimelineMiniMap[\s\S]{0,400}reduceMotion=\{effectiveReducedMotion\}/);
+  });
+
+  it('does not add a new prop to the ArgumentTimelineMap Props interface for the mini-map', () => {
+    // The mini-map is internal chrome — the room shell needs zero changes.
+    expect(HOST_SRC.includes('miniMap?:')).toBe(false);
+    expect(HOST_SRC.includes('onMiniMapJump')).toBe(false);
+  });
+});
+
+describe('IX-002 — mini-map availability gates on debate length', () => {
+  function chain(n: number): ArgumentTimelineMapModel {
+    const messages: ArgumentTimelineMapMessageInput[] = [];
+    for (let i = 0; i < n; i++) {
+      messages.push(
+        msg({
+          id: `m${i}`,
+          parentId: i === 0 ? null : `m${i - 1}`,
+          createdAt: isoAt(i * 1000),
+          argumentType: i === 0 ? 'thesis' : 'claim',
+        }),
+      );
+    }
+    return buildArgumentTimelineMap({ messages, currentUserId: 'me' });
+  }
+
+  it('a 12+-move map yields an available mini-map model', () => {
+    expect(buildTimelineMiniMapModel({ timelineMap: chain(12) }).isAvailable).toBe(true);
+  });
+
+  it('a 5-move map yields an unavailable mini-map model (component renders nothing)', () => {
+    expect(buildTimelineMiniMapModel({ timelineMap: chain(5) }).isAvailable).toBe(false);
   });
 });

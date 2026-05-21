@@ -77,6 +77,15 @@ import {
   type TimelineNodeVisualStyle,
 } from './timelineNodeVisualModel';
 import { GLOW, RECEIPT_MARK } from '../../lib/designTokens';
+// IX-002 — timeline mini-map overview. The mini-map is a deterministic
+// PROJECTION of the already-built `map` + the existing `collapseState`;
+// it is internal chrome (no new prop crosses the component boundary).
+import { TimelineMiniMap } from './TimelineMiniMap';
+import {
+  buildTimelineMiniMapModel,
+  buildViewportWindow,
+  type MiniMapJumpRequest,
+} from './timelineMiniMapModel';
 
 interface Props {
   map: ArgumentTimelineMapModel;
@@ -680,6 +689,80 @@ export function ArgumentTimelineMap({
     } catch { /* swallow — not all platforms support imperative scroll */ }
   }, [map.activeNode]);
 
+  // IX-002 — mini-map overview view-model. A deterministic projection of
+  // the already-built `map` + the existing `collapseState`. It NEVER
+  // re-derives heat or branch logic; it re-labels `temperatureBand` and
+  // reads `branchId` / `branchRootMessageId` verbatim. The mini-map is
+  // collapsed-by-default and renders nothing below the length threshold.
+  const miniMapModel = useMemo(
+    () => buildTimelineMiniMapModel({ timelineMap: map, collapseState }),
+    [map, collapseState],
+  );
+
+  // IX-002 — the viewport window indicator: which slice of the
+  // conversation the MAIN map currently shows. Built from the already-
+  // tracked `scrollX` + `viewportWidth` + `map.scrollWidth`.
+  const miniMapViewportWindow = useMemo(
+    () =>
+      buildViewportWindow({
+        scrollX,
+        viewportWidth,
+        scrollWidth: map.scrollWidth,
+      }),
+    [scrollX, viewportWidth, map.scrollWidth],
+  );
+
+  // IX-002 — route every mini-map jump through the SAME two mechanisms a
+  // node tap already uses: `onActivate` for selection + the imperative
+  // `scrollRef.scrollTo`. No route push, no navigation. A branch jump
+  // into a collapsed branch expands it first (mirrors `handleStubPress`).
+  const handleMiniMapJump = useCallback(
+    (req: MiniMapJumpRequest) => {
+      if (req.kind === 'branch') {
+        const node = nodesById.get(req.messageId);
+        const branchRoot = node?.branchRootMessageId ?? req.messageId;
+        setCollapseState((prev) =>
+          prev[branchRoot] === 'collapsed'
+            ? toggleBranchCollapse(prev, branchRoot)
+            : prev,
+        );
+      }
+      onActivate(req.messageId);
+      const node = nodesById.get(req.messageId);
+      if (node && scrollRef.current) {
+        try {
+          scrollRef.current.scrollTo({
+            x: Math.max(0, node.x - 120),
+            animated: !effectiveReducedMotion,
+          });
+        } catch {
+          /* swallow — same pattern as the auto-scroll effect above */
+        }
+      }
+    },
+    [onActivate, nodesById, effectiveReducedMotion],
+  );
+
+  // IX-002 — live viewport scrub: dragging the mini-map window pans the
+  // MAIN map without changing the active node (scrub pans, it does not
+  // select). Converts a normalized centre fraction into a scroll offset.
+  const handleMiniMapScrub = useCallback(
+    (centreFraction: number) => {
+      if (!scrollRef.current) return;
+      const target =
+        centreFraction * map.scrollWidth - Math.max(0, viewportWidth) / 2;
+      try {
+        scrollRef.current.scrollTo({
+          x: Math.max(0, target),
+          animated: false,
+        });
+      } catch {
+        /* swallow — imperative scroll unsupported on some platforms */
+      }
+    },
+    [map.scrollWidth, viewportWidth],
+  );
+
   const handleJumpLatest = useCallback(() => onJumpLatest(), [onJumpLatest]);
 
   // SC-002 — per-node tap handler delegates to the pure model so the
@@ -878,6 +961,17 @@ export function ArgumentTimelineMap({
           </Pressable>
         ) : null}
       </View>
+
+      {/* IX-002 — mini-map overview. Internal additive chrome directly
+          under the controls row. Renders nothing for short debates
+          (below the length threshold) so it never crowds mobile UI. */}
+      <TimelineMiniMap
+        model={miniMapModel}
+        viewportWindow={miniMapViewportWindow}
+        onJump={handleMiniMapJump}
+        onScrubViewport={handleMiniMapScrub}
+        reduceMotion={effectiveReducedMotion}
+      />
 
       {map.rootOnboardingHint ? (
         <View style={styles.onboardingBanner} testID="timeline-root-onboarding">
