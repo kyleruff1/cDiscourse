@@ -1,5 +1,14 @@
 # CDiscourse — Current Status
-<!-- Latest implementer card: IX-001 (timeline density + focus lenses). Full suite is 7690 tests / 286 suites. -->
+<!-- Latest implementer card: QOL-030 (one-box composer + flash-popout chassis). Full suite is 7861 tests / 289 suites. -->
+
+## QOL-030 — One-box composer + flash-popout chassis (Epic 8 — Timeline Interaction Mechanics)
+
+**Status:** Build complete, awaiting Review — the **one-box composer foundation** the MVP interaction surface stands on. A single switchable composer "box" identified by `(type, target, view)`: a flash menu switches type, per-type draft buffers make type-switching non-destructive, and the box composes into both Timeline and Cards view rather than being replaced by a bespoke screen. **No migration, no Edge Function, no `supabase/` change** — QOL-030 is client composition over existing data; posting stays on the existing `submit-argument`. No service-role, no direct insert into `public.arguments`, no new dependency, no Anthropic / xAI / OpenAI / X API call, no `.env` touched. Issue #199.
+
+- **What it ships:** New `src/features/arguments/oneBox/` module — `boxModel.ts` (the `BoxType` / `BoxTarget` state machine over `(type, target, view, stageContext, lifecycle, draftBuffers)` plus `renderSchema`; per-type draft buffers so switching type never destroys a draft), `actPopoutModel.ts` (`buildActPopout` — the 3-gate pure function: engine hard-filter ∩ role hard-filter ∩ stage soft-promotion), the reusable popout chassis `Popout.tsx` / `PopoutEntry.tsx` / `PopoutGroup.tsx` (the RN primitives QOL-031/032/033 will later consume), and `OneBox.tsx` — the box component that re-types itself. `ArgumentComposerDock.tsx` refactored to host the OneBox; posting stays on `submit-argument`. QOL-031/032/033 popout *contents* remain placeholders pending their own cards.
+- **Doctrine:** the box is one mounted component that re-types itself — never swapped for a bespoke input screen. The flash menu offers only engine-valid (Constitution transition table) and role-allowed box types. Pure-TS models (`boxModel.ts`, `actPopoutModel.ts`) hold no React / Supabase / network import; the constitution engine is untouched. No `game` / `Debates` / `Tap to join` vocabulary in any touched normal-user copy. No bespoke surface is retired in this card (CreateDebateForm / JoinDebatePanel re-housing is a named later follow-up).
+- **+171 tests / +3 suites.** Full suite **7861 tests / 289 suites passing** (from the 7690 / 286 baseline). Typecheck + lint clean.
+- **No operator step** — pure client code. No `db push`, no `functions deploy`, no env var, no migration, no Edge Function, no dependency install. **Unblocks QOL-031 / QOL-032 / QOL-033** (the Act / Inspect / Go popouts that consume this chassis).
 
 ## IX-001 — Timeline density + focus lenses (Epic 8 — Timeline Interaction Mechanics)
 
