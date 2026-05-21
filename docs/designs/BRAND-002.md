@@ -515,3 +515,55 @@ color changes to `CONTROL.danger.fg` — text links keep no border.
 None — pure code change. No migration, no Edge Function deploy, no env var,
 no Supabase write. After the implementer commits, the operator only runs the
 standard `npm run typecheck && npm run lint && npm run test`.
+
+---
+
+## Implementer note: cannot proceed — contrast table is numerically wrong
+
+**Status:** BLOCKED. Surfaced by the roadmap-implementer, 2026-05-20.
+
+The design's "Contrast pairs (AA verified)" table (lines 114–135) instructs the
+implementer to keep the exact token values **and** to pin every listed ratio in
+`darkSurfaceTokens.test.ts`. Three of the tabulated ratios are **measurably
+wrong** — a WCAG 2.x `relativeLuminance` + `contrastRatio` implementation (the
+exact helper the design's own test plan specifies) computes the following:
+
+| Pair | Design claims | Actually measures | Design AA bar |
+|---|---|---|---|
+| `border #1e293b` on `base #020617` | 3.0:1 | **1.38:1** | 3:1 — FAILS |
+| `inputBorder #334155` on `inputBg #0b1220` | 3.6:1 | **1.81:1** | 3:1 — FAILS |
+| `CONTROL.primary.fg #0b1220` on `primary.bg #6366f1` | 5.0:1 | **4.19:1** | 4.5:1 — FAILS |
+
+(The `border`/`inputBorder` claims are off by ~2×; the `primary` button-label
+claim narrowly misses the 4.5:1 body-text bar the design itself sets.)
+
+The design explicitly forbids redesign by the implementer ("implementer must
+keep these exact pairs"), and the agent contract forbids changing token values
+or test thresholds unilaterally — both are designer decisions. The test plan
+cannot pass as written with the design's token values. Specifically:
+
+- The two **border** pairs at 3:1: dark-on-dark hairlines physically cannot
+  reach 3:1 against `#020617`/`#0b1220` without becoming a bright line that no
+  longer reads as a hairline. A subtle row separator is arguably decorative
+  (WCAG 1.4.11 applies to non-text UI that is *required to identify* a
+  component/state — a row divider is not). The fix is most likely **relabel
+  these rows as decorative separators and assert a softer floor (e.g. ≥1.2:1
+  "visible but quiet"), not 3:1** — but that is a doctrine call the designer
+  must make.
+- The **`CONTROL.primary.fg`** pair genuinely fails AA for a button label. The
+  fix is one of: (a) make `CONTROL.primary.fg` `#ffffff` (measures 4.47:1 — a
+  hair under 4.5, still short) or pure black `#000000`-family; (b) darken
+  `primary.bg` from `#6366f1` to e.g. `#5457d6` so the dark label clears 4.5:1;
+  (c) accept large-text 3:1 and document the button label as ≥18px bold. Each
+  changes a token value the design pins — a designer decision.
+
+**What is already on the branch (sound, not reverted):** the full
+`SURFACE_TOKENS` + `CONTROL` scale exactly as the design specifies; the 18
+screen/component conversions; the test file. `npm run typecheck` and
+`npm run lint` are clean. The **only** failures are the three contrast-pair
+assertions above plus their downstream effect on `npm run test`.
+
+**Decision needed from the designer:** corrected token values (so the AA
+ratios are real) and/or a corrected contrast table + corrected test thresholds.
+Once the design is amended, the implementer can finish in one short pass — the
+mechanical conversion is already done.
