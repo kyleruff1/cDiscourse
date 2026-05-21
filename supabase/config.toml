@@ -390,6 +390,9 @@ verify_jwt = true
 [functions.request-argument-deletion]
 verify_jwt = true
 
+[functions.semantic-referee]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
