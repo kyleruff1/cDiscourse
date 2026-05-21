@@ -207,7 +207,7 @@ export function ConversationGalleryScreen({
           style={styles.newButton}
           onPress={() => setShowCreate(true)}
           accessibilityRole="button"
-          accessibilityLabel="Start a new debate room"
+          accessibilityLabel="Start a new argument room"
           testID="gallery-new-room"
         >
           <Text style={styles.newButtonText}>+ New room</Text>

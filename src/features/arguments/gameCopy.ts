@@ -78,7 +78,7 @@ export const STATUS_COPY = {
   mightBothBeWrong: 'You might both be wrong',
   restingStatus: 'Resting status',
   claimStanding: 'Claim standing',
-  noObjectiveTruth: 'This reflects current game state, not objective fact.',
+  noObjectiveTruth: 'This reflects the current state of the argument, not objective fact.',
 } as const;
 
 // ── Timeline / track copy ──────────────────────────────────────
