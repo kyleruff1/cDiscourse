@@ -22,6 +22,13 @@ import type { QuickActionLabel } from '../arguments/quickActionPresets';
 import type { EntryOpportunity } from '../strengthWeakness/heatModel';
 import { getLifecycleUx } from '../rulesUx/lifecycleUxMap';
 import { GALLERY_SECTION_DEFINITIONS, type GallerySectionDefinition } from '../arguments/gameCopy';
+import { buildEvidenceArtifacts } from '../evidence/evidenceModel';
+import {
+  deriveEvidenceDebts,
+  getRoomEvidenceDebtSummary,
+  type EvidenceDebtArgumentInput,
+  type RoomEvidenceDebtSummary,
+} from '../evidence/evidenceDebtModel';
 
 // ── Shared input shapes ────────────────────────────────────────
 
@@ -42,6 +49,19 @@ export interface GalleryArgumentInput {
   status: string | null;
   createdAt: string;
   updatedAt?: string | null;
+  /**
+   * EV-003 — Optional raw evidence attachments from
+   * `arguments.client_validation.attachedEvidence`. The gallery loader
+   * threads `row.clientValidation.attachedEvidence` here so `buildGallery`
+   * can derive evidence debts via EV-001's `buildEvidenceArtifacts`. Optional;
+   * defaults to `[]`. Reused — no new query.
+   */
+  attachedEvidence?: ReadonlyArray<{
+    url?: string | null;
+    label?: string | null;
+    sourceText?: string | null;
+    quote?: string | null;
+  }> | null;
 }
 
 export interface GalleryFlagInput {
@@ -259,6 +279,16 @@ export interface ConversationGalleryCard {
   evidentiaryRisk: 'low' | 'medium' | 'high' | 'unknown';
   amplificationRisk: 'none_observed' | 'low' | 'medium' | 'high';
   platformSupportWarning: boolean;
+
+  /**
+   * EV-003 — Per-room evidence-debt roll-up. Drives the "Evidence requested"
+   * indicator and gives the source-trail lane an HONEST data source: it can
+   * tell an open source request from a resolved one (tag counts alone
+   * cannot). Render-time-derived from the room's argument rows — no new
+   * query, no migration. A debt is advisory; this is an obligation marker,
+   * never a truth label.
+   */
+  evidenceDebtSummary: RoomEvidenceDebtSummary;
 
   unresolvedReason: string | null;
   stopReason: string | null;
@@ -493,10 +523,21 @@ export function computeConversationTemperament(args: {
 export function getConversationSignals(card: Pick<ConversationGalleryCard,
   | 'sourceChainRisk' | 'evidentiaryRisk' | 'amplificationRisk' | 'platformSupportWarning'
   | 'hasNoRebuttal' | 'unresolvedReason' | 'temperament' | 'rebuttalCount'
+  | 'evidenceDebtSummary'
 >): ConversationSignal[] {
   const out: ConversationSignal[] = [];
   if (card.hasNoRebuttal) out.push({ code: 'no_rebuttal', label: 'No rebuttal yet', tone: 'warning' });
   if (card.platformSupportWarning) out.push({ code: 'platform_warning', label: 'Platform support warning', tone: 'critical' });
+  // EV-003 — an open evidence debt is a real, resolution-aware signal. It
+  // sits above the tag-count source-chain risk because it can tell an open
+  // request from a resolved one. The label is an OBLIGATION observation,
+  // never a verdict.
+  if (card.evidenceDebtSummary?.hasOpenEvidenceDebt) {
+    out.push({ code: 'evidence_debt_open', label: 'Evidence requested', tone: 'warning' });
+  }
+  if ((card.evidenceDebtSummary?.staleCount ?? 0) > 0) {
+    out.push({ code: 'evidence_debt_stale', label: 'Source still owed', tone: 'neutral' });
+  }
   if (card.sourceChainRisk === 'high') out.push({ code: 'source_chain_high', label: 'Source-chain fight', tone: 'critical' });
   else if (card.sourceChainRisk === 'medium') out.push({ code: 'source_chain_medium', label: 'Source-chain pressure', tone: 'warning' });
   if (card.evidentiaryRisk === 'high') out.push({ code: 'evidence_high', label: 'Evidence demanded', tone: 'warning' });
@@ -538,10 +579,42 @@ export function classifyConversationBucket(args: {
   evidentiaryRisk: ConversationGalleryCard['evidentiaryRisk'];
   isMaxDepth: boolean;
   temperament: ConversationTemperament;
+  /**
+   * EV-003 — count of OPEN evidence debts in the room (requested /
+   * challenged / unresolved / stale). The primary `source_chain_fight`
+   * signal: a room with a live source obligation is a genuine source-trail
+   * fight. Defaults to 0.
+   */
+  openEvidenceDebtCount?: number;
+  /**
+   * EV-003 — total evidence debts in the room (any status). When this is
+   * > 0 the debt count is AUTHORITATIVE for the `source_chain_fight` lane:
+   * a room whose `source_request` debts all resolved (`totalEvidenceDebtCount
+   * > 0`, `openEvidenceDebtCount === 0`) is NOT a live source-trail fight and
+   * is kept OUT of the lane — the precision fix the tag-count heuristic could
+   * not make. When the room has NO debts at all, the legacy tag-count
+   * heuristic still applies (it catches `source`-flavoured tags that are not
+   * formal requests). Defaults to 0.
+   */
+  totalEvidenceDebtCount?: number;
 }): ConversationBucket {
   if (args.stopReason && /synthesis|concession|resolved/i.test(args.stopReason)) return 'resolved_or_synthesized';
   if (args.hasNoRebuttal) return 'needs_rebuttal';
-  if (args.sourceChainHits >= 1 && (args.sourceChainRisk === 'high' || args.sourceChainRisk === 'medium' || args.platformSupportWarning)) return 'source_chain_fight';
+  // EV-003 — when the room has evidence debts, the OPEN-debt count is the
+  // authoritative source-trail-fight signal: an open debt routes in; an
+  // all-resolved room is held out. When the room has NO debts, fall through
+  // to the legacy tag-count heuristic below.
+  const totalDebts = args.totalEvidenceDebtCount ?? 0;
+  const openDebts = args.openEvidenceDebtCount ?? 0;
+  if (totalDebts > 0) {
+    if (openDebts > 0) return 'source_chain_fight';
+    // Debts exist but all resolved — skip the source-trail lane entirely.
+  } else if (
+    args.sourceChainHits >= 1 &&
+    (args.sourceChainRisk === 'high' || args.sourceChainRisk === 'medium' || args.platformSupportWarning)
+  ) {
+    return 'source_chain_fight';
+  }
   if (args.evidenceHits >= 2 || args.evidentiaryRisk === 'high') return 'evidence_fight';
   if (args.definitionHits + args.scopeHits >= 3) return 'definition_scope_fight';
   if (args.isMaxDepth || (args.moveCount >= 8 && !args.stopReason)) return 'unresolved_deep_chain';
@@ -770,6 +843,34 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
     const messages = (argsByDebate[debate.id] || []).filter((m) => m.status !== 'deleted');
     const stats = deriveMessageStats(messages, flagsById, tagsById);
 
+    // EV-003 — derive the room's evidence debts from the SAME already-fetched
+    // rows (the gallery's batched `in()` query; no new fetch). Tag codes come
+    // from the per-argument `tagsByArgumentId` map; artifacts are built from
+    // each row's `attachedEvidence` via EV-001's `buildEvidenceArtifacts`.
+    const evidenceDebts = deriveEvidenceDebts({
+      debateId: debate.id,
+      arguments: messages.map<EvidenceDebtArgumentInput>((m) => ({
+        id: m.id,
+        debateId: debate.id,
+        parentId: m.parentId,
+        authorId: m.authorId,
+        argumentType: m.argumentType,
+        side: m.side,
+        createdAt: m.createdAt,
+        tagCodes: (tagsById[m.id] || []).map((t) => t.tagCode),
+        artifacts: Array.isArray(m.attachedEvidence)
+          ? buildEvidenceArtifacts({
+              argumentId: m.id,
+              addedByUserId: m.authorId || 'unknown',
+              createdAt: m.createdAt,
+              attachments: m.attachedEvidence,
+            })
+          : [],
+      })),
+      nowMs: now,
+    });
+    const evidenceDebtSummary = getRoomEvidenceDebtSummary(debate.id, evidenceDebts);
+
     const cleanedTitle = cleanTitleForDedupe(debate.title || '');
     const canonicalConversationKey = deriveCanonicalConversationKey({
       debate,
@@ -817,6 +918,9 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
       evidentiaryRisk: stats.evidentiaryRisk,
       isMaxDepth: stats.isMaxDepth,
       temperament,
+      // EV-003 — resolution-aware source-trail-fight routing.
+      openEvidenceDebtCount: evidenceDebtSummary.openCount,
+      totalEvidenceDebtCount: evidenceDebtSummary.totalCount,
     });
 
     const fallbackTitle = cleanedTitle.length > 0
@@ -864,6 +968,8 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
       evidentiaryRisk: stats.evidentiaryRisk,
       amplificationRisk: stats.amplificationRisk,
       platformSupportWarning: stats.platformSupportWarning,
+
+      evidenceDebtSummary,
 
       unresolvedReason: stats.isMaxDepth ? 'max_depth_reached_no_synthesis'
         : (stats.moveCount >= 8 && !stats.stopReason) ? 'long_thread_no_close'

@@ -193,6 +193,10 @@ function makeCard(over: Partial<ConversationGalleryCard>): ConversationGalleryCa
     issueFrame: 'unknown', dominantAxis: 'none',
     sourceChainRisk: 'unknown', evidentiaryRisk: 'unknown', amplificationRisk: 'none_observed',
     platformSupportWarning: false, unresolvedReason: null, stopReason: null,
+    evidenceDebtSummary: {
+      debateId: 'd1', totalCount: 0, openCount: 0, staleCount: 0,
+      settledCount: 0, hasOpenEvidenceDebt: false, statusLine: '',
+    },
     timelinePreviewSegments: [], signals: [], searchText: '',
     voteScorePreview: null, winnerPreview: null, promotedArgumentCount: 0,
     sortKeys: { latestActivityMs: 0, createdAtMs: 0, heatScore: 0, needsRebuttalFlag: 0, moveCount: 0, oldestUnresolvedMs: Number.POSITIVE_INFINITY },
