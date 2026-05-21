@@ -149,3 +149,48 @@ export {
 // EV-003 — React Native obligation-axis status chip.
 export { EvidenceDebtChip, EVIDENCE_DEBT_CHIP_HIT_SLOP } from './EvidenceDebtChip';
 export type { EvidenceDebtChipProps } from './EvidenceDebtChip';
+
+// QOL-037 — Evidence applicability dispute flow (the applicability axis).
+export type {
+  EvidenceResponseChoice,
+  ApplicabilityStatus,
+  EvidenceResponseRecord,
+  EvidenceResponseChoiceDescriptor,
+  EvidenceResponseValidation,
+  ApplicabilityChipContract,
+  RespondToEvidenceViewModel,
+  DeriveApplicabilityStatusOptions,
+} from './evidenceApplicabilityModel';
+
+export {
+  ALL_EVIDENCE_RESPONSE_CHOICES,
+  ALL_APPLICABILITY_STATUSES,
+  EVIDENCE_RESPONSE_CHOICES,
+  MIN_CLARIFICATION_CHARS,
+  validateEvidenceResponseDraft,
+  deriveApplicabilityStatus,
+  previewApplicabilityTransition,
+  summarizeApplicabilityChip,
+  buildRespondToEvidenceViewModel,
+} from './evidenceApplicabilityModel';
+
+// QOL-037 — locked plain-language copy (exported for ban-list tests).
+export {
+  EVIDENCE_RESPONSE_CHOICE_LABELS,
+  EVIDENCE_RESPONSE_CHOICE_HELPERS,
+  APPLICABILITY_CHIP_LABELS,
+  APPLICABILITY_CHIP_HELPERS,
+  ALL_EVIDENCE_APPLICABILITY_STRINGS,
+} from './evidenceApplicabilityCopy';
+
+// QOL-037 — React Native applicability-axis status chip.
+export { ApplicabilityChip, APPLICABILITY_CHIP_HIT_SLOP } from './ApplicabilityChip';
+export type { ApplicabilityChipProps } from './ApplicabilityChip';
+
+// QOL-037 — React Native respond-to-evidence structured form.
+export { RespondToEvidenceForm, composeApplicabilityPreviewLine } from './RespondToEvidenceForm';
+export type {
+  RespondToEvidenceFormProps,
+  RespondToEvidenceViewerRole,
+  EvidenceResponseDraft,
+} from './RespondToEvidenceForm';
