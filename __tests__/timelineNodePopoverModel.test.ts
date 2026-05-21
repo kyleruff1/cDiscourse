@@ -232,3 +232,48 @@ describe('EV-002 buildTimelineNodePopoverModel — optional evidenceContract', (
     expect(model!.evidenceContract).toBe(contract);
   });
 });
+
+// ── EV-003 — evidenceDebtSummary pass-through ──────────────────
+
+describe('EV-003 buildTimelineNodePopoverModel — optional evidenceDebtSummary', () => {
+  it('omits the evidenceDebtSummary field when none is passed', () => {
+    const node = fakeNode({ messageId: 'm1' });
+    const model = buildTimelineNodePopoverModel({ node, actor: 'other', totalCount: 1 });
+    expect(model).not.toBeNull();
+    expect('evidenceDebtSummary' in model!).toBe(false);
+  });
+
+  it('threads evidenceDebtSummary through untouched, beside evidenceContract', () => {
+    const debtSummary = {
+      nodeId: 'm1',
+      debts: [
+        {
+          id: 'ask:debt',
+          debateId: 'room',
+          nodeId: 'm1',
+          requestArgumentId: 'ask',
+          debtKind: 'source' as const,
+          requestedByUserId: 'user-a',
+          requestedAt: '2026-05-18T00:00:00Z',
+          status: 'requested' as const,
+          ageDays: 1,
+          isStale: false,
+        },
+      ],
+      openCount: 1,
+      settledCount: 0,
+      hasOpenDebt: true,
+      chipStatus: 'requested' as const,
+    };
+    const node = fakeNode({ messageId: 'm1' });
+    const model = buildTimelineNodePopoverModel({
+      node,
+      actor: 'other',
+      totalCount: 1,
+      evidenceDebtSummary: debtSummary,
+    });
+    expect(model).not.toBeNull();
+    // Same reference, copied onto the model untouched.
+    expect(model!.evidenceDebtSummary).toBe(debtSummary);
+  });
+});

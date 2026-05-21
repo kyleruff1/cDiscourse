@@ -45,8 +45,12 @@ import type { GalleryEntryHint } from '../debates/conversationGalleryModel';
 import type { MoveDraftPatch } from './conversationMoves';
 import type { ArgumentType } from '../../domain/constitution/types';
 import {
+  deriveEvidenceDebts,
+  getNodeEvidenceDebtSummary,
   getTimelineEvidenceContract,
   type EvidenceArtifact,
+  type EvidenceDebtArgumentInput,
+  type NodeEvidenceDebtSummary,
   type TimelineEvidenceContract,
 } from '../evidence';
 import { buildArtifactsByMessageId } from './argumentGameSurfaceEvidence';
@@ -291,6 +295,37 @@ export function ArgumentGameSurface({
     const argumentType = msg?.argumentType ?? null;
     return getTimelineEvidenceContract(argumentType, arr);
   }, [artifactsByMessageId, sorted]);
+
+  // EV-003 — Derive the room's evidence debts once per render from the same
+  // already-fetched rows (tag codes carry the request signal; the EV-001
+  // artifact map carries the resolution signal). Pure, deterministic — the
+  // injected `nowMs` keeps the staleness calc honest. No new fetch, no
+  // service-role, no Supabase write. A debt is advisory only.
+  const evidenceDebts = useMemo(() => {
+    const debtArguments: EvidenceDebtArgumentInput[] = sorted.map((m) => ({
+      id: m.id,
+      debateId: debate.id,
+      parentId: m.parentId,
+      authorId: m.authorId ?? null,
+      argumentType: m.argumentType ?? null,
+      side: m.side ?? null,
+      createdAt: m.createdAt,
+      tagCodes: (tagsByArgumentId?.[m.id] || []).map((t) => t.tagCode),
+      artifacts: artifactsByMessageId[m.id] ?? [],
+    }));
+    return deriveEvidenceDebts({
+      debateId: debate.id,
+      arguments: debtArguments,
+      nowMs: Date.now(),
+    });
+  }, [sorted, debate.id, tagsByArgumentId, artifactsByMessageId]);
+
+  // EV-003 — Per-node debt summary lookup threaded into the timeline popover.
+  const evidenceDebtSummaryFor = useCallback(
+    (messageId: string): NodeEvidenceDebtSummary | null =>
+      getNodeEvidenceDebtSummary(messageId, evidenceDebts),
+    [evidenceDebts],
+  );
 
   // SC-004 — Convert the record-shaped artifacts map to a ReadonlyMap form
   // for the lifecycle / metadata builders, which prefer that interface.
@@ -718,6 +753,7 @@ export function ArgumentGameSurface({
               onOpenDetails={(id) => { setActiveMessageId(id); setSelectionStatus('explicit'); setMode('stack'); }}
               artifactsByMessageId={artifactsByMessageId}
               evidenceContractFor={evidenceContractFor}
+              evidenceDebtSummaryFor={evidenceDebtSummaryFor}
               isReadModeViewer={resolvedViewerRole === 'observer'}
               selectedTarget={selectedDockTarget}
               actionDockModel={dockModel}

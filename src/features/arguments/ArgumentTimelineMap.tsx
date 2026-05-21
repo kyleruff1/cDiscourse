@@ -48,6 +48,7 @@ import type {
   TimelineNodeActionDockTarget,
 } from './timelineNodeActionDockModel';
 import type { EvidenceArtifact, TimelineEvidenceContract } from '../evidence/evidenceModel';
+import type { NodeEvidenceDebtSummary } from '../evidence/evidenceDebtModel';
 import {
   buildRailSegmentInput,
   buildWholeRailAccessibilityLabel,
@@ -123,6 +124,14 @@ interface Props {
    * artifacts)` here so the popover and the chip never drift.
    */
   evidenceContractFor?: (messageId: string) => TimelineEvidenceContract | null;
+  /**
+   * EV-003 — Builder for the per-node `NodeEvidenceDebtSummary`. The room
+   * shell derives the room's evidence debts once per render and threads a
+   * per-node roll-up here; the popover renders an `EvidenceDebtChip` from
+   * it. Mirrors `evidenceContractFor` so the obligation chip and the
+   * existence chip stay in lockstep.
+   */
+  evidenceDebtSummaryFor?: (messageId: string) => NodeEvidenceDebtSummary | null;
   /**
    * EV-002 — True when the viewer cannot post (observer mode). Threaded
    * through to the popover so the "ask" CTA renders disabled with the
@@ -406,6 +415,7 @@ export function ArgumentTimelineMap({
   controlsContext,
   artifactsByMessageId,
   evidenceContractFor,
+  evidenceDebtSummaryFor,
   isReadModeViewer,
   selectedTarget,
   actionDockModel,
@@ -873,12 +883,18 @@ export function ArgumentTimelineMap({
     if (!popoverMessageId || !map.activeNode || !activeViewModel) return null;
     if (popoverMessageId !== map.activeNode.messageId) return null;
     const contract = evidenceContractFor ? evidenceContractFor(map.activeNode.messageId) ?? undefined : undefined;
+    // EV-003 — per-node evidence-debt roll-up; undefined when the room shell
+    // does not supply the builder (the popover then renders no debt chip).
+    const debtSummary = evidenceDebtSummaryFor
+      ? evidenceDebtSummaryFor(map.activeNode.messageId) ?? undefined
+      : undefined;
     return buildTimelineNodePopoverModel({
       node: map.activeNode,
       actor: activeViewModel.actor,
       totalCount: totalCount ?? map.nodes.length,
       controlsContext,
       evidenceContract: contract,
+      evidenceDebtSummary: debtSummary,
     });
   })();
 

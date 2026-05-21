@@ -24,6 +24,8 @@ import type { TimelineNodePopoverModel } from './timelineNodePopoverModel';
 import { ReceiptChip } from '../evidence/ReceiptChip';
 import { SourceChainPopover } from '../evidence/SourceChainPopover';
 import { buildSourceChainPopoverModel } from '../evidence/sourceChainPopoverModel';
+import { EvidenceDebtChip } from '../evidence/EvidenceDebtChip';
+import { getNodeEvidenceDebtChip } from '../evidence/evidenceDebtModel';
 import type {
   EvidenceAnnotation,
   EvidenceAnnotationActorRole,
@@ -288,6 +290,16 @@ export function TimelineNodePopover({
             <ReceiptChip
               contract={receiptChipContract}
               onPress={() => setSourceChainExpanded((v) => !v)}
+              testIDSuffix={model.messageId}
+            />
+          ) : null}
+          {/* EV-003 — the OBLIGATION-axis chip. Renders beside the EV-002
+              receipt chip (the EXISTENCE axis); a node can show both. The
+              chip self-hides when the node carries no debt (the contract is
+              `isVisible:false`). Non-pressable status indicator — advisory. */}
+          {model.evidenceDebtSummary ? (
+            <EvidenceDebtChip
+              contract={getNodeEvidenceDebtChip(model.evidenceDebtSummary)}
               testIDSuffix={model.messageId}
             />
           ) : null}
