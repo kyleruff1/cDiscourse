@@ -289,10 +289,12 @@ Cards: HOST-001, HOST-002, HOST-003, AN-002.
 - **Acceptance:** Dotted teal ring on source-chain nodes. Insert composer preset, never accuses. Popularity never treated as evidence.
 
 ### EV-003 — Evidence debt tracker
-- **Priority:** P1 — **Effort:** L — **Release:** 6.6
-- **Debt types:** source needed · quote needed · scope example needed · definition needed · mechanism needed · counterexample needed · primary record needed.
-- **Display:** debt chip on node · debt count in sidecar · debt badges on branch line · "resolve debt" quick action.
-- **Acceptance:** Per move, not global. Resolvable by later moves. Never declares original point false. Influences strength visuals, not truth labels.
+- **Priority:** P1 — **Effort:** L — **Release:** 6.6 — **Status:** Build complete (awaiting Review). Issue #16.
+- **Debt kinds** (source-obligation set, deliberately NOT the point-standing `_needed` axis-debt vocabulary — see `docs/designs/EV-003.md` §4.1): `source` · `quote` · `receipt` · `context` · `primary_record`.
+- **Statuses:** `requested` · `supplied` · `challenged` · `accepted_by_participant` · `accepted_by_both` · `unresolved` · `stale` · `branched`.
+- **Display:** obligation chip on the timeline node (beside the EV-002 receipt chip — both axes at once) · per-room "Evidence requested" / "Source still owed" gallery card signals · open-debt count drives the `source_chain_fight` lane.
+- **Implementation:** `src/features/evidence/evidenceDebtModel.ts` (render-time-derived — no migration, no `evidence_debt` table); `EvidenceDebtChip.tsx`; wired into `timelineNodePopoverModel` / `TimelineNodePopover` / `ArgumentGameSurface` / `conversationGalleryModel`; `__tests__/evidenceDebtModel.test.ts` + `EvidenceDebtChip.test.tsx` (+142 tests); `docs/evidence-object-model.md`.
+- **Acceptance:** Per move, not global. Resolvable by later moves. Never declares the original point false (advisory — never enters the validator, emits no `PointStandingDelta`). Influences strength visuals, not truth labels.
 
 ### EV-004 — Evidence symmetry with game rules
 - **Priority:** P1 — **Effort:** M — **Release:** 6.6

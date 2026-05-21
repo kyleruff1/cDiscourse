@@ -210,3 +210,106 @@ no migration, no `submit-argument` change. Authors never see an "ask"
 CTA on their own moves (`isOwnMessage === true` hides every ask
 affordance); observers see the CTA visible but disabled with the locked
 helper `"Join a side to ask"`.
+
+---
+
+## EV-003 — evidence debt tracker
+
+EV-003 adds the **obligation axis**. EV-001 modelled the evidence
+*artifact* (existence / source-chain) and EV-002 gave it an inspection
+surface plus a way to *ask*. EV-003 closes the ask loop: it tracks
+whether a source/quote/receipt/context request was ever answered.
+
+`src/features/evidence/evidenceDebtModel.ts` is a pure-TS,
+render-time-derived model — no React, no Supabase, no network, no
+`Date.now()` (the staleness clock is injected). It imports **nothing**
+from `src/features/pointStanding/` and **nothing** from the constitution
+validator.
+
+### The debt record
+
+An `EvidenceDebt` is a **structural obligation marker** — *"a source was
+asked for and is owed"*. It is never a verdict: an open debt means "this
+point lacks X", never "this point is wrong"; a resolved debt is
+"settled", never "proven". The record carries `nodeId` (the asked-about
+node — the request move's parent), `requestArgumentId`, `debtKind`,
+`status`, `requestedByUserId`, `requestedAt`, `resolvedByNodeId` /
+`resolvedAt` when resolved, `ageDays`, and `isStale`.
+
+`EvidenceDebtKind` (5, exhaustive): `source` · `quote` · `receipt` ·
+`context` · `primary_record`. Deliberately **not** suffixed `_needed` —
+the point-standing module's axis-debt types are a different model and
+EV-003 never aliases them.
+
+`EvidenceDebtStatus` (8): `requested` · `supplied` · `challenged` ·
+`accepted_by_participant` · `accepted_by_both` · `unresolved` · `stale` ·
+`branched`. Every value is an *obligation* observation. `OPEN_EVIDENCE_
+DEBT_STATUSES` = `requested / challenged / unresolved / stale`;
+`branched` is excluded (the obligation is relocated, not ignored).
+
+### Render-time derivation
+
+`deriveEvidenceDebts(input)` derives every debt in a room from its
+argument rows:
+
+- **Opening rule.** A move opens a debt iff it carries a recognised
+  request tag code (`source_request` / `quote_request` →
+  `source` / `quote`, plus three reserved codes `receipt_request` /
+  `context_request` / `primary_record_request` that the QOL-030
+  `ask_source` box and EV-004 will emit). No request tag → no debt — a
+  move that just expresses disagreement opens nothing. One debt per
+  request move; id = `<requestArgumentId>:debt`.
+- **Resolution scan.** Later moves in the requested subtree are scanned:
+  an answering move attaching the matching artifact kind → `supplied`;
+  a QOL-037 `accept` response → `accepted_by_participant` →
+  `accepted_by_both` (two distinct primaries); a `dispute_applicability`
+  / `request_source` response → `challenged` (including a reopen after
+  `accepted_by_both`); a `split_branch` off the node → `branched`; an
+  explicit `source_declined` / `request_evaded` tag → `unresolved`.
+- **Close-condition by kind.** A `quote` debt is not discharged by a
+  bare URL with no quote; a `primary_record` debt only by an artifact an
+  admin marked `primary_present`. This is the one place EV-003 reads
+  EV-001's `sourceChainStatus` — strictly as a close-condition named by
+  the debt's own kind, never as a generic shortcut.
+- **Staleness.** A still-`requested` debt past `STALE_DEBT_THRESHOLD_DAYS`
+  (7) becomes `stale` — a re-label, advisory only, never auto-acts.
+
+### Roll-ups and chip copy
+
+`getNodeEvidenceDebtSummary` / `getRoomEvidenceDebtSummary` are pure
+roll-ups; `summarizeEvidenceDebtChip` / `getNodeEvidenceDebtChip` build
+the `EvidenceDebtChipContract`. The node chip shows the worst status
+when several debts attach (`challenged > unresolved > stale >
+requested > branched > supplied > accepted_by_participant >
+accepted_by_both`). All chip / status-line copy is plain English —
+locked, ban-list-asserted (no `proof` / `true` / `winner` / `case
+closed` / amplification / person-attribution tokens; `settled` is used
+at discharge).
+
+### Consumers
+
+- **`EvidenceDebtChip`** renders the obligation chip on the timeline
+  node beside the EV-002 receipt chip — a node can show both axes at
+  once. Non-pressable status indicator; self-hides on a node with no
+  debt.
+- **`ArgumentGameSurface`** derives the room debts once per render
+  (reusing the EV-002 artifact map + the tag map — no new fetch) and
+  threads a per-node summary into the timeline popover.
+- **The conversation gallery** card carries an `evidenceDebtSummary`;
+  an open debt is the authoritative `source_chain_fight` signal and
+  drives the "Evidence requested" / "Source still owed" card signals.
+  A room whose source requests all resolved is kept out of the
+  source-trail lane (the precision fix the tag-count heuristic could
+  not make).
+
+### Doctrine
+
+A debt is **advisory** — it never enters `evaluateArgumentDraft`, is
+never a flag, never disables Post; a node with five open debts is just
+as postable-onto as one with none. EV-003 emits **no**
+`PointStandingDelta` and never reads heat / engagement / view counts.
+v1 is render-time-derived: **no migration, no `evidence_debt` table,
+no Edge Function, no `submit-argument` change** — a debt is visible
+exactly when its rows are, gated by the existing `public.arguments`
+RLS. A future persistence card would store rows of the `EvidenceDebt`
+shape and backfill via this same derivation.
