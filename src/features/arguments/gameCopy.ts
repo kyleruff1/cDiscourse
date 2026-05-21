@@ -906,6 +906,181 @@ export const BOT_MARKER_COPY = Object.freeze({
     + 'public-room features.',
 } as const);
 
+/**
+ * GAME-003 — plain-language copy for argument modes. A "mode" is a
+ * consented, visible strictness profile both parties accept at room setup.
+ * It changes FRICTION, never truth: nothing in this block declares a
+ * winner / loser / verdict, and no string carries an amplification token
+ * (popular / viral / trending / engagement / likes / …) or a
+ * person-attribution token. `argumentModeModel.ts` reads these tables — it
+ * never authors a label inline (mirrors `channelModel.ts` /
+ * `preSendReviewModel.ts` reading `CHANNEL_*` / `PRESEND_*` blocks).
+ *
+ * Every internal `ArgumentModeDefinition` enum value (`loose`,
+ * `restricted`, `metadata_and_chip`, …) is mapped to prose here so no
+ * snake_case code reaches a `ModeRuleRow`. The two sensitive-mode
+ * disclaimers are DESIGN-ONLY copy: they are committed so tests can assert
+ * their presence and the stub definitions can reference them, but the
+ * modes themselves stay `design_only` until a later card promotes them
+ * (which routes this copy through operator review). Each disclaimer states
+ * the app gives NO legal / therapy advice and contains NO advice itself.
+ * Enforced by `__tests__/argumentModeBanList.test.ts` and
+ * `__tests__/argumentModeNoLegalAdvice.test.ts`.
+ */
+export const ARGUMENT_MODE_COPY = Object.freeze({
+  // ── Display names — one per mode. Unique across the 13. ──
+  name_casual_disagreement: 'Friendly disagreement',
+  name_court_record_strict: 'Court-of-record style',
+  name_internet_fact_check: 'Fact-check this claim',
+  name_debate_club: 'Debate club',
+  name_domestic_bickering: 'Household disagreement',
+  name_co_parenting_custody: 'Co-parenting discussion',
+  name_political_debate: 'Political-issue argument',
+  name_historical_debate: 'Historical question',
+  name_recollection_disconnect: 'Different memories',
+  name_workplace_decision: 'Workplace decision',
+  name_research_evidence_review: 'Evidence review',
+  name_relationship_repair: 'Relationship discussion',
+  name_negotiation_tradeoff: 'Negotiation and trade-offs',
+
+  // ── One-line descriptions for the mode picker. ──
+  desc_casual_disagreement:
+    'A relaxed back-and-forth between friends. Slang and jokes are fine.',
+  desc_court_record_strict:
+    'A strict, careful, on-the-record format. Precise language and sources.',
+  desc_internet_fact_check:
+    'Check a claim source by source. Asking for a source is the main move.',
+  desc_debate_club:
+    'A structured practice debate with gentle turn-taking and a wrap-up.',
+  desc_domestic_bickering:
+    'A relaxed disagreement between people who share a home.',
+  desc_co_parenting_custody:
+    'A calm space to talk through a co-parenting question together.',
+  desc_political_debate:
+    'A political-issue argument where sources matter and reactivity is cooled.',
+  desc_historical_debate:
+    'A disputed historical question worked through with sources.',
+  desc_recollection_disconnect:
+    'Two people remember the same thing differently — find the shared parts.',
+  desc_workplace_decision:
+    'A workplace decision talked through carefully between two people.',
+  desc_research_evidence_review:
+    'A literature-review style room with the strictest source expectations.',
+  desc_relationship_repair:
+    'A calm space to talk through a disagreement in your own words.',
+  desc_negotiation_tradeoff:
+    'Work toward an agreed trade-off, term by term.',
+
+  // ── Rule-row labels — the stable "the rules" column schema. ──
+  rule_label_tone: 'Tone',
+  rule_label_evidence: 'Evidence',
+  rule_label_pacing: 'Pacing',
+  rule_label_informality: 'Everyday speech',
+  rule_label_branches: 'Side issues',
+  rule_label_source_requests: 'Source asks',
+  rule_label_synthesis: 'Wrap-up',
+  rule_label_permanent_record: 'Record',
+  rule_label_semantic: 'AI helper',
+  rule_label_observers: 'Observers',
+  rule_label_invite_only: 'Invite-only',
+
+  // ── Rule-row values — every enum value mapped to plain prose. ──
+  // toneStrictness
+  rule_value_tone_loose: 'Relaxed — speak however feels natural.',
+  rule_value_tone_normal: 'Even-handed — a measured tone is encouraged.',
+  rule_value_tone_strict: 'Formal — a careful, measured tone is expected.',
+  // evidenceStrictness
+  rule_value_evidence_loose: 'Optional — you can say what you think.',
+  rule_value_evidence_normal: 'Encouraged — a source helps but is not required.',
+  rule_value_evidence_strict: 'Expected — claims should come with a source.',
+  // allowedInformality
+  rule_value_informality_permissive:
+    'Welcome — slang, jokes, and "you had to be there" all fit.',
+  rule_value_informality_normal: 'Fine — natural everyday phrasing is fine.',
+  rule_value_informality_restricted:
+    'Trimmed back — precise wording is preferred over slang.',
+  // pacing (derived: none vs paced)
+  rule_value_pacing_none: 'No time limits between moves.',
+  rule_value_pacing_paced: 'A short pause between moves keeps turns even.',
+  // branchesEncouraged
+  rule_value_branches_yes: 'Encouraged — side issues are welcome.',
+  rule_value_branches_no: 'Kept aside — the room stays on the main question.',
+  // sourceRequestsCentral
+  rule_value_source_central: 'A first-class move — asking is front and centre.',
+  rule_value_source_not_central: 'Allowed, but not the focus of the room.',
+  // finalSynthesisExpected
+  rule_value_synthesis_yes: 'A short wrap-up is expected at the end.',
+  rule_value_synthesis_no: 'No wrap-up is required.',
+  // permanentRecordWarning
+  rule_value_record_on: 'Moves stay on a lasting record.',
+  rule_value_record_off: 'A casual chat, not a lasting record.',
+  // semanticClassification
+  rule_value_semantic_off: 'No AI helper runs in this room.',
+  rule_value_semantic_metadata_only:
+    'A quiet AI helper may add advisory notes behind the scenes.',
+  rule_value_semantic_metadata_and_chip:
+    'An advisory AI helper may add a small, optional note on a move.',
+  // observerModeAllowed
+  rule_value_observers_yes: 'Allowed — others may watch without joining.',
+  rule_value_observers_no: 'Closed — only the two participants are in the room.',
+  // inviteOnly
+  rule_value_invite_yes: 'Yes — this room is set up between invited people.',
+  rule_value_invite_no: 'No — this room can be open to others.',
+
+  // ── "Your view" lines — second-person, for the part-B setup screen. ──
+  view_casual_disagreement:
+    "Speak naturally — slang and jokes are fine. There are no time limits, side tangents are welcome, and this is a casual chat, not a permanent record.",
+  view_court_record_strict:
+    'Take your time and choose precise wording. A short pause follows each move, sources are expected, and what you post stays on the record.',
+  view_internet_fact_check:
+    'Bring a source for each claim and ask the other side for theirs. The pace is quick and asking for a source is the move that matters most.',
+  view_debate_club:
+    'Make your case with structure. A short pause keeps turns even, a wrap-up closes the round, and your moves are kept for review afterward.',
+  view_domestic_bickering:
+    'Speak naturally — this is a relaxed disagreement at home. No time limits, side tangents are fine, and nothing here is a lasting record.',
+  view_co_parenting_custody:
+    'Take a calm beat between moves. The room stays on one question, what you post is kept, and this room is just for the two of you.',
+  view_political_debate:
+    'Bring a source for each claim. A short pause cools reactivity, and an advisory note may appear — it only suggests a move, it never rules on a claim.',
+  view_historical_debate:
+    'Work the question through with sources. Side issues are welcome, and a short wrap-up names where you both landed.',
+  view_recollection_disconnect:
+    "Describe what you remember in your own words. There is no need to source a memory — the wrap-up names the parts you both agree on.",
+  view_workplace_decision:
+    'Talk the decision through carefully. The room stays on the one decision, sources are welcome, and a wrap-up records what you chose.',
+  view_research_evidence_review:
+    'Bring careful sources and precise wording. A long response window leaves room to consider, and a wrap-up summarises the review.',
+  view_relationship_repair:
+    'Speak in your own words and take a calm beat between moves. The point is a shared understanding, named in a short wrap-up.',
+  view_negotiation_tradeoff:
+    'Work toward a trade-off, term by term. Side terms are welcome, and a wrap-up records the agreement you reach.',
+
+  // ── Sensitive-mode disclaimers (DESIGN-ONLY copy). ──
+  // co_parenting_custody — non-legal. States NO legal advice is given;
+  // contains no advice itself; no verdict, no alarm.
+  disclaimer_co_parenting_custody:
+    'This space is for talking through a co-parenting question together. ' +
+    'CDiscourse is not a law firm and does not give legal advice. Nothing ' +
+    'here is a legal opinion, a custody recommendation, or a substitute for ' +
+    'talking with a qualified family-law professional. For anything with ' +
+    'legal weight, please speak with a licensed attorney in your area.',
+  // relationship_repair — non-therapy. States NO therapeutic advice is
+  // given; contains no advice itself; no verdict, no alarm.
+  disclaimer_relationship_repair:
+    'This space is for talking through a disagreement in your own words. ' +
+    'CDiscourse is not a counseling or therapy service and does not give ' +
+    'therapeutic, medical, or mental-health advice. Nothing here is a ' +
+    'substitute for talking with a qualified counselor or therapist. If a ' +
+    'conversation feels like more than this tool is for, please reach out ' +
+    'to a licensed professional.',
+
+  // ── Setup-screen helper strings. ──
+  helper_picker_label: 'Mode',
+  helper_your_view_heading: 'Your view',
+  helper_the_rules_heading: 'The rules',
+  helper_picker_hint: 'The room creator picks the mode for this argument.',
+} as const);
+
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
   header: 'One quick look before you post',
@@ -947,4 +1122,5 @@ export const ALL_COPY = {
   invite: INVITE_COPY,
   composer: COMPOSER_COPY,
   validation: VALIDATION_COPY,
+  argumentMode: ARGUMENT_MODE_COPY,
 } as const;
