@@ -166,7 +166,7 @@ function DebateRow({ debate, onPress }: DebateRowProps) {
       </View>
       <View style={[styles.cell, { width: COL.action }]}>
         <Text style={styles.actionText}>
-          {debate.myParticipantSide ? 'Open →' : 'Tap to join →'}
+          {debate.myParticipantSide ? 'Open →' : 'Observe →'}
         </Text>
       </View>
     </Pressable>
