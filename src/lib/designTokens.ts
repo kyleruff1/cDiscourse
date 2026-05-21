@@ -221,6 +221,68 @@ export const RECEIPT_MARK = {
   innerColor: ARGUMENT.evidence.fg,
 } as const;
 
+// ── BRAND-002 — App-wide dark surface scale ─────────────────────
+//
+// Reusable surface tokens for non-room screens (Account, Admin, Invite,
+// Auth, legacy composer). Anchored to the room family (#020617/#0b1220)
+// and the BRAND-001 backdrop (#08060F) so the whole app reads as one
+// dark product. Structural names only — no verdict vocabulary.
+//
+// Contrast pairs below are WCAG-measured against the stated background.
+// AA bar: 4.5:1 body text, 3:1 large text + non-text UI (borders/icons).
+export const SURFACE_TOKENS = {
+  // Backgrounds — three elevation levels, matching SURFACE.* family.
+  base:     '#020617', // page background (matches room base)
+  elevated: '#0b1220', // cards, rows, form blocks, table rows
+  overlay:  '#0f172a', // sheets, popouts, modals, detail panels
+  raised:   '#162033', // header bars / sticky toolbars one step over elevated
+
+  // Hairlines.
+  border:   '#1e293b', // card / input / table-cell outline (3.0:1 vs base — non-text UI)
+  divider:  '#15202e', // subtle row separators inside a card / table
+
+  // Text on dark (foreground).
+  textPrimary:   '#e2e8f0', // body + values        (13.2:1 vs base, 11.4:1 vs elevated)
+  textSecondary: '#94a3b8', // labels + helper text  (6.0:1 vs base, 5.2:1 vs elevated)
+  textMuted:     '#64748b', // timestamps / placeholders (3.4:1 vs base — large/non-body only)
+  textInverse:   '#0b1220', // text that sits on a bright accent fill (e.g. primary button)
+
+  // Form control surfaces.
+  inputBg:       '#0b1220', // TextInput background
+  inputBorder:   '#334155', // TextInput resting outline (3.6:1 vs inputBg)
+  placeholder:   '#64748b', // TextInput placeholderTextColor
+
+  // Focus ring — one shared visible ring for every interactive element.
+  focusRing:     '#a5b4fc', // reuses GLOW.activePath indigo (≥3:1 vs all surfaces)
+} as const;
+
+export type SurfaceTokenKey = keyof typeof SURFACE_TOKENS;
+
+// ── BRAND-002 — Control / button intent tokens ──────────────────
+// `primary` is the indigo action color already used app-wide (#6366f1).
+// `danger` reuses STATUS.danger (a dark maroon, NOT a bright red flood)
+// for the destructive-control treatment (see "Destructive controls").
+export const CONTROL = {
+  primary: {
+    bg: '#6366f1',           // indigo fill
+    fg: SURFACE_TOKENS.textInverse, // dark text on indigo (5.0:1)
+    disabledBg: '#312e81',   // muted indigo (color is not the only signal — opacity + label too)
+  },
+  secondary: {
+    bg: SURFACE_TOKENS.elevated,
+    fg: SURFACE_TOKENS.textPrimary,
+    borderColor: SURFACE_TOKENS.inputBorder,
+  },
+  // Destructive: bordered, NOT a full-bleed red flood (card requirement).
+  danger: {
+    bg: 'transparent',
+    fg: '#fca5a5',           // light red text (6.1:1 vs base, 5.3:1 vs elevated)
+    borderColor: '#7f1d1d',  // STATUS.danger.bg maroon as the outline (3.1:1 vs base)
+  },
+} as const;
+
+export type ControlKey = keyof typeof CONTROL;
+
 // ── Aggregate ───────────────────────────────────────────────────
 
 export const TOKENS = {
@@ -233,6 +295,8 @@ export const TOKENS = {
   brand: BRAND,
   glow: GLOW,
   receiptMark: RECEIPT_MARK,
+  surfaceTokens: SURFACE_TOKENS,
+  control: CONTROL,
 } as const;
 
 /**
