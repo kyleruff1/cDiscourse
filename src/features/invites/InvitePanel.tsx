@@ -17,6 +17,7 @@ import {
 } from './inviteCopy';
 import { emptyInviteForm, validateInviteInput } from './inviteTypes';
 import type { InviteFormState } from './inviteTypes';
+import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
 interface Props {
   roomTitle: string;
@@ -114,11 +115,11 @@ export function InvitePanel({ roomTitle, claim, onClose }: Props) {
 
 const styles = StyleSheet.create({
   panel: {
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.overlay,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: SURFACE_TOKENS.border,
   },
   header: {
     flexDirection: 'row',
@@ -129,39 +130,40 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: SURFACE_TOKENS.textPrimary,
   },
   closeBtn: {
     fontSize: 16,
-    color: '#6b7280',
+    color: SURFACE_TOKENS.textSecondary,
     padding: 4,
   },
   subtitle: {
     fontSize: 13,
-    color: '#374151',
+    color: SURFACE_TOKENS.textSecondary,
     marginBottom: 4,
   },
   body: {
     fontSize: 12,
-    color: '#6b7280',
+    color: SURFACE_TOKENS.textSecondary,
     marginBottom: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: SURFACE_TOKENS.inputBorder,
     borderRadius: 8,
     padding: 10,
     fontSize: 13,
-    color: '#111827',
+    color: SURFACE_TOKENS.textPrimary,
+    backgroundColor: SURFACE_TOKENS.inputBg,
     marginBottom: 8,
   },
   error: {
     fontSize: 12,
-    color: '#ef4444',
+    color: STATUS.danger.fg,
     marginBottom: 6,
   },
   btnSecondary: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: SURFACE_TOKENS.raised,
     borderRadius: 8,
     padding: 10,
     alignItems: 'center',
@@ -169,18 +171,18 @@ const styles = StyleSheet.create({
   },
   btnSecondaryText: {
     fontSize: 13,
-    color: '#374151',
+    color: SURFACE_TOKENS.textSecondary,
     fontWeight: '600',
   },
   confirmedRow: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: STATUS.success.bg,
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
   },
   confirmedText: {
     fontSize: 12,
-    color: '#16a34a',
+    color: STATUS.success.fg,
   },
   actions: {
     flexDirection: 'row',
@@ -189,31 +191,31 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    backgroundColor: '#ede9fe',
+    backgroundColor: STATUS.info.bg,
     borderRadius: 8,
     padding: 10,
     alignItems: 'center',
   },
   actionText: {
     fontSize: 12,
-    color: '#6366f1',
+    color: STATUS.info.fg,
     fontWeight: '600',
   },
   notice: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: SURFACE_TOKENS.textMuted,
     marginBottom: 10,
     fontStyle: 'italic',
   },
   previewLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: SURFACE_TOKENS.textSecondary,
     marginBottom: 4,
   },
   preview: {
     fontSize: 12,
-    color: '#374151',
-    backgroundColor: '#f9fafb',
+    color: SURFACE_TOKENS.textSecondary,
+    backgroundColor: SURFACE_TOKENS.elevated,
     padding: 8,
     borderRadius: 6,
     lineHeight: 18,

@@ -7,6 +7,7 @@ import { ErrorNotice } from '../../components/ErrorNotice';
 import { SUPABASE_CONFIGURED } from '../../lib/supabase';
 import { validateAuthInput } from './authApi';
 import { useAuthSession } from './useAuthSession';
+import { SURFACE_TOKENS, CONTROL } from '../../lib/designTokens';
 
 type Mode = 'signin' | 'signup';
 
@@ -112,7 +113,7 @@ export function AuthScreen() {
 
 const styles = StyleSheet.create({
   confirmBox: { alignItems: 'center', paddingTop: 20 },
-  confirmTitle: { fontSize: 20, fontWeight: '700', color: '#111827', marginBottom: 12 },
-  confirmBody: { fontSize: 15, color: '#6b7280', textAlign: 'center', lineHeight: 24, marginBottom: 24 },
-  emailHighlight: { color: '#6366f1', fontWeight: '600' },
+  confirmTitle: { fontSize: 20, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, marginBottom: 12 },
+  confirmBody: { fontSize: 15, color: SURFACE_TOKENS.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 24 },
+  emailHighlight: { color: CONTROL.primary.bg, fontWeight: '600' },
 });
