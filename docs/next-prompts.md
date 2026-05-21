@@ -61,6 +61,46 @@ After the designer completes, report design doc path + commit SHA + readiness to
 
 ---
 
+## Prompt QOL-030 — Implement the one-box composer foundation
+
+> The roadmap supersession rewrite, the design stubs (EV-003 / IX-001 /
+> GAME-003B), and the mandatory designer-cycle handoff are complete and on
+> `main`. The implementation gate is open. This prompt starts the **first and
+> only** implementation card of the cycle.
+>
+> Read first: `docs/designs/QOL-030.md`, `docs/ux-storyboards/one-box-interface-model.md`,
+> `docs/ux-storyboards/priority-implementation-queue.md` (item P1-C1),
+> `docs/ux-storyboards/design-cycle-handoff.md`, and `docs/ux-ui-project-board.md`
+> → "Supersession map".
+>
+> Baseline: `git status -sb`, `npm run checkpoint`, `npm run typecheck`,
+> `npm run lint`, `npm run test`, `npm run skills:validate`.
+>
+> Implement **only QOL-030** — the one-box composer + the flash-popout chassis
+> foundation:
+>
+> - `boxModel.ts` — `BoxType` / `BoxTarget` / the `(type, target, view,
+>   stageContext, lifecycle, draftBuffers)` state machine + `renderSchema`.
+> - `actPopoutModel.ts` — `buildActPopout` (the 3-gate pure function: engine
+>   hard-filter ∩ role hard-filter ∩ stage soft-promotion).
+> - The popout chassis — `Popout` / `PopoutEntry` / `PopoutGroup`.
+> - `OneBox.tsx` — the box that re-types itself.
+> - Refactor `ArgumentComposerDock` to host the OneBox; posting stays on
+>   `submit-argument`.
+> - QOL-031/032/033 popout *contents* may be placeholders until their phases.
+>
+> Constraints: no `game` / `Debates` / `Tap to join` in any touched normal-user
+> copy. No service-role. No direct insert into `public.arguments`. No new
+> dependency. Do not implement QOL-031/032/033 in this pass. Do not retire any
+> bespoke surface yet. Do not call any external AI provider. Do not deploy.
+>
+> If QOL-030 is too large for one pass, stop after the pure-TS model + chassis
+> and report the remaining UI-wiring as the next prompt. Commit:
+> `feat: implement QOL-030 one-box composer foundation`. Do not push unless
+> instructed.
+
+---
+
 ## Prompt 0 — Deploy & bootstrap (✅ done 2026-05-16)
 
 > 1. ✅ `npx supabase functions deploy admin-users` → ACTIVE v1

@@ -1,5 +1,18 @@
 # COMPOSER-002 — In-room composer dock for Stack and Timeline (no Your Move redirect)
 
+## Superseded by — the one-box interface (QOL-030…033)
+
+> Added 2026-05-21 from `docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md`.
+
+**This card's React surface is superseded.** The in-room composer dock becomes
+the **QOL-030 one-box composer** — a single switchable box re-typed by the
+flash menu, not a fixed dock. The dock's no-redirect / in-room-mount behaviour
+remains valid and is *kept* as a requirement of QOL-030. **Do not extend
+COMPOSER-002 as a standalone composer; build QOL-030.** See
+`docs/ux-ui-project-board.md` → "Supersession map" and the QOL-030 design doc.
+
+---
+
 **Status:** Design draft
 **Epic:** Composer / argument-room (Wave 2 — Board interaction)
 **Release:** 6.6 (Wave 2)
