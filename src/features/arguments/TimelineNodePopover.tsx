@@ -17,14 +17,26 @@
  * action dispatch goes through the same `onAction` callback the
  * sidecar uses.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ArgumentBubbleControl } from './argumentGameSurfaceModel';
 import type { TimelineNodePopoverModel } from './timelineNodePopoverModel';
 import { ReceiptChip } from '../evidence/ReceiptChip';
 import { SourceChainPopover } from '../evidence/SourceChainPopover';
 import { buildSourceChainPopoverModel } from '../evidence/sourceChainPopoverModel';
-import type { EvidenceArtifact } from '../evidence/evidenceModel';
+import type {
+  EvidenceAnnotation,
+  EvidenceAnnotationActorRole,
+  EvidenceAnnotationKind,
+  EvidenceArtifact,
+} from '../evidence/evidenceModel';
+import {
+  eligibleAnnotationKinds,
+  enforceAnnotationDepthCap,
+  summariseAnnotations,
+} from '../evidence/evidenceModel';
+import { AddAnnotationSheet } from '../evidence/AddAnnotationSheet';
+import { addEvidenceAnnotation } from '../evidence/evidenceAnnotationApi';
 
 interface ActionButton {
   control: ArgumentBubbleControl;
@@ -62,9 +74,43 @@ interface Props {
    * CTA renders disabled with helper "Join a side to ask".
    */
   isReadModeViewer?: boolean;
+  /**
+   * EV-005 — The debate this node belongs to. Required for the
+   * annotate-evidence write path; when omitted the annotation surface is
+   * read-only (no "Add an annotation" trigger).
+   */
+  debateId?: string;
+  /**
+   * EV-005 — Pre-loaded annotations for the first evidence artifact on this
+   * node, read out of `client_validation` via `evidenceAnnotationsFromMeta`.
+   * Defaults to `[]` — when omitted the popover renders as EV-002 does.
+   */
+  evidenceAnnotations?: ReadonlyArray<EvidenceAnnotation>;
+  /**
+   * EV-005 — The current viewer's annotation actor role on this room. Drives
+   * the picker's eligible-kind list + whether the "Add an annotation"
+   * trigger renders. Defaults to `observer` (read-only).
+   */
+  annotationActorRole?: EvidenceAnnotationActorRole;
+  /**
+   * EV-005 — Open the synthesis composer for the given message. Wired to the
+   * existing `argumentType: 'synthesis'` preset by the parent (SC-004).
+   */
+  onOpenSynthesisComposer?: (messageId: string) => void;
 }
 
-export function TimelineNodePopover({ model, onAction, onOpenDetails, onClose, artifacts, isReadModeViewer }: Props) {
+export function TimelineNodePopover({
+  model,
+  onAction,
+  onOpenDetails,
+  onClose,
+  artifacts,
+  isReadModeViewer,
+  debateId,
+  evidenceAnnotations,
+  annotationActorRole = 'observer',
+  onOpenSynthesisComposer,
+}: Props) {
   const buttons = model.actions.map((c) => ACTION_BUTTON_BY_CONTROL[c]).filter(Boolean);
 
   // EV-002 — reduce-motion preference (one read per mount).
@@ -90,6 +136,117 @@ export function TimelineNodePopover({ model, onAction, onOpenDetails, onClose, a
   const sourceChainModel = evidenceContract
     ? buildSourceChainPopoverModel(evidenceContract)
     : null;
+
+  // ── EV-005 — annotation surface state. ──
+  // The annotation list starts from the pre-loaded prop and is replaced with
+  // the Edge Function's response after a successful add.
+  const [annotationList, setAnnotationList] = useState<ReadonlyArray<EvidenceAnnotation>>(
+    evidenceAnnotations ?? [],
+  );
+  useEffect(() => {
+    setAnnotationList(evidenceAnnotations ?? []);
+  }, [evidenceAnnotations]);
+
+  const [addSheetVisible, setAddSheetVisible] = useState(false);
+  const [isSubmittingAnnotation, setIsSubmittingAnnotation] = useState(false);
+  const [annotationSubmitError, setAnnotationSubmitError] = useState<string | null>(null);
+
+  // Guards a setState after the component has unmounted (the write can resolve
+  // after the popover is closed).
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const annotationSummary = summariseAnnotations(annotationList);
+  const annotationDepthCap = enforceAnnotationDepthCap(annotationList);
+  const firstArtifactId = artifacts && artifacts.length > 0 ? artifacts[0].id : '';
+  // The observer role and a missing debateId both leave the surface read-only.
+  const canAddAnnotation =
+    annotationActorRole !== 'observer' &&
+    typeof debateId === 'string' &&
+    debateId.length > 0 &&
+    firstArtifactId.length > 0 &&
+    eligibleAnnotationKinds({ actorRole: annotationActorRole, targetDepth: 0 }).length > 0;
+  const eligibleKinds = eligibleAnnotationKinds({
+    actorRole: annotationActorRole,
+    targetDepth: 0,
+  });
+  const evidenceArtifactLabel =
+    artifacts && artifacts.length > 0 ? artifacts[0].label : 'this source';
+
+  const handleOpenAddSheet = useCallback(() => {
+    setAnnotationSubmitError(null);
+    setAddSheetVisible(true);
+  }, []);
+
+  const handleCloseAddSheet = useCallback(() => {
+    setAddSheetVisible(false);
+  }, []);
+
+  const handleSubmitAnnotation = useCallback(
+    (kind: EvidenceAnnotationKind, note: string | null) => {
+      if (!debateId || firstArtifactId.length === 0) return;
+      setIsSubmittingAnnotation(true);
+      setAnnotationSubmitError(null);
+      void addEvidenceAnnotation({
+        debateId,
+        argumentId: model.messageId,
+        evidenceArtifactId: firstArtifactId,
+        kind,
+        note,
+        depth: 0,
+      })
+        .then((result) => {
+          if (!mountedRef.current) return;
+          if (result.ok) {
+            setAnnotationList(result.data.annotations);
+            setAddSheetVisible(false);
+            try {
+              AccessibilityInfo.announceForAccessibility?.(
+                `Annotation added: ${kind.replace(/_/g, ' ')}.`,
+              );
+            } catch {
+              /* announcement is best-effort */
+            }
+          } else {
+            // A failed write only means the annotation was not saved — an
+            // ordinary post is never blocked. Surface it inline.
+            setAnnotationSubmitError('Could not save the annotation. Try again.');
+          }
+        })
+        .catch(() => {
+          if (mountedRef.current) {
+            setAnnotationSubmitError('Could not save the annotation. Try again.');
+          }
+        })
+        .finally(() => {
+          if (mountedRef.current) setIsSubmittingAnnotation(false);
+        });
+    },
+    [debateId, firstArtifactId, model.messageId],
+  );
+
+  const handleSynthesisPrompt = useCallback(() => {
+    onOpenSynthesisComposer?.(model.messageId);
+  }, [onOpenSynthesisComposer, model.messageId]);
+
+  // EV-005 — reflect the annotation count into the shared ReceiptChip
+  // contract's helper so the count surfaces in Cards + Timeline via the
+  // same contract, with no new component. When there are no annotations the
+  // contract is the EV-001/EV-002 contract verbatim.
+  const receiptChipContract =
+    evidenceContract && annotationSummary.count > 0
+      ? {
+          ...evidenceContract.receiptChip,
+          helper: `${evidenceContract.receiptChip.helper} ${annotationSummary.count} annotation${
+            annotationSummary.count === 1 ? '' : 's'
+          }.`,
+        }
+      : evidenceContract?.receiptChip;
 
   return (
     <View
@@ -127,9 +284,9 @@ export function TimelineNodePopover({ model, onAction, onOpenDetails, onClose, a
             <Text style={styles.bandLabel}>Heat</Text>
             <Text style={styles.bandValue} numberOfLines={1}>{model.temperatureBand}</Text>
           </View>
-          {evidenceContract ? (
+          {evidenceContract && receiptChipContract ? (
             <ReceiptChip
-              contract={evidenceContract.receiptChip}
+              contract={receiptChipContract}
               onPress={() => setSourceChainExpanded((v) => !v)}
               testIDSuffix={model.messageId}
             />
@@ -147,9 +304,29 @@ export function TimelineNodePopover({ model, onAction, onOpenDetails, onClose, a
             isReadModeViewer={isReadModeViewer === true}
             isOwnMessage={model.isOwn === true}
             reduceMotion={reduceMotion}
+            annotations={annotationList}
+            annotationSummary={annotationSummary}
+            annotationDepthCap={annotationDepthCap}
+            canAddAnnotation={canAddAnnotation}
+            onAddAnnotation={handleOpenAddSheet}
+            onSynthesisPrompt={handleSynthesisPrompt}
           />
         ) : null}
       </ScrollView>
+
+      {/* EV-005 — the interactive "Add an annotation" picker. */}
+      {evidenceContract ? (
+        <AddAnnotationSheet
+          visible={addSheetVisible}
+          eligibleKinds={eligibleKinds}
+          evidenceArtifactLabel={evidenceArtifactLabel}
+          onSubmit={handleSubmitAnnotation}
+          onClose={handleCloseAddSheet}
+          isSubmitting={isSubmittingAnnotation}
+          submitError={annotationSubmitError}
+          reduceMotion={reduceMotion}
+        />
+      ) : null}
 
       <View style={styles.actionsRow}>
         {buttons.map((b, idx) => (

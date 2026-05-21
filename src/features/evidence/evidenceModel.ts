@@ -525,3 +525,689 @@ export function getTimelineEvidenceContract(
     receiptChip: chip,
   };
 }
+
+// ══════════════════════════════════════════════════════════════
+// EV-005 — Evidence-to-evidence interaction (annotations on evidence)
+// ══════════════════════════════════════════════════════════════
+//
+// EV-005 adds a thin ANNOTATION layer on top of the EV-001 EvidenceArtifact.
+// A participant or admin attaches a small, descriptive note to a specific
+// artifact. Every value below describes the SOURCE or the RECORD — never a
+// person, never a verdict.
+//
+// Doctrine (verbatim from docs/designs/EV-005.md):
+//   - Annotations describe the source / record, never accuse a person.
+//   - An annotation never converts popularity into factual standing
+//     (anti-amplification): summariseAnnotations reads ONLY the annotation
+//     set — no likes, views, follower counts, or author identity.
+//   - An annotation has no path to a PointStandingDelta (this module imports
+//     nothing from pointStanding / antiAmplification — a forbidden-imports
+//     test enforces the structural gap).
+//   - An annotation never blocks an ordinary post; AI never authors one.
+//   - Annotations on annotations are capped at ONE level; beyond that the UI
+//     replaces the picker with a "Summarise this evidence thread" prompt.
+//
+// Plain-language note: EV-005 introduces an annotation copy map LOCAL to this
+// module (parallel to EV-001's RECEIPT_CHIP_COPY), NOT an addition to
+// gameCopy.PLAIN_LANGUAGE_COPY. The 18 snake_case kind codes are NEVER
+// rendered raw — only via getEvidenceAnnotationLabel / getEvidenceAnnotationHelper.
+//
+// Still pure TypeScript. No React. No Supabase. No network. No async.
+
+// ── Annotation kind enum (18 kinds) ───────────────────────────
+
+/**
+ * EV-005 — Evidence-annotation kind. Every value describes the SOURCE or the
+ * RECORD, never a person. No verdict, no person-attribution. Aligned with
+ * META-001's manual-tag philosophy: a participant annotation, never a flag,
+ * never a moderation action.
+ */
+export type EvidenceAnnotationKind =
+  | 'primary_source' // the artifact is (or reaches) a primary record
+  | 'secondary_analysis' // the artifact is secondary commentary on a source
+  | 'quote_attached' // a verbatim quote is present alongside the source
+  | 'source_missing_quote' // a source pointer with no quote excerpt
+  | 'quote_disputed' // the quoted text may not match the linked source
+  | 'context_requested' // more context is being asked for on this artifact
+  | 'retraction_attached' // a retraction / correction notice is linked
+  | 'source_later_updated' // the source was revised after it was first cited
+  | 'satire_parody_context' // the source is satire / parody, not a literal report
+  | 'screenshot_only_chain_weak' // only a screenshot exists; no inspectable chain
+  | 'misreporting_alleged' // an alternate account of the same facts exists
+  | 'translation_context_issue' // translation may affect the meaning of the source
+  | 'outdated_source' // the source predates more current information
+  | 'methodology_dispute' // the source's method/sampling is contested
+  | 'broken_link' // the linked source no longer resolves
+  | 'paywalled_source' // the source is behind a paywall / not freely open
+  | 'conflicting_source' // another source disagrees with this one
+  | 'source_chain_anchored'; // the chain reaches an inspectable anchor
+
+/** Frozen array of every annotation kind. Exactly 18 entries. */
+export const ALL_EVIDENCE_ANNOTATION_KINDS: ReadonlyArray<EvidenceAnnotationKind> = Object.freeze([
+  'primary_source',
+  'secondary_analysis',
+  'quote_attached',
+  'source_missing_quote',
+  'quote_disputed',
+  'context_requested',
+  'retraction_attached',
+  'source_later_updated',
+  'satire_parody_context',
+  'screenshot_only_chain_weak',
+  'misreporting_alleged',
+  'translation_context_issue',
+  'outdated_source',
+  'methodology_dispute',
+  'broken_link',
+  'paywalled_source',
+  'conflicting_source',
+  'source_chain_anchored',
+]);
+
+// ── Plain-language copy map ────────────────────────────────────
+
+interface AnnotationCopyEntry {
+  /** Picker option + chip label. Plain English, ≤ 32 chars, never a code. */
+  label: string;
+  /** Picker subtitle + chip detail. Plain English, ≤ 90 chars. */
+  helper: string;
+}
+
+/**
+ * The 18 plain-language strings the picker, chips, and stream render. The
+ * snake_case codes are NEVER shown to a user.
+ *
+ * Three kinds (misreporting_alleged, quote_disputed, methodology_dispute)
+ * have internal codes that read close to an accusation. Their labels/helpers
+ * are deliberately written about the RECORD, not a person — see the
+ * Non-accusatory copy contract in docs/designs/EV-005.md. Do not "improve"
+ * this copy toward a verb about a person; the ban-list test is the guard.
+ */
+const EVIDENCE_ANNOTATION_COPY: Readonly<Record<EvidenceAnnotationKind, AnnotationCopyEntry>> =
+  Object.freeze({
+    primary_source: Object.freeze({
+      label: 'Primary source',
+      helper: 'This points to (or reaches) an original record.',
+    }),
+    secondary_analysis: Object.freeze({
+      label: 'Secondary analysis',
+      helper: 'This is commentary about a source, not the source itself.',
+    }),
+    quote_attached: Object.freeze({
+      label: 'Quote attached',
+      helper: 'A verbatim quote is included alongside the source.',
+    }),
+    source_missing_quote: Object.freeze({
+      label: 'Source has no quote',
+      helper: 'A source is linked but no quoted passage is shown.',
+    }),
+    quote_disputed: Object.freeze({
+      label: 'Quote may not match',
+      helper: 'The quoted text may not match what the linked source says.',
+    }),
+    context_requested: Object.freeze({
+      label: 'More context asked for',
+      helper: 'Someone has asked for more context on this source.',
+    }),
+    retraction_attached: Object.freeze({
+      label: 'Retraction attached',
+      helper: 'A retraction or correction notice is linked here.',
+    }),
+    source_later_updated: Object.freeze({
+      label: 'Source was updated later',
+      helper: 'The source was revised after it was first cited.',
+    }),
+    satire_parody_context: Object.freeze({
+      label: 'Satire or parody',
+      helper: 'This source is satire or parody, not a literal report.',
+    }),
+    screenshot_only_chain_weak: Object.freeze({
+      label: 'Screenshot only',
+      helper: 'Only a screenshot exists; there is no inspectable trail.',
+    }),
+    misreporting_alleged: Object.freeze({
+      label: 'An alternate account exists',
+      helper: 'A different account of the same facts has been put forward.',
+    }),
+    translation_context_issue: Object.freeze({
+      label: 'Translation may affect meaning',
+      helper: 'Translation could change how this source reads.',
+    }),
+    outdated_source: Object.freeze({
+      label: 'Source may be outdated',
+      helper: 'This source predates more current information.',
+    }),
+    methodology_dispute: Object.freeze({
+      label: 'Method is contested',
+      helper: "The source's method or sampling is being questioned.",
+    }),
+    broken_link: Object.freeze({
+      label: 'Link no longer works',
+      helper: 'The linked source no longer resolves.',
+    }),
+    paywalled_source: Object.freeze({
+      label: 'Behind a paywall',
+      helper: 'The source is not freely open to read.',
+    }),
+    conflicting_source: Object.freeze({
+      label: 'Another source disagrees',
+      helper: 'A different source disagrees with this one.',
+    }),
+    source_chain_anchored: Object.freeze({
+      label: 'Source trail is anchored',
+      helper: 'The trail reaches a record you can inspect.',
+    }),
+  });
+
+/** Plain-English label for an annotation kind. Never a snake_case code. */
+export function getEvidenceAnnotationLabel(kind: EvidenceAnnotationKind): string {
+  return EVIDENCE_ANNOTATION_COPY[kind].label;
+}
+
+/** Plain-English helper for an annotation kind. Never a snake_case code. */
+export function getEvidenceAnnotationHelper(kind: EvidenceAnnotationKind): string {
+  return EVIDENCE_ANNOTATION_COPY[kind].helper;
+}
+
+// ── The annotation object ──────────────────────────────────────
+
+/**
+ * EV-005 — One annotation attached to one EV-001 EvidenceArtifact. Frozen at
+ * construction. JSON-serializable. v1 persists inside the existing
+ * client_validation jsonb on the argument (no DB migration).
+ */
+export type EvidenceAnnotation = Readonly<{
+  /** Stable id. Adapter mints: `<evidenceArtifactId>:annotation:<index>`.
+   *  The write path (Edge Function) mints the same shape on append. */
+  id: string;
+  /** FK back to the EV-001 EvidenceArtifact.id this annotation describes. */
+  evidenceArtifactId: string;
+  kind: EvidenceAnnotationKind;
+  /** Optional ≤ 140-char free-text note. Describes the SOURCE; never a
+   *  person. Rendered read-only beneath the chip. */
+  note?: string;
+  /** The participant/admin who added the annotation. Never AI. */
+  addedByUserId: string;
+  /** ISO-8601. */
+  createdAt: string;
+  /**
+   * Annotation-nesting depth. 0 = annotation directly on an artifact.
+   * 1 = annotation on an annotation (the one permitted nested level).
+   * The model rejects/suppresses anything > 1 — see depth cap.
+   */
+  depth: 0 | 1;
+  /** When depth === 1, the id of the depth-0 annotation it responds to.
+   *  null/absent for depth 0. */
+  parentAnnotationId?: string | null;
+}>;
+
+// ── Status chip + summary ──────────────────────────────────────
+
+/** EV-005 — derived status chip. Describes the annotation set's shape,
+ *  never a truth verdict. */
+export type EvidenceAnnotationStatusChip =
+  | 'anchored' // a primary_source / source_chain_anchored annotation present
+  | 'conflict_open' // a conflicting/disputed/retraction/misreporting annotation present
+  | 'context_open' // a context_requested annotation present, no conflict
+  | 'paywalled' // a paywalled_source annotation present, no conflict/context
+  | 'broken' // a broken_link / screenshot_only_chain_weak annotation present
+  | 'unknown'; // no annotations, or none that map to a higher-priority chip
+
+export interface EvidenceAnnotationSummary {
+  /** primary_source + source_chain_anchored + quote_attached annotations. */
+  primary: ReadonlyArray<EvidenceAnnotation>;
+  /** conflicting_source + quote_disputed + retraction_attached +
+   *  misreporting_alleged + methodology_dispute + outdated_source +
+   *  source_later_updated + translation_context_issue annotations. */
+  conflicts: ReadonlyArray<EvidenceAnnotation>;
+  /** context_requested annotations. */
+  contextRequests: ReadonlyArray<EvidenceAnnotation>;
+  /** The single derived status chip (priority resolution — see below). */
+  statusChip: EvidenceAnnotationStatusChip;
+  /** Total annotation count (depth 0 + accepted depth 1). Drives the "+N"
+   *  affordance and the timeline receipt-count reflection. */
+  count: number;
+  /** Plain-English label for statusChip. Max 32 chars. Never a code. */
+  statusLabel: string;
+  /** Plain-English helper for statusChip. Max 90 chars. */
+  statusHelper: string;
+  /** Logical tone for the chip renderer. NOT a truth label. */
+  tone: 'neutral' | 'info' | 'attention' | 'muted';
+}
+
+interface StatusChipCopyEntry {
+  statusLabel: string;
+  statusHelper: string;
+  tone: EvidenceAnnotationSummary['tone'];
+}
+
+/** Plain-language copy for each derived status chip. Ban-list-clean. */
+const ANNOTATION_STATUS_CHIP_COPY: Readonly<
+  Record<EvidenceAnnotationStatusChip, StatusChipCopyEntry>
+> = Object.freeze({
+  anchored: Object.freeze({
+    statusLabel: 'Source trail is anchored',
+    statusHelper: 'An annotation marks this source as reaching an inspectable record.',
+    tone: 'neutral',
+  }),
+  conflict_open: Object.freeze({
+    statusLabel: 'Open conflict',
+    statusHelper: 'An annotation flags a conflicting, disputed, or retracted source.',
+    tone: 'attention',
+  }),
+  context_open: Object.freeze({
+    statusLabel: 'Context asked for',
+    statusHelper: 'Someone has asked for more context on this source.',
+    tone: 'info',
+  }),
+  paywalled: Object.freeze({
+    statusLabel: 'Behind a paywall',
+    statusHelper: 'An annotation notes this source is not freely open.',
+    tone: 'info',
+  }),
+  broken: Object.freeze({
+    statusLabel: 'Trail is weak',
+    statusHelper: 'An annotation notes the trail is broken or screenshot-only.',
+    tone: 'attention',
+  }),
+  unknown: Object.freeze({
+    statusLabel: 'No annotations yet',
+    statusHelper: 'No one has added context to this source.',
+    tone: 'muted',
+  }),
+});
+
+// ── Kind → summary bucket classification ──────────────────────
+
+/** Kinds that route to the `primary` summary bucket. */
+const PRIMARY_KINDS: ReadonlySet<EvidenceAnnotationKind> = new Set<EvidenceAnnotationKind>([
+  'primary_source',
+  'source_chain_anchored',
+  'quote_attached',
+]);
+
+/** Kinds that route to the `conflicts` summary bucket. */
+const CONFLICT_KINDS: ReadonlySet<EvidenceAnnotationKind> = new Set<EvidenceAnnotationKind>([
+  'conflicting_source',
+  'quote_disputed',
+  'retraction_attached',
+  'misreporting_alleged',
+  'methodology_dispute',
+  'outdated_source',
+  'source_later_updated',
+  'translation_context_issue',
+]);
+
+/** Kinds that map the status chip to `broken`. */
+const BROKEN_KINDS: ReadonlySet<EvidenceAnnotationKind> = new Set<EvidenceAnnotationKind>([
+  'broken_link',
+  'screenshot_only_chain_weak',
+]);
+
+// ── Constructor ────────────────────────────────────────────────
+
+/** Trim a note to ≤ 140 chars; whitespace-only → undefined. */
+function normaliseNote(note: string | null | undefined): string | undefined {
+  if (typeof note !== 'string') return undefined;
+  const trimmed = note.trim();
+  if (trimmed.length === 0) return undefined;
+  return trimmed.length <= 140 ? trimmed : trimmed.slice(0, 140);
+}
+
+/** True when a value is one of the 18 known annotation kinds. */
+export function isEvidenceAnnotationKind(value: unknown): value is EvidenceAnnotationKind {
+  return (
+    typeof value === 'string' &&
+    (ALL_EVIDENCE_ANNOTATION_KINDS as ReadonlyArray<string>).includes(value)
+  );
+}
+
+/**
+ * Constructor — used by the Edge Function id-mint parity + tests. Trims the
+ * note to 140 chars, drops a whitespace-only note, freezes the result, and
+ * mints id = `<evidenceArtifactId>:annotation:<index>`.
+ */
+export function buildEvidenceAnnotation(input: {
+  evidenceArtifactId: string;
+  kind: EvidenceAnnotationKind;
+  addedByUserId: string;
+  createdAt: string;
+  /** For the deterministic id. */
+  index: number;
+  note?: string | null;
+  /** Defaults to 0. */
+  depth?: 0 | 1;
+  parentAnnotationId?: string | null;
+}): EvidenceAnnotation {
+  const depth: 0 | 1 = input.depth === 1 ? 1 : 0;
+  const note = normaliseNote(input.note);
+  const annotation: EvidenceAnnotation = {
+    id: `${input.evidenceArtifactId}:annotation:${input.index}`,
+    evidenceArtifactId: input.evidenceArtifactId,
+    kind: input.kind,
+    addedByUserId: input.addedByUserId,
+    createdAt: input.createdAt,
+    depth,
+    ...(note !== undefined ? { note } : {}),
+    ...(depth === 1 ? { parentAnnotationId: input.parentAnnotationId ?? null } : {}),
+  };
+  return Object.freeze(annotation);
+}
+
+// ── Adapter: raw payload array → typed, depth-capped annotations ──
+
+/**
+ * Adapter: turn a raw persisted annotation array into typed, depth-capped
+ * annotations. Drops entries with an unknown kind. Preserves order. Runs
+ * every entry through enforceAnnotationDepthCap before returning.
+ */
+export function buildEvidenceAnnotations(input: {
+  evidenceArtifactId: string;
+  raw: ReadonlyArray<{
+    kind: EvidenceAnnotationKind;
+    note?: string | null;
+    addedByUserId: string;
+    createdAt: string;
+    depth?: number;
+    parentAnnotationId?: string | null;
+  }>;
+}): ReadonlyArray<EvidenceAnnotation> {
+  const built: EvidenceAnnotation[] = [];
+  if (!Array.isArray(input.raw)) return Object.freeze([]);
+  for (let index = 0; index < input.raw.length; index += 1) {
+    const entry = input.raw[index];
+    if (!entry || !isEvidenceAnnotationKind(entry.kind)) continue;
+    if (typeof entry.addedByUserId !== 'string' || entry.addedByUserId.trim().length === 0) {
+      continue;
+    }
+    if (typeof entry.createdAt !== 'string' || entry.createdAt.trim().length === 0) {
+      continue;
+    }
+    const depth: 0 | 1 = entry.depth === 1 ? 1 : 0;
+    built.push(
+      buildEvidenceAnnotation({
+        evidenceArtifactId: input.evidenceArtifactId,
+        kind: entry.kind,
+        addedByUserId: entry.addedByUserId,
+        createdAt: entry.createdAt,
+        index,
+        note: entry.note ?? null,
+        depth,
+        parentAnnotationId: entry.parentAnnotationId ?? null,
+      }),
+    );
+  }
+  // Depth cap drops any depth >= 2 / orphan depth-1 entries.
+  return enforceAnnotationDepthCap(built).accepted;
+}
+
+// ── Depth cap ─────────────────────────────────────────────────
+
+/** EV-005 — the locked synthesis-prompt label. */
+export const ANNOTATION_SYNTHESIS_PROMPT_LABEL = 'Summarise this evidence thread';
+
+export interface AnnotationDepthCapResult {
+  /** depth-0 + valid depth-1 annotations. */
+  accepted: ReadonlyArray<EvidenceAnnotation>;
+  /** depth >= 2, orphan depth-1, or depth-1-on-depth-1 annotations. */
+  suppressed: ReadonlyArray<EvidenceAnnotation>;
+  /** true when any depth-1 annotation is accepted (the next level is closed →
+   *  the UI offers a synthesis move instead of a depth-2 annotation). */
+  showsSynthesisPrompt: boolean;
+  /** ANNOTATION_SYNTHESIS_PROMPT_LABEL when shown; '' otherwise. */
+  synthesisPromptLabel: string;
+}
+
+/**
+ * Enforce the one-level annotation-nesting cap.
+ *
+ *   depth 0 — always accepted.
+ *   depth 1 — accepted IF parentAnnotationId resolves to an accepted depth-0
+ *             annotation. Orphan depth-1, or depth-1 whose parent is itself
+ *             depth-1, is suppressed.
+ *   depth >= 2 — always suppressed.
+ *
+ * showsSynthesisPrompt is true whenever any depth-1 annotation is accepted:
+ * the level is at the cap, so further disagreement converts into a synthesis
+ * move rather than a depth-2 annotation.
+ */
+export function enforceAnnotationDepthCap(
+  annotations: ReadonlyArray<EvidenceAnnotation>,
+): AnnotationDepthCapResult {
+  const accepted: EvidenceAnnotation[] = [];
+  const suppressed: EvidenceAnnotation[] = [];
+
+  // Pass 1: every depth-0 annotation is accepted; it is also the set of
+  // valid parents for depth-1 annotations.
+  const acceptedDepthZeroIds = new Set<string>();
+  for (const a of annotations) {
+    if (a.depth === 0) {
+      accepted.push(a);
+      acceptedDepthZeroIds.add(a.id);
+    }
+  }
+
+  // Pass 2: depth-1 annotations are accepted only when their parent resolves
+  // to an accepted depth-0 annotation. Anything else is suppressed.
+  let anyDepthOneAccepted = false;
+  for (const a of annotations) {
+    if (a.depth === 0) continue;
+    if (a.depth === 1) {
+      const parentId = a.parentAnnotationId ?? null;
+      if (parentId !== null && acceptedDepthZeroIds.has(parentId)) {
+        accepted.push(a);
+        anyDepthOneAccepted = true;
+      } else {
+        // orphan depth-1, or parent is itself depth-1 (not a depth-0 id).
+        suppressed.push(a);
+      }
+    } else {
+      // depth >= 2 — defensively suppressed (constructor caps depth to 0|1,
+      // but stored data could carry a wider value before adaptation).
+      suppressed.push(a);
+    }
+  }
+
+  return {
+    accepted: Object.freeze(accepted),
+    suppressed: Object.freeze(suppressed),
+    showsSynthesisPrompt: anyDepthOneAccepted,
+    synthesisPromptLabel: anyDepthOneAccepted ? ANNOTATION_SYNTHESIS_PROMPT_LABEL : '',
+  };
+}
+
+// ── Summary ────────────────────────────────────────────────────
+
+/**
+ * Summarise the annotation set into one status chip + bucketed lists.
+ *
+ * Pure. Reads ONLY the annotation set — never engagement, likes, view
+ * counts, follower counts, or the artifact author's identity. Never upgrades
+ * EvidenceArtifact.sourceChainStatus and never touches PointStandingDelta.
+ *
+ * Status-chip priority resolution (deterministic): when multiple kinds are
+ * present the chip reflects the MOST action-worthy state, in this order:
+ *   conflict_open > context_open > broken > paywalled > anchored > unknown
+ * Rationale: a conflict/retraction is the state a reader most needs to see;
+ * an anchored chip must never HIDE an open conflict. `broken` outranks
+ * `paywalled` because a dead link is a harder failure than a paywall.
+ * Empty annotation list → `unknown`.
+ */
+export function summariseAnnotations(
+  annotations: ReadonlyArray<EvidenceAnnotation>,
+): EvidenceAnnotationSummary {
+  const safe = Array.isArray(annotations) ? annotations : [];
+
+  const primary: EvidenceAnnotation[] = [];
+  const conflicts: EvidenceAnnotation[] = [];
+  const contextRequests: EvidenceAnnotation[] = [];
+
+  let hasConflict = false;
+  let hasContext = false;
+  let hasBroken = false;
+  let hasPaywalled = false;
+  let hasAnchored = false;
+
+  for (const a of safe) {
+    if (PRIMARY_KINDS.has(a.kind)) primary.push(a);
+    if (CONFLICT_KINDS.has(a.kind)) conflicts.push(a);
+    if (a.kind === 'context_requested') contextRequests.push(a);
+
+    if (CONFLICT_KINDS.has(a.kind)) hasConflict = true;
+    if (a.kind === 'context_requested') hasContext = true;
+    if (BROKEN_KINDS.has(a.kind)) hasBroken = true;
+    if (a.kind === 'paywalled_source') hasPaywalled = true;
+    if (a.kind === 'primary_source' || a.kind === 'source_chain_anchored') hasAnchored = true;
+  }
+
+  let statusChip: EvidenceAnnotationStatusChip;
+  if (hasConflict) {
+    statusChip = 'conflict_open';
+  } else if (hasContext) {
+    statusChip = 'context_open';
+  } else if (hasBroken) {
+    statusChip = 'broken';
+  } else if (hasPaywalled) {
+    statusChip = 'paywalled';
+  } else if (hasAnchored) {
+    statusChip = 'anchored';
+  } else {
+    statusChip = 'unknown';
+  }
+
+  const copy = ANNOTATION_STATUS_CHIP_COPY[statusChip];
+
+  return {
+    primary: Object.freeze(primary),
+    conflicts: Object.freeze(conflicts),
+    contextRequests: Object.freeze(contextRequests),
+    statusChip,
+    count: safe.length,
+    statusLabel: copy.statusLabel,
+    statusHelper: copy.statusHelper,
+    tone: copy.tone,
+  };
+}
+
+// ── Actor eligibility ──────────────────────────────────────────
+
+export type EvidenceAnnotationActorRole =
+  | 'participant_other_bubble'
+  | 'participant_own_bubble'
+  | 'observer'
+  | 'admin';
+
+export interface EvidenceAnnotationEligibilityContext {
+  actorRole: EvidenceAnnotationActorRole;
+  /** depth of the annotation being added: 0 (on artifact) or 1 (on annotation). */
+  targetDepth: 0 | 1;
+}
+
+/**
+ * The 3 self-descriptive kinds an own-bubble author may add. An author may
+ * update their own source record (it was revised, a correction was issued,
+ * they want more context) — but may not add the 15 kinds that read as a
+ * peer's descriptive challenge of someone else's source.
+ */
+export const OWN_BUBBLE_ANNOTATION_KINDS: ReadonlyArray<EvidenceAnnotationKind> = Object.freeze([
+  'source_later_updated',
+  'retraction_attached',
+  'context_requested',
+]);
+
+/**
+ * Frozen table — actorRole → the kinds that actor may add. Observers add
+ * nothing; own-bubble authors add only the 3 self-descriptive kinds;
+ * other-bubble participants and admins add all 18.
+ */
+export const EVIDENCE_ANNOTATION_ELIGIBILITY: Readonly<
+  Record<EvidenceAnnotationActorRole, ReadonlyArray<EvidenceAnnotationKind>>
+> = Object.freeze({
+  participant_other_bubble: ALL_EVIDENCE_ANNOTATION_KINDS,
+  participant_own_bubble: OWN_BUBBLE_ANNOTATION_KINDS,
+  observer: Object.freeze([]),
+  admin: ALL_EVIDENCE_ANNOTATION_KINDS,
+});
+
+/**
+ * Pure helper. Returns true when an annotation add would be allowed given
+ * the actor role + target depth.
+ *
+ *   - Observers → always false.
+ *   - targetDepth > 1 → always false (the depth cap).
+ *   - own-bubble → only the 3 self-descriptive kinds.
+ *   - other-bubble + admin → all 18.
+ */
+export function isAnnotationAllowed(
+  kind: EvidenceAnnotationKind,
+  ctx: EvidenceAnnotationEligibilityContext,
+): boolean {
+  if (ctx.actorRole === 'observer') return false;
+  // The depth cap: nothing beyond one nested level may be added.
+  if (ctx.targetDepth !== 0 && ctx.targetDepth !== 1) return false;
+  const allowed = EVIDENCE_ANNOTATION_ELIGIBILITY[ctx.actorRole];
+  if (!allowed) return false;
+  return allowed.includes(kind);
+}
+
+/** Convenience: the eligible-kind list the picker should render. Pure. */
+export function eligibleAnnotationKinds(
+  ctx: EvidenceAnnotationEligibilityContext,
+): ReadonlyArray<EvidenceAnnotationKind> {
+  if (ctx.actorRole === 'observer') return Object.freeze([]);
+  if (ctx.targetDepth !== 0 && ctx.targetDepth !== 1) return Object.freeze([]);
+  return EVIDENCE_ANNOTATION_ELIGIBILITY[ctx.actorRole] ?? Object.freeze([]);
+}
+
+// ── Ban-list seam (test consumer) ─────────────────────────────
+
+/**
+ * The tokens the EV-005 ban-list test scans every app-authored annotation
+ * string against. Three groups: verdict tokens, amplification tokens, and
+ * person-attribution tokens. None of these may appear in any annotation
+ * label, helper, status copy, synthesis prompt, or picker string.
+ *
+ * Exposed as a function (not a const) so the ban-list test can assert it is
+ * non-empty and actually iterated — guarding against an empty-list false pass.
+ */
+export function _forbiddenAnnotationTokens(): ReadonlyArray<string> {
+  return Object.freeze([
+    // Verdict tokens.
+    'winner',
+    'loser',
+    'correct',
+    'incorrect',
+    'liar',
+    'dishonest',
+    'fake',
+    'fraud',
+    'hoax',
+    'bad faith',
+    'manipulative',
+    'extremist',
+    'propagandist',
+    'troll',
+    'astroturfer',
+    'proof',
+    'proven',
+    'verdict',
+    'defeated',
+    // Amplification tokens.
+    'likes',
+    'retweets',
+    'shares',
+    'views',
+    'followers',
+    'verified',
+    'engagement',
+    'amplification',
+    'trending',
+    'virality',
+    'viral',
+    'popular',
+    // Person-attribution tokens.
+    'lied',
+    'deceived',
+    'misleading reader',
+  ]);
+}
