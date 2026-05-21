@@ -40,6 +40,22 @@ export const TargetSchema = z.object({
   user_stated_uncertainty: z.boolean().optional(),
 });
 
+/**
+ * QOL-037 — the structured evidence-response block carried on a
+ * `respond_to_evidence` move. ADVISORY: submit-argument copies it verbatim
+ * into the validation snapshot — it never hard-blocks on it and never branches
+ * the insert path. `choice` is a free string (one of QOL-037's seven choice
+ * ids); the field set is kept permissive so a malformed block can never block
+ * a post (an unknown choice degrades gracefully in the client-side
+ * `deriveApplicabilityStatus`). The clarification-required rule is enforced
+ * client-side in the box, not re-asserted here.
+ */
+export const EvidenceResponseSchema = z.object({
+  evidence_artifact_id: z.string(),
+  choice: z.string(),
+  clarification_body: z.string(),
+});
+
 export const SubmitArgumentSchema = z.object({
   debate_id: z.string().uuid(),
   parent_id: z.string().uuid().nullable().optional(),
@@ -52,6 +68,12 @@ export const SubmitArgumentSchema = z.object({
   client_validation: z.record(z.unknown()).optional(),
   /** Client-generated UUID for idempotent submission. Same UUID on retry returns the existing argument. */
   client_submission_id: z.string().uuid().optional(),
+  /**
+   * QOL-037 — optional advisory evidence-response block. Copied verbatim into
+   * the validation snapshot. Optional → an older client that omits it is
+   * unaffected.
+   */
+  evidence_response: EvidenceResponseSchema.optional(),
 });
 
 export type SubmitArgumentPayload = z.infer<typeof SubmitArgumentSchema>;

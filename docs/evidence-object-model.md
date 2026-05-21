@@ -430,3 +430,91 @@ existing `public.arguments` RLS. Threading `payment` into the
 `submit-argument` request is a downstream wiring step owned by the QOL-030
 box submit path or the EV-001 path-(c) persistence card — QOL-036 is
 consumable as a pure model today.
+
+## QOL-037 — the applicability axis
+
+QOL-037 adds a **third independent status axis** to an evidence object —
+*applicability* — and the structured response flow that drives it. It is
+implemented as the pure-TS model `src/features/evidence/evidenceApplicabilityModel.ts`
+plus `evidenceApplicabilityCopy.ts`, the `RespondToEvidenceForm` /
+`ApplicabilityChip` RN components, and a minimal advisory `submit-argument`
+pass-through. Render-time-derived — **no migration, no `evidence_applicability`
+table, no new RLS policy**.
+
+### The three axes — separable by design
+
+An evidence object carries three status axes that are computed independently
+and **never read each other**:
+
+| Axis | Type | Owner | Question it answers |
+|---|---|---|---|
+| Existence / source-chain | `SourceChainStatus` | EV-001 / EV-002 | Does an inspectable record exist, and how anchored is its trail? |
+| Obligation (evidence debt) | `EvidenceDebtStatus` | EV-003 | Has a source / quote / receipt / context been *asked for* and is it still owed? |
+| **Applicability** | **`ApplicabilityStatus`** | **QOL-037** | Does the evidence apply to *what the submitter says it applies to* (which month / which obligation)? |
+
+These never collapse: a payment object can be `source_and_quote` (the
+screenshot is inspectable) **and** `applicability_disputed` (we disagree
+about which month it covers) at the same time — a clear source trail does not
+settle applicability. A payment object can reach `applicability_supported`
+without ever becoming `primary_present` — applicability is supported by
+argument and corroborating *moves*, not by the source chain reaching a
+primary record. Heat / popularity feeds none of the three; none of the three
+is a truth label.
+
+### The structured evidence-response choice set
+
+The QOL-030 `respond_to_evidence` box renders a **closed set of seven**
+choices. The set is locked — no UI surface may add an eighth; a new
+evidence-response kind is a new card.
+
+| Choice id | Label | Clarification required | Applicability transition | Notes |
+|---|---|---|---|---|
+| `accept` | "Accept evidence" | no | none | the only zero-clarification choice; an `accept` of a contested point *by the disputing party* resolves an open dispute to `applicability_supported` |
+| `accept_with_caveat` | "Accept with caveat" | yes | none | a reservation, not an applicability dispute — it never flips the status |
+| `dispute_date` | "Dispute the date" | yes | none | a separate axis (QOL-036's date field) — never touches `ApplicabilityStatus` |
+| `dispute_amount` | "Dispute the amount" | yes | none | a separate axis (QOL-036's amount field) — never touches `ApplicabilityStatus` |
+| `dispute_applicability` | "Dispute what it applies to" | yes | `applicability_undisputed → applicability_disputed` | the only choice that drives the applicability axis |
+| `request_source` | "Ask for the source" | (seeded — EV-002 preset) | none | reuses EV-002's `ASK_SOURCE_PRESET_BODY`; opens an EV-003 `source` debt |
+| `request_clarification` | "Ask for clarification" | yes | none | routes to a `clarification_request` move |
+
+The **required-clarification rule** (`validateEvidenceResponseDraft`): a
+`respond_to_evidence` draft is structurally valid iff the choice is `accept`,
+or the trimmed clarification body is at least `MIN_CLARIFICATION_CHARS` (12).
+`request_source` satisfies it via its seeded body. This is a **validation**
+gate — it may disable the Post button (always with a visible plain-language
+reason), exactly like a forced-list item field. It is *not* a score gate;
+score never blocks.
+
+### The applicability status ladder
+
+```
+applicability_undisputed ──dispute_applicability──▶ applicability_disputed
+        ▲                                                  │
+        │                              a corroborating move (an accept of the
+        │                              contested point by the disputing party,
+        │                              or a later evidence move that resolves it)
+        │                                                  ▼
+        └────────────────────────────────────────  applicability_supported
+```
+
+`deriveApplicabilityStatus` walks the chronological `EvidenceResponseRecord`
+history for one evidence object and returns the derived status. `undisputed`
+is **not** a truth claim — it only means no dispute is open. `supported` means
+"better supported than when the dispute opened" — never "proven". The model
+has deliberately **no** `applicability_disproven` / truth-negative value. A
+record with an unknown `choice` (a future client) is ignored, not crashed.
+
+### Persistence — advisory, render-time-derived
+
+QOL-037 adds **no** `evidence_applicability` table. The `evidenceResponse`
+block (choice + clarification + target artifact id) rides inside the existing
+`client_validation` / `server_validation` JSONB snapshot — the same surface
+QOL-036's `payment` object uses. The one Edge Function touch is a **minimal
+advisory pass-through**: `submit-argument` copies an optional `evidence_response`
+block verbatim into that snapshot — it never validates it, never hard-blocks
+on it, never branches the insert path on it. The applicability status is then
+render-time-derivable: the client reads `evidenceResponse` blocks off the
+argument rows it already fetches. No service-role, no new insert path, RLS
+untouched. **Operator step:** `npx supabase functions deploy submit-argument
+--linked` so the function passes the new optional field through (backward-
+compatible — an older client that omits it is unaffected).

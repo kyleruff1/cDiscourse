@@ -58,6 +58,24 @@ export interface ConversationMoveSelection {
   targetExcerpt: string | null;
 }
 
+/**
+ * QOL-037 — the structured evidence-response block carried on a
+ * `respond_to_evidence` move. Optional and additive: it travels as an advisory
+ * field, copied verbatim into the `submit-argument` validation snapshot. The
+ * applicability status is render-time-derived from these blocks across the
+ * room's argument rows. `choice` is one of QOL-037's seven response choices;
+ * it is kept as a plain string here so `conversationMoves` (a Stage-6.0 module)
+ * does not take a hard dependency on the QOL-037 model's union.
+ */
+export interface MoveEvidenceResponse {
+  /** The evidence object (EV-001 EvidenceArtifact id) this response targets. */
+  evidenceArtifactId: string;
+  /** One of QOL-037's `EvidenceResponseChoice` ids. */
+  choice: string;
+  /** The clarification body. '' only when `choice === 'accept'`. */
+  clarificationBody: string;
+}
+
 /** Patch returned by mapMoveToDraftPatch — applied via updateField. */
 export interface MoveDraftPatch {
   argumentType?: ArgumentType | null;
@@ -72,6 +90,14 @@ export interface MoveDraftPatch {
    * Optional; existing callers (challenge / reply / etc.) are unaffected.
    */
   body?: string;
+  /**
+   * QOL-037 — Optional structured evidence-response block. Present only for a
+   * `respond_to_evidence` move; the host attaches it to the draft and the
+   * `submit-argument` Edge Function copies it verbatim into the validation
+   * snapshot (advisory — it never blocks a post). Optional; all existing
+   * `MoveDraftPatch` callers are unaffected.
+   */
+  evidenceResponse?: MoveEvidenceResponse;
 }
 
 /** Step IDs for progressive-disclosure ordering. */
