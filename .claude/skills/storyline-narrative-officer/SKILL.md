@@ -93,12 +93,18 @@ two rules on every user-facing string it writes or reviews:
   `debates` may keep their names — renaming a shipped table is risky — and
   admin/debug-only technical docs may explain that the table is still called
   `debates` internally. Only **normal-user UI** is held to the strict rule.
+- **Admin / operator screens are exempt.** The terminology rule is
+  normal-user-mode doctrine. The Admin tab and everything under
+  `src/features/admin/` (and the dev-only Debug tab) serve operators — they may
+  use "debate", "moderator", and technical terms. The audit excludes
+  `src/features/admin/`; a "debate" string in an admin screen is not a finding.
 
 Related prohibited normal-user terms and their replacements: "Tap to join" →
 "Open" / "Observe" / "Respond" / "Jump in"; "winner" / "loser" → "resolved",
 "unresolved", "supported", "challenged", "conceded", "settled". The full table
 lives in `docs/ux-storyboards/terminology-and-copy-rules.md`, and the
-deterministic checker is `scripts/ux/auditUserFacingTerminology.js`.
+deterministic checker is `scripts/ux/auditUserFacingTerminology.js` — which
+scans normal-user-mode source only.
 
 Doctrine the narrative officer never violates in any storyboard:
 

@@ -9,23 +9,32 @@ and writes [`terminology-audit.md`](terminology-audit.md).
 
 ---
 
-## The two-layer rule
+## What the rule covers — three surface layers
 
-CDiscourse has two naming layers, and only one is held to the strict rule.
+The strict terminology rule applies to **normal-user-mode UI only**. CDiscourse
+has three surface layers, and only the first is held to the rule.
 
 | Layer | Held to the strict rule? | Examples |
 |---|---|---|
-| **Normal-user UI copy** — anything a non-admin user reads on screen, in a screen-reader label, or in an email | **Yes** | Tab labels, button text, headings, helper copy, notification copy, accessibility labels |
-| **Internal code and schema** — identifiers, type names, database tables, migration comments, admin/debug-only technical docs | **No** | The `debates` table, `gameCopy.ts`, `argumentGameSurface`, `ArgumentGameSurface.tsx` |
+| **Normal-user UI copy** — what a non-admin user reads on screen, in a screen-reader label, or in an email | **Yes** | Tab labels, button text, headings, helper copy, notification copy, accessibility labels |
+| **Admin / operator screens** — the Admin tab and everything under `src/features/admin/` (and the dev-only Debug tab), seen only by operators | **No** | The admin "Debates" table view, "moderator review" controls, technical column headers |
+| **Internal code and schema** — identifiers, type names, database tables, migration comments | **No** | The `debates` table, `gameCopy.ts`, `argumentGameSurface`, `ArgumentGameSurface.tsx` |
 
-**Why the split exists.** Renaming a shipped database table (`debates`) is risky
-— it touches RLS, Edge Functions, generated types, and migrations. Renaming
-stable code identifiers is churn with no user benefit. The user never sees these
-names. So the rule targets exactly what the user sees, and nothing else.
+**Why admin screens are exempt.** Admin/operator screens serve operators, not
+normal users. An operator working the `debates` table benefits from seeing its
+literal name; "moderator review" is the accurate label for an operator control.
+Forcing normal-user vocabulary into admin tooling would *obscure* the data layer
+the operator is working with. Admin surfaces are out of scope **by design**.
 
-Admin and debug docs **may** mention legacy terms — for example, to explain that
-the table is still called `debates` internally. They should do so explicitly, as
-a mapping, not by accident.
+**Why internal code is exempt.** Renaming a shipped database table (`debates`)
+is risky — it touches RLS, Edge Functions, generated types, and migrations.
+Renaming stable code identifiers is churn with no user benefit. The user never
+sees these names.
+
+**The audit enforces exactly this split.** `scripts/ux/auditUserFacingTerminology.js`
+scans only normal-user-mode source — it skips `src/features/admin/`, dev/test
+tooling, docs, tests, scripts, and the Supabase functions. A "debate" /
+"moderator" string in an admin screen is **not** an audit finding.
 
 ---
 

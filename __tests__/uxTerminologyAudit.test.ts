@@ -191,4 +191,26 @@ describe('uxTerminologyAudit — runAudit', () => {
     expect(report).toContain('# CDiscourse — User-Facing Terminology Audit');
     expect(report).toContain('## Live prohibited violations');
   });
+
+  it('scopes to normal-user mode — admin / operator screens are not scanned', () => {
+    // The terminology rule is normal-user-mode doctrine. Admin screens serve
+    // operators and may use "debate" / "moderator" / technical terms — they
+    // must never appear as audit findings.
+    const allFindings = [
+      ...result.liveFindings,
+      ...result.legacyFindings,
+    ];
+    const adminFindings = allFindings.filter((f: { file: string }) =>
+      f.file.replace(/\\/g, '/').includes('src/features/admin/'),
+    );
+    expect(adminFindings).toEqual([]);
+  });
+
+  it('the audit declares `admin` in its skip set', () => {
+    // Defense in depth — the exclusion is a deliberate config entry, not an
+    // accident of the walk.
+    const fs2 = require('fs');
+    const src = fs2.readFileSync(SCRIPT, 'utf8');
+    expect(src).toMatch(/SKIP_DIR_NAMES[\s\S]*'admin'/);
+  });
 });

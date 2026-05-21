@@ -8,14 +8,18 @@
  *   - docs/ux-storyboards/terminology-and-copy-rules.md
  *
  * What it does
- *   Scans app source (src/ and App.tsx) for user-facing string literals and
- *   JSX text, then flags terminology that breaks the CDiscourse copy rules:
- *   the app is an "argument" product — its normal-user UI must not say "game"
- *   and should not say "debate".
+ *   Scans normal-user-mode app source (src/ and App.tsx) for user-facing
+ *   string literals and JSX text, then flags terminology that breaks the
+ *   CDiscourse copy rules: the app is an "argument" product — its normal-user
+ *   UI must not say "game" and should not say "debate".
  *
  * What it does NOT do
  *   - It does not scan docs/ (design docs intentionally discuss legacy terms
  *     and quote prohibited words as examples).
+ *   - It does not scan admin / operator screens (src/features/admin/). The
+ *     terminology rules are normal-user-mode doctrine; admin surfaces serve
+ *     operators, who legitimately see "debate" / "moderator" / technical
+ *     terms — they are out of scope by design, not by oversight.
  *   - It does not scan tests, scripts, supabase/ Edge Functions, or migrations.
  *   - It does not flag internal identifiers (`gameCopy`, `argumentGameSurface`)
  *     or database table names (`debates`) — only strings that look like copy a
@@ -55,12 +59,15 @@ const REPORT_PATH = path.join('docs', 'ux-storyboards', 'terminology-audit.md');
 const SCAN_ROOTS = ['src', 'App.tsx'];
 const SCAN_EXTENSIONS = ['.ts', '.tsx'];
 
-// Directory names skipped entirely — dev/test tooling, not shipped UI. The
-// engagement-intelligence and dev-fixture modules contain analysis prompts and
-// scenario builders, never normal-user copy.
+// Directory names skipped entirely — not normal-user-mode UI. The terminology
+// rules are normal-user doctrine, so admin / operator screens are exempt: an
+// admin legitimately sees "debate", "moderator", and technical terms, and the
+// admin tooling sits over the `debates` table by name. The
+// engagement-intelligence and dev-fixture modules are dev/test tooling.
 const SKIP_DIR_NAMES = new Set([
   '__tests__',
   'node_modules',
+  'admin', // src/features/admin/ — operator screens, not normal-user mode
   'engagementIntelligence',
   'devFixtures',
 ]);
@@ -385,11 +392,13 @@ function renderReport(result) {
   L.push('> Companion: `docs/ux-storyboards/terminology-and-copy-rules.md`.');
   L.push('');
   L.push('CDiscourse is an **argument** product. Normal-user UI must not say');
-  L.push('"game" and should not say "debate". This report scans app source');
-  L.push('(`src/`, `App.tsx`) for user-facing string literals and JSX text that');
-  L.push('break those rules. It does **not** scan docs, tests, scripts, or the');
-  L.push('Supabase functions — database table names like `debates` are allowed to');
-  L.push('keep their internal names.');
+  L.push('"game" and should not say "debate". This report scans **normal-user-');
+  L.push('mode** app source (`src/`, `App.tsx`) for user-facing string literals');
+  L.push('and JSX text that break those rules. It does **not** scan docs, tests,');
+  L.push('scripts, the Supabase functions, or **admin / operator screens**');
+  L.push('(`src/features/admin/`) — admin surfaces serve operators, not normal');
+  L.push('users, and may use "debate" / "moderator" / technical terms. Database');
+  L.push('table names like `debates` keep their internal names.');
   L.push('');
   L.push('## Summary');
   L.push('');
