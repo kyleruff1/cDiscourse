@@ -15,7 +15,7 @@ table names like `debates` keep their internal names.
 
 ## Summary
 
-- Files scanned: **250**
+- Files scanned: **256**
 - Live prohibited violations: **0**
 - Live discouraged usages: **29**
 - Legacy (not-mounted) findings: **7**
