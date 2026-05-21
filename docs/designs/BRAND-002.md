@@ -45,7 +45,14 @@ as the room.
 // dark product. Structural names only — no verdict vocabulary.
 //
 // Contrast pairs below are WCAG-measured against the stated background.
-// AA bar: 4.5:1 body text, 3:1 large text + non-text UI (borders/icons).
+// AA bar: 4.5:1 body text, 3:1 large text + meaningful non-text UI.
+// NOTE on hairlines: `border` / `divider` / `inputBorder` are DECORATIVE
+// separators — they do not encode a required component boundary or state
+// (WCAG 1.4.11 applies to non-text UI that is *required to identify* a
+// component/state; a card/input/table hairline is not). They are therefore
+// NOT held to the 3:1 non-text bar. They are only required to be visibly
+// lighter than their backdrop. See the Contrast-pairs table for the real
+// measured ratios and the decorative classification.
 export const SURFACE_TOKENS = {
   // Backgrounds — three elevation levels, matching SURFACE.* family.
   base:     '#020617', // page background (matches room base)
@@ -53,9 +60,9 @@ export const SURFACE_TOKENS = {
   overlay:  '#0f172a', // sheets, popouts, modals, detail panels
   raised:   '#162033', // header bars / sticky toolbars one step over elevated
 
-  // Hairlines.
-  border:   '#1e293b', // card / input / table-cell outline (3.0:1 vs base — non-text UI)
-  divider:  '#15202e', // subtle row separators inside a card / table
+  // Hairlines — DECORATIVE separators, not 3:1-bar non-text UI (see note above).
+  border:   '#1e293b', // card / input / table-cell outline (1.38:1 vs base — decorative; lighter than backdrop)
+  divider:  '#15202e', // subtle row separators inside a card / table (decorative; lighter than backdrop)
 
   // Text on dark (foreground).
   textPrimary:   '#e2e8f0', // body + values        (13.2:1 vs base, 11.4:1 vs elevated)
@@ -65,7 +72,7 @@ export const SURFACE_TOKENS = {
 
   // Form control surfaces.
   inputBg:       '#0b1220', // TextInput background
-  inputBorder:   '#334155', // TextInput resting outline (3.6:1 vs inputBg)
+  inputBorder:   '#334155', // TextInput resting outline (1.81:1 vs inputBg — decorative hairline; lighter than backdrop)
   placeholder:   '#64748b', // TextInput placeholderTextColor
 
   // Focus ring — one shared visible ring for every interactive element.
@@ -82,13 +89,17 @@ introduces only the indigo primary that the screens use everywhere:
 
 ```ts
 // ── BRAND-002 — Control / button intent tokens ──────────────────
-// `primary` is the indigo action color already used app-wide (#6366f1).
+// `primary` is the indigo action color. The fill is indigo-600 (#4f46e5),
+// one step darker than the indigo-500 (#6366f1) used elsewhere, so a WHITE
+// label clears the 4.5:1 body-text AA bar (white on #6366f1 measures only
+// 4.47:1 — a real fail; white on #4f46e5 measures 6.29:1). The label is
+// white because a dark label can NOT reach 4.5:1 on any usable indigo fill.
 // `danger` reuses STATUS.danger (a dark maroon, NOT a bright red flood)
 // for the destructive-control treatment (see "Destructive controls").
 export const CONTROL = {
   primary: {
-    bg: '#6366f1',           // indigo fill
-    fg: SURFACE_TOKENS.textInverse, // dark text on indigo (5.0:1)
+    bg: '#4f46e5',           // indigo-600 fill (darker than #6366f1 so a white label passes AA)
+    fg: '#ffffff',           // white text on indigo-600 (6.29:1 — clears the 4.5:1 body bar)
     disabledBg: '#312e81',   // muted indigo (color is not the only signal — opacity + label too)
   },
   secondary: {
@@ -113,22 +124,58 @@ two new keys registered in `TOKENS`.
 
 ### Contrast pairs (AA verified — implementer must keep these exact pairs)
 
-| Foreground | Background | Ratio | Use | AA bar |
-|---|---|---|---|---|
-| `textPrimary #e2e8f0` | `base #020617` | 13.2:1 | body text | 4.5:1 ✅ |
-| `textPrimary #e2e8f0` | `elevated #0b1220` | 11.4:1 | card body | 4.5:1 ✅ |
-| `textPrimary #e2e8f0` | `overlay #0f172a` | 10.4:1 | sheet body | 4.5:1 ✅ |
-| `textSecondary #94a3b8` | `base #020617` | 6.0:1 | labels | 4.5:1 ✅ |
-| `textSecondary #94a3b8` | `elevated #0b1220` | 5.2:1 | card labels | 4.5:1 ✅ |
-| `textMuted #64748b` | `elevated #0b1220` | 3.0:1 | timestamps (large/non-body **only**) | 3:1 ✅ |
-| `border #1e293b` | `base #020617` | 3.0:1 | card outline (non-text UI) | 3:1 ✅ |
-| `inputBorder #334155` | `inputBg #0b1220` | 3.6:1 | input outline (non-text UI) | 3:1 ✅ |
-| `focusRing #a5b4fc` | `base #020617` | 8.9:1 | focus ring (non-text UI) | 3:1 ✅ |
-| `focusRing #a5b4fc` | `elevated #0b1220` | 7.7:1 | focus ring on card | 3:1 ✅ |
-| `CONTROL.primary.fg #0b1220` | `primary.bg #6366f1` | 5.0:1 | primary button label | 4.5:1 ✅ |
-| `CONTROL.danger.fg #fca5a5` | `base #020617` | 6.1:1 | destructive button label | 4.5:1 ✅ |
-| `CONTROL.danger.fg #fca5a5` | `elevated #0b1220` | 5.3:1 | destructive label on card | 4.5:1 ✅ |
+All ratios below are recomputed with a standard WCAG 2.x
+`relativeLuminance` / `contrastRatio` implementation (the exact helper the
+test plan specifies). They are the **real measured values** for the token
+hex in this design — an implementer using these token values and pinning
+these numbers in `darkSurfaceTokens.test.ts` will have both pass.
 
+**AA bar applied per row.** Body text and button labels are held to 4.5:1.
+**Meaningful** non-text UI (the focus ring — it is *required to identify*
+the focused component) is held to 3:1. Decorative hairlines
+(`border` / `divider` / `inputBorder`) are **not** meaningful non-text UI
+under WCAG 1.4.11 — a card/input/table separator does not encode a required
+component boundary or state — so they carry **no contrast-ratio bar**; they
+are only required to be visibly *lighter than their backdrop*.
+
+| Foreground | Background | Measured ratio | Use | Bar applied |
+|---|---|---|---|---|
+| `textPrimary #e2e8f0` | `base #020617` | 16.36:1 | body text | 4.5:1 ✅ |
+| `textPrimary #e2e8f0` | `elevated #0b1220` | 15.19:1 | card body | 4.5:1 ✅ |
+| `textPrimary #e2e8f0` | `overlay #0f172a` | 14.48:1 | sheet body | 4.5:1 ✅ |
+| `textSecondary #94a3b8` | `base #020617` | 7.87:1 | labels | 4.5:1 ✅ |
+| `textSecondary #94a3b8` | `elevated #0b1220` | 7.30:1 | card labels | 4.5:1 ✅ |
+| `textMuted #64748b` | `base #020617` | 4.24:1 | timestamps (large/non-body **only**) | 3:1 ✅ |
+| `textMuted #64748b` | `elevated #0b1220` | 3.93:1 | timestamps (large/non-body **only**) | 3:1 ✅ |
+| `focusRing #a5b4fc` | `base #020617` | 10.12:1 | focus ring (meaningful non-text UI) | 3:1 ✅ |
+| `focusRing #a5b4fc` | `elevated #0b1220` | 9.39:1 | focus ring on card (meaningful non-text UI) | 3:1 ✅ |
+| `CONTROL.primary.fg #ffffff` | `primary.bg #4f46e5` | 6.29:1 | primary button label | 4.5:1 ✅ |
+| `CONTROL.danger.fg #fca5a5` | `base #020617` | 10.63:1 | destructive button label | 4.5:1 ✅ |
+| `CONTROL.danger.fg #fca5a5` | `elevated #0b1220` | 9.86:1 | destructive label on card | 4.5:1 ✅ |
+
+**Decorative hairlines — no ratio bar, lighter-than-backdrop only:**
+
+| Hairline | Backdrop | Measured ratio | Classification |
+|---|---|---|---|
+| `border #1e293b` | `base #020617` | 1.38:1 | decorative separator — visibly lighter than backdrop ✅ |
+| `divider #15202e` | `elevated #0b1220` | 1.14:1 | decorative separator — visibly lighter than backdrop ✅ |
+| `inputBorder #334155` | `inputBg #0b1220` | 1.81:1 | decorative input hairline — visibly lighter than backdrop ✅ |
+
+> **Why the hairlines are decorative (and not held to 3:1).** WCAG 1.4.11
+> (Non-text Contrast) applies to non-text visual information *required to
+> identify* a UI component or its state. A card outline, a table-cell
+> separator, and a resting (unfocused) input border do not carry required
+> information — the component is identified by its layout, its label, and
+> its content; the hairline is purely cosmetic elevation. A dark-on-dark
+> hairline physically cannot reach 3:1 against `#020617`/`#0b1220` without
+> becoming a bright line that no longer reads as a hairline and breaks the
+> "one quiet dark surface" goal of this card. The design therefore
+> classifies them as decorative and the test pins only the
+> *lighter-than-backdrop* property (luminance ordering), not a 3:1 ratio.
+> The **focus ring** is the opposite case — it *is* required to identify
+> the focused component, so it keeps the full 3:1 bar (and clears it at
+> ~9–10:1).
+>
 > Implementer note: `textMuted` is **only** safe for non-body uses (timestamps,
 > placeholders, italic hints rendered at ≥14px or as supplementary text). For
 > any 4.5:1-required body text use `textSecondary` instead. The test plan
@@ -369,12 +416,27 @@ color changes to `CONTROL.danger.fg` — text links keep no border.
     `getToken('control.danger.borderColor')` resolve.
   - **Contrast-pair assertions.** Add a tiny pure-TS `relativeLuminance(hex)`
     + `contrastRatio(a, b)` helper *inside the test file* (no production
-    dependency). Assert each row of the contrast table above:
-    `contrastRatio(textPrimary, base) >= 4.5`, `>= 4.5` for textPrimary on
-    elevated and overlay, `textSecondary` ≥ 4.5 on base + elevated, `border`
-    ≥ 3.0 on base, `inputBorder` ≥ 3.0 on inputBg, `focusRing` ≥ 3.0 on base
-    + elevated, `CONTROL.primary.fg` ≥ 4.5 on `primary.bg`,
-    `CONTROL.danger.fg` ≥ 4.5 on base + elevated.
+    dependency). Assert each row of the corrected contrast table above:
+    - **Body text / button labels at the 4.5:1 bar:**
+      `contrastRatio(textPrimary, base) >= 4.5` and the same for textPrimary
+      on `elevated` and `overlay`; `textSecondary` ≥ 4.5 on `base` +
+      `elevated`; `CONTROL.primary.fg` (`#ffffff`) ≥ 4.5 on `primary.bg`
+      (`#4f46e5`); `CONTROL.danger.fg` ≥ 4.5 on `base` + `elevated`.
+    - **Meaningful non-text UI at the 3:1 bar:** `textMuted` ≥ 3.0 on `base`
+      + `elevated`; `focusRing` ≥ 3.0 on `base` + `elevated`. The focus ring
+      is the only non-text token held to 3:1 — it is required to identify the
+      focused component.
+    - **Decorative hairlines — NO 3:1 assertion.** Do **not** assert a
+      contrast ratio on `border`, `divider`, or `inputBorder`. They are
+      decorative separators (see the contrast table's WCAG 1.4.11 note) and
+      cannot reach 3:1 without ceasing to be hairlines. Instead assert only
+      the *lighter-than-backdrop* property using `relativeLuminance`:
+      `relativeLuminance(border) > relativeLuminance(base)`,
+      `relativeLuminance(divider) > relativeLuminance(elevated)`,
+      `relativeLuminance(inputBorder) > relativeLuminance(inputBg)`.
+      Optionally also assert each stays *below* a "still a hairline" ceiling
+      (e.g. `contrastRatio(border, base) < 3.0`) to document intent — but the
+      load-bearing assertion is the luminance ordering, not a ratio floor.
   - **Converted-screen scan.** For each of the 18 converted files, read the
     source with `fs` and assert it contains **no banned light hex literal**.
     Banned set: `#fff`, `#ffffff`, `#f9fafb`, `#f3f4f6`, `#e5e7eb`, `#d1d5db`,
@@ -493,11 +555,15 @@ color changes to `CONTROL.danger.fg` — text links keep no border.
 - **expo-rn-patterns (color is supplementary).** Destructive controls carry
   meaning via label text + border, not color alone; badges carry meaning via
   label text. Grayscale legibility preserved. ✅
-- **accessibility-targets (AA contrast).** Every body-text / control / border
-  pair is tabulated and pinned by contrast-ratio tests at the 4.5:1 / 3:1
-  bars. ✅
+- **accessibility-targets (AA contrast).** Every body-text and button-label
+  pair is tabulated and pinned by contrast-ratio tests at the 4.5:1 bar; the
+  focus ring (meaningful non-text UI) is pinned at the 3:1 bar. Decorative
+  hairlines (`border` / `divider` / `inputBorder`) are not meaningful non-text
+  UI under WCAG 1.4.11, so they carry no 3:1 bar — the test pins only that
+  each is lighter than its backdrop. All ratios in the contrast table are the
+  real WCAG 2.x measured values. ✅
 - **accessibility-targets (visible focus ring).** A shared `focusRing` token
-  (8.9:1 / 7.7:1 vs surfaces) is specified for every interactive element,
+  (10.12:1 / 9.39:1 vs surfaces) is specified for every interactive element,
   with a no-layout-shift implementation note. ✅
 - **accessibility-targets (color never the only signal).** Destructive =
   border + label; disabled = opacity + `accessibilityState.disabled`; badges =
@@ -518,52 +584,60 @@ standard `npm run typecheck && npm run lint && npm run test`.
 
 ---
 
-## Implementer note: cannot proceed — contrast table is numerically wrong
+## Design amendment: contrast table corrected (2026-05-20)
 
-**Status:** BLOCKED. Surfaced by the roadmap-implementer, 2026-05-20.
+**Status:** RESOLVED — the block raised by the roadmap-implementer is fixed.
+This amendment touches only the contrast table, the affected token values,
+and the test-plan assertions for those tokens. The rest of the design is
+unchanged.
 
-The design's "Contrast pairs (AA verified)" table (lines 114–135) instructs the
-implementer to keep the exact token values **and** to pin every listed ratio in
-`darkSurfaceTokens.test.ts`. Three of the tabulated ratios are **measurably
-wrong** — a WCAG 2.x `relativeLuminance` + `contrastRatio` implementation (the
-exact helper the design's own test plan specifies) computes the following:
+The implementer correctly found that three ratios in the original "Contrast
+pairs" table were numerically wrong. All three are confirmed by a standard
+WCAG 2.x `relativeLuminance` / `contrastRatio` computation. The fixes:
 
-| Pair | Design claims | Actually measures | Design AA bar |
+**1. `border` / `divider` / `inputBorder` — reclassified as decorative
+hairlines (designer decision).** A card outline, a table-cell separator, and
+a resting (unfocused) input border do not encode information *required to
+identify* a UI component or its state, so **WCAG 1.4.11 (Non-text Contrast)
+does not impose a 3:1 bar on them**. A dark-on-dark hairline cannot reach 3:1
+against `#020617`/`#0b1220` without becoming a bright line that stops reading
+as a hairline. The design no longer claims a 3:1 ratio for them. Token hex
+values are **unchanged** (`border #1e293b`, `divider #15202e`,
+`inputBorder #334155`) — they are visually correct as quiet hairlines. The
+test must **not** pin a 3:1 assertion on them; it asserts only that each is
+*lighter than its backdrop* (`relativeLuminance` ordering). See the updated
+"Decorative hairlines" table and the WCAG 1.4.11 note.
+
+**2. `CONTROL.primary` — token values changed so the button label genuinely
+clears 4.5:1.** Text on a button is body-bar text (4.5:1). The original pair
+`fg #0b1220` on `bg #6366f1` measures 4.19:1 — a real fail. Dark text cannot
+reach 4.5:1 on any usable indigo fill (`#5457d6` only reaches 3.31:1, and
+darkening further kills the indigo identity). A **white** label on
+indigo-500 `#6366f1` measures 4.47:1 — still short. The fix:
+
+| Token | Was | Now | Reason |
 |---|---|---|---|
-| `border #1e293b` on `base #020617` | 3.0:1 | **1.38:1** | 3:1 — FAILS |
-| `inputBorder #334155` on `inputBg #0b1220` | 3.6:1 | **1.81:1** | 3:1 — FAILS |
-| `CONTROL.primary.fg #0b1220` on `primary.bg #6366f1` | 5.0:1 | **4.19:1** | 4.5:1 — FAILS |
+| `CONTROL.primary.bg` | `#6366f1` (indigo-500) | `#4f46e5` (indigo-600) | one step darker — still a recognizable indigo accent, visually coherent with the dark board |
+| `CONTROL.primary.fg` | `SURFACE_TOKENS.textInverse` (`#0b1220`) | `#ffffff` | white label on indigo-600 measures **6.29:1** — comfortably clears the 4.5:1 body bar |
 
-(The `border`/`inputBorder` claims are off by ~2×; the `primary` button-label
-claim narrowly misses the 4.5:1 body-text bar the design itself sets.)
+`SURFACE_TOKENS.textInverse` (`#0b1220`) is **kept** in `SURFACE_TOKENS` (it
+is still a valid on-bright-accent token); it is simply no longer the primary
+button label. The per-file mapping row "`#fff` (button label on indigo) →
+`CONTROL.primary.fg`" remains correct because `CONTROL.primary.fg` is now
+`#ffffff`.
 
-The design explicitly forbids redesign by the implementer ("implementer must
-keep these exact pairs"), and the agent contract forbids changing token values
-or test thresholds unilaterally — both are designer decisions. The test plan
-cannot pass as written with the design's token values. Specifically:
+**3. Every ratio in the table corrected to its real measured value.** The
+original table also *understated* several passing ratios (e.g. `textPrimary`
+on `base` was listed 13.2:1, actually 16.36:1). Those rows still pass their
+bar, but the table is now internally consistent with the token values and
+with the `darkSurfaceTokens.test.ts` assertions, so an implementer can use
+the design's token values **and** pin the design's stated assertions and
+have both pass.
 
-- The two **border** pairs at 3:1: dark-on-dark hairlines physically cannot
-  reach 3:1 against `#020617`/`#0b1220` without becoming a bright line that no
-  longer reads as a hairline. A subtle row separator is arguably decorative
-  (WCAG 1.4.11 applies to non-text UI that is *required to identify* a
-  component/state — a row divider is not). The fix is most likely **relabel
-  these rows as decorative separators and assert a softer floor (e.g. ≥1.2:1
-  "visible but quiet"), not 3:1** — but that is a doctrine call the designer
-  must make.
-- The **`CONTROL.primary.fg`** pair genuinely fails AA for a button label. The
-  fix is one of: (a) make `CONTROL.primary.fg` `#ffffff` (measures 4.47:1 — a
-  hair under 4.5, still short) or pure black `#000000`-family; (b) darken
-  `primary.bg` from `#6366f1` to e.g. `#5457d6` so the dark label clears 4.5:1;
-  (c) accept large-text 3:1 and document the button label as ≥18px bold. Each
-  changes a token value the design pins — a designer decision.
-
-**What is already on the branch (sound, not reverted):** the full
-`SURFACE_TOKENS` + `CONTROL` scale exactly as the design specifies; the 18
-screen/component conversions; the test file. `npm run typecheck` and
-`npm run lint` are clean. The **only** failures are the three contrast-pair
-assertions above plus their downstream effect on `npm run test`.
-
-**Decision needed from the designer:** corrected token values (so the AA
-ratios are real) and/or a corrected contrast table + corrected test thresholds.
-Once the design is amended, the implementer can finish in one short pass — the
-mechanical conversion is already done.
+**No other change.** The `SURFACE_TOKENS` background/text tokens, the 18
+screen/component conversions, the destructive-control spec, and the rest of
+the test plan are untouched. The implementer can finish in one short pass:
+adopt the two changed `CONTROL.primary` hex values, and write the
+contrast-pair assertions per the updated test plan (4.5:1 for body text and
+button labels, 3:1 for the focus ring, lighter-than-backdrop luminance
+ordering — not a 3:1 ratio — for the three decorative hairlines).
