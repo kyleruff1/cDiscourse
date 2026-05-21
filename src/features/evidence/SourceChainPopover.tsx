@@ -33,8 +33,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { EvidenceArtifact } from './evidenceModel';
+import type {
+  AnnotationDepthCapResult,
+  EvidenceAnnotation,
+  EvidenceAnnotationSummary,
+  EvidenceArtifact,
+} from './evidenceModel';
 import type { SourceChainPopoverModel } from './sourceChainPopoverModel';
+import { EvidenceAnnotationStream } from './EvidenceAnnotationChip';
 
 export interface SourceChainPopoverProps {
   /** The pure-TS view-model. Built by buildSourceChainPopoverModel. */
@@ -71,6 +77,27 @@ export interface SourceChainPopoverProps {
    * expand/collapse animation.
    */
   reduceMotion?: boolean;
+  /**
+   * EV-005 — Annotations on the first artifact in this popover. When
+   * non-empty (or when `canAddAnnotation` is true) the expanded popover
+   * renders the EvidenceAnnotationStream below the artifact rows. Defaults
+   * to `[]` — when omitted the popover renders exactly as EV-002 does today.
+   */
+  annotations?: ReadonlyArray<EvidenceAnnotation>;
+  /** EV-005 — derived annotation summary for the status-chip header. */
+  annotationSummary?: EvidenceAnnotationSummary;
+  /** EV-005 — depth-cap partition for the annotation stream. */
+  annotationDepthCap?: AnnotationDepthCapResult;
+  /**
+   * EV-005 — true when the viewer is eligible to add a depth-0 annotation.
+   * When true the "Add an annotation" trigger renders (even with no existing
+   * annotations — you can add the first). Defaults to false.
+   */
+  canAddAnnotation?: boolean;
+  /** EV-005 — fires when the "Add an annotation" trigger is pressed. */
+  onAddAnnotation?: (artifactId: string) => void;
+  /** EV-005 — fires when the depth-cap synthesis-prompt row is pressed. */
+  onSynthesisPrompt?: (artifactId: string) => void;
 }
 
 export const SOURCE_CHAIN_POPOVER_OBSERVER_HELPER = 'Join a side to ask';
@@ -196,6 +223,12 @@ export function SourceChainPopover({
   isReadModeViewer = false,
   isOwnMessage = false,
   reduceMotion = false,
+  annotations = [],
+  annotationSummary,
+  annotationDepthCap,
+  canAddAnnotation = false,
+  onAddAnnotation,
+  onSynthesisPrompt,
 }: SourceChainPopoverProps): ReactElement | null {
   const handleToggle = useCallback(() => {
     if (!reduceMotion) {
@@ -239,6 +272,24 @@ export function SourceChainPopover({
     isReadModeViewer,
   );
   const showCta = plan.showsAskCta;
+
+  // EV-005 — the annotation stream renders when the popover is expanded AND
+  // either the viewer can add an annotation or annotations already exist.
+  // When no annotation props are supplied the popover behaves exactly as
+  // EV-002 does today (annotations defaults to [], canAddAnnotation false).
+  const resolvedAnnotationSummary: EvidenceAnnotationSummary | null =
+    annotationSummary ?? model.annotationSummary ?? null;
+  const resolvedDepthCap: AnnotationDepthCapResult = annotationDepthCap ?? {
+    accepted: annotations,
+    suppressed: [],
+    showsSynthesisPrompt: false,
+    synthesisPromptLabel: '',
+  };
+  const firstArtifactId = artifacts.length > 0 ? artifacts[0].id : '';
+  const showsAnnotationStream =
+    isExpanded &&
+    resolvedAnnotationSummary !== null &&
+    (annotations.length > 0 || canAddAnnotation);
 
   return (
     <View
@@ -320,6 +371,23 @@ export function SourceChainPopover({
             <Text style={styles.observerHelper} testID={`source-chain-observer-helper-${messageId}`}>
               {OBSERVER_HELPER}
             </Text>
+          ) : null}
+
+          {showsAnnotationStream && resolvedAnnotationSummary ? (
+            <EvidenceAnnotationStream
+              summary={resolvedAnnotationSummary}
+              annotations={annotations}
+              depthCap={resolvedDepthCap}
+              canAddAnnotation={canAddAnnotation}
+              onPressAddAnnotation={
+                onAddAnnotation ? () => onAddAnnotation(firstArtifactId) : undefined
+              }
+              onPressSynthesisPrompt={
+                onSynthesisPrompt ? () => onSynthesisPrompt(firstArtifactId) : undefined
+              }
+              isReadModeViewer={isReadModeViewer}
+              messageId={messageId}
+            />
           ) : null}
         </View>
       ) : null}

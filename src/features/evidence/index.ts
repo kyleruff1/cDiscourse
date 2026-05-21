@@ -27,6 +27,52 @@ export {
   getTimelineEvidenceContract,
 } from './evidenceModel';
 
+// EV-005 — Evidence-to-evidence interaction (annotations on evidence).
+export type {
+  EvidenceAnnotation,
+  EvidenceAnnotationKind,
+  EvidenceAnnotationStatusChip,
+  EvidenceAnnotationSummary,
+  EvidenceAnnotationActorRole,
+  EvidenceAnnotationEligibilityContext,
+  AnnotationDepthCapResult,
+} from './evidenceModel';
+
+export {
+  ALL_EVIDENCE_ANNOTATION_KINDS,
+  OWN_BUBBLE_ANNOTATION_KINDS,
+  EVIDENCE_ANNOTATION_ELIGIBILITY,
+  ANNOTATION_SYNTHESIS_PROMPT_LABEL,
+  buildEvidenceAnnotation,
+  buildEvidenceAnnotations,
+  summariseAnnotations,
+  enforceAnnotationDepthCap,
+  isAnnotationAllowed,
+  isEvidenceAnnotationKind,
+  eligibleAnnotationKinds,
+  getEvidenceAnnotationLabel,
+  getEvidenceAnnotationHelper,
+} from './evidenceModel';
+
+// EV-005 — the write-path wrapper is NOT re-exported here: it imports the
+// Supabase client, and this barrel is consumed by pure-model tests that do
+// not mock Supabase (consistent with how metadata/pointTagsApi.ts is kept
+// out of the metadata barrel). Import `addEvidenceAnnotation` /
+// `evidenceAnnotationsFromMeta` directly from './evidenceAnnotationApi'.
+
+export {
+  EvidenceAnnotationChip,
+  EvidenceAnnotationStream,
+  EVIDENCE_ANNOTATION_OBSERVER_HELPER,
+} from './EvidenceAnnotationChip';
+export type {
+  EvidenceAnnotationChipProps,
+  EvidenceAnnotationStreamProps,
+} from './EvidenceAnnotationChip';
+
+export { AddAnnotationSheet, ADD_ANNOTATION_NOTE_HINT } from './AddAnnotationSheet';
+export type { AddAnnotationSheetProps } from './AddAnnotationSheet';
+
 // EV-002 — Source-chain popover dispatch model.
 export type {
   SourceChainPopoverAction,
@@ -38,6 +84,7 @@ export {
   buildSourceChainPopoverModel,
   buildSourceChainPopoverModelFromChip,
   buildSourceChainPopoverModelFromArtifacts,
+  attachAnnotationSummary,
 } from './sourceChainPopoverModel';
 
 // EV-002 — Composer preset bodies (frozen plain English).

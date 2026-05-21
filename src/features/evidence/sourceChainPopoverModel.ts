@@ -17,6 +17,7 @@
 
 import {
   summarizeArtifactsForReceiptChip,
+  type EvidenceAnnotationSummary,
   type EvidenceArtifact,
   type ReceiptChipContract,
   type SourceChainStatus,
@@ -76,6 +77,13 @@ export interface SourceChainPopoverModel {
   primaryAction: SourceChainPopoverAction | null;
   /** Accessibility label for the popover root. Built deterministically. */
   accessibilityLabel: string;
+  /**
+   * EV-005 — Optional derived annotation summary for the first artifact in
+   * this popover. `undefined` when no annotation data has been attached
+   * (every EV-002 builder leaves it undefined — fully backward compatible).
+   * `attachAnnotationSummary` sets it.
+   */
+  annotationSummary?: EvidenceAnnotationSummary;
 }
 
 // ── Internal dispatch table ───────────────────────────────────
@@ -212,4 +220,17 @@ export function buildSourceChainPopoverModelFromArtifacts(
   artifacts: ReadonlyArray<EvidenceArtifact>,
 ): SourceChainPopoverModel {
   return buildSourceChainPopoverModelFromChip(summarizeArtifactsForReceiptChip(artifacts));
+}
+
+/**
+ * EV-005 — Attach a derived annotation summary to an existing popover model.
+ * Pure — returns a new model object; the input is not mutated. EV-002
+ * builders never call this, so the field defaults to `undefined` and the
+ * EV-002 behaviour is unchanged.
+ */
+export function attachAnnotationSummary(
+  model: SourceChainPopoverModel,
+  summary: EvidenceAnnotationSummary,
+): SourceChainPopoverModel {
+  return { ...model, annotationSummary: summary };
 }
