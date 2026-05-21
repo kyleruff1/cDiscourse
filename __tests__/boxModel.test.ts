@@ -548,9 +548,9 @@ describe('QOL-030 boxModel — _forbiddenBoxTokens', () => {
     expect(_forbiddenBoxTokens().length).toBeGreaterThan(0);
   });
 
-  it('includes the core verdict + amplification + terminology tokens', () => {
+  it('includes the core verdict + amplification tokens', () => {
     const tokens = _forbiddenBoxTokens();
-    for (const t of ['winner', 'loser', 'viral', 'tap to join']) {
+    for (const t of ['winner', 'loser', 'viral', 'engagement']) {
       expect(tokens).toContain(t);
     }
   });

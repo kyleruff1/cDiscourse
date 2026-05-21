@@ -603,6 +603,12 @@ export function resetAfterPost(state: BoxState): BoxState {
  * Forbidden tokens scanned by `__tests__/oneBoxCopyBanList.test.ts`. NOT a
  * content filter. Mirrors `_forbiddenChannelTokens` / `_forbiddenDockTokens`
  * so QOL-030 copy is held to the same bar (cdiscourse-doctrine §1 / §9).
+ *
+ * Scope note: this list is the verdict + amplification ban-list. The
+ * discouraged-terminology phrases (`game`, `Debates` tab label, "Tap to
+ * join", …) are owned by the dedicated `ux:terminology:audit` — the
+ * literal phrases are deliberately NOT repeated here so that audit (which
+ * scans source files) does not false-positive on this helper.
  */
 export function _forbiddenBoxTokens(): string[] {
   return [
@@ -643,7 +649,5 @@ export function _forbiddenBoxTokens(): string[] {
     'trending',
     'virality',
     'viral',
-    // Discouraged terminology (terminology-and-copy-rules.md).
-    'tap to join',
   ];
 }

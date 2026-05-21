@@ -17,6 +17,7 @@ import {
   buildActPopout,
   flattenActPopout,
   getPromotedEntry,
+  actEntryToQuickAction,
   ACT_GROUP_ORDER,
   ACT_GROUP_LABEL,
   ALL_ACT_VIEWER_ROLES,
@@ -26,6 +27,7 @@ import {
   type ActViewerRole,
   type BuildActPopoutInput,
 } from '../src/features/arguments/oneBox/actPopoutModel';
+import { quickActionToPreset, type QuickActionLabel } from '../src/features/arguments/quickActionPresets';
 import type { ArgumentType, ConstitutionRule } from '../src/domain/constitution/types';
 import { constitutionRules } from '../src/domain/constitution';
 import { ALL_POINT_LIFECYCLE_STATES } from '../src/features/lifecycle';
@@ -449,5 +451,67 @@ describe('QOL-030 actPopoutModel — internal gate helpers', () => {
         expect(ALL_ACT_ENTRY_IDS).toContain(promoted);
       }
     }
+  });
+});
+
+// ── 9. actEntryToQuickAction — entry → composer-preset bridge ───
+
+describe('QOL-030 actPopoutModel — actEntryToQuickAction', () => {
+  it('returns a value for every entry id (no entry throws)', () => {
+    for (const id of ALL_ACT_ENTRY_IDS) {
+      // Either a QuickActionLabel string or null — never undefined.
+      const result = actEntryToQuickAction(id);
+      expect(result === null || typeof result === 'string').toBe(true);
+    }
+  });
+
+  it('every non-null result is a real QuickActionLabel quickActionToPreset accepts', () => {
+    for (const id of ALL_ACT_ENTRY_IDS) {
+      const label = actEntryToQuickAction(id);
+      if (label === null) continue;
+      // quickActionToPreset must not throw for the returned label — it
+      // returns a patch or null, never an exception.
+      expect(() => quickActionToPreset(label as QuickActionLabel, 'claim')).not.toThrow();
+    }
+  });
+
+  it('reply opens the box with NO forced preset', () => {
+    expect(actEntryToQuickAction('reply')).toBeNull();
+  });
+
+  it('challenge / clarify / add_evidence map to their quick actions', () => {
+    expect(actEntryToQuickAction('challenge')).toBe('challenge');
+    expect(actEntryToQuickAction('clarify')).toBe('clarify');
+    expect(actEntryToQuickAction('add_evidence')).toBe('evidence');
+  });
+
+  it('ask_source / ask_quote map to the source / quote quick actions', () => {
+    expect(actEntryToQuickAction('ask_source')).toBe('source');
+    expect(actEntryToQuickAction('ask_quote')).toBe('quote');
+  });
+
+  it('narrow / confirm / synthesize map to their quick actions', () => {
+    expect(actEntryToQuickAction('narrow')).toBe('narrow');
+    expect(actEntryToQuickAction('confirm')).toBe('confirm');
+    expect(actEntryToQuickAction('synthesize')).toBe('synthesize');
+  });
+
+  it('direct + role-change entries map to null (no box opens)', () => {
+    for (const id of [
+      'make_private',
+      'flag',
+      'request_deletion',
+      'view_qualifiers',
+      'watch',
+      'join_for',
+      'join_against',
+      'chime_in',
+    ] as ActEntryId[]) {
+      expect(actEntryToQuickAction(id)).toBeNull();
+    }
+  });
+
+  it('respond_to_concession opens with no forced preset (QOL-041 owns its schema)', () => {
+    expect(actEntryToQuickAction('respond_to_concession')).toBeNull();
   });
 });

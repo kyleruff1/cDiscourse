@@ -97,15 +97,27 @@ describe('COMPOSER-002 — the dock is mounted inside the room, not as a screen 
   });
 });
 
-// ── 3. The dock renders the live room surface's composer in-place ──
+// ── 3. The dock hosts the QOL-030 OneBox in-place ──
+// QOL-030 refactor: the dock now hosts `OneBox` (the single switchable
+// composer), and `OneBox` hosts `ArgumentComposer` — the `submit-argument`
+// post path is unchanged, one layer deeper.
 
-describe('COMPOSER-002 — the dock renders ArgumentComposer in dock mode', () => {
-  it('the dock value-imports ArgumentComposer', () => {
-    expect(DOCK_SRC).toMatch(/import\s*\{\s*ArgumentComposer\s*\}\s*from\s*'\.\/ArgumentComposer'/);
+describe('COMPOSER-002 / QOL-030 — the dock hosts the OneBox in dock mode', () => {
+  it('the dock value-imports OneBox', () => {
+    expect(DOCK_SRC).toMatch(/import\s*\{\s*OneBox\s*\}\s*from\s*'\.\/oneBox\/OneBox'/);
   });
 
-  it('the dock renders <ArgumentComposer mode="dock" ...>', () => {
-    expect(DOCK_SRC).toMatch(/<ArgumentComposer[\s\S]*?mode="dock"/);
+  it('the dock renders <OneBox ...>', () => {
+    expect(DOCK_SRC).toMatch(/<OneBox\b/);
+  });
+
+  it('the OneBox still hosts ArgumentComposer in dock mode (post path unchanged)', () => {
+    const oneBoxSrc = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'features', 'arguments', 'oneBox', 'OneBox.tsx'),
+      'utf8',
+    );
+    expect(oneBoxSrc).toMatch(/import\s*\{\s*ArgumentComposer\s*\}\s*from\s*'\.\.\/ArgumentComposer'/);
+    expect(oneBoxSrc).toMatch(/<ArgumentComposer[\s\S]*?mode="dock"/);
   });
 
   it('the dock returns null when not visible (no animate-out leak)', () => {

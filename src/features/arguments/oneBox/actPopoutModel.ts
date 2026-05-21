@@ -738,6 +738,83 @@ export function getPromotedEntry(
   return null;
 }
 
+// ── Entry → composer-preset bridge ─────────────────────────────
+
+/**
+ * Maps a box-opening `ActEntryId` to the existing `quickActionPresets`
+ * `QuickActionLabel`, so the OneBox can derive the composer's seeded
+ * `MoveDraftPatch` for the chosen flash-menu entry through the SHIPPED
+ * `quickActionToPreset` machinery — no preset bodies are re-authored
+ * here (mirrors `timelineNodeActionDockModel.actionDockToComposerPreset`).
+ *
+ * Returns `null` for:
+ *  - direct / role-change entries (no box opens — `flag` / `make_private`
+ *    / `watch` / …), and
+ *  - box-opening entries that produce no forced type (`reply` opens the
+ *    composer with no forced argument type).
+ *
+ * The two structured / forced-list entry points whose schemas are owned
+ * by later cards — `add_evidence` (QOL-036), `respond_to_evidence`
+ * (QOL-037), `respond_to_concession` (QOL-041) — map to the closest
+ * shipped quick action so the box is never blank; the structured-form
+ * internals arrive with their own card.
+ *
+ * The string literal is the `QuickActionLabel` union from
+ * `quickActionPresets.ts`; kept as a plain `string` return so this pure
+ * model does not import the composer module (it stays React/Supabase-free
+ * and the OneBox does the typed `quickActionToPreset` call).
+ */
+export function actEntryToQuickAction(entryId: ActEntryId): string | null {
+  switch (entryId) {
+    // Box-opening entries with a meaningful preset.
+    case 'challenge':
+      return 'challenge';
+    case 'clarify':
+      return 'clarify';
+    case 'add_evidence':
+      return 'evidence';
+    case 'ask_source':
+      return 'source';
+    case 'ask_quote':
+      return 'quote';
+    case 'narrow':
+      return 'narrow';
+    case 'concede':
+      return 'concede';
+    case 'confirm':
+      return 'confirm';
+    case 'synthesize':
+      return 'synthesize';
+    case 'respond_to_evidence':
+      // QOL-037 owns the structured response schema; the closest shipped
+      // quick action is `challenge` (a response to evidence is a rebuttal-
+      // shaped move) so the box is never blank.
+      return 'challenge';
+    case 'branch_tangent':
+      return 'branch';
+    // `reply` opens the composer with NO forced type.
+    case 'reply':
+    // `respond_to_concession` — QOL-041 owns the forced-list schema; the
+    // box opens with no forced type until that card lands.
+    case 'respond_to_concession':
+    // Direct / role-change entries — no box opens.
+    case 'make_private':
+    case 'flag':
+    case 'request_deletion':
+    case 'view_qualifiers':
+    case 'watch':
+    case 'join_for':
+    case 'join_against':
+    case 'chime_in':
+      return null;
+    default: {
+      // Exhaustiveness guard — unreachable for the typed union.
+      const never: never = entryId;
+      return never;
+    }
+  }
+}
+
 // ── _debug namespace — internal table access for tests ─────────
 
 /**
