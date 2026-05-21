@@ -11,7 +11,7 @@ is recorded as *story evidence* on the existing card. See
 [`storyboard-to-roadmap-map.md`](storyboard-to-roadmap-map.md).
 
 Issue creation status for this pass: **local issue-catalogue entries only.**
-The new `QOL-021 … QOL-029` cards are appended to
+The new `QOL-034 … QOL-042` cards are appended to
 `scripts/github/uxBoardCards.json`. No GitHub issues were created — the task
 prompt did not explicitly authorize GitHub issue creation, so the safe path
 (local catalogue) was taken. An operator can promote the catalogue with
@@ -23,15 +23,15 @@ prompt did not explicitly authorize GitHub issue creation, so the safe path
 
 | Story need | Scenario | Current support | Missing capability | Canonical header | Existing match | New issue? | Priority | Effort | Release | 
 |---|---|---|---|---|---|---|---|---|---|
-| Invite by email → signup/auth → return to room | 1 + 2 | None (UI placeholder) | Invite backend + auth deep-link routing | IX — Interaction | — | **Yes — QOL-025** | P1 | L | 6.7 |
-| Public ↔ private room visibility transition | 1 + 2 | Partial (room model) | Visibility toggle, RLS, transition consequences | RULE — Rules UX | partial: GAME-005 (seats only) | **Yes — QOL-026** | P1 | M | 6.7 |
-| Invite & response notification lifecycle | 1 + 2 | None | Notification system (no NOTIF epic) | IX — Interaction | — | **Yes — QOL-027** | P2 | L | 6.7 |
-| Concession list + 5-level acceptance gradient | 1 | Partial (point-standing economy) | Itemized concession UI + acceptance gradient + fist-bump reaction | RULE — Rules UX | partial: point-standing-economy | **Yes — QOL-028** | P1 | M | 6.6 |
-| Linked prior argument as context/evidence | 1 + 2 | None | Room-to-room link with access check | RULE — Rules UX | — | **Yes — QOL-029** | P2 | M | 6.8 |
-| Payment / screenshot evidence metadata | 2 | Partial (EV-001 object) | Amount / date / redacted payer-payee / claimed-applicability fields | EV — Evidence | partial: EV-001 | **Yes — QOL-023** | P1 | M | 6.7 |
-| Evidence applicability dispute flow | 2 | Partial (EV-002/003) | Applicability axis + structured evidence responses + status | EV — Evidence | partial: EV-002, EV-003 | **Yes — QOL-024** | P1 | M | 6.7 |
-| User-facing terminology scrub | 1 + 2 | Partial (live tab says "Arguments") | Scrub remaining "debate"/"moderator" copy | RULE — Rules UX | — | **Yes — QOL-022** | P1 | M | 6.6 |
-| Storyboard canon + narrative officer skill | — | None | This pass delivers it | PM — Project Mgmt | — | **Yes — QOL-021** | P1 | S | 6.6 |
+| Invite by email → signup/auth → return to room | 1 + 2 | None (UI placeholder) | Invite backend + auth deep-link routing | IX — Interaction | — | **Yes — QOL-038** | P1 | L | 6.7 |
+| Public ↔ private room visibility transition | 1 + 2 | Partial (room model) | Visibility toggle, RLS, transition consequences | RULE — Rules UX | partial: GAME-005 (seats only) | **Yes — QOL-039** | P1 | M | 6.7 |
+| Invite & response notification lifecycle | 1 + 2 | None | Notification system (no NOTIF epic) | IX — Interaction | — | **Yes — QOL-040** | P2 | L | 6.7 |
+| Concession list + 5-level acceptance gradient | 1 | Partial (point-standing economy) | Itemized concession UI + acceptance gradient + fist-bump reaction | RULE — Rules UX | partial: point-standing-economy | **Yes — QOL-041** | P1 | M | 6.6 |
+| Linked prior argument as context/evidence | 1 + 2 | None | Room-to-room link with access check | RULE — Rules UX | — | **Yes — QOL-042** | P2 | M | 6.8 |
+| Payment / screenshot evidence metadata | 2 | Partial (EV-001 object) | Amount / date / redacted payer-payee / claimed-applicability fields | EV — Evidence | partial: EV-001 | **Yes — QOL-036** | P1 | M | 6.7 |
+| Evidence applicability dispute flow | 2 | Partial (EV-002/003) | Applicability axis + structured evidence responses + status | EV — Evidence | partial: EV-002, EV-003 | **Yes — QOL-037** | P1 | M | 6.7 |
+| User-facing terminology scrub | 1 + 2 | Partial (live tab says "Arguments") | Scrub remaining "debate"/"moderator" copy | RULE — Rules UX | — | **Yes — QOL-035** | P1 | M | 6.6 |
+| Storyboard canon + narrative officer skill | — | None | This pass delivers it | PM — Project Mgmt | — | **Yes — QOL-034** | P1 | S | 6.6 |
 | Horizontal timeline as primary surface | 1 | Built | — | TL — Timeline | TL-001/002/003 | No | — | — | — |
 | Clickable nodes with full metadata | 1 + 2 | Built | — | SC — Sidecar Rail | SC-002, META-001 | No | — | — | — |
 | Observer-first public entry, no modal | 1 | Built | — | TL — Timeline | Stage 6.4 | No | — | — | — |
@@ -48,7 +48,7 @@ prompt did not explicitly authorize GitHub issue creation, so the safe path
 
 Each entry below follows the five-field split. Acceptance criteria are testable.
 
-### QOL-021 — Storyboard canon + narrative officer skill
+### QOL-034 — Storyboard canon + narrative officer skill
 
 - **Story need:** A durable, shared picture of the whole CDiscourse experience
   that design, product, issue, and implementation work all reference.
@@ -56,7 +56,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   walked the whole journey.
 - **Missing app support:** The storyboard docs, the interaction taxonomy, the
   terminology rules + audit, and a manual skill to keep them coherent.
-- **Issue target:** PM — Project Mgmt. New card **QOL-021**.
+- **Issue target:** PM — Project Mgmt. New card **QOL-034**.
 - **Acceptance criteria:**
   - `docs/ux-storyboards/` contains README, two scenario storyboards,
     interaction taxonomy, missing-capabilities report, terminology rules, the
@@ -69,7 +69,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
     UI", and requires issue-deduping before proposing cards.
   - A test validates the skill frontmatter and required content.
 
-### QOL-022 — User-facing terminology scrub
+### QOL-035 — User-facing terminology scrub
 
 - **Story need:** The app never says "game" and avoids "debate" in normal-user
   copy (Scenario 1 Step 1: "Start an argument", not "Start a game/debate").
@@ -78,7 +78,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
 - **Missing app support:** ~35 discouraged "debate"/"moderator" strings in live
   surfaces (CreateDebateForm, JoinDebatePanel, DebateDetailHeader, admin tabs,
   constitution copy) plus legacy strings in the not-mounted DebateListScreen.
-- **Issue target:** RULE — Rules UX. New card **QOL-022**.
+- **Issue target:** RULE — Rules UX. New card **QOL-035**.
 - **Acceptance criteria:**
   - `npm run ux:terminology:audit` reports **0 live prohibited** violations
     (already true after this pass) and the discouraged count trends to 0.
@@ -86,7 +86,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   - The `debates` database table is **not** renamed.
   - `npm run ux:terminology:audit --strict` exits 0.
 
-### QOL-023 — Payment / screenshot evidence metadata object
+### QOL-036 — Payment / screenshot evidence metadata object
 
 - **Story need:** Scenario 2 — attach a payment screenshot as evidence with
   amount, date, redacted payer/payee, note text, and a claimed applicability
@@ -96,7 +96,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
 - **Missing app support:** Payment-specific fields — `amount`, `date`,
   redacted `payer`/`payee`, `noteText`, `claimedApplicability`,
   `confidence: user_asserted`. EV-001 has none of these.
-- **Issue target:** EV — Evidence. New card **QOL-023** (extends EV-001).
+- **Issue target:** EV — Evidence. New card **QOL-036** (extends EV-001).
 - **Acceptance criteria:**
   - The evidence object gains payment metadata fields, all optional and
     additive to EV-001 (no breaking change to existing `EvidenceArtifact`).
@@ -106,7 +106,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   - A payment evidence object never produces a truth value or a point-standing
     delta on its own.
 
-### QOL-024 — Evidence applicability dispute flow
+### QOL-037 — Evidence applicability dispute flow
 
 - **Story need:** Scenario 2 — dispute **which month** a payment covers, as a
   separate axis from disputing that the payment exists.
@@ -117,7 +117,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   Dispute applicability / Request source / Request clarification), an
   `applicability_disputed` → `stronger` status, and a required clarification on
   any non-Accept choice.
-- **Issue target:** EV — Evidence. New card **QOL-024**.
+- **Issue target:** EV — Evidence. New card **QOL-037**.
 - **Acceptance criteria:**
   - An evidence object carries a distinct applicability status separate from
     its existence and source-chain status.
@@ -127,7 +127,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
     status, never a truth value.
   - Copy uses "Applicability disputed", never "proof" / "true" / "false".
 
-### QOL-025 — Invite → signup/auth → argument-room return path
+### QOL-038 — Invite → signup/auth → argument-room return path
 
 - **Story need:** Both scenarios — invite a named respondent by email; the link
   routes a new user through sign-up and an existing user through auth, then
@@ -138,7 +138,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
 - **Missing app support:** The invite data model (`argument_room_invites` per
   `docs/invite-flow.md`), the email send path, and an auth deep link that
   preserves the destination room across sign-up / auth.
-- **Issue target:** IX — Interaction. New card **QOL-025**.
+- **Issue target:** IX — Interaction. New card **QOL-038**.
 - **Acceptance criteria:**
   - Inviting by email creates an invite record; RLS lets the inviter manage it
     and the invitee see their own.
@@ -148,7 +148,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
     modal (consistent with Stage 6.4 seamless entry).
   - No service-role in client; no broad user search exposed.
 
-### QOL-026 — Public ↔ private room visibility transition
+### QOL-039 — Public ↔ private room visibility transition
 
 - **Story need:** Scenario 1 — a public room is made private after a chime-in is
   rejected; Scenario 2 — a room is private from creation and never publicly
@@ -160,7 +160,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   non-participant reads on transition to private, the consequences (room leaves
   the public list; chime-ins leave public visibility), and the neutral
   notifications that accompany the change.
-- **Issue target:** RULE — Rules UX. New card **QOL-026**.
+- **Issue target:** RULE — Rules UX. New card **QOL-039**.
 - **Acceptance criteria:**
   - A room can be created private and never appears on any public list.
   - The room creator can transition public → private; non-participant read
@@ -168,9 +168,9 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   - On transition, rejected chime-in branches are retained (muted), never
     deleted.
   - The transition triggers the neutral observer notifications described in
-    QOL-027 — never shaming copy.
+    QOL-040 — never shaming copy.
 
-### QOL-027 — Invite & response notification lifecycle
+### QOL-040 — Invite & response notification lifecycle
 
 - **Story need:** Both scenarios — notifications for invite, new response,
   concession challenged, source requested, evidence supplied, chime-in posted,
@@ -181,7 +181,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   copy; deep links that open the room at the relevant node. The repo's v1 scope
   explicitly excludes *push* notifications — in-app notifications are in scope.
 - **Issue target:** IX — Interaction (no NOTIF epic exists; IX is the closest
-  canonical header). New card **QOL-027**.
+  canonical header). New card **QOL-040**.
 - **Acceptance criteria:**
   - Each trigger in the storyboards produces a notification with neutral copy.
   - Notification copy never exposes data the room's visibility forbids.
@@ -192,10 +192,10 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
 
 > **Taxonomy note.** There is no NOTIF issue family. This report maps
 > notifications to **IX (Interaction)**. A dedicated NOTIF epic is only worth
-> creating if notification scope grows well beyond QOL-027; for now IX is the
+> creating if notification scope grows well beyond QOL-040; for now IX is the
 > correct, non-proliferating home.
 
-### QOL-028 — Concession acceptance gradient
+### QOL-041 — Concession acceptance gradient
 
 - **Story need:** Scenario 1 — a response concedes an itemized list of points;
   the receiver rates each concession on a 5-level gradient (Agree / Agree with
@@ -207,7 +207,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
 - **Missing app support:** The itemized concession-list composer, the per-
   concession acceptance-gradient control, the required-clarification rule, and
   the fist-bump reaction affordance.
-- **Issue target:** RULE — Rules UX. New card **QOL-028**.
+- **Issue target:** RULE — Rules UX. New card **QOL-041**.
 - **Acceptance criteria:**
   - A response can carry multiple separately-addressable concession items.
   - Each received concession exposes the 5-level acceptance gradient.
@@ -217,7 +217,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   - A fist-bump / acknowledgment reaction exists as a low-friction partial-
     resolution affordance; it carries no score and no verdict.
 
-### QOL-029 — Linked prior argument reference
+### QOL-042 — Linked prior argument reference
 
 - **Story need:** Both scenarios — a new room references an earlier settled
   room; for a private prior room, the link respects the original room's access.
@@ -226,7 +226,7 @@ Each entry below follows the five-field split. Acceptance criteria are testable.
   new room; an access check so a private prior room's content opens only for
   users authorized on the original room; surfacing relevant resolved tangent
   nodes as context.
-- **Issue target:** RULE — Rules UX. New card **QOL-029**.
+- **Issue target:** RULE — Rules UX. New card **QOL-042**.
 - **Acceptance criteria:**
   - A new room can reference a prior room by ID; the prior room's title shows
     as a context chip.

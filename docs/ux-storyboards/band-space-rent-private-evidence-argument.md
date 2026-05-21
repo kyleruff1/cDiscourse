@@ -339,21 +339,21 @@ Forbidden on any evidence surface: **"proof", "true", "winner", "loser"**, and
 
 | # | Story need | Classification | Kind of work | Issue target |
 |---|---|---|---|---|
-| 1 | Private argument start (Private chosen before sending) | Partially supported (room model exists; an enforced private-from-creation path + RLS is the gap) | Rules / policy + data model | QOL-026 (RULE) |
-| 2 | Private invite → auth → private room | Missing (invite is a UI placeholder) | Notification path + auth deep-link | QOL-025 (IX) |
-| 3 | "Attach evidence" toggle | Partially supported (EV-001 evidence model; the composer toggle UI is the gap) | UI component | EV-001 follow-up / QOL-023 (EV) |
+| 1 | Private argument start (Private chosen before sending) | Partially supported (room model exists; an enforced private-from-creation path + RLS is the gap) | Rules / policy + data model | QOL-039 (RULE) |
+| 2 | Private invite → auth → private room | Missing (invite is a UI placeholder) | Notification path + auth deep-link | QOL-038 (IX) |
+| 3 | "Attach evidence" toggle | Partially supported (EV-001 evidence model; the composer toggle UI is the gap) | UI component | EV-001 follow-up / QOL-036 (EV) |
 | 4 | Evidence **object** model (not body text) | Already supported (EV-001 `EvidenceArtifact`) | — | Existing (EV-001) |
-| 5 | Payment-specific evidence metadata (amount, date, redacted payer/payee, note, claimed applicability) | Missing (EV-001 has no payment fields) | Data model | QOL-023 (EV) |
-| 6 | Redacted payment / screenshot handling | Partially supported (EV-001 has `screenshot_redacted` kind; payment-field redaction is the gap) | Data model + UI | QOL-023 (EV) |
+| 5 | Payment-specific evidence metadata (amount, date, redacted payer/payee, note, claimed applicability) | Missing (EV-001 has no payment fields) | Data model | QOL-036 (EV) |
+| 6 | Redacted payment / screenshot handling | Partially supported (EV-001 has `screenshot_redacted` kind; payment-field redaction is the gap) | Data model + UI | QOL-036 (EV) |
 | 7 | Evidence side panel | Partially supported (EV-002 source-chain popover, EV-005 annotations) | UI component | EV-002/EV-005 follow-up |
-| 8 | Evidence **applicability** dispute flow | Missing (EV-002 covers source/quote; applicability is a distinct axis) | Rules / UI + data model | QOL-024 (EV) |
-| 9 | Evidence status changes (disputed → stronger) | Partially supported (EV-003 evidence-debt; applicability status is the gap) | Data model | QOL-024 (EV) |
+| 8 | Evidence **applicability** dispute flow | Missing (EV-002 covers source/quote; applicability is a distinct axis) | Rules / UI + data model | QOL-037 (EV) |
+| 9 | Evidence status changes (disputed → stronger) | Partially supported (EV-003 evidence-debt; applicability status is the gap) | Data model | QOL-037 (EV) |
 | 10 | Evidence-debt marker | Already supported (EV-003 evidence debt tracker) | — | Existing (EV-003) |
-| 11 | "Accept evidence with caveat" | Missing | UI component + data model | QOL-024 (EV) |
+| 11 | "Accept evidence with caveat" | Missing | UI component + data model | QOL-037 (EV) |
 | 12 | Settled room lock | Already supported (room status; immutable bodies) | — | Existing |
-| 13 | Private prior-argument reference with access check | Missing | Data model + RLS + UI | QOL-029 (RULE) |
-| 14 | Notification lifecycle (invite, response, source, evidence supplied, settled) | Missing | Notification path | QOL-027 (IX) |
-| 15 | Structured evidence response choices | Missing | UI component + rules | QOL-024 (EV) |
+| 13 | Private prior-argument reference with access check | Missing | Data model + RLS + UI | QOL-042 (RULE) |
+| 14 | Notification lifecycle (invite, response, source, evidence supplied, settled) | Missing | Notification path | QOL-040 (IX) |
+| 15 | Structured evidence response choices | Missing | UI component + rules | QOL-037 (EV) |
 
 ## Suggested issues — Scenario 2
 
@@ -361,12 +361,12 @@ All deduped against the existing roadmap (EV-001 … EV-005 already exist).
 
 | Proposed card | Epic | Why it is new (not a duplicate) |
 |---|---|---|
-| **QOL-023** — Payment / screenshot evidence metadata object | Evidence | EV-001's `EvidenceArtifact` has no amount / date / payer / payee / claimed-applicability fields; payment evidence needs them. |
-| **QOL-024** — Evidence applicability dispute flow | Evidence | EV-002 covers source/quote disputes; **applicability** (which month a payment covers) is a separate axis with its own structured responses and status. |
-| **QOL-025** — Invite → signup/auth → room return path | Interaction | Shared with Scenario 1 — the invite backend + auth deep link does not exist. |
-| **QOL-026** — Public ↔ private room visibility transition | Rules UX | Private-from-creation enforcement + RLS is not a roadmap card. |
-| **QOL-027** — Invite & response notification lifecycle | Interaction | No NOTIF epic; no card owns notifications. |
-| **QOL-029** — Linked prior argument reference | Rules UX | Private prior-reference needs an access-checked link; no card covers it. |
+| **QOL-036** — Payment / screenshot evidence metadata object | Evidence | EV-001's `EvidenceArtifact` has no amount / date / payer / payee / claimed-applicability fields; payment evidence needs them. |
+| **QOL-037** — Evidence applicability dispute flow | Evidence | EV-002 covers source/quote disputes; **applicability** (which month a payment covers) is a separate axis with its own structured responses and status. |
+| **QOL-038** — Invite → signup/auth → room return path | Interaction | Shared with Scenario 1 — the invite backend + auth deep link does not exist. |
+| **QOL-039** — Public ↔ private room visibility transition | Rules UX | Private-from-creation enforcement + RLS is not a roadmap card. |
+| **QOL-040** — Invite & response notification lifecycle | Interaction | No NOTIF epic; no card owns notifications. |
+| **QOL-042** — Linked prior argument reference | Rules UX | Private prior-reference needs an access-checked link; no card covers it. |
 
 Story moments **already covered** (append story evidence to the existing card):
 EV-001 (evidence object), EV-002 (source-chain popover / "Ask for source"),

@@ -1,5 +1,5 @@
 {
-  "_doc": "Canonical card catalogue for the CDiscourse UX/UI Roadmap GitHub Project (#1 under kyleruff1). Only contains the QOL-NNN cards that are NOT already covered by an existing TL/VG/BR/SC/ST/EV/SW/IX/PR/HOST/GAL/RULE/AN/PM issue. Source of truth for syncUxProjectBoard.js (dry-run) and applyUxProjectBoard.sh (operator-runnable). Do not put any secret values here. Body fields render verbatim into GitHub issue bodies. Field options are constrained to the live project schema captured 2026-05-18: Priority P0/P1/P2 (no P3), Effort S/M/L/XL (no XS), Release 6.5/6.6/6.7/6.8 (no 6.9), Epic from the existing 14, Phase Backlog/Design/Build/Review/Done/Blocked. Status defaults to Todo on creation.",
+  "_doc": "Canonical card catalogue for the CDiscourse UX/UI Roadmap GitHub Project (#1 under kyleruff1). Only contains the QOL-NNN cards that are NOT already covered by an existing TL/VG/BR/SC/ST/EV/SW/IX/PR/HOST/GAL/RULE/AN/PM issue. Source of truth for syncUxProjectBoard.js (dry-run) and applyUxProjectBoard.sh (operator-runnable). Do not put any secret values here. Body fields render verbatim into GitHub issue bodies. Field options are constrained to the live project schema captured 2026-05-18: Priority P0/P1/P2 (no P3), Effort S/M/L/XL (no XS), Release 6.5/6.6/6.7/6.8 (no 6.9), Epic from the existing 14, Phase Backlog/Design/Build/Review/Done/Blocked. Status defaults to Todo on creation. PARTIAL SNAPSHOT: this file is NOT the authority for the next free QOL number — check `gh issue list` before allocating (QOL-021..026 were created as issues outside this catalogue). See docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md.",
   "projectTitle": "CDiscourse UX/UI Roadmap",
   "projectNumber": 1,
   "projectOwner": "kyleruff1",
@@ -190,8 +190,8 @@
       ]
     },
     {
-      "prefix": "QOL-021",
-      "title": "QOL-021 - UX storyboard canon and storyline-narrative-officer skill",
+      "prefix": "QOL-034",
+      "title": "QOL-034 - UX storyboard canon and storyline-narrative-officer skill",
       "labels": ["priority:p1", "effort:s", "epic:project-mgmt", "release:6.6", "area:roadmap", "area:ux-storyboards"],
       "epic": "Project Mgmt",
       "release": "6.6",
@@ -213,8 +213,8 @@
       ]
     },
     {
-      "prefix": "QOL-022",
-      "title": "QOL-022 - User-facing terminology scrub: no game, prefer Argument over Debate",
+      "prefix": "QOL-035",
+      "title": "QOL-035 - User-facing terminology scrub: no game, prefer Argument over Debate",
       "labels": ["priority:p1", "effort:m", "epic:rules-ux", "release:6.6", "area:roadmap", "area:ux-storyboards"],
       "epic": "Rules UX",
       "release": "6.6",
@@ -239,8 +239,8 @@
       ]
     },
     {
-      "prefix": "QOL-023",
-      "title": "QOL-023 - Payment and screenshot evidence metadata object",
+      "prefix": "QOL-036",
+      "title": "QOL-036 - Payment and screenshot evidence metadata object",
       "labels": ["priority:p1", "effort:m", "epic:evidence", "release:6.7", "area:roadmap", "area:ux-storyboards"],
       "epic": "Evidence",
       "release": "6.7",
@@ -265,8 +265,8 @@
       ]
     },
     {
-      "prefix": "QOL-024",
-      "title": "QOL-024 - Evidence applicability dispute flow",
+      "prefix": "QOL-037",
+      "title": "QOL-037 - Evidence applicability dispute flow",
       "labels": ["priority:p1", "effort:m", "epic:evidence", "release:6.7", "area:roadmap", "area:ux-storyboards"],
       "epic": "Evidence",
       "release": "6.7",
@@ -291,8 +291,8 @@
       ]
     },
     {
-      "prefix": "QOL-025",
-      "title": "QOL-025 - Invite to signup or auth to argument-room return path",
+      "prefix": "QOL-038",
+      "title": "QOL-038 - Invite to signup or auth to argument-room return path",
       "labels": ["priority:p1", "effort:l", "epic:interaction", "release:6.7", "area:roadmap", "area:ux-storyboards"],
       "epic": "Interaction",
       "release": "6.7",
@@ -315,8 +315,8 @@
       ]
     },
     {
-      "prefix": "QOL-026",
-      "title": "QOL-026 - Public and private room visibility transition rules",
+      "prefix": "QOL-039",
+      "title": "QOL-039 - Public and private room visibility transition rules",
       "labels": ["priority:p1", "effort:m", "epic:rules-ux", "release:6.7", "area:roadmap", "area:ux-storyboards"],
       "epic": "Rules UX",
       "release": "6.7",
@@ -331,18 +331,18 @@
         "- A room can be created private and never appears on any public list.",
         "- The room creator can transition public to private; non-participant read access is revoked by RLS.",
         "- On transition, rejected chime-in branches are retained (muted), never deleted.",
-        "- The transition triggers neutral observer notifications (see QOL-027) and never shaming copy.",
+        "- The transition triggers neutral observer notifications (see QOL-040) and never shaming copy.",
         "",
         "## Depends on",
-        "- GAME-005 (public seats) for the chime-in interaction; QOL-027 for the notifications.",
+        "- GAME-005 (public seats) for the chime-in interaction; QOL-040 for the notifications.",
         "",
         "## Non-negotiables",
         "- RLS is never disabled. No content is hard-deleted on transition."
       ]
     },
     {
-      "prefix": "QOL-027",
-      "title": "QOL-027 - Invite and response notification lifecycle",
+      "prefix": "QOL-040",
+      "title": "QOL-040 - Invite and response notification lifecycle",
       "labels": ["priority:p2", "effort:l", "epic:interaction", "release:6.7", "area:roadmap", "area:ux-storyboards"],
       "epic": "Interaction",
       "release": "6.7",
@@ -367,8 +367,8 @@
       ]
     },
     {
-      "prefix": "QOL-028",
-      "title": "QOL-028 - Concession list and acceptance gradient",
+      "prefix": "QOL-041",
+      "title": "QOL-041 - Concession list and acceptance gradient",
       "labels": ["priority:p1", "effort:m", "epic:rules-ux", "release:6.6", "area:roadmap", "area:ux-storyboards"],
       "epic": "Rules UX",
       "release": "6.6",
@@ -394,8 +394,8 @@
       ]
     },
     {
-      "prefix": "QOL-029",
-      "title": "QOL-029 - Linked prior argument reference as context",
+      "prefix": "QOL-042",
+      "title": "QOL-042 - Linked prior argument reference as context",
       "labels": ["priority:p2", "effort:m", "epic:rules-ux", "release:6.8", "area:roadmap", "area:ux-storyboards"],
       "epic": "Rules UX",
       "release": "6.8",
@@ -444,7 +444,7 @@
         "## Depends on / absorbs",
         "- Builds on VG-001, RULE-005 channels, COMPOSER-001/002.",
         "- Absorbs the composer dock; supersedes bespoke input surfaces (CreateDebateForm, JoinDebatePanel, AddAnnotationSheet, DeletionRequestSheet) as named follow-ups.",
-        "- QOL-023, QOL-024, QOL-028 are box-type schemas that plug into this foundation.",
+        "- QOL-036, QOL-037, QOL-041 are box-type schemas that plug into this foundation.",
         "",
         "## Non-negotiables",
         "- No AI. No winner/loser/truth copy. Terminology rules hold for every label."
@@ -476,6 +476,9 @@
         "## Depends on",
         "- QOL-030 (the popout chassis).",
         "",
+        "## Supersedes",
+        "- The build requirements of SC-001 (side action rail), SC-004 (node action dock), and the RULE-005 ChannelChipRow surface — pure models reused, React shells re-housed under the popout chassis. See docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md.",
+        "",
         "## Non-negotiables",
         "- No AI. Deterministic pure content model. No verdict copy."
       ]
@@ -505,6 +508,9 @@
         "## Depends on",
         "- QOL-030 (the popout chassis).",
         "",
+        "## Supersedes",
+        "- The build requirements of SC-002 (timeline node popover) and SC-003 (sidecar) — pure models reused, surfaces re-housed in the Inspect popout. See docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md.",
+        "",
         "## Non-negotiables",
         "- No verdict copy. No AI. Heat is activity, never correctness."
       ]
@@ -533,6 +539,9 @@
         "",
         "## Depends on",
         "- QOL-030 (the popout chassis).",
+        "",
+        "## Supersedes",
+        "- The build requirements of IX-002 (mini-map) and IX-001 (density / focus lenses) — pure models reused, surfaces re-housed in the Go popout. See docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md.",
         "",
         "## Non-negotiables",
         "- Heat is activity, never correctness. No AI."

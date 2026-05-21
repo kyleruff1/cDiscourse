@@ -50,7 +50,7 @@ For every interaction:
 - **Visual representation:** A pill, purple, soft gradient, "Narrowed" / a
   concession sub-marker on the authoring node.
 - **Permissions:** Authored by a responding primary participant.
-- **Issue / epic:** Rules UX (QOL-028), Strength/Weakness (point-standing).
+- **Issue / epic:** Rules UX (QOL-041), Strength/Weakness (point-standing).
 
 ### Concession acceptance
 
@@ -62,7 +62,7 @@ For every interaction:
   chosen level shows on the node.
 - **Permissions:** Only the participant who **received** the concession (the
   one whose claim it concedes to) may set the gradient.
-- **Issue / epic:** Rules UX (QOL-028).
+- **Issue / epic:** Rules UX (QOL-041).
 
 ### Concession disagreement
 
@@ -73,7 +73,7 @@ For every interaction:
 - **Visual representation:** The node's metadata shows the active disagreement
   kind (e.g. "fact-based").
 - **Permissions:** Same as concession acceptance.
-- **Issue / epic:** Rules UX (QOL-028), Rules UX (RULE-004 advisory review).
+- **Issue / epic:** Rules UX (QOL-041), Rules UX (RULE-004 advisory review).
 
 ### Main refutation
 
@@ -106,11 +106,11 @@ For every interaction:
 - **Internal semantic field:** `EvidenceArtifact` (EV-001) — `kind`, `label`,
   `url?`, `sourceText?`, `quote?`, `sourceChainStatus`, `risk`. Payment-specific
   fields (amount, date, redacted payer/payee, claimed applicability) are
-  *(proposed — QOL-023)*.
+  *(proposed — QOL-036)*.
 - **Visual representation:** Hexagon node / a receipt-chip pill attached to the
   authoring node; "Evidence" label, inner receipt mark.
 - **Permissions:** Attached by the move's author; readable by all room viewers.
-- **Issue / epic:** Evidence (EV-001, QOL-023).
+- **Issue / epic:** Evidence (EV-001, QOL-036).
 
 ### Evidence applicability challenge
 
@@ -118,11 +118,11 @@ For every interaction:
   disputed". A dispute over **what** a piece of evidence applies to (e.g. which
   month a payment covers), distinct from disputing that it exists.
 - **Internal semantic field:** evidence status `applicability_disputed`;
-  structured evidence response `dispute_applicability` *(proposed — QOL-024)*.
+  structured evidence response `dispute_applicability` *(proposed — QOL-037)*.
 - **Visual representation:** The evidence pill shows a "disputed" state; the
   side panel shows claimed month vs. disputed month.
 - **Permissions:** Any primary participant who is not the evidence's author.
-- **Issue / epic:** Evidence (QOL-024).
+- **Issue / epic:** Evidence (QOL-037).
 
 ### Source request
 
@@ -171,7 +171,7 @@ For every interaction:
   record.
 - **Permissions:** "Not useful" — primaries only. "Hide from my view" — any
   viewer, affecting only their own view.
-- **Issue / epic:** Rules UX (GAME-005), Interaction (QOL-025-adjacent).
+- **Issue / epic:** Rules UX (GAME-005), Interaction (QOL-038-adjacent).
 
 ---
 
@@ -225,11 +225,11 @@ For every interaction:
 - **User-facing copy:** "Private argument." Visible only to invited
   participants.
 - **Internal semantic field:** room visibility `private`; RLS restricts reads to
-  participants *(private-from-creation enforcement is proposed — QOL-026)*.
+  participants *(private-from-creation enforcement is proposed — QOL-039)*.
 - **Visual representation:** A "Private" marker on the room; never on a public
   list.
 - **Permissions:** Created private, or transitioned private by the room creator.
-- **Issue / epic:** Rules UX (QOL-026).
+- **Issue / epic:** Rules UX (QOL-039).
 
 ### Public room
 
@@ -238,7 +238,7 @@ For every interaction:
 - **Internal semantic field:** room visibility `public` (the default).
 - **Visual representation:** Appears in the gallery's play lanes.
 - **Permissions:** Anyone may observe; chime-in seats are limited (GAME-005).
-- **Issue / epic:** Gallery (GAL-001/002), Rules UX (QOL-026).
+- **Issue / epic:** Gallery (GAL-001/002), Rules UX (QOL-039).
 
 ---
 
@@ -285,12 +285,12 @@ For every interaction:
   argument" (private). A reference from a new room to an earlier, settled room.
 - **Internal semantic field:** a link record between two rooms; carries an
   **access check** so a private prior room's content opens only for users
-  authorized on that original room *(proposed — QOL-029)*.
+  authorized on that original room *(proposed — QOL-042)*.
 - **Visual representation:** A context chip on the new room's timeline; tapping
   it opens the prior room (subject to the access check).
 - **Permissions:** Anyone may create a link; viewing the linked content respects
   the prior room's visibility.
-- **Issue / epic:** Rules UX (QOL-029).
+- **Issue / epic:** Rules UX (QOL-042).
 
 ---
 

@@ -38,21 +38,21 @@ After the designer completes, report design doc path + commit SHA + readiness to
 > The UX storyboard canon is in `docs/ux-storyboards/` and the
 > `storyline-narrative-officer` skill is at
 > `.claude/skills/storyline-narrative-officer/SKILL.md`. The storyboards
-> surfaced 9 deduped roadmap cards (`QOL-021` … `QOL-029`) now in
+> surfaced 9 deduped roadmap cards (`QOL-034` … `QOL-042`) now in
 > `scripts/github/uxBoardCards.json`.
 >
 > Recommended next steps, in order:
 >
 > 1. `npm run ux:terminology:audit` — confirm 0 live prohibited violations;
 >    review the 35 discouraged "debate" / "moderator" usages.
-> 2. Pick up **QOL-022** (terminology scrub) — reword the discouraged strings
+> 2. Pick up **QOL-035** (terminology scrub) — reword the discouraged strings
 >    in mounted screens per `docs/ux-storyboards/terminology-and-copy-rules.md`.
 >    Do not rename the `debates` table.
-> 3. To create the GitHub issues for `QOL-021` … `QOL-029`: run
+> 3. To create the GitHub issues for `QOL-034` … `QOL-042`: run
 >    `npm run github:ux-board:dry`, then — only with operator approval —
 >    `bash scripts/github/applyUxProjectBoard.sh`.
-> 4. For an evidence-heavy build, start with **QOL-023** (payment evidence
->    metadata) → **QOL-024** (evidence applicability dispute) — both extend
+> 4. For an evidence-heavy build, start with **QOL-036** (payment evidence
+>    metadata) → **QOL-037** (evidence applicability dispute) — both extend
 >    EV-001 / EV-002 / EV-003 and are grounded in the band-space rent
 >    storyboard.
 >

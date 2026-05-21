@@ -70,7 +70,7 @@ const SKIP_DIR_NAMES = new Set([
 // reported in a separate section and never count toward a strict-mode failure.
 const LEGACY_NOT_MOUNTED = [
   // DebateListScreen is rendered behind `{false && ...}` in App.tsx — the live
-  // Arguments tab uses ConversationGalleryScreen. Tracked by QOL-022.
+  // Arguments tab uses ConversationGalleryScreen. Tracked by QOL-035.
   path.join('src', 'features', 'debates', 'DebateListScreen.tsx'),
 ];
 
@@ -402,7 +402,7 @@ function renderReport(result) {
     L.push('No prohibited terminology in live, mounted user-facing surfaces. ✅');
   } else {
     L.push('Live prohibited terminology remains — see the table below. The');
-    L.push('terminology scrub is tracked as a roadmap card (QOL-022).');
+    L.push('terminology scrub is tracked as a roadmap card (QOL-035).');
   }
   L.push('');
   L.push('## Live prohibited violations');

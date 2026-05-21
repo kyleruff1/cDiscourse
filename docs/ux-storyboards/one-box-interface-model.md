@@ -332,8 +332,8 @@ survive**. This is a consolidation, not a rewrite.
 | **IX-003** (reopened) | Full keyboard map + quick-access shortcuts | Interaction | P1 | M |
 
 QOL-030 is the foundation; QOL-031/032/033 depend on it. The "what's in the box"
-schema cards from the storyboard pass — QOL-023 (evidence form), QOL-024
-(evidence-response), QOL-028 (concession forced list) — plug into QOL-030.
+schema cards from the storyboard pass — QOL-036 (evidence form), QOL-037
+(evidence-response), QOL-041 (concession forced list) — plug into QOL-030.
 
 Each card's deliverable is a full wireframe design doc under `docs/designs/`,
 expanding the wireframes in §5 to component-level fidelity.

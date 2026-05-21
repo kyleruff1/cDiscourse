@@ -412,27 +412,27 @@ for the full cross-scenario report and acceptance criteria.
 
 | # | Story need | Classification | Kind of work | Issue target |
 |---|---|---|---|---|
-| 1 | "Start an argument" entry, no "game"/"debate" copy | Already supported (live tab + entry label say "Arguments" / "Start an argument") | Copy scrub of remaining strings | QOL-022 (RULE) |
+| 1 | "Start an argument" entry, no "game"/"debate" copy | Already supported (live tab + entry label say "Arguments" / "Start an argument") | Copy scrub of remaining strings | QOL-035 (RULE) |
 | 2 | Optional title; blank → root-claim excerpt | Already supported | — | Existing (debate title) |
-| 3 | Public/Private visibility chosen at compose | Partially supported (room created public by default; private toggle is the gap) | Rules / policy + data model | QOL-026 (RULE) |
-| 4 | Invite by email | Missing (UI placeholder only — `docs/invite-flow.md`) | Data model + notification path | QOL-025 (IX) |
-| 5 | No-account invite → signup → return to room | Missing | Auth deep-link routing | QOL-025 (IX) |
-| 6 | Account invite → auth → direct into room | Missing | Auth deep-link routing | QOL-025 (IX) |
+| 3 | Public/Private visibility chosen at compose | Partially supported (room created public by default; private toggle is the gap) | Rules / policy + data model | QOL-039 (RULE) |
+| 4 | Invite by email | Missing (UI placeholder only — `docs/invite-flow.md`) | Data model + notification path | QOL-038 (IX) |
+| 5 | No-account invite → signup → return to room | Missing | Auth deep-link routing | QOL-038 (IX) |
+| 6 | Account invite → auth → direct into room | Missing | Auth deep-link routing | QOL-038 (IX) |
 | 7 | Invited respondent skips the observer/side modal | Already supported (Stage 6.4 seamless entry; existing participants keep their side) | — | Existing (TL-001 / seamless entry) |
-| 8 | Itemized concession list UI | Partially supported (point-standing economy models concessions; the composer list UI is the gap) | UI component | QOL-028 (RULE) |
-| 9 | Concession acceptance gradient (5 levels) | Missing | UI component + data model | QOL-028 (RULE) |
-| 10 | Required clarification on any disagreement | Partially supported (RULE-004 pre-send review is advisory) | Rules / UI | QOL-028 (RULE) |
+| 8 | Itemized concession list UI | Partially supported (point-standing economy models concessions; the composer list UI is the gap) | UI component | QOL-041 (RULE) |
+| 9 | Concession acceptance gradient (5 levels) | Missing | UI component + data model | QOL-041 (RULE) |
+| 10 | Required clarification on any disagreement | Partially supported (RULE-004 pre-send review is advisory) | Rules / UI | QOL-041 (RULE) |
 | 11 | Horizontal timeline as the primary surface | Already supported (TL-001/002/003, Stage 6.1.8 timeline) | — | Existing |
 | 12 | Clickable nodes with full metadata | Already supported (SC-002 node popover, META-001 ledger) | — | Existing |
 | 13 | Public observer entry with no blocking modal | Already supported (Stage 6.4 observer-first) | — | Existing |
 | 14 | Chime-in node (vertical branch) | Already supported (BR-004 `chime_in_vertical`; GAME-005 seats) | — | Existing (BR-004 / GAME-005) |
-| 15 | Chime-in accept/reject by primaries | Partially supported (GAME-005 governance: useful / off_track / needs_source / move_to_tangent) | Add "Hide from my view", "Convert to branch", "Let it stand" dispositions | QOL-025-adjacent / GAME-005 follow-up |
+| 15 | Chime-in accept/reject by primaries | Partially supported (GAME-005 governance: useful / off_track / needs_source / move_to_tangent) | Add "Hide from my view", "Convert to branch", "Let it stand" dispositions | QOL-038-adjacent / GAME-005 follow-up |
 | 16 | Tangent branch (diagonal) | Already supported (BR-003 routing, BR-004 `tangent_diagonal`) | — | Existing |
 | 17 | Room lock / settled state | Already supported (room status model; argument bodies immutable) | — | Existing |
-| 18 | Fist-bump / acknowledgment reaction | Missing | UI component + data model | QOL-028-adjacent (see report) |
-| 19 | Public → private transition + observer notification | Missing | Rules / policy + notification path | QOL-026 (RULE) + QOL-027 (IX) |
-| 20 | Notification lifecycle (invite, response, chime-in, made-private, settled) | Missing | Notification path (no NOTIF epic exists — maps to IX/QOL) | QOL-027 (IX) |
-| 21 | Linked prior argument as context | Missing | Data model + UI | QOL-029 (RULE) |
+| 18 | Fist-bump / acknowledgment reaction | Missing | UI component + data model | QOL-041-adjacent (see report) |
+| 19 | Public → private transition + observer notification | Missing | Rules / policy + notification path | QOL-039 (RULE) + QOL-040 (IX) |
+| 20 | Notification lifecycle (invite, response, chime-in, made-private, settled) | Missing | Notification path (no NOTIF epic exists — maps to IX/QOL) | QOL-040 (IX) |
+| 21 | Linked prior argument as context | Missing | Data model + UI | QOL-042 (RULE) |
 
 ## Suggested issues — Scenario 1
 
@@ -443,12 +443,12 @@ card covers the need, no new card is proposed — the storyboard is recorded as
 
 | Proposed card | Epic | Why it is new (not a duplicate) |
 |---|---|---|
-| **QOL-022** — User-facing terminology scrub | Rules UX | No existing card scrubs "game"/"debate" from UI copy. |
-| **QOL-025** — Invite → signup/auth → room return path | Interaction | `docs/invite-flow.md` is a placeholder; no roadmap card owns the auth-return deep link. |
-| **QOL-026** — Public ↔ private room visibility transition | Rules UX | GAME-005 covers public *seats*; nothing covers the visibility *toggle* and its consequences. |
-| **QOL-027** — Invite & response notification lifecycle | Interaction | No NOTIF epic exists; no card owns the notification system. |
-| **QOL-028** — Concession acceptance gradient | Rules UX | Point-standing economy models concession *effects*; no card owns the 5-level acceptance UI or the fist-bump reaction. |
-| **QOL-029** — Linked prior argument reference | Rules UX | No card covers referencing a prior locked room as context. |
+| **QOL-035** — User-facing terminology scrub | Rules UX | No existing card scrubs "game"/"debate" from UI copy. |
+| **QOL-038** — Invite → signup/auth → room return path | Interaction | `docs/invite-flow.md` is a placeholder; no roadmap card owns the auth-return deep link. |
+| **QOL-039** — Public ↔ private room visibility transition | Rules UX | GAME-005 covers public *seats*; nothing covers the visibility *toggle* and its consequences. |
+| **QOL-040** — Invite & response notification lifecycle | Interaction | No NOTIF epic exists; no card owns the notification system. |
+| **QOL-041** — Concession acceptance gradient | Rules UX | Point-standing economy models concession *effects*; no card owns the 5-level acceptance UI or the fist-bump reaction. |
+| **QOL-042** — Linked prior argument reference | Rules UX | No card covers referencing a prior locked room as context. |
 
 Story moments **already covered** (no new card — append story evidence to the
 existing card): TL-001/002/003 (timeline), SC-002 (node popover), META-001
