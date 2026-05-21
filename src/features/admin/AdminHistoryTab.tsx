@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { adminGetUserDetail, adminErrorMessage, summarizeAuditPayload } from './adminApi';
 import type { AdminAuditEvent } from './types';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
+import { SURFACE_TOKENS, STATUS } from '../../lib/designTokens';
 
 /**
  * AdminHistoryTab — shows recent admin actions for a queried user.
@@ -43,6 +44,7 @@ export function AdminHistoryTab() {
       <TextInput
         style={styles.input}
         placeholder="Target user ID (uuid)"
+        placeholderTextColor={SURFACE_TOKENS.placeholder}
         value={targetUserId}
         onChangeText={setTargetUserId}
         autoCapitalize="none"
@@ -81,16 +83,16 @@ export function AdminHistoryTab() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
   content: { padding: 10 },
-  help: { fontSize: 12, color: '#6b7280', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, padding: 8, fontSize: 13, marginBottom: 8 },
-  muted: { color: '#6b7280', fontSize: 12, padding: 6 },
-  error: { color: '#dc2626', fontSize: 12, padding: 6, backgroundColor: '#fef2f2', borderRadius: 6 },
-  event: { padding: 8, backgroundColor: '#fff', borderRadius: 6, marginBottom: 4, borderWidth: 1, borderColor: '#e5e7eb' },
-  eventAction: { fontSize: 12, fontWeight: '700', color: '#111827' },
-  eventMeta: { fontSize: 10, color: '#6b7280', marginTop: 2 },
-  eventReason: { fontSize: 11, color: '#374151', marginTop: 2 },
-  eventPayload: { fontSize: 10, color: '#6b7280', marginTop: 2, fontFamily: 'monospace' as 'monospace' },
-  sortStatus: { fontSize: 11, color: '#374151', fontWeight: '600', marginBottom: 6 },
+  help: { fontSize: 12, color: SURFACE_TOKENS.textSecondary, marginBottom: 8 },
+  input: { borderWidth: 1, borderColor: SURFACE_TOKENS.inputBorder, borderRadius: 6, padding: 8, fontSize: 13, marginBottom: 8, backgroundColor: SURFACE_TOKENS.inputBg, color: SURFACE_TOKENS.textPrimary },
+  muted: { color: SURFACE_TOKENS.textSecondary, fontSize: 12, padding: 6 },
+  error: { color: STATUS.danger.fg, fontSize: 12, padding: 6, backgroundColor: STATUS.danger.bg, borderRadius: 6 },
+  event: { padding: 8, backgroundColor: SURFACE_TOKENS.elevated, borderRadius: 6, marginBottom: 4, borderWidth: 1, borderColor: SURFACE_TOKENS.border },
+  eventAction: { fontSize: 12, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
+  eventMeta: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, marginTop: 2 },
+  eventReason: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, marginTop: 2 },
+  eventPayload: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, marginTop: 2, fontFamily: 'monospace' as 'monospace' },
+  sortStatus: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, fontWeight: '600', marginBottom: 6 },
 });

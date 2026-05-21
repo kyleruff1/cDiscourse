@@ -8,6 +8,7 @@ import {
   resolveCreateUserDispatch,
 } from './adminHelpers';
 import type { CreateUserMode } from './adminHelpers';
+import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
 interface Props {
   onCreated: () => void;
@@ -113,18 +114,19 @@ export function AdminCreateUserForm({ onCreated, onCancel }: Props) {
           </Pressable>
         </View>
       )}
-      <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" accessibilityLabel="new-user-email" />
-      <TextInput style={styles.input} placeholder="Display name (optional)" value={displayName} onChangeText={setDisplayName} accessibilityLabel="new-user-display-name" />
+      <TextInput style={styles.input} placeholder="Email" placeholderTextColor={SURFACE_TOKENS.placeholder} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" accessibilityLabel="new-user-email" />
+      <TextInput style={styles.input} placeholder="Display name (optional)" placeholderTextColor={SURFACE_TOKENS.placeholder} value={displayName} onChangeText={setDisplayName} accessibilityLabel="new-user-display-name" />
       {isBot && (
         <>
-          <TextInput style={styles.input} placeholder="Bot label" value={label} onChangeText={setLabel} accessibilityLabel="new-bot-label" />
-          <TextInput style={styles.input} placeholder="Bot persona (optional)" value={persona} onChangeText={setPersona} accessibilityLabel="new-bot-persona" />
+          <TextInput style={styles.input} placeholder="Bot label" placeholderTextColor={SURFACE_TOKENS.placeholder} value={label} onChangeText={setLabel} accessibilityLabel="new-bot-label" />
+          <TextInput style={styles.input} placeholder="Bot persona (optional)" placeholderTextColor={SURFACE_TOKENS.placeholder} value={persona} onChangeText={setPersona} accessibilityLabel="new-bot-persona" />
         </>
       )}
       {showPassword && (
         <TextInput
           style={styles.input}
           placeholder={isBot ? 'Password (optional — auto-generated if blank)' : 'Password (optional — recovery email if blank)'}
+          placeholderTextColor={SURFACE_TOKENS.placeholder}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -153,20 +155,20 @@ export function AdminCreateUserForm({ onCreated, onCancel }: Props) {
 }
 
 const styles = StyleSheet.create({
-  form: { backgroundColor: '#f9fafb', padding: 10, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  title: { fontSize: 13, fontWeight: '700', color: '#111827', marginBottom: 6 },
+  form: { backgroundColor: SURFACE_TOKENS.base, padding: 10, borderBottomWidth: 1, borderBottomColor: SURFACE_TOKENS.border },
+  title: { fontSize: 13, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, marginBottom: 6 },
   toggleRow: { flexDirection: 'row', gap: 6, marginBottom: 6 },
-  toggle: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d1d5db' },
-  toggleActive: { backgroundColor: '#ede9fe', borderColor: '#6366f1' },
-  toggleText: { fontSize: 11, color: '#374151' },
-  toggleTextActive: { color: '#6366f1', fontWeight: '700' },
-  input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, padding: 6, fontSize: 12, marginBottom: 6, backgroundColor: '#fff' },
-  notice: { fontSize: 10, color: '#6b7280', marginBottom: 6, fontStyle: 'italic' },
-  status: { color: '#047857', fontSize: 12, marginBottom: 6, fontWeight: '600' },
-  error: { color: '#dc2626', fontSize: 12, marginBottom: 6 },
+  toggle: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: SURFACE_TOKENS.elevated, borderWidth: 1, borderColor: SURFACE_TOKENS.inputBorder },
+  toggleActive: { backgroundColor: STATUS.info.bg, borderColor: CONTROL.primary.bg },
+  toggleText: { fontSize: 11, color: SURFACE_TOKENS.textSecondary },
+  toggleTextActive: { color: STATUS.info.fg, fontWeight: '700' },
+  input: { borderWidth: 1, borderColor: SURFACE_TOKENS.inputBorder, borderRadius: 6, padding: 6, fontSize: 12, marginBottom: 6, backgroundColor: SURFACE_TOKENS.inputBg, color: SURFACE_TOKENS.textPrimary },
+  notice: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, marginBottom: 6, fontStyle: 'italic' },
+  status: { color: STATUS.success.fg, fontSize: 12, marginBottom: 6, fontWeight: '600' },
+  error: { color: STATUS.danger.fg, fontSize: 12, marginBottom: 6 },
   actions: { flexDirection: 'row', gap: 6 },
-  btn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, backgroundColor: '#e5e7eb' },
-  btnPrimary: { backgroundColor: '#6366f1' },
-  btnText: { fontSize: 12, color: '#374151', fontWeight: '600' },
-  btnPrimaryText: { fontSize: 12, color: '#fff', fontWeight: '700' },
+  btn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 6, backgroundColor: SURFACE_TOKENS.raised },
+  btnPrimary: { backgroundColor: CONTROL.primary.bg },
+  btnText: { fontSize: 12, color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
+  btnPrimaryText: { fontSize: 12, color: CONTROL.primary.fg, fontWeight: '700' },
 });

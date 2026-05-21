@@ -19,6 +19,7 @@ import {
 } from './adminApi';
 import type { AdminUserDetail, AdminUserSummary } from './types';
 import type { ProfileRole } from '../account/types';
+import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
 interface Props {
   userId: string;
@@ -188,6 +189,7 @@ export function AdminUserDetailPanel({ userId, summary, onClose, onAction }: Pro
         <TextInput
           style={styles.input}
           placeholder="Reason for action (required)"
+          placeholderTextColor={SURFACE_TOKENS.placeholder}
           value={reason}
           onChangeText={setReason}
           accessibilityLabel="action-reason"
@@ -228,6 +230,7 @@ export function AdminUserDetailPanel({ userId, summary, onClose, onAction }: Pro
             <TextInput
               style={[styles.input, styles.inlineInput]}
               placeholder="Temp password (bot only)"
+              placeholderTextColor={SURFACE_TOKENS.placeholder}
               value={tempPassword}
               onChangeText={setTempPassword}
               secureTextEntry
@@ -251,11 +254,11 @@ export function AdminUserDetailPanel({ userId, summary, onClose, onAction }: Pro
             </Pressable>
           ) : (
             <Pressable style={styles.btnDanger} onPress={handleDisable} accessibilityLabel="disable-user">
-              <Text style={styles.btnText}>Disable user</Text>
+              <Text style={[styles.btnText, styles.btnDangerText]}>Disable user</Text>
             </Pressable>
           )}
           <Pressable style={styles.btnDanger} onPress={handleSoftDelete} accessibilityLabel="soft-delete-user">
-            <Text style={styles.btnText}>Soft delete</Text>
+            <Text style={[styles.btnText, styles.btnDangerText]}>Soft delete</Text>
           </Pressable>
         </View>
 
@@ -276,37 +279,47 @@ export function AdminUserDetailPanel({ userId, summary, onClose, onAction }: Pro
 }
 
 const styles = StyleSheet.create({
+  // Detail popout panel — sits one step above the page on the overlay surface.
   panel: {
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.overlay,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: SURFACE_TOKENS.border,
     maxHeight: 460,
   },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 10, borderBottomWidth: 1, borderBottomColor: '#e5e7eb',
+    padding: 10, borderBottomWidth: 1, borderBottomColor: SURFACE_TOKENS.border,
   },
-  title: { fontSize: 14, fontWeight: '700', color: '#111827', flex: 1 },
-  closeBtn: { fontSize: 16, color: '#6b7280', padding: 4 },
+  title: { fontSize: 14, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, flex: 1 },
+  closeBtn: { fontSize: 16, color: SURFACE_TOKENS.textSecondary, padding: 4 },
   body: { flex: 1 },
   bodyContent: { padding: 10 },
-  muted: { color: '#6b7280', fontSize: 12 },
-  error: { color: '#dc2626', fontSize: 12, padding: 6, backgroundColor: '#fef2f2', borderRadius: 6, marginBottom: 6 },
-  success: { color: '#16a34a', fontSize: 12, padding: 6, backgroundColor: '#f0fdf4', borderRadius: 6, marginBottom: 6 },
-  row: { fontSize: 12, color: '#374151', marginBottom: 2 },
-  label: { color: '#6b7280', fontWeight: '600' },
-  value: { color: '#111827' },
-  section: { fontSize: 11, fontWeight: '700', color: '#6b7280', marginTop: 12, marginBottom: 4, textTransform: 'uppercase' },
-  input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, padding: 6, fontSize: 12, marginBottom: 6 },
+  muted: { color: SURFACE_TOKENS.textSecondary, fontSize: 12 },
+  error: { color: STATUS.danger.fg, fontSize: 12, padding: 6, backgroundColor: STATUS.danger.bg, borderRadius: 6, marginBottom: 6 },
+  success: { color: STATUS.success.fg, fontSize: 12, padding: 6, backgroundColor: STATUS.success.bg, borderRadius: 6, marginBottom: 6 },
+  row: { fontSize: 12, color: SURFACE_TOKENS.textSecondary, marginBottom: 2 },
+  label: { color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
+  value: { color: SURFACE_TOKENS.textPrimary },
+  section: { fontSize: 11, fontWeight: '700', color: SURFACE_TOKENS.textSecondary, marginTop: 12, marginBottom: 4, textTransform: 'uppercase' },
+  input: { borderWidth: 1, borderColor: SURFACE_TOKENS.inputBorder, borderRadius: 6, padding: 6, fontSize: 12, marginBottom: 6, backgroundColor: SURFACE_TOKENS.inputBg, color: SURFACE_TOKENS.textPrimary },
   inlineInput: { flex: 1, marginRight: 6, marginBottom: 0 },
   actionRow: { flexDirection: 'row', gap: 6, marginBottom: 4, alignItems: 'center', flexWrap: 'wrap' },
-  btn: { backgroundColor: '#6366f1', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
-  btnDanger: { backgroundColor: '#dc2626', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
-  btnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  btn: { backgroundColor: CONTROL.primary.bg, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  // Destructive — bordered (not a full-bleed red flood) per BRAND-002.
+  btnDanger: {
+    backgroundColor: CONTROL.danger.bg,
+    borderWidth: 1,
+    borderColor: CONTROL.danger.borderColor,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  btnText: { color: CONTROL.primary.fg, fontSize: 12, fontWeight: '600' },
+  btnDangerText: { color: CONTROL.danger.fg },
   checkbox: { paddingHorizontal: 8, paddingVertical: 6 },
   checkboxOn: {},
-  checkboxText: { fontSize: 12, color: '#374151' },
-  subRow: { padding: 6, backgroundColor: '#f9fafb', borderRadius: 6, marginBottom: 4 },
-  subRowLabel: { fontSize: 11, color: '#6b7280', fontWeight: '600' },
-  subRowBody: { fontSize: 12, color: '#111827' },
+  checkboxText: { fontSize: 12, color: SURFACE_TOKENS.textSecondary },
+  subRow: { padding: 6, backgroundColor: SURFACE_TOKENS.elevated, borderRadius: 6, marginBottom: 4 },
+  subRowLabel: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
+  subRowBody: { fontSize: 12, color: SURFACE_TOKENS.textPrimary },
 });

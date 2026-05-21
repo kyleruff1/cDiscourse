@@ -17,6 +17,7 @@ import {
   formatQualifierLabel,
   getQualifierUiNudge,
 } from '../arguments/messageQualifiers';
+import { SURFACE_TOKENS, CONTROL, STATUS, ARGUMENT } from '../../lib/designTokens';
 
 type LoadState = 'idle' | 'loading' | 'error';
 
@@ -164,6 +165,7 @@ export function AdminArgumentsTab() {
         <TextInput
           style={styles.searchInput}
           placeholder="Filter by body, room, author, type, or axis…"
+          placeholderTextColor={SURFACE_TOKENS.placeholder}
           value={search}
           onChangeText={setSearch}
           autoCapitalize="none"
@@ -363,18 +365,22 @@ export function AdminArgumentsTab() {
   );
 }
 
+// BRAND-002 — dark-surface badge palette. Eight distinct hues reused from
+// the STATUS / ARGUMENT token families (each already AA-checked). Badge
+// meaning is also carried by the label text, so this is colour-blind safe.
+const BADGE: Record<string, { bg: string; fg: string }> = {
+  type: { bg: ARGUMENT.claim.bg, fg: ARGUMENT.claim.fg },
+  side: { bg: STATUS.warning.bg, fg: STATUS.warning.fg },
+  category: { bg: STATUS.success.bg, fg: STATUS.success.fg },
+  qualifier: { bg: ARGUMENT.concede.bg, fg: ARGUMENT.concede.fg },
+  axis: { bg: STATUS.danger.bg, fg: STATUS.danger.fg },
+  flag: { bg: ARGUMENT.challenge.bg, fg: ARGUMENT.challenge.fg },
+  topic: { bg: STATUS.info.bg, fg: STATUS.info.fg },
+  status: { bg: STATUS.neutral.bg, fg: STATUS.neutral.fg },
+};
+
 function Badge({ label, variant }: { label: string; variant: string }) {
-  const palette: Record<string, { bg: string; fg: string }> = {
-    type: { bg: '#eef2ff', fg: '#3730a3' },
-    side: { bg: '#fef3c7', fg: '#92400e' },
-    category: { bg: '#ecfdf5', fg: '#065f46' },
-    qualifier: { bg: '#fce7f3', fg: '#9d174d' },
-    axis: { bg: '#fef2f2', fg: '#991b1b' },
-    flag: { bg: '#ffe4e6', fg: '#9f1239' },
-    topic: { bg: '#e0f2fe', fg: '#075985' },
-    status: { bg: '#f1f5f9', fg: '#334155' },
-  };
-  const c = palette[variant] || palette.status;
+  const c = BADGE[variant] || BADGE.status;
   return (
     <View style={[styles.badge, { backgroundColor: c.bg }]}>
       <Text style={[styles.badgeText, { color: c.fg }]}>{label}</Text>
@@ -383,18 +389,19 @@ function Badge({ label, variant }: { label: string; variant: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9fafb' },
+  container: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
   toolbar: {
     flexDirection: 'row',
     padding: 8,
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.raised,
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: SURFACE_TOKENS.border,
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: SURFACE_TOKENS.inputBg,
+    color: SURFACE_TOKENS.textPrimary,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
@@ -405,96 +412,96 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: SURFACE_TOKENS.raised,
     marginRight: 4,
   },
-  chipActive: { backgroundColor: '#1f2937' },
-  chipText: { fontSize: 11, color: '#374151', fontWeight: '600' },
-  chipTextActive: { color: '#fff' },
+  chipActive: { backgroundColor: STATUS.neutral.bg },
+  chipText: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
+  chipTextActive: { color: SURFACE_TOKENS.textPrimary },
   refreshBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#1d4ed8',
+    backgroundColor: CONTROL.primary.bg,
   },
-  refreshBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  refreshBtnText: { color: CONTROL.primary.fg, fontSize: 11, fontWeight: '700' },
   sortStatus: {
     fontSize: 11,
-    color: '#374151',
+    color: SURFACE_TOKENS.textSecondary,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: '#f9fafb',
+    backgroundColor: SURFACE_TOKENS.base,
     fontWeight: '600',
   },
   sortHelper: {
     fontSize: 11,
-    color: '#4b5563',
+    color: SURFACE_TOKENS.textSecondary,
     paddingHorizontal: 10,
     paddingBottom: 2,
-    backgroundColor: '#f9fafb',
+    backgroundColor: SURFACE_TOKENS.base,
   },
-  sortHelperBold: { fontWeight: '700', color: '#1f2937' },
+  sortHelperBold: { fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
   sortLegend: {
     fontSize: 10,
-    color: '#9ca3af',
+    color: SURFACE_TOKENS.textMuted,
     paddingHorizontal: 10,
     paddingBottom: 6,
-    backgroundColor: '#f9fafb',
+    backgroundColor: SURFACE_TOKENS.base,
     fontStyle: 'italic',
   },
-  status: { padding: 12, color: '#6b7280', fontSize: 13 },
-  error: { padding: 12, color: '#b91c1c', fontSize: 13, backgroundColor: '#fef2f2' },
+  status: { padding: 12, color: SURFACE_TOKENS.textSecondary, fontSize: 13 },
+  error: { padding: 12, color: STATUS.danger.fg, fontSize: 13, backgroundColor: STATUS.danger.bg },
   tableWrap: { flex: 1 },
   table: { flex: 1, minWidth: TABLE_WIDTH },
   headerRow: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.raised,
     borderBottomWidth: 2,
-    borderBottomColor: '#d1d5db',
+    borderBottomColor: SURFACE_TOKENS.border,
   },
   headerCell: {
     paddingHorizontal: 8,
     paddingVertical: 8,
     borderRightWidth: 1,
-    borderRightColor: '#e5e7eb',
+    borderRightColor: SURFACE_TOKENS.divider,
   },
-  headerCellActive: { backgroundColor: '#e0e7ff' },
-  headerCellText: { fontSize: 11, fontWeight: '700', color: '#1f2937', textTransform: 'uppercase' },
-  headerCellTextActive: { color: '#4338ca' },
-  headerCellSubtext: { fontSize: 9, color: '#6b7280', marginTop: 2 },
+  headerCellActive: { backgroundColor: STATUS.info.bg },
+  headerCellText: { fontSize: 11, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, textTransform: 'uppercase' },
+  headerCellTextActive: { color: STATUS.info.fg },
+  headerCellSubtext: { fontSize: 9, color: SURFACE_TOKENS.textSecondary, marginTop: 2 },
   bodyScroller: { flex: 1 },
   row: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.elevated,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: SURFACE_TOKENS.divider,
   },
   cell: {
     paddingHorizontal: 6,
     paddingVertical: 6,
     borderRightWidth: 1,
-    borderRightColor: '#f3f4f6',
+    borderRightColor: SURFACE_TOKENS.divider,
     gap: 2,
   },
   cellDebate: { paddingRight: 8 },
-  metaTitle: { fontSize: 12, fontWeight: '700', color: '#111827' },
-  metaAuthor: { fontSize: 10, color: '#6b7280' },
-  body: { fontSize: 11, color: '#374151' },
-  subtle: { fontSize: 10, color: '#6b7280', marginTop: 2 },
+  metaTitle: { fontSize: 12, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
+  metaAuthor: { fontSize: 10, color: SURFACE_TOKENS.textSecondary },
+  body: { fontSize: 11, color: SURFACE_TOKENS.textSecondary },
+  subtle: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, marginTop: 2 },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 2 },
   badgeText: { fontSize: 10, fontWeight: '600' },
-  timeAbsolute: { fontSize: 11, color: '#111827', fontVariant: ['tabular-nums'] as ['tabular-nums'] },
-  timeRelative: { fontSize: 10, color: '#6b7280' },
-  fallbackHint: { fontSize: 9, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 },
-  actionId: { fontSize: 10, color: '#6b7280', fontFamily: 'monospace' as 'monospace' },
-  nudge: { fontSize: 10, color: '#4b5563', fontStyle: 'italic', marginTop: 4 },
+  timeAbsolute: { fontSize: 11, color: SURFACE_TOKENS.textPrimary, fontVariant: ['tabular-nums'] as ['tabular-nums'] },
+  timeRelative: { fontSize: 10, color: SURFACE_TOKENS.textSecondary },
+  fallbackHint: { fontSize: 9, color: SURFACE_TOKENS.textMuted, fontStyle: 'italic', marginTop: 2 },
+  actionId: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontFamily: 'monospace' as 'monospace' },
+  nudge: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontStyle: 'italic', marginTop: 4 },
   footnote: {
     padding: 8,
     fontSize: 10,
-    color: '#9ca3af',
+    color: SURFACE_TOKENS.textMuted,
     textAlign: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: SURFACE_TOKENS.raised,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: SURFACE_TOKENS.border,
   },
 });

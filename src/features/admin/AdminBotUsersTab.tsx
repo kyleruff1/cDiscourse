@@ -3,6 +3,7 @@ import { Text, View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useAdminUsers } from './useAdminUsers';
 import { AdminCreateUserForm } from './AdminCreateUserForm';
 import { useState } from 'react';
+import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
 /**
  * AdminBotUsersTab — filters the user list to bots only and shows a
@@ -31,7 +32,7 @@ export function AdminBotUsersTab() {
           onPress={() => setCreating((v) => !v)}
           accessibilityLabel="open-create-bot-form"
         >
-          <Text style={styles.btnText}>{creating ? 'Cancel' : '+ New bot'}</Text>
+          <Text style={[styles.btnText, styles.btnCreateText]}>{creating ? 'Cancel' : '+ New bot'}</Text>
         </Pressable>
       </View>
 
@@ -69,20 +70,21 @@ export function AdminBotUsersTab() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  toolbar: { flexDirection: 'row', padding: 8, gap: 6, alignItems: 'center', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  title: { flex: 1, fontSize: 13, fontWeight: '700', color: '#111827' },
-  btn: { backgroundColor: '#6366f1', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
-  btnCreate: { backgroundColor: '#10b981' },
-  btnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  error: { color: '#dc2626', fontSize: 12, padding: 6, backgroundColor: '#fef2f2' },
+  container: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
+  toolbar: { flexDirection: 'row', padding: 8, gap: 6, alignItems: 'center', backgroundColor: SURFACE_TOKENS.raised, borderBottomWidth: 1, borderBottomColor: SURFACE_TOKENS.border },
+  title: { flex: 1, fontSize: 13, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
+  btn: { backgroundColor: CONTROL.primary.bg, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  btnCreate: { backgroundColor: STATUS.success.bg },
+  btnText: { color: CONTROL.primary.fg, fontSize: 12, fontWeight: '700' },
+  btnCreateText: { color: STATUS.success.fg },
+  error: { color: STATUS.danger.fg, fontSize: 12, padding: 6, backgroundColor: STATUS.danger.bg },
   list: { flex: 1 },
   listContent: { padding: 8 },
-  row: { backgroundColor: '#fff', padding: 10, borderRadius: 8, marginBottom: 4, borderWidth: 1, borderColor: '#e5e7eb' },
-  botLabel: { fontSize: 13, fontWeight: '700', color: '#111827' },
-  botMeta: { fontSize: 12, color: '#6b7280' },
-  botPersona: { fontSize: 11, color: '#6366f1', fontStyle: 'italic', marginTop: 2 },
-  botId: { fontSize: 10, color: '#9ca3af', marginTop: 2 },
-  muted: { color: '#6b7280', fontSize: 12, padding: 12, textAlign: 'center' },
-  footerNote: { padding: 10, fontSize: 11, color: '#9ca3af', fontStyle: 'italic', textAlign: 'center', borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+  row: { backgroundColor: SURFACE_TOKENS.elevated, padding: 10, borderRadius: 8, marginBottom: 4, borderWidth: 1, borderColor: SURFACE_TOKENS.border },
+  botLabel: { fontSize: 13, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
+  botMeta: { fontSize: 12, color: SURFACE_TOKENS.textSecondary },
+  botPersona: { fontSize: 11, color: CONTROL.primary.bg, fontStyle: 'italic', marginTop: 2 },
+  botId: { fontSize: 10, color: SURFACE_TOKENS.textMuted, marginTop: 2 },
+  muted: { color: SURFACE_TOKENS.textSecondary, fontSize: 12, padding: 12, textAlign: 'center' },
+  footerNote: { padding: 10, fontSize: 11, color: SURFACE_TOKENS.textMuted, fontStyle: 'italic', textAlign: 'center', borderTopWidth: 1, borderTopColor: SURFACE_TOKENS.border },
 });

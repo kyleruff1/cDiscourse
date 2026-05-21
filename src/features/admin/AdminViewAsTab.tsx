@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { adminViewAsSnapshot, adminErrorMessage } from './adminApi';
 import type { AdminViewAsSnapshot } from './types';
+import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
 export function AdminViewAsTab() {
   const [targetUserId, setTargetUserId] = useState('');
@@ -34,6 +35,7 @@ export function AdminViewAsTab() {
       <TextInput
         style={styles.input}
         placeholder="Target user ID (uuid)"
+        placeholderTextColor={SURFACE_TOKENS.placeholder}
         value={targetUserId}
         onChangeText={setTargetUserId}
         autoCapitalize="none"
@@ -94,20 +96,20 @@ export function AdminViewAsTab() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
   content: { padding: 10 },
-  banner: { backgroundColor: '#fffbeb', padding: 10, borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: '#fcd34d' },
-  bannerText: { fontSize: 12, color: '#92400e' },
-  input: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, padding: 8, fontSize: 13, marginBottom: 8 },
-  btn: { backgroundColor: '#6366f1', borderRadius: 6, paddingVertical: 8, alignItems: 'center', marginBottom: 8 },
-  btnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  error: { color: '#dc2626', fontSize: 12, padding: 6, backgroundColor: '#fef2f2', borderRadius: 6 },
+  banner: { backgroundColor: STATUS.warning.bg, padding: 10, borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: STATUS.warning.fg },
+  bannerText: { fontSize: 12, color: STATUS.warning.fg },
+  input: { borderWidth: 1, borderColor: SURFACE_TOKENS.inputBorder, borderRadius: 6, padding: 8, fontSize: 13, marginBottom: 8, backgroundColor: SURFACE_TOKENS.inputBg, color: SURFACE_TOKENS.textPrimary },
+  btn: { backgroundColor: CONTROL.primary.bg, borderRadius: 6, paddingVertical: 8, alignItems: 'center', marginBottom: 8 },
+  btnText: { color: CONTROL.primary.fg, fontWeight: '700', fontSize: 13 },
+  error: { color: STATUS.danger.fg, fontSize: 12, padding: 6, backgroundColor: STATUS.danger.bg, borderRadius: 6 },
   snapshot: { marginTop: 8 },
-  snapshotNote: { fontSize: 11, color: '#6b7280', fontStyle: 'italic', marginBottom: 8 },
-  section: { fontSize: 11, fontWeight: '700', color: '#6b7280', marginTop: 12, marginBottom: 4, textTransform: 'uppercase' },
-  row: { fontSize: 12, color: '#374151', marginBottom: 2 },
-  label: { color: '#6b7280', fontWeight: '600' },
-  subRow: { padding: 6, backgroundColor: '#f9fafb', borderRadius: 6, marginBottom: 4 },
-  subRowLabel: { fontSize: 10, color: '#6b7280', fontWeight: '600' },
-  subRowBody: { fontSize: 12, color: '#111827' },
+  snapshotNote: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, fontStyle: 'italic', marginBottom: 8 },
+  section: { fontSize: 11, fontWeight: '700', color: SURFACE_TOKENS.textSecondary, marginTop: 12, marginBottom: 4, textTransform: 'uppercase' },
+  row: { fontSize: 12, color: SURFACE_TOKENS.textSecondary, marginBottom: 2 },
+  label: { color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
+  subRow: { padding: 6, backgroundColor: SURFACE_TOKENS.elevated, borderRadius: 6, marginBottom: 4 },
+  subRowLabel: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
+  subRowBody: { fontSize: 12, color: SURFACE_TOKENS.textPrimary },
 });
