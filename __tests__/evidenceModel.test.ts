@@ -82,8 +82,11 @@ const BANNED_TOKENS: ReadonlyArray<string> = [
 // ── Shape + enum coverage ──────────────────────────────────────
 
 describe('EV-001 — shape + enum coverage', () => {
-  test('EvidenceArtifactKind exposes the six documented values via ALL_EVIDENCE_ARTIFACT_KINDS', () => {
-    expect(ALL_EVIDENCE_ARTIFACT_KINDS).toHaveLength(6);
+  test('EvidenceArtifactKind exposes the seven documented values via ALL_EVIDENCE_ARTIFACT_KINDS', () => {
+    // QOL-036 appended `payment_screenshot` — additively. The original six
+    // EV-001 kinds are unchanged; deeper QOL-036 coverage lives in
+    // __tests__/paymentEvidenceMetadata.test.ts.
+    expect(ALL_EVIDENCE_ARTIFACT_KINDS).toHaveLength(7);
     expect([...ALL_EVIDENCE_ARTIFACT_KINDS].sort()).toEqual(
       [
         'url',
@@ -92,6 +95,7 @@ describe('EV-001 — shape + enum coverage', () => {
         'dataset',
         'screenshot_redacted',
         'manual_citation',
+        'payment_screenshot',
       ].sort(),
     );
   });

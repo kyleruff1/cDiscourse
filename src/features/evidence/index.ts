@@ -27,6 +27,25 @@ export {
   getTimelineEvidenceContract,
 } from './evidenceModel';
 
+// QOL-036 — Payment / screenshot evidence metadata object.
+export type {
+  EvidenceConfidence,
+  EvidenceAmount,
+  PaymentParty,
+  ClaimedApplicability,
+  PaymentEvidenceMetadata,
+} from './evidenceModel';
+
+export {
+  ALL_EVIDENCE_CONFIDENCES,
+  PINNED_PAYMENT_CONFIDENCE,
+  detectRawAccountData,
+  findRawAccountDataFields,
+  redactPaymentParty,
+  getPaymentEvidenceLabel,
+  summarizePaymentEvidence,
+} from './evidenceModel';
+
 // EV-005 — Evidence-to-evidence interaction (annotations on evidence).
 export type {
   EvidenceAnnotation,
