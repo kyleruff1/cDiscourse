@@ -55,6 +55,8 @@ The storyboards give every downstream role a shared reference:
 | [`missing-capabilities-and-issues.md`](missing-capabilities-and-issues.md) | The structured product-gap report across both scenarios. |
 | [`terminology-and-copy-rules.md`](terminology-and-copy-rules.md) | The strict forbidden-term → replacement table for normal-user UI copy. |
 | [`storyboard-to-roadmap-map.md`](storyboard-to-roadmap-map.md) | Every story moment mapped to an existing roadmap card or a proposed new one. |
+| [`one-box-interface-model.md`](one-box-interface-model.md) | **MVP-critical.** The one-box + 3-popout interaction architecture — wireframe layouts for the box and the Act / Inspect / Go popouts, the type × target × view model, and the convergence audit. |
+| [`keyboard-map.md`](keyboard-map.md) | The canonical keyboard map — every action's shortcut, two-tier, contextual. Design source for the reopened IX-003. |
 | [`terminology-audit.md`](terminology-audit.md) | Generated report — current prohibited / discouraged UI strings in app source. Refresh with `npm run ux:terminology:audit`. |
 
 ## How to use this canon
