@@ -22,8 +22,9 @@
  *   - All x-coordinates are NORMALIZED fractions in [0,1] so the mini-map is
  *     invariant to the main map's `xStep` / density (IX-001-proof).
  *
- * No React. No Supabase. No network. No AI. No `Date.now()`. No mutation of
- * any input. No new dependency. Pure, deterministic, JSON-serializable I/O.
+ * No React. No Supabase. No network. No AI. No wall-clock reads. No
+ * mutation of any input. No new dependency. Pure, deterministic,
+ * JSON-serializable I/O.
  */
 
 import type {
@@ -327,13 +328,20 @@ export function findHotZone(markers: ReadonlyArray<MiniMapMarker>): MiniMapHotZo
 // ── Branch clusters ────────────────────────────────────────────
 
 /**
- * Group the timeline's nodes into branch clusters keyed by `branchId`. One
- * cluster per distinct `branchId`; the cluster carries the jump target
- * (`branchRootMessageId`), the lane, the move count, the normalized x span,
- * and the collapse state read from the host's `BranchCollapseState`.
+ * Group the timeline's nodes into branch clusters. The mainline (every
+ * node on `lane === 0`) is a single cluster; each genuine side branch
+ * (non-zero lane) is keyed by its `branchId`.
  *
- * `branchId` / `branchRootMessageId` / `lane` are read VERBATIM from the
- * already-built map nodes — no parallel branch logic is invented here.
+ * Note on the cluster key: `ArgumentTimelineMapModel` assigns `lane === 0`
+ * to every mainline node, but a long single chain still receives a
+ * fragmented per-node `branchId` (a known characteristic of
+ * `buildArgumentTimelineMap` Pass 2). The mini-map therefore keys the
+ * mainline by lane — which is the structural signal the design's
+ * "no branches → only the mainline cluster" edge case depends on — and
+ * keys side branches by `branchId` (stable: a side branch starts a fresh
+ * `branch-<id>`). `lane` / `branchId` / `branchRootMessageId` are read
+ * VERBATIM from the already-built nodes; no parallel branch logic is
+ * invented here.
  */
 export function buildBranchClusters(
   timelineMap: ArgumentTimelineMapModel,
@@ -356,23 +364,30 @@ export function buildBranchClusters(
     firstSeenOrder: number;
   }
 
+  // Mainline cluster key — every lane-0 node folds into this one bucket.
+  const MAINLINE_KEY = '__mainline__';
+
   const byBranch = new Map<string, Accum>();
   let order = 0;
   nodes.forEach((node, index) => {
-    const branchId = node.branchId || `branch-root-${node.messageId}`;
-    let acc = byBranch.get(branchId);
+    const lane = typeof node.lane === 'number' ? node.lane : 0;
+    const isMainline = lane === 0;
+    const key = isMainline ? MAINLINE_KEY : node.branchId || `branch-root-${node.messageId}`;
+    let acc = byBranch.get(key);
     if (!acc) {
       acc = {
-        branchId,
+        // The mainline cluster's `branchId` is the root's branchId; a side
+        // cluster's `branchId` is its own (stable) `branchId`.
+        branchId: isMainline ? node.branchId || `branch-root-${node.messageId}` : key,
         branchRootMessageId: node.branchRootMessageId || node.messageId,
-        lane: typeof node.lane === 'number' ? node.lane : 0,
+        lane,
         moveCount: 0,
         minIndex: index,
         maxIndex: index,
         containsActivePath: false,
         firstSeenOrder: order++,
       };
-      byBranch.set(branchId, acc);
+      byBranch.set(key, acc);
     }
     acc.moveCount += 1;
     if (index < acc.minIndex) acc.minIndex = index;
