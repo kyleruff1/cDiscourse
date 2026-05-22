@@ -107,10 +107,21 @@ describe('semantic-referee Edge Function — defensive redaction + classify', ()
   it('runs the defensive redaction pass before delegating to the registry', () => {
     expect(fnSrc).toMatch(/redactClassifyMoveRequest\(input\)/);
     const redactIdx = fnSrc.indexOf('redactClassifyMoveRequest(input)');
-    const classifyIdx = fnSrc.indexOf('classifyWithConfiguredProvider(redactedInput)');
+    // ADMIN-AI-001 — classifyWithConfiguredProvider now takes the
+    // caller-scoped client as a second argument to resolve the persisted
+    // runtime config.
+    const classifyIdx = fnSrc.indexOf(
+      'classifyWithConfiguredProvider(redactedInput, callerClient)',
+    );
     expect(redactIdx).toBeGreaterThan(-1);
     expect(classifyIdx).toBeGreaterThan(-1);
     expect(redactIdx).toBeLessThan(classifyIdx);
+  });
+
+  it('passes the caller-scoped client to the registry (ADMIN-AI-001 DB resolution)', () => {
+    // The DB-config read rides the caller-scoped client (the SECURITY DEFINER
+    // RPC), so the function still builds no service-role client.
+    expect(fnSrc).toMatch(/classifyWithConfiguredProvider\(redactedInput, callerClient\)/);
   });
 
   it('returns the outcome via ok() — HTTP 200 for both enabled and disabled', () => {

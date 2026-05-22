@@ -121,3 +121,61 @@ describe('client never contains service-role/secret keys', () => {
     }
   });
 });
+
+// ── ADMIN-AI-001 — the two new semantic-config admin actions ─────
+
+describe('ADMIN-AI-001 — admin-users wires the semantic-config actions', () => {
+  const auditSrc = fs.readFileSync(
+    path.join(process.cwd(), 'supabase/functions/_shared/adminAudit.ts'),
+    'utf8',
+  );
+  const indexSrc = fs.readFileSync(
+    path.join(process.cwd(), 'supabase/functions/admin-users/index.ts'),
+    'utf8',
+  );
+  const schemasSrc = fs.readFileSync(
+    path.join(process.cwd(), 'supabase/functions/_shared/adminSchemas.ts'),
+    'utf8',
+  );
+
+  it('get_semantic_config and set_semantic_config are in WHITELISTED_ACTIONS', () => {
+    expect(auditSrc).toContain("'get_semantic_config'");
+    expect(auditSrc).toContain("'set_semantic_config'");
+  });
+
+  it('the admin-users action switch has a case for each new action', () => {
+    expect(indexSrc).toMatch(/case 'get_semantic_config':\s*\n\s*return await handleGetSemanticConfig\(/);
+    expect(indexSrc).toMatch(/case 'set_semantic_config':\s*\n\s*return await handleSetSemanticConfig\(/);
+  });
+
+  it('the discriminated union includes the two new schemas', () => {
+    expect(schemasSrc).toContain('GetSemanticConfigSchema');
+    expect(schemasSrc).toContain('SetSemanticConfigSchema');
+    expect(schemasSrc).toMatch(/import \{[\s\S]*?GetSemanticConfigSchema[\s\S]*?\} from '\.\/adminSemanticConfigSchemas\.ts'/);
+  });
+
+  it('neither new handler builds a caller-scoped bypass — both use the post-requireAdmin service client', () => {
+    // The handlers receive `sc` (the service client resolved AFTER
+    // requireAdmin). They must not build their own client or read a JWT.
+    const handlerBlock = indexSrc.slice(indexSrc.indexOf('async function handleGetSemanticConfig'));
+    expect(handlerBlock).not.toMatch(/createCallerClient/);
+    expect(handlerBlock).not.toMatch(/createServiceClient\(/);
+    expect(handlerBlock).not.toMatch(/getUser\(\)/);
+  });
+
+  it('requireAdmin still gates every action (the auth check is unchanged)', () => {
+    expect(indexSrc).toMatch(/const auth = await requireAdmin\(req\)/);
+    expect(indexSrc).toMatch(/if \(!auth\.ok\)/);
+    // The action switch runs only after the admin check.
+    const adminIdx = indexSrc.indexOf('requireAdmin(req)');
+    const switchIdx = indexSrc.indexOf('switch (body.action)');
+    expect(adminIdx).toBeGreaterThan(-1);
+    expect(switchIdx).toBeGreaterThan(adminIdx);
+  });
+
+  it('the set handler writes to the dedicated config-audit table, never to public.arguments', () => {
+    const handlerBlock = indexSrc.slice(indexSrc.indexOf('async function handleSetSemanticConfig'));
+    expect(handlerBlock).toContain("from('semantic_referee_config_audit')");
+    expect(handlerBlock).not.toMatch(/from\('arguments'\)/);
+  });
+});
