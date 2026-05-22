@@ -44,6 +44,13 @@ import {
   ALL_ACT_ENTRY_IDS,
   _debug,
 } from '../src/features/arguments/oneBox/actPopoutModel';
+import {
+  GO_GROUP_ORDER,
+  GO_GROUP_LABEL,
+  GO_DISABLED_REASON,
+  ALL_GO_ENTRY_IDS,
+  _debug as _goDebug,
+} from '../src/features/arguments/oneBox/goPopoutModel';
 import { looksLikeInternalCode } from '../src/features/arguments/gameCopy';
 
 // ── Source reads ───────────────────────────────────────────────
@@ -389,5 +396,121 @@ describe('QOL-030 one-box copy — pure-model source scan', () => {
     for (const { name, src } of pureModels) {
       expect({ name, hit: /Date\.now\(\)/.test(src) }).toEqual({ name, hit: false });
     }
+  });
+});
+
+// ── 6. QOL-033 — Go popout copy ban-list ───────────────────────
+//
+// QOL-033 adds a third popout (Go — navigate & re-view) on the same
+// chassis. Its pure model (`goPopoutModel.ts`) authors every Go group
+// heading, every Go entry `label` + `accessibilityLabel`, and the
+// disabled-reason copy. They are held to the same doctrine bar — the
+// QOL-033 design §7 "no verdict / winner / loser copy in any label" check.
+
+/** Every user-facing string the QOL-033 Go popout model can render. */
+function collectGoStrings(): { where: string; value: string }[] {
+  const out: { where: string; value: string }[] = [];
+
+  // Go group headings.
+  for (const groupId of GO_GROUP_ORDER) {
+    out.push({ where: `GO_GROUP_LABEL.${groupId}`, value: GO_GROUP_LABEL[groupId] });
+  }
+
+  // Go entry labels + accessibility labels.
+  for (const id of ALL_GO_ENTRY_IDS) {
+    const def = _goDebug.GO_ENTRY_DEFINITIONS[id];
+    out.push({ where: `GO_ENTRY_DEFINITIONS.${id}.label`, value: def.label });
+    out.push({
+      where: `GO_ENTRY_DEFINITIONS.${id}.accessibilityLabel`,
+      value: def.accessibilityLabel,
+    });
+  }
+
+  // Go disabled-reason copy.
+  for (const [key, reason] of Object.entries(GO_DISABLED_REASON)) {
+    out.push({ where: `GO_DISABLED_REASON.${key}`, value: reason });
+  }
+
+  return out;
+}
+
+const GO_PRODUCED = collectGoStrings();
+
+describe('QOL-033 Go popout copy — doctrine ban-list scan', () => {
+  it('collects every Go-popout string — 4 groups + 12×2 entries + 4 reasons', () => {
+    expect(GO_PRODUCED.length).toBe(4 + 12 * 2 + 4);
+  });
+
+  it('no Go-popout label contains a forbidden verdict / amplification token', () => {
+    for (const { where, value } of GO_PRODUCED) {
+      for (const token of BANNED) {
+        expect({ where, value, hit: hitsBanned(value, token) ? token : null }).toEqual({
+          where,
+          value,
+          hit: null,
+        });
+      }
+    }
+  });
+
+  it('no Go-popout label looks like an internal code', () => {
+    for (const { value } of GO_PRODUCED) {
+      expect(looksLikeInternalCode(value)).toBe(false);
+    }
+  });
+
+  it('no Go-popout label leaks a snake_case identifier', () => {
+    const snake = /[a-z]_[a-z]/i;
+    for (const { where, value } of GO_PRODUCED) {
+      expect({ where, snake: snake.test(value) }).toEqual({ where, snake: false });
+    }
+  });
+
+  it('no Go-entry label leaks a raw GoEntryId (snake_case)', () => {
+    for (const id of ALL_GO_ENTRY_IDS) {
+      const label = _goDebug.GO_ENTRY_DEFINITIONS[id].label;
+      expect({ id, leaks: label.includes(id) }).toEqual({ id, leaks: false });
+    }
+  });
+
+  it('every Go-entry label is ≤ 24 chars (design §6.3 budget)', () => {
+    for (const id of ALL_GO_ENTRY_IDS) {
+      const label = _goDebug.GO_ENTRY_DEFINITIONS[id].label;
+      expect({ id, within: label.length <= 24 }).toEqual({ id, within: true });
+    }
+  });
+
+  it('every Go-entry accessibility label is ≤ 80 chars (design §6.3 budget)', () => {
+    for (const id of ALL_GO_ENTRY_IDS) {
+      const a11y = _goDebug.GO_ENTRY_DEFINITIONS[id].accessibilityLabel;
+      expect({ id, within: a11y.length <= 80 }).toEqual({ id, within: true });
+    }
+  });
+
+  it('"hot zone" copy never co-occurs with a verdict word (doctrine §2)', () => {
+    // Heat is an activity signal — the Hot-zone entry must not imply a result.
+    const hotEntry = _goDebug.GO_ENTRY_DEFINITIONS.jump_hot_zone;
+    const verdictWords = ['winner', 'best', 'correct', 'right', 'true', 'important'];
+    for (const w of verdictWords) {
+      expect(hotEntry.label.toLowerCase()).not.toContain(w);
+      expect(hotEntry.accessibilityLabel.toLowerCase()).not.toContain(w);
+    }
+  });
+});
+
+describe('QOL-033 Go popout — pure-model source scan', () => {
+  const goModelSrc = stripComments(
+    fs.readFileSync(path.join(ONEBOX_DIR, 'goPopoutModel.ts'), 'utf8'),
+  );
+
+  it('goPopoutModel imports no Supabase / React / network / AI primitive', () => {
+    expect(/from ['"][^'"]*supabase/.test(goModelSrc)).toBe(false);
+    expect(/from ['"]react(-native)?['"]/.test(goModelSrc)).toBe(false);
+    expect(/\bfetch\(/.test(goModelSrc)).toBe(false);
+    expect(/anthropic|openai|x\.ai/i.test(goModelSrc)).toBe(false);
+  });
+
+  it('goPopoutModel reads no wall clock (deterministic — design §8)', () => {
+    expect(/Date\.now\(\)/.test(goModelSrc)).toBe(false);
   });
 });
