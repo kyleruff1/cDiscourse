@@ -87,6 +87,12 @@ import {
   buildViewportWindow,
   type MiniMapJumpRequest,
 } from './timelineMiniMapModel';
+// QOL-042 — linked prior argument context-chip row. The chip view-models
+// are built by the pure `buildLinkedPriorArgumentChip` model in the room
+// shell; this component only renders the row in the timeline header /
+// context area, above the rail. Additive — omitting the prop is a no-op.
+import { LinkedPriorArgumentChipRow } from './crossRoom/LinkedPriorArgumentChipRow';
+import type { LinkedPriorArgumentChip } from './crossRoom/linkedPriorArgumentModel';
 
 interface Props {
   map: ArgumentTimelineMapModel;
@@ -192,6 +198,28 @@ interface Props {
    * any caller that does not yet know its principals.
    */
   principalActorLabels?: ReadonlyArray<string>;
+  /**
+   * QOL-042 — linked prior argument context chips for THIS (source)
+   * room. Each chip references an earlier settled room; the room shell
+   * builds the view-models with the pure `buildLinkedPriorArgumentChip`
+   * model and threads them here. Rendered as a wrapping chip row in the
+   * timeline header, above the rail (QOL-042 design §6.1). Optional —
+   * omitting it (or passing an empty array) renders nothing; every
+   * existing caller is unaffected.
+   */
+  linkedPriorChips?: ReadonlyArray<LinkedPriorArgumentChip>;
+  /**
+   * QOL-042 — open a linked prior (settled, read-only) argument room.
+   * Fired by a chip's "Open prior argument" action. Only invoked for an
+   * enabled action — a `title_only` chip's "Open" is disabled.
+   */
+  onOpenLinkedPrior?: (linkId: string) => void;
+  /**
+   * QOL-042 — open the Inspect popout's "From the linked prior argument"
+   * section. Fired by a chip's "View context" action (authorized chips
+   * with resolved-tangent context only).
+   */
+  onViewLinkedPriorContext?: (linkId: string) => void;
 }
 
 const RAIL_THICKNESS = 4;
@@ -425,6 +453,9 @@ export function ArgumentTimelineMap({
   actingOnLabel,
   reduceMotionOverride,
   principalActorLabels,
+  linkedPriorChips,
+  onOpenLinkedPrior,
+  onViewLinkedPriorContext,
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [popoverMessageId, setPopoverMessageId] = useState<string | null>(null);
@@ -905,8 +936,18 @@ export function ArgumentTimelineMap({
 
   if (map.nodes.length === 0) {
     return (
-      <View style={styles.empty} testID="argument-timeline-map">
-        <Text style={styles.emptyText}>Timeline appears once any argument is posted.</Text>
+      <View style={styles.root} testID="argument-timeline-map">
+        {/* QOL-042 — a brand-new room can already carry prior-argument
+            context before any move is posted; the chip row renders above
+            the empty-timeline notice. */}
+        <LinkedPriorArgumentChipRow
+          chips={linkedPriorChips ?? []}
+          onOpenPrior={onOpenLinkedPrior}
+          onViewContext={onViewLinkedPriorContext}
+        />
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>Timeline appears once any argument is posted.</Text>
+        </View>
       </View>
     );
   }
@@ -977,6 +1018,15 @@ export function ArgumentTimelineMap({
           </Pressable>
         ) : null}
       </View>
+
+      {/* QOL-042 — linked prior argument context-chip row. Sits in the
+          timeline header, above the rail. Renders nothing when the room
+          carries no prior-argument links. */}
+      <LinkedPriorArgumentChipRow
+        chips={linkedPriorChips ?? []}
+        onOpenPrior={onOpenLinkedPrior}
+        onViewContext={onViewLinkedPriorContext}
+      />
 
       {/* IX-002 — mini-map overview. Internal additive chrome directly
           under the controls row. Renders nothing for short debates
