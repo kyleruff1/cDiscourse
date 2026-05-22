@@ -1,0 +1,213 @@
+{
+  "scenarioId": "smoke-test-mcp-remote-work-productivity",
+  "title": "Remote Work Productivity (MCP semantic-referee smoke test)",
+  "resolution": "Software engineering productivity drops by at least twenty percent when companies require full remote work, because the loss of in-person collaboration creates communication overhead that no async tooling can fully replace, and the productivity gains from eliminated commutes do not offset this loss.",
+  "category": "smoke_test_mcp",
+  "personas": [
+    { "alias": "Provocateur", "side": "affirmative", "tone": "calm" },
+    { "alias": "Revocateur", "side": "negative", "tone": "skeptical" }
+  ],
+  "moves": [
+    {
+      "moveId": "m1",
+      "authorAlias": "Provocateur",
+      "parentMoveId": null,
+      "moveKind": "start_thesis",
+      "qualifierCode": null,
+      "argumentType": "thesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Software engineering productivity drops by at least twenty percent under full remote-work mandates. The mechanism is concrete: shared physical context — the whiteboard sketch, the impromptu hallway question, the back-of-envelope walkthrough — produces dense, high-bandwidth information transfer that asynchronous tooling cannot match. Slack threads, recorded walkthroughs, and shared docs are useful, but they are bandwidth-limited substitutes. The commute time recovered under remote work is a real personal gain, but it does not offset the team-level communication overhead that emerges when complex multi-engineer coordination must route through async channels. The twenty percent figure represents this gap.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "introduces_new_issue", "value": 1 },
+        { "id": "responds_to_parent", "value": 0 },
+        { "id": "provides_evidence", "value": 0 }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {
+        "quoteAnchorCandidate": "at least twenty percent"
+      }
+    },
+    {
+      "moveId": "m2",
+      "authorAlias": "Revocateur",
+      "parentMoveId": "m1",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "evidence",
+      "targetExcerpt": "at least twenty percent",
+      "body": "You stated 'at least twenty percent' as if it were a settled finding, but the move provides no primary source for the figure. Which study? Which methodology? Which population was measured? Without an actual citation — paper title, authors, year, and the specific table or sentence the figure comes from — the number is unfalsifiable. A productivity drop of that magnitude across all of software engineering would be a major empirical claim. It needs a primary source, not just the assertion.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "asks_for_evidence", "value": 1 },
+        { "id": "creates_source_chain_gap", "value": 0 }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {
+        "quoteAnchorCandidate": "no primary source for the figure"
+      }
+    },
+    {
+      "moveId": "m3",
+      "authorAlias": "Provocateur",
+      "parentMoveId": "m2",
+      "moveKind": "add_evidence",
+      "qualifierCode": null,
+      "argumentType": "evidence",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "The reference is a Stanford working paper from 2022 by Bloom and colleagues on the effects of remote-work mandates on engineering productivity. The paper is part of Stanford's working paper series and supports the directional claim — remote-work mandates correlate with productivity decline in coordination-heavy roles. The specific supporting sentence is in the paper; I'll surface it in a follow-up if needed.",
+      "selectedTagCodes": [],
+      "evidence": {
+        "label": "Stanford working paper (2022, Bloom et al.) on remote-work productivity",
+        "sourceText": null
+      },
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "provides_evidence", "value": 1 },
+        { "id": "evidence_supports_claim", "value": 0 },
+        { "id": "creates_source_chain_gap", "value": 1 },
+        { "id": "quote_anchors_parent", "value": 0 }
+      ],
+      "expectedConfidence": "medium",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m4",
+      "authorAlias": "Revocateur",
+      "parentMoveId": "m3",
+      "moveKind": "ask_clarification",
+      "qualifierCode": null,
+      "argumentType": "clarification_request",
+      "disagreementAxis": "definition",
+      "targetExcerpt": null,
+      "body": "Setting aside the missing primary citation for a moment: which productivity metric does the twenty percent figure measure? Lines of code committed per week? Features shipped per quarter? Code review turnaround time? Time-to-resolution on production bugs? Velocity points completed? Each of these is a defensible operational definition, and they do not move together. A twenty percent drop in commit volume looks very different from a twenty percent drop in customer-facing impact. Without the definition pinned down, the figure is rhetorical, not empirical.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "requests_clarification", "value": 1 },
+        { "id": "asks_for_evidence", "value": 0 }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m5",
+      "authorAlias": "Provocateur",
+      "parentMoveId": "m4",
+      "moveKind": "make_claim",
+      "qualifierCode": null,
+      "argumentType": "claim",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Even setting the specific figure aside, the broader pattern is widely observed. Engineering leaders at major firms — across companies of different sizes, different stacks, different industries — have publicly stated that productivity declined under their remote-work mandates. The consensus across that group is itself a signal. When that many senior engineering leaders independently report the same direction of effect, the burden shifts to explaining why their observations should be discounted.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "provides_evidence", "value": 0 },
+        { "id": "uses_popularity_as_evidence", "value": 1 },
+        { "id": "creates_source_chain_gap", "value": 1 }
+      ],
+      "expectedConfidence": "medium",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {
+        "quoteAnchorCandidate": "consensus across that group is itself a signal"
+      }
+    },
+    {
+      "moveId": "m6",
+      "authorAlias": "Revocateur",
+      "parentMoveId": "m5",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "evidence",
+      "targetExcerpt": "consensus across that group is itself a signal",
+      "body": "The number of senior leaders who hold an opinion does not make that opinion evidence. Many leaders held strong opinions about waterfall over agile, COBOL over Java, mainframe over distributed — and on several of those, the consensus turned out to be wrong. Popularity within a professional cohort is not the same as measurable productivity data. I'll renew the earlier request: please surface the specific sentence from the Stanford 2022 paper that supports the twenty percent figure. The paper either contains that sentence or it does not.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "asks_for_evidence", "value": 1 },
+        { "id": "requests_clarification", "value": 1 }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m7",
+      "authorAlias": "Provocateur",
+      "parentMoveId": "m6",
+      "moveKind": "concede_or_narrow",
+      "qualifierCode": null,
+      "argumentType": "concession",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Fair pushback. The 'at least twenty percent' figure may not be defensible as a universal claim across the full population of software engineering work — there are roles and team configurations where the effect is small or negligible. I'll narrow what I'm defending: for complex multi-team coordination work — large feature programs that require sustained alignment across multiple engineering organizations and product surfaces — the productivity drop under fully remote operation is real and observable, even if the precise figure is contested. The narrower claim is the one I want to stake.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "narrows_claim", "value": 1 },
+        { "id": "concedes_narrow_point", "value": 1 }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {
+        "playfulLabel": "Narrowed to coordination-heavy work"
+      }
+    },
+    {
+      "moveId": "m8",
+      "authorAlias": "Revocateur",
+      "parentMoveId": "m7",
+      "moveKind": "synthesize_thread",
+      "qualifierCode": null,
+      "argumentType": "synthesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Accepted: the narrower claim about multi-team coordination work is more defensible than the universal version, and is a real empirical question worth investigating on its own terms. Both sides agree the original 'at least twenty percent across all software engineering' framing was too strong. The narrower version — productivity friction in complex multi-team coordination work under fully remote operation — survives. I'd recommend branching off here: the open question is whether sufficient investment in async coordination infrastructure (richer documentation standards, structured design reviews, persistent recorded walkthroughs) could close the narrower gap. That's a separate empirical question with its own evidence base.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "concedes_narrow_point", "value": 1 },
+        { "id": "ready_for_synthesis", "value": 1 },
+        { "id": "suggests_side_branch", "value": 1 }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {
+        "branchCandidate": true,
+        "playfulLabel": "Synthesis + branch on async tooling"
+      }
+    }
+  ],
+  "expectedFlags": [],
+  "expectedTopicChecks": ["resolution_match"],
+  "expectedTurnStatuses": ["replied", "replied", "replied", "replied", "replied", "replied", "replied", "synthesized"],
+  "expectedFinalRestingStatus": "peace_treaty_ish",
+  "expectedFinalClaimStanding": "settled_for_now",
+  "hasBranchCandidate": true,
+  "notes": "Eight-move smoke-test scenario for the MCP semantic-referee. Walks an argument arc from opening claim through evidence challenge, vague-citation evasion, definition challenge, popularity appeal, anti-amplification challenge, narrowing concession, to synthesis with branch recommendation. Predicted classifier signals use the real MCP-011 23-id catalog vocabulary (option B substitutions per docs/testing-runs/2026-05-22-smoke-test-verification-scans.md). Exercises 11 distinct catalog ids positively across the eight moves (responds_to_parent, introduces_new_issue, asks_for_evidence, provides_evidence, creates_source_chain_gap, requests_clarification, uses_popularity_as_evidence, narrows_claim, concedes_narrow_point, ready_for_synthesis, suggests_side_branch) and explicitly predicts negative signals where it matters (responds_to_parent=0 on the root, provides_evidence=0 on the assertion-only and popularity-appeal moves, evidence_supports_claim=0 on the vague-citation move, quote_anchors_parent=0 on the unquoted-citation move, asks_for_evidence=0 on the definition challenge, creates_source_chain_gap=0 on the Revocateur's source request). The anti-amplification exchange (moves 5 and 6) is represented in the catalog as the speaker-side uses_popularity_as_evidence=1 paired with the challenger-side asks_for_evidence=1 + requests_clarification=1 — the catalog has no paired challenger classifier; this is a finding rather than a gap to fix."
+}
