@@ -66,6 +66,9 @@ Declared `SECURITY DEFINER` with `SET search_path = public` to prevent privilege
 | `audio_submissions` | SELECT | authenticated | own OR mod/admin |
 | `audio_submissions` | INSERT | authenticated | `user_id = auth.uid()` |
 | `audio_submissions` | UPDATE | authenticated | own row while `transcript_status = 'uploaded'` |
+| `argument_room_links` | SELECT | authenticated | source room visible (open/locked, source-room participant, OR mod/admin) — active rows only |
+| `argument_room_links` | INSERT | authenticated | source-room participant, `created_by = auth.uid()` (+ `link_target_must_be_locked` trigger: target is a settled, readable room) |
+| `argument_room_links` | UPDATE | authenticated | link author OR mod/admin — soft-remove only (`link_columns_immutable` trigger: only `is_removed` may change) |
 
 ---
 
@@ -84,6 +87,13 @@ Declared `SECURITY DEFINER` with `SET search_path = public` to prevent privilege
 
 - Draft debates (`status = 'draft'`) are visible only to the creator and mods. This allows creators to prepare a debate before publishing.
 - Locked debates remain readable — they just don't accept new arguments. The application layer enforces the no-new-arguments rule; the RLS allows reading.
+
+### `argument_room_links` — Cross-room reference (QOL-042)
+
+- A row links a **source** (new) room to a **target** (prior, settled) room as read-only context. There is **no DELETE policy** — links are soft-removed via `is_removed = true` (the soft-delete doctrine, mirroring `arguments` / `point_tags`).
+- **The access check is RLS-enforced, not UI-only.** A link row carries no prior-room content, so SELECT gates on the *source* room's visibility. The prior room's *body / nodes* are read separately through the existing `debates` / `arguments` SELECT policies under the caller's JWT — an unauthorized viewer of a private prior room gets zero `arguments` rows there. The only denormalized field is `target_title_snapshot` (the prior room's title, ≤200 chars), so a title-only viewer sees the title but never the content.
+- **Two BEFORE triggers replace recursive `WITH CHECK` subqueries.** `link_target_must_be_locked` (BEFORE INSERT) rejects the insert unless the target is a `locked` room the inserting user can read (it calls the existing `is_debate_open_or_locked` / `is_debate_participant` / `is_moderator_or_admin` SECURITY DEFINER helpers — no subquery into `debates` inside a policy, avoiding the recursion the `…0006` migration fixed). `link_columns_immutable` (BEFORE UPDATE) rejects any change to a column other than `is_removed`, so the link is immutable after creation and can never re-open or mutate the locked prior room.
+- **QOL-039 (visibility) is a soft dependency.** Until `debates.visibility` exists, readability uses `is_debate_open_or_locked` alone (every open/locked room is content-readable); the title-only state is latent. When QOL-039 lands, a follow-up migration swaps in the visibility-aware source-readability helper.
 
 ### `argument_flags` — Source Authority
 
