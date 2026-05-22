@@ -93,12 +93,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── Classify ──────────────────────────────────────────────────
   // `classifyWithConfiguredProvider` is async since MCP-017 (the live
-  // `anthropic` provider does a `fetch`). It never throws — every provider
-  // failure path returns a typed `{ enabled: false }` outcome — but the
-  // `try/catch` is kept as belt-and-suspenders.
+  // `anthropic` provider does a `fetch`). ADMIN-AI-001: it also takes the
+  // caller-scoped client to resolve the persisted admin runtime config (the
+  // SECURITY DEFINER RPC `get_semantic_referee_runtime_config`). It never
+  // throws — the runtime-config resolver falls through to env on any DB
+  // failure, and every provider failure path returns a typed
+  // `{ enabled: false }` outcome — but the `try/catch` is kept as
+  // belt-and-suspenders. The function still builds NO service-role client and
+  // performs NO write — the config RPC is SELECT-only.
   let outcome: Awaited<ReturnType<typeof classifyWithConfiguredProvider>>;
   try {
-    outcome = await classifyWithConfiguredProvider(redactedInput);
+    outcome = await classifyWithConfiguredProvider(redactedInput, callerClient);
   } catch (err) {
     return internalError(`Semantic classification failed: ${String(err)}`);
   }

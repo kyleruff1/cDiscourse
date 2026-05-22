@@ -21,6 +21,9 @@ export const WHITELISTED_ACTIONS = [
   'add_block',
   'remove_block',
   'view_as_snapshot',
+  // ADMIN-AI-001 — semantic-referee runtime provider-mode config.
+  'get_semantic_config',
+  'set_semantic_config',
 ] as const;
 
 export type AdminAuditAction = typeof WHITELISTED_ACTIONS[number];

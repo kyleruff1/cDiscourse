@@ -249,7 +249,43 @@ export type AdminUsersAction =
   | 'list_blocks'
   | 'add_block'
   | 'remove_block'
-  | 'view_as_snapshot';
+  | 'view_as_snapshot'
+  // ADMIN-AI-001 — semantic-referee runtime provider-mode config.
+  | 'get_semantic_config'
+  | 'set_semantic_config';
+
+/**
+ * ADMIN-AI-001 — the semantic-referee runtime provider-mode config, as the
+ * `admin-users` `get_semantic_config` action returns it.
+ *
+ * `anthropicKeyPresent` is a boolean ONLY — the ANTHROPIC_API_KEY value is
+ * NEVER carried in this shape (doctrine constraint #2). It tells the admin
+ * whether switching to `anthropic` will reach the live provider.
+ */
+export interface SemanticRefereeConfigView {
+  /** The four config slots; `mcp` is reserved (MCP-018) and not settable. */
+  providerMode: 'anthropic' | 'mock' | 'fixture' | 'mcp';
+  enabled: boolean;
+  updatedAt: string | null;
+  /** The admin who last changed the config — a display name, never an email. */
+  updatedByDisplayName: string | null;
+  /** Boolean ONLY — never the key value. */
+  anthropicKeyPresent: boolean;
+}
+
+/**
+ * ADMIN-AI-001 — the `set_semantic_config` action input.
+ *
+ * `providerMode` excludes `mcp` — the slot is reserved for MCP-018.
+ * `confirmAnthropic` must be `true` to switch to `anthropic`; the Edge
+ * Function's zod `.refine()` is the server-side wall.
+ */
+export interface SetSemanticRefereeConfigInput {
+  providerMode: 'anthropic' | 'mock' | 'fixture';
+  enabled: boolean;
+  reason?: string;
+  confirmAnthropic?: boolean;
+}
 
 export interface AdminUsersRequest {
   action: AdminUsersAction;

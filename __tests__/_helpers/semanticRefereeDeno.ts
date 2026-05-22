@@ -124,6 +124,29 @@ const providerRoutingCoreModule = require(`${SHARED}/providerRoutingCore`) as {
 
 export const classifyWithProvider = providerRoutingCoreModule.classifyWithProvider;
 
+// ── runtimeConfig.ts (ADMIN-AI-001 — zod-free DB-config resolver) ───
+//
+// `resolveSemanticRefereeConfig` reads the persisted admin runtime config via
+// the SECURITY DEFINER RPC. It is zod-free and reads no env key, so Jest can
+// `require()` it. Tests pass a hand-built fake client with a `.rpc()` stub.
+
+export type SemanticProviderMode = 'anthropic' | 'mock' | 'fixture' | 'mcp';
+
+export type ResolvedProviderConfig =
+  | { source: 'db'; enabled: boolean; providerMode: SemanticProviderMode }
+  | { source: 'db_unavailable' };
+
+const runtimeConfigModule = require(`${SHARED}/runtimeConfig`) as {
+  resolveSemanticRefereeConfig: (
+    client: { rpc: (fn: string) => Promise<{ data: unknown; error: unknown }> },
+  ) => Promise<ResolvedProviderConfig>;
+  SEMANTIC_PROVIDER_MODES: readonly SemanticProviderMode[];
+};
+
+export const resolveSemanticRefereeConfig =
+  runtimeConfigModule.resolveSemanticRefereeConfig;
+export const SEMANTIC_PROVIDER_MODES = runtimeConfigModule.SEMANTIC_PROVIDER_MODES;
+
 // ── anthropicClassifierCore.ts (zod-free live-provider core) ────────
 
 const anthropicClassifierCoreModule = require(`${SHARED}/anthropicClassifierCore`) as {

@@ -44,6 +44,9 @@ const SHARED_FILES = [
   'seedPrompt.ts',
   'anthropicClassifierCore.ts',
   'contentSafetyScan.ts',
+  // ADMIN-AI-001 — the runtime-config resolver. Zod-free; reads no key and
+  // no Deno.env var (it does a SELECT-only `.rpc()` call).
+  'runtimeConfig.ts',
 ];
 
 /**

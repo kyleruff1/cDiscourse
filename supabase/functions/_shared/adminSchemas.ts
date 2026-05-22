@@ -5,6 +5,10 @@
  * are rejected by the discriminated union in AdminUsersRequestSchema.
  */
 import { z } from 'npm:zod@4';
+import {
+  GetSemanticConfigSchema,
+  SetSemanticConfigSchema,
+} from './adminSemanticConfigSchemas.ts';
 
 const Role = z.enum(['user', 'moderator', 'admin']);
 
@@ -157,6 +161,9 @@ export const AdminUsersRequestSchema = z.discriminatedUnion('action', [
   AddBlock,
   RemoveBlock,
   ViewAsSnapshot,
+  // ADMIN-AI-001 — semantic-referee runtime provider-mode config.
+  GetSemanticConfigSchema,
+  SetSemanticConfigSchema,
 ]);
 
 export type AdminUsersRequest = z.infer<typeof AdminUsersRequestSchema>;

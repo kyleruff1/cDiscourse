@@ -93,6 +93,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return await handleRemoveBlock(body, caller, serviceClient);
       case 'view_as_snapshot':
         return await handleViewAsSnapshot(body, caller, serviceClient);
+      case 'get_semantic_config':
+        return await handleGetSemanticConfig(body, caller, serviceClient);
+      case 'set_semantic_config':
+        return await handleSetSemanticConfig(body, caller, serviceClient);
     }
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -664,4 +668,151 @@ async function handleViewAsSnapshot(
     recentParticipations: roomsRes.data ?? [],
     recentAuditEvents: historyRes.data ?? [],
   });
+}
+
+// ── ADMIN-AI-001 — semantic-referee runtime provider-mode config ──
+
+/**
+ * Read the semantic-referee runtime config singleton for the Admin UI.
+ *
+ * Returns the provider mode, the enabled flag, who last changed it (resolved
+ * to a DISPLAY NAME — never an email), and a SAFE `anthropicKeyPresent`
+ * boolean. `anthropicKeyPresent` is a boolean ONLY — the key value, a prefix,
+ * a length, or a masked form are NEVER returned (doctrine constraint #2).
+ */
+async function handleGetSemanticConfig(
+  body: Req<'get_semantic_config'>,
+  caller: Caller,
+  sc: SC,
+): Promise<Response> {
+  void body;
+  const { data, error } = await sc
+    .from('semantic_referee_runtime_config')
+    .select('provider_mode, enabled, updated_at, updated_by')
+    .eq('id', true)
+    .maybeSingle();
+  if (error) return internalError(error.message);
+
+  // Resolve updated_by → a display name (NEVER an email).
+  let updatedByDisplayName: string | null = null;
+  if (data?.updated_by) {
+    const { data: prof } = await sc
+      .from('profiles')
+      .select('display_name')
+      .eq('id', data.updated_by)
+      .maybeSingle();
+    updatedByDisplayName = prof?.display_name ?? null;
+  }
+
+  // SAFE Anthropic-key status: a boolean ONLY, never the value / prefix /
+  // length / masked form. This is the admin's signal that switching to
+  // `anthropic` will (or will not) reach the live provider.
+  const anthropicKeyPresent = Boolean(Deno.env.get('ANTHROPIC_API_KEY'));
+
+  await writeAdminAudit({
+    actorUserId: caller.userId,
+    action: 'get_semantic_config',
+    payload: {},
+  });
+
+  return ok({
+    providerMode: data?.provider_mode ?? 'anthropic',
+    enabled: data?.enabled ?? true,
+    updatedAt: data?.updated_at ?? null,
+    updatedByDisplayName,
+    anthropicKeyPresent,
+  });
+}
+
+/**
+ * Update the semantic-referee runtime config singleton.
+ *
+ * Validation (the zod `.refine()` in `adminSemanticConfigSchemas.ts`) has
+ * already enforced: `providerMode` is one of `anthropic | mock | fixture`
+ * (`mcp` is not settable), and `confirmAnthropic === true` when switching to
+ * `anthropic`. This handler reads the previous row for the audit "previous"
+ * fields, performs the single-row atomic update, appends the dedicated
+ * config-audit row, and writes the generic admin-traffic audit row.
+ */
+async function handleSetSemanticConfig(
+  body: Req<'set_semantic_config'>,
+  caller: Caller,
+  sc: SC,
+): Promise<Response> {
+  // 1. Read the current row for the audit "previous" fields.
+  const { data: prev } = await sc
+    .from('semantic_referee_runtime_config')
+    .select('provider_mode, enabled')
+    .eq('id', true)
+    .maybeSingle();
+
+  // 2. Update the singleton (single-row atomic write — last write wins).
+  const { data: updated, error: updErr } = await sc
+    .from('semantic_referee_runtime_config')
+    .update({
+      provider_mode: body.providerMode,
+      enabled: body.enabled,
+      updated_by: caller.userId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', true)
+    .select('provider_mode, enabled, updated_at')
+    .single();
+  if (updErr) return internalError(updErr.message);
+
+  // 3. Append the dedicated config-audit row. Audit failure must not break
+  //    the action result — `writeConfigAudit` swallows + logs its own errors.
+  await writeConfigAudit(sc, {
+    actorUserId: caller.userId,
+    previousMode: prev?.provider_mode ?? null,
+    newMode: body.providerMode,
+    previousEnabled: prev?.enabled ?? null,
+    newEnabled: body.enabled,
+    reason: body.reason ?? null,
+  });
+
+  // 4. Generic admin-traffic audit row (the existing every-action pattern).
+  await writeAdminAudit({
+    actorUserId: caller.userId,
+    action: 'set_semantic_config',
+    reason: body.reason,
+    payload: { providerMode: body.providerMode, enabled: body.enabled },
+  });
+
+  return ok({
+    providerMode: updated.provider_mode,
+    enabled: updated.enabled,
+    updatedAt: updated.updated_at,
+  });
+}
+
+/**
+ * Insert a row into the dedicated `semantic_referee_config_audit` table.
+ * Stores codes only — never secrets, never the Anthropic-key state. Audit
+ * failure is logged but does not propagate (mirrors `writeAdminAudit`).
+ */
+async function writeConfigAudit(
+  sc: SC,
+  input: {
+    actorUserId: string;
+    previousMode: string | null;
+    newMode: string;
+    previousEnabled: boolean | null;
+    newEnabled: boolean;
+    reason: string | null;
+  },
+): Promise<void> {
+  try {
+    await sc.from('semantic_referee_config_audit').insert({
+      actor_user_id: input.actorUserId,
+      previous_mode: input.previousMode,
+      new_mode: input.newMode,
+      previous_enabled: input.previousEnabled,
+      new_enabled: input.newEnabled,
+      reason: input.reason,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('semantic_config_audit_write_failed', err);
+  }
 }
