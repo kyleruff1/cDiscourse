@@ -1,5 +1,15 @@
 export { AdminScreen } from './AdminScreen';
-export type { AdminTab, AdminUserSummary, AdminUserDetail, AdminBlockRule, AdminViewAsSnapshot, AdminAuditEvent } from './types';
+export { AdminSemanticRefereeTab } from './AdminSemanticRefereeTab';
+export type {
+  AdminTab,
+  AdminUserSummary,
+  AdminUserDetail,
+  AdminBlockRule,
+  AdminViewAsSnapshot,
+  AdminAuditEvent,
+  SemanticRefereeConfigView,
+  SetSemanticRefereeConfigInput,
+} from './types';
 export {
   buildUpdateRolePayload,
   normalizeBlockValueClient,
@@ -21,3 +31,9 @@ export {
   adminErrorMessage,
   PROTECTED_PROFILE_FIELDS,
 } from './adminApi';
+export {
+  adminGetSemanticRefereeConfig,
+  adminSetSemanticRefereeConfig,
+  requiresProviderConfirmation,
+  PROVIDER_MODE_LABELS,
+} from './semanticRefereeConfigApi';

@@ -4,6 +4,14 @@
  */
 import type { ProfileRole } from '../account/types';
 
+// ADMIN-AI-001 — the semantic-referee runtime-config view type is owned by
+// `src/lib/edgeFunctions.ts` (it is an `admin-users` response shape); the
+// admin feature re-exports it so tab code imports it from one place.
+export type {
+  SemanticRefereeConfigView,
+  SetSemanticRefereeConfigInput,
+} from '../../lib/edgeFunctions';
+
 export interface AdminUserSummary {
   id: string;
   email: string | null;
@@ -103,7 +111,8 @@ export type AdminTab =
   | 'blocks'
   | 'bot_users'
   | 'arguments'
-  | 'metadata_events';
+  | 'metadata_events'
+  | 'semantic_referee';
 
 export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   users: 'Users',
@@ -113,6 +122,7 @@ export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   bot_users: 'Bot Users',
   arguments: 'Arguments',
   metadata_events: 'Metadata Events',
+  semantic_referee: 'Semantic Referee',
 };
 
 /**
