@@ -398,10 +398,25 @@ export interface ClassifyMoveRequest {
 }
 
 /**
- * Reason a classify did not produce a packet. `key_missing` is deliberately
- * absent — MCP-016 has no live provider, so a key is never read.
+ * Reason a classify did not produce a packet. The first three are MCP-016's;
+ * MCP-017's live `anthropic` provider adds the six live-provider failure
+ * reasons (`key_missing` / `api_error` / `rate_limited` / `network_error` /
+ * `parse_failure` / `validation_failed`). The caller treats every one of these
+ * identically to `disabled`: fall back to the deterministic layer-1 result and
+ * show NO error. This is the Node twin of the Deno `ClassifyMoveDisabledReason`
+ * in `supabase/functions/_shared/semanticReferee/types.ts` — the two are kept
+ * in lockstep.
  */
-export type ClassifyMoveDisabledReason = 'disabled' | 'not_configured' | 'not_implemented';
+export type ClassifyMoveDisabledReason =
+  | 'disabled'
+  | 'not_configured'
+  | 'not_implemented'
+  | 'key_missing'
+  | 'api_error'
+  | 'rate_limited'
+  | 'network_error'
+  | 'parse_failure'
+  | 'validation_failed';
 
 /**
  * Outbound classify outcome. `{ enabled: false }` is the default state of the

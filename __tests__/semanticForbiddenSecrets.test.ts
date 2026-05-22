@@ -1,13 +1,27 @@
 /**
- * MCP-016 — semantic-referee forbidden-secrets source scan.
+ * MCP-016 / MCP-017 — semantic-referee forbidden-secrets source scan.
  *
- * Proves the MCP-016 file surface reads no provider key, names no service-role
- * key, logs no Authorization header / key / JWT / raw provider body, and
- * carries no contiguous secret-shaped literal in the diff.
+ * Proves the semantic-referee file surface reads no provider key in EXECUTABLE
+ * code (outside the one live-provider file), names no service-role key, logs no
+ * Authorization header / key / JWT / raw provider body, and carries no
+ * contiguous secret-shaped literal in the diff.
  *
  * Mirrors the CLAUDE.md secrets-policy check
  * (`grep -r "ANTHROPIC_API_KEY|SERVICE_ROLE" app/ src/` → zero matches),
- * scoped to the MCP-016 surface.
+ * scoped to the semantic-referee surface.
+ *
+ * MCP-017 NOTE: MCP-017 adds the live `anthropicProvider.ts`, which legitimately
+ * reads `ANTHROPIC_API_KEY` via `Deno.env.get()`. That single file is covered by
+ * the dedicated `semanticAnthropicSourceScan.test.ts` (which proves the key is
+ * read in EXACTLY that one file). This suite keeps scanning the MCP-016 file
+ * set; it additionally scans the three new zod-free files — `seedPrompt.ts`,
+ * `anthropicClassifierCore.ts`, `contentSafetyScan.ts`, plus `providerRoutingCore.ts`
+ * — none of which reads a key. `anthropicProvider.ts` is intentionally NOT in
+ * the scanned set here (its key read is expected; the source-scan suite owns
+ * it). `providers.ts` NAMES the key in its docblock to document the boundary
+ * ("ANTHROPIC_API_KEY is read only inside anthropicProvider.ts") — it is
+ * comment-exempt below, exactly as `edgeFunctions.ts` already is; the
+ * executable-code scan still proves it never READS the key.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,8 +38,25 @@ const SHARED_FILES = [
   'fixtureProvider.ts',
   'fixtures.ts',
   'providerRouting.ts',
+  'providerRoutingCore.ts',
   'providers.ts',
+  // MCP-017 zod-free additions — none reads a provider key.
+  'seedPrompt.ts',
+  'anthropicClassifierCore.ts',
+  'contentSafetyScan.ts',
 ];
+
+/**
+ * Files allowed to NAME a provider key in a docblock comment (never in
+ * executable code). `edgeFunctions.ts` predates MCP-016; `providers.ts`
+ * documents the MCP-017 key boundary ("ANTHROPIC_API_KEY is read only inside
+ * anthropicProvider.ts"). The executable-code scan below still proves both of
+ * them never READ the key.
+ */
+const COMMENT_EXEMPT = new Set<string>([
+  'src/lib/edgeFunctions.ts',
+  '_shared/semanticReferee/providers.ts',
+]);
 
 const MCP016_SOURCES: { name: string; src: string }[] = [
   { name: 'semantic-referee/index.ts', src: fs.readFileSync(FN_INDEX, 'utf8') },
@@ -69,11 +100,15 @@ describe('MCP-016 secrets — no provider key is read or named in executable cod
     });
   }
 
-  it('the MCP-016-owned _shared/semanticReferee tree names no provider key at all (even in comments)', () => {
-    // The new files MCP-016 owns carry zero secret-name literal — comments
-    // included. Only the pre-existing edgeFunctions.ts is comment-exempt.
+  it('the semantic-referee tree names no provider key at all (even in comments), outside the documented boundary', () => {
+    // The MCP-016 + MCP-017 zod-free files carry zero secret-name literal —
+    // comments included — EXCEPT the COMMENT_EXEMPT set, where `providers.ts`
+    // documents the MCP-017 key boundary in its docblock. The live
+    // `anthropicProvider.ts` is not in MCP016_SOURCES at all (the dedicated
+    // source-scan suite owns it).
     for (const { name, src } of MCP016_SOURCES) {
       if (!name.startsWith('_shared/') && !name.startsWith('semantic-referee/')) continue;
+      if (COMMENT_EXEMPT.has(name)) continue;
       expect(src.includes('ANTHROPIC_API_KEY')).toBe(false);
       expect(src.includes('XAI_API_KEY')).toBe(false);
       expect(src.includes('SUPABASE_SERVICE_ROLE_KEY')).toBe(false);

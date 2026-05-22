@@ -92,9 +92,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const redactedInput = redactClassifyMoveRequest(input);
 
   // ── Classify ──────────────────────────────────────────────────
-  let outcome: ReturnType<typeof classifyWithConfiguredProvider>;
+  // `classifyWithConfiguredProvider` is async since MCP-017 (the live
+  // `anthropic` provider does a `fetch`). It never throws — every provider
+  // failure path returns a typed `{ enabled: false }` outcome — but the
+  // `try/catch` is kept as belt-and-suspenders.
+  let outcome: Awaited<ReturnType<typeof classifyWithConfiguredProvider>>;
   try {
-    outcome = classifyWithConfiguredProvider(redactedInput);
+    outcome = await classifyWithConfiguredProvider(redactedInput);
   } catch (err) {
     return internalError(`Semantic classification failed: ${String(err)}`);
   }

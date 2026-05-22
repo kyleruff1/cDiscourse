@@ -273,12 +273,29 @@ export interface ClassifyMoveRequest {
 }
 
 /**
- * Reason a classify did not produce a packet. NOTE the omission of MCP-009's
- * `'key_missing'` — MCP-016 has no live provider, so a key is never read and
- * `key_missing` is never produced. It re-enters the union only when the
- * live-provider pilot card adds the `anthropic` provider.
+ * Reason a classify did not produce a packet.
+ *
+ * MCP-016 shipped only the first three (`disabled` / `not_configured` /
+ * `not_implemented`) — it had no live provider, so a key was never read.
+ * MCP-017 adds the live `anthropic` provider; its six boundary-internal
+ * `ProviderUnavailableReason` values (`anthropicClassifierCore.ts`) surface
+ * here as the caller's reason for an `{ enabled: false }` outcome. The widening
+ * is a deliberate, documented contract touch that MCP-016's header comment
+ * anticipated. It is NOT scanned by `semanticDenoNodeParity.test.ts` — that
+ * test compares only the MCP-001 contract surface; `ClassifyMoveDisabledReason`
+ * is a boundary-only transport type. The Node twin in
+ * `src/lib/edgeFunctions.ts` is widened identically.
  */
-export type ClassifyMoveDisabledReason = 'disabled' | 'not_configured' | 'not_implemented';
+export type ClassifyMoveDisabledReason =
+  | 'disabled'
+  | 'not_configured'
+  | 'not_implemented'
+  | 'key_missing'
+  | 'api_error'
+  | 'rate_limited'
+  | 'network_error'
+  | 'parse_failure'
+  | 'validation_failed';
 
 /**
  * Outbound response. `{ enabled: false }` is a NORMAL, EXPECTED outcome — it is

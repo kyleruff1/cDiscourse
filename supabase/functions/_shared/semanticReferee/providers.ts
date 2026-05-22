@@ -1,28 +1,34 @@
 /**
- * MCP-016 — Semantic referee provider registry (mock-only build).
+ * MCP-016 / MCP-017 — Semantic referee provider registry.
  *
  * The Deno-coupled registry surface used by `semantic-referee/index.ts`. It
  * exports:
  *   - `classifyWithConfiguredProvider(request)` — reads `Deno.env`, routes via
- *     the pure core, validates the provider's output against the outbound
+ *     the routing core, validates the provider's output against the outbound
  *     `npm:zod@4` schema, and substitutes a deterministic fallback packet on
- *     any schema failure. NEVER throws.
- *   - `validateOrFallback(request, packet)` — the outbound schema gate.
- *   - re-exports `classifyWithProvider` (the pure routing core) for callers
- *     that already have an env object.
+ *     any schema failure. NEVER throws. `async` since MCP-017 — the routing
+ *     core awaits the live `anthropic` provider.
+ *   - `validateOrFallback(request, packet)` — the outbound schema gate. This is
+ *     the registry-level SECOND wall: even a packet the live provider's own
+ *     validation somehow missed is caught here.
+ *   - re-exports `classifyWithProvider` (the routing core) for callers that
+ *     already have an env object.
  *
- * The PURE routing core lives in `providerRouting.ts` — zod-free, Jest-testable.
- * This file adds the two things that cannot live there: the `Deno.env` read and
- * the `npm:zod@4` outbound validation.
+ * The routing SWITCH lives in `providerRoutingCore.ts` (zod-free, Jest-testable)
+ * and is re-exported via `providerRouting.ts`. This file adds the two things
+ * that cannot live there: the `Deno.env` read and the `npm:zod@4` outbound
+ * validation.
  *
  * Doctrine (MCP-001 §10, cdiscourse-doctrine §7):
  *   - DISABLED BY DEFAULT — `SEMANTIC_REFEREE_ENABLED` must equal `'true'`.
- *   - The default provider is `mock`. `anthropic` / `mcp` are stubs.
- *   - Reads NO provider key. Builds NO service-role client. Performs NO write.
+ *   - The default provider is `mock`. `anthropic` is the live provider (MCP-017);
+ *     `mcp` is still a stub.
+ *   - This file reads NO provider key. Builds NO service-role client. Performs
+ *     NO write. (`ANTHROPIC_API_KEY` is read only inside `anthropicProvider.ts`.)
  */
 import { SemanticRefereePacketSchema } from './schema.ts';
 import { buildFallbackPacket } from './mockProvider.ts';
-import { classifyWithProvider } from './providerRouting.ts';
+import { classifyWithProvider, DEFAULT_PROVIDER_DEPS } from './providerRouting.ts';
 import type { SemanticRefereeEnv } from './providerRouting.ts';
 import type {
   ClassifyMoveOutcome,
@@ -56,21 +62,27 @@ export function validateOrFallback(
 
 /**
  * The Deno-coupled registry entry point used by `semantic-referee/index.ts`.
- * Reads `Deno.env`, routes via the pure core, and — when a provider produced a
- * packet — validates it against the outbound schema, substituting the
+ * Reads `Deno.env`, routes via the routing core, and — when a provider produced
+ * a packet — validates it against the outbound schema, substituting the
  * deterministic fallback on any schema failure.
  *
- * `{ enabled: false }` (disabled / not_configured / not_implemented) is a
- * normal outcome the function returns with HTTP 200 — never an error.
+ * `async` since MCP-017: the routing core awaits the live `anthropic` provider.
+ * It still NEVER throws — the live provider returns a typed disabled outcome on
+ * every failure path.
+ *
+ * `{ enabled: false }` (disabled / not_configured / not_implemented /
+ * key_missing / api_error / rate_limited / network_error / parse_failure /
+ * validation_failed) is a normal outcome the function returns with HTTP 200 —
+ * never an error.
  */
-export function classifyWithConfiguredProvider(
+export async function classifyWithConfiguredProvider(
   request: ClassifyMoveRequest,
-): ClassifyMoveOutcome {
+): Promise<ClassifyMoveOutcome> {
   const env: SemanticRefereeEnv = {
     SEMANTIC_REFEREE_ENABLED: Deno.env.get('SEMANTIC_REFEREE_ENABLED') ?? undefined,
     SEMANTIC_REFEREE_PROVIDER: Deno.env.get('SEMANTIC_REFEREE_PROVIDER') ?? undefined,
   };
-  const outcome = classifyWithProvider(request, env);
+  const outcome = await classifyWithProvider(request, env, DEFAULT_PROVIDER_DEPS);
   if (!outcome.enabled) {
     return outcome;
   }
