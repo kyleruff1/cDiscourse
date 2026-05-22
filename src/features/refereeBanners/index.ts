@@ -18,3 +18,10 @@ export * from './accessibilityLabel';
 export * from './refereeBannerLibrary';
 export * from './classifierBannerMap';
 export * from './selectBanner';
+// ── MCP-019 (appended — room-wiring: packet → BannerSelectionInput adapter) ──
+// NOTE: `RefereeBannerView` (the RN render component) is intentionally NOT
+// re-exported here. This barrel is a pure-TS module that pure-TS test suites
+// import directly; re-exporting an RN component would pull `react-native`
+// into every consumer. Import the component directly from
+// `./RefereeBannerView`. The adapter below is pure and safe to re-export.
+export * from './bannerSelectionInputFromPacket';

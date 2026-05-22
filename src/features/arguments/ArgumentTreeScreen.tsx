@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -24,6 +24,7 @@ import type { MoveDraftPatch } from './conversationMoves';
 import { useAppSession } from '../session/useAppSession';
 import { useArgumentRoomMessages } from './useArgumentRoomMessages';
 import { quickActionToPreset } from './quickActionPresets';
+import { useSemanticReferee } from './useSemanticReferee';
 
 /**
  * Stage 6.2 — Normal users only ever see `stack` or `timeline`. The
@@ -293,6 +294,74 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
     if (refreshRef) refreshRef.current = refresh;
   }, [refresh, refreshRef]);
 
+  // MCP-019 — semantic-referee room hook (mock mode). Called once at the
+  // room-shell level. It owns the client packet cache, the trigger gates,
+  // the (single) classifyMove call path, and the resulting banner / override
+  // state. The semantic layer is OFF by default — when the operator has not
+  // enabled it the Edge Function returns `{ enabled: false }` and the hook
+  // falls back silently with no user-visible error.
+  const referee = useSemanticReferee();
+  // The move id MCP-019 last classified — its banner / override surface is
+  // shown while that move is the active one (a just-posted move auto-snaps
+  // to active, so the banner appears on the move the user just posted).
+  const [classifiedMoveId, setClassifiedMoveId] = useState<string | null>(null);
+  // Message ids seen on a prior render. A move that appears for the FIRST
+  // time, is authored by the current user, and is the new latest id is a
+  // "the local user just posted this" signal — that, and only that, fires
+  // `onMovePosted`. A refresh that brings in OTHER participants' messages
+  // never triggers a classification (MCP-019 §4.2).
+  const seenMoveIdsRef = useRef<Set<string>>(new Set());
+  const refereeOnMovePosted = referee.onMovePosted;
+
+  useEffect(() => {
+    const seen = seenMoveIdsRef.current;
+    const isFirstObservation = seen.size === 0;
+    // Snapshot the previous seen set BEFORE adding this render's ids.
+    const newlyArrived: typeof rows = [];
+    for (const row of rows) {
+      if (!seen.has(row.id)) {
+        newlyArrived.push(row);
+        seen.add(row.id);
+      }
+    }
+    // On the very first room load every message is "new" — that is a load,
+    // not a post. Only fire on a move that arrived AFTER the initial load.
+    if (isFirstObservation || !latestId) {
+      return;
+    }
+    const justPosted = newlyArrived.find(
+      (r) => r.id === latestId && r.authorId != null && r.authorId === currentUserId,
+    );
+    if (!justPosted) {
+      return;
+    }
+    const parentRow = justPosted.parentId
+      ? rows.find((r) => r.id === justPosted.parentId)
+      : undefined;
+    setClassifiedMoveId(justPosted.id);
+    // Fire-and-forget — the post already happened; this never blocks anything.
+    void refereeOnMovePosted({
+      roomId: debate.id,
+      moveId: justPosted.id,
+      parentId: justPosted.parentId ?? null,
+      body: justPosted.body,
+      parentBody: parentRow?.body ?? null,
+      participantSide,
+      roomContext: {
+        selectedMoveType: justPosted.argumentType ?? undefined,
+        side:
+          participantSide === 'affirmative' || participantSide === 'negative'
+            ? participantSide
+            : undefined,
+      },
+    });
+  }, [rows, latestId, currentUserId, debate.id, participantSide, refereeOnMovePosted]);
+
+  // The banner / override slice for the move MCP-019 last classified.
+  const refereeMoveState = classifiedMoveId
+    ? referee.getMoveState(classifiedMoveId)
+    : null;
+
   const messages: ArgumentMessageInput[] = rows
     .filter((row) => row.status !== 'deleted')
     .map((row) => {
@@ -398,6 +467,20 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         density={density}
         reduceMotionOverride={reduceMotionOverride}
         startArgumentAction={startArgumentAction}
+        // MCP-019 — banner / override slice for the move just posted.
+        // Both are null when the semantic layer is off (the v1 default).
+        refereeBanner={refereeMoveState?.banner ?? null}
+        overridePrompt={refereeMoveState?.overridePrompt ?? null}
+        onConfirmOverride={(choice) => {
+          if (classifiedMoveId) {
+            referee.confirmOverride(classifiedMoveId, {
+              chosenLane: choice.chosenLane,
+              assertsAnswersParent: choice.assertsAnswersParent,
+              overriddenByUserId: currentUserId ?? '',
+              participantSide,
+            });
+          }
+        }}
       />
     </View>
   );

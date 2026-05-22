@@ -76,6 +76,16 @@ import {
   type TimelineNodeActionDockActor,
   type TimelineNodeActionDockTarget,
 } from './timelineNodeActionDockModel';
+// MCP-019 — the deferred semantic-referee render components. Both render
+// nothing when their props are absent / inert, so the surface is unchanged
+// for a room with the semantic layer off (the v1 default).
+import { RefereeBannerView } from '../refereeBanners/RefereeBannerView';
+import type { BannerSelectionResult } from '../refereeBanners/types';
+import {
+  SemanticOverrideChoiceSheet,
+  type SemanticOverrideChoice,
+} from './SemanticOverrideChoiceSheet';
+import type { SemanticOverridePrompt } from '../semanticOverride/types';
 
 interface Props {
   debate: {
@@ -160,6 +170,25 @@ interface Props {
    * When omitted, no CTA chip renders in the dock.
    */
   startArgumentAction?: { label: string; onPress: () => void } | null;
+  /**
+   * MCP-019 — the semantic-referee banner for the currently-active move, or
+   * null. Rendered as a non-blocking strip anchored under the active node's
+   * readout (both Stack and Timeline modes). Absent → no banner; the surface
+   * is byte-identical to the pre-MCP-019 render.
+   */
+  refereeBanner?: BannerSelectionResult | null;
+  /**
+   * MCP-019 — the semantic-referee override prompt for the active move, or
+   * null. When `shouldOffer` is true an inline (non-modal) choice sheet
+   * renders in the surface. Absent / `shouldOffer: false` → nothing.
+   */
+  overridePrompt?: SemanticOverridePrompt | null;
+  /**
+   * MCP-019 — called when the user confirms a lane in the override sheet.
+   * The room shell builds the in-memory `SemanticOverrideRecord`; this
+   * callback never moves score and never writes a flag.
+   */
+  onConfirmOverride?: (choice: SemanticOverrideChoice) => void;
 }
 
 export function ArgumentGameSurface({
@@ -185,6 +214,9 @@ export function ArgumentGameSurface({
   density,
   reduceMotionOverride,
   startArgumentAction,
+  refereeBanner,
+  overridePrompt,
+  onConfirmOverride,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const sorted = useMemo(() => sortMessagesChronologically(messages || []), [messages]);
@@ -766,6 +798,22 @@ export function ArgumentGameSurface({
           </>
         )}
       </View>
+
+      {/* MCP-019 — the semantic-referee surface for the active move. Both
+          components render NOTHING when their prop is absent / inert, so a
+          room with the semantic layer off (the v1 default) is unchanged.
+          The banner is a non-blocking strip; the override sheet is inline
+          (never a Modal, never a route push) — TL-003 / SC-003 doctrine. */}
+      {refereeBanner ? (
+        <RefereeBannerView result={refereeBanner} reduceMotionOverride={reduceMotionOverride} />
+      ) : null}
+      {overridePrompt && overridePrompt.shouldOffer ? (
+        <SemanticOverrideChoiceSheet
+          prompt={overridePrompt}
+          onConfirm={(choice) => onConfirmOverride?.(choice)}
+          reduceMotionOverride={reduceMotionOverride}
+        />
+      ) : null}
 
       {/* Stage 6.4 / SC-005 — Side action rail. Collapsed by default for
           observers; SC-005 renders it as a contextual dock (side-anchored
