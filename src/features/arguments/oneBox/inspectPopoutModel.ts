@@ -620,6 +620,117 @@ export function getInspectSection(
   return model.sections.find((s) => s.id === id) ?? null;
 }
 
+// ── QOL-042 — "From the linked prior argument" section ──────────
+
+/**
+ * QOL-042 — one resolved-tangent context entry rendered inside the
+ * Inspect popout's "From the linked prior argument" section. Read-only:
+ * `argumentId` is only a tap-through target into the (locked, read-only)
+ * prior room — surfacing a prior tangent never copies or re-posts it.
+ */
+export interface InspectLinkedPriorTangentItem {
+  /** The prior-room argument id — the tap-through target. */
+  argumentId: string;
+  /** The plain-language excerpt of the tangent node. */
+  excerpt: string;
+}
+
+/**
+ * QOL-042 — the optional "From the linked prior argument" Inspect section.
+ *
+ * This section is ADDITIVE and CONDITIONAL — it is NOT part of the fixed
+ * seven-section set that `buildInspectPopout` always returns. The seven
+ * numbered + evidence sections are unchanged. This section renders ONLY
+ * when the QOL-042 context chip is `authorized` AND the prior room has
+ * resolved-tangent context, as the destination of the chip's "View
+ * context" action (QOL-042 design §6.2 / §6.4 / §5.4).
+ *
+ * `isVisible` is the single gate the host checks: when `false`, the host
+ * renders nothing (a `title_only` viewer's tangent fetch returns zero
+ * rows under RLS, so the section is simply not shown — no special-casing).
+ *
+ * Doctrine: read-only context, never a verdict. The header copy is
+ * QOL-042's `inspectSectionHeader`; no item is a ruling on the prior
+ * argument.
+ */
+export interface InspectLinkedPriorSection {
+  /** Stable section id — distinct from every `InspectSectionId`. */
+  id: 'linked_prior_argument';
+  /** Plain-language section header ("From the linked prior argument"). */
+  title: string;
+  /** Verbose screen-reader label for the section header. */
+  accessibilityLabel: string;
+  /**
+   * True only when the section should render — the chip is `authorized`
+   * AND there is at least one resolved-tangent item. The host renders
+   * nothing when this is `false`.
+   */
+  isVisible: boolean;
+  /** The resolved-tangent context items (empty when `isVisible` is false). */
+  tangentItems: ReadonlyArray<InspectLinkedPriorTangentItem>;
+  /**
+   * Plain-language body shown when the chip is authorized but the prior
+   * room has no resolved tangents — "No tangents from the linked
+   * argument." Empty string when `tangentItems` is non-empty.
+   */
+  emptyBody: string;
+}
+
+/** Inputs to `buildInspectLinkedPriorSection`. */
+export interface BuildInspectLinkedPriorSectionInput {
+  /**
+   * The viewer's access to the linked prior room, from the QOL-042
+   * `LinkAccessState` the API client derived. Only `'authorized'` ever
+   * yields a visible section — a `'title_only'` / `'unavailable'` viewer
+   * has no prior-room content to show.
+   */
+  accessState: 'authorized' | 'title_only' | 'unavailable';
+  /**
+   * The resolved-tangent context items, produced by QOL-042's
+   * `buildLinkedTangentContext`. The host has already fetched these
+   * through the access-checked path; for a non-authorized viewer this is
+   * an empty array (RLS returned zero argument rows).
+   */
+  tangentItems: ReadonlyArray<InspectLinkedPriorTangentItem>;
+}
+
+/** The "From the linked prior argument" section header copy. */
+export const INSPECT_LINKED_PRIOR_HEADER = 'From the linked prior argument';
+/** The verbose a11y label for the linked-prior section header. */
+export const INSPECT_LINKED_PRIOR_ACCESSIBILITY_LABEL =
+  'From the linked prior argument — the resolved tangents carried over as context';
+/** Body shown when the chip is authorized but the prior room has no tangents. */
+export const INSPECT_LINKED_PRIOR_EMPTY_BODY = 'No tangents from the linked argument.';
+
+/**
+ * Builds the optional QOL-042 "From the linked prior argument" Inspect
+ * section. ADDITIVE — it does not alter the fixed seven-section set.
+ *
+ * The section is `isVisible` ONLY when the chip is `authorized`. An
+ * authorized viewer with zero tangents still gets a visible section whose
+ * body is the "No tangents" line (so "View context" never opens to a
+ * blank panel). A `title_only` / `unavailable` viewer gets `isVisible:
+ * false` and an empty item list — the host renders nothing.
+ *
+ * Pure. Deterministic. Idempotent. No AI, no network, no `Date.now()`.
+ */
+export function buildInspectLinkedPriorSection(
+  input: BuildInspectLinkedPriorSectionInput,
+): InspectLinkedPriorSection {
+  const items = Array.isArray(input.tangentItems) ? input.tangentItems : [];
+  const isAuthorized = input.accessState === 'authorized';
+  return {
+    id: 'linked_prior_argument',
+    title: INSPECT_LINKED_PRIOR_HEADER,
+    accessibilityLabel: INSPECT_LINKED_PRIOR_ACCESSIBILITY_LABEL,
+    // Visible only for an authorized viewer; an authorized viewer with no
+    // tangents still gets a visible section (the "No tangents" body).
+    isVisible: isAuthorized,
+    tangentItems: isAuthorized ? Object.freeze([...items]) : Object.freeze([]),
+    emptyBody: isAuthorized && items.length === 0 ? INSPECT_LINKED_PRIOR_EMPTY_BODY : '',
+  };
+}
+
 // ── _debug namespace — internal table access for tests ─────────
 
 /**

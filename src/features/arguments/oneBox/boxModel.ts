@@ -223,6 +223,19 @@ export interface Draft {
   listItems: ReadonlyArray<string>;
   /** Typed field values, for structured-form schemas. */
   fields: Readonly<Record<string, string>>;
+  /**
+   * QOL-042 — optional id of a prior, settled argument room this root
+   * claim references as context. Additive + optional: it is meaningful
+   * ONLY on the `root_claim` box's setup draft (the root box is the only
+   * box that configures the room — finding F1). Every other box type
+   * leaves it `undefined`; `isDraftEmpty` deliberately ignores it (a link
+   * id alone is room setup, not drafted body content). The room shell
+   * inserts the `argument_room_links` row via `createArgumentRoomLink`
+   * AFTER the room + root argument exist — the link is a separate write,
+   * never part of the `submit-argument` payload (QOL-042 design §5.4 /
+   * §6.3). `undefined` means "no prior argument referenced".
+   */
+  linkedPriorRoomId?: string;
 }
 
 /** A frozen empty draft. New `BoxType` buffers start from this shape. */
@@ -230,6 +243,9 @@ export const EMPTY_DRAFT: Draft = Object.freeze({
   body: '',
   listItems: Object.freeze([]),
   fields: Object.freeze({}),
+  // QOL-042 — no prior argument referenced by default. Optional + additive;
+  // omitting it keeps every existing `EMPTY_DRAFT` consumer unchanged.
+  linkedPriorRoomId: undefined,
 });
 
 /** Per-type draft buffers — one `Draft` per `BoxType`. */
