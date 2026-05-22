@@ -514,3 +514,55 @@ describe('QOL-033 Go popout — pure-model source scan', () => {
     expect(/Date\.now\(\)/.test(goModelSrc)).toBe(false);
   });
 });
+
+// ── 7. QOL-031 — Act popout render layer ───────────────────────
+//
+// QOL-031 ships the Act popout RENDER component (`ActPopout.tsx`). It
+// re-houses the 3-gate `buildActPopout` output through the chassis — the
+// entry labels themselves are `actPopoutModel`'s and are already scanned
+// in §1 / §2. The render component authors a single literal string (the
+// §8 zero-entry note); this section holds it to the same doctrine bar and
+// re-confirms the component imports no write / network / AI primitive
+// (QOL-031 design §10 "no service-role in client").
+
+describe('QOL-031 Act popout render layer — copy + source scan', () => {
+  const actPopoutSrc = fs.readFileSync(path.join(ONEBOX_DIR, 'ActPopout.tsx'), 'utf8');
+  const actPopoutCode = stripComments(actPopoutSrc);
+
+  it('the empty-state note carries no forbidden verdict token', () => {
+    // The one literal string ActPopout authors (§8 zero-entry edge case).
+    const emptyNote = 'No actions are available here yet.';
+    expect(actPopoutCode).toContain(emptyNote);
+    for (const token of BANNED) {
+      expect(hitsBanned(emptyNote, token)).toBe(false);
+    }
+  });
+
+  it('the empty-state note reads as plain language (no internal code)', () => {
+    expect(looksLikeInternalCode('No actions are available here yet.')).toBe(false);
+  });
+
+  it('ActPopout imports no Supabase / network / AI / router primitive', () => {
+    expect(/from ['"][^'"]*supabase/.test(actPopoutCode)).toBe(false);
+    expect(/\bfetch\(/.test(actPopoutCode)).toBe(false);
+    expect(/anthropic|openai|x\.ai/i.test(actPopoutCode)).toBe(false);
+    expect(/from ['"][^'"]*(react-navigation|expo-router)/.test(actPopoutCode)).toBe(false);
+  });
+
+  it('ActPopout never writes to public.arguments or uses the service role', () => {
+    expect(/\.insert\(|\.update\(|\.delete\(/.test(actPopoutCode)).toBe(false);
+    expect(/submit-argument/.test(actPopoutCode)).toBe(false);
+    expect(/SERVICE_ROLE|service_role/.test(actPopoutCode)).toBe(false);
+  });
+
+  it('ActPopout reads no wall clock (deterministic render — design §10)', () => {
+    expect(/Date\.now\(\)/.test(actPopoutCode)).toBe(false);
+  });
+
+  it('ActPopout consumes buildActPopout — it forks no gate (design §5)', () => {
+    expect(actPopoutCode).toMatch(/buildActPopout\(/);
+    // The 3-gate pipeline lives in the model; the render layer never
+    // re-authors it.
+    expect(actPopoutCode).not.toMatch(/applyEngineGate|applyRoleGate|applyStageGate/);
+  });
+});
