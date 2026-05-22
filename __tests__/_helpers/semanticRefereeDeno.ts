@@ -47,8 +47,8 @@ export interface SemanticRefereeEnv {
 }
 
 /**
- * The live provider's failure vocabulary — declared locally (it lives in the
- * zod-free `anthropicClassifierCore.ts`, which the bridge also loads).
+ * The Anthropic live provider's failure vocabulary — declared locally (it lives
+ * in the zod-free `anthropicClassifierCore.ts`, which the bridge also loads).
  */
 export type ProviderUnavailableReason =
   | 'key_missing'
@@ -58,15 +58,36 @@ export type ProviderUnavailableReason =
   | 'parse_failure'
   | 'validation_failed';
 
-/** The result of one live-provider call. */
+/** The result of one Anthropic live-provider call. */
 export type ProviderResult =
   | { kind: 'success'; packet: SemanticRefereePacket }
   | { kind: 'unavailable'; reason: ProviderUnavailableReason };
+
+/**
+ * The MCP adapter's failure vocabulary (MCP-018) — declared locally; it lives
+ * in the zod-free `mcpAdapterCore.ts`, which the bridge also loads. It differs
+ * from `ProviderUnavailableReason` by `url_missing`/`token_missing` in place of
+ * `key_missing` (the `mcp` adapter has a URL and a token, not one key).
+ */
+export type McpUnavailableReason =
+  | 'url_missing'
+  | 'token_missing'
+  | 'api_error'
+  | 'rate_limited'
+  | 'network_error'
+  | 'parse_failure'
+  | 'validation_failed';
+
+/** The result of one MCP-adapter call (MCP-018). */
+export type McpProviderResult =
+  | { kind: 'success'; packet: SemanticRefereePacket }
+  | { kind: 'unavailable'; reason: McpUnavailableReason };
 
 export interface SemanticRefereeProviderDeps {
   runMock: (request: ClassifyMoveRequest) => SemanticRefereePacket;
   runFixture: (request: ClassifyMoveRequest) => SemanticRefereePacket;
   runAnthropic: (request: ClassifyMoveRequest) => Promise<ProviderResult>;
+  runMcp: (request: ClassifyMoveRequest) => Promise<McpProviderResult>;
 }
 
 // ── mockProvider.ts ─────────────────────────────────────────────
@@ -120,9 +141,13 @@ const providerRoutingCoreModule = require(`${SHARED}/providerRoutingCore`) as {
     env: SemanticRefereeEnv,
     deps: SemanticRefereeProviderDeps,
   ) => Promise<ClassifyMoveOutcome>;
+  // MCP-018 — the pure `McpUnavailableReason` → `ClassifyMoveDisabledReason` map.
+  mcpReasonToOutcomeReason: (reason: McpUnavailableReason) => string;
 };
 
 export const classifyWithProvider = providerRoutingCoreModule.classifyWithProvider;
+export const mcpReasonToOutcomeReason =
+  providerRoutingCoreModule.mcpReasonToOutcomeReason;
 
 // ── runtimeConfig.ts (ADMIN-AI-001 — zod-free DB-config resolver) ───
 //
@@ -179,6 +204,36 @@ export const extractAnthropicContentText =
   anthropicClassifierCoreModule.extractAnthropicContentText;
 export const parseJsonFromContent = anthropicClassifierCoreModule.parseJsonFromContent;
 export const sanitizeRawPayload = anthropicClassifierCoreModule.sanitizeRawPayload;
+
+// ── mcpAdapterCore.ts (MCP-018 — zod-free MCP-adapter core) ─────────
+//
+// The pure, Jest-importable logic for the operator-hosted MCP-server provider.
+// `mcpAdapter.ts` itself is NOT bridged — it imports `schema.ts` (→ `npm:zod@4`)
+// — exactly as `anthropicProvider.ts` is not bridged. The MCP-adapter routing
+// path is exercised through `providerRoutingCore.ts` with an injected `runMcp`
+// spy; the live `mcpAdapter.ts` is covered by source-scan + source-shape suites.
+
+const mcpAdapterCoreModule = require(`${SHARED}/mcpAdapterCore`) as {
+  MCP_CLASSIFY_TOOL_NAME: string;
+  MCP_REQUEST_TIMEOUT_MS: number;
+  DEFAULT_MCP_MODEL_VERSION: string;
+  ALL_MCP_UNAVAILABLE_REASONS: readonly McpUnavailableReason[];
+  buildMcpToolRequestBody: (request: ClassifyMoveRequest) => Record<string, unknown>;
+  extractMcpPacket: (responseJson: unknown) => unknown | null;
+  parseJsonFromContent: (text: unknown) => unknown | null;
+  sanitizeMcpRawPayload: (raw: unknown) => Record<string, unknown>;
+};
+
+export const MCP_CLASSIFY_TOOL_NAME = mcpAdapterCoreModule.MCP_CLASSIFY_TOOL_NAME;
+export const MCP_REQUEST_TIMEOUT_MS = mcpAdapterCoreModule.MCP_REQUEST_TIMEOUT_MS;
+export const DEFAULT_MCP_MODEL_VERSION = mcpAdapterCoreModule.DEFAULT_MCP_MODEL_VERSION;
+export const ALL_MCP_UNAVAILABLE_REASONS =
+  mcpAdapterCoreModule.ALL_MCP_UNAVAILABLE_REASONS;
+export const buildMcpToolRequestBody = mcpAdapterCoreModule.buildMcpToolRequestBody;
+export const extractMcpPacket = mcpAdapterCoreModule.extractMcpPacket;
+/** The `mcpAdapterCore.ts` LOCAL COPY of `parseJsonFromContent` (MCP-018 OQ-4). */
+export const mcpParseJsonFromContent = mcpAdapterCoreModule.parseJsonFromContent;
+export const sanitizeMcpRawPayload = mcpAdapterCoreModule.sanitizeMcpRawPayload;
 
 // ── seedPrompt.ts (zod-free seed prompt) ────────────────────────────
 

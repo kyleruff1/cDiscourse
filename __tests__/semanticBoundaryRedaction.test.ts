@@ -1,5 +1,5 @@
 /**
- * MCP-016 — semantic-referee defensive redaction pass tests.
+ * MCP-016 / MCP-018 — semantic-referee defensive redaction pass tests.
  *
  * The boundary runs a SECOND defensive redaction pass over the move / parent
  * body before any provider sees it — belt-and-suspenders on top of the client
@@ -7,10 +7,17 @@
  * post-id shapes and is deterministic and non-mutating.
  *
  * The redaction module is a zod-free Deno module — Jest imports it directly.
+ *
+ * MCP-018 NOTE: the `mcp` adapter (`mcpAdapter.ts`) forwards the move / parent
+ * bodies the boundary has ALREADY run through this pass — exactly as the
+ * `anthropic` provider does. `buildMcpToolRequestBody` does not re-redact (the
+ * boundary owns redaction); the block below proves the adapter request carries
+ * the redacted body VERBATIM, so the redaction guarantee survives the hop.
  */
 import {
   redactString,
   redactClassifyMoveRequest,
+  buildMcpToolRequestBody,
 } from './_helpers/semanticRefereeDeno';
 import type { ClassifyMoveRequest } from '../src/lib/edgeFunctions';
 
@@ -126,5 +133,29 @@ describe('redactClassifyMoveRequest — request-level pass', () => {
     expect(out.parentId).toBe('p1');
     expect(out.contentHash).toBe('ch1');
     expect(out.requestedClassifiers).toEqual(['narrows_claim']);
+  });
+});
+
+describe('MCP-018 — the mcp adapter forwards already-redacted bodies verbatim', () => {
+  it('buildMcpToolRequestBody carries the redacted move body unchanged', () => {
+    // The boundary redacts FIRST, then the adapter builds the request. Feed the
+    // adapter a request whose body is already the redaction-pass OUTPUT; the
+    // request must carry that exact redacted string (no re-mangling, no leak).
+    const redactedBody = redactString(`see ${FAKE_HANDLE} at ${FAKE_URL}`);
+    const body = buildMcpToolRequestBody(makeRequest({ moveBodyRedacted: redactedBody }));
+    const input = body.input as Record<string, unknown>;
+    expect(input.moveBodyRedacted).toBe(redactedBody);
+    expect(input.moveBodyRedacted).not.toContain(FAKE_HANDLE);
+    expect(input.moveBodyRedacted).not.toContain(FAKE_URL);
+  });
+
+  it('buildMcpToolRequestBody carries the redacted parent body unchanged when present', () => {
+    const redactedParent = redactString(`parent mentions ${FAKE_EMAIL}`);
+    const body = buildMcpToolRequestBody(
+      makeRequest({ parentBodyRedacted: redactedParent }),
+    );
+    const input = body.input as Record<string, unknown>;
+    expect(input.parentBodyRedacted).toBe(redactedParent);
+    expect(input.parentBodyRedacted).not.toContain(FAKE_EMAIL);
   });
 });

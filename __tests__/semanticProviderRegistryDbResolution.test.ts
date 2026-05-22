@@ -32,6 +32,7 @@ import {
 import type {
   ResolvedProviderConfig,
   ProviderResult,
+  McpProviderResult,
   SemanticRefereeEnv,
   SemanticRefereeProviderDeps,
 } from './_helpers/semanticRefereeDeno';
@@ -59,6 +60,10 @@ function spyDeps(): SemanticRefereeProviderDeps {
     runFixture: jest.fn(runFixtureClassifier),
     runAnthropic: jest.fn<Promise<ProviderResult>, [ClassifyMoveRequest]>(
       async () => ({ kind: 'unavailable', reason: 'key_missing' }),
+    ),
+    // MCP-018 — the `runMcp` spy, parallel to `runAnthropic`.
+    runMcp: jest.fn<Promise<McpProviderResult>, [ClassifyMoveRequest]>(
+      async () => ({ kind: 'unavailable', reason: 'url_missing' }),
     ),
   };
 }
@@ -136,14 +141,26 @@ describe('ADMIN-AI-001 resolution — DB wins over env', () => {
     expect(deps.runAnthropic).not.toHaveBeenCalled();
   });
 
-  it('DB mcp → routing returns the not_implemented stub', async () => {
+  it('DB mcp → routing dispatches to runMcp (MCP-018 — the slot is un-stubbed)', async () => {
+    // MCP-018 un-stubbed the `mcp` slot. A DB `provider_mode: 'mcp'` row now
+    // routes to the injected `runMcp` dep. With the default `runMcp` spy (an
+    // `unavailable: url_missing` result), the outcome is the mapped
+    // `not_configured` reason — NOT the retired `not_implemented` stub.
+    // (REWRITE of the ADMIN-AI-001 "DB mcp → not_implemented stub" test — the
+    // documented same-category change as the `semanticProviderRegistry.test.ts`
+    // "mcp stub" rewrite; MCP-018 design §5.)
     const deps = spyDeps();
     const resolved = await resolveSemanticRefereeConfig(
       clientResolving({ data: [{ provider_mode: 'mcp', enabled: true }], error: null }),
     );
     const outcome = await resolveAndRoute(resolved, {}, deps);
     expect(outcome.enabled).toBe(false);
-    if (!outcome.enabled) expect(outcome.reason).toBe('not_implemented');
+    if (!outcome.enabled) expect(outcome.reason).toBe('not_configured');
+    expect(deps.runMcp).toHaveBeenCalledTimes(1);
+    // mock / fixture / anthropic are NOT touched when the DB selects mcp.
+    expect(deps.runMock).not.toHaveBeenCalled();
+    expect(deps.runFixture).not.toHaveBeenCalled();
+    expect(deps.runAnthropic).not.toHaveBeenCalled();
   });
 });
 

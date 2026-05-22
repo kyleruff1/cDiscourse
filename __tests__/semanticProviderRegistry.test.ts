@@ -1,5 +1,5 @@
 /**
- * MCP-016 / MCP-017 — Semantic referee provider registry routing tests.
+ * MCP-016 / MCP-017 / MCP-018 — Semantic referee provider registry routing tests.
  *
  * Asserts the doctrine-critical routing rules:
  *   - flag on, provider UNSET → defaults to `mock` (the deliberate deviation
@@ -10,25 +10,33 @@
  *     injected async `runAnthropic` dep; a `success` result becomes
  *     `{ enabled: true, packet }`, every `unavailable` reason becomes
  *     `{ enabled: false, reason }`;
- *   - `mcp` stays a STUB → `{ enabled: false, reason: not_implemented }`;
+ *   - `mcp` is the MCP-018 operator-hosted adapter — reached only through an
+ *     injected async `runMcp` dep; a `success` result becomes
+ *     `{ enabled: true, packet }`, every `McpUnavailableReason` becomes
+ *     `{ enabled: false, reason }` via the `mcpReasonToOutcomeReason` map
+ *     (`url_missing`/`token_missing` → `not_configured`, the rest pass through);
  *   - an unknown provider value → `{ enabled: false, reason: not_configured }`.
  *
- * MCP-017 NOTE: `classifyWithProvider` is now `async` (the `anthropic` branch
- * awaits the live provider) and `SemanticRefereeProviderDeps` now requires a
- * `runAnthropic` member. Every test `await`s the outcome and injects a
- * `runAnthropic` spy. The routing SWITCH is exercised through the zod-free
- * `providerRoutingCore.ts` (the bridge loads it from there); the live
- * `anthropicProvider.ts` itself is covered by `semanticAnthropicSourceScan.test.ts`
- * and `semanticEdgeAuthAnthropic.test.ts`.
+ * MCP-018 NOTE: the `mcp` slot is no longer a `not_implemented` stub. The
+ * previous "mcp slot stays stubbed off" test is REWRITTEN below as "mcp routes
+ * to runMcp" — the documented single existing-assertion change (MCP-018 design
+ * §5). `SemanticRefereeProviderDeps` now also requires a `runMcp` member; every
+ * test injects a `runMcp` spy. The routing SWITCH is exercised through the
+ * zod-free `providerRoutingCore.ts`; the live `mcpAdapter.ts` is covered by
+ * `semanticMcpSourceScan.test.ts` and `semanticEdgeMcpAdapter.test.ts`.
  */
 import {
   classifyWithProvider,
+  mcpReasonToOutcomeReason,
   runMockClassifier,
   runFixtureClassifier,
   buildFallbackPacket,
+  ALL_MCP_UNAVAILABLE_REASONS,
 } from './_helpers/semanticRefereeDeno';
 import type {
   ProviderResult,
+  McpProviderResult,
+  McpUnavailableReason,
   SemanticRefereeProviderDeps,
 } from './_helpers/semanticRefereeDeno';
 import type { ClassifyMoveRequest } from '../src/lib/edgeFunctions';
@@ -45,15 +53,16 @@ function makeRequest(): ClassifyMoveRequest {
 }
 
 /**
- * A deps object whose three provider functions are jest spies. `runMock` /
- * `runFixture` wrap the real synchronous fns; `runAnthropic` is an async spy
- * the individual test configures with `mockResolvedValueOnce`.
+ * A deps object whose four provider functions are jest spies. `runMock` /
+ * `runFixture` wrap the real synchronous fns; `runAnthropic` / `runMcp` are
+ * async spies the individual test configures with `mockResolvedValueOnce`.
  */
 function spyDeps(): {
   deps: SemanticRefereeProviderDeps;
   mockSpy: jest.Mock;
   fixtureSpy: jest.Mock;
   anthropicSpy: jest.Mock<Promise<ProviderResult>, [ClassifyMoveRequest]>;
+  mcpSpy: jest.Mock<Promise<McpProviderResult>, [ClassifyMoveRequest]>;
 } {
   const mockSpy = jest.fn(runMockClassifier);
   const fixtureSpy = jest.fn(runFixtureClassifier);
@@ -61,11 +70,20 @@ function spyDeps(): {
   const anthropicSpy = jest.fn<Promise<ProviderResult>, [ClassifyMoveRequest]>(
     async () => ({ kind: 'unavailable', reason: 'key_missing' }),
   );
+  const mcpSpy = jest.fn<Promise<McpProviderResult>, [ClassifyMoveRequest]>(
+    async () => ({ kind: 'unavailable', reason: 'url_missing' }),
+  );
   return {
-    deps: { runMock: mockSpy, runFixture: fixtureSpy, runAnthropic: anthropicSpy },
+    deps: {
+      runMock: mockSpy,
+      runFixture: fixtureSpy,
+      runAnthropic: anthropicSpy,
+      runMcp: mcpSpy,
+    },
     mockSpy,
     fixtureSpy,
     anthropicSpy,
+    mcpSpy,
   };
 }
 
@@ -75,6 +93,14 @@ function makeAnthropicPacket(): SemanticRefereePacket {
   // provider — it is already schema-valid and carries no verdict token.
   const base = buildFallbackPacket(makeRequest());
   return { ...base, provider: 'anthropic', modelVersion: 'claude-haiku-4-5' };
+}
+
+/** A schema-valid `mcp`-provider packet for the success-path spy. */
+function makeMcpPacket(): SemanticRefereePacket {
+  // Reuse the deterministic fallback shape and re-stamp it as the mcp provider
+  // — it is already schema-valid and carries no verdict token.
+  const base = buildFallbackPacket(makeRequest());
+  return { ...base, provider: 'mcp', modelVersion: 'operator-mcp-server' };
 }
 
 describe('provider registry — default is mock', () => {
@@ -122,7 +148,7 @@ describe('provider registry — fixture provider', () => {
 
 describe('provider registry — anthropic live provider (MCP-017)', () => {
   it('routes SEMANTIC_REFEREE_PROVIDER=anthropic to runAnthropic and returns its packet on success', async () => {
-    const { deps, mockSpy, fixtureSpy, anthropicSpy } = spyDeps();
+    const { deps, mockSpy, fixtureSpy, anthropicSpy, mcpSpy } = spyDeps();
     const packet = makeAnthropicPacket();
     anthropicSpy.mockResolvedValueOnce({ kind: 'success', packet });
 
@@ -138,9 +164,10 @@ describe('provider registry — anthropic live provider (MCP-017)', () => {
       expect(outcome.packet).toBe(packet);
     }
     expect(anthropicSpy).toHaveBeenCalledTimes(1);
-    // mock / fixture are NOT touched when anthropic is selected.
+    // mock / fixture / mcp are NOT touched when anthropic is selected.
     expect(mockSpy).not.toHaveBeenCalled();
     expect(fixtureSpy).not.toHaveBeenCalled();
+    expect(mcpSpy).not.toHaveBeenCalled();
   });
 
   it('translates an unavailable:key_missing result to { enabled: false, reason: key_missing }', async () => {
@@ -193,26 +220,116 @@ describe('provider registry — anthropic live provider (MCP-017)', () => {
   });
 });
 
-describe('provider registry — mcp slot stays stubbed off', () => {
-  it('returns { enabled: false, reason: not_implemented } for provider "mcp"', async () => {
-    const { deps, mockSpy, fixtureSpy, anthropicSpy } = spyDeps();
+describe('provider registry — mcp operator-hosted adapter (MCP-018)', () => {
+  // This block REPLACES the MCP-016/MCP-017 "mcp slot stays stubbed off →
+  // not_implemented" test. MCP-018 un-stubs the `mcp` slot; the slot now routes
+  // to the injected `runMcp` dep — the documented single existing-assertion
+  // change (MCP-018 design §5).
+  it('routes SEMANTIC_REFEREE_PROVIDER=mcp to runMcp and returns its packet on success', async () => {
+    const { deps, mockSpy, fixtureSpy, anthropicSpy, mcpSpy } = spyDeps();
+    const packet = makeMcpPacket();
+    mcpSpy.mockResolvedValueOnce({ kind: 'success', packet });
+
     const outcome = await classifyWithProvider(
       makeRequest(),
       { SEMANTIC_REFEREE_ENABLED: 'true', SEMANTIC_REFEREE_PROVIDER: 'mcp' },
       deps,
     );
-    expect(outcome.enabled).toBe(false);
-    if (!outcome.enabled) expect(outcome.reason).toBe('not_implemented');
-    // The stub is a literal return — no provider function is invoked.
+
+    expect(outcome.enabled).toBe(true);
+    if (outcome.enabled) {
+      expect(outcome.packet.provider).toBe('mcp');
+      expect(outcome.packet).toBe(packet);
+    }
+    expect(mcpSpy).toHaveBeenCalledTimes(1);
+    // mock / fixture / anthropic are NOT touched when mcp is selected.
     expect(mockSpy).not.toHaveBeenCalled();
     expect(fixtureSpy).not.toHaveBeenCalled();
     expect(anthropicSpy).not.toHaveBeenCalled();
+  });
+
+  it('maps an unavailable:url_missing result to { enabled: false, reason: not_configured }', async () => {
+    const { deps, mcpSpy } = spyDeps();
+    mcpSpy.mockResolvedValueOnce({ kind: 'unavailable', reason: 'url_missing' });
+
+    const outcome = await classifyWithProvider(
+      makeRequest(),
+      { SEMANTIC_REFEREE_ENABLED: 'true', SEMANTIC_REFEREE_PROVIDER: 'mcp' },
+      deps,
+    );
+
+    expect(outcome.enabled).toBe(false);
+    if (!outcome.enabled) expect(outcome.reason).toBe('not_configured');
+    expect(mcpSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('maps an unavailable:token_missing result to { enabled: false, reason: not_configured }', async () => {
+    const { deps, mcpSpy } = spyDeps();
+    mcpSpy.mockResolvedValueOnce({ kind: 'unavailable', reason: 'token_missing' });
+
+    const outcome = await classifyWithProvider(
+      makeRequest(),
+      { SEMANTIC_REFEREE_ENABLED: 'true', SEMANTIC_REFEREE_PROVIDER: 'mcp' },
+      deps,
+    );
+
+    expect(outcome.enabled).toBe(false);
+    if (!outcome.enabled) expect(outcome.reason).toBe('not_configured');
+  });
+
+  it('passes through every other McpUnavailableReason unchanged', async () => {
+    // api_error / rate_limited / network_error / parse_failure /
+    // validation_failed are ALREADY legal ClassifyMoveDisabledReasons.
+    const passthrough: readonly McpUnavailableReason[] = [
+      'api_error',
+      'rate_limited',
+      'network_error',
+      'parse_failure',
+      'validation_failed',
+    ];
+    for (const reason of passthrough) {
+      const { deps, mcpSpy } = spyDeps();
+      mcpSpy.mockResolvedValueOnce({ kind: 'unavailable', reason });
+      const outcome = await classifyWithProvider(
+        makeRequest(),
+        { SEMANTIC_REFEREE_ENABLED: 'true', SEMANTIC_REFEREE_PROVIDER: 'mcp' },
+        deps,
+      );
+      expect(outcome.enabled).toBe(false);
+      if (!outcome.enabled) expect(outcome.reason).toBe(reason);
+    }
+  });
+
+  it('passes the request through to runMcp unchanged', async () => {
+    const { deps, mcpSpy } = spyDeps();
+    const request = makeRequest();
+    mcpSpy.mockResolvedValueOnce({ kind: 'success', packet: makeMcpPacket() });
+    await classifyWithProvider(
+      request,
+      { SEMANTIC_REFEREE_ENABLED: 'true', SEMANTIC_REFEREE_PROVIDER: 'mcp' },
+      deps,
+    );
+    expect(mcpSpy).toHaveBeenCalledWith(request);
+  });
+
+  it('never invokes runMcp on a disabled call (the disabled check short-circuits first)', async () => {
+    const { deps, mcpSpy } = spyDeps();
+    // SEMANTIC_REFEREE_ENABLED unset — disabled by default. Even with the
+    // provider set to mcp, runMcp must NOT fire.
+    const outcome = await classifyWithProvider(
+      makeRequest(),
+      { SEMANTIC_REFEREE_PROVIDER: 'mcp' },
+      deps,
+    );
+    expect(outcome.enabled).toBe(false);
+    if (!outcome.enabled) expect(outcome.reason).toBe('disabled');
+    expect(mcpSpy).not.toHaveBeenCalled();
   });
 });
 
 describe('provider registry — unknown provider value', () => {
   it('returns { enabled: false, reason: not_configured } for an unknown provider name', async () => {
-    const { deps, mockSpy, anthropicSpy } = spyDeps();
+    const { deps, mockSpy, anthropicSpy, mcpSpy } = spyDeps();
     const outcome = await classifyWithProvider(
       makeRequest(),
       { SEMANTIC_REFEREE_ENABLED: 'true', SEMANTIC_REFEREE_PROVIDER: 'some_unknown_provider' },
@@ -222,5 +339,45 @@ describe('provider registry — unknown provider value', () => {
     if (!outcome.enabled) expect(outcome.reason).toBe('not_configured');
     expect(mockSpy).not.toHaveBeenCalled();
     expect(anthropicSpy).not.toHaveBeenCalled();
+    expect(mcpSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('mcpReasonToOutcomeReason — the McpUnavailableReason → outcome map (MCP-018)', () => {
+  // Every McpUnavailableReason a ClassifyMoveDisabledReason value (MCP-018
+  // design §4 resolution 1 / §8 "Reason-map unit test").
+  const LEGAL_DISABLED_REASONS: ReadonlySet<string> = new Set<string>([
+    'disabled',
+    'not_configured',
+    'not_implemented',
+    'key_missing',
+    'api_error',
+    'rate_limited',
+    'network_error',
+    'parse_failure',
+    'validation_failed',
+  ]);
+
+  it('maps url_missing and token_missing onto the existing not_configured reason', () => {
+    expect(mcpReasonToOutcomeReason('url_missing')).toBe('not_configured');
+    expect(mcpReasonToOutcomeReason('token_missing')).toBe('not_configured');
+  });
+
+  it('passes the other five reasons through to themselves', () => {
+    for (const reason of [
+      'api_error',
+      'rate_limited',
+      'network_error',
+      'parse_failure',
+      'validation_failed',
+    ] as const) {
+      expect(mcpReasonToOutcomeReason(reason)).toBe(reason);
+    }
+  });
+
+  it('maps every McpUnavailableReason to a legal ClassifyMoveDisabledReason', () => {
+    for (const reason of ALL_MCP_UNAVAILABLE_REASONS) {
+      expect(LEGAL_DISABLED_REASONS.has(mcpReasonToOutcomeReason(reason))).toBe(true);
+    }
   });
 });
