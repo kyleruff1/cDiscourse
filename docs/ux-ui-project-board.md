@@ -1,11 +1,32 @@
 # UX/UI Project Board — Timeline-First Game Board
 
 **Status:** Roadmap. **Nothing on this board is implemented yet** unless explicitly noted under "Baseline."
-**Scope:** Stage 6.5–6.8 (Timeline Game Board, Interaction Rails, Evidence Layer, Profiles, Dev Hosting).
+**Scope:** Stage 6.5–6.9 (Timeline Game Board, Interaction Rails, Evidence Layer, Profiles, Dev Hosting, Admin/email/test infra).
 **Owner:** Kyler.
-**Last updated:** 2026-05-18.
+**Last updated:** 2026-05-22.
 
 > **Companion doc:** [`docs/roadmap-timeline-tree-game-board.md`](roadmap-timeline-tree-game-board.md) — the Timeline Tree Game Board expansion (LIFE-001 / META-001 / SC-004 / GAME-001 / RULE-003 / AN-003 + scope additions on BR-001 / IX-001 / IX-002 / SC-003 / ST-002 / RULE-002 / GAL-002). Read it before starting any 6.6 Wave 1/2/3 card.
+
+> **Live GitHub mirror:** This doc is mirrored on **GitHub Project #1
+> "CDiscourse UX/UI Roadmap"** (owner `kyleruff1`,
+> <https://github.com/users/kyleruff1/projects/1>). The canonical card
+> catalogue for the `QOL-NNN` cards not already covered by a
+> TL/VG/BR/SC/ST/EV/SW/IX/PR/HOST/GAL/RULE/AN/PM issue is
+> `scripts/github/uxBoardCards.json`; `npm run github:ux-board:dry`
+> validates and previews it. Setup + field schema:
+> [`docs/github-projects-setup.md`](github-projects-setup.md).
+>
+> **2026-05-22 board reconciliation pass:** all 13 then-open roadmap
+> issues are on Project #1 (PR-004 #26 and META-1D #79 were added this
+> pass — they were the only two missing). Two project fields, **Risk**
+> (Low/Medium/High) and **Area** (UX/UI/Data/Validation/Supabase/Docs/
+> Testing/GitHub Projects/Agents), were created. The `QOL-001…014`
+> "new card" numbers from earlier roadmap drafts are **superseded** —
+> their content is already tracked by existing TL/VG/BR/SC/ST/EV/SW/IX/
+> PR/HOST/AN issues; see the `supersededByExisting` map in
+> `uxBoardCards.json`. `QOL-015…042` already exist as issues
+> (#39–#44, #199–#211) — most closed (shipped). No duplicate cards
+> were created.
 
 ---
 
@@ -115,6 +136,10 @@ Cards: PR-001, PR-002, PR-003, PR-004, IX-003.
 ### Release 6.8 — Public dev deployment
 Cards: HOST-001, HOST-002, HOST-003, AN-002.
 **Definition of done:** Dev app reachable at `cdiscourse.com/dev` (or documented fallback `dev.cdiscourse.com`). SPA refresh works. Environment clearly marked dev. Smoke test passes.
+
+### Release 6.9 — Admin / email / test infra
+Cards: QOL-015 (admin email delivery validation, #39), QOL-016 (Supabase Auth email + redirect audit, #40), plus QA / corpus-tester hardening (QOL-019 #43, QOL-020 #44).
+**Definition of done:** The `request-argument-deletion` admin notification path is mock-validated; Supabase Auth email templates + redirect URLs are audited for the dev deployment; bot-tester prompts and the open-room engagement runner are tightened — all behind the operator approval gate, no live email sent by an agent. The project Release field still lists 6.5–6.8 only; 6.9 cards carry the `release:6.9` **label** until `6.9` is added to the field in the web UI (see `docs/github-projects-setup.md`).
 
 ---
 

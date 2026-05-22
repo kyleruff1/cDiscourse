@@ -2,6 +2,15 @@
 
 The next recommended session prompts, in order. Run `npm run checkpoint` first to confirm the current stage.
 
+> **GitHub Projects board status (reconciled 2026-05-22).** Project #1
+> "CDiscourse UX/UI Roadmap" (owner `kyleruff1`) mirrors
+> `docs/ux-ui-project-board.md`. All open roadmap issues are on the
+> board; Risk + Area fields exist; `QOL-015…042` already exist as
+> issues; `QOL-001…014` are superseded (see `uxBoardCards.json`). The
+> Stage-6.5 implementation prompts below (6.5, 6.5-PB, 6.5-AE, 6.6-OE,
+> 6.8-HOST) are current and paste-ready — no new project-board pass is
+> needed before picking one up.
+
 ---
 
 ## Prompt A — Timeline Tree Game Board: BR-001 design

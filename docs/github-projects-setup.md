@@ -28,8 +28,8 @@ either add that bin dir to user PATH or invoke `gh.exe` by absolute path.
 
 ## Field schema
 
-Captured live on 2026-05-18 from
-`gh project field-list 1 --owner kyleruff1 --format json`:
+Captured live on 2026-05-22 from
+`gh project field-list 1 --owner kyleruff1 --format json` (20 fields total):
 
 | Field | Type | Options |
 |---|---|---|
@@ -39,9 +39,16 @@ Captured live on 2026-05-18 from
 | Epic | single-select | Timeline · Visual Grammar · Branches · Sidecar Rail · Stack Detail · Evidence · Strength Weakness · Interaction · Profile · Hosting · Gallery · Rules UX · Analytics · Project Mgmt |
 | Release | single-select | 6.5 · 6.6 · 6.7 · 6.8 |
 | Phase | single-select | Backlog · Design · Build · Review · Done · Blocked |
+| Risk | single-select | Low · Medium · High |
+| Area | single-select | UX · UI · Data · Validation · Supabase · Docs · Testing · GitHub Projects · Agents |
 
 Built-in fields: Title, Assignees, Labels, Linked PRs, Milestone, Repository,
 Reviewers, Parent issue, Sub-issues progress, Created, Updated, Closed.
+
+**Risk + Area** were added on 2026-05-22 via
+`gh project field-create 1 --owner kyleruff1 --name <n> --data-type SINGLE_SELECT --single-select-options "<csv>"`.
+That CLI path works for **new** single-select fields. It does **not**
+reliably add an option to an **existing** field — see Limitations.
 
 **Catalogue alignment**: `scripts/github/uxBoardCards.json` carries an
 `existingProjectFieldOptions` block. The dry-run validator
@@ -81,11 +88,11 @@ gh project field-list 1 --owner kyleruff1 --format json
 
 ## Bulk operations
 
-Two scripts in `scripts/github/`:
+Three files in `scripts/github/`:
 
 | File | Role |
 |---|---|
-| `uxBoardCards.json` | Source of truth: 6 new `QOL-NNN` cards + their target field values. |
+| `uxBoardCards.json` | Source of truth: the `QOL-NNN` cards not covered by an existing TL/VG/BR/SC/ST/EV/SW/IX/PR/HOST/GAL/RULE/AN/PM issue, plus their target field values. The `supersededByExisting` block maps QOL-001…014 to the existing issues that already track that work — those are intentionally **not** re-created. |
 | `syncUxProjectBoard.js` | Dry-run validator + plan printer. Default mode. No mutation. |
 | `applyUxProjectBoard.sh` | Operator-runnable Bash script that creates missing issues, adds them to project #1, and sets Status/Priority/Effort/Epic/Release/Phase per the catalogue. Reads field IDs and option IDs live from `gh project field-list` — no embedded schema. |
 
@@ -105,6 +112,24 @@ user-level credential. No `GITHUB_TOKEN` is read from env, written to disk,
 or echoed to stdout/stderr.
 
 ---
+
+## Manual web-UI fields / options still pending
+
+These were requested for the roadmap but cannot be added safely from the
+CLI in `gh` 2.92.0 (the option-add path replaces the whole option set on
+an existing field, which can unlink items already using the old options).
+Add them in the web UI, then update `existingProjectFieldOptions` in
+`scripts/github/uxBoardCards.json` in the same change:
+
+| Field | Option to add | Why |
+|---|---|---|
+| Release | `6.9` | Admin/email/test-infra release bucket. The `release:6.9` repo label already exists; the project Release field still lists only 6.5–6.8. |
+| Priority | `P3` | Roadmap mentions a P3 tier; project Priority currently stops at P2. Optional — only add if a genuine P3 card appears. |
+| Effort | `XS` | Roadmap mentions an XS tier; project Effort currently starts at S. Optional. |
+
+Until `6.9` is added in the web UI, cards bound for the 6.9 bucket keep
+the `release:6.9` **label** for filtering and are tracked under release
+`6.8` (Hosting) on the board, or left with the Release field empty.
 
 ## Limitations / open items
 

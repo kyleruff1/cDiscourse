@@ -13,6 +13,28 @@ auto-invoked by the model. See QOL-018 for context.
 > **Always pair these charters with `docs/agent-workflow.md`.** The
 > workflow doc defines the cadence; charters define the lane.
 
+> **Charters vs `.claude/agents/`.** The repo's `.claude/agents/`
+> directory holds **three** executable subagent definitions —
+> `roadmap-designer`, `roadmap-implementer`, `roadmap-reviewer` — the
+> generic design → build → review pipeline. The **specialized** roles
+> below stay as charters (documentation) by deliberate decision
+> (QOL-018, #42): a charter is operator-scoped to one task and
+> discarded, never model-spawned, which keeps the boundary that
+> spawnable worktree agents have historically broken. New specialized
+> `.claude/agents/*.md` files are **not** created — the three pipeline
+> agents already cover execution; the charters add the lane-specific
+> guardrails an implementer reads inside that pipeline.
+
+> **Charter name aliases.** Some roadmap prompts use slightly different
+> role names. They resolve to the charters here:
+> `ux-board-designer` → use `roadmap-designer` (`.claude/agents/`) +
+> `project-board-manager`; `timeline-gameboard-implementer` →
+> `timeline-ui-agent` (§3); `sidecar-tools-implementer` →
+> `sidecar-tools-agent` (§4); `supabase-email-validation-tester` →
+> `admin-email-validation-agent` (§8); `bot-corpus-runner` →
+> `bot-corpus-agent` (§9); `qa-secret-scan-verifier` →
+> `qa-verifier-agent` (§10).
+
 ---
 
 ## Common preflight (every role)
