@@ -74,33 +74,44 @@ describe('COMPOSER-002 — App.tsx threads composerPreset into the dock', () => 
   });
 });
 
-// ── 2. The dock forwards the preset into ArgumentComposer ───────
+// ── 2. The dock forwards the preset into the OneBox ─────────────
 //
-// RULE-005 merges the structured-channel patch onto the caller's
-// `initialPatch` before forwarding it; RULE-004 additionally merges its
-// advisory-transformation patch. The dock passes the merged
-// `composerInitialPatch` (which still equals `initialPatch ?? null` when
-// no channel is selected AND no RULE-004 transformation is pending, so
-// the COMPOSER-001 preset round trip is unchanged).
+// QOL-030 refactor: the dock now hosts `OneBox`. The RULE-005 channel
+// chip row folded into the OneBox's Act popout, so the dock no longer
+// merges a channel patch — it folds only the RULE-004
+// advisory-transformation patch onto the caller's `initialPatch` and
+// passes the result (`oneBoxInitialPatch`) to `<OneBox>`. When no
+// transformation is pending the merged patch is still `initialPatch ??
+// null`, so the COMPOSER-001 preset round trip is unchanged.
 
-describe('COMPOSER-002 / RULE-005 — the dock forwards the preset to ArgumentComposer', () => {
+describe('COMPOSER-002 / QOL-030 — the dock forwards the preset to the OneBox', () => {
   it('the dock declares an initialPatch prop', () => {
     expect(DOCK_SRC).toMatch(/initialPatch\?:\s*MoveDraftPatch\s*\|\s*null/);
   });
 
-  it('the dock passes the merged composerInitialPatch into <ArgumentComposer initialPatch=...>', () => {
-    const composerBlock = DOCK_SRC.slice(DOCK_SRC.indexOf('<ArgumentComposer'));
-    expect(composerBlock).toMatch(/initialPatch=\{composerInitialPatch\}/);
+  it('the dock passes the merged oneBoxInitialPatch into <OneBox initialPatch=...>', () => {
+    const oneBoxBlock = DOCK_SRC.slice(DOCK_SRC.indexOf('<OneBox'));
+    expect(oneBoxBlock).toMatch(/initialPatch=\{oneBoxInitialPatch\}/);
   });
 
-  it('composerInitialPatch falls back to the caller initialPatch when nothing is merged', () => {
-    // RULE-004 extended the merge to also fold in a transformation patch.
-    // When no channel is picked AND no transformation is pending, the
-    // merged patch is still `initialPatch ?? null` (COMPOSER-001 round
-    // trip preserved).
+  it('oneBoxInitialPatch falls back to the caller initialPatch when nothing is merged', () => {
+    // When no RULE-004 transformation is pending the merged patch is
+    // still `initialPatch ?? null` (COMPOSER-001 round trip preserved).
     expect(DOCK_SRC).toMatch(
-      /if \(channelPatch === null && transformationPatch === null\) \{\s*return initialPatch \?\? null;/,
+      /if \(transformationPatch === null\) return initialPatch \?\? null;/,
     );
+  });
+
+  it('the OneBox forwards the merged patch to the hosted ArgumentComposer', () => {
+    // The post path is unchanged — one layer deeper. The OneBox merges
+    // its flash-menu type patch onto the caller patch and hands the
+    // result to the composer.
+    const oneBoxSrc = fs.readFileSync(
+      path.join(ROOT, 'src', 'features', 'arguments', 'oneBox', 'OneBox.tsx'),
+      'utf8',
+    );
+    const composerBlock = oneBoxSrc.slice(oneBoxSrc.indexOf('<ArgumentComposer'));
+    expect(composerBlock).toMatch(/initialPatch=\{composerInitialPatch\}/);
   });
 });
 

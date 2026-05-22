@@ -1,10 +1,20 @@
 /**
- * COMPOSER-002 — In-room composer dock.
+ * COMPOSER-002 / QOL-030 — In-room composer dock hosting the one-box.
  *
- * Renders the existing `ArgumentComposer` as an in-room dock instead of
- * a full-page "Your Move" screen. The argument room stays mounted behind
- * the dock, so `viewMode`, the active node, the entry-hint micro-moment,
- * and scroll position all survive a compose-cancel round trip.
+ * The dock renders the QOL-030 `OneBox` (the single switchable composer)
+ * as an in-room dock instead of a full-page "Your Move" screen. The
+ * argument room stays mounted behind the dock, so `viewMode`, the active
+ * node, the entry-hint micro-moment, and scroll position all survive a
+ * compose-cancel round trip.
+ *
+ * QOL-030 refactor — the dock now hosts `OneBox`, NOT `ArgumentComposer`
+ * directly. The OneBox owns the box-type header + the Act popout (the
+ * flash menu, the engine+role-gated decision surface). The RULE-005
+ * `ChannelChipRow` / `ChannelHelperFields` chip-row chrome is removed:
+ * per the one-box supersession map the chip-row UI folds into the Act
+ * popout (the channel *model* survives, untouched). The post path is
+ * unchanged — `OneBox` hosts the same `ArgumentComposer` → `submit-argument`
+ * flow, so no migration, no Edge Function change, no service-role.
  *
  * Layout:
  *  - narrow viewports (width < 720)  → bottom sheet, ~88% height, rounded
@@ -21,13 +31,13 @@
  *  history entry. RN `<Modal>` is an overlay, not a navigation route.
  *
  * The dock is presentational. It owns only local UI state (layout
- * variant, slide animation, reduce-motion read). The composer's draft,
- * validation, preset application, and `submit-argument` path are all
- * unchanged and owned by `ArgumentComposer`.
+ * variant, slide animation, reduce-motion read) and the RULE-004
+ * pre-send review state. The composer's draft, validation, preset
+ * application, and `submit-argument` path are all unchanged.
  *
- * Out of scope (per the COMPOSER-002 design): a dark re-skin of
- * `ArgumentComposer` (deferred to BRAND-002); moving the `Post move`
- * button into the dock footer; an inline-near-node wide composer.
+ * Out of scope (per the COMPOSER-002 design): a dark re-skin of the
+ * composer (deferred to BRAND-002); moving the `Post move` button into
+ * the dock footer; an inline-near-node wide composer.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -41,20 +51,10 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { ArgumentComposer } from './ArgumentComposer';
 import type { MoveDraftPatch } from './conversationMoves';
 import type { ArgumentRow } from './types';
 import type { Debate } from '../debates/types';
-import { ChannelChipRow } from './ChannelChipRow';
-import { ChannelHelperFields } from './ChannelHelperFields';
-import {
-  ACTIVE_MOVE_CHANNELS,
-  channelToDraftPatch,
-  suggestChannelFromDraft,
-  type ChannelOptionalField,
-  type ChannelSuggestion,
-  type MoveChannel,
-} from './channelModel';
+import { OneBox } from './oneBox/OneBox';
 import { useConstitution } from './useConstitution';
 import { useAppSession } from '../session/useAppSession';
 import { sessionToDraft } from './composerState';
@@ -276,93 +276,28 @@ export function ArgumentComposerDock({
     onClose();
   }, [onClose]);
 
-  // ── RULE-005 structured argument channel ──
-  // The dock owns the channel selector chrome. `selectedChannel` is held
-  // in dock-local state (per RULE-005 design OD-3 — the smaller diff; no
-  // change to `MoveDraftPatch`). The channel is a DRAFT-TIME ADVISORY
-  // field — it does not persist (design §3.2).
+  // ── QOL-030 — one-box composer ──
+  // The RULE-005 channel chip-row chrome is removed: per the one-box
+  // supersession map the chip-row UI folds into the Act popout (the
+  // `OneBox`'s flash menu). The `OneBox` owns box-type selection; the
+  // dock keeps only the Constitution data (the Act popout's engine gate)
+  // and the RULE-004 transformation patch.
   const constitution = useConstitution();
-  const [selectedChannel, setSelectedChannel] = useState<MoveChannel | null>(null);
-  const [helperFieldValues, setHelperFieldValues] = useState<
-    Partial<Record<ChannelOptionalField, string>>
-  >({});
   // RULE-004 — the transformation patch from a pre-send advisory's
-  // "Narrow / Branch / Add a source" action. Merged onto the composer's
-  // initialPatch so the prefilled change applies when the sheet closes.
+  // "Narrow / Branch / Add a source" action. Threaded into the OneBox as
+  // its `initialPatch` so the prefilled change applies when the sheet
+  // closes.
   const [transformationPatch, setTransformationPatch] =
     useState<MoveDraftPatch | null>(null);
 
-  // Reset the channel selection whenever the dock re-opens or the reply
-  // target changes — a new compose session starts with no channel picked.
-  useEffect(() => {
-    if (!visible) return;
-    setSelectedChannel(null);
-    setHelperFieldValues({});
-  }, [visible, selectedParentId]);
-
-  // The deterministic channel suggestion. Reads the parent's argument type
-  // and the user's current pick only — no AI, no network. RULE-005 v1 does
-  // not thread the parent's LIFE-001 / META-001 derived structures into
-  // the dock (those are tree-level; the dock has the parent row, not the
-  // built lifecycle map), so the suggestion runs on the draft-side typed
-  // fields + a null parent. When a later card threads the maps in, the
-  // same `suggestChannelFromDraft` call picks them up with no model change.
-  const channelSuggestion: ChannelSuggestion = useMemo(
-    () =>
-      suggestChannelFromDraft(
-        {
-          // v1 dock does not thread the draft's argument type into the
-          // suggestion — the chip is the channel selector, not the form.
-          argumentType: null,
-          disagreementAxis: null,
-          draftTagCodes: [],
-          currentChannel: selectedChannel,
-        },
-        { parentSnapshot: null, parentClusterSummary: null, parentLinkage: null },
-        'casual',
-      ),
-    [selectedChannel],
-  );
-
-  // Merge the channel-derived patch + any RULE-004 transformation patch
-  // onto the caller's `initialPatch`. The composer applies an
-  // `initialPatch` only when its reference changes, so this memo produces
-  // a new object exactly when the channel or the transformation changes.
-  const composerInitialPatch = useMemo<MoveDraftPatch | null>(() => {
-    const channelPatch =
-      selectedChannel === null
-        ? null
-        : channelToDraftPatch(
-            selectedChannel,
-            parentArgument?.argumentType ?? null,
-            constitution.activeRules,
-          );
-    if (channelPatch === null && transformationPatch === null) {
-      return initialPatch ?? null;
-    }
-    return {
-      ...(initialPatch ?? {}),
-      ...(channelPatch ?? {}),
-      ...(transformationPatch ?? {}),
-    };
-  }, [
-    selectedChannel,
-    parentArgument,
-    constitution.activeRules,
-    initialPatch,
-    transformationPatch,
-  ]);
-
-  const handleSelectChannel = useCallback((channel: MoveChannel) => {
-    setSelectedChannel(channel);
-  }, []);
-
-  const handleChangeHelperField = useCallback(
-    (field: ChannelOptionalField, value: string) => {
-      setHelperFieldValues((prev) => ({ ...prev, [field]: value }));
-    },
-    [],
-  );
+  // Merge the RULE-004 transformation patch onto the caller's
+  // `initialPatch`. The OneBox forwards this to the composer, which
+  // applies an `initialPatch` only when its reference changes — so this
+  // memo produces a new object exactly when the transformation changes.
+  const oneBoxInitialPatch = useMemo<MoveDraftPatch | null>(() => {
+    if (transformationPatch === null) return initialPatch ?? null;
+    return { ...(initialPatch ?? {}), ...transformationPatch };
+  }, [initialPatch, transformationPatch]);
 
   // ── RULE-004 pause-before-send review ──
   // The dock owns the review state. On the Post intent the composer
@@ -428,7 +363,12 @@ export function ArgumentComposerDock({
         parentLinkage: null,
       },
       evaluation,
-      channelSuggestion,
+      // QOL-030 — the OneBox's Act popout is engine-gated, so it cannot
+      // pick a type the parent forbids; there is no channel-vs-type
+      // mismatch to surface. `null` keeps the `channel_mismatch` advisory
+      // inert (it never fires) — RULE-004's other advisories are
+      // unaffected.
+      channelSuggestion: null,
       isFirstPostInSession: isFirstPostRef.current,
     });
     isFirstPostRef.current = false;
@@ -447,7 +387,6 @@ export function ArgumentComposerDock({
     constitution.activeRules,
     constitution.tagDefinitions,
     constitution.flagDefinitions,
-    channelSuggestion,
   ]);
 
   /** RULE-004 — "Post anyway": close the sheet, trigger the real submit. */
@@ -581,50 +520,30 @@ export function ArgumentComposerDock({
             </View>
           </View>
 
-          {/* RULE-005 — structured argument channel selector. A
-              horizontally-scrolling radio group of channel chips with a
-              one-line rationale and a non-punitive re-route advisory.
-              Advisory only — it never blocks a post. */}
-          <ChannelChipRow
-            channels={ACTIVE_MOVE_CHANNELS}
-            selectedChannel={selectedChannel}
-            suggestion={channelSuggestion}
-            onSelectChannel={handleSelectChannel}
-            reduceMotionOverride={effectiveReducedMotion}
-          />
-
-          {/* RULE-005 — collapsed optional helper fields for the selected
-              channel. Renders nothing when the channel has no fields. */}
-          {selectedChannel ? (
-            <ChannelHelperFields
-              channel={selectedChannel}
-              values={helperFieldValues}
-              onChangeField={handleChangeHelperField}
-              mode="casual"
-            />
-          ) : null}
-
-          {/* The composer body. `mode="dock"` drops the legacy "Your
-              Move" page header — the dock supplies the handle + Cancel.
-              The composer keeps its own ScrollView + Post move button.
-              RULE-004 threads the pause-before-send gate (`onBeforeSubmit`)
-              and the one-shot "Post anyway" trigger (`postSignal`). */}
+          {/* QOL-030 — the one-box composer. The OneBox owns the
+              box-type header + the Act popout (the flash menu — the
+              engine+role-gated decision surface that replaces the
+              RULE-005 chip row). It hosts the same `ArgumentComposer` →
+              `submit-argument` post path. RULE-004 threads the
+              pause-before-send gate (`onBeforeSubmit`) and the one-shot
+              "Post anyway" trigger (`postSignal`) straight through. */}
           <View style={styles.composerBody}>
-            <ArgumentComposer
-              mode="dock"
+            <OneBox
               debate={debate}
               selectedParentId={selectedParentId}
               parentArgument={parentArgument}
               onClearParent={onClearParent}
               onSubmitSuccess={onSubmitSuccess}
               onClose={onClose}
-              initialPatch={composerInitialPatch}
+              initialPatch={oneBoxInitialPatch}
+              rules={constitution.activeRules}
+              reduceMotionOverride={effectiveReducedMotion}
               onBeforeSubmit={handleBeforeSubmit}
               postSignal={postSignal}
             />
 
             {/* RULE-004 — pause-before-send review sheet. A nested overlay
-                ABOVE the composer body (not a second RN <Modal>), so the
+                ABOVE the box body (not a second RN <Modal>), so the
                 composer stays mounted behind it and the draft is never
                 lost. Advisory only — it never blocks a post. */}
             {presendReview ? (

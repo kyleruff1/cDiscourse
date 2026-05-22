@@ -266,11 +266,17 @@ describe('ArgumentComposerDock.tsx — RULE-004 wiring (source scan)', () => {
     expect(DOCK_SRC).toMatch(/mode="casual"/);
   });
 
-  it('passes RULE-005 channelSuggestion into buildPreSendReview (channel_mismatch absorbed)', () => {
-    expect(DOCK_SRC).toMatch(/channelSuggestion,/);
+  it('passes channelSuggestion: null into buildPreSendReview (QOL-030 — channel_mismatch inert)', () => {
+    // QOL-030 refactor: the OneBox Act popout is engine-gated, so there
+    // is no channel-vs-type mismatch to surface — the dock passes
+    // `channelSuggestion: null`, keeping the `channel_mismatch` advisory
+    // inert without removing it from the RULE-004 model.
+    expect(DOCK_SRC).toMatch(/channelSuggestion: null/);
   });
 
-  it('threads onBeforeSubmit + postSignal into ArgumentComposer', () => {
+  it('threads onBeforeSubmit + postSignal into the OneBox', () => {
+    // QOL-030: the dock hosts OneBox, which forwards the RULE-004 gate to
+    // the composer it hosts. The wiring is one layer deeper.
     expect(DOCK_SRC).toMatch(/onBeforeSubmit=\{handleBeforeSubmit\}/);
     expect(DOCK_SRC).toMatch(/postSignal=\{postSignal\}/);
   });
