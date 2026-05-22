@@ -180,3 +180,44 @@ Vary cadence inside a room. Acceptable shapes:
 - Hostile source material is **redacted** and converted into structured pressure, never reproduced.
 - Every move carries quote + axis + mechanism + evidence debt or it does not ship.
 - All app posts route through `submit-argument`. No `service-role`. No `direct insert`.
+
+***
+
+## MCP Semantic-Referee Awareness (added during smoke-test run)
+
+The CDiscourse app now runs an advisory semantic referee that classifies
+each posted move via the configured provider (anthropic, mock, fixture,
+or mcp) and surfaces optional banners and override choices. This skill's
+behavior is unchanged by that addition, but generated moves should now
+include three additional fields so the bot's structural intent can be
+compared against the referee's independent classification.
+
+The semantic referee is advisory only. It does not decide truth, does
+not block posting, does not assign winners. Its output is metadata, not
+authority. The bot should not adjust its behavior based on whatever
+banner appears after posting; the banner is the referee speaking, not
+the opponent.
+
+In addition to the fields already specified in "Output Shape For
+Generated Moves", include:
+
+`expectedClassifierSignal`: a list of MCP-011 classifier ids (from the
+twenty-three id catalog defined in
+`src/features/semanticReferee/semanticRefereeTypes.ts`) that this move
+is designed to trigger. If the bot is uncertain which classifier its
+move should trigger, list the closest two or three candidates rather
+than guessing one.
+
+`expectedConfidence`: one of `low`, `medium`, or `high`. The bot's
+confidence that the referee should produce a clear, non-conflict-routed
+reading. A move designed to be ambiguous should have `low`. A textbook
+example of a single classifier should be `high`.
+
+`expectedOverrideTrigger`: one of `none`, `low_confidence`, or
+`conflict`. Most moves should be `none`. Flag moves designed to provoke
+the override surface for testing purposes.
+
+Every other rule in this skill still applies: identity declaration,
+anti-amplification doctrine, forbidden speaker labels, banned canned
+phrases, hostile source conversion, hard stops. Nothing about the
+referee changes those rules.
