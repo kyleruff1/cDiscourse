@@ -29,15 +29,18 @@
  *   - The default provider is `mock` (NOT `anthropic`) — the deliberate
  *     doctrine deviation from `languageProcessing/providers.ts`. The `?? 'mock'`
  *     fallback below is doctrine-critical and must not change.
- *   - `mcp` stays a STUB: a literal `not_implemented` return with no module
- *     behind it.
- *   - `anthropic` is now WIRED — through an injected async `runAnthropic` dep,
- *     so this core stays zod-free and the provider seam stays spy-injectable.
+ *   - `anthropic` is WIRED — through an injected async `runAnthropic` dep — and
+ *     `mcp` is now WIRED too (MCP-018), through an injected async `runMcp` dep.
+ *     Both keep this core zod-free and the provider seam spy-injectable; the
+ *     wired live functions live only in `providerRouting.ts`'s
+ *     `DEFAULT_PROVIDER_DEPS`.
  *
  * PURE TYPESCRIPT — no `Deno`, no `npm:` import, no I/O.
  */
 import type { ProviderResult } from './anthropicClassifierCore.ts';
+import type { McpProviderResult, McpUnavailableReason } from './mcpAdapterCore.ts';
 import type {
+  ClassifyMoveDisabledReason,
   ClassifyMoveOutcome,
   ClassifyMoveRequest,
   SemanticRefereePacket,
@@ -51,13 +54,40 @@ export interface SemanticRefereeEnv {
 
 /**
  * Provider functions the routing core delegates to. Injectable for tests.
- * `runAnthropic` is async — the live provider does a `fetch`. `runMock` /
- * `runFixture` stay synchronous and deterministic.
+ * `runAnthropic` and `runMcp` are async — both live providers do a `fetch`.
+ * `runMock` / `runFixture` stay synchronous and deterministic. `runMcp` has its
+ * OWN result type (`McpProviderResult`, parameterized on `McpUnavailableReason`)
+ * — it is NOT forced to share `runAnthropic`'s `ProviderResult`, because the
+ * `mcp` adapter has `url_missing`/`token_missing` where the Anthropic provider
+ * has `key_missing` (MCP-018 design §4 resolution 2).
  */
 export interface SemanticRefereeProviderDeps {
   runMock: (request: ClassifyMoveRequest) => SemanticRefereePacket;
   runFixture: (request: ClassifyMoveRequest) => SemanticRefereePacket;
   runAnthropic: (request: ClassifyMoveRequest) => Promise<ProviderResult>;
+  runMcp: (request: ClassifyMoveRequest) => Promise<McpProviderResult>;
+}
+
+/**
+ * Translate an `mcp` adapter's boundary-internal `McpUnavailableReason` into an
+ * outbound `ClassifyMoveDisabledReason` (MCP-018 design §4 resolution 1). Five
+ * of the seven values are ALREADY legal disabled reasons and pass through
+ * unchanged. `url_missing` / `token_missing` have no `ClassifyMoveDisabledReason`
+ * twin — a missing MCP URL or token IS a not-configured provider, so both map
+ * onto the existing `'not_configured'`. This keeps MCP-018 from widening any
+ * type file; the caller treats every `{ enabled: false }` reason identically
+ * (fall back to the deterministic layer-1 result), so the precise string is a
+ * diagnostic, not a behavioural fork. Pure — no zod, no I/O.
+ */
+export function mcpReasonToOutcomeReason(
+  reason: McpUnavailableReason,
+): ClassifyMoveDisabledReason {
+  if (reason === 'url_missing' || reason === 'token_missing') {
+    return 'not_configured';
+  }
+  // `api_error` | `rate_limited` | `network_error` | `parse_failure` |
+  // `validation_failed` are all already legal `ClassifyMoveDisabledReason`s.
+  return reason;
 }
 
 /**
@@ -91,8 +121,8 @@ export async function classifyWithProvider(
   //    `?? 'mock'` fallback is doctrine-critical — it must not change.
   const providerName = env.SEMANTIC_REFEREE_PROVIDER ?? 'mock';
 
-  // 3. mock + fixture are deterministic; anthropic is the live provider; mcp
-  //    stays stubbed off.
+  // 3. mock + fixture are deterministic; anthropic and mcp are the live
+  //    providers, each reached only through an injected async dep.
   if (providerName === 'mock') {
     return { enabled: true, packet: deps.runMock(request) };
   }
@@ -109,10 +139,14 @@ export async function classifyWithProvider(
     return { enabled: true, packet: result.packet };
   }
   if (providerName === 'mcp') {
-    // STUB — present in the registry, never callable in this card. The
-    // operator-hosted MCP adapter is a separate future card. No mcpAdapter.ts
-    // module exists.
-    return { enabled: false, reason: 'not_implemented' };
+    // The operator-hosted MCP adapter (MCP-018). It NEVER throws — every
+    // failure is a typed `unavailable` result, translated here via the
+    // `McpUnavailableReason` → `ClassifyMoveDisabledReason` map.
+    const result = await deps.runMcp(request);
+    if (result.kind === 'unavailable') {
+      return { enabled: false, reason: mcpReasonToOutcomeReason(result.reason) };
+    }
+    return { enabled: true, packet: result.packet };
   }
   return { enabled: false, reason: 'not_configured' };
 }
