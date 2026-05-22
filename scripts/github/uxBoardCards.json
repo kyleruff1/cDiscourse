@@ -1,5 +1,5 @@
 {
-  "_doc": "Canonical card catalogue for the CDiscourse UX/UI Roadmap GitHub Project (#1 under kyleruff1). Only contains the QOL-NNN cards that are NOT already covered by an existing TL/VG/BR/SC/ST/EV/SW/IX/PR/HOST/GAL/RULE/AN/PM issue. Source of truth for syncUxProjectBoard.js (dry-run) and applyUxProjectBoard.sh (operator-runnable). Do not put any secret values here. Body fields render verbatim into GitHub issue bodies. Field options are constrained to the live project schema captured 2026-05-22: Priority P0/P1/P2 (no P3), Effort S/M/L/XL (no XS), Release 6.5/6.6/6.7/6.8 (6.9 is a label-only bucket until added to the Release field in the web UI), Epic from the existing 14, Phase Backlog/Design/Build/Review/Done/Blocked, plus Risk Low/Medium/High and Area UX/UI/Data/Validation/Supabase/Docs/Testing/'GitHub Projects'/Agents (both added 2026-05-22). Status defaults to Todo on creation. PARTIAL SNAPSHOT: this file is NOT the authority for the next free QOL number — check `gh issue list` before allocating (QOL-021..042 were created as issues #56-#58/#199-#211, some outside this catalogue). See docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md and docs/github-projects-setup.md.",
+  "_doc": "Canonical card catalogue for the CDiscourse UX/UI Roadmap GitHub Project (#1 under kyleruff1). Only contains the QOL-NNN cards that are NOT already covered by an existing TL/VG/BR/SC/ST/EV/SW/IX/PR/HOST/GAL/RULE/AN/PM issue. Source of truth for syncUxProjectBoard.js (dry-run) and applyUxProjectBoard.sh (operator-runnable). Do not put any secret values here. Body fields render verbatim into GitHub issue bodies. Field options are constrained to the live project schema captured 2026-05-22: Priority P0/P1/P2 (no P3), Effort S/M/L/XL (no XS), Release 6.5/6.6/6.7/6.8/6.9 (6.9 added to the Release field 2026-05-22), Epic from the existing 14, Phase Backlog/Design/Build/Review/Done/Blocked, plus Risk Low/Medium/High and Area UX/UI/Data/Validation/Supabase/Docs/Testing/'GitHub Projects'/Agents (both added 2026-05-22). Status defaults to Todo on creation. PARTIAL SNAPSHOT: this file is NOT the authority for the next free QOL number — check `gh issue list` before allocating (QOL-021..042 were created as issues #56-#58/#199-#211, some outside this catalogue). See docs/project-audits/2026-05-21-roadmap-collision-supersession-analysis.md and docs/github-projects-setup.md.",
   "projectTitle": "CDiscourse UX/UI Roadmap",
   "projectNumber": 1,
   "projectOwner": "kyleruff1",
@@ -19,7 +19,7 @@
       "Evidence", "Strength Weakness", "Interaction", "Profile", "Hosting",
       "Gallery", "Rules UX", "Analytics", "Project Mgmt"
     ],
-    "release": ["6.5", "6.6", "6.7", "6.8"],
+    "release": ["6.5", "6.6", "6.7", "6.8", "6.9"],
     "phase": ["Backlog", "Design", "Build", "Review", "Done", "Blocked"],
     "risk": ["Low", "Medium", "High"],
     "area": ["UX", "UI", "Data", "Validation", "Supabase", "Docs", "Testing", "GitHub Projects", "Agents"]
