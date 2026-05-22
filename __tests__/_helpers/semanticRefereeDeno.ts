@@ -1,5 +1,5 @@
 /**
- * MCP-016 — typed test bridge into the Deno semantic-referee tree.
+ * MCP-016 / MCP-017 — typed test bridge into the Deno semantic-referee tree.
  *
  * The Deno `_shared/semanticReferee/*` modules use Deno-only import syntax
  * (`.ts`-extension specifiers, and `npm:zod@4` in `schema.ts`). `tsc` cannot
@@ -15,8 +15,17 @@
  * test files stay fully type-safe without dragging the Deno tree into `tsc`.
  *
  * Only the zod-free Deno modules are bridged here. `schema.ts` / `providers.ts`
- * (which import `npm:zod@4`) are NOT loadable by Jest and are covered instead
- * by the `adminSchemas.test.ts`-style re-declared-schema + source-scan tests.
+ * / `anthropicProvider.ts` / `providerRouting.ts` (which import `npm:zod@4`
+ * directly or transitively) are NOT loadable by Jest and are covered instead by
+ * the `adminSchemas.test.ts`-style re-declared-schema + source-scan tests.
+ *
+ * MCP-017 NOTE: `providerRouting.ts` became zod-coupled (its
+ * `DEFAULT_PROVIDER_DEPS` wires the live `anthropicProvider.ts`). The routing
+ * SWITCH was extracted into the zod-free `providerRoutingCore.ts` — the bridge
+ * loads `classifyWithProvider` from THERE, and the routing tests exercise it
+ * with injected spy deps (never `DEFAULT_PROVIDER_DEPS`). MCP-017 also adds
+ * three new zod-free files (`anthropicClassifierCore.ts`, `seedPrompt.ts`,
+ * `contentSafetyScan.ts`) bridged below.
  *
  * This file is NOT a test suite — it has no `*.test.ts` name.
  */
@@ -37,9 +46,27 @@ export interface SemanticRefereeEnv {
   SEMANTIC_REFEREE_PROVIDER?: string;
 }
 
+/**
+ * The live provider's failure vocabulary — declared locally (it lives in the
+ * zod-free `anthropicClassifierCore.ts`, which the bridge also loads).
+ */
+export type ProviderUnavailableReason =
+  | 'key_missing'
+  | 'api_error'
+  | 'rate_limited'
+  | 'network_error'
+  | 'parse_failure'
+  | 'validation_failed';
+
+/** The result of one live-provider call. */
+export type ProviderResult =
+  | { kind: 'success'; packet: SemanticRefereePacket }
+  | { kind: 'unavailable'; reason: ProviderUnavailableReason };
+
 export interface SemanticRefereeProviderDeps {
   runMock: (request: ClassifyMoveRequest) => SemanticRefereePacket;
   runFixture: (request: ClassifyMoveRequest) => SemanticRefereePacket;
+  runAnthropic: (request: ClassifyMoveRequest) => Promise<ProviderResult>;
 }
 
 // ── mockProvider.ts ─────────────────────────────────────────────
@@ -80,19 +107,81 @@ const redactionModule = require(`${SHARED}/redaction`) as {
 export const redactString = redactionModule.redactString;
 export const redactClassifyMoveRequest = redactionModule.redactClassifyMoveRequest;
 
-// ── providerRouting.ts (pure routing core) ──────────────────────
+// ── providerRoutingCore.ts (pure, zod-free routing switch) ──────────
+//
+// MCP-017: the switch was extracted out of `providerRouting.ts` (which became
+// zod-coupled via `DEFAULT_PROVIDER_DEPS`) into this zod-free core. The bridge
+// loads the switch from HERE. `classifyWithProvider` is async and `deps` is
+// required — every routing test injects spy deps.
 
-const providerRoutingModule = require(`${SHARED}/providerRouting`) as {
+const providerRoutingCoreModule = require(`${SHARED}/providerRoutingCore`) as {
   classifyWithProvider: (
     request: ClassifyMoveRequest,
     env: SemanticRefereeEnv,
-    deps?: SemanticRefereeProviderDeps,
-  ) => ClassifyMoveOutcome;
-  DEFAULT_PROVIDER_DEPS: SemanticRefereeProviderDeps;
+    deps: SemanticRefereeProviderDeps,
+  ) => Promise<ClassifyMoveOutcome>;
 };
 
-export const classifyWithProvider = providerRoutingModule.classifyWithProvider;
-export const DEFAULT_PROVIDER_DEPS = providerRoutingModule.DEFAULT_PROVIDER_DEPS;
+export const classifyWithProvider = providerRoutingCoreModule.classifyWithProvider;
+
+// ── anthropicClassifierCore.ts (zod-free live-provider core) ────────
+
+const anthropicClassifierCoreModule = require(`${SHARED}/anthropicClassifierCore`) as {
+  DEFAULT_SEMANTIC_REFEREE_MODEL: string;
+  MAX_TOKENS: number;
+  TEMPERATURE: number;
+  SEMANTIC_REFEREE_SYSTEM_PROMPT: string;
+  buildAnthropicRequestBody: (
+    request: ClassifyMoveRequest,
+    model: string,
+  ) => Record<string, unknown>;
+  extractAnthropicContentText: (responseJson: unknown) => string | undefined;
+  parseJsonFromContent: (text: unknown) => unknown | null;
+  sanitizeRawPayload: (raw: unknown) => {
+    model: unknown;
+    stop_reason: unknown;
+    usage: unknown;
+  };
+};
+
+export const DEFAULT_SEMANTIC_REFEREE_MODEL =
+  anthropicClassifierCoreModule.DEFAULT_SEMANTIC_REFEREE_MODEL;
+export const ANTHROPIC_MAX_TOKENS = anthropicClassifierCoreModule.MAX_TOKENS;
+export const ANTHROPIC_TEMPERATURE = anthropicClassifierCoreModule.TEMPERATURE;
+export const SEMANTIC_REFEREE_SYSTEM_PROMPT =
+  anthropicClassifierCoreModule.SEMANTIC_REFEREE_SYSTEM_PROMPT;
+export const buildAnthropicRequestBody =
+  anthropicClassifierCoreModule.buildAnthropicRequestBody;
+export const extractAnthropicContentText =
+  anthropicClassifierCoreModule.extractAnthropicContentText;
+export const parseJsonFromContent = anthropicClassifierCoreModule.parseJsonFromContent;
+export const sanitizeRawPayload = anthropicClassifierCoreModule.sanitizeRawPayload;
+
+// ── seedPrompt.ts (zod-free seed prompt) ────────────────────────────
+
+const seedPromptModule = require(`${SHARED}/seedPrompt`) as {
+  SEED_PROMPT_VERSION: string;
+  CLASSIFIER_QUESTION_TEXT: Readonly<Record<string, string>>;
+  buildClassifierPrompt: (request: ClassifyMoveRequest) => string;
+  SEED_PROMPT_CLASSIFIER_IDS: readonly string[];
+};
+
+export const SEED_PROMPT_VERSION = seedPromptModule.SEED_PROMPT_VERSION;
+export const CLASSIFIER_QUESTION_TEXT = seedPromptModule.CLASSIFIER_QUESTION_TEXT;
+export const buildClassifierPrompt = seedPromptModule.buildClassifierPrompt;
+export const SEED_PROMPT_CLASSIFIER_IDS = seedPromptModule.SEED_PROMPT_CLASSIFIER_IDS;
+
+// ── contentSafetyScan.ts (zod-free Deno content scanner) ────────────
+
+export type ContentScanResult =
+  | { ok: true }
+  | { ok: false; reason: 'validation_failed'; detail: string };
+
+const contentSafetyScanModule = require(`${SHARED}/contentSafetyScan`) as {
+  scanPacketContent: (packet: unknown) => ContentScanResult;
+};
+
+export const scanPacketContent = contentSafetyScanModule.scanPacketContent;
 
 // ── types.ts (re-export the contract constant arrays) ───────────
 
