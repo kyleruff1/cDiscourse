@@ -53,14 +53,77 @@ function readShared(file: string): string {
   return fs.readFileSync(path.join(SHARED_DIR, file), 'utf8');
 }
 
-/** Strip comments + string literals so a scan only sees executable code. */
+/**
+ * Strip comments + string literals so a scan only sees executable code. A
+ * char-scanner — NOT a naive regex — so a nested template literal (e.g.
+ * `mockProvider.ts`'s `` `mock-${hashToken(fnv1a(`...`))}` ``) cannot make a
+ * regex consume a runaway span and silently drop real code. `${...}`
+ * interpolations are code, so they are KEPT; only the literal text is blanked.
+ */
 function stripCommentsAndStrings(src: string): string {
-  let out = src;
-  out = out.replace(/\/\*[\s\S]*?\*\//g, '');
-  out = out.replace(/\/\/[^\n]*/g, '');
-  out = out.replace(/'(?:\\.|[^'\\])*'/g, "''");
-  out = out.replace(/"(?:\\.|[^"\\])*"/g, '""');
-  out = out.replace(/`(?:\\.|\$\{[^}]*\}|[^`\\])*`/g, '``');
+  let out = '';
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src[i];
+    const next = src[i + 1];
+    if (c === '/' && next === '/') {
+      while (i < n && src[i] !== '\n') i += 1;
+      continue;
+    }
+    if (c === '/' && next === '*') {
+      i += 2;
+      while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i += 1;
+      i += 2;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      const quote = c;
+      out += quote + quote;
+      i += 1;
+      while (i < n && src[i] !== quote) {
+        if (src[i] === '\\') i += 1;
+        i += 1;
+      }
+      i += 1;
+      continue;
+    }
+    if (c === '`') {
+      out += '`';
+      i += 1;
+      while (i < n) {
+        if (src[i] === '\\') {
+          i += 2;
+          continue;
+        }
+        if (src[i] === '`') {
+          out += '`';
+          i += 1;
+          break;
+        }
+        if (src[i] === '$' && src[i + 1] === '{') {
+          out += '${';
+          i += 2;
+          let depth = 1;
+          const codeStart = i;
+          while (i < n && depth > 0) {
+            if (src[i] === '{') depth += 1;
+            else if (src[i] === '}') depth -= 1;
+            if (depth === 0) break;
+            i += 1;
+          }
+          out += stripCommentsAndStrings(src.slice(codeStart, i));
+          out += '}';
+          i += 1;
+          continue;
+        }
+        i += 1;
+      }
+      continue;
+    }
+    out += c;
+    i += 1;
+  }
   return out;
 }
 
