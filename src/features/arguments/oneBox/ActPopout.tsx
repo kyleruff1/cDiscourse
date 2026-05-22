@@ -59,7 +59,7 @@
  * Presentational only — the pure logic is `actPopoutModel.ts`.
  */
 import React, { useCallback, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { SURFACE_TOKENS, SPACING } from '../../../lib/designTokens';
 import type { BoxType } from './boxModel';
 import { Popout } from './Popout';
@@ -100,7 +100,7 @@ export function actEntryKindToChassisKind(kind: ActEntryKind): PopoutGroupEntry[
   }
 }
 
-// ── Props ──────────────────────────────────────────────────────
+// ── Disabled-entry contract ────────────────────────────────────
 
 /**
  * A host-supplied map of entries to render DISABLED, with the one-line
@@ -112,6 +112,70 @@ export function actEntryKindToChassisKind(kind: ActEntryKind): PopoutGroupEntry[
  * disabled entry stays VISIBLE with its reason — never a silent omission.
  */
 export type ActDisabledEntries = Partial<Record<ActEntryId, string>>;
+
+// ── Render projection (pure — unit-testable without a renderer) ─
+
+/**
+ * A render group ready for the chassis — a `PopoutGroup`'s data shape with
+ * a stable group `id` + `label`. The render-time `PopoutGroupEntry` rows
+ * keep `isPromoted` / `isDisabled` / `disabledReason` resolved.
+ */
+export interface ActRenderGroup {
+  /** Stable group id — the `ActGroupId` from the model. */
+  id: ActPopoutGroup['id'];
+  /** Plain-language group heading. */
+  label: string;
+  /** The chassis-ready rows. `onPress` is set by the component, not here. */
+  entries: ReadonlyArray<Omit<PopoutGroupEntry, 'onPress'>>;
+}
+
+/**
+ * Projects the 3-gate `buildActPopout` groups onto the chassis render
+ * shape — the load-bearing QOL-031 render decision, extracted as a PURE
+ * function so the repo's `.tsx` UI-test discipline can exercise it without
+ * a renderer (mirrors the chassis' `buildPopoutEntryAccessibilityLabel`).
+ *
+ * Three render rules (QOL-031 design §3.3 / §9):
+ *  1. **Group order is fixed** — the groups are returned in the exact order
+ *     `buildActPopout` emits them (`ACT_GROUP_ORDER`); this function never
+ *     reorders.
+ *  2. **The promoted entry is emphasized** — the model's single §3.4
+ *     stage-promoted entry keeps `isPromoted: true` so the chassis renders
+ *     the raised surface + heavier text + ★ marker. A promoted entry that
+ *     is ALSO host-disabled drops the promotion (a disabled row cannot be
+ *     a suggested move).
+ *  3. **A disabled entry stays visible with a reason** — an entry whose id
+ *     is a key in `disabledEntries` renders with `isDisabled: true` and the
+ *     supplied one-line `disabledReason`; it is NEVER omitted.
+ *
+ * Pure. Deterministic. No React, no side effects.
+ */
+export function buildActRenderGroups(
+  groups: ReadonlyArray<ActPopoutGroup>,
+  disabledEntries?: ActDisabledEntries,
+): ActRenderGroup[] {
+  return groups.map((group) => ({
+    id: group.id,
+    label: group.label,
+    entries: group.entries.map((entry) => {
+      const disabledReason = disabledEntries?.[entry.id];
+      const isDisabled = typeof disabledReason === 'string';
+      return {
+        key: entry.id,
+        label: entry.label,
+        accessibilityLabel: entry.accessibilityLabel,
+        kind: actEntryKindToChassisKind(entry.kind),
+        // A disabled entry is never also promoted — a promoted entry is a
+        // suggested move; a disabled one cannot be invoked (§9).
+        isPromoted: entry.isPromoted && !isDisabled,
+        isDisabled,
+        disabledReason: disabledReason ?? null,
+      };
+    }),
+  }));
+}
+
+// ── Props ──────────────────────────────────────────────────────
 
 export interface ActPopoutProps {
   /** Drives mount + the flash animation (the chassis owns the animation). */
@@ -247,35 +311,46 @@ export function ActPopout({
     [onClose, onDirectAction, onRoleChange, onSelectBoxType],
   );
 
-  // Map the 3-gate model groups onto the chassis `PopoutGroup` shape. The
-  // group order is preserved verbatim from `buildActPopout` (the model
-  // emits `ACT_GROUP_ORDER`); a host-disabled entry gains `isDisabled` +
-  // `disabledReason` so the chassis renders the reason under the row.
+  // Project the 3-gate model groups onto the chassis render shape via the
+  // pure `buildActRenderGroups` helper — fixed group order, the §3.4
+  // promoted entry emphasized, host-disabled entries kept visible with a
+  // reason. The `onPress` handler (which closes over `entry.kind` +
+  // `entry.opensBoxType`) is attached here from the model entry, keyed by
+  // id so the render row and the model entry stay aligned.
+  const renderGroups = useMemo(
+    () => buildActRenderGroups(actGroups, disabledEntries),
+    [actGroups, disabledEntries],
+  );
+
+  // The model entry for each id — the `onPress` dispatch needs the entry's
+  // `kind` + `opensBoxType`, which the render projection deliberately drops.
+  const entryById = useMemo(() => {
+    const map = new Map<ActEntryId, { kind: ActEntryKind; opensBoxType: BoxType | null }>();
+    for (const group of actGroups) {
+      for (const entry of group.entries) {
+        map.set(entry.id, { kind: entry.kind, opensBoxType: entry.opensBoxType });
+      }
+    }
+    return map;
+  }, [actGroups]);
+
   const popoutGroups = useMemo(
     () =>
-      actGroups.map((group) => ({
+      renderGroups.map((group) => ({
         id: group.id,
         label: group.label,
         entries: group.entries.map<PopoutGroupEntry>((entry) => {
-          const disabledReason = disabledEntries?.[entry.id];
-          const isDisabled = typeof disabledReason === 'string';
+          const entryId = entry.key as ActEntryId;
+          const model = entryById.get(entryId);
           return {
-            key: entry.id,
-            label: entry.label,
-            accessibilityLabel: entry.accessibilityLabel,
-            kind: actEntryKindToChassisKind(entry.kind),
-            // The §3.4 stage-promoted entry is emphasized — the chassis
-            // `isPromoted` styling (raised surface + heavier text + ★).
-            // A disabled entry is never also promoted (a promoted entry is
-            // a suggested move; a disabled one cannot be invoked).
-            isPromoted: entry.isPromoted && !isDisabled,
-            isDisabled,
-            disabledReason: disabledReason ?? null,
-            onPress: () => handleEntry(entry.id, entry.kind, entry.opensBoxType),
+            ...entry,
+            onPress: () => {
+              if (model) handleEntry(entryId, model.kind, model.opensBoxType);
+            },
           };
         }),
       })),
-    [actGroups, disabledEntries, handleEntry],
+    [renderGroups, entryById, handleEntry],
   );
 
   // A single group reads as a flat list (no header); two or more groups
