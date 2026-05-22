@@ -51,14 +51,8 @@ import {
   type BoxState,
   type SchemaKind,
 } from './boxModel';
-import {
-  buildActPopout,
-  actEntryToQuickAction,
-  type ActEntryId,
-  type ActViewerRole,
-} from './actPopoutModel';
-import { Popout } from './Popout';
-import { PopoutGroup, type PopoutGroupEntry } from './PopoutGroup';
+import { actEntryToQuickAction, type ActEntryId, type ActViewerRole } from './actPopoutModel';
+import { ActPopout } from './ActPopout';
 
 // ── Plain-language box-type vocabulary ─────────────────────────
 
@@ -190,20 +184,6 @@ export function OneBox({
     [boxState.type, boxState.target],
   );
 
-  // The 3-gate flash-menu content. A node target uses the parent's type
-  // for the engine gate; a root-claim context has no parent.
-  const actGroups = useMemo(
-    () =>
-      buildActPopout({
-        targetKind: parentArgument ? 'node' : 'room',
-        role: viewerRole ?? 'participant_other',
-        stage: stageContext ?? null,
-        parentType: parentArgument?.argumentType ?? null,
-        rules,
-      }),
-    [parentArgument, viewerRole, stageContext, rules],
-  );
-
   // Merge the flash-menu-derived patch onto the caller's initial patch.
   // A new object is produced exactly when either input changes, so the
   // composer (which applies an `initialPatch` only on reference change)
@@ -214,19 +194,12 @@ export function OneBox({
   }, [initialPatch, typePatch]);
 
   /**
-   * Handle a flash-menu entry selection. Box-opening entries re-type the
-   * box and seed the composer; direct / role-change entries are out of
-   * QOL-030's scope (QOL-031 wires their behaviour) — they just close the
-   * popout for now.
+   * Handle a `box_opening` flash-menu entry — re-type the box and seed the
+   * composer. QOL-031's `ActPopout` dispatches the entry by kind and only
+   * calls this for a box-opening entry (it carries a non-null `BoxType`).
    */
-  const handleActEntry = useCallback(
-    (entryId: ActEntryId, opensBoxType: BoxType | null) => {
-      setActPopoutVisible(false);
-      if (opensBoxType === null) {
-        // Direct / role-change entry — QOL-031 owns the behaviour. The
-        // box does not re-type; the popout simply closes.
-        return;
-      }
+  const handleSelectBoxType = useCallback(
+    (entryId: ActEntryId, opensBoxType: BoxType) => {
       // Re-type the box (non-destructive — boxModel parks the buffers).
       setBoxState((prev) => switchBoxType(prev, opensBoxType));
       // Seed the composer via the shipped quickActionPresets machinery.
@@ -243,33 +216,30 @@ export function OneBox({
     [parentArgument],
   );
 
+  /**
+   * Handle a `direct` flash-menu entry (Flag, Make-private, …). These
+   * route through the SHIPPED Edge Functions / RLS — the OneBox is a
+   * composer host and owns no moderation surface, so within this host the
+   * direct entries close the popout without re-typing the box. The room
+   * shell wires their full behaviour; QOL-031's `ActPopout` keeps the
+   * dispatch surface so a later host can act on it without a chassis edit.
+   */
+  const handleDirectAction = useCallback((_entryId: ActEntryId) => {
+    // No box re-type; `ActPopout` already closes the popout.
+  }, []);
+
+  /**
+   * Handle a `role_change` flash-menu entry (Watch / Join For / Join
+   * Against / Chime in). A seat change is a room-shell concern; within the
+   * composer host there is no seat to change, so this is a no-op. QOL-031
+   * keeps the dispatch surface for the room shell.
+   */
+  const handleRoleChange = useCallback((_entryId: ActEntryId) => {
+    // No-op in the composer host — the room shell owns seat changes.
+  }, []);
+
   const openActPopout = useCallback(() => setActPopoutVisible(true), []);
   const closeActPopout = useCallback(() => setActPopoutVisible(false), []);
-
-  // Map the 3-gate model groups into the chassis `PopoutGroup` shape.
-  const popoutGroups = useMemo(
-    () =>
-      actGroups.map((group) => ({
-        id: group.id,
-        label: group.label,
-        entries: group.entries.map<PopoutGroupEntry>((entry) => ({
-          key: entry.id,
-          label: entry.label,
-          accessibilityLabel: entry.accessibilityLabel,
-          kind:
-            entry.kind === 'box_opening'
-              ? 'box-opening'
-              : entry.kind === 'role_change'
-                ? 'role-change'
-                : 'direct',
-          isPromoted: entry.isPromoted,
-          onPress: () => handleActEntry(entry.id, entry.opensBoxType),
-        })),
-      })),
-    [actGroups, handleActEntry],
-  );
-
-  const showGroupHeaders = popoutGroups.length >= 2;
 
   return (
     <View style={styles.box} testID="one-box">
@@ -327,31 +297,25 @@ export function OneBox({
         />
       </View>
 
-      {/* ── Act popout — the flash menu, on the QOL-030 chassis ──
-          QOL-031 expands the popout contents; QOL-030 ships the chassis +
-          the 3-gate model wiring. */}
-      <Popout
+      {/* ── Act popout — the flash menu (QOL-031) on the QOL-030 chassis.
+          `ActPopout` consumes the 3-gate `buildActPopout` model and renders
+          it through the shipped Popout / PopoutGroup / PopoutEntry chassis.
+          A node target uses the parent's type for the engine gate; a
+          root-claim context (no parent) is a `room` target. */}
+      <ActPopout
         visible={actPopoutVisible}
-        title="Act"
         onClose={closeActPopout}
+        targetKind={parentArgument ? 'node' : 'room'}
+        role={viewerRole ?? 'participant_other'}
+        stage={stageContext ?? null}
+        parentType={parentArgument?.argumentType ?? null}
+        rules={rules}
+        onSelectBoxType={handleSelectBoxType}
+        onDirectAction={handleDirectAction}
+        onRoleChange={handleRoleChange}
         reduceMotionOverride={reduceMotionOverride}
         testID="one-box-act-popout"
-      >
-        {popoutGroups.length === 0 ? (
-          <Text style={styles.emptyPopout} testID="one-box-act-popout-empty">
-            No actions are available here yet.
-          </Text>
-        ) : (
-          popoutGroups.map((group) => (
-            <PopoutGroup
-              key={group.id}
-              label={group.label}
-              entries={group.entries}
-              showHeader={showGroupHeaders}
-            />
-          ))
-        )}
-      </Popout>
+      />
     </View>
   );
 }
@@ -401,10 +365,5 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-  },
-  emptyPopout: {
-    fontSize: 13,
-    color: SURFACE_TOKENS.textSecondary,
-    padding: SPACING.l,
   },
 });
