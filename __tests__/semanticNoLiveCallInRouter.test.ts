@@ -21,8 +21,15 @@
  * routing switch is now legitimately `async` (it awaits the live provider), so
  * the "no async / await" assertion below cannot include it.
  *
- * The retarget keeps every still-valid MCP-016 assertion. It also continues to
- * assert `mcpAdapter.ts` does NOT exist (the `mcp` slot stays a stub).
+ * MCP-018 NOTE: MCP-018 creates the operator-hosted `mcpAdapter.ts` — so the
+ * MCP-016/MCP-017 assertion "no mcpAdapter.ts is present (the mcp slot is still
+ * a stub)" is now FALSE. It is INVERTED below to assert `mcpAdapter.ts` AND its
+ * zod-free core `mcpAdapterCore.ts` now exist (the documented single inverted
+ * line — MCP-018 design §5). `mcpAdapterCore.ts` is zod-free, makes no `fetch`,
+ * names no host, reads no `Deno.env`, and is synchronous — so it JOINS the
+ * still-pure file list and is covered by every still-pure scan here.
+ * `mcpAdapter.ts` itself legitimately makes a live call and is NOT in the
+ * still-pure list — it is covered by `semanticMcpSourceScan.test.ts` instead.
  *
  * Net test count vs MCP-016's `semanticNoLiveCall.test.ts`: the file is renamed
  * and re-scoped; the assertions that became false (whole-tree no-fetch,
@@ -47,6 +54,9 @@ const STILL_PURE_SHARED_FILES = [
   'contentSafetyScan.ts',
   'types.ts',
   'fixtures.ts',
+  // MCP-018 — the zod-free MCP-adapter core. It makes no fetch, names no host,
+  // reads no Deno.env, and is synchronous.
+  'mcpAdapterCore.ts',
 ];
 
 function readShared(file: string): string {
@@ -149,8 +159,13 @@ describe('MCP-017 no-live-call — every still-pure shared file is present', () 
     }
   });
 
-  it('no mcpAdapter.ts is present (the mcp slot is still a stub)', () => {
-    expect(fs.existsSync(path.join(SHARED_DIR, 'mcpAdapter.ts'))).toBe(false);
+  it('mcpAdapter.ts and mcpAdapterCore.ts are present (the mcp slot is un-stubbed — MCP-018)', () => {
+    // INVERTED from the MCP-016/MCP-017 "no mcpAdapter.ts is present" assertion:
+    // MCP-018 creates both files. The live `mcpAdapter.ts` is covered by
+    // `semanticMcpSourceScan.test.ts`; the zod-free `mcpAdapterCore.ts` is in
+    // the still-pure list above and covered by every scan in this suite.
+    expect(fs.existsSync(path.join(SHARED_DIR, 'mcpAdapter.ts'))).toBe(true);
+    expect(fs.existsSync(path.join(SHARED_DIR, 'mcpAdapterCore.ts'))).toBe(true);
   });
 });
 
@@ -206,6 +221,8 @@ describe('MCP-017 no-live-call — the deterministic providers stay synchronous'
     'seedPrompt.ts',
     'anthropicClassifierCore.ts',
     'contentSafetyScan.ts',
+    // MCP-018 — the zod-free MCP-adapter core does no I/O; it stays synchronous.
+    'mcpAdapterCore.ts',
   ];
   for (const file of SYNCHRONOUS_FILES) {
     it(`_shared/semanticReferee/${file} contains no async / await (no I/O)`, () => {

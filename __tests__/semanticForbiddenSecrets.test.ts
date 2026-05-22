@@ -22,6 +22,13 @@
  * ("ANTHROPIC_API_KEY is read only inside anthropicProvider.ts") — it is
  * comment-exempt below, exactly as `edgeFunctions.ts` already is; the
  * executable-code scan still proves it never READS the key.
+ *
+ * MCP-018 NOTE: MCP-018 adds the live `mcpAdapter.ts`, which legitimately reads
+ * `SEMANTIC_REFEREE_MCP_URL` / `SEMANTIC_REFEREE_MCP_TOKEN` via `Deno.env.get()`.
+ * Exactly as `anthropicProvider.ts` is intentionally NOT in the scanned set
+ * here (the dedicated `semanticMcpSourceScan.test.ts` owns it), `mcpAdapter.ts`
+ * is NOT in `SHARED_FILES` either — its env reads are expected. The zod-free
+ * `mcpAdapterCore.ts` IS added below: it reads no key and no `Deno.env` var.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -47,6 +54,10 @@ const SHARED_FILES = [
   // ADMIN-AI-001 — the runtime-config resolver. Zod-free; reads no key and
   // no Deno.env var (it does a SELECT-only `.rpc()` call).
   'runtimeConfig.ts',
+  // MCP-018 zod-free addition — the MCP-adapter core reads no key and no
+  // Deno.env var. The live `mcpAdapter.ts` is intentionally NOT here (its env
+  // reads are expected; `semanticMcpSourceScan.test.ts` owns it).
+  'mcpAdapterCore.ts',
 ];
 
 /**

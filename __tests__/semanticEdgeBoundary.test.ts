@@ -22,6 +22,7 @@ import {
 } from './_helpers/semanticRefereeDeno';
 import type {
   ProviderResult,
+  McpProviderResult,
   SemanticRefereeProviderDeps,
 } from './_helpers/semanticRefereeDeno';
 import type { ClassifyMoveRequest } from '../src/lib/edgeFunctions';
@@ -42,6 +43,7 @@ function spyDeps(): {
   mockSpy: jest.Mock;
   fixtureSpy: jest.Mock;
   anthropicSpy: jest.Mock;
+  mcpSpy: jest.Mock;
 } {
   const mockSpy = jest.fn(runMockClassifier);
   const fixtureSpy = jest.fn(runFixtureClassifier);
@@ -51,11 +53,22 @@ function spyDeps(): {
   const anthropicSpy = jest.fn(
     async (): Promise<ProviderResult> => ({ kind: 'unavailable', reason: 'key_missing' }),
   );
+  // MCP-018 — the `runMcp` spy. Same role as `anthropicSpy`: it must never fire
+  // on a disabled path.
+  const mcpSpy = jest.fn(
+    async (): Promise<McpProviderResult> => ({ kind: 'unavailable', reason: 'url_missing' }),
+  );
   return {
-    deps: { runMock: mockSpy, runFixture: fixtureSpy, runAnthropic: anthropicSpy },
+    deps: {
+      runMock: mockSpy,
+      runFixture: fixtureSpy,
+      runAnthropic: anthropicSpy,
+      runMcp: mcpSpy,
+    },
     mockSpy,
     fixtureSpy,
     anthropicSpy,
+    mcpSpy,
   };
 }
 
