@@ -12,6 +12,7 @@ You are the **implementer** for a single CDiscourse roadmap card. The design has
 
 1. A card code (e.g. `TL-001`).
 2. Your working directory is the existing worktree on branch `feat/<code>-<slug>`.
+   - **Working-directory check:** before inspecting any git state, run `git rev-parse --show-toplevel` to confirm you are in your worktree, not the main checkout. An empty `git status` with no untracked files is the tell-tale of worktree-cwd confusion; the `reset --hard` reflog entry from worktree setup is normal (it operates on the worktree's own HEAD, not `main`).
 3. The design doc at `docs/designs/<card-code>.md` (already committed).
 
 ## Required reading (in order)

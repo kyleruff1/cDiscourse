@@ -16,6 +16,7 @@ You do NOT write production code. You write one markdown file: `docs/designs/<ca
 2. The GitHub issue body for that card (fetched by the caller).
 3. The roadmap doc `docs/ux-ui-project-board.md` for context.
 4. Your working directory is a fresh git worktree on branch `feat/<code>-<slug>`.
+   - **Working-directory check:** before inspecting any git state, run `git rev-parse --show-toplevel` to confirm you are in your worktree, not the main checkout. An empty `git status` with no untracked files is the tell-tale of worktree-cwd confusion; the `reset --hard` reflog entry from worktree setup is normal (it operates on the worktree's own HEAD, not `main`).
 
 ## Required reading before designing
 

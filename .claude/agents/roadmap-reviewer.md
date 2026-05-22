@@ -20,6 +20,7 @@ You do NOT modify code. You write `docs/reviews/<card-code>.md` and (if applicab
 
 1. A card code (e.g. `TL-001`).
 2. Your working directory is the worktree on branch `feat/<code>-<slug>` with implementer commits.
+   - **Working-directory check:** before inspecting any git state, run `git rev-parse --show-toplevel` to confirm you are in your worktree, not the main checkout. An empty `git status` with no untracked files is the tell-tale of worktree-cwd confusion; the `reset --hard` reflog entry from worktree setup is normal (it operates on the worktree's own HEAD, not `main`).
 3. The design doc at `docs/designs/<card-code>.md`.
 4. The full diff vs `main`: `git diff main..HEAD`.
 

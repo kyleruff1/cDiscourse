@@ -171,6 +171,8 @@ Each card gets `.claude/worktrees/<auto-slug>` (created by `isolation: "worktree
 - Merge to main is per-card, so a stalled card never blocks others.
 - A reverted PR removes only that card's changes.
 
+**Working-directory discipline.** Any agent — or the orchestrator — that inspects git state must first run `git rev-parse --show-toplevel` to confirm whether it is in a worktree or the main checkout. A fresh worktree legitimately has an empty `git status` and none of the main checkout's untracked files; misreading that as data loss caused a false "main corrupted" alarm once. The `reset --hard` reflog entry from worktree setup is normal — it operates on the worktree's own HEAD, not `main`. Worktree isolation works correctly; the only failure mode is diagnostic confusion.
+
 ## Doctrine that ALL agents must respect
 
 Pulled from `cdiscourse-doctrine` skill — re-stated here so it's visible without invoking the skill:
