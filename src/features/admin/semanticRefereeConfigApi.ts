@@ -8,9 +8,9 @@
  * 'admin'` before any read or write.
  *
  * Doctrine:
- *   - `ANTHROPIC_API_KEY` is never referenced here — `SemanticRefereeConfigView`
- *     carries only a `anthropicKeyPresent` boolean.
- *   - No service-role key, no direct DB access — the Edge Function is the only
+ *   - No provider key is referenced here — `SemanticRefereeConfigView` carries
+ *     only a `anthropicKeyPresent` boolean.
+ *   - No privileged key, no direct DB access — the Edge Function is the only
  *     write path.
  */
 import { adminUsers } from '../../lib/edgeFunctions';

@@ -8,13 +8,13 @@
  * through the `admin-users` Edge Function.
  *
  * Doctrine:
- *   - `ANTHROPIC_API_KEY` is NEVER displayed — the tab shows only an
+ *   - The Anthropic provider key is NEVER displayed — the tab shows only an
  *     "Anthropic key present: Yes/No" boolean.
  *   - Switching to `anthropic` opens a confirmation panel ("Anthropic mode may
  *     use provider credits."). Switching to `mock` / `fixture` is one-click.
- *   - The surface states neutral facts only — it makes no verdict about a
- *     person or a claim, and the provider mode never affects truth, score, or
- *     who is right.
+ *   - The surface states neutral facts only — it makes no judgment about a
+ *     person or a claim, and the provider mode never affects standing, score,
+ *     or who is right.
  *   - Pure RN primitives — no new dependency.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -374,8 +374,8 @@ export function AdminSemanticRefereeTab() {
       )}
 
       <Text style={styles.footnote}>
-        The provider mode chooses the source of the advisory referee only. It is
-        never a verdict — it does not decide who is right, assign a score, or
+        The provider mode chooses the source of the advisory referee only. It
+        makes no judgment — it does not decide who is right, assign a score, or
         block any message.
       </Text>
     </ScrollView>
