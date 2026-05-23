@@ -9,6 +9,8 @@
  * Stage 6.1.0
  */
 
+import { CATALOG_BY_ID as SEMANTIC_CLASSIFIER_CATALOG_BY_ID } from '../../lib/constitution/semanticClassifierCatalog';
+
 // ── Room copy ──────────────────────────────────────────────────
 
 export const ROOM_COPY = {
@@ -437,12 +439,50 @@ export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;
  * code, or `null` for unknown codes (callers can decide to surface raw or
  * suppress). Case-insensitive. Stage 6.4: normal-user surfaces SHOULD pass
  * the result through `toPlainLanguageOrSuppress` to drop unknown codes.
+ *
+ * MCP-MOD-006: when the normalized code matches a `SemanticClassifierId`
+ * whose catalog entry carries a `plainLanguageLabel`, that label wins over
+ * the gameCopy table fallback. Catalog v0 has no `plainLanguageLabel` set on
+ * any of the 23 entries, so behavior is byte-identical to pre-MCP-MOD-006;
+ * the seam exists so a future per-id label edit lands in the catalog without
+ * touching `gameCopy.ts`. Unknown codes fall through to the gameCopy table,
+ * preserving the pre-existing fallback path for non-classifier codes.
  */
 export function toPlainLanguage(code: string | null | undefined): string | null {
   if (!code) return null;
-  const key = String(code).trim().toLowerCase().replace(/[\s-]+/g, '_') as PlainLanguageKey;
-  if (Object.prototype.hasOwnProperty.call(PLAIN_LANGUAGE_COPY, key)) return PLAIN_LANGUAGE_COPY[key];
+  const key = String(code).trim().toLowerCase().replace(/[\s-]+/g, '_');
+  // Catalog override path — MCP-MOD-006. A typed lookup against the catalog
+  // by id. The catalog is imported lazily via a require to keep the gameCopy
+  // module free of cyclic imports if the catalog ever pulls a gameCopy
+  // string in (currently it does not).
+  const catalogLabel = catalogPlainLanguageLabelFor(key);
+  if (catalogLabel !== null) return catalogLabel;
+  if (Object.prototype.hasOwnProperty.call(PLAIN_LANGUAGE_COPY, key)) {
+    return PLAIN_LANGUAGE_COPY[key as PlainLanguageKey];
+  }
   return null;
+}
+
+/**
+ * MCP-MOD-006 — catalog plain-language label resolver.
+ *
+ * Returns `CATALOG_BY_ID.get(id).plainLanguageLabel` when the input is a
+ * known `SemanticClassifierId` AND the catalog entry carries a label.
+ * Returns `null` in every other case (including unknown ids and ids whose
+ * catalog entry has no `plainLanguageLabel` set). Pure data lookup. The
+ * `Map.get` is typed against `SemanticClassifierId`; the input is widened
+ * to `string` by `toPlainLanguage`'s normalize step, so the cast on the
+ * Map narrows the parameter back to the known id union. The catalog's
+ * `CATALOG_BY_ID` returns `undefined` for any id outside the union — the
+ * `if (!entry)` guard covers that path.
+ */
+function catalogPlainLanguageLabelFor(normalizedKey: string): string | null {
+  const entry = (
+    SEMANTIC_CLASSIFIER_CATALOG_BY_ID as ReadonlyMap<string, { plainLanguageLabel?: string }>
+  ).get(normalizedKey);
+  if (!entry) return null;
+  const label = entry.plainLanguageLabel;
+  return typeof label === 'string' && label.length > 0 ? label : null;
 }
 
 /** Suppresses unknown codes for normal-user surfaces. */

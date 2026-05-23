@@ -1,22 +1,25 @@
 /**
- * MCP-014 — Referee banner: classifier-id / feedback-code → banner maps.
+ * MCP-014 / MCP-MOD-006 — Referee banner: classifier-id / feedback-code → banner maps.
  *
  * `CLASSIFIER_TO_BANNERS` is keyed off ALL 23 `SemanticClassifierId` catalog
  * v0 ids (MCP-011). `FEEDBACK_CODE_TO_BANNER` is keyed off ALL 22
  * `RefereeFeedbackCode` codes (MCP-013). Both are the authoritative maps from
  * already-classified metadata to a `bannerCode` in `REFEREE_BANNER_LIBRARY`.
  *
- * MCP-MOD-004 — source-of-truth handshake: the per-id PRIMARY banner code per
- * classifier id is also recorded in `SEMANTIC_CLASSIFIER_CATALOG` (see
- * `src/lib/constitution/semanticClassifierCatalog.ts`). `CLASSIFIER_TO_BANNERS`
- * stays HERE because `selectBanner` consumes the FULL ordered candidate list
- * per id, not just the primary code. A parity test
- * (`__tests__/semanticClassifierCatalogParity.test.ts`) asserts the first
- * entry of each id's list matches the catalog's `bannerCode` field — so the
- * catalog stays the source-of-truth for the primary code while the banner
- * library owns the full priority list selectBanner needs. This is the
- * documented "smallest behaviour-preserving change" allowed by MCP-MOD-004's
- * task spec.
+ * MCP-MOD-006 — single source of truth: `CLASSIFIER_TO_BANNERS` is now a
+ * DERIVED VIEW over `SEMANTIC_CLASSIFIER_CATALOG`'s per-entry
+ * `bannerCodePriorityList` field. The catalog (`semanticClassifierCatalog.ts`)
+ * holds the full ordered candidate list per id; changing the priority list for
+ * an id is now a single-file edit in the catalog. The parity test
+ * (`__tests__/semanticClassifierCatalogParity.test.ts`) asserts each entry's
+ * `bannerCode === bannerCodePriorityList[0]` so the primary stays in sync. The
+ * fuzz-parity test (`__tests__/semanticBannerFuzzParity.test.ts`) asserts the
+ * derived `CLASSIFIER_TO_BANNERS` produces byte-identical `selectBanner`
+ * outputs versus a frozen pre-refactor reference for 50 random packets.
+ *
+ * `FEEDBACK_CODE_TO_BANNER` is unchanged — `RefereeFeedbackCode` is the
+ * ledger's per-category code family, not a per-classifier code, so it is not
+ * a per-id mapping under the catalog's purview.
  *
  * Documented deviation (MCP-014 design § "Documented deviation from MCP-008"):
  * MCP-008 §5 keyed the map off the 90 MCP-002 seed ids. That contract is
@@ -27,6 +30,7 @@
  * Pure TypeScript. No network. No Supabase. No React.
  */
 
+import { SEMANTIC_CLASSIFIER_CATALOG } from '../../lib/constitution/semanticClassifierCatalog';
 import type { SemanticClassifierId } from '../semanticReferee/semanticRefereeTypes';
 import type { RefereeFeedbackCode } from '../refereeLedger/types';
 
@@ -36,121 +40,20 @@ import type { RefereeFeedbackCode } from '../refereeLedger/types';
  * within its category. `contains_unplayable_insult_only` maps to `[]` — it is
  * an `INTENTIONALLY_SILENT_CLASSIFIERS` member (a routing signal, never a
  * banner; the move is never labelled "an insult").
+ *
+ * Derived from `SEMANTIC_CLASSIFIER_CATALOG[*].bannerCodePriorityList` —
+ * the catalog is the single source of truth (MCP-MOD-006).
  */
 export const CLASSIFIER_TO_BANNERS: Readonly<
   Record<SemanticClassifierId, readonly string[]>
-> = Object.freeze({
-  // Continuity-family — the move ties to / answers the parent.
-  responds_to_parent: Object.freeze([
-    'continuity_clean_tie',
-    'continuity_engages_mechanism',
-    'continuity_picks_up_thread',
-  ]),
-  // A new issue is structurally a tangent — route, do not scold.
-  introduces_new_issue: Object.freeze([
-    'tangent_new_issue_here',
-    'branch_belongs_on_branch',
-  ]),
-  // Asking for evidence opens an evidence debt — a prompt, never a penalty.
-  asks_for_evidence: Object.freeze([
-    'evidence_debt_opened',
-    'evidence_debt_a_source_would_help',
-  ]),
-  // A source artifact is attached.
-  provides_evidence: Object.freeze([
-    'evidence_debt_source_attached',
-    'evidence_debt_resolved',
-  ]),
-  // The evidence connects to the claim.
-  evidence_supports_claim: Object.freeze([
-    'evidence_debt_resolved',
-    'evidence_debt_source_attached',
-  ]),
-  // A quote anchors the move to the parent's exact words.
-  quote_anchors_parent: Object.freeze([
-    'clever_rebuttal_anchored',
-    'continuity_clean_tie',
-  ]),
-  // Narrowing keeps the broad point — a repair, never a defeat.
-  narrows_claim: Object.freeze([
-    'synthesis_nice_narrowing',
-    'synthesis_narrow_concession_noted',
-  ]),
-  // A narrow concession — the broad point still stands.
-  concedes_narrow_point: Object.freeze([
-    'synthesis_narrow_concession_noted',
-    'synthesis_nice_narrowing',
-  ]),
-  // Asking for clarification keeps the thread precise.
-  requests_clarification: Object.freeze([
-    'continuity_clarification_landed',
-    'quote_needed_pin_the_passage',
-  ]),
-  // Answering a clarification clears up what is argued.
-  answers_clarification: Object.freeze([
-    'continuity_clarification_landed',
-    'continuity_answers_question',
-  ]),
-  // A drift toward the person — route back to the claim, never label.
-  shifts_to_person_or_intent: Object.freeze([
-    'hot_take_keeps_it_about_the_claim',
-  ]),
-  // Popularity is named ONLY to say it is not proof and route to a source.
-  uses_popularity_as_evidence: Object.freeze([
-    'source_chain_gap_popularity_not_proof',
-  ]),
-  // A coherent hot take — playable, gives the room something to engage.
-  contains_playable_hot_take: Object.freeze([
-    'hot_take_playable',
-    'hot_take_has_an_edge',
-    'hot_take_room_can_engage',
-  ]),
-  // Intentionally silent — a routing signal, never a banner.
-  contains_unplayable_insult_only: Object.freeze([]),
-  // Satire / parody — note it so it is not read as a literal claim.
-  is_satire_or_parody: Object.freeze([
-    'hot_take_invites_a_reply',
-  ]),
-  // Satire used as evidence — satire is not evidence; ask for a real source.
-  uses_satire_as_evidence: Object.freeze([
-    'source_chain_gap_satire_not_evidence',
-  ]),
-  // A retraction is cited — flag the source chain.
-  cites_retraction: Object.freeze([
-    'source_chain_gap_retraction_noted',
-  ]),
-  // The source trail has a gap — ask where this came from.
-  creates_source_chain_gap: Object.freeze([
-    'source_chain_gap_chain_breaks',
-    'source_chain_gap_trace_it_back',
-    'source_chain_gap_one_more_link',
-  ]),
-  // A chime-in branch fits a new voice on the same topic.
-  suggests_side_branch: Object.freeze([
-    'branch_new_voice_welcome',
-    'branch_belongs_on_branch',
-  ]),
-  // A diagonal tangent — a side issue keeps the main thread clear.
-  suggests_diagonal_tangent: Object.freeze([
-    'tangent_different_axis',
-    'tangent_new_issue_here',
-  ]),
-  // The move fits the selected room mode.
-  fits_selected_debate_mode: Object.freeze([
-    'mode_mismatch_fits_the_room',
-  ]),
-  // A pre-send pause would help — pacing nudge.
-  needs_pre_send_pause: Object.freeze([
-    'pacing_a_pause_before_sending',
-    'pacing_take_a_short_pause',
-  ]),
-  // The point is ready for a synthesis.
-  ready_for_synthesis: Object.freeze([
-    'synthesis_shared_ground_named',
-    'synthesis_almost_there',
-    'synthesis_sides_converging',
-  ]),
-});
+> = Object.freeze(
+  Object.fromEntries(
+    SEMANTIC_CLASSIFIER_CATALOG.map((entry) => [
+      entry.id,
+      entry.bannerCodePriorityList,
+    ]),
+  ) as Record<SemanticClassifierId, readonly string[]>,
+);
 
 /**
  * Each of the 22 `RefereeFeedbackCode`s → exactly one `bannerCode`. A reading

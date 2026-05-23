@@ -59,6 +59,7 @@ import { hintMagnitudeForCategory } from './scoreHintMapping';
 import {
   ALL_REFEREE_POINT_CATEGORIES,
 } from './types';
+import { SEMANTIC_CLASSIFIER_CATALOG } from '../../lib/constitution/semanticClassifierCatalog';
 import type {
   CategoryReading,
   DeterministicMoveMetadata,
@@ -156,6 +157,47 @@ function semanticSign(
   return value === 1 ? 1 : 0;
 }
 
+/**
+ * MCP-MOD-006 — derived `category → classifier id` lookup.
+ *
+ * Built ONCE at module load by inverting `SEMANTIC_CLASSIFIER_CATALOG`'s
+ * per-entry `ledgerCategories` field. The catalog is the single source of
+ * truth (post-MCP-MOD-006); this table is a deterministic derived view.
+ *
+ * Note on multiplicity: a single classifier id may surface under MULTIPLE
+ * categories (e.g. `responds_to_parent` is read for BOTH `continuity` AND
+ * `direct_response`). The pre-MCP-MOD-006 inline table modeled this with
+ * `category → id` (the inverse of `id → categories`) and never collided on
+ * a category key, because two distinct ids never share the same category in
+ * catalog v0. The inversion preserves that property: the build asserts a
+ * category never gets two ids written to it (defensive — if catalog v0 ever
+ * changes, the fuzz-parity test catches a regression).
+ */
+const CLASSIFIER_FOR_CATEGORY: Readonly<
+  Partial<Record<RefereePointCategory, SemanticClassifierId>>
+> = (() => {
+  const out: Partial<Record<RefereePointCategory, SemanticClassifierId>> = {};
+  for (const entry of SEMANTIC_CLASSIFIER_CATALOG) {
+    // `ledgerCategories` is typed `readonly string[]` in the catalog (it
+    // stays standalone-pure — no cross-feature type import). The parity test
+    // enforces every value is a member of `ALL_REFEREE_POINT_CATEGORIES`, so
+    // the narrowing cast is safe here.
+    for (const category of entry.ledgerCategories as readonly RefereePointCategory[]) {
+      // Defensive — should never happen in catalog v0. If a future catalog
+      // edit introduces a category collision, the fuzz-parity test would also
+      // catch the behavior change.
+      if (out[category] !== undefined && out[category] !== entry.id) {
+        throw new Error(
+          `MCP-MOD-006 invariant: category "${category}" has multiple classifier ids — ` +
+            `already set to "${String(out[category])}", refusing to overwrite with "${String(entry.id)}".`,
+        );
+      }
+      out[category] = entry.id;
+    }
+  }
+  return Object.freeze(out);
+})();
+
 /** The advisory layer-2 signal for one category, from the packet binaries. */
 function l2SignalForCategory(
   category: RefereePointCategory,
@@ -163,32 +205,17 @@ function l2SignalForCategory(
 ): (ReconcileSignal & { confidence: SemanticConfidence }) | null {
   if (!packet) return null;
 
-  // MCP-MOD-004 — source-of-truth handshake: this `classifierFor` table is
-  // structurally `category → classifier` (the INVERSE direction of the
-  // catalog's `id → ledgerFeedbackCode` field), and a single classifier id
-  // may appear under multiple categories (e.g. `responds_to_parent` surfaces
-  // on both `continuity` and `direct_response`). Inverting the catalog to
-  // derive this table is not a behaviour-preserving change, so the table
-  // stays here. The catalog's `ledgerFeedbackCode` is the PRIMARY per-id
-  // feedback code (parity-checked by
-  // `__tests__/semanticClassifierCatalogParity.test.ts`); the per-category
-  // feedback wording is owned by `reconcileCategory` / `softFeedbackCode`
-  // (see `reconciliation.ts`). This is the documented
-  // "smallest behaviour-preserving change" allowed by MCP-MOD-004's task spec.
-  const classifierFor: Partial<Record<RefereePointCategory, SemanticClassifierId>> = {
-    continuity: 'responds_to_parent',
-    direct_response: 'responds_to_parent',
-    evidence_provided: 'provides_evidence',
-    evidence_relevance: 'evidence_supports_claim',
-    quote_anchoring: 'quote_anchors_parent',
-    clarification: 'requests_clarification',
-    synthesis: 'ready_for_synthesis',
-    branch_hygiene: 'suggests_side_branch',
-    person_intent_drift: 'shifts_to_person_or_intent',
-    staying_in_mode: 'fits_selected_debate_mode',
-  };
-
-  const id = classifierFor[category];
+  // MCP-MOD-006 — the lookup is a derived view of the catalog's per-entry
+  // `ledgerCategories` field. The catalog records which categories each
+  // classifier id surfaces under; this lookup is its INVERSE (one id per
+  // category). A category that is not in any catalog entry's
+  // `ledgerCategories` returns `null` here (`responds_to_parent` is the
+  // only id that maps to two categories — both `continuity` and
+  // `direct_response`). The per-category feedback wording is owned by
+  // `reconcileCategory` / `softFeedbackCode` (see `reconciliation.ts`);
+  // the catalog's `ledgerFeedbackCode` is the PRIMARY per-id feedback code
+  // only.
+  const id = CLASSIFIER_FOR_CATEGORY[category];
   if (!id) return null;
   const binary = findBinary(packet, id);
   if (!binary) return null;
