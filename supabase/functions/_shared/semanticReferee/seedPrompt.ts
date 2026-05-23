@@ -28,7 +28,7 @@ import type { ClassifyMoveRequest, SemanticClassifierId } from './types.ts';
  * `promptVersion` and MCP-016's `MOCK_PROMPT_VERSION` — a wording change to any
  * question bumps this to `-v1` and invalidates the upstream cache.
  */
-export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v0';
+export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v1';
 
 /**
  * One bounded STRUCTURAL yes/no question for each catalog-v0 classifier id.
@@ -144,14 +144,49 @@ export function buildClassifierPrompt(request: ClassifyMoveRequest): string {
     'each with `classifierId`, `value` 0 or 1, `confidence` low/medium/high,',
     'and a lowercase snake_case `reasonCode`), a `routeSuggestion`, a',
     '`frictionSuggestion`, and a `scoreHints` object of six integers 0..3.',
+    '`routeSuggestion` MUST be exactly one of: "mainline", "vertical_chime_branch",',
+    '"diagonal_tangent", "outer_realm", "cards_detail", "synthesis_lane",',
+    '"no_route_change". `frictionSuggestion` MUST be exactly one of: "none",',
+    '"soft_chip", "pre_send_pause", "ask_for_quote", "ask_for_source",',
+    '"suggest_branch", "suggest_narrow", "cooldown_notice".',
     'Do not include any blocking, verdict, truth, or winner field.',
   ].join(' ');
+
+  const workedExample = [
+    'Worked example of the packet shape (the values below are illustrative —',
+    'choose your own values based on the structural questions; do not copy these',
+    'verbatim):',
+    '```json',
+    '{',
+    '  "binaries": [',
+    '    {',
+    '      "classifierId": "responds_to_parent",',
+    '      "value": 1,',
+    '      "confidence": "high",',
+    '      "reasonCode": "parent_continuity_engaged"',
+    '    }',
+    '  ],',
+    '  "routeSuggestion": "mainline",',
+    '  "frictionSuggestion": "none",',
+    '  "scoreHints": {',
+    '    "continuityCredit": 2,',
+    '    "evidencePressure": 1,',
+    '    "branchHygiene": 1,',
+    '    "synthesisReadiness": 0,',
+    '    "sourceChainDebt": 0,',
+    '    "unresolvedRedirectRisk": 0',
+    '  }',
+    '}',
+    '```',
+  ].join('\n');
 
   return [
     'Structural questions for this move:',
     questionLines.join('\n'),
     '',
     instruction,
+    '',
+    workedExample,
     '',
     buildInputBlock(request),
   ].join('\n');

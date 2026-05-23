@@ -158,7 +158,8 @@ describe('buildClassifierPrompt', () => {
   });
 
   it('SEED_PROMPT_VERSION is the documented prompt-version string', () => {
-    expect(SEED_PROMPT_VERSION).toBe('mcp-semantic-referee-prompt-v0');
+    // SMOKE-FIX-002 bumped v0 → v1 (enum enumeration + worked-example wording change).
+    expect(SEED_PROMPT_VERSION).toBe('mcp-semantic-referee-prompt-v1');
   });
 });
 
