@@ -1529,3 +1529,12 @@ Run on 2026-05-17 (post Stage 6.1.3.1 dry-corpus gate):
 9. **Stage 6.1.3.3 — tiny live X News pilot** (5 stories × 3 posts × 12 replies = up to 180 reply pairs; X API only, xAI optional + initially off, redacted local logs only)
 10. Stage 6.1.4 — argument-room UX simplification informed by corpus engagement notes
 11. Stage 6.1.5 — persistent resting status / claim standing from server
+
+---
+
+<!-- MCP-MOD-001 — 2026-05-22: Foundational doc-set relocated to docs/core/ (12 files moved with git mv,
+     including the meta-roadmap rename docs/roadmap-expansions/2026-05-22-...-roadmap.md ->
+     docs/core/roadmap-semantic-referee-modularity.md).
+     Cross-reference sweep complete: CLAUDE.md, .claude/agents, .claude/skills, .claude/scripts,
+     scripts/diagnostics, scripts/github, and 100+ docs/ Markdown files all rewritten to docs/core/<name>.md. -->
+
