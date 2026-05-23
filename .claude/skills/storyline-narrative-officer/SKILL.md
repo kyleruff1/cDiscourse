@@ -123,8 +123,8 @@ with canonical issue prefixes — there is a live backlog, not a blank page.
 
 The **issue-deduping** procedure:
 
-1. Read the roadmap surfaces: `docs/ux-ui-project-board.md` (epics + cards),
-   `docs/current-status.md` (what is built), `docs/product-status-ledger.md`
+1. Read the roadmap surfaces: `docs/core/ux-ui-project-board.md` (epics + cards),
+   `docs/core/current-status.md` (what is built), `docs/product-status-ledger.md`
    (append-only status log), `scripts/github/uxBoardCards.json` (the local
    issue catalogue), and the GitHub issues themselves only if `gh` is
    authenticated and the operator has authorized it.
@@ -179,7 +179,7 @@ drift; it does not rewrite the build.
 
 ```
 # 1. Read the roadmap before writing anything.
-#    docs/ux-ui-project-board.md, docs/current-status.md,
+#    docs/core/ux-ui-project-board.md, docs/core/current-status.md,
 #    docs/product-status-ledger.md, scripts/github/uxBoardCards.json
 # 2. Write or update the storyboard docs under docs/ux-storyboards/.
 # 3. Run the deterministic terminology audit:

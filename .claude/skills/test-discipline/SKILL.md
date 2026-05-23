@@ -49,7 +49,7 @@ The current test count is the source of truth for stage completion. As of Stage 
 
 When you finish a card:
 - Run `npm run test` and capture the new count.
-- Update `docs/current-status.md` only AFTER the count is confirmed.
+- Update `docs/core/current-status.md` only AFTER the count is confirmed.
 - The number in CLAUDE.md "Current stage" line is the canonical baseline — bump it on stage completion, not per card.
 
 ## Patterns that already work in this repo
@@ -118,4 +118,4 @@ npm run test
 git status   # confirm no .skip / .only / committed console.log
 ```
 
-Then update `docs/current-status.md` with the new count + a one-line note about what changed.
+Then update `docs/core/current-status.md` with the new count + a one-line note about what changed.

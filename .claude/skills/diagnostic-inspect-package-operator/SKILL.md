@@ -29,7 +29,7 @@ The skill stages **existing on-disk artifacts only**:
 - `logs/engagement-intelligence/*.jsonl` — sanitised before staging (redactor stripped on the fly; output filenames suffixed `-sanitized`)
 - `logs/bot-stress/*.jsonl` — sanitised
 - `docs/testing-runs/*.md` — already-redacted run reports; rescanned defensively
-- `docs/current-status.md`, `docs/next-prompts.md`, `CLAUDE.md`
+- `docs/core/current-status.md`, `docs/core/next-prompts.md`, `CLAUDE.md`
 - `package.json` scripts table (script names + commands; no secret env vars)
 - Skill files under `.claude/skills/*/SKILL.md` (text + 16-hex SHA prefix of each)
 - Safe code-state metadata: branch, last commit, working-tree status (summarised, not raw diff)
