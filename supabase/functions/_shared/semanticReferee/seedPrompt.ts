@@ -28,7 +28,7 @@ import type { ClassifyMoveRequest, SemanticClassifierId } from './types.ts';
  * `promptVersion` and MCP-016's `MOCK_PROMPT_VERSION` — a wording change to any
  * question bumps this to `-v1` and invalidates the upstream cache.
  */
-export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v0';
+export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v1';
 
 /**
  * One bounded STRUCTURAL yes/no question for each catalog-v0 classifier id.
