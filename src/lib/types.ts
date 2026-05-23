@@ -29,7 +29,8 @@ export type { ArgumentRoomLink } from '../features/arguments/crossRoom/linkedPri
  * vocabulary verbatim from `concession_acceptances.acceptance_level`
  * (QOL-041 design §5.2). Re-exported here as a cross-feature domain type.
  */
-export type { AcceptanceLevel } from '../features/concessions/acceptanceGradient';
+import type { AcceptanceLevel } from '../features/concessions/acceptanceGradient';
+export type { AcceptanceLevel };
 
 /**
  * `MoveReactionKind` — the single allowed reaction in v1 (`fist_bump`).
@@ -38,7 +39,8 @@ export type { AcceptanceLevel } from '../features/concessions/acceptanceGradient
  * union requires a NEW migration AND a doctrine review (v1 scope bans
  * voting/scoring).
  */
-export type { MoveReactionKind } from '../features/concessions/moveReactionModel';
+import type { MoveReactionKind } from '../features/concessions/moveReactionModel';
+export type { MoveReactionKind };
 
 /**
  * `ConcessionItem` — one row of `public.concession_items`: a single
@@ -90,7 +92,7 @@ export interface ConcessionAcceptance {
   /** profiles.id of the receiver (the conceded-to node's author). */
   receiverId: string;
   /** One of the 5 acceptance levels. */
-  acceptanceLevel: import('../features/concessions/acceptanceGradient').AcceptanceLevel;
+  acceptanceLevel: AcceptanceLevel;
   /** Required iff `acceptanceLevel !== 'agree'`. Trimmed by the CHECK. */
   clarificationBody: string;
   /** ISO timestamp of the row's creation. */
@@ -111,7 +113,7 @@ export interface MoveReaction {
   /** profiles.id of the reactor. */
   reactorId: string;
   /** The single allowed kind in v1 — `fist_bump`. */
-  kind: import('../features/concessions/moveReactionModel').MoveReactionKind;
+  kind: MoveReactionKind;
   /** ISO timestamp when toggled off; null = active. */
   removedAt: string | null;
   /** profiles.id of the soft-delete actor; null when not soft-deleted. */
