@@ -78,7 +78,7 @@ Slate-specific constraints:
 |---|---|---|---|---|---|---|
 | MCP-MOD-001 | Documentation reorganization (`docs/core/`) | A | — | `docs/core/` exists; foundational docs moved with preserved history; cross-references updated | Low | S |
 | MCP-MOD-002 | Classifier catalog inventory | A | MCP-MOD-001 | [`docs/architecture/semantic-referee-classifier-catalog.md`](../architecture/semantic-referee-classifier-catalog.md) — one section per classifier id with binary signal, AI question, banner code, ledger feedback code, source-file path | Low | S |
-| MCP-MOD-003 | Prompt template inventory | A | MCP-MOD-001 | `docs/architecture/semantic-referee-prompt-template.md` — seed prompt structure, per-id question mapping, context assembly | Low | S |
+| MCP-MOD-003 | Prompt template inventory | A | MCP-MOD-001 | [`docs/architecture/semantic-referee-prompt-template.md`](../architecture/semantic-referee-prompt-template.md) — seed prompt structure, per-id question mapping, context assembly | Low | S |
 | MCP-MOD-004 | Source-of-truth extraction | B | MCP-MOD-002, MCP-MOD-003 | A single TypeScript constant `SEMANTIC_CLASSIFIER_CATALOG` (per classifier: id, structural question, banner code, ledger code, optional metadata); existing files import from it | Medium | M |
 | MCP-MOD-005 | Prompt template refactor | B | MCP-MOD-004 | `seedPrompt.ts` builds the question list by iterating the source-of-truth; deleting/renaming a per-id hand-written line becomes impossible | Low | S |
 | MCP-MOD-006 | Banner + ledger refactor | B | MCP-MOD-004 | Banner library and ledger feedback consume the source-of-truth's banner-code and ledger-code mappings; no per-id duplicate code | Low | S |
