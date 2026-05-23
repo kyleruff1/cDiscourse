@@ -329,13 +329,22 @@ describe('useSemanticReferee — confirmOverride', () => {
 describe('useSemanticReferee — no call on a non-post interaction', () => {
   it('the hook has no API a draft-edit / node-tap / mode-toggle calls', () => {
     // The hook's public surface is onMovePosted / getMoveState /
-    // confirmOverride / getOverrideRecords / repeatedSignal. There is no
-    // keystroke / scroll / select method — a draft edit simply cannot
-    // originate a classifyMove call.
+    // confirmOverride / getOverrideRecords / repeatedSignal plus the
+    // COMP-001 additive accessors (getMutationsForMove, getCompositionState).
+    // There is no keystroke / scroll / select method — a draft edit simply
+    // cannot originate a classifyMove call.
     const { result } = renderHook(() => useSemanticReferee());
     const keys = Object.keys(result.current).sort();
     expect(keys).toEqual(
-      ['confirmOverride', 'getMoveState', 'getOverrideRecords', 'onMovePosted', 'repeatedSignal'].sort(),
+      [
+        'confirmOverride',
+        'getCompositionState',
+        'getMoveState',
+        'getMutationsForMove',
+        'getOverrideRecords',
+        'onMovePosted',
+        'repeatedSignal',
+      ].sort(),
     );
   });
 

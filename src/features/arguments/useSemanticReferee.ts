@@ -85,6 +85,18 @@ import type {
   SemanticOverridePrompt,
   SemanticOverrideRecord,
 } from '../semanticOverride/types';
+// COMP-001 — Composition layer integration. Additive on top of MCP-019's
+// per-move surface: cross-node mutations targeting specific moveIds. The
+// composition function is PURE (no network, no async) — it runs inline
+// inside `finalizeReady` after the packet is in hand.
+import { composeVisualState } from '../semanticReferee/compositionLayer';
+import {
+  EMPTY_COMPOSITION_STATE,
+  type AncestorMoveSummary,
+  type CompositionState,
+  type MoveMetadata,
+  type NodeVisualMutation,
+} from '../semanticReferee/compositionTypes';
 
 // ── Public state shapes ───────────────────────────────────────────
 
@@ -197,6 +209,16 @@ export interface UseSemanticRefereeResult {
   getOverrideRecords: (moveId: string) => readonly SemanticOverrideRecord[];
   /** The in-memory repeated-override signal (UX copy only). */
   repeatedSignal: RepeatedOverrideSignal;
+  /**
+   * COMP-001 — cross-node visual mutations targeting a specific move. Returns
+   * the union of mutations emitted across all prior composition calls in this
+   * room session, keyed by targetMoveId. Unknown move ids return an empty
+   * array. The hook's existing surface is unchanged; these methods are
+   * ADDITIVE.
+   */
+  getMutationsForMove: (moveId: string) => readonly NodeVisualMutation[];
+  /** COMP-001 — the current room-scoped composition state (for tests + debug). */
+  getCompositionState: () => CompositionState;
 }
 
 // ── Internal constants / helpers ──────────────────────────────────
@@ -297,6 +319,11 @@ export function useSemanticReferee(
     clientCacheRef.current = new SemanticPacketCache();
   }
 
+  // COMP-001 — room-scoped composition state accumulator + per-moveId
+  // mutation index. Both refs are session-local (rebuilt on room mount).
+  const compositionStateRef = useRef<CompositionState>(EMPTY_COMPOSITION_STATE);
+  const mutationsByMoveIdRef = useRef<Map<string, NodeVisualMutation[]>>(new Map());
+
   // Mounted guard — a `classifyMove` that resolves after the room unmounts
   // must not `setState`. Flipped false in the unmount cleanup.
   const mountedRef = useRef(true);
@@ -343,12 +370,23 @@ export function useSemanticReferee(
    * Derive the doctrine-safe projections from a packet and store the `ready`
    * state. Guarded by the mounted ref — a packet for an unmounted room is
    * dropped. MCP-019 passes `ledgerResult` as undefined (Defect 1).
+   *
+   * COMP-001 — after computing the banner / override prompt, invoke
+   * `composeVisualState` with the packet + accumulated state + the move's
+   * structural metadata (supplied by the caller via `OnMovePostedArgs`). The
+   * resulting mutations are indexed by `targetMoveId` so the UI can look
+   * them up per node. Composition runs INLINE (pure / sync) — no extra
+   * await, no extra setState.
    */
   const finalizeReady = useCallback(
     (
       moveId: string,
       packet: SemanticRefereePacket,
       participantSide: string | null | undefined,
+      compositionInputs: {
+        moveMeta: MoveMetadata;
+        ancestors?: readonly AncestorMoveSummary[];
+      } | null,
     ): void => {
       if (!mountedRef.current) {
         return;
@@ -361,6 +399,24 @@ export function useSemanticReferee(
         viewerActorRole: mapParticipantSideToOverrideActorRole(participantSide),
         repeatedSignal: repeatedSignalRef.current,
       });
+      if (compositionInputs) {
+        const result = composeVisualState({
+          packet,
+          threadState: compositionStateRef.current,
+          moveMeta: compositionInputs.moveMeta,
+          ancestors: compositionInputs.ancestors,
+        });
+        compositionStateRef.current = result.nextState;
+        const byMoveId = mutationsByMoveIdRef.current;
+        for (const mutation of result.mutations) {
+          const existing = byMoveId.get(mutation.targetMoveId);
+          if (existing) {
+            existing.push(mutation);
+          } else {
+            byMoveId.set(mutation.targetMoveId, [mutation]);
+          }
+        }
+      }
       setRefereeStateByMoveId((prev) => ({
         ...prev,
         [moveId]: { status: 'ready', packet, banner, overridePrompt },
@@ -413,7 +469,10 @@ export function useSemanticReferee(
       const cached = cache ? cache.get(cacheKey) : undefined;
       if (cached) {
         // Cache hit — derive the projections from the cached packet, no call.
-        finalizeReady(moveId, cached, args.participantSide);
+        // Composition: a cache hit means the layer has ALREADY composed for
+        // this move earlier in the session; do not re-compose (would
+        // double-count debts). Pass null to skip composition.
+        finalizeReady(moveId, cached, args.participantSide, null);
         return;
       }
 
@@ -561,7 +620,48 @@ export function useSemanticReferee(
         if (cache) {
           cache.set(cacheKey, merged);
         }
-        finalizeReady(moveId, merged, args.participantSide);
+        // COMP-001 — build the structural metadata + ancestor chain the
+        // composition layer needs. The author-position helper is the same
+        // logic the MCP-MOD-008 trigger gate uses; here we derive it inline
+        // from `priorMovesList` so we don't need to thread another module.
+        const compositionMoveMeta: MoveMetadata = {
+          moveId,
+          parentId: args.parentId ?? null,
+          authorId: authorId ?? '',
+          side: args.participantSide ?? undefined,
+          authorMovePosition: authorId !== undefined
+            ? (priorMovesList.some((p) => p.authorId === authorId) ? 'subsequent' : 'first')
+            : undefined,
+        };
+        const ancestorChain: AncestorMoveSummary[] = [];
+        if (args.parentId) {
+          // Build the chain from parent up to the root using priorMovesList.
+          let cursor: string | undefined = args.parentId;
+          const upchain: OnMovePostedPriorMove[] = [];
+          while (cursor) {
+            const found = priorMovesList.find((m) => m.id === cursor);
+            if (!found) {
+              break;
+            }
+            upchain.push(found);
+            // priorMoves doesn't include parent ids — we cannot walk further
+            // without more structure. The caller can pass richer ancestor
+            // data through a future API extension; today we provide the
+            // immediate parent only.
+            cursor = undefined;
+          }
+          for (const a of upchain.reverse()) {
+            ancestorChain.push({
+              moveId: a.id,
+              parentId: null,
+              authorId: a.authorId,
+            });
+          }
+        }
+        finalizeReady(moveId, merged, args.participantSide, {
+          moveMeta: compositionMoveMeta,
+          ancestors: ancestorChain,
+        });
       } finally {
         inFlightRef.current.delete(moveId);
       }
@@ -609,11 +709,28 @@ export function useSemanticReferee(
     [refereeStateByMoveId],
   );
 
+  // COMP-001 — additive accessors. The mutations map is appended to as
+  // `finalizeReady` calls composeVisualState; readers index by targetMoveId.
+  const getMutationsForMove = useCallback(
+    (queryMoveId: string): readonly NodeVisualMutation[] => {
+      const list = mutationsByMoveIdRef.current.get(queryMoveId);
+      return list ? Object.freeze(list.slice()) as readonly NodeVisualMutation[] : Object.freeze([]) as readonly NodeVisualMutation[];
+    },
+    [],
+  );
+
+  const getCompositionState = useCallback(
+    (): CompositionState => compositionStateRef.current,
+    [],
+  );
+
   return {
     onMovePosted,
     getMoveState,
     confirmOverride,
     getOverrideRecords,
     repeatedSignal,
+    getMutationsForMove,
+    getCompositionState,
   };
 }
