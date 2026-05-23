@@ -436,6 +436,195 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
       ledgerFeedbackCode: 'synthesis_named',
       ledgerCategories: Object.freeze(['synthesis']),
     }),
+    // ── MCP-CAT-001 (catalog v1) — 12 new ids ─────────────────────────
+    //
+    // Surfaced by the band-space-rent evidence scenario
+    // (`fixtures/argument-scenarios/catalog-design-band-space-rent-evidence.json`)
+    // and documented in the catalog design at
+    // `docs/roadmap-expansions/2026-05-23-binary-classifier-catalog-design.md`
+    // §5. Settlement ids (`proposes_settlement_terms` /
+    // `accepts_settlement_terms`) are operator-specified extensions whose
+    // structural questions were derived from the scenario's `expectedSettlement`
+    // section and the storyboard at
+    // `docs/ux-storyboards/band-space-rent-private-evidence-argument.md`
+    // (per the MCP-CAT-001 task spec).
+    Object.freeze({
+      id: 'disputes_evidence_applicability',
+      binarySignal:
+        'The move challenges what an attached evidence object COVERS rather than whether the evidence exists.',
+      structuralQuestion:
+        'Does this move challenge what an attached evidence object covers rather than whether it exists?',
+      family: 'evidence',
+      bannerCode: 'evidence_debt_applicability_disputed',
+      bannerCodePriorityList: Object.freeze([
+        'evidence_debt_applicability_disputed',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'references_prior_agreement',
+      binarySignal:
+        'The move cites a prior agreement between the participants that bears on the current dispute.',
+      structuralQuestion:
+        'Does this move cite a prior agreement between the participants that bears on the current dispute?',
+      family: 'movement',
+      bannerCode: 'synthesis_prior_agreement_cited',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_prior_agreement_cited',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'provides_temporal_constraint',
+      binarySignal:
+        'The move cites a specific date, timeline, or temporal boundary that constrains the dispute.',
+      structuralQuestion:
+        'Does this move cite a specific date, timeline, or temporal boundary that constrains the dispute?',
+      family: 'movement',
+      bannerCode: 'synthesis_temporal_anchor_added',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_temporal_anchor_added',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'accepts_partial_with_caveat',
+      binarySignal:
+        'The move accepts a specific point raised by the parent while qualifying or restricting the acceptance.',
+      structuralQuestion:
+        'Does this move accept a specific point raised by the parent while qualifying or restricting the acceptance?',
+      family: 'movement',
+      bannerCode: 'synthesis_qualified_concession_with_caveat',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_qualified_concession_with_caveat',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'provides_alternate_interpretation',
+      binarySignal:
+        'The move offers an alternate reading of an existing artifact (note text, date, label) that the parent treated as fixed.',
+      structuralQuestion:
+        'Does this move offer an alternate reading of an existing artifact that the parent treated as fixed?',
+      family: 'movement',
+      bannerCode: 'synthesis_alternate_interpretation_offered',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_alternate_interpretation_offered',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'opens_evidence_debt_marker',
+      binarySignal:
+        'The move opens a structured evidence-debt marker — a tracked Ask-for-source request distinct from a rhetorical ask.',
+      structuralQuestion:
+        'Does this move open a structured evidence-debt marker (a tracked Ask-for-source request)?',
+      family: 'evidence',
+      bannerCode: 'evidence_debt_marker_opened',
+      bannerCodePriorityList: Object.freeze([
+        'evidence_debt_marker_opened',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'closes_evidence_debt_marker',
+      binarySignal:
+        'The move responds to an open evidence-debt marker with the requested source or quote.',
+      structuralQuestion:
+        'Does this move respond to an open evidence-debt marker with the requested source or quote?',
+      family: 'evidence',
+      bannerCode: 'evidence_debt_marker_closed',
+      bannerCodePriorityList: Object.freeze([
+        'evidence_debt_marker_closed',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'supplies_corroborating_document',
+      binarySignal:
+        'The move attaches a document that corroborates a prior claim on the timeline rather than introducing new primary evidence.',
+      structuralQuestion:
+        'Does this move attach a document that corroborates a prior claim rather than introducing primary evidence?',
+      family: 'evidence',
+      bannerCode: 'evidence_debt_corroborating_document',
+      bannerCodePriorityList: Object.freeze([
+        'evidence_debt_corroborating_document',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'introduces_sub_axis',
+      binarySignal:
+        'The move opens a new, more specific sub-dispute on the SAME mainline rather than continuing the parent axis.',
+      structuralQuestion:
+        'Does this move open a new, more specific sub-dispute on the same mainline rather than continuing the parent axis?',
+      family: 'movement',
+      bannerCode: 'synthesis_sub_axis_introduced',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_sub_axis_introduced',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'concedes_with_new_dispute',
+      binarySignal:
+        'The move pairs a concession on one axis with a new dispute on a different axis.',
+      structuralQuestion:
+        'Does this move pair a concession on one axis with a new dispute on a different axis?',
+      family: 'movement',
+      bannerCode: 'synthesis_concession_with_new_dispute',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_concession_with_new_dispute',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    /**
+     * MCP-CAT-001 settlement extension. The design doc and the scenario
+     * fixture do not specify these two ids; the structural questions below
+     * were chosen per the MCP-CAT-001 task spec — the `expectedSettlement`
+     * section of the band-space-rent fixture establishes the doctrine
+     * (settled / resolved / evidence accepted, never `proven` / `true` /
+     * `winner`). The questions describe a structural state — proposing or
+     * accepting RESOLUTION TERMS — not a verdict on truth.
+     */
+    Object.freeze({
+      id: 'proposes_settlement_terms',
+      binarySignal:
+        'The move proposes a settlement summary or resolution terms the other participant could accept.',
+      structuralQuestion:
+        'Does this move propose a settlement summary or resolution terms the other participant could accept?',
+      family: 'movement',
+      bannerCode: 'synthesis_settlement_proposed',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_settlement_proposed',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
+    Object.freeze({
+      id: 'accepts_settlement_terms',
+      binarySignal:
+        'The move accepts a proposed settlement summary or resolution terms.',
+      structuralQuestion:
+        'Does this move accept a proposed settlement summary or resolution terms?',
+      family: 'movement',
+      bannerCode: 'synthesis_settlement_accepted',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_settlement_accepted',
+      ]),
+      ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
+    }),
   ]);
 
 /**

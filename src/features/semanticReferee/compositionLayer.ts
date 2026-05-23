@@ -15,14 +15,19 @@
  * recommendation; the order is tested in
  * `__tests__/compositionLayerRules.test.ts`).
  *
- * 12 PROPOSED ids from MCP-CAT-001 (`disputes_evidence_applicability`,
- * `opens_evidence_debt_marker`, `closes_evidence_debt_marker`,
- * `introduces_sub_axis`, `concedes_with_new_dispute`,
- * `supplies_corroborating_document`, `references_prior_agreement`,
- * `provides_temporal_constraint`, `accepts_partial_with_caveat`,
- * `provides_alternate_interpretation`, `disputes_specific_amount`,
- * `cites_temporal_boundary`) are referenced behind runtime catalog guards —
- * the rules degrade gracefully when the catalog doesn't yet declare them.
+ * MCP-CAT-001 catalog v1 additive rules (active post-MCP-CAT-001):
+ *   - R-CAT-SubAxis: `introduces_sub_axis=1` → `sub_axis_opened` (+ ledger entry).
+ *   - R-EV-APP-01: `disputes_evidence_applicability=1` → `evidence_applicability_disputed`
+ *     on parent (+ per-move `prior_agreement_cited` / `temporal_constraint_provided`
+ *     chips when their respective signals are present).
+ *   - R-CAT-QualifiedConcession: `accepts_partial_with_caveat=1` →
+ *     `qualified_concession_with_caveat` on current; with
+ *     `provides_alternate_interpretation=1` also emits
+ *     `alternate_interpretation_offered`.
+ *   - R-CAT-Corroborating: `supplies_corroborating_document=1` →
+ *     `corroborating_document_attached` on current.
+ *   - R-CAT-Settlement: `proposes_settlement_terms=1` → `settlement_proposed`;
+ *     `accepts_settlement_terms=1` → `settlement_accepted`.
  *
  * Pure TS — no Supabase, no React, no network, no async, no AI SDK imports.
  * The purity test in `__tests__/compositionLayerPurity.test.ts` enforces
@@ -910,15 +915,19 @@ export function composeVisualState(
     state.unplayableMoves.add(currentMoveId);
   }
 
-  // ── PROPOSED MCP-CAT-001 rules (runtime-guarded) ─────────────────
+  // ── MCP-CAT-001 (catalog v1) additive rules ──────────────────────
   //
-  // These rules reference ids that are not yet in the catalog. Each rule's
-  // guard returns false until MCP-CAT-001 lands the id; then the rule
-  // automatically activates. The current 23-id mode behavior is unchanged.
+  // Activated by MCP-CAT-001 when the 12 catalog v1 ids landed in the
+  // catalog. The runtime catalog guards remain as belt-and-suspenders
+  // safety so a future card that removes an id (a hypothetical reversal)
+  // degrades cleanly instead of throwing. Doctrine: every emitted
+  // mutation is a STRUCTURAL state — no truth claims, no person labels.
 
-  // [PROPOSED — MCP-CAT-001] R-CAT-SubAxis: introduces_sub_axis=1 →
+  // R-CAT-SubAxis (MCP-CAT-001): introduces_sub_axis=1 →
   // sub_axis_opened on the current move. Records the sub-axis on the
   // accumulator so R-CM-03's helper can later target the sub-thread root.
+  // Reference: band-space-rent m7 (35-id mode) — see
+  // docs/designs/COMP-001-worked-examples.md §"m7 — A's concession + new sub-axis".
   if (
     classifierInCatalog('introduces_sub_axis') &&
     sig.get('introduces_sub_axis' as SemanticClassifierId).value === 1
@@ -940,6 +949,141 @@ export function composeVisualState(
       parentAxisRootMoveId: parentAxisRoot,
       status: 'open',
     }) as SubAxisState);
+  }
+
+  // R-EV-APP-01 (MCP-CAT-001): disputes_evidence_applicability=1 →
+  // evidence_applicability_disputed on the parent (the evidence-attaching
+  // move). Per-move chips fire for the supporting context signals.
+  // Reference: band-space-rent m3 (35-id mode) — see
+  // docs/designs/COMP-001-worked-examples.md §"m3 — A's evidence applicability challenge".
+  if (
+    classifierInCatalog('disputes_evidence_applicability') &&
+    sig.get('disputes_evidence_applicability' as SemanticClassifierId).value === 1
+  ) {
+    mutations.push(
+      buildMutation({
+        targetMoveId: parentId,
+        mutation: 'evidence_applicability_disputed',
+        sourceClassifier: 'disputes_evidence_applicability' as SemanticClassifierId,
+        sourceMoveId: currentMoveId,
+      }),
+    );
+  }
+  if (
+    classifierInCatalog('references_prior_agreement') &&
+    sig.get('references_prior_agreement' as SemanticClassifierId).value === 1
+  ) {
+    mutations.push(
+      buildMutation({
+        targetMoveId: currentMoveId,
+        mutation: 'prior_agreement_cited',
+        sourceClassifier: 'references_prior_agreement' as SemanticClassifierId,
+        sourceMoveId: currentMoveId,
+      }),
+    );
+  }
+  if (
+    classifierInCatalog('provides_temporal_constraint') &&
+    sig.get('provides_temporal_constraint' as SemanticClassifierId).value === 1
+  ) {
+    mutations.push(
+      buildMutation({
+        targetMoveId: currentMoveId,
+        mutation: 'temporal_constraint_provided',
+        sourceClassifier: 'provides_temporal_constraint' as SemanticClassifierId,
+        sourceMoveId: currentMoveId,
+      }),
+    );
+  }
+
+  // R-CAT-QualifiedConcession (MCP-CAT-001): accepts_partial_with_caveat=1
+  // → qualified_concession_with_caveat on current move. The alternate-
+  // interpretation chip fires independently when its signal is present.
+  // Reference: band-space-rent m4 (35-id mode) — see
+  // docs/designs/COMP-001-worked-examples.md §"m4 — B's agree with caveat".
+  if (
+    classifierInCatalog('accepts_partial_with_caveat') &&
+    sig.get('accepts_partial_with_caveat' as SemanticClassifierId).value === 1
+  ) {
+    mutations.push(
+      buildMutation({
+        targetMoveId: currentMoveId,
+        mutation: 'qualified_concession_with_caveat',
+        sourceClassifier: 'accepts_partial_with_caveat' as SemanticClassifierId,
+        sourceMoveId: currentMoveId,
+      }),
+    );
+  }
+  if (
+    classifierInCatalog('provides_alternate_interpretation') &&
+    sig.get('provides_alternate_interpretation' as SemanticClassifierId).value === 1
+  ) {
+    mutations.push(
+      buildMutation({
+        targetMoveId: currentMoveId,
+        mutation: 'alternate_interpretation_offered',
+        sourceClassifier: 'provides_alternate_interpretation' as SemanticClassifierId,
+        sourceMoveId: currentMoveId,
+      }),
+    );
+  }
+
+  // R-CAT-Corroborating (MCP-CAT-001): supplies_corroborating_document=1 →
+  // corroborating_document_attached on current move.
+  // Reference: band-space-rent m6 / m8 (35-id mode) — see
+  // docs/designs/COMP-001-worked-examples.md §"m6 — B's group-chat evidence supply"
+  // and §"m8 — B's evidence-backed rebuttal on the sub-axis".
+  if (
+    classifierInCatalog('supplies_corroborating_document') &&
+    sig.get('supplies_corroborating_document' as SemanticClassifierId).value === 1
+  ) {
+    mutations.push(
+      buildMutation({
+        targetMoveId: currentMoveId,
+        mutation: 'corroborating_document_attached',
+        sourceClassifier: 'supplies_corroborating_document' as SemanticClassifierId,
+        sourceMoveId: currentMoveId,
+      }),
+    );
+  }
+
+  // R-CAT-Settlement (MCP-CAT-001): proposes_settlement_terms=1 →
+  // settlement_proposed; accepts_settlement_terms=1 → settlement_accepted.
+  // Both fire on the current move; the operator-derived structural questions
+  // (per the MCP-CAT-001 task spec) describe RESOLUTION TERMS — never a
+  // verdict on truth. The accompanying banner copy follows the
+  // band-space-rent scenario's `permittedSettlementLanguage`.
+  // Reference: operator-specified extension (not in worked-examples doc);
+  // structural questions derived from band-space-rent fixture's
+  // `expectedSettlement` section and `permittedSettlementLanguage` whitelist.
+  // Justification: settlement_proposed / settlement_accepted are fully
+  // determined by their respective binary signal + existing per-move output
+  // shape — no new CompositionState fields, no state-machine transition.
+  if (
+    classifierInCatalog('proposes_settlement_terms') &&
+    sig.get('proposes_settlement_terms' as SemanticClassifierId).value === 1
+  ) {
+    mutations.push(
+      buildMutation({
+        targetMoveId: currentMoveId,
+        mutation: 'settlement_proposed',
+        sourceClassifier: 'proposes_settlement_terms' as SemanticClassifierId,
+        sourceMoveId: currentMoveId,
+      }),
+    );
+  }
+  if (
+    classifierInCatalog('accepts_settlement_terms') &&
+    sig.get('accepts_settlement_terms' as SemanticClassifierId).value === 1
+  ) {
+    mutations.push(
+      buildMutation({
+        targetMoveId: currentMoveId,
+        mutation: 'settlement_accepted',
+        sourceClassifier: 'accepts_settlement_terms' as SemanticClassifierId,
+        sourceMoveId: currentMoveId,
+      }),
+    );
   }
 
   // Recompute debt counts every call (cheap; O(small)).

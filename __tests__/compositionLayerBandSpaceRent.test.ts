@@ -6,26 +6,22 @@
  * accumulating CompositionState, asserting mutations after each move.
  *
  * Mode (a) — 23-id mode (the regression baseline COMP-001 ships against):
- *   `[PROPOSED]` signals from MCP-CAT-001 are stripped from packets. Rules
+ *   The 12 MCP-CAT-001 catalog v1 signals are stripped from packets. Rules
  *   that depend on those signals do not fire — graceful degradation per
  *   the worked-examples document. The scenario still produces a coherent
  *   timeline narrative (m1 root → m2 first-move exempt → m3 quoted engagement
  *   → m4 concession → m5 evidence-debt opens on m4 → m6 evidence-debt resolves
  *   on m4 → m7 narrowing + concession → m8 quoted engagement + synthesis).
  *
- * 35-id mode (the forward-compat verification): the same fixture is loaded
- * WITHOUT stripping the proposed signals, then asserted to be a superset of
- * 23-id behavior. The PROPOSED-id rules are runtime-guarded and only fire
- * when MCP-CAT-001 lands the ids in the catalog. Until then, the 35-id
- * snapshot equals the 23-id snapshot (graceful degradation).
+ *   The 23-id-mode filter is a HARDCODED LITERAL set so that future catalog
+ *   extensions do not silently change this regression baseline. The list is
+ *   the exact catalog v0 frozen by MCP-001 §7.
  *
- * **Implementer's 35-id-mode decision:** the 35-id-mode test is included as
- * a parity check (it asserts the layer's behavior with PROPOSED signals
- * present equals the 23-id behavior until the catalog adds the ids — i.e.,
- * the layer DOES NOT FIRE PROPOSED rules speculatively). This is the
- * forward-compat property the design names. A real 35-id mode test that
- * verifies the PROPOSED rules actually fire belongs in MCP-CAT-001's
- * implementation card (where the catalog gains those ids).
+ * 35-id mode (the forward-compat verification): the same fixture is loaded
+ * WITHOUT stripping the catalog v1 signals. Post-MCP-CAT-001 the additive
+ * catalog v1 rules (`R-CAT-SubAxis`, etc.) may fire on this path; the test
+ * asserts the mutation set is a SUPERSET of the 23-id mutation set (no
+ * regressions, only additions).
  */
 
 import * as fs from 'node:fs';
@@ -38,7 +34,6 @@ import {
   type MoveMetadata,
 } from '../src/features/semanticReferee/compositionTypes';
 import {
-  ALL_SEMANTIC_CLASSIFIER_IDS,
   PACKET_VERSION,
   type SemanticBinarySample,
   type SemanticClassifierId,
@@ -71,7 +66,36 @@ interface FixtureMove {
 
 const FIXTURE = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8')) as { moves: FixtureMove[] };
 
-const CURRENT_23_IDS = new Set<string>(ALL_SEMANTIC_CLASSIFIER_IDS);
+/**
+ * The exact 23 catalog-v0 ids frozen by MCP-001 §7. Hardcoded as a literal
+ * (not derived from `ALL_SEMANTIC_CLASSIFIER_IDS`) so the 23-id regression
+ * baseline never drifts when the catalog gains new ids in a later card.
+ */
+const CURRENT_23_IDS = new Set<string>([
+  'responds_to_parent',
+  'introduces_new_issue',
+  'asks_for_evidence',
+  'provides_evidence',
+  'evidence_supports_claim',
+  'quote_anchors_parent',
+  'narrows_claim',
+  'concedes_narrow_point',
+  'requests_clarification',
+  'answers_clarification',
+  'shifts_to_person_or_intent',
+  'uses_popularity_as_evidence',
+  'contains_playable_hot_take',
+  'contains_unplayable_insult_only',
+  'is_satire_or_parody',
+  'uses_satire_as_evidence',
+  'cites_retraction',
+  'creates_source_chain_gap',
+  'suggests_side_branch',
+  'suggests_diagonal_tangent',
+  'fits_selected_debate_mode',
+  'needs_pre_send_pause',
+  'ready_for_synthesis',
+]);
 
 function buildPacket(
   move: FixtureMove,
@@ -262,22 +286,59 @@ describe('COMP-001 §7.2.1 — band-space-rent — 23-id mode (regression baseli
 
 // ── 35-id mode forward-compatibility check ──────────────────────
 
-describe('COMP-001 §7.2.1 — band-space-rent — 35-id mode (forward-compat)', () => {
-  // Until MCP-CAT-001 lands, the catalog does not declare the PROPOSED ids,
-  // so the runtime guards on the PROPOSED-id rules suppress them. The
-  // resulting mutation sets should equal the 23-id sets.
+describe('COMP-001 §7.2.1 — band-space-rent — 35-id mode (catalog v1)', () => {
+  // Post-MCP-CAT-001: the catalog declares all 35 ids. Additive
+  // composition rules (R-CAT-SubAxis, R-EV-APP-01, etc.) fire on the
+  // catalog v1 signals. The 35-id-mode mutation set is MOSTLY a superset
+  // of the 23-id-mode mutation set with one INTENTIONAL DIFFERENCE: the
+  // R-CM-03 (`ready_for_synthesis`) rule retargets from the room root
+  // (23-id fallback) to the sub-axis root once the sub-axis state is
+  // populated by R-CAT-SubAxis. This is the documented 35-id-mode tightening
+  // (`docs/designs/COMP-001-worked-examples.md` §m8 "Tightened R-CM-03").
   const r23 = replay('23-id');
   const r35 = replay('35-id');
 
-  it('35-id-mode mutations equal 23-id-mode mutations until the catalog adopts the PROPOSED ids', () => {
+  it('every catalog-v0 mutation still appears in 35-id mode with the same target (except R-CM-03 retarget on m8)', () => {
     for (const move of FIXTURE.moves) {
-      const a = r23.mutationsByMoveId.get(move.moveId) ?? [];
-      const b = r35.mutationsByMoveId.get(move.moveId) ?? [];
-      expect(b.length).toBe(a.length);
-      for (let i = 0; i < a.length; i += 1) {
-        expect(b[i].mutation).toBe(a[i].mutation);
-        expect(b[i].targetMoveId).toBe(a[i].targetMoveId);
+      const baseline = r23.mutationsByMoveId.get(move.moveId) ?? [];
+      const extended = r35.mutationsByMoveId.get(move.moveId) ?? [];
+      for (const b of baseline) {
+        // m8 R-CM-03 retarget: documented 35-id-mode tightening.
+        if (move.moveId === 'm8' && b.mutation === 'synthesis_ready') {
+          continue;
+        }
+        const found = extended.find(
+          (e) => e.mutation === b.mutation && e.targetMoveId === b.targetMoveId,
+        );
+        expect({ move: move.moveId, missing: !!found, mutation: b.mutation, target: b.targetMoveId }).toEqual({
+          move: move.moveId,
+          missing: true,
+          mutation: b.mutation,
+          target: b.targetMoveId,
+        });
       }
+      // The extended set is the same size or larger.
+      expect(extended.length).toBeGreaterThanOrEqual(baseline.length);
     }
+  });
+
+  it('m7 fires the catalog v1 R-CAT-SubAxis rule — sub_axis_opened on m7', () => {
+    const muts = r35.mutationsByMoveId.get('m7') ?? [];
+    // `introduces_sub_axis` is set on m7 in the fixture; R-CAT-SubAxis
+    // (now active post-MCP-CAT-001) emits `sub_axis_opened` on the current move.
+    expect(
+      muts.find(
+        (mu) => mu.mutation === 'sub_axis_opened' && mu.targetMoveId === 'm7',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('m8 R-CM-03 retargets from m1 (23-id fallback) to m7 (35-id sub-axis root)', () => {
+    const baseMuts = r23.mutationsByMoveId.get('m8') ?? [];
+    const extMuts = r35.mutationsByMoveId.get('m8') ?? [];
+    const baseSynth = baseMuts.find((mu) => mu.mutation === 'synthesis_ready');
+    const extSynth = extMuts.find((mu) => mu.mutation === 'synthesis_ready');
+    expect(baseSynth?.targetMoveId).toBe('m1');
+    expect(extSynth?.targetMoveId).toBe('m7');
   });
 });

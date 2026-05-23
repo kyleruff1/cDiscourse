@@ -25,9 +25,18 @@ describe('MCP-012 BATCH_CAP', () => {
 });
 
 describe('MCP-012 SEMANTIC_BATCH_GROUPS — partition property', () => {
-  it('has exactly five groups A-E', () => {
-    expect(SEMANTIC_BATCH_GROUPS).toHaveLength(5);
-    expect(SEMANTIC_BATCH_GROUPS.map((g) => g.id)).toEqual(['A', 'B', 'C', 'D', 'E']);
+  it('has exactly eight groups A-H (catalog v1, post-MCP-CAT-001)', () => {
+    expect(SEMANTIC_BATCH_GROUPS).toHaveLength(8);
+    expect(SEMANTIC_BATCH_GROUPS.map((g) => g.id)).toEqual([
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      'G',
+      'H',
+    ]);
   });
 
   it('each group has 4 or 5 classifier ids, never more than BATCH_CAP', () => {
@@ -37,7 +46,7 @@ describe('MCP-012 SEMANTIC_BATCH_GROUPS — partition property', () => {
     }
   });
 
-  it('the union of the five groups equals ALL_SEMANTIC_CLASSIFIER_IDS exactly', () => {
+  it('the union of all groups equals ALL_SEMANTIC_CLASSIFIER_IDS exactly', () => {
     const union = SEMANTIC_BATCH_GROUPS.flatMap((g) => g.classifierIds);
     const unionSet = new Set(union);
     const catalogSet = new Set(ALL_SEMANTIC_CLASSIFIER_IDS);
@@ -51,13 +60,13 @@ describe('MCP-012 SEMANTIC_BATCH_GROUPS — partition property', () => {
     }
     // Same size — proves a clean partition.
     expect(unionSet.size).toBe(catalogSet.size);
-    expect(catalogSet.size).toBe(23);
+    expect(catalogSet.size).toBe(35);
   });
 
-  it('the five groups are disjoint — no classifier id appears twice', () => {
+  it('the groups are disjoint — no classifier id appears twice', () => {
     const union = SEMANTIC_BATCH_GROUPS.flatMap((g) => g.classifierIds);
     expect(union.length).toBe(new Set(union).size);
-    expect(union.length).toBe(23);
+    expect(union.length).toBe(35);
   });
 });
 
@@ -134,14 +143,14 @@ describe('MCP-012 planClassifierBatches — one batch per group touched', () => 
     }
   });
 
-  it('the full catalog plans exactly five batches A-E', () => {
+  it('the full catalog plans exactly eight batches A-H (catalog v1, post-MCP-CAT-001)', () => {
     const batches = planClassifierBatches(ALL_SEMANTIC_CLASSIFIER_IDS);
-    expect(batches).toHaveLength(5);
+    expect(batches).toHaveLength(8);
   });
 
-  it('emits batches in fixed A-E group order', () => {
+  it('emits batches in fixed A-H group order', () => {
     // Request one id from group E then one from group A — output order
-    // follows A-E group order, not request order.
+    // follows A-H group order, not request order.
     const request: SemanticClassifierId[] = ['ready_for_synthesis', 'responds_to_parent'];
     const batches = planClassifierBatches(request);
     expect(batches).toHaveLength(2);

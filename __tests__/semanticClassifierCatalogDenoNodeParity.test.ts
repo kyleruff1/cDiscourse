@@ -39,8 +39,9 @@ const denoSrc = fs.readFileSync(DENO_CATALOG_PATH, 'utf8');
 /**
  * Extract the `SEMANTIC_CLASSIFIER_CATALOG` array span from a source file —
  * everything between `Object.freeze([` and the matching `]);` immediately
- * following the array. The 23 entries live inside this span. Used to compare
- * just the catalog literals, ignoring boilerplate / imports / comments.
+ * following the array. The 35 entries (catalog v1, post-MCP-CAT-001) live
+ * inside this span. Used to compare just the catalog literals, ignoring
+ * boilerplate / imports / comments.
  */
 function extractCatalogSpan(src: string): string {
   const startMarker = /SEMANTIC_CLASSIFIER_CATALOG[^=]*=\s*\n?\s*Object\.freeze\(\[\s*\n/;
@@ -62,7 +63,7 @@ function extractCatalogSpan(src: string): string {
 
 /**
  * Extract every `id: '<value>',` literal in declaration order. The catalog has
- * 23 entries so the result should have 23 strings.
+ * 35 entries (catalog v1) so the result should have 35 strings.
  */
 function extractIdLiterals(span: string): string[] {
   return Array.from(span.matchAll(/\bid:\s*'([^']+)'/g)).map((m) => m[1]);
@@ -132,13 +133,13 @@ describe('semantic classifier catalog — Node ↔ Deno source-text parity', () 
     expect(fs.existsSync(DENO_CATALOG_PATH)).toBe(true);
   });
 
-  it('both files contain a SEMANTIC_CLASSIFIER_CATALOG declaration with the same 23 ids in the same order', () => {
+  it('both files contain a SEMANTIC_CLASSIFIER_CATALOG declaration with the same 35 ids in the same order', () => {
     const nodeSpan = extractCatalogSpan(nodeSrc);
     const denoSpan = extractCatalogSpan(denoSrc);
     const nodeIds = extractIdLiterals(nodeSpan);
     const denoIds = extractIdLiterals(denoSpan);
-    expect(nodeIds).toHaveLength(23);
-    expect(denoIds).toHaveLength(23);
+    expect(nodeIds).toHaveLength(35);
+    expect(denoIds).toHaveLength(35);
     expect(nodeIds).toEqual(denoIds);
   });
 
@@ -155,40 +156,40 @@ describe('semantic classifier catalog — Node ↔ Deno source-text parity', () 
   it('every per-id bannerCode literal matches between the Node and Deno files', () => {
     const nodeCodes = extractBannerCodes(extractCatalogSpan(nodeSrc));
     const denoCodes = extractBannerCodes(extractCatalogSpan(denoSrc));
-    expect(nodeCodes).toHaveLength(23);
-    expect(denoCodes).toHaveLength(23);
+    expect(nodeCodes).toHaveLength(35);
+    expect(denoCodes).toHaveLength(35);
     expect(denoCodes).toEqual(nodeCodes);
   });
 
   it('every per-id ledgerFeedbackCode literal matches between the Node and Deno files', () => {
     const nodeCodes = extractLedgerCodes(extractCatalogSpan(nodeSrc));
     const denoCodes = extractLedgerCodes(extractCatalogSpan(denoSrc));
-    expect(nodeCodes).toHaveLength(23);
-    expect(denoCodes).toHaveLength(23);
+    expect(nodeCodes).toHaveLength(35);
+    expect(denoCodes).toHaveLength(35);
     expect(denoCodes).toEqual(nodeCodes);
   });
 
   it('every per-id family literal matches between the Node and Deno files', () => {
     const nodeFamilies = extractFamilies(extractCatalogSpan(nodeSrc));
     const denoFamilies = extractFamilies(extractCatalogSpan(denoSrc));
-    expect(nodeFamilies).toHaveLength(23);
-    expect(denoFamilies).toHaveLength(23);
+    expect(nodeFamilies).toHaveLength(35);
+    expect(denoFamilies).toHaveLength(35);
     expect(denoFamilies).toEqual(nodeFamilies);
   });
 
   it('every per-id bannerCodePriorityList literal matches between the Node and Deno files (MCP-MOD-006)', () => {
     const nodeLists = extractBannerPriorityLists(extractCatalogSpan(nodeSrc));
     const denoLists = extractBannerPriorityLists(extractCatalogSpan(denoSrc));
-    expect(nodeLists).toHaveLength(23);
-    expect(denoLists).toHaveLength(23);
+    expect(nodeLists).toHaveLength(35);
+    expect(denoLists).toHaveLength(35);
     expect(denoLists).toEqual(nodeLists);
   });
 
   it('every per-id ledgerCategories literal matches between the Node and Deno files (MCP-MOD-006)', () => {
     const nodeLists = extractLedgerCategoriesLists(extractCatalogSpan(nodeSrc));
     const denoLists = extractLedgerCategoriesLists(extractCatalogSpan(denoSrc));
-    expect(nodeLists).toHaveLength(23);
-    expect(denoLists).toHaveLength(23);
+    expect(nodeLists).toHaveLength(35);
+    expect(denoLists).toHaveLength(35);
     expect(denoLists).toEqual(nodeLists);
   });
 

@@ -140,6 +140,32 @@ const localOnlyClassifierToBanners: Readonly<
     'synthesis_almost_there',
     'synthesis_sides_converging',
   ]),
+  // MCP-CAT-001 — 12 catalog v1 extension ids. Each new id maps to its primary
+  // bannerCode (same posture as the single-entry catalog v0 ids above). The
+  // entries below mirror `SEMANTIC_CLASSIFIER_CATALOG`'s `bannerCodePriorityList`
+  // for each new id.
+  disputes_evidence_applicability: Object.freeze([
+    'evidence_debt_applicability_disputed',
+  ]),
+  references_prior_agreement: Object.freeze(['synthesis_prior_agreement_cited']),
+  provides_temporal_constraint: Object.freeze(['synthesis_temporal_anchor_added']),
+  accepts_partial_with_caveat: Object.freeze([
+    'synthesis_qualified_concession_with_caveat',
+  ]),
+  provides_alternate_interpretation: Object.freeze([
+    'synthesis_alternate_interpretation_offered',
+  ]),
+  opens_evidence_debt_marker: Object.freeze(['evidence_debt_marker_opened']),
+  closes_evidence_debt_marker: Object.freeze(['evidence_debt_marker_closed']),
+  supplies_corroborating_document: Object.freeze([
+    'evidence_debt_corroborating_document',
+  ]),
+  introduces_sub_axis: Object.freeze(['synthesis_sub_axis_introduced']),
+  concedes_with_new_dispute: Object.freeze([
+    'synthesis_concession_with_new_dispute',
+  ]),
+  proposes_settlement_terms: Object.freeze(['synthesis_settlement_proposed']),
+  accepts_settlement_terms: Object.freeze(['synthesis_settlement_accepted']),
 });
 
 // ── Pre-refactor reference impl ───────────────────────────────────

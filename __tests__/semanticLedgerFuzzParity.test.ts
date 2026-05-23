@@ -251,18 +251,20 @@ describe('MCP-MOD-006 — catalog-derived classifierFor parity with pre-refactor
     expect(Object.keys(seen).length).toBe(10);
   });
 
-  it('the 14 catalog ids without a ledgerCategories entry are exactly the documented set', () => {
-    // 23 catalog ids total. 9 ids carry at least one ledgerCategories entry
-    // (one id — `responds_to_parent` — surfaces under TWO categories:
-    // `continuity` AND `direct_response`, the only multi-category id in
-    // catalog v0). That gives 10 (category, id) pairs. The remaining 14 ids
-    // contribute only through `scoreHints`, the anti-amplification context,
-    // or layer-1 facts and so carry no per-id ledger category.
+  it('the 26 catalog ids without a ledgerCategories entry are exactly the documented set (catalog v1, post-MCP-CAT-001)', () => {
+    // 35 catalog ids total (catalog v1). 9 ids carry at least one
+    // ledgerCategories entry (one id — `responds_to_parent` — surfaces under
+    // TWO categories: `continuity` AND `direct_response`, the only
+    // multi-category id in catalog v1). That gives 10 (category, id) pairs.
+    // The remaining 26 ids (14 from catalog v0 + 12 from MCP-CAT-001) contribute
+    // through `scoreHints`, the anti-amplification context, banner-only
+    // surfacing, or layer-1 facts and so carry no per-id ledger category.
     const without = SEMANTIC_CLASSIFIER_CATALOG.filter(
       (e) => e.ledgerCategories.length === 0,
     ).map((e) => e.id);
     expect(new Set(without)).toEqual(
       new Set([
+        // ── catalog v0 (14) ─────────────────────────────────────────
         'introduces_new_issue',
         'asks_for_evidence',
         'narrows_claim',
@@ -277,9 +279,22 @@ describe('MCP-MOD-006 — catalog-derived classifierFor parity with pre-refactor
         'creates_source_chain_gap',
         'suggests_diagonal_tangent',
         'needs_pre_send_pause',
+        // ── MCP-CAT-001 / catalog v1 (12) ───────────────────────────
+        'disputes_evidence_applicability',
+        'references_prior_agreement',
+        'provides_temporal_constraint',
+        'accepts_partial_with_caveat',
+        'provides_alternate_interpretation',
+        'opens_evidence_debt_marker',
+        'closes_evidence_debt_marker',
+        'supplies_corroborating_document',
+        'introduces_sub_axis',
+        'concedes_with_new_dispute',
+        'proposes_settlement_terms',
+        'accepts_settlement_terms',
       ]),
     );
-    expect(without.length).toBe(14);
+    expect(without.length).toBe(26);
   });
 });
 
