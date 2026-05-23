@@ -64,6 +64,9 @@ data/engagement-intelligence/local/
 # scripts/github/agentIssueRunner.js)
 .claude/worktrees/
 
+# Claude Code local backup snapshots of agent/skill/script bundles
+.claude/*.zip
+
 # typescript
 *.tsbuildinfo
 

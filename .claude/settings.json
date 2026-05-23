@@ -1,5 +1,16 @@
 {
   "enabledPlugins": {
     "expo@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm run test)",
+      "Bash(npm run skills:validate)",
+      "Bash(npm run ux:terminology:audit)",
+      "Bash(gh project item-list *)",
+      "Bash(npm run checkpoint)"
+    ]
   }
 }
