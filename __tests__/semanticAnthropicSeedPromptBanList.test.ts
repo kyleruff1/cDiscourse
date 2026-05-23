@@ -4,10 +4,10 @@
  *
  * The structural mirror test for `seedPrompt.ts` (design §"Open item 2"). It
  * does NOT assert byte-identity against MCP-002's seed bank — the id
- * vocabularies differ (90 verbose seed ids vs 23 catalog ids, OQ-2). Instead it
- * asserts the three safety-relevant invariants:
+ * vocabularies differ (90 verbose seed ids vs 35 catalog ids post-MCP-CAT-001,
+ * OQ-2). Instead it asserts the three safety-relevant invariants:
  *
- *   1. `SEMANTIC_CLASSIFIER_CATALOG` has an entry for every one of the 23
+ *   1. `SEMANTIC_CLASSIFIER_CATALOG` has an entry for every one of the 35
  *      `ALL_SEMANTIC_CLASSIFIER_IDS` and NO extra ids (id-coverage parity — a
  *      future catalog change without an id-union edit fails CI). Post-MCP-MOD-005
  *      the catalog itself is the source of truth (the prior
@@ -131,7 +131,7 @@ describe('seed prompt — id-coverage parity with the catalog', () => {
     }
   });
 
-  it('SEMANTIC_CLASSIFIER_CATALOG has NO extra ids beyond the 23 catalog ids', () => {
+  it('SEMANTIC_CLASSIFIER_CATALOG has NO extra ids beyond the 35 catalog ids', () => {
     const catalog = new Set<string>(ALL_SEMANTIC_CLASSIFIER_IDS as readonly string[]);
     for (const id of DENO_CATALOG_BY_ID.keys()) {
       expect(catalog.has(id)).toBe(true);
@@ -139,8 +139,8 @@ describe('seed prompt — id-coverage parity with the catalog', () => {
     expect(DENO_CATALOG_BY_ID.size).toBe(ALL_SEMANTIC_CLASSIFIER_IDS.length);
   });
 
-  it('there are exactly 23 catalog ids (the frozen catalog-v0 set)', () => {
-    expect(ALL_SEMANTIC_CLASSIFIER_IDS).toHaveLength(23);
+  it('there are exactly 35 catalog ids (catalog v1, post-MCP-CAT-001)', () => {
+    expect(ALL_SEMANTIC_CLASSIFIER_IDS).toHaveLength(35);
   });
 
   it('the Deno catalog id list matches the Node catalog id list', () => {

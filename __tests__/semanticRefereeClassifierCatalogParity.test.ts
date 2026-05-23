@@ -77,9 +77,11 @@ describe('classifier-catalog inventory parity (MCP-MOD-002)', () => {
     expect(missing).toEqual([]);
   });
 
-  it('catalogs exactly 23 classifier ids — no more, no fewer', () => {
-    // Independent sanity check; MCP-MOD-002 design §3 freezes catalog v0 at 23.
-    expect(DENO_ALL_SEMANTIC_CLASSIFIER_IDS.length).toBe(23);
+  it('catalogs exactly 35 classifier ids — no more, no fewer (catalog v1, post-MCP-CAT-001)', () => {
+    // Independent sanity check; MCP-CAT-001 extended catalog v0's 23 ids to
+    // catalog v1's 35 ids (12 new: evidence applicability, qualified
+    // concessions, structural patterns, settlement).
+    expect(DENO_ALL_SEMANTIC_CLASSIFIER_IDS.length).toBe(35);
   });
 
   it('renders every AI question byte-for-byte the same as the catalog structuralQuestion', () => {

@@ -309,6 +309,22 @@ export const PLAIN_LANGUAGE_COPY = {
   evidence_debt_connect_it: 'Evidence is here — connect it to the exact claim.',
   evidence_debt_open_still: 'A source is still open on this point.',
   evidence_debt_a_source_would_help: 'A source would carry this point further.',
+  // MCP-CAT-001 evidence_debt extensions (8) — applicability / debt-marker /
+  // corroborating-document banners introduced with catalog v1.
+  evidence_debt_applicability_disputed:
+    'Applicability disputed — what the evidence covers is in play.',
+  evidence_debt_applicability_disputed_soft:
+    'This may dispute what the evidence covers.',
+  evidence_debt_marker_opened:
+    'Source requested — a tracked evidence-debt marker is open.',
+  evidence_debt_marker_opened_soft: 'A tracked source request may be opening here.',
+  evidence_debt_marker_closed: 'Source supplied — evidence-debt marker closed.',
+  evidence_debt_marker_closed_soft:
+    'This looks like it closes a tracked source request.',
+  evidence_debt_corroborating_document:
+    'Corroborating document attached — supports a prior claim.',
+  evidence_debt_corroborating_document_soft:
+    'This may attach a corroborating document.',
   // hot_take (9)
   hot_take_playable: 'Bold move — and it stays playable.',
   hot_take_playable_soft: 'This reads as a bold but playable move.',
@@ -368,6 +384,39 @@ export const PLAIN_LANGUAGE_COPY = {
     'This may be a narrow concession that keeps the broad point.',
   synthesis_nice_narrowing: 'Nice narrowing — the broader point holds.',
   synthesis_nice_narrowing_soft: 'This looks like a narrowing that keeps the broader point.',
+  // MCP-CAT-001 synthesis_readiness extensions (16) — movement / qualified-
+  // concession / sub-axis / settlement banners introduced with catalog v1.
+  // Every line names a STRUCTURAL move shape; settlement copy follows the
+  // band-space-rent scenario's `permittedSettlementLanguage` (settled /
+  // resolved / accepted) and avoids `forbiddenSettlementLanguage`.
+  synthesis_prior_agreement_cited: 'Prior agreement cited — context for the dispute.',
+  synthesis_prior_agreement_cited_soft:
+    'This may be citing a prior agreement between participants.',
+  synthesis_temporal_anchor_added:
+    'Temporal anchor added — a date or boundary for the dispute.',
+  synthesis_temporal_anchor_added_soft: 'A date or boundary may be added here.',
+  synthesis_qualified_concession_with_caveat:
+    'Agreed with caveat — the point lands; a qualifier stays.',
+  synthesis_qualified_concession_with_caveat_soft:
+    'This reads as a partial agreement with a caveat.',
+  synthesis_alternate_interpretation_offered:
+    'Alternate reading offered for an existing artifact.',
+  synthesis_alternate_interpretation_offered_soft:
+    'An alternate reading may be offered for an existing artifact.',
+  synthesis_sub_axis_introduced: 'New sub-dispute opened on the same mainline.',
+  synthesis_sub_axis_introduced_soft:
+    'A more specific sub-dispute may be opening here.',
+  synthesis_concession_with_new_dispute:
+    'Conceded on one axis; a new dispute opens on another.',
+  synthesis_concession_with_new_dispute_soft:
+    'This may concede on one axis and open another.',
+  synthesis_settlement_proposed:
+    'Settlement proposed — resolution terms on the table.',
+  synthesis_settlement_proposed_soft: 'This may be proposing resolution terms.',
+  synthesis_settlement_accepted:
+    'Settlement accepted — resolution terms agreed.',
+  synthesis_settlement_accepted_soft:
+    'This looks like an acceptance of proposed resolution terms.',
   // quote_needed (8)
   quote_needed_exact_excerpt: 'Source is here — the exact quote is still needed.',
   quote_needed_pin_the_passage: 'Pin the exact passage you mean.',

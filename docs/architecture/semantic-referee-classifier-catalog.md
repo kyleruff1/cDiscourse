@@ -1,7 +1,7 @@
-# Semantic-referee classifier catalog (v0)
+# Semantic-referee classifier catalog (v1)
 
-**Card:** MCP-MOD-002 (Rules UX · P2 · S · Release 6.9 · Movement A).
-**Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts` — the `ALL_SEMANTIC_CLASSIFIER_IDS` constant freezes the 23-id catalog v0.
+**Card:** MCP-MOD-002 (initial inventory) extended by MCP-CAT-001 (catalog v1 extension).
+**Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts` — the `ALL_SEMANTIC_CLASSIFIER_IDS` constant freezes the 35-id catalog v1 (catalog v0's 23 ids + MCP-CAT-001's 12 new ids).
 **AI question source-of-truth:** `supabase/functions/_shared/semanticReferee/seedPrompt.ts` — `CLASSIFIER_QUESTION_TEXT`.
 **Banner mapping source-of-truth:** `src/features/refereeBanners/classifierBannerMap.ts` — `CLASSIFIER_TO_BANNERS`.
 **Ledger mapping source-of-truth:** `src/features/refereeLedger/reconcileMove.ts` — the `classifierFor` table inside `l2SignalForCategory` plus the per-category `RefereeFeedbackCode` (`src/features/refereeLedger/types.ts`).
@@ -36,7 +36,8 @@ Each id has five rows:
   (`ALL_SEMANTIC_CLASSIFIER_IDS`) is the canonical id list for every entry. Listed per row so a future
   source-of-truth move (MCP-MOD-004) only needs to update this column.
 
-The family grouping matches the MCP-MOD-002 design (§3): five sections totaling 23 ids.
+The family grouping matches the MCP-MOD-002 design (§3): five sections totaling 23 ids (catalog v0).
+MCP-CAT-001 added a sixth section (§F) carrying the 12 catalog v1 extension ids; total is 35.
 
 ---
 
@@ -470,6 +471,220 @@ Is this move only an insult, with no claim, question, or evidence to engage?
 
 ---
 
+## §F — MCP-CAT-001 extensions (12 ids — catalog v1)
+
+The MCP-CAT-001 catalog extension landed 12 new ids surfaced by the band-space-rent evidence scenario
+(`fixtures/argument-scenarios/catalog-design-band-space-rent-evidence.json`) and documented in the
+catalog design at `docs/roadmap-expansions/2026-05-23-binary-classifier-catalog-design.md` §5. Two
+settlement ids (`proposes_settlement_terms` / `accepts_settlement_terms`) were operator-specified
+extensions; their structural questions were derived from the scenario's `expectedSettlement` section.
+
+Every new id has a per-id `bannerCode` (no intentional silence in this batch) and a `null`
+`ledgerFeedbackCode` (the new ids surface through the banner library and through new composition
+rules, not through the per-category ledger lookup — see "Classifier ids with no ledger feedback
+mapping" below for the consolidated count).
+
+### `disputes_evidence_applicability`
+
+- **Binary signal:** The move challenges what an attached evidence object COVERS rather than whether
+  the evidence exists.
+- **AI question:**
+
+<!-- ai-question:disputes_evidence_applicability -->
+```
+Does this move challenge what an attached evidence object covers rather than whether it exists?
+```
+
+- **Banner code:** `evidence_debt_applicability_disputed`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library and the
+  `R-EV-APP-01` composition rule).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `references_prior_agreement`
+
+- **Binary signal:** The move cites a prior agreement between the participants that bears on the
+  current dispute.
+- **AI question:**
+
+<!-- ai-question:references_prior_agreement -->
+```
+Does this move cite a prior agreement between the participants that bears on the current dispute?
+```
+
+- **Banner code:** `synthesis_prior_agreement_cited`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `provides_temporal_constraint`
+
+- **Binary signal:** The move cites a specific date, timeline, or temporal boundary that constrains
+  the dispute.
+- **AI question:**
+
+<!-- ai-question:provides_temporal_constraint -->
+```
+Does this move cite a specific date, timeline, or temporal boundary that constrains the dispute?
+```
+
+- **Banner code:** `synthesis_temporal_anchor_added`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `accepts_partial_with_caveat`
+
+- **Binary signal:** The move accepts a specific point raised by the parent while qualifying or
+  restricting the acceptance.
+- **AI question:**
+
+<!-- ai-question:accepts_partial_with_caveat -->
+```
+Does this move accept a specific point raised by the parent while qualifying or restricting the acceptance?
+```
+
+- **Banner code:** `synthesis_qualified_concession_with_caveat`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library and the
+  `R-CAT-QualifiedConcession` composition rule).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `provides_alternate_interpretation`
+
+- **Binary signal:** The move offers an alternate reading of an existing artifact (note text, date,
+  label) that the parent treated as fixed.
+- **AI question:**
+
+<!-- ai-question:provides_alternate_interpretation -->
+```
+Does this move offer an alternate reading of an existing artifact that the parent treated as fixed?
+```
+
+- **Banner code:** `synthesis_alternate_interpretation_offered`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `opens_evidence_debt_marker`
+
+- **Binary signal:** The move opens a structured evidence-debt marker — a tracked Ask-for-source
+  request distinct from a rhetorical ask.
+- **AI question:**
+
+<!-- ai-question:opens_evidence_debt_marker -->
+```
+Does this move open a structured evidence-debt marker (a tracked Ask-for-source request)?
+```
+
+- **Banner code:** `evidence_debt_marker_opened`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `closes_evidence_debt_marker`
+
+- **Binary signal:** The move responds to an open evidence-debt marker with the requested source or
+  quote.
+- **AI question:**
+
+<!-- ai-question:closes_evidence_debt_marker -->
+```
+Does this move respond to an open evidence-debt marker with the requested source or quote?
+```
+
+- **Banner code:** `evidence_debt_marker_closed`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `supplies_corroborating_document`
+
+- **Binary signal:** The move attaches a document that corroborates a prior claim on the timeline
+  rather than introducing new primary evidence.
+- **AI question:**
+
+<!-- ai-question:supplies_corroborating_document -->
+```
+Does this move attach a document that corroborates a prior claim rather than introducing primary evidence?
+```
+
+- **Banner code:** `evidence_debt_corroborating_document`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library and the
+  `R-CAT-Corroborating` composition rule).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `introduces_sub_axis`
+
+- **Binary signal:** The move opens a new, more specific sub-dispute on the SAME mainline rather
+  than continuing the parent axis.
+- **AI question:**
+
+<!-- ai-question:introduces_sub_axis -->
+```
+Does this move open a new, more specific sub-dispute on the same mainline rather than continuing the parent axis?
+```
+
+- **Banner code:** `synthesis_sub_axis_introduced`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library and the
+  `R-CAT-SubAxis` composition rule, which fires
+  `sub_axis_opened` on the current move and records a `SubAxisState` on the composition state).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `concedes_with_new_dispute`
+
+- **Binary signal:** The move pairs a concession on one axis with a new dispute on a different axis.
+- **AI question:**
+
+<!-- ai-question:concedes_with_new_dispute -->
+```
+Does this move pair a concession on one axis with a new dispute on a different axis?
+```
+
+- **Banner code:** `synthesis_concession_with_new_dispute`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library; the paired
+  concede-and-open pattern is also expressible as a composition rule that AND's
+  `concedes_narrow_point=1` with `introduces_sub_axis=1`).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `proposes_settlement_terms`
+
+- **Binary signal:** The move proposes a settlement summary or resolution terms the other
+  participant could accept.
+- **AI question:**
+
+<!-- ai-question:proposes_settlement_terms -->
+```
+Does this move propose a settlement summary or resolution terms the other participant could accept?
+```
+
+- **Banner code:** `synthesis_settlement_proposed`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library and the
+  `R-CAT-Settlement` composition rule).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+### `accepts_settlement_terms`
+
+- **Binary signal:** The move accepts a proposed settlement summary or resolution terms.
+- **AI question:**
+
+<!-- ai-question:accepts_settlement_terms -->
+```
+Does this move accept a proposed settlement summary or resolution terms?
+```
+
+- **Banner code:** `synthesis_settlement_accepted`.
+- **Ledger feedback code:** — (not yet mapped — surfaces through the banner library and the
+  `R-CAT-Settlement` composition rule).
+- **Source-of-truth file (today):** `supabase/functions/_shared/semanticReferee/types.ts`
+  (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+
+---
+
 ## Findings
 
 These findings are **informational** — the design (MCP-MOD-002 §6) names them as inputs to MCP-MOD-004
@@ -483,13 +698,15 @@ These findings are **informational** — the design (MCP-MOD-002 §6) names them
   preserve this carve-out by lifting the silence flag into the source-of-truth metadata rather than
   re-deriving it from an empty array.
 
-### Classifier ids with no ledger feedback mapping (12)
+### Classifier ids with no ledger feedback mapping (24, catalog v1)
 
-The ledger today maps 11 of the 23 classifier ids to a `RefereeFeedbackCode` via
-`reconcileMove.l2SignalForCategory`'s `classifierFor` table. The remaining 12 ids contribute either
-through `scoreHints` (the six `SemanticScoreHints` integers — `continuityCredit`, `evidencePressure`,
-`branchHygiene`, `synthesisReadiness`, `sourceChainDebt`, `unresolvedRedirectRisk`) or through the
-anti-amplification context — they have no direct per-id `classifierFor` row:
+The ledger today maps 11 of the 35 classifier ids to a `RefereeFeedbackCode` via
+`reconcileMove.l2SignalForCategory`'s `classifierFor` table (the same 11 catalog-v0 ids — MCP-CAT-001
+did NOT add per-id ledger mappings for the new ids; they surface through the banner library and the
+composition layer). The remaining 24 ids contribute either through `scoreHints` (the six
+`SemanticScoreHints` integers — `continuityCredit`, `evidencePressure`, `branchHygiene`,
+`synthesisReadiness`, `sourceChainDebt`, `unresolvedRedirectRisk`) or through the anti-amplification
+context or the banner library — they have no direct per-id `classifierFor` row:
 
 - `introduces_new_issue` — surfaces via the `branch_hygiene` / `suggests_side_branch` path.
 - `answers_clarification` — `clarification` category keys off `requests_clarification`.
@@ -505,11 +722,29 @@ anti-amplification context — they have no direct per-id `classifierFor` row:
 - `is_satire_or_parody` — no `classifierFor` row.
 - `suggests_diagonal_tangent` — `branch_hygiene` category keys off `suggests_side_branch`.
 - `contains_unplayable_insult_only` — intentionally silent on both the banner and ledger sides.
+- `disputes_evidence_applicability` (MCP-CAT-001) — surfaces through the banner library and the
+  `R-EV-APP-01` composition rule.
+- `references_prior_agreement` (MCP-CAT-001) — surfaces through the banner library.
+- `provides_temporal_constraint` (MCP-CAT-001) — surfaces through the banner library.
+- `accepts_partial_with_caveat` (MCP-CAT-001) — surfaces through the banner library and the
+  `R-CAT-QualifiedConcession` composition rule.
+- `provides_alternate_interpretation` (MCP-CAT-001) — surfaces through the banner library.
+- `opens_evidence_debt_marker` (MCP-CAT-001) — surfaces through the banner library.
+- `closes_evidence_debt_marker` (MCP-CAT-001) — surfaces through the banner library.
+- `supplies_corroborating_document` (MCP-CAT-001) — surfaces through the banner library and the
+  `R-CAT-Corroborating` composition rule.
+- `introduces_sub_axis` (MCP-CAT-001) — surfaces through the banner library and the `R-CAT-SubAxis`
+  composition rule.
+- `concedes_with_new_dispute` (MCP-CAT-001) — surfaces through the banner library.
+- `proposes_settlement_terms` (MCP-CAT-001) — surfaces through the banner library and the
+  `R-CAT-Settlement` composition rule.
+- `accepts_settlement_terms` (MCP-CAT-001) — surfaces through the banner library and the
+  `R-CAT-Settlement` composition rule.
 
 The pattern is consistent: ids whose downstream effect is routing, friction-suggestion, anti-
-amplification, or pacing currently bypass `classifierFor`. MCP-MOD-004 should decide whether to encode
-the per-category routing through the source-of-truth (one canonical place) or keep the implicit
-`classifierFor` map and treat the gap as the documented design.
+amplification, pacing, banner-only surfacing, or composition-rule-only surfacing currently bypass
+`classifierFor`. MCP-CAT-001 added 12 new ids in this same posture (banner + composition, no
+`classifierFor` row).
 
 ### Wording-vs-family drift (none observed)
 

@@ -24,14 +24,25 @@ import type { SemanticClassifierId } from './semanticRefereeTypes';
  */
 export const BATCH_CAP = 5 as const;
 
-/** The five MCP-004 §"batching" groups — each ≤ 5; together partition the catalog. */
-export type SemanticBatchGroupId = 'A' | 'B' | 'C' | 'D' | 'E';
+/**
+ * The MCP-004 §"batching" groups — each ≤ 5; together partition the catalog.
+ *
+ * MCP-CAT-001 added groups F, G, H to carry the 12 new catalog v1 ids
+ * (evidence applicability, qualified concessions, sub-axis, settlement). Each
+ * new group respects `BATCH_CAP` (≤ 5 ids). The partition property
+ * (`semanticBatching.test.ts`) is preserved: the union of all groups equals
+ * `ALL_SEMANTIC_CLASSIFIER_IDS` exactly, no overlap, no omission. The catalog
+ * design §14 reviewer-question #6 anticipated this — "with 12 new ids,
+ * batching for post-submit moments may need to grow to 3 batches" — three new
+ * groups land the 12 new ids without changing `BATCH_CAP`.
+ */
+export type SemanticBatchGroupId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
 
 export interface SemanticBatchGroup {
   id: SemanticBatchGroupId;
   /** Plain-language group label — internal docs only, never user-reachable. */
   label: string;
-  /** Length 4 or 5, ≤ BATCH_CAP. */
+  /** Length 1..5, ≤ BATCH_CAP. */
   classifierIds: readonly SemanticClassifierId[];
 }
 
@@ -39,10 +50,11 @@ export interface SemanticBatchGroup {
 export type ClassifierBatch = readonly SemanticClassifierId[];
 
 /**
- * The five A-E batch groups (MCP-004 §"batching"). The union of the five
- * `classifierIds` lists equals `ALL_SEMANTIC_CLASSIFIER_IDS` exactly — 23 ids,
- * no overlap, no omission. `semanticBatching.test.ts` asserts the partition
- * property against MCP-011's catalog so the two cannot drift.
+ * The A-H batch groups (MCP-004 §"batching", extended by MCP-CAT-001). The
+ * union of all `classifierIds` lists equals `ALL_SEMANTIC_CLASSIFIER_IDS`
+ * exactly — 35 ids (catalog v1), no overlap, no omission.
+ * `semanticBatching.test.ts` asserts the partition property against MCP-011's
+ * catalog so the two cannot drift.
  */
 export const SEMANTIC_BATCH_GROUPS: readonly SemanticBatchGroup[] = Object.freeze([
   Object.freeze({
@@ -96,6 +108,37 @@ export const SEMANTIC_BATCH_GROUPS: readonly SemanticBatchGroup[] = Object.freez
       'ready_for_synthesis',
       'needs_pre_send_pause',
       'shifts_to_person_or_intent',
+    ] as const),
+  }),
+  // ── MCP-CAT-001 (catalog v1) — three new groups for the 12 new ids ──
+  Object.freeze({
+    id: 'F',
+    label: 'Evidence applicability and debt markers',
+    classifierIds: Object.freeze([
+      'disputes_evidence_applicability',
+      'opens_evidence_debt_marker',
+      'closes_evidence_debt_marker',
+      'supplies_corroborating_document',
+    ] as const),
+  }),
+  Object.freeze({
+    id: 'G',
+    label: 'Qualified concessions and structural anchors',
+    classifierIds: Object.freeze([
+      'accepts_partial_with_caveat',
+      'provides_alternate_interpretation',
+      'references_prior_agreement',
+      'provides_temporal_constraint',
+    ] as const),
+  }),
+  Object.freeze({
+    id: 'H',
+    label: 'Sub-axis introduction and settlement',
+    classifierIds: Object.freeze([
+      'introduces_sub_axis',
+      'concedes_with_new_dispute',
+      'proposes_settlement_terms',
+      'accepts_settlement_terms',
     ] as const),
   }),
 ]);

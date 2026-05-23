@@ -3,9 +3,12 @@
  *
  * Proves the >=103-entry library meets the MCP-008 §5.1 category floors, that
  * every bannerCode is unique, that softened siblings resolve correctly, that
- * `CLASSIFIER_TO_BANNERS` keys exactly the 23-id catalog, that
- * `FEEDBACK_CODE_TO_BANNER` keys exactly the 22 feedback codes, and that every
- * mapped bannerCode resolves in `BANNER_BY_CODE`.
+ * `CLASSIFIER_TO_BANNERS` keys exactly the 35-id catalog (post-MCP-CAT-001),
+ * that `FEEDBACK_CODE_TO_BANNER` keys exactly the 22 feedback codes, and that
+ * every mapped bannerCode resolves in `BANNER_BY_CODE`.
+ *
+ * MCP-CAT-001 added 24 entries (4 primary + 4 soft to `evidence_debt`, 8
+ * primary + 8 soft to `synthesis_readiness`) so the total exact count is 127.
  */
 
 import {
@@ -41,8 +44,8 @@ describe('MCP-014 banner library — size + category floors', () => {
     expect(REFEREE_BANNER_LIBRARY.length).toBeGreaterThanOrEqual(100);
   });
 
-  it('holds exactly 103 banners', () => {
-    expect(REFEREE_BANNER_LIBRARY.length).toBe(103);
+  it('holds exactly 127 banners (catalog v1, post-MCP-CAT-001)', () => {
+    expect(REFEREE_BANNER_LIBRARY.length).toBe(127);
   });
 
   it('each of the 12 categories meets its MCP-008 §5.1 floor count', () => {
@@ -116,7 +119,7 @@ describe('MCP-014 banner library — softened siblings', () => {
 });
 
 describe('MCP-014 banner library — CLASSIFIER_TO_BANNERS coverage', () => {
-  it('keys exactly the 23-id SemanticClassifierId catalog', () => {
+  it('keys exactly the 35-id SemanticClassifierId catalog (post-MCP-CAT-001)', () => {
     const mapKeys = Object.keys(CLASSIFIER_TO_BANNERS).sort();
     const catalog = [...ALL_SEMANTIC_CLASSIFIER_IDS].sort();
     expect(mapKeys).toEqual(catalog);

@@ -24,15 +24,20 @@ import {
 } from '../src/lib/constitution/semanticClassifierCatalog';
 
 /**
- * The pre-MCP-MOD-006 frozen reference. For every classifier id in
- * `ALL_SEMANTIC_CLASSIFIER_IDS`, the value `toPlainLanguage(id)` returned
- * BEFORE the catalog override was wired in. Captured by reading the
- * pre-refactor `PLAIN_LANGUAGE_COPY` table for each id directly.
+ * The pre-MCP-MOD-006 frozen reference, extended for MCP-CAT-001's 12 new ids.
+ * For every classifier id in `ALL_SEMANTIC_CLASSIFIER_IDS`, the value
+ * `toPlainLanguage(id)` returned BEFORE the catalog override was wired in.
+ * Captured by reading the pre-refactor `PLAIN_LANGUAGE_COPY` table for each
+ * id directly.
  *
  * Authored from the inline table snapshot in `gameCopy.ts` pre-refactor:
  * only `ready_for_synthesis` had a matching key in `PLAIN_LANGUAGE_COPY`
  * (the value `'Ready for synthesis'`). Every other classifier id had no
  * matching key, so `toPlainLanguage` returned `null`.
+ *
+ * The 12 MCP-CAT-001 ids likewise have no `PLAIN_LANGUAGE_COPY` entry under
+ * their classifier-id key (the gameCopy table maps banner codes, not classifier
+ * ids, for the new ids); `toPlainLanguage` returns `null` for them too.
  */
 const PRE_REFACTOR_PLAIN_LANGUAGE: Readonly<Record<string, string | null>> =
   Object.freeze({
@@ -59,10 +64,24 @@ const PRE_REFACTOR_PLAIN_LANGUAGE: Readonly<Record<string, string | null>> =
     fits_selected_debate_mode: null,
     needs_pre_send_pause: null,
     ready_for_synthesis: 'Ready for synthesis',
+    // ── MCP-CAT-001 (catalog v1) — 12 new ids, all null (same posture as
+    //    the catalog v0 ids without a PLAIN_LANGUAGE_COPY override).
+    disputes_evidence_applicability: null,
+    references_prior_agreement: null,
+    provides_temporal_constraint: null,
+    accepts_partial_with_caveat: null,
+    provides_alternate_interpretation: null,
+    opens_evidence_debt_marker: null,
+    closes_evidence_debt_marker: null,
+    supplies_corroborating_document: null,
+    introduces_sub_axis: null,
+    concedes_with_new_dispute: null,
+    proposes_settlement_terms: null,
+    accepts_settlement_terms: null,
   });
 
 describe('MCP-MOD-006 — toPlainLanguage parity for every classifier id', () => {
-  it('the pre-refactor reference covers all 23 classifier ids', () => {
+  it('the pre-refactor reference covers all 35 classifier ids (catalog v1, post-MCP-CAT-001)', () => {
     expect(Object.keys(PRE_REFACTOR_PLAIN_LANGUAGE).sort()).toEqual(
       [...ALL_SEMANTIC_CLASSIFIER_IDS].sort(),
     );

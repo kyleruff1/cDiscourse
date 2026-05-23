@@ -59,8 +59,8 @@ const KNOWN_FAMILIES: ReadonlyArray<SemanticClassifierFamily> = [
 ];
 
 describe('semantic classifier catalog — id-coverage parity', () => {
-  it('has exactly 23 entries (the frozen catalog-v0 set)', () => {
-    expect(SEMANTIC_CLASSIFIER_CATALOG).toHaveLength(23);
+  it('has exactly 35 entries (catalog v1, post-MCP-CAT-001)', () => {
+    expect(SEMANTIC_CLASSIFIER_CATALOG).toHaveLength(35);
   });
 
   it('declares entries in the same order as ALL_SEMANTIC_CLASSIFIER_IDS', () => {
@@ -122,7 +122,7 @@ describe('semantic classifier catalog — family parity', () => {
     }
   });
 
-  it('the six families partition the 23 ids — every family has at least one entry', () => {
+  it('the six families partition the 35 ids — every family has at least one entry', () => {
     const byFamily = new Map<SemanticClassifierFamily, number>();
     for (const entry of SEMANTIC_CLASSIFIER_CATALOG) {
       byFamily.set(entry.family, (byFamily.get(entry.family) ?? 0) + 1);
@@ -218,7 +218,11 @@ describe('semantic classifier catalog — ledger-categories parity (MCP-MOD-006)
     expect(Object.keys(seen).length).toBe(10);
   });
 
-  it('exactly 9 ids carry at least one ledgerCategories entry; 14 carry none', () => {
+  it('exactly 9 ids carry at least one ledgerCategories entry; 26 carry none (catalog v1, post-MCP-CAT-001)', () => {
+    // Catalog v0 had 9 with-category + 14 without (= 23). MCP-CAT-001 added 12
+    // new ids, all with `ledgerCategories: []` (they contribute through
+    // banners / composition rules, not through the per-category ledger
+    // lookup), so the new counts are 9 + 26 = 35.
     const withCat = SEMANTIC_CLASSIFIER_CATALOG.filter(
       (e) => e.ledgerCategories.length > 0,
     );
@@ -226,7 +230,7 @@ describe('semantic classifier catalog — ledger-categories parity (MCP-MOD-006)
       (e) => e.ledgerCategories.length === 0,
     );
     expect(withCat).toHaveLength(9);
-    expect(withoutCat).toHaveLength(14);
+    expect(withoutCat).toHaveLength(26);
   });
 
   it('responds_to_parent surfaces under exactly two categories (continuity + direct_response)', () => {
@@ -248,18 +252,21 @@ describe('semantic classifier catalog — ledger-feedback-code parity', () => {
     }
   });
 
-  it('exactly 11 ids have a non-null ledgerFeedbackCode (per MCP-MOD-002 inventory)', () => {
+  it('exactly 11 ids have a non-null ledgerFeedbackCode (per MCP-MOD-002 inventory, preserved by MCP-CAT-001)', () => {
     const mapped = SEMANTIC_CLASSIFIER_CATALOG.filter(
       (e) => e.ledgerFeedbackCode !== null,
     );
     expect(mapped).toHaveLength(11);
   });
 
-  it('exactly 12 ids have a null ledgerFeedbackCode (per MCP-MOD-002 inventory)', () => {
+  it('exactly 24 ids have a null ledgerFeedbackCode (catalog v1, post-MCP-CAT-001)', () => {
+    // Catalog v0 had 12 null + 11 non-null (= 23). MCP-CAT-001 added 12 new
+    // ids, all with `ledgerFeedbackCode: null` (no per-id ledger mapping),
+    // so the new counts are 24 null + 11 non-null = 35.
     const unmapped = SEMANTIC_CLASSIFIER_CATALOG.filter(
       (e) => e.ledgerFeedbackCode === null,
     );
-    expect(unmapped).toHaveLength(12);
+    expect(unmapped).toHaveLength(24);
   });
 });
 

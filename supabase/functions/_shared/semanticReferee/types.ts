@@ -38,8 +38,10 @@ export type Binary01 = 0 | 1;
 export type SemanticConfidence = 'low' | 'medium' | 'high';
 
 /**
- * Catalog v0 — the 23-id curated set from MCP-001 §7 / §8.
- * Widening this union is an MCP-001 contract touch (a new design card).
+ * Catalog v1 — the 35-id curated set. Catalog v0 (frozen by MCP-001 §7) was
+ * 23 ids; MCP-CAT-001 added 12 more covering evidence applicability, qualified
+ * concessions, structural patterns, and settlement. Widening this union further
+ * is an MCP-001 contract touch (a new design card).
  */
 export type SemanticClassifierId =
   | 'responds_to_parent'
@@ -64,7 +66,20 @@ export type SemanticClassifierId =
   | 'suggests_diagonal_tangent'
   | 'fits_selected_debate_mode'
   | 'needs_pre_send_pause'
-  | 'ready_for_synthesis';
+  | 'ready_for_synthesis'
+  // ── MCP-CAT-001 (catalog v1) — 12 new ids ─────────────────────────
+  | 'disputes_evidence_applicability'
+  | 'references_prior_agreement'
+  | 'provides_temporal_constraint'
+  | 'accepts_partial_with_caveat'
+  | 'provides_alternate_interpretation'
+  | 'opens_evidence_debt_marker'
+  | 'closes_evidence_debt_marker'
+  | 'supplies_corroborating_document'
+  | 'introduces_sub_axis'
+  | 'concedes_with_new_dispute'
+  | 'proposes_settlement_terms'
+  | 'accepts_settlement_terms';
 
 export type SemanticRouteSuggestion =
   | 'mainline'
@@ -166,6 +181,19 @@ export const ALL_SEMANTIC_CLASSIFIER_IDS: readonly SemanticClassifierId[] = [
   'fits_selected_debate_mode',
   'needs_pre_send_pause',
   'ready_for_synthesis',
+  // ── MCP-CAT-001 (catalog v1) — 12 new ids ─────────────────────────
+  'disputes_evidence_applicability',
+  'references_prior_agreement',
+  'provides_temporal_constraint',
+  'accepts_partial_with_caveat',
+  'provides_alternate_interpretation',
+  'opens_evidence_debt_marker',
+  'closes_evidence_debt_marker',
+  'supplies_corroborating_document',
+  'introduces_sub_axis',
+  'concedes_with_new_dispute',
+  'proposes_settlement_terms',
+  'accepts_settlement_terms',
 ];
 
 export const ALL_ROUTE_SUGGESTIONS: readonly SemanticRouteSuggestion[] = [

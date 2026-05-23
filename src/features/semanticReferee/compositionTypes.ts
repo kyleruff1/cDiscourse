@@ -195,7 +195,21 @@ export type NodeVisualMutationType =
   | 'tangent_route_hint'
   | 'branch_suggested'
   // ── Exemption markers (per-move) ──────────────────────────────
-  | 'opening_claim_marker';
+  | 'opening_claim_marker'
+  // ── MCP-CAT-001 (catalog v1) — per-move structural markers ────
+  // Additive rules from MCP-CAT-001 surface these markers. Every value
+  // is structural (the move attached corroborating evidence, the move
+  // offered an alternate reading, the move proposed settlement terms);
+  // none carries a verdict / person label. The doctrine-scan test
+  // (`compositionLayerDoctrineScan.test.ts`) scans every value.
+  | 'evidence_applicability_disputed'
+  | 'prior_agreement_cited'
+  | 'temporal_constraint_provided'
+  | 'qualified_concession_with_caveat'
+  | 'alternate_interpretation_offered'
+  | 'corroborating_document_attached'
+  | 'settlement_proposed'
+  | 'settlement_accepted';
 
 /**
  * The complete ordered list of `NodeVisualMutationType` values. The
@@ -245,6 +259,15 @@ export const ALL_NODE_VISUAL_MUTATION_TYPES: readonly NodeVisualMutationType[] =
   'branch_suggested',
   // Exemption markers
   'opening_claim_marker',
+  // MCP-CAT-001 (catalog v1) — per-move structural markers
+  'evidence_applicability_disputed',
+  'prior_agreement_cited',
+  'temporal_constraint_provided',
+  'qualified_concession_with_caveat',
+  'alternate_interpretation_offered',
+  'corroborating_document_attached',
+  'settlement_proposed',
+  'settlement_accepted',
 ];
 
 /**

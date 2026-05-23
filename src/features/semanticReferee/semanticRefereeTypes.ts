@@ -23,9 +23,13 @@ export type Binary01 = 0 | 1;
 export type SemanticConfidence = 'low' | 'medium' | 'high';
 
 /**
- * Catalog v0 — the 23-id curated set from MCP-001 §7 / §8.
- * The 90-seed bank (MCP-002) is a superset; widening this union is an
- * MCP-001 contract touch (a new design card) — see MCP-011 §20.
+ * Catalog v1 — the 35-id curated set. Catalog v0 (frozen by MCP-001 §7) was
+ * 23 ids; MCP-CAT-001 added 12 more covering evidence applicability
+ * (disputes / debt markers / corroborating documents), qualified concessions
+ * (accept-with-caveat / alternate interpretation), structural patterns (prior
+ * agreement / temporal constraint / sub-axis introduction / paired
+ * concede-and-dispute), and settlement (proposes / accepts terms).
+ * Widening this union further is an MCP-001 contract touch (a new design card).
  */
 export type SemanticClassifierId =
   | 'responds_to_parent'
@@ -50,7 +54,20 @@ export type SemanticClassifierId =
   | 'suggests_diagonal_tangent'
   | 'fits_selected_debate_mode'
   | 'needs_pre_send_pause'
-  | 'ready_for_synthesis';
+  | 'ready_for_synthesis'
+  // ── MCP-CAT-001 (catalog v1) — 12 new ids ─────────────────────────
+  | 'disputes_evidence_applicability'
+  | 'references_prior_agreement'
+  | 'provides_temporal_constraint'
+  | 'accepts_partial_with_caveat'
+  | 'provides_alternate_interpretation'
+  | 'opens_evidence_debt_marker'
+  | 'closes_evidence_debt_marker'
+  | 'supplies_corroborating_document'
+  | 'introduces_sub_axis'
+  | 'concedes_with_new_dispute'
+  | 'proposes_settlement_terms'
+  | 'accepts_settlement_terms';
 
 export type SemanticRouteSuggestion =
   | 'mainline'
@@ -152,6 +169,19 @@ export const ALL_SEMANTIC_CLASSIFIER_IDS: readonly SemanticClassifierId[] = [
   'fits_selected_debate_mode',
   'needs_pre_send_pause',
   'ready_for_synthesis',
+  // ── MCP-CAT-001 (catalog v1) — 12 new ids ─────────────────────────
+  'disputes_evidence_applicability',
+  'references_prior_agreement',
+  'provides_temporal_constraint',
+  'accepts_partial_with_caveat',
+  'provides_alternate_interpretation',
+  'opens_evidence_debt_marker',
+  'closes_evidence_debt_marker',
+  'supplies_corroborating_document',
+  'introduces_sub_axis',
+  'concedes_with_new_dispute',
+  'proposes_settlement_terms',
+  'accepts_settlement_terms',
 ];
 
 export const ALL_ROUTE_SUGGESTIONS: readonly SemanticRouteSuggestion[] = [
@@ -202,10 +232,17 @@ export const MAX_COPY_FIELD_LEN = 280;
 export const MAX_STRING_FIELD_LEN = 512;
 
 /**
- * The six MCP-002 seed-bank reason-code family prefixes. The validator checks a
+ * The MCP-002 seed-bank reason-code family prefixes. The validator checks a
  * `reasonCode` against family + `snake_case` shape + length — NOT an exact
  * 90-entry allowlist (MCP-011 §18 decision 3). Listed without a trailing
  * underscore; the validator requires `<family>_<suffix>`.
+ *
+ * MCP-CAT-001 added `settlement` to cover the two new settlement classifier
+ * ids (`proposes_settlement_terms` / `accepts_settlement_terms`). Settlement
+ * is a structural state — the move proposes / accepts resolution TERMS — not
+ * a verdict on truth. The catalog design §8 calls the whitelist
+ * "snake_case bounded vocabulary, family prefix + suffix"; the additional
+ * `settlement` prefix preserves that posture.
  */
 export const REASON_CODE_FAMILIES: readonly string[] = [
   'parent_continuity',
@@ -216,6 +253,7 @@ export const REASON_CODE_FAMILIES: readonly string[] = [
   'mode_fit',
   'friction',
   'banner',
+  'settlement',
 ];
 
 /** The exact six `scoreHints` integer field names (MCP-001 §7). */

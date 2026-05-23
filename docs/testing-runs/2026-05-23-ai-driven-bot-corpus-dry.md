@@ -1,6 +1,6 @@
 # Bot Engagement Corpus — 2026-05-23
 
-_Run id_: `2026-05-23T02-05-26-939Z-758ff085`
+_Run id_: `2026-05-23T15-53-05-682Z-1667ee90`
 _Mode_: dry
 _Scenarios_: 2  ·  _Rooms_: 2  ·  _Moves_: 23
 _Categories_: ai_seeded
@@ -11,12 +11,12 @@ _Secrets exposed_: no  ·  _Anthropic called_: no  ·  _service-role used_: no
 ## Corpus engagement summary
 
 ### Strongest rooms (by avg score)
-- 4.3 — `ai-ai-seed-bike-lanes-curb-11-668314` · Bike lanes are better curb space than parking.
-- 4.1 — `ai-ai-seed-pitch-clock-baseball-12-203226` · Pitch clock changed baseball pacing.
+- 4.3 — `ai-ai-seed-bike-lanes-curb-11-897966` · Bike lanes are better curb space than parking.
+- 4.1 — `ai-ai-seed-pitch-clock-baseball-12-666475` · Pitch clock changed baseball pacing.
 
 ### Weakest rooms (by avg score)
-- 4.1 — `ai-ai-seed-pitch-clock-baseball-12-203226` · Pitch clock changed baseball pacing.
-- 4.3 — `ai-ai-seed-bike-lanes-curb-11-668314` · Bike lanes are better curb space than parking.
+- 4.1 — `ai-ai-seed-pitch-clock-baseball-12-666475` · Pitch clock changed baseball pacing.
+- 4.3 — `ai-ai-seed-bike-lanes-curb-11-897966` · Bike lanes are better curb space than parking.
 
 ### Decision-intent distribution
 - `plant_claim` — 5
@@ -45,7 +45,7 @@ _Secrets exposed_: no  ·  _Anthropic called_: no  ·  _service-role used_: no
 
 ## Room — Pitch clock changed baseball pacing.
 
-- scenarioId: `ai-ai-seed-pitch-clock-baseball-12-203226`
+- scenarioId: `ai-ai-seed-pitch-clock-baseball-12-666475`
 - roomId: `(none)`
 - category: `ai_seeded`
 - resolution: The pitch clock made baseball faster and more watchable.
@@ -291,7 +291,7 @@ Body:
 
 ## Room — Bike lanes are better curb space than parking.
 
-- scenarioId: `ai-ai-seed-bike-lanes-curb-11-668314`
+- scenarioId: `ai-ai-seed-bike-lanes-curb-11-897966`
 - roomId: `(none)`
 - category: `ai_seeded`
 - resolution: Protected bike lanes are a better use of curb space than parking in dense corridors.
