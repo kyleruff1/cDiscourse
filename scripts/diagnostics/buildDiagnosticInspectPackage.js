@@ -397,8 +397,8 @@ function buildDecisionLedger() {
     ledger.entries.push({ hash, date, subject });
     lines.push(`- \`${hash}\` (${date}) — ${subject}`);
   }
-  const status = exists(path.join(REPO_ROOT, 'docs/current-status.md'))
-    ? readText(path.join(REPO_ROOT, 'docs/current-status.md')).split('\n').slice(0, 40).join('\n')
+  const status = exists(path.join(REPO_ROOT, 'docs/core/current-status.md'))
+    ? readText(path.join(REPO_ROOT, 'docs/core/current-status.md')).split('\n').slice(0, 40).join('\n')
     : '';
   const md = [
     '# Decision Ledger',
@@ -733,7 +733,7 @@ async function main() {
   for (const r of reports) {
     sanitiseFile(r.path, path.join(stagingDir, 'redacted-reports', r.name));
   }
-  for (const top of ['docs/current-status.md', 'docs/next-prompts.md', 'CLAUDE.md']) {
+  for (const top of ['docs/core/current-status.md', 'docs/core/next-prompts.md', 'CLAUDE.md']) {
     const src = path.join(REPO_ROOT, top);
     if (exists(src)) {
       sanitiseFile(src, path.join(stagingDir, 'redacted-reports', path.basename(top)));

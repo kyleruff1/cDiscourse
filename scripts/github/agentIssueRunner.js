@@ -3,7 +3,7 @@
  * agentIssueRunner.js
  *
  * Issue-agent operating system for CDiscourse. Manages the GitHub side of
- * the workflow documented in `docs/agent-workflow.md`:
+ * the workflow documented in `docs/core/agent-workflow.md`:
  *
  *   queue    -- print the prioritized open-issue queue
  *   claim    -- comment + Project Status In Progress + label agent:active
