@@ -152,11 +152,41 @@ export function buildClassifierPrompt(request: ClassifyMoveRequest): string {
     'Do not include any blocking, verdict, truth, or winner field.',
   ].join(' ');
 
+  const workedExample = [
+    'Worked example of the packet shape (the values below are illustrative —',
+    'choose your own values based on the structural questions; do not copy these',
+    'verbatim):',
+    '```json',
+    '{',
+    '  "binaries": [',
+    '    {',
+    '      "classifierId": "responds_to_parent",',
+    '      "value": 1,',
+    '      "confidence": "high",',
+    '      "reasonCode": "parent_continuity_engaged"',
+    '    }',
+    '  ],',
+    '  "routeSuggestion": "mainline",',
+    '  "frictionSuggestion": "none",',
+    '  "scoreHints": {',
+    '    "continuityCredit": 2,',
+    '    "evidencePressure": 1,',
+    '    "branchHygiene": 1,',
+    '    "synthesisReadiness": 0,',
+    '    "sourceChainDebt": 0,',
+    '    "unresolvedRedirectRisk": 0',
+    '  }',
+    '}',
+    '```',
+  ].join('\n');
+
   return [
     'Structural questions for this move:',
     questionLines.join('\n'),
     '',
     instruction,
+    '',
+    workedExample,
     '',
     buildInputBlock(request),
   ].join('\n');
