@@ -5,14 +5,13 @@ design summary at `docs/designs/modularity-slate/MCP-MOD-NNN.md` and its own Git
 
 **Status:** Planning artifact only. None of the 8 cards has started its pipeline.
 
-**Future location:** This document lives at `docs/roadmap-expansions/` because card MCP-MOD-001 (documentation
-reorganization) has not landed yet. After MCP-MOD-001 lands, this document moves (via `git mv`) to
-`docs/core/roadmap-semantic-referee-modularity.md`, alongside the other foundational repo docs. The move is part of
-MCP-MOD-001's checklist.
+**Location:** This document was relocated from `docs/roadmap-expansions/` to
+`docs/core/roadmap-semantic-referee-modularity.md` by card MCP-MOD-001, alongside the other foundational repo docs.
+The rename dropped the date prefix. Git history walks back through the original commit via `git log --follow`.
 
 **Companion docs:**
 - [`docs/designs/MCP-001.md`](../designs/MCP-001.md) — semantic-referee architecture, binary classifier contract, 23-id catalog v0.
-- [`docs/roadmap-expansions/2026-05-20-mcp-semantic-referee-roadmap.md`](2026-05-20-mcp-semantic-referee-roadmap.md) — the parent MCP-* roadmap; this slate is the modularity follow-up.
+- [`docs/roadmap-expansions/2026-05-20-mcp-semantic-referee-roadmap.md`](../roadmap-expansions/2026-05-20-mcp-semantic-referee-roadmap.md) — the parent MCP-* roadmap; this slate is the modularity follow-up.
 - [`docs/semantic-prompts/mcp-semantic-referee-prompt-bank.md`](../semantic-prompts/mcp-semantic-referee-prompt-bank.md) — the 90-seed prompt-library seed bank.
 - [`docs/testing-runs/2026-05-22-smoke-test-failure-investigation.md`](../testing-runs/2026-05-22-smoke-test-failure-investigation.md) — the investigation that surfaced the diagnostic gaps this slate also addresses.
 - [`docs/designs/SMOKE-FIX-001.md`](../designs/SMOKE-FIX-001.md) — the focused fix that restores live classification quickly. This slate is independent of SMOKE-FIX-001 / SMOKE-FIX-002; both can ship in parallel.
@@ -168,8 +167,8 @@ slate involves:
 1. Confirm SMOKE-FIX-001 (and optionally SMOKE-FIX-002) has shipped and the smoke test passes.
 2. Launch MCP-MOD-001 via the standard autonomous pipeline (spawn `roadmap-designer` → `roadmap-implementer` →
    `roadmap-reviewer` → PR → squash-merge → close issue).
-3. After MCP-MOD-001 lands, `git mv` this document to `docs/core/roadmap-semantic-referee-modularity.md` as part of
-   the card's deliverable.
+3. (Completed by MCP-MOD-001.) This document was relocated from `docs/roadmap-expansions/` to
+   `docs/core/roadmap-semantic-referee-modularity.md` as part of the card's deliverable.
 4. Launch MCP-MOD-002 and MCP-MOD-003 in parallel.
 5. After both inventories land, launch MCP-MOD-004.
 6. After `004` lands and the smoke test re-runs clean, launch MCP-MOD-005 and MCP-MOD-006 in parallel.
