@@ -1,0 +1,916 @@
+{
+  "scenarioId": "catalog-design-band-space-rent-evidence",
+  "artifactType": "design_fixture_not_runner_ready",
+  "title": "March practice-room rent",
+  "resolution": "Bandmate B did not pay their March share of the practice-room rent; the $120 sent on the payment app was for the February cable and pedalboard reimbursement, not March rent.",
+  "category": "design_fixture",
+  "notes": "Design fixture for the binary classifier catalog (MCP-CAT-001). Not directly runnable by scripts/bot-fixtures/runScenario.js — carries fields the runner does not yet support (semanticEligible, expectedDeterministicComposition, expectedUIState, expectedTimelineBehavior, settlement state, branch ids, timeline lanes, evidence-applicability lifecycle). The fixture's purpose is to make every catalog gap concrete: each eligible move's expectedClassifierSignal list mixes verbatim ids from the current 23-id catalog (src/features/semanticReferee/semanticRefereeTypes.ts) with PROPOSED new ids that this scenario surfaces. The companion research document at docs/roadmap-expansions/2026-05-23-binary-classifier-catalog-design.md lays out the catalog proposal in full. The binary return model is preserved as a hard architectural constraint: the model returns 0/1 signals only; richness comes from deterministic composition, not from model-generated natural language.",
+  "schemaMappingNotes": {
+    "alignedWithExistingFixtures": {
+      "scenarioId": "kebab-case identifier — matches existing convention",
+      "title": "human-readable title — matches existing convention",
+      "resolution": "the root claim's resolution sentence — matches existing convention",
+      "category": "category bucket — existing fixtures use light_civic / sports / everyday / smoke_test_mcp; this card adds design_fixture",
+      "personas": "the per-actor list — matches existing convention (alias / side / tone)",
+      "moves": "array of moveId-keyed move records — matches existing convention",
+      "moveId / authorAlias / parentMoveId / moveKind / argumentType / disagreementAxis / targetExcerpt / body / selectedTagCodes / evidence / expectedStatus / expectedClassifierSignal / expectedConfidence / expectedOverrideTrigger / displayMeta": "all match existing convention"
+    },
+    "newFieldsThisFixtureAdds": {
+      "artifactType": "marker that the runner cannot run it as-is",
+      "roomMetadata": "visibility / settlementState / roomType / titleSource — needed by this scenario; existing fixtures have no room-level metadata block",
+      "participants": "richer per-actor record (role descriptor + present/optional flag) — supplements personas",
+      "semanticRefereeRules": "documents the eligibility rules the scenario exercises",
+      "evidence": "first-class evidence object array with applicability lifecycle — the storyboard's evidence object model (docs/ux-storyboards/band-space-rent-private-evidence-argument.md §Evidence object model). Existing fixtures attach evidence inline per move with a label/sourceText; this fixture promotes evidence to a top-level array so applicability can have its own lifecycle.",
+      "moves[].participantRole / branchId / timelineLane": "richer move metadata — UX surface not yet in runner",
+      "moves[].evidenceAttached / concessions / refutations": "structured per-move decomposition — runner does not yet read these",
+      "moves[].semanticEligible / semanticExemptionReason": "the eligibility-rule output per move; runner has no concept of eligibility yet",
+      "moves[].expectedDeterministicComposition / expectedUIState / expectedTimelineBehavior": "design-time predictions; not runner-checkable",
+      "expectedTimeline / expectedSettlement / currentCatalogCoverage / proposedClassifierNeeds / compositionRules": "design-only sections at the top level",
+      "currentCatalogCoverage": "lists verbatim ids from semanticRefereeTypes.ts that the scenario uses; lists ids the scenario does NOT use (intentional negative coverage)",
+      "proposedClassifierNeeds": "the catalog gaps surfaced by this scenario, each with a candidate id + rationale + example move"
+    },
+    "conflictsAvoided": {
+      "evidence_attached_inline_vs_first_class_object": "existing fixtures use moves[].evidence = { label, sourceText } as an inline structure. This fixture keeps a per-move evidenceAttached array of evidenceIds AND a top-level evidence array carrying the full evidence objects. The inline structure is preserved (set to null on moves that only reference, not introduce, evidence) so a future runner extension can read the top-level array without breaking on the inline field.",
+      "personas_vs_participants": "existing fixtures use personas[]. This fixture keeps personas[] for runner-compat AND adds participants[] with richer role information. The two are kept in sync by alias."
+    }
+  },
+  "roomMetadata": {
+    "visibility": "private",
+    "roomType": "private_argument_room",
+    "titleSource": "user_set",
+    "settlementState": "unsettled",
+    "notes": "Private from Step 1 of the storyboard. No public observer. Title set by the room creator; a blank title would fall back to a root-claim excerpt per the storyboard, but this scenario uses an explicit title."
+  },
+  "personas": [
+    { "alias": "Bandmate A", "side": "affirmative", "tone": "calm" },
+    { "alias": "Bandmate B", "side": "negative", "tone": "calm" },
+    { "alias": "Bandmate C", "side": "neutral", "tone": "calm" }
+  ],
+  "participants": [
+    {
+      "alias": "Bandmate A",
+      "role": "originator_and_claimant",
+      "side": "affirmative",
+      "present": true,
+      "notes": "Room creator. First participant. Drummer in the band. Believes B did not pay March share."
+    },
+    {
+      "alias": "Bandmate B",
+      "role": "invited_respondent",
+      "side": "negative",
+      "present": true,
+      "notes": "Named invited respondent. Second participant. Guitarist. Claims the $120 was for March rent."
+    },
+    {
+      "alias": "Bandmate C",
+      "role": "optional_non_present_third_party",
+      "side": "neutral",
+      "present": false,
+      "notes": "Bassist. Not present in this walkthrough. May be added as a future participant only if A and B both consent (add-by-consent)."
+    }
+  ],
+  "semanticRefereeRules": {
+    "binaryReturnModel": {
+      "rule": "The model returns binary 0/1 classifier signals only. Natural-language output (banners, sidecar copy, timeline labels) is produced by the downstream deterministic composition layer, not by the model.",
+      "rationale": "Doctrine: AI never decides who is right; richness comes from composition of structural signals, not from model interpretation. Locking the model to binary output makes the safety surface bounded and the composition layer auditable."
+    },
+    "rootProclamationExemption": {
+      "rule": "The root proclamation of a debate (the first move in the room, no parent) is SEMANTICALLY EXEMPT — classification does not fire.",
+      "rationale": "There is no prior context for the root to engage. responds_to_parent / quote_anchors_parent / answers_clarification all return 0 by definition; the call wastes the token budget and surfaces a degraded banner."
+    },
+    "firstRebuttalExemption": {
+      "rule": "The first move by each participant in a debate is SEMANTICALLY EXEMPT — classification does not fire.",
+      "rationale": "Each participant's first move is their opening statement. Author hasn't engaged in any prior structural moves yet, so continuity / movement signals are uninformative."
+    },
+    "afterSecondMoveClassificationRule": {
+      "rule": "From each participant's SECOND move onward, classification fires.",
+      "rationale": "By the second move, the participant has prior context (their own first move plus everything that came in between) and structural signals (continuity, evidence hygiene, narrowing, conceding) become informative."
+    },
+    "fullThreadContextRequirement": {
+      "rule": "When classification fires, the request carries the FULL THREAD (all prior moves, each redacted, each labeled with a stable non-identifying author alias like 'A' / 'B' / 'C'). The model judges structural properties against the whole chain, not just the immediate parent.",
+      "rationale": "A move that responds to a third-level claim or quotes a seventh move cannot be classified accurately on the parent alone. Author aliases preserve speaker identity for continuity reasoning without leaking PII; the system prompt forbids person-labeling regardless."
+    },
+    "chimeInExemption": {
+      "rule": "A chime-in participant's FIRST contribution is exempt; classification begins from their second contribution onward — same eligibility curve as the primary participants.",
+      "rationale": "The eligibility rule is participant-scoped; it does not care whether a participant is a primary or a chime-in. The rule applies uniformly."
+    }
+  },
+  "evidence": [
+    {
+      "evidenceId": "ev1",
+      "submittedBy": "Bandmate B",
+      "attachedToMoveId": "m2",
+      "evidenceType": "payment_screenshot",
+      "platformOrSource": "payment_app_generic",
+      "amount": "$120",
+      "date": "March 3",
+      "noteText": "practice space",
+      "redactionState": {
+        "payerAccount": "redacted",
+        "payeeAccount": "redacted",
+        "rawTransactionId": "redacted",
+        "screenshotBitmap": "stored_redacted_bitmap_only"
+      },
+      "claimedApplicability": "March practice-room rent share",
+      "disputedApplicability": "February cable and pedalboard reimbursement",
+      "status": "applicability_disputed",
+      "acceptance": {
+        "acceptedByA": false,
+        "acceptedByB": true,
+        "transitions": [
+          { "atMoveId": "m2", "newStatus": "attached_unchallenged" },
+          { "atMoveId": "m3", "newStatus": "applicability_disputed" },
+          { "atMoveId": "m6", "newStatus": "applicability_supported" },
+          { "atMoveId": "m7", "newStatus": "applicability_accepted" }
+        ]
+      },
+      "notes": "The core evidence object. The storyboard makes clear that a payment screenshot proves at most that a payment object exists — never automatically what it was for. Applicability is its own axis."
+    },
+    {
+      "evidenceId": "ev2",
+      "submittedBy": "Bandmate B",
+      "attachedToMoveId": "m6",
+      "evidenceType": "group_chat_excerpt",
+      "platformOrSource": "group_chat_generic",
+      "amount": null,
+      "date": "approximately late February",
+      "noteText": "Sending my March rent early so I don't forget.",
+      "redactionState": {
+        "senderHandle": "redacted",
+        "recipientHandles": "redacted",
+        "screenshotBitmap": "stored_redacted_bitmap_only"
+      },
+      "claimedApplicability": "Supports ev1's applicability to March rent — pre-states intent to pay March rent early",
+      "disputedApplicability": null,
+      "status": "supporting",
+      "acceptance": {
+        "acceptedByA": true,
+        "acceptedByB": true,
+        "transitions": [
+          { "atMoveId": "m6", "newStatus": "attached_supporting" }
+        ]
+      },
+      "notes": "Closes the evidence debt opened by A's source request at m5. The pre-stated intent (sending rent early) is corroborating, not absolute proof."
+    },
+    {
+      "evidenceId": "ev3",
+      "submittedBy": "Bandmate B",
+      "attachedToMoveId": "m8",
+      "evidenceType": "landlord_message_excerpt",
+      "platformOrSource": "landlord_email_generic",
+      "amount": "$120 for March; $140 starting April",
+      "date": "rent-schedule message",
+      "noteText": "March rent: $120. Beginning April, rent increases to $140 per share.",
+      "redactionState": {
+        "landlordIdentity": "redacted",
+        "leaseClauseRaw": "redacted",
+        "fullThreadContext": "redacted"
+      },
+      "claimedApplicability": "Refutes A's m7 introduction of a $20 amount sub-dispute — March was still $120; the increase started in April",
+      "disputedApplicability": null,
+      "status": "attached_unchallenged",
+      "acceptance": {
+        "acceptedByA": null,
+        "acceptedByB": true,
+        "transitions": [
+          { "atMoveId": "m8", "newStatus": "attached_unchallenged" }
+        ]
+      },
+      "notes": "Closes the amount sub-axis A introduced at m7. The scenario could continue from here (A accepts evidence, B confirms, room settles) but the optional confirmation move is the natural close."
+    }
+  ],
+  "moves": [
+    {
+      "moveId": "m1",
+      "authorAlias": "Bandmate A",
+      "participantRole": "originator_and_claimant",
+      "parentMoveId": null,
+      "branchId": "mainline",
+      "timelineLane": "lane_0_mainline",
+      "moveKind": "start_thesis",
+      "moveType": "root_proclamation",
+      "argumentType": "thesis",
+      "qualifierCode": null,
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "You still owe your March share of the practice-room rent. The $120 you sent on the payment app was for the February cable and pedalboard reimbursement, not March rent.",
+      "selectedTagCodes": ["claim", "payment_dispute", "evidence_expected", "private", "fact_or_context_dispute"],
+      "evidence": null,
+      "evidenceAttached": [],
+      "concessions": [],
+      "refutations": [],
+      "semanticEligible": false,
+      "semanticExemptionReason": "root_proclamation",
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [],
+      "expectedConfidence": null,
+      "expectedOverrideTrigger": "none",
+      "expectedDeterministicComposition": {
+        "noClassifierCallFired": true,
+        "rationale": "Root proclamation exemption: no classifier call fires; layer-1 deterministic surface renders the opening claim banner without any AI signal."
+      },
+      "expectedUIState": {
+        "banner": null,
+        "sidecar": "Opening claim — no prior context to engage.",
+        "evidencePanel": "available_but_empty"
+      },
+      "expectedTimelineBehavior": "node_1_root_claim_with_root_marker",
+      "displayMeta": {
+        "quoteAnchorCandidate": "$120 you sent on the payment app was for the February cable"
+      }
+    },
+    {
+      "moveId": "m2",
+      "authorAlias": "Bandmate B",
+      "participantRole": "invited_respondent",
+      "parentMoveId": "m1",
+      "branchId": "mainline",
+      "timelineLane": "lane_0_mainline",
+      "moveKind": "challenge_parent_with_evidence",
+      "moveType": "evidence_backed_rebuttal_with_concessions",
+      "argumentType": "rebuttal",
+      "qualifierCode": null,
+      "disagreementAxis": "applicability_of_evidence",
+      "targetExcerpt": "$120 you sent on the payment app was for the February cable",
+      "body": "I did owe a March share, and the amount was $120. But the payment on March 3 was for practice-room rent. The note said 'practice space.' It was not for the February cable or pedalboard reimbursement.",
+      "selectedTagCodes": ["rebuttal", "evidence_attached", "concession", "applicability_dispute"],
+      "evidence": null,
+      "evidenceAttached": ["ev1"],
+      "concessions": [
+        { "text": "I did owe a March share." },
+        { "text": "The amount was $120." }
+      ],
+      "refutations": [
+        { "text": "The payment on March 3 was for practice-room rent. The note said 'practice space.' It was not for the February cable or pedalboard reimbursement." }
+      ],
+      "semanticEligible": false,
+      "semanticExemptionReason": "first_move_by_this_participant",
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [],
+      "expectedConfidence": null,
+      "expectedOverrideTrigger": "none",
+      "expectedDeterministicComposition": {
+        "noClassifierCallFired": true,
+        "rationale": "B's first move in the room. Eligibility rule exempts the first move per participant. Layer-1 deterministic signals (evidence-attached, concession-list present, refutation present) are visible from the structural fields without an AI call."
+      },
+      "expectedUIState": {
+        "banner": null,
+        "sidecar": "B's first response — evidence attached and two concessions filed.",
+        "evidencePanel": "active_with_ev1",
+        "evidencePill": "node_2_pill_ev1_attached"
+      },
+      "expectedTimelineBehavior": "node_2_evidence_backed_rebuttal_with_pill",
+      "displayMeta": {
+        "quoteAnchorCandidate": "The payment on March 3 was for practice-room rent"
+      }
+    },
+    {
+      "moveId": "m3",
+      "authorAlias": "Bandmate A",
+      "participantRole": "originator_and_claimant",
+      "parentMoveId": "m2",
+      "branchId": "branch_evidence_applicability",
+      "timelineLane": "lane_0_mainline",
+      "moveKind": "dispute_evidence_applicability",
+      "moveType": "structured_evidence_response_dispute_applicability",
+      "argumentType": "rebuttal",
+      "qualifierCode": "dispute_applicability",
+      "disagreementAxis": "applicability_of_evidence",
+      "targetExcerpt": "practice space",
+      "body": "The March 3 payment note says 'practice space,' but we had already agreed that February's cable and pedalboard reimbursement would be grouped under practice-space expenses. March rent was due March 10, after that payment.",
+      "selectedTagCodes": ["rebuttal", "evidence_applicability_dispute", "prior_agreement_cited", "temporal_constraint_cited"],
+      "evidence": null,
+      "evidenceAttached": [],
+      "concessions": [],
+      "refutations": [
+        { "text": "The 'practice space' note covers February reimbursement by prior agreement." },
+        { "text": "March rent was due March 10, after the March 3 payment." }
+      ],
+      "semanticEligible": true,
+      "semanticExemptionReason": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1, "source": "current_catalog" },
+        { "id": "quote_anchors_parent", "value": 1, "source": "current_catalog" },
+        { "id": "disputes_evidence_applicability", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "references_prior_agreement", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "provides_temporal_constraint", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "asks_for_evidence", "value": 0, "source": "current_catalog" },
+        { "id": "provides_evidence", "value": 0, "source": "current_catalog" }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedDeterministicComposition": {
+        "input": [
+          "disputes_evidence_applicability=1",
+          "references_prior_agreement=1",
+          "provides_temporal_constraint=1",
+          "responds_to_parent=1",
+          "quote_anchors_parent=1"
+        ],
+        "compositionRuleApplied": "applicability_dispute_with_prior_agreement_and_temporal_anchor",
+        "outputBanner": "Applicability disputed — prior agreement cited",
+        "outputSidecar": "A challenges what the payment was FOR, not whether it exists. A cites a prior agreement about February reimbursement and the March 10 due date.",
+        "outputEvidencePanelState": "ev1.status: applicability_disputed",
+        "outputRouteSuggestion": "mainline (this is a substantive challenge on the same evidence, not a side branch)"
+      },
+      "expectedUIState": {
+        "banner": "Applicability disputed — prior agreement cited",
+        "sidecar": "Dispute is about which obligation the payment covers, not whether it happened.",
+        "evidencePanel": "ev1_now_disputed",
+        "evidencePill": "node_2_pill_ev1_state_changes_to_disputed"
+      },
+      "expectedTimelineBehavior": "node_3_evidence_applicability_challenge_on_mainline; pill on node_2 flips to disputed",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m4",
+      "authorAlias": "Bandmate B",
+      "participantRole": "invited_respondent",
+      "parentMoveId": "m3",
+      "branchId": "branch_evidence_applicability",
+      "timelineLane": "lane_0_mainline",
+      "moveKind": "agree_with_caveat",
+      "moveType": "structured_evidence_response_agree_with_caveat",
+      "argumentType": "qualified_concession",
+      "qualifierCode": "agree_with_caveat",
+      "disagreementAxis": "applicability_of_evidence",
+      "targetExcerpt": "March rent was due March 10",
+      "body": "You're right March rent was due March 10, but I paid early because I knew I would be traveling. I labeled it 'practice space' because that's what it was for.",
+      "selectedTagCodes": ["qualified_concession", "agree_with_caveat", "alternate_interpretation"],
+      "evidence": null,
+      "evidenceAttached": [],
+      "concessions": [
+        { "text": "March rent was due March 10." }
+      ],
+      "refutations": [
+        { "text": "Paid early because of travel; the label 'practice space' was a description of what the payment was for, not a category code." }
+      ],
+      "semanticEligible": true,
+      "semanticExemptionReason": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1, "source": "current_catalog" },
+        { "id": "quote_anchors_parent", "value": 1, "source": "current_catalog" },
+        { "id": "concedes_narrow_point", "value": 1, "source": "current_catalog" },
+        { "id": "accepts_partial_with_caveat", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "provides_alternate_interpretation", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "provides_evidence", "value": 0, "source": "current_catalog" }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedDeterministicComposition": {
+        "input": [
+          "concedes_narrow_point=1",
+          "accepts_partial_with_caveat=1",
+          "provides_alternate_interpretation=1",
+          "responds_to_parent=1"
+        ],
+        "compositionRuleApplied": "qualified_concession_with_alternate_interpretation",
+        "outputBanner": "Agreed with caveat — alternate interpretation offered",
+        "outputSidecar": "B accepts the March 10 due date but offers an alternate reading of the payment label and timing.",
+        "outputEvidencePanelState": "ev1.status: applicability_disputed (unchanged — pending more evidence)",
+        "outputFrictionSuggestion": "ask_for_source — the alternate interpretation invites corroboration"
+      },
+      "expectedUIState": {
+        "banner": "Agreed with caveat — alternate interpretation offered",
+        "sidecar": "Conceded the due date; offered alternate interpretation of the payment label.",
+        "evidencePanel": "ev1_still_disputed_pending_corroboration"
+      },
+      "expectedTimelineBehavior": "node_4_qualified_concession_on_mainline",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m5",
+      "authorAlias": "Bandmate A",
+      "participantRole": "originator_and_claimant",
+      "parentMoveId": "m4",
+      "branchId": "branch_evidence_applicability",
+      "timelineLane": "lane_0_mainline",
+      "moveKind": "ask_for_source",
+      "moveType": "structured_request_source",
+      "argumentType": "evidence_request",
+      "qualifierCode": "request_source",
+      "disagreementAxis": "applicability_of_evidence",
+      "targetExcerpt": "I paid early because I knew I would be traveling",
+      "body": "Can you show the message where you said you were sending March rent early?",
+      "selectedTagCodes": ["evidence_request", "ask_for_source", "evidence_debt_opened"],
+      "evidence": null,
+      "evidenceAttached": [],
+      "concessions": [],
+      "refutations": [],
+      "semanticEligible": true,
+      "semanticExemptionReason": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1, "source": "current_catalog" },
+        { "id": "quote_anchors_parent", "value": 1, "source": "current_catalog" },
+        { "id": "asks_for_evidence", "value": 1, "source": "current_catalog" },
+        { "id": "opens_evidence_debt_marker", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "requests_clarification", "value": 0, "source": "current_catalog" }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedDeterministicComposition": {
+        "input": [
+          "asks_for_evidence=1",
+          "opens_evidence_debt_marker=1",
+          "responds_to_parent=1",
+          "quote_anchors_parent=1"
+        ],
+        "compositionRuleApplied": "explicit_source_request_opens_debt_marker",
+        "outputBanner": "Source requested",
+        "outputSidecar": "A explicitly asked for the message backing B's alternate interpretation. Room status: Evidence requested.",
+        "outputEvidenceDebtState": "new_debt_marker_opened_against_m4",
+        "outputFrictionSuggestion": "ask_for_source"
+      },
+      "expectedUIState": {
+        "banner": "Source requested",
+        "sidecar": "Room status: Evidence requested.",
+        "evidencePanel": "debt_marker_chip_on_node_4",
+        "roomStatusLine": "Evidence requested"
+      },
+      "expectedTimelineBehavior": "node_5_evidence_request_on_mainline; evidence-debt chip appears on node_4",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m6",
+      "authorAlias": "Bandmate B",
+      "participantRole": "invited_respondent",
+      "parentMoveId": "m5",
+      "branchId": "branch_evidence_applicability",
+      "timelineLane": "lane_0_mainline",
+      "moveKind": "supply_corroborating_evidence",
+      "moveType": "evidence_supply_that_closes_debt",
+      "argumentType": "evidence",
+      "qualifierCode": "supply_source",
+      "disagreementAxis": "applicability_of_evidence",
+      "targetExcerpt": null,
+      "body": "Here is the group-chat message I sent: 'Sending my March rent early so I don't forget.' It pre-dates the payment by a few days and shows the intent.",
+      "selectedTagCodes": ["evidence", "evidence_debt_resolved", "corroborating_document"],
+      "evidence": {
+        "label": "Group-chat excerpt: 'Sending my March rent early so I don't forget.'",
+        "sourceText": "Sending my March rent early so I don't forget."
+      },
+      "evidenceAttached": ["ev2"],
+      "concessions": [],
+      "refutations": [],
+      "semanticEligible": true,
+      "semanticExemptionReason": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1, "source": "current_catalog" },
+        { "id": "provides_evidence", "value": 1, "source": "current_catalog" },
+        { "id": "evidence_supports_claim", "value": 1, "source": "current_catalog" },
+        { "id": "closes_evidence_debt_marker", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "supplies_corroborating_document", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "creates_source_chain_gap", "value": 0, "source": "current_catalog" }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedDeterministicComposition": {
+        "input": [
+          "provides_evidence=1",
+          "evidence_supports_claim=1",
+          "closes_evidence_debt_marker=1",
+          "supplies_corroborating_document=1"
+        ],
+        "compositionRuleApplied": "source_supplied_closes_debt_and_strengthens_prior_evidence",
+        "outputBanner": "Source supplied — debt resolved",
+        "outputSidecar": "B supplied the group-chat excerpt. Evidence pill on m2 strengthens; ev1 applicability moves toward supported.",
+        "outputEvidencePanelState": "ev1.status: applicability_supported; ev2.status: attached_supporting",
+        "outputEvidenceDebtState": "debt_marker_resolved",
+        "outputFrictionSuggestion": "none"
+      },
+      "expectedUIState": {
+        "banner": "Source supplied — debt resolved",
+        "sidecar": "Evidence chain stronger.",
+        "evidencePanel": "ev1_now_applicability_supported; ev2_attached_supporting",
+        "evidenceDebtChip": "flipped_to_resolved_on_node_4",
+        "roomStatusLine": "Evidence supplied"
+      },
+      "expectedTimelineBehavior": "node_6_evidence_supply_on_mainline; evidence-debt chip on node_4 flips to resolved; pill on node_2 shows stronger state",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m7",
+      "authorAlias": "Bandmate A",
+      "participantRole": "originator_and_claimant",
+      "parentMoveId": "m6",
+      "branchId": "branch_amount_dispute",
+      "timelineLane": "lane_0_mainline",
+      "moveKind": "concede_with_new_sub_axis",
+      "moveType": "concession_introducing_sub_axis",
+      "argumentType": "concession_with_new_dispute",
+      "qualifierCode": "concede_and_open_sub_axis",
+      "disagreementAxis": "amount",
+      "targetExcerpt": null,
+      "body": "I concede the $120 payment was intended for March rent and that I misread the payment timing. But I still think you owe $20 because the rent went up to $140 starting March.",
+      "selectedTagCodes": ["concession", "new_sub_axis_opened", "amount_dispute"],
+      "evidence": null,
+      "evidenceAttached": [],
+      "concessions": [
+        { "text": "The $120 payment was intended for March rent." },
+        { "text": "I misread the payment timing." }
+      ],
+      "refutations": [
+        { "text": "Rent went up to $140 starting March; you still owe $20." }
+      ],
+      "semanticEligible": true,
+      "semanticExemptionReason": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1, "source": "current_catalog" },
+        { "id": "concedes_narrow_point", "value": 1, "source": "current_catalog" },
+        { "id": "narrows_claim", "value": 1, "source": "current_catalog" },
+        { "id": "introduces_sub_axis", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "concedes_with_new_dispute", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "provides_evidence", "value": 0, "source": "current_catalog" },
+        { "id": "ready_for_synthesis", "value": 0, "source": "current_catalog" }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedDeterministicComposition": {
+        "input": [
+          "concedes_narrow_point=1",
+          "narrows_claim=1",
+          "introduces_sub_axis=1",
+          "concedes_with_new_dispute=1"
+        ],
+        "compositionRuleApplied": "concede_and_open_sub_axis_on_same_mainline",
+        "outputBanner": "Conceded; new sub-dispute on amount",
+        "outputSidecar": "Applicability resolved. New sub-axis opened: was March rent $120 or $140?",
+        "outputEvidencePanelState": "ev1.status: applicability_accepted",
+        "outputRouteSuggestion": "mainline (the amount sub-axis is on the same mainline; opening a side branch would fragment the resolution)",
+        "outputFrictionSuggestion": "ask_for_source — the new $140 claim needs corroboration"
+      },
+      "expectedUIState": {
+        "banner": "Conceded; new sub-dispute on amount",
+        "sidecar": "ev1 applicability accepted; live dispute narrows to the amount.",
+        "evidencePanel": "ev1_applicability_accepted",
+        "roomStatusLine": "Sub-dispute opened on amount"
+      },
+      "expectedTimelineBehavior": "node_7_concession_with_new_sub_axis on mainline; ev1 pill flips to accepted",
+      "displayMeta": {}
+    },
+    {
+      "moveId": "m8",
+      "authorAlias": "Bandmate B",
+      "participantRole": "invited_respondent",
+      "parentMoveId": "m7",
+      "branchId": "branch_amount_dispute",
+      "timelineLane": "lane_0_mainline",
+      "moveKind": "dispute_amount_with_evidence",
+      "moveType": "evidence_backed_rebuttal_on_sub_axis",
+      "argumentType": "rebuttal_with_evidence",
+      "qualifierCode": "disagree_context",
+      "disagreementAxis": "amount",
+      "targetExcerpt": "rent went up to $140 starting March",
+      "body": "The rent increase started in April. March was still $120. The landlord's message confirms it: 'March rent: $120. Beginning April, rent increases to $140 per share.'",
+      "selectedTagCodes": ["rebuttal", "evidence_attached", "amount_dispute_resolved", "OPTIONAL_confirmation_move"],
+      "evidence": null,
+      "evidenceAttached": ["ev3"],
+      "concessions": [],
+      "refutations": [
+        { "text": "Rent increase started in April, not March; landlord message confirms." }
+      ],
+      "semanticEligible": true,
+      "semanticExemptionReason": null,
+      "isOptionalConfirmationMove": true,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1, "source": "current_catalog" },
+        { "id": "quote_anchors_parent", "value": 1, "source": "current_catalog" },
+        { "id": "provides_evidence", "value": 1, "source": "current_catalog" },
+        { "id": "evidence_supports_claim", "value": 1, "source": "current_catalog" },
+        { "id": "disputes_specific_amount", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "cites_temporal_boundary", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "supplies_corroborating_document", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "ready_for_synthesis", "value": 1, "source": "current_catalog" }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedDeterministicComposition": {
+        "input": [
+          "provides_evidence=1",
+          "evidence_supports_claim=1",
+          "disputes_specific_amount=1",
+          "cites_temporal_boundary=1",
+          "ready_for_synthesis=1"
+        ],
+        "compositionRuleApplied": "evidence_backed_sub_axis_resolution_ready_for_synthesis",
+        "outputBanner": "Sub-dispute evidence supplied; ready for synthesis",
+        "outputSidecar": "B supplies landlord message confirming March rent was still $120; the $20 sub-claim is refuted with primary-source evidence. Room may settle.",
+        "outputEvidencePanelState": "ev3.status: attached_unchallenged",
+        "outputFrictionSuggestion": "none",
+        "outputSettlementReadiness": "room_ready_for_settlement_pending_A_acceptance"
+      },
+      "expectedUIState": {
+        "banner": "Sub-dispute evidence supplied; ready for synthesis",
+        "sidecar": "ev3 attached; sub-axis evidence-supported.",
+        "evidencePanel": "ev3_attached_unchallenged",
+        "settlementAffordance": "accept_evidence_and_summarize_offered_to_A"
+      },
+      "expectedTimelineBehavior": "node_8_evidence_backed_rebuttal_on_sub_axis; ev3 pill attached",
+      "displayMeta": {
+        "branchCandidate": false,
+        "playfulLabel": "Settled-but-for-acceptance"
+      }
+    }
+  ],
+  "expectedTimeline": {
+    "mainlineProgression": [
+      "m1 (root claim, lane_0_mainline)",
+      "m2 (B's evidence-backed rebuttal with concessions, ev1 pill attached)",
+      "m3 (A's evidence applicability challenge, ev1 pill flips to disputed)",
+      "m4 (B's agree with caveat)",
+      "m5 (A's ask for source, evidence-debt chip on m4)",
+      "m6 (B's evidence supply, ev2 pill attached, debt chip resolves, ev1 pill strengthens)",
+      "m7 (A's concession + new sub-axis on amount, ev1 pill accepts)",
+      "m8 (B's evidence-backed rebuttal on sub-axis, ev3 pill attached)"
+    ],
+    "branches": [
+      {
+        "branchId": "branch_evidence_applicability",
+        "spans": "m3 through m6",
+        "renderingLane": "shares lane_0_mainline (the storyboard's mainline progression is sequential; branch_id is a logical group, not a separate visual lane)",
+        "label": "Applicability of ev1"
+      },
+      {
+        "branchId": "branch_amount_dispute",
+        "spans": "m7 through m8",
+        "renderingLane": "shares lane_0_mainline",
+        "label": "Amount sub-axis ($120 vs $140)"
+      }
+    ],
+    "settlementCollapseTrigger": "A accepts ev3 and writes a summary (the next move beyond the scope of this fixture's 8 moves; described under expectedSettlement)",
+    "finalLockedState": {
+      "lockingPolicy": "private_room_locks_as_settled — grey, read-only; reading and referencing by authorized participants remain",
+      "evidenceFinalStates": {
+        "ev1": "applicability_accepted",
+        "ev2": "attached_supporting",
+        "ev3": "attached_unchallenged (or attached_accepted after A's settlement move)"
+      }
+    }
+  },
+  "expectedSettlement": {
+    "transitionTrigger": "A taps Accept evidence on ev3, writes a settlement summary, B taps Confirm resolution.",
+    "settlementSummaryAllowed": "Resolved: March was paid. I confused the February reimbursement and the April rent increase with March.",
+    "permittedSettlementLanguage": [
+      "settled",
+      "resolved",
+      "evidence accepted",
+      "applicability accepted",
+      "evidence-debt resolved",
+      "sub-dispute closed"
+    ],
+    "forbiddenSettlementLanguage": [
+      "proven",
+      "true",
+      "false",
+      "winner",
+      "loser",
+      "case closed",
+      "right",
+      "wrong",
+      "correct",
+      "incorrect",
+      "victory",
+      "defeated"
+    ],
+    "evidenceFinalStatesAtSettlement": {
+      "ev1": "applicability_accepted",
+      "ev2": "attached_supporting",
+      "ev3": "attached_accepted"
+    },
+    "roomFinalState": "settled_and_locked_private",
+    "notes": "The storyboard makes clear that even at settlement, the word is 'settled' — never 'proven', 'true', 'case closed'. The settlement summary is user-written; the system never asserts truth."
+  },
+  "currentCatalogCoverage": {
+    "usedFromCurrent23IdCatalog": [
+      "responds_to_parent",
+      "quote_anchors_parent",
+      "concedes_narrow_point",
+      "narrows_claim",
+      "asks_for_evidence",
+      "provides_evidence",
+      "evidence_supports_claim",
+      "creates_source_chain_gap",
+      "ready_for_synthesis"
+    ],
+    "unusedFromCurrent23IdCatalog": [
+      "introduces_new_issue",
+      "requests_clarification",
+      "answers_clarification",
+      "shifts_to_person_or_intent",
+      "uses_popularity_as_evidence",
+      "contains_playable_hot_take",
+      "contains_unplayable_insult_only",
+      "is_satire_or_parody",
+      "uses_satire_as_evidence",
+      "cites_retraction",
+      "suggests_side_branch",
+      "suggests_diagonal_tangent",
+      "fits_selected_debate_mode",
+      "needs_pre_send_pause"
+    ],
+    "coverageNotes": "9 of 23 catalog ids are exercised positively. 14 are unused. This is by scenario design — the band-space-rent argument is a structured, calm, evidence-driven dispute between two participants. Unused ids cover scenarios this scenario doesn't model (satire, popularity appeals, person-shifts, hot takes, side-branch routing). The scenario is intentionally narrow to surface evidence and applicability gaps; a future fixture should exercise the other 14 ids."
+  },
+  "proposedClassifierNeeds": [
+    {
+      "candidateId": "disputes_evidence_applicability",
+      "binarySignal": "Does this move challenge what an attached evidence object COVERS rather than whether the evidence exists?",
+      "rationaleForAddition": "The current catalog has 'evidence_supports_claim' (does the evidence support THIS claim) but no signal for 'the evidence exists but is being applied to the wrong obligation'. Applicability is a distinct axis from existence per the storyboard's evidence object model.",
+      "exampleMoveInScenario": "m3 — A says the $120 payment exists but was for February reimbursement, not March rent."
+    },
+    {
+      "candidateId": "references_prior_agreement",
+      "binarySignal": "Does this move cite a prior agreement between the participants that bears on the current dispute?",
+      "rationaleForAddition": "Two-party arguments often turn on a previously-established convention (here: that February reimbursement was 'practice-space' coded). The catalog has no signal for this.",
+      "exampleMoveInScenario": "m3 — 'we had already agreed that February's cable and pedalboard reimbursement would be grouped under practice-space expenses.'"
+    },
+    {
+      "candidateId": "provides_temporal_constraint",
+      "binarySignal": "Does this move cite a specific date, timeline, or temporal boundary that constrains the dispute?",
+      "rationaleForAddition": "Disputes over WHEN something happened or applied are common; the catalog handles evidence presence and source-chain hygiene but not temporal anchoring as a distinct signal.",
+      "exampleMoveInScenario": "m3 — 'March rent was due March 10, after that payment.'"
+    },
+    {
+      "candidateId": "accepts_partial_with_caveat",
+      "binarySignal": "Does this move accept some specific point raised by the parent while qualifying or restricting the acceptance?",
+      "rationaleForAddition": "The catalog has 'concedes_narrow_point' (full narrow concession). The storyboard's 'Agree with caveat' is a distinct response choice that lives between full concession and full rebuttal. Reviewers should consider whether this is a merge with 'concedes_narrow_point' or a new id.",
+      "exampleMoveInScenario": "m4 — 'You're right March rent was due March 10, but I paid early because of travel.'"
+    },
+    {
+      "candidateId": "provides_alternate_interpretation",
+      "binarySignal": "Does this move offer an alternative reading of an existing artifact (note text, date, label) that the parent treated as fixed?",
+      "rationaleForAddition": "Distinct from 'requests_clarification' (asking what the parent meant) and from 'provides_evidence' (adding new evidence). The move re-frames an existing artifact's interpretation.",
+      "exampleMoveInScenario": "m4 — B re-interprets the payment note 'practice space' as a description, not a category code."
+    },
+    {
+      "candidateId": "opens_evidence_debt_marker",
+      "binarySignal": "Does this move open a structured evidence-debt marker (e.g. an Ask for source request that the system tracks)?",
+      "rationaleForAddition": "Distinct from generic 'asks_for_evidence'. The catalog should track the structured-request action separately from the informal one because the deterministic ledger needs to open a tracked debt object.",
+      "exampleMoveInScenario": "m5 — A taps 'Ask for source' and writes a specific request."
+    },
+    {
+      "candidateId": "closes_evidence_debt_marker",
+      "binarySignal": "Does this move respond to an open evidence-debt marker with the requested source or quote?",
+      "rationaleForAddition": "The deterministic ledger needs a signal that closes a debt; 'provides_evidence' is too broad (it fires on any evidence attachment).",
+      "exampleMoveInScenario": "m6 — B supplies the group-chat excerpt that A requested at m5."
+    },
+    {
+      "candidateId": "supplies_corroborating_document",
+      "binarySignal": "Does this move attach a document (chat excerpt, message, receipt) that corroborates a prior claim already on the timeline rather than introducing a new primary claim?",
+      "rationaleForAddition": "Differentiates corroborating evidence from primary evidence. The deterministic layer treats them differently (corroborating strengthens an existing pill; primary creates a new one).",
+      "exampleMoveInScenario": "m6 — group-chat excerpt corroborates the timing of ev1; m8 — landlord message corroborates the amount."
+    },
+    {
+      "candidateId": "introduces_sub_axis",
+      "binarySignal": "Does this move open a new, more specific sub-dispute on the SAME mainline rather than continuing the parent's axis?",
+      "rationaleForAddition": "Distinct from 'introduces_new_issue' (which signals a wholly new debatable issue, typically a candidate for a side branch). Sub-axis stays on the mainline; the catalog lacks this finer distinction.",
+      "exampleMoveInScenario": "m7 — A concedes applicability and opens a new sub-axis on amount ($20)."
+    },
+    {
+      "candidateId": "concedes_with_new_dispute",
+      "binarySignal": "Does this move pair a concession on one axis with a new dispute on a different axis?",
+      "rationaleForAddition": "A common move shape in real disputes; the catalog handles concession but not the paired concede-and-open pattern. Could be a composition rule rather than a new id; flagged for reviewer.",
+      "exampleMoveInScenario": "m7 — A concedes applicability AND opens the amount sub-dispute in the same move."
+    },
+    {
+      "candidateId": "disputes_specific_amount",
+      "binarySignal": "Does this move challenge a specific numeric amount (price, quantity, count) named in the parent?",
+      "rationaleForAddition": "Distinct from generic applicability dispute or generic evidence challenge. Amount disputes are common and the deterministic composition layer can produce specific UI affordances for them (number-anchored evidence pill).",
+      "exampleMoveInScenario": "m8 — B disputes the $140 figure A introduced at m7."
+    },
+    {
+      "candidateId": "cites_temporal_boundary",
+      "binarySignal": "Does this move cite a specific boundary date (the rent increase started in April; the deadline was March 10) that demarcates one period from another?",
+      "rationaleForAddition": "Similar to provides_temporal_constraint but BOUNDARY-shaped (X started; Y ended). Reviewers should consider whether to merge with provides_temporal_constraint.",
+      "exampleMoveInScenario": "m8 — 'rent increase started in April'."
+    }
+  ],
+  "compositionRules": [
+    {
+      "ruleId": "applicability_dispute_with_prior_agreement_and_temporal_anchor",
+      "inputPattern": {
+        "disputes_evidence_applicability": 1,
+        "references_prior_agreement": 1,
+        "provides_temporal_constraint": 1
+      },
+      "outputBanner": "Applicability disputed — prior agreement cited",
+      "outputSidecar": "Dispute is about which obligation the payment covers, not whether it happened. Prior agreement cited.",
+      "outputEvidencePanelTransition": "ev[i].status: attached_unchallenged → applicability_disputed",
+      "outputRouteSuggestion": "mainline",
+      "outputFrictionSuggestion": "none"
+    },
+    {
+      "ruleId": "qualified_concession_with_alternate_interpretation",
+      "inputPattern": {
+        "concedes_narrow_point": 1,
+        "accepts_partial_with_caveat": 1,
+        "provides_alternate_interpretation": 1
+      },
+      "outputBanner": "Agreed with caveat — alternate interpretation offered",
+      "outputSidecar": "Conceded the specific point; offered an alternate interpretation of an existing artifact.",
+      "outputFrictionSuggestion": "ask_for_source"
+    },
+    {
+      "ruleId": "explicit_source_request_opens_debt_marker",
+      "inputPattern": {
+        "asks_for_evidence": 1,
+        "opens_evidence_debt_marker": 1
+      },
+      "outputBanner": "Source requested",
+      "outputSidecar": "Room status: Evidence requested.",
+      "outputEvidenceDebtTransition": "new_debt_marker_opened",
+      "outputRoomStatusLine": "Evidence requested",
+      "outputFrictionSuggestion": "ask_for_source"
+    },
+    {
+      "ruleId": "source_supplied_closes_debt_and_strengthens_prior_evidence",
+      "inputPattern": {
+        "provides_evidence": 1,
+        "evidence_supports_claim": 1,
+        "closes_evidence_debt_marker": 1,
+        "supplies_corroborating_document": 1
+      },
+      "outputBanner": "Source supplied — debt resolved",
+      "outputSidecar": "Evidence chain stronger.",
+      "outputEvidencePanelTransition": "prior_evidence: applicability_disputed → applicability_supported; new_evidence: attached_supporting",
+      "outputEvidenceDebtTransition": "debt_resolved",
+      "outputFrictionSuggestion": "none"
+    },
+    {
+      "ruleId": "concede_and_open_sub_axis_on_same_mainline",
+      "inputPattern": {
+        "concedes_narrow_point": 1,
+        "narrows_claim": 1,
+        "introduces_sub_axis": 1,
+        "concedes_with_new_dispute": 1
+      },
+      "outputBanner": "Conceded; new sub-dispute opened",
+      "outputSidecar": "Prior dispute resolved; live dispute narrows to the new sub-axis.",
+      "outputRouteSuggestion": "mainline",
+      "outputFrictionSuggestion": "ask_for_source"
+    },
+    {
+      "ruleId": "evidence_backed_sub_axis_resolution_ready_for_synthesis",
+      "inputPattern": {
+        "provides_evidence": 1,
+        "evidence_supports_claim": 1,
+        "disputes_specific_amount": 1,
+        "cites_temporal_boundary": 1,
+        "ready_for_synthesis": 1
+      },
+      "outputBanner": "Sub-dispute evidence supplied; ready for synthesis",
+      "outputSidecar": "Sub-axis evidence-supported. Room may settle.",
+      "outputSettlementReadiness": "room_ready_for_settlement_pending_acceptance",
+      "outputFrictionSuggestion": "none"
+    },
+    {
+      "ruleId": "root_proclamation_exemption",
+      "inputPattern": {
+        "isRoot": true
+      },
+      "outputBanner": null,
+      "outputSidecar": "Opening claim — no prior context to engage.",
+      "noClassifierCallFired": true
+    },
+    {
+      "ruleId": "first_move_per_participant_exemption",
+      "inputPattern": {
+        "isFirstMoveByThisAuthor": true
+      },
+      "outputBanner": null,
+      "outputSidecar": "Author's first move — eligibility rule exempts the move from classification.",
+      "noClassifierCallFired": true
+    }
+  ],
+  "reasonCodeSafetyNotes": {
+    "context": "The current packet schema includes a reasonCode string per classifier. The SMOKE-FIX-001 investigation surfaced that this field is at risk of containing banned tokens (false, true, correct, incorrect, wrong) since classifiers commonly use those tokens in plausible reason codes (e.g. false_premise, true_to_topic).",
+    "designConstraintsForReasonCode": [
+      "No verdict tokens — never includes winner / loser / won / lost / right / wrong / true / false / correct / incorrect / proven / defeated.",
+      "No person labels — never includes liar / lying / dishonest / manipulative / troll / propagandist / extremist / stupid / idiot / dumb / smart or the phrase 'bad faith'.",
+      "No truth claims — describes the move's STRUCTURE, never asserts the move IS factual / IS wrong / IS misleading.",
+      "Snake_case bounded vocabulary — drawn from the six MCP-002 reason-code families (parent_continuity / branch_routing / evidence / source_chain / movement / mode_fit / friction / banner) per src/features/semanticReferee/semanticRefereeTypes.ts.",
+      "Whitelist-by-family — the validator should accept reasonCode only if it matches /^(parent_continuity|branch_routing|evidence|source_chain|movement|mode_fit|friction|banner)_[a-z0-9_]+$/ AND none of its segments are in the verdict/person ban-list."
+    ],
+    "exampleSafeReasonCodes": [
+      "evidence_applicability_disputed",
+      "evidence_debt_marker_opened",
+      "evidence_debt_marker_closed",
+      "movement_concession_with_caveat",
+      "movement_sub_axis_introduced",
+      "parent_continuity_quote_anchored",
+      "source_chain_corroboration_supplied"
+    ],
+    "exampleUnsafeReasonCodesToReject": [
+      "evidence_false_premise",
+      "evidence_true_anchor",
+      "movement_correct_concession",
+      "parent_continuity_wrong_anchor",
+      "movement_winner_takes_axis"
+    ]
+  }
+}
