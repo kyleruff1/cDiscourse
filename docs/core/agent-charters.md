@@ -59,6 +59,14 @@ tests are red.
 `docs/core/current-status.md` · `docs/core/session-handoff.md` ·
 `docs/core/ux-ui-project-board.md` · the specific issue body.
 
+**Migration-bearing cards have an extra reviewer gate.** When the
+implementer diff touches `supabase/migrations/`, the reviewer follows
+`.claude/agents/roadmap-reviewer.md` § "Migration-bearing card verification
+(mandatory)" — local migration apply when Docker is available, heightened
+textual review against four named issue classes when it is not. This gate
+sits on top of every charter in this file; no specialized charter overrides
+or weakens it.
+
 **Never** call Anthropic, xAI, OpenAI, or the X API. **Never** deploy
 Supabase functions. **Never** send real emails. **Never** use
 service-role. **Never** touch `.env*`.

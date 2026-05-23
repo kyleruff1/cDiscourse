@@ -162,6 +162,13 @@ grep -r "ANTHROPIC_API_KEY\|SERVICE_ROLE" app/ src/
 - Constitution versions: written only by service role; never mutated after insert.
 - `flags` rows: never deleted — only dismissed (`dismissed = true`, `reviewed_by`, `reviewed_at`).
 - `arguments` rows: never hard-deleted — soft-delete via `is_deleted = true`.
+- Migration-bearing PRs receive heightened verification at review time. See
+  `.claude/agents/roadmap-reviewer.md` § "Migration-bearing card verification
+  (mandatory)" — reviewers either run `npx supabase db reset --linked=false`
+  (when Docker is available) or perform a heightened textual review against
+  four named issue classes. The QOL-041 deploy chain is the motivating
+  incident; see `docs/core/known-blockers.md` § "QOL-041 Migration Deploy
+  Chain — Reviewer Template Strengthened (OPS-001)".
 
 ---
 

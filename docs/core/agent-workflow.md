@@ -37,7 +37,7 @@ Three roles, one per phase. Each is a markdown file with frontmatter that Claude
 | --- | --- | --- | --- |
 | `roadmap-designer` | Design | `docs/designs/<code>.md` | write production code, install deps, push |
 | `roadmap-implementer` | Build | Code + tests + `docs/core/current-status.md` update | redesign, deploy, push |
-| `roadmap-reviewer` | Review | `docs/reviews/<code>.md` with verdict | modify code, push, open PR |
+| `roadmap-reviewer` | Review | `docs/reviews/<code>.md` with verdict; migration-bearing diffs additionally verified per `.claude/agents/roadmap-reviewer.md` § "Migration-bearing card verification (mandatory)" | modify code, push, open PR |
 
 Each agent reads `CLAUDE.md`, the relevant skills, and the card's design doc (after designer). They commit on the branch but never push.
 
