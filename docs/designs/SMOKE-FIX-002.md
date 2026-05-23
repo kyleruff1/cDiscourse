@@ -516,3 +516,39 @@ The implementer does NOT need to touch any cache code. The bump propagates throu
 - **SMOKE-FIX-003 — same-shape follow-up for `frictionSuggestion` or `scoreHints`.** If the post-SMOKE-FIX-002 smoke-test re-run still produces `validation_failed` entries with `layer: 'schema'` AND `path: ["frictionSuggestion"]` OR `path: ["scoreHints", …]`, file SMOKE-FIX-003 with the same shape as this card: name the cause from SMOKE-FIX-001's diagnostic line; pick the narrowest applicable B2* option from SMOKE-FIX-001 §11; ship the prompt edit (or coercion step if the failure mode is `binaries[i].value` being boolean — that's option B2b); bump `SEED_PROMPT_VERSION` to `v2`; re-run the smoke test. The frame is repeatable.
 - **Modularity slate** (separate roadmap track, independent of SMOKE-FIX-001/002/003) — documentation reorg, classifier-catalog inventory, prompt-template inventory, source-of-truth extraction, prompt-template refactor, banner/ledger refactor, move-position tracking, and the move-position-aware triggering rule. Proceeds in its own dependency order.
 - **Anthropic-side schema-conformance tuning** — if the model continues to drift on routine fields after multiple SMOKE-FIX-* iterations, the next card switches strategy from "make the prompt more specific" to "wrap the call in `tool_use` with a fixed schema" (Anthropic's structured-output mode). That is a larger surface change with its own design and is NOT in scope for SMOKE-FIX-002. Filed as a candidate when SMOKE-FIX-003+ have exhausted prompt-only fixes.
+
+---
+
+## 13. Implementer note (2026-05-22)
+
+Two small spec gaps surfaced during implementation. Both have minimal,
+narrowly-scoped fixes that respect the design's binding intent.
+
+**§8.3 vs §5.3 — `semanticAnthropicCore.test.ts` v0 literal.** §8.3 states:
+"no test asserts `SEED_PROMPT_VERSION === 'mcp-semantic-referee-prompt-v0'`."
+That statement is incorrect — `__tests__/semanticAnthropicCore.test.ts:161`
+contains exactly that assertion. §5.3 says the bump is required (and the
+file's own header comment at lines 26-31 documents the rule). The §5.3
+intent is binding; the §8.3 statement was a factual error. The
+implementer updated the one-line literal in that pre-existing test to
+match the new v1 string. No other test required an edit. This is a
+one-line follow-on consequence of §5.3 that §8.3 omitted; it does not
+expand the card's scope and does not redesign anything.
+
+**§5.4 strip filter — JSDoc-block doctrine prohibition.** §5.4's example
+test strips lines matching `/do not/i` before the per-segment ban-list
+scan. The file's own JSDoc doctrine block at `seedPrompt.ts:10-14` carries
+a wrapped multi-line prohibition sentence using the "NO question asks the
+model whether anything is true, correct, right, wrong, ..." form — the
+banned tokens appear on the WRAPPED CONTINUATION LINES, not on the line
+with the prohibition marker itself. The `/do not/i` filter alone leaves
+those wrapped-continuation lines exposed and fails the scan. Per the
+design's stated intent ("the banned tokens never appear OUTSIDE a 'Do
+not' / 'MUST NOT' / 'must not' sentence" — the broader prohibition
+concept, not the literal substring), the implementer extended the
+stripping to ALSO remove JSDoc block comments wholesale (`/\*\* ... \*/`)
+before the per-segment scan. JSDoc blocks are developer documentation
+that never leaves the source file and never reaches the model. The scan
+still catches banned tokens in the executable string literals (the
+instruction prose, the worked example, the per-classifier questions, the
+input block) — which is the load-bearing safety the design intends.
