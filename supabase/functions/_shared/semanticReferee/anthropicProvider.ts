@@ -186,10 +186,35 @@ export async function runAnthropicClassifier(
   //    failure on EITHER → validation_failed → deterministic fallback.
   const schemaResult = SemanticRefereePacketSchema.safeParse(stamped);
   if (!schemaResult.success) {
+    // SMOKE-FIX-001 §5.2 — single sanitized diagnostic line per failed call.
+    // Only the schema issue PATH is logged (e.g. ["binaries", 0, "value"]) —
+    // never the offending VALUE, never the response body / model text / API
+    // key / Authorization header / JWT / room id / move id / user id.
+    // `inputHash` is the deterministic, non-secret per-request correlator
+    // already stamped on the packet at line 92-94; it lets a Supabase log
+    // line join to a smoke-test log entry by run+request.
+    // eslint-disable-next-line no-console
+    console.warn(JSON.stringify({
+      semanticReferee: 'validation_failed',
+      layer: 'schema',
+      path: schemaResult.error.issues[0]?.path ?? [],
+      inputHash: typeof stamped.inputHash === 'string' ? stamped.inputHash : null,
+    }));
     return { kind: 'unavailable', reason: 'validation_failed' };
   }
   const contentResult = scanPacketContent(stamped);
   if (!contentResult.ok) {
+    // SMOKE-FIX-001 §5.2 — single sanitized diagnostic line per failed call.
+    // `contentResult.detail` is already a category-only string from
+    // contentSafetyScan.ts:228-230 (e.g. "binaries[0].reasonCode contained a
+    // verdict / outcome token") — it never echoes the offending VALUE.
+    // eslint-disable-next-line no-console
+    console.warn(JSON.stringify({
+      semanticReferee: 'validation_failed',
+      layer: 'content_scan',
+      detail: contentResult.detail,
+      inputHash: typeof stamped.inputHash === 'string' ? stamped.inputHash : null,
+    }));
     return { kind: 'unavailable', reason: 'validation_failed' };
   }
 
