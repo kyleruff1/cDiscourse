@@ -6,6 +6,18 @@
  * `RefereeFeedbackCode` codes (MCP-013). Both are the authoritative maps from
  * already-classified metadata to a `bannerCode` in `REFEREE_BANNER_LIBRARY`.
  *
+ * MCP-MOD-004 — source-of-truth handshake: the per-id PRIMARY banner code per
+ * classifier id is also recorded in `SEMANTIC_CLASSIFIER_CATALOG` (see
+ * `src/lib/constitution/semanticClassifierCatalog.ts`). `CLASSIFIER_TO_BANNERS`
+ * stays HERE because `selectBanner` consumes the FULL ordered candidate list
+ * per id, not just the primary code. A parity test
+ * (`__tests__/semanticClassifierCatalogParity.test.ts`) asserts the first
+ * entry of each id's list matches the catalog's `bannerCode` field — so the
+ * catalog stays the source-of-truth for the primary code while the banner
+ * library owns the full priority list selectBanner needs. This is the
+ * documented "smallest behaviour-preserving change" allowed by MCP-MOD-004's
+ * task spec.
+ *
  * Documented deviation (MCP-014 design § "Documented deviation from MCP-008"):
  * MCP-008 §5 keyed the map off the 90 MCP-002 seed ids. That contract is
  * superseded — a real `SemanticBinarySample.classifierId` is the 23-id union,

@@ -2,10 +2,18 @@
  * MCP-017 — Semantic referee live-provider seed prompt (zod-free).
  *
  * The canonical structured prompt template for the live Anthropic provider.
- * Carries one bounded STRUCTURAL yes/no question for every one of the 23
- * catalog-v0 classifier ids frozen in `types.ts` (`ALL_SEMANTIC_CLASSIFIER_IDS`).
- * Each question is the catalog-v0 condensation of the corresponding family in
- * the MCP-002 seed bank (`docs/semantic-prompts/mcp-semantic-referee-prompt-bank.md`).
+ * Carries one bounded STRUCTURAL yes/no question for every catalog-v0
+ * classifier id frozen in `types.ts` (`ALL_SEMANTIC_CLASSIFIER_IDS`).
+ *
+ * Authority chain (post-MCP-MOD-004):
+ *
+ *   `semanticClassifierCatalog.ts`  →  `CLASSIFIER_QUESTION_TEXT` (this file)
+ *
+ * The per-id question text is no longer hand-written here. Every entry in
+ * `CLASSIFIER_QUESTION_TEXT` is derived from `SEMANTIC_CLASSIFIER_CATALOG`'s
+ * `structuralQuestion` field by iterating the catalog at module load. A
+ * wording change is a one-line edit in the catalog and bumps
+ * `SEED_PROMPT_VERSION` here.
  *
  * DOCTRINE (cdiscourse-doctrine §1, MCP-001 §7, MCP-017 design §3 rule 5):
  *   - Every question asks about the move's STRUCTURE — parent continuity,
@@ -16,12 +24,13 @@
  *     here for the doctrine ban-list vocabulary AND asserts id-coverage parity
  *     with `ALL_SEMANTIC_CLASSIFIER_IDS` (every id, no extra keys).
  *
- * This file is PURE TYPESCRIPT — it imports only `types.ts`. Zero `npm:`
- * imports, so the `_helpers/semanticRefereeDeno.ts` Jest bridge can `require()`
- * it directly.
+ * This file is PURE TYPESCRIPT — it imports only `types.ts` and
+ * `semanticClassifierCatalog.ts`. Zero `npm:` imports, so the
+ * `_helpers/semanticRefereeDeno.ts` Jest bridge can `require()` it directly.
  */
 import { ALL_SEMANTIC_CLASSIFIER_IDS } from './types.ts';
 import type { ClassifyMoveRequest, SemanticClassifierId } from './types.ts';
+import { SEMANTIC_CLASSIFIER_CATALOG } from './semanticClassifierCatalog.ts';
 
 /**
  * The prompt-version string the packet is stamped with. Matches MCP-002's
@@ -35,63 +44,21 @@ export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v1';
  * The model answers each with `0` or `1`. The question describes the move, not
  * the person; it asks a structural / play-quality question, never a truth one.
  *
+ * Derived from `SEMANTIC_CLASSIFIER_CATALOG` — the catalog is the
+ * source-of-truth (MCP-MOD-004). Adding or removing an id requires the catalog
+ * update (and a `SemanticClassifierId` union edit); editing a question is a
+ * one-line catalog edit + a `SEED_PROMPT_VERSION` bump.
+ *
  * Keyed by every `SemanticClassifierId` — the mirror test fails the build if a
- * future catalog change adds an id without a question here, or adds an extra
+ * future catalog change adds an id without a catalog entry, or adds an extra
  * key not in the catalog.
  */
-export const CLASSIFIER_QUESTION_TEXT: Readonly<Record<SemanticClassifierId, string>> = {
-  // §A — parent continuity.
-  responds_to_parent:
-    "Does this move directly engage the parent's claim, mechanism, question, evidence, or requested clarification?",
-  introduces_new_issue:
-    'Does this move raise a new issue that could be debated separately from the parent?',
-  quote_anchors_parent:
-    'Does this move quote or paraphrase a span of the parent and then engage that span in its body?',
-  requests_clarification:
-    'Does this move ask what the other participant means by a term or statement?',
-  answers_clarification:
-    'Does this move answer a clarification request raised earlier in the thread?',
-  // §C — evidence and source chain.
-  asks_for_evidence:
-    'Does this move request a source, citation, primary source, receipt, or exact quote?',
-  provides_evidence:
-    'Does this move include or reference an attached source, excerpt, quotation, or record?',
-  evidence_supports_claim:
-    'Does the attached evidence appear to attach to the exact claim being made in this move?',
-  uses_popularity_as_evidence:
-    "Does this move use likes, shares, virality, or an \"everyone says\" appeal as evidentiary support?",
-  uses_satire_as_evidence:
-    'Does this move use satire, parody, a meme, or fiction as factual support for a claim?',
-  cites_retraction:
-    'Does this move cite a retraction, correction, update, or changed record?',
-  creates_source_chain_gap:
-    'Does this move leave a gap in the source trail — a missing origin, quote, context, or link?',
-  // §D — constructive movement.
-  narrows_claim:
-    'Does this move limit a broader claim to a more specific, more defensible scope?',
-  concedes_narrow_point:
-    'Does this move accept a specific, limited point raised by the other participant?',
-  ready_for_synthesis:
-    'Is there clear shared ground in the thread plus only limited unresolved debt?',
-  needs_pre_send_pause:
-    'Could this move be tightened by its author before it is sent?',
-  // §E — debate-mode fit.
-  fits_selected_debate_mode:
-    "Does this move's register fit the room's selected debate mode?",
-  contains_playable_hot_take:
-    'Is this move spicy, contrarian, or provocative while still being a coherent, answerable claim?',
-  is_satire_or_parody:
-    'Does this move itself read as satire, parody, a meme, or fiction rather than a literal claim?',
-  // §B / §G — branch routing and friction.
-  suggests_side_branch:
-    'Would this move read more cleanly on a same-topic side branch than on the main line?',
-  suggests_diagonal_tangent:
-    'Does this move step to a related but distinct issue that fits its own tangent branch?',
-  shifts_to_person_or_intent:
-    'Does this move redirect from the argument toward the other participant or their intent?',
-  contains_unplayable_insult_only:
-    'Is this move only an insult, with no claim, question, or evidence to engage?',
-};
+export const CLASSIFIER_QUESTION_TEXT: Readonly<Record<SemanticClassifierId, string>> =
+  Object.freeze(
+    Object.fromEntries(
+      SEMANTIC_CLASSIFIER_CATALOG.map((entry) => [entry.id, entry.structuralQuestion]),
+    ) as Record<SemanticClassifierId, string>,
+  );
 
 /**
  * The redacted-input block: the move + parent bodies + room context the model
@@ -152,6 +119,11 @@ export function buildClassifierPrompt(request: ClassifyMoveRequest): string {
     'Do not include any blocking, verdict, truth, or winner field.',
   ].join(' ');
 
+  // The worked example references one classifier id by NAME in its illustrative
+  // JSON body. The id-literal is sourced from the catalog's first entry rather
+  // than hardcoded here, so no per-id id-string appears in this file (the
+  // source-scan test `seedPromptNoHardcodedClassifierIds.test.ts` enforces it).
+  const exampleClassifierId = SEMANTIC_CLASSIFIER_CATALOG[0].id;
   const workedExample = [
     'Worked example of the packet shape (the values below are illustrative —',
     'choose your own values based on the structural questions; do not copy these',
@@ -160,7 +132,7 @@ export function buildClassifierPrompt(request: ClassifyMoveRequest): string {
     '{',
     '  "binaries": [',
     '    {',
-    '      "classifierId": "responds_to_parent",',
+    `      "classifierId": "${exampleClassifierId}",`,
     '      "value": 1,',
     '      "confidence": "high",',
     '      "reasonCode": "parent_continuity_engaged"',
