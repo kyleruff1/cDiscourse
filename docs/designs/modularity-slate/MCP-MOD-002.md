@@ -4,7 +4,7 @@
 **Status:** Design summary.
 **Epic:** Rules UX.
 **Movement:** A (documentation).
-**Meta-roadmap:** [`docs/core/roadmap-semantic-referee-modularity.md`](../../core/roadmap-semantic-referee-modularity.md) (after MCP-MOD-001 moves it) — or `docs/roadmap-expansions/2026-05-22-semantic-referee-modularity-roadmap.md` if MCP-MOD-001 has not yet shipped.
+**Meta-roadmap:** [`docs/core/roadmap-semantic-referee-modularity.md`](../../core/roadmap-semantic-referee-modularity.md).
 **Depends on:** MCP-MOD-001 (the destination subfolder `docs/architecture/` is created here, but MCP-MOD-001 ships the docs reorganization that makes the convention sensible).
 **Unblocks:** MCP-MOD-004 (the source-of-truth extraction reads this inventory as the ground-truth declaration).
 
