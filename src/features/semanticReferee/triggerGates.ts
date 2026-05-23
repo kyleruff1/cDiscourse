@@ -14,11 +14,21 @@
  *   - `TriggerEvaluationInput` carries NO engagement / heat / popularity field;
  *     triggers fire only on structural completed actions.
  *
+ * MCP-MOD-008 — move-position-aware first-move-skip rule. The gate consults
+ * the move-position helper from MCP-MOD-007 when the caller passes `authorId`
+ * + `priorMoves`. A `'first'` position returns
+ * `{ allowed: false, reasonCode: 'first_move_by_author' }` BEFORE the
+ * per-moment precondition. The rule is participant-scoped (a chime-in's first
+ * contribution is also exempt) and degrades to the pre-MCP-MOD-008 behavior
+ * when `authorId` / `priorMoves` are absent (every existing call site that
+ * doesn't supply them keeps its current semantics — backward compatibility).
+ *
  * This file is PURE TYPESCRIPT — no network import, no Supabase, no React, no
  * `Deno`, no `process` / `.env` read, no provider SDK, no `async`. The only
  * thing that ever fires a provider call is MCP-009's Edge Function (built by
  * MCP-016). `evaluateTrigger` is total: every input yields one `TriggerDecision`.
  */
+import { getMovePositionForAuthor } from './movePosition';
 
 // ── Trigger / forbidden / mode / role enums ───────────────────────
 
@@ -68,6 +78,10 @@ export type SemanticActorRole =
  * What the gate is asked about. Pure input — NO body text, NO engagement /
  * like-count / view-count / heat field. Triggers fire only on structural
  * completed actions (cdiscourse-doctrine §3).
+ *
+ * MCP-MOD-008 — the optional `authorId` + `priorMoves` pair drives the
+ * first-move-skip rule. The hook supplies both. Existing call sites that do
+ * not supply them keep the pre-MCP-MOD-008 behavior (no first-move-skip).
  */
 export interface TriggerEvaluationInput {
   event:
@@ -88,6 +102,22 @@ export interface TriggerEvaluationInput {
   branchRouteAmbiguous?: boolean;
   /** Lifecycle-event count on the cluster — `synthesis_readiness` threshold gate. */
   clusterLifecycleEventCount?: number;
+  /**
+   * MCP-MOD-008 — the just-posted move's author id. When supplied together
+   * with `priorMoves`, the gate consults the move-position helper and
+   * refuses with `first_move_by_author` when this is the author's first move
+   * in the room. Absent (or paired with absent `priorMoves`) keeps the
+   * pre-MCP-MOD-008 behavior.
+   */
+  authorId?: string;
+  /**
+   * MCP-MOD-008 — every move already posted in the room, in chronological
+   * order, with author id. Used by the move-position helper to count
+   * `authorId`'s prior moves. Absent (or paired with absent `authorId`)
+   * keeps the pre-MCP-MOD-008 behavior. The list does NOT include the move
+   * being classified — the caller separates them.
+   */
+  priorMoves?: ReadonlyArray<{ id: string; authorId: string }>;
 }
 
 // ── Reason codes + decision ───────────────────────────────────────
@@ -115,7 +145,15 @@ export type TriggerReasonCode =
   | 'trigger_pre_send_not_opted_in'
   | 'trigger_pre_send_mode_not_strict'
   | 'trigger_branch_route_not_ambiguous'
-  | 'trigger_synthesis_below_threshold';
+  | 'trigger_synthesis_below_threshold'
+  /**
+   * MCP-MOD-008 — the just-posted move is the author's FIRST move in this
+   * room. By design we do not classify opening statements (the move has no
+   * prior context to engage); the layer-1 fallback renders instead. This
+   * reason is participant-scoped: a chime-in's first contribution is also
+   * exempt. Surfaces only when the caller supplied `authorId` + `priorMoves`.
+   */
+  | 'first_move_by_author';
 
 export type TriggerDecision =
   | { allowed: true; moment: SemanticTriggerMoment; reasonCode: TriggerReasonCode }
@@ -196,8 +234,13 @@ function modePermitsClassification(mode: SemanticClassificationMode | undefined)
  *   1. feature layer disabled
  *   2. room mode off / absent (fail-closed)
  *   3. actor is an observer / moderator
- *   4. per-moment precondition
- *   5. allowed
+ *   4. (MCP-MOD-008) first move by author — when `authorId` + `priorMoves`
+ *      are both supplied AND the move-position helper returns `'first'`,
+ *      refuse with `first_move_by_author`. The check runs BEFORE the
+ *      per-moment precondition so an opening statement is exempt regardless
+ *      of moment / branch-routing / synthesis state.
+ *   5. per-moment precondition
+ *   6. allowed
  *
  * `evaluateTrigger` is total — every `(event × mode × flag × role ×
  * precondition)` combination yields exactly one decision; it never throws and
@@ -226,7 +269,27 @@ export function evaluateTrigger(input: TriggerEvaluationInput): TriggerDecision 
     return { allowed: false, reasonCode: 'trigger_role_not_participant' };
   }
 
-  // 4. Per-moment precondition.
+  // 4. MCP-MOD-008 — first move by author. Consulted only when the caller
+  //    supplied both `authorId` and `priorMoves`. Absent inputs preserve the
+  //    pre-MCP-MOD-008 behavior so existing call sites (and exhaustive tests)
+  //    continue to work without modification. The hook is the only call site
+  //    that supplies them today.
+  if (
+    typeof input.authorId === 'string' &&
+    input.authorId.length > 0 &&
+    Array.isArray(input.priorMoves)
+  ) {
+    const position = getMovePositionForAuthor({
+      moveId: input.moveId ?? '',
+      authorId: input.authorId,
+      priorMoves: input.priorMoves,
+    });
+    if (position === 'first') {
+      return { allowed: false, reasonCode: 'first_move_by_author' };
+    }
+  }
+
+  // 5. Per-moment precondition.
   switch (moment) {
     case 'post_submit':
     case 'evidence_inspection':
@@ -275,6 +338,6 @@ export function evaluateTrigger(input: TriggerEvaluationInput): TriggerDecision 
     }
   }
 
-  // 5. All checks passed → allowed.
+  // 6. All checks passed → allowed.
   return { allowed: true, moment, reasonCode: ALLOWED_REASON_CODE[moment] };
 }

@@ -410,10 +410,37 @@ export interface ClassifyMoveRoomContext {
 }
 
 /**
+ * MCP-MOD-008 — one entry of the optional `priorMovesRedacted` thread context.
+ *
+ * Each entry carries a STABLE, NON-IDENTIFYING author alias (`'A'`, `'B'`,
+ * `'C'`, derived deterministically from chronological order of distinct
+ * authors in the room) and the prior move's body, ALREADY redacted by the
+ * caller. The Edge Function runs a defensive second redaction pass over each
+ * `bodyRedacted` before any provider sees it. The alias map is local to the
+ * classify call; no user id, no display name, no email crosses the boundary.
+ *
+ * Bounded: `authorAlias` <= 8 chars; `bodyRedacted` <= MOVE_BODY_MAX (8000).
+ * The schema rejects entries that smuggle a verdict / person label.
+ */
+export interface PriorMoveContext {
+  /** Stable, non-identifying alias for the author. NEVER a user id, NEVER a display name. */
+  authorAlias: string;
+  /** The move body, already client-redacted. <= MOVE_BODY_MAX chars. */
+  bodyRedacted: string;
+}
+
+/**
  * Inbound request to the semantic-referee Edge Function. Bodies MUST be
  * redacted before calling this wrapper; the function runs a defensive second
  * redaction pass. The request carries no `block` field, no truth field — there
  * is nothing in the shape that can ask the model for a verdict.
+ *
+ * MCP-MOD-008: `priorMovesRedacted` is OPTIONAL. Existing callers (smoke-test
+ * orchestrator, fixtures) that do not send it continue to work unchanged —
+ * the function falls back to the pre-MCP-MOD-008 payload shape (just move +
+ * parent). When present, every prior move's body is redacted at the boundary
+ * too, and the seed prompt emits a thread-context block above the parent + move
+ * blocks.
  */
 export interface ClassifyMoveRequest {
   /** RLS-checked: the caller must be able to see this room. */
@@ -425,6 +452,15 @@ export interface ClassifyMoveRequest {
   moveBodyRedacted: string;
   /** <= 8000 chars. Absent for a root move. */
   parentBodyRedacted?: string;
+  /**
+   * MCP-MOD-008 — optional full-thread context for the classify call. When
+   * present, every entry carries an alias-only author identification and an
+   * already-redacted body. The function's defensive redaction pass runs over
+   * each entry too. Order is chronological (oldest first); the budget gate
+   * drops OLDEST first when over budget. Absent means the pre-MCP-MOD-008
+   * payload shape (move + parent only) — the function behaves identically.
+   */
+  priorMovesRedacted?: ReadonlyArray<PriorMoveContext>;
   roomContext: ClassifyMoveRoomContext;
   /** 1..5 entries, each a SemanticClassifierId. */
   requestedClassifiers: string[];

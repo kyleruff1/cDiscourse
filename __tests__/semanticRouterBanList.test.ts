@@ -66,6 +66,9 @@ const ALL_TRIGGER_REASON_CODES = [
   'trigger_pre_send_mode_not_strict',
   'trigger_branch_route_not_ambiguous',
   'trigger_synthesis_below_threshold',
+  // MCP-MOD-008 — first-move-skip reason. The token "first" is not on the
+  // banned list (and is not a verdict / popularity / truth token).
+  'first_move_by_author',
 ] as const satisfies readonly TriggerReasonCode[];
 
 /**

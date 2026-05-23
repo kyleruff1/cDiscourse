@@ -172,7 +172,10 @@ describe('buildClassifierPrompt', () => {
 
   it('SEED_PROMPT_VERSION is the documented prompt-version string', () => {
     // SMOKE-FIX-002 bumped v0 → v1 (enum enumeration + worked-example wording change).
-    expect(SEED_PROMPT_VERSION).toBe('mcp-semantic-referee-prompt-v1');
+    // MCP-MOD-008 bumped v1 → v2 (buildInputBlock emits the optional Room thread
+    // context block when priorMovesRedacted is present — a structural format
+    // change that invalidates the upstream cache).
+    expect(SEED_PROMPT_VERSION).toBe('mcp-semantic-referee-prompt-v2');
   });
 });
 

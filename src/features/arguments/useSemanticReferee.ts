@@ -51,6 +51,10 @@ import { planClassifierBatches } from '../semanticReferee/classifierBatching';
 import { SemanticPacketCache } from '../semanticReferee/semanticCache';
 import { buildSemanticCacheKey } from '../semanticReferee/semanticRefereeCacheKey';
 import { isWithinBudget } from '../semanticReferee/tokenBudget';
+import {
+  assemblePriorMovesPayload,
+  buildAuthorAliasMap,
+} from '../semanticReferee/threadContext';
 import type {
   SemanticBinarySample,
   SemanticRefereePacket,
@@ -105,6 +109,20 @@ export interface RefereeMoveState {
   overridePrompt: SemanticOverridePrompt;
 }
 
+/**
+ * MCP-MOD-008 — one prior-move entry as the room passes it to the hook. The
+ * hook converts each entry to its alias-only `PriorMoveContext` form before
+ * the body leaves the device.
+ */
+export interface OnMovePostedPriorMove {
+  /** The prior move's id — used by `getMovePositionForAuthor` and the alias map. */
+  id: string;
+  /** The prior move's author id — used to derive a stable chronological alias. */
+  authorId: string;
+  /** The prior move's body — the hook runs the client redactor over it before sending. */
+  body: string;
+}
+
 /** Arguments to `onMovePosted` — the just-posted move + its room context. */
 export interface OnMovePostedArgs {
   roomId: string;
@@ -116,6 +134,31 @@ export interface OnMovePostedArgs {
   parentBody?: string | null;
   /** The room's participant side ('affirmative' | 'negative' | 'observer' | 'moderator'). */
   participantSide?: string | null;
+  /**
+   * MCP-MOD-008 — the just-posted move's author id. When supplied together
+   * with `priorMoves`, the hook consults the move-position helper via
+   * `evaluateTrigger`; the first move by each participant is exempt from
+   * classification. Absent inputs preserve the pre-MCP-MOD-008 behavior
+   * (every move triggers classification) — backward compatibility for
+   * callers that do not yet have the author id at hand.
+   */
+  authorId?: string | null;
+  /**
+   * MCP-MOD-008 — every move already posted in the room, in chronological
+   * order (oldest first), with author id + raw body. Used to:
+   *   1. Count the author's prior moves for the first-move-skip rule.
+   *   2. Build the alias map (`A`, `B`, `C` from chronological order of
+   *      distinct authors).
+   *   3. Assemble the `priorMovesRedacted` payload for the classify call.
+   * The list does NOT include the just-posted move itself.
+   *
+   * Each entry's `body` is run through the client redactor before the bytes
+   * leave the device; the Edge Function runs the defensive second pass.
+   *
+   * Absent or empty keeps the pre-MCP-MOD-008 payload shape (no
+   * `priorMovesRedacted` field sent at all).
+   */
+  priorMoves?: ReadonlyArray<OnMovePostedPriorMove>;
   /** Room context the boundary needs to interpret the move. */
   roomContext?: ClassifyMoveRoomContext;
   /** Optional prompt-version hint; defaults to the v0 prompt version. */
@@ -374,8 +417,20 @@ export function useSemanticReferee(
         return;
       }
 
+      // MCP-MOD-008 — the just-posted move's author + the room's prior moves
+      // drive both the first-move-skip gate AND the alias-map for the
+      // priorMovesRedacted payload. Either may be absent — in that case the
+      // gate behaves identically to the pre-MCP-MOD-008 behavior, and the
+      // payload omits `priorMovesRedacted`. The hook does NOT skip the call
+      // when these are absent.
+      const authorId =
+        typeof args.authorId === 'string' && args.authorId.length > 0
+          ? args.authorId
+          : undefined;
+      const priorMovesList = args.priorMoves ?? [];
+
       // 3. Trigger gate. A `false` decision means no call — layer-1 stands.
-      const triggerInput = buildPostSubmitTriggerInput({
+      const triggerInputBase = buildPostSubmitTriggerInput({
         roomId,
         moveId,
         parentId,
@@ -383,6 +438,19 @@ export function useSemanticReferee(
         semanticClassificationMode,
         actorRole: mapParticipantSideToActorRole(args.participantSide),
       });
+      // Attach the MCP-MOD-008 first-move-skip inputs only when both are
+      // available; an absent pair keeps the pre-MCP-MOD-008 gate behavior.
+      const triggerInput =
+        authorId !== undefined && Array.isArray(args.priorMoves)
+          ? {
+              ...triggerInputBase,
+              authorId,
+              priorMoves: priorMovesList.map((m) => ({
+                id: m.id,
+                authorId: m.authorId,
+              })),
+            }
+          : triggerInputBase;
       const decision = evaluateTrigger(triggerInput);
       if (!decision.allowed) {
         // Refused — keep the deterministic layer-1 surface, no error.
@@ -401,14 +469,38 @@ export function useSemanticReferee(
         setRefereeStateByMoveId((prev) => ({ ...prev, [moveId]: PENDING_STATE }));
       }
 
+      // MCP-MOD-008 — derive the alias map ONCE per onMovePosted call. Stable
+      // chronological aliases (A, B, C, ...) covering every distinct author
+      // in priorMoves plus the just-posted move's author. The map is local
+      // to this call; it is never persisted.
+      const authorAliases = buildAuthorAliasMap(priorMovesList, authorId);
+
       try {
         const packets: SemanticRefereePacket[] = [];
         for (const batch of batches) {
+          // MCP-MOD-008 — assemble the prior-moves payload for THIS batch,
+          // bounded by the per-batch token budget (drops oldest first; falls
+          // back to an empty array if even move + parent overflow). The
+          // batch's `requestedClassifiers` count contributes to the budget,
+          // so prior-move trimming is recomputed per batch.
+          const priorMovesRedacted =
+            priorMovesList.length > 0
+              ? assemblePriorMovesPayload({
+                  priorMoves: priorMovesList,
+                  authorAliases,
+                  moveBodyRedacted,
+                  parentBodyRedacted,
+                  requestedClassifiers: batch as string[],
+                })
+              : [];
+
           // 5. Token budget per batch. Over budget → skip THIS batch's call.
+          //    The estimate includes the (already-trimmed) prior-moves bytes.
           const budget = isWithinBudget({
             moveBodyRedacted,
             parentBodyRedacted,
             requestedClassifiers: batch as string[],
+            priorMoveBodies: priorMovesRedacted.map((m) => m.bodyRedacted),
           });
           if (!budget.ok) {
             continue;
@@ -424,6 +516,13 @@ export function useSemanticReferee(
               parentId,
               moveBodyRedacted,
               parentBodyRedacted,
+              // MCP-MOD-008 — attach the priorMovesRedacted payload only when
+              // it is non-empty. Existing fixtures / smoke-test callers that
+              // don't supply prior moves keep the pre-MCP-MOD-008 payload
+              // shape (no priorMovesRedacted field sent at all).
+              ...(priorMovesRedacted.length > 0
+                ? { priorMovesRedacted }
+                : {}),
               roomContext: args.roomContext ?? {},
               requestedClassifiers: batch as string[],
               promptVersionHint: promptVersion,

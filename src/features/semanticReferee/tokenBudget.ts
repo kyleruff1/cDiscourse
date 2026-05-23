@@ -39,6 +39,14 @@ export const CHARS_PER_TOKEN = 3.5 as const;
  */
 export const PER_CLASSIFIER_ID_CHARS = 32 as const;
 
+/**
+ * MCP-MOD-008 — per-prior-move overhead in characters for the scaffold that
+ * `buildInputBlock` emits around each entry (`- Move N by <alias>: ` + a
+ * newline). A small constant; the prior-move body's own characters are added
+ * separately. Tunable; a heuristic, not an operator decision.
+ */
+export const PER_PRIOR_MOVE_SCAFFOLD_CHARS = 24 as const;
+
 /** Inputs to the estimate — character counts; no body text is retained. */
 export interface TokenBudgetPayload {
   moveBodyRedacted: string;
@@ -47,6 +55,14 @@ export interface TokenBudgetPayload {
   requestedClassifiers: readonly string[];
   /** Optional extra prompt context length (room mode, selected action, etc.). */
   extraContextChars?: number;
+  /**
+   * MCP-MOD-008 — prior-move bodies in chronological order (oldest first). Each
+   * body's character count is added to the input estimate alongside the move
+   * + parent. The aliasing scaffold ("- Move N by X: ") adds a small constant
+   * per entry; `PRIOR_MOVE_SCAFFOLD_CHARS` accounts for it. Optional — when
+   * absent or empty, the estimate matches the pre-MCP-MOD-008 value.
+   */
+  priorMoveBodies?: ReadonlyArray<string>;
 }
 
 export interface TokenBudgetVerdict {
@@ -63,6 +79,8 @@ export interface TokenBudgetVerdict {
  *               + (parentBodyRedacted?.length ?? 0)
  *               + (extraContextChars ?? 0)
  *               + requestedClassifiers.length * PER_CLASSIFIER_ID_CHARS
+ *               + MCP-MOD-008: sum over priorMoveBodies of
+ *                   (body.length + PER_PRIOR_MOVE_SCAFFOLD_CHARS)
  *   inputTokens = ceil(inputChars / CHARS_PER_TOKEN)
  *   return        inputTokens + OUTPUT_TOKEN_RESERVE
  */
@@ -71,8 +89,14 @@ export function estimatePacketTokens(payload: TokenBudgetPayload): number {
   const parentChars = payload.parentBodyRedacted?.length ?? 0;
   const extraChars = payload.extraContextChars ?? 0;
   const classifierChars = payload.requestedClassifiers.length * PER_CLASSIFIER_ID_CHARS;
+  let priorMoveChars = 0;
+  if (payload.priorMoveBodies !== undefined) {
+    for (const body of payload.priorMoveBodies) {
+      priorMoveChars += body.length + PER_PRIOR_MOVE_SCAFFOLD_CHARS;
+    }
+  }
 
-  const inputChars = moveChars + parentChars + extraChars + classifierChars;
+  const inputChars = moveChars + parentChars + extraChars + classifierChars + priorMoveChars;
   const inputTokens = Math.ceil(inputChars / CHARS_PER_TOKEN);
   return inputTokens + OUTPUT_TOKEN_RESERVE;
 }

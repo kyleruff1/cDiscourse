@@ -42,6 +42,23 @@ export const MOVE_BODY_MAX = 8_000;
 /** MCP-001 §9 caps a packet prompt at 5 classifiers. */
 export const MAX_REQUESTED_CLASSIFIERS = 5;
 
+/**
+ * MCP-MOD-008 — bound the `authorAlias` length. 8 chars accommodates the
+ * `A`/`B`/`C`-through-Z scheme plus the AA/AB wrap-around for the unlikely
+ * 26+-distinct-author case; verdict / person labels never fit, and an over-
+ * length alias fails validation.
+ */
+export const MAX_ALIAS_LEN = 8;
+
+/**
+ * MCP-MOD-008 — upper bound on prior-move entries the function will accept in
+ * one request. The hook's token-budget gate is the primary limit; this is a
+ * defensive ceiling so a malicious / buggy caller cannot post an unbounded
+ * array. 50 is well above the largest realistic room thread the hook would
+ * send (the budget gate caps earlier).
+ */
+export const MAX_PRIOR_MOVES = 50;
+
 const CLASSIFIER_ID_VALUES = ALL_SEMANTIC_CLASSIFIER_IDS as readonly [string, ...string[]];
 const ROUTE_VALUES = ALL_ROUTE_SUGGESTIONS as readonly [string, ...string[]];
 const FRICTION_VALUES = ALL_FRICTION_SUGGESTIONS as readonly [string, ...string[]];
@@ -50,10 +67,26 @@ const PROVIDER_VALUES = ALL_SEMANTIC_PROVIDERS as readonly [string, ...string[]]
 // ── Inbound request schema ────────────────────────────────────────
 
 /**
+ * MCP-MOD-008 — one entry of the optional `priorMovesRedacted` array.
+ * `.strict()` so a smuggled extra field fails validation. Bodies arrive
+ * already client-redacted; the boundary runs a defensive second pass.
+ */
+const PriorMoveContextSchema = z
+  .object({
+    authorAlias: z.string().min(1).max(MAX_ALIAS_LEN),
+    bodyRedacted: z.string().min(1).max(MOVE_BODY_MAX),
+  })
+  .strict();
+
+/**
  * `ClassifyMoveRequestSchema` — `.strict()`, so any unknown top-level key
  * fails validation (`validation_failed`). Empty `moveBodyRedacted`, an
  * over-length body, an empty / over-5 / unknown-id `requestedClassifiers`
  * array all fail.
+ *
+ * MCP-MOD-008: `priorMovesRedacted` is OPTIONAL. When present, each entry
+ * must satisfy `PriorMoveContextSchema` (alias bounded, body bounded). The
+ * array is bounded at `MAX_PRIOR_MOVES`.
  */
 export const ClassifyMoveRequestSchema = z
   .object({
@@ -62,6 +95,10 @@ export const ClassifyMoveRequestSchema = z
     parentId: z.string().min(1).max(MAX_STRING_FIELD_LEN).optional(),
     moveBodyRedacted: z.string().min(1, 'moveBodyRedacted must not be empty').max(MOVE_BODY_MAX),
     parentBodyRedacted: z.string().max(MOVE_BODY_MAX).optional(),
+    priorMovesRedacted: z
+      .array(PriorMoveContextSchema)
+      .max(MAX_PRIOR_MOVES, 'priorMovesRedacted caps at 50 entries')
+      .optional(),
     roomContext: z
       .object({
         debateMode: z.string().max(MAX_STRING_FIELD_LEN).optional(),
