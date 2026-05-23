@@ -1,6 +1,6 @@
 # Agent workflow — how cards get built
 
-This is the operator's reference for shipping a CDiscourse roadmap card with Claude Code subagents. The roadmap is in `docs/ux-ui-project-board.md` and tracked at https://github.com/users/kyleruff1/projects/1.
+This is the operator's reference for shipping a CDiscourse roadmap card with Claude Code subagents. The roadmap is in `docs/core/ux-ui-project-board.md` and tracked at https://github.com/users/kyleruff1/projects/1.
 
 ## TL;DR
 
@@ -36,7 +36,7 @@ Three roles, one per phase. Each is a markdown file with frontmatter that Claude
 | Agent | Phase | Output | Does NOT |
 | --- | --- | --- | --- |
 | `roadmap-designer` | Design | `docs/designs/<code>.md` | write production code, install deps, push |
-| `roadmap-implementer` | Build | Code + tests + `docs/current-status.md` update | redesign, deploy, push |
+| `roadmap-implementer` | Build | Code + tests + `docs/core/current-status.md` update | redesign, deploy, push |
 | `roadmap-reviewer` | Review | `docs/reviews/<code>.md` with verdict | modify code, push, open PR |
 
 Each agent reads `CLAUDE.md`, the relevant skills, and the card's design doc (after designer). They commit on the branch but never push.

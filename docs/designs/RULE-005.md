@@ -9,7 +9,7 @@
 is the box-type vocabulary the one-box composer consumes. Only the
 **`ChannelChipRow` React surface** is superseded — it re-houses under **QOL-031
 (Act popout)** as the flash-popout decision menu. **Do not rebuild
-`ChannelChipRow` as a standalone surface.** See `docs/ux-ui-project-board.md` →
+`ChannelChipRow` as a standalone surface.** See `docs/core/ux-ui-project-board.md` →
 "Supersession map" and the QOL-031 design doc.
 
 ---

@@ -724,7 +724,7 @@ Per `test-discipline`: tests ship **with** the Build-phase code, not as a follow
 - Renders an `arrived_at` marker with the "A chime-in joined this branch" copy + `whenLabel`.
 - Every visible string inside `<Text>`; the marker root exposes `accessibilityLabel`; the marker is non-interactive (no `Pressable`).
 
-(Test-count expectation: roughly +70–90 tests across the five files. The implementer updates `docs/current-status.md` with the confirmed number after `npm run test` passes — per test-discipline, only after it actually passes.)
+(Test-count expectation: roughly +70–90 tests across the five files. The implementer updates `docs/core/current-status.md` with the confirmed number after `npm run test` passes — per test-discipline, only after it actually passes.)
 
 ---
 
@@ -806,4 +806,4 @@ Explicitly **not** in GAME-006 (each is named in the card's Non-scope / Do-not s
 - **`BranchGrammarNode` / `BranchDirection` are imported as types** from `src/features/arguments/branchGrammarModel.ts`. Import them as `import type { … }` so the model stays decoupled from the branch-grammar render concern — the same discipline `publicSeatModel.ts` used importing `CollapsedBranchSummary`.
 - **The jump commits via the existing composer.** Do NOT add a new submit path, a new Edge Function call, or a direct `arguments` insert. The confirm step's `onConfirmJump` callback should route to the existing reply composer with the destination branch's root message id as the reply parent — that is the entire commit mechanism (§3.2).
 - **`canJump` has no `nowMs` parameter** — the rate limit is a count, not a window (§2.4). Do not add a clock parameter; it would make the predicate harder to test for no benefit.
-- Run `npm run typecheck`, `npm run lint`, and `npm run test` before claiming the card done; update `docs/current-status.md` with the confirmed new test count only after `npm run test` passes (test-discipline).
+- Run `npm run typecheck`, `npm run lint`, and `npm run test` before claiming the card done; update `docs/core/current-status.md` with the confirmed new test count only after `npm run test` passes (test-discipline).

@@ -138,7 +138,7 @@ modularity slate, that's the recommended sequence — restore the system first, 
 - **The triggering rule's "full thread context" payload could blow the token budget.** Mitigation: MCP-MOD-008's design
   summary names the token budget check explicitly and points at `isWithinBudget` (already in the codebase) as the
   enforcement point.
-- **Documentation reorganization breaks tools.** Some agents and scripts may have hardcoded paths to `docs/current-status.md`
+- **Documentation reorganization breaks tools.** Some agents and scripts may have hardcoded paths to `docs/core/current-status.md`
   or `docs/project.md`. Mitigation: MCP-MOD-001's checklist includes scanning `.claude/`, `scripts/`, and the
   GitHub-projects tooling for hardcoded paths; the move uses `git mv` so blame history survives.
 

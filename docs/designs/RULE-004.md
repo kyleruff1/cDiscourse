@@ -860,7 +860,7 @@ coverage.
 
 Test-count expectation: **~+55–70 tests** across the three model suites + the
 UI suite. The exact count is confirmed by the Build phase running
-`npm run test` and is recorded in `docs/current-status.md` then.
+`npm run test` and is recorded in `docs/core/current-status.md` then.
 
 ---
 

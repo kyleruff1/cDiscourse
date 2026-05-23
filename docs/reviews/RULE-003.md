@@ -22,7 +22,7 @@ RULE-003 lands the single source of truth that maps every LIFE-001 point-lifecyc
 
 ## Design conformance
 
-- [x] All design file-changes are present (`src/features/rulesUx/lifecycleUxMap.ts`, `__tests__/lifecycleUxMap.test.ts`, plus `docs/designs/RULE-003.md` and a small entry to `docs/current-status.md`).
+- [x] All design file-changes are present (`src/features/rulesUx/lifecycleUxMap.ts`, `__tests__/lifecycleUxMap.test.ts`, plus `docs/designs/RULE-003.md` and a small entry to `docs/core/current-status.md`).
 - [x] No undocumented file-changes. `git diff main..HEAD --stat` shows exactly 4 files: 1 design doc, 1 status note, 1 source, 1 test. No `package.json` / `package-lock.json` / `app/` / `supabase/` / `.env*` touched.
 - [x] Data model matches design. Three `Readonly<Record<Union, Entry>>` maps with the exact entry shape the design specifies. `LIFECYCLE_UX_MAP` (19), `MANUAL_TAG_UX_MAP` (10), `AUTO_METADATA_UX_MAP` (16) = 45 entries total.
 - [x] `IconHint` is the 24-value union from the design. Verdict glyphs excluded.
@@ -115,4 +115,4 @@ None.
 - Push the branch: `git push -u origin feat/RULE-003-lifecycle-to-ux-doctrine-map`
 - Open PR: `gh pr create --title "RULE-003: Lifecycle/manual-tag/auto-metadata UX doctrine map" --body-file docs/reviews/RULE-003.md`
 - No deploy steps. No migration. No Edge Function. No env var. No secret. Pure local code change.
-- After merge, `docs/current-status.md` already carries the RULE-003 entry; bump CLAUDE.md's "Current stage" line only when the wave (RULE-003 + SC-003 + ST-002 + GAL-002 + IX-002) lands as a stage rollup.
+- After merge, `docs/core/current-status.md` already carries the RULE-003 entry; bump CLAUDE.md's "Current stage" line only when the wave (RULE-003 + SC-003 + ST-002 + GAL-002 + IX-002) lands as a stage rollup.

@@ -61,8 +61,8 @@ Verified `git diff --name-only origin/main..HEAD` is exactly:
 ```
 __tests__/argumentGameSurfaceDockComposerWiring.test.ts    (NEW)
 __tests__/timelineNodeActionDockSelectionExclusion.test.ts (regex-only)
-docs/current-status.md                                     (docs)
-docs/ux-ui-project-board.md                                (docs)
+docs/core/current-status.md                                     (docs)
+docs/core/ux-ui-project-board.md                                (docs)
 scripts/github/agentIssueRunner.js                         (single prefix add)
 src/features/arguments/ArgumentGameSurface.tsx             (seam wiring)
 src/features/arguments/ArgumentTreeScreen.tsx              (seam wiring)
@@ -144,7 +144,7 @@ None.
 
 ## Suggestions (non-blocking)
 
-1. **`docs/current-status.md` test count drift** — the entry says `"3117 tests / 114 suites passing (+65, baseline 3052 / 113 measured locally; pre-existing 19 xAI/anthropic env-file failures persist on main 03f91d6 and are unrelated)"`. The actual coordinator-verified and reviewer-verified count is **3136 / 114** when the worktree has `.env.engagement-intelligence` and `logs/engagement-intelligence/`. The implementer wrote the entry from a vanilla-worktree measurement (3117 = 3136 minus 19 env-gated failures-as-failed-but-not-counted-passing?). Not blocking — the docs entry's other facts are accurate — but the operator may want a one-line patch to read `3071 → 3136 / 113 → 114 (+65)` before merging to keep the project's `CLAUDE.md` count line trackable. (Could be folded into the next stage-completion update.)
+1. **`docs/core/current-status.md` test count drift** — the entry says `"3117 tests / 114 suites passing (+65, baseline 3052 / 113 measured locally; pre-existing 19 xAI/anthropic env-file failures persist on main 03f91d6 and are unrelated)"`. The actual coordinator-verified and reviewer-verified count is **3136 / 114** when the worktree has `.env.engagement-intelligence` and `logs/engagement-intelligence/`. The implementer wrote the entry from a vanilla-worktree measurement (3117 = 3136 minus 19 env-gated failures-as-failed-but-not-counted-passing?). Not blocking — the docs entry's other facts are accurate — but the operator may want a one-line patch to read `3071 → 3136 / 113 → 114 (+65)` before merging to keep the project's `CLAUDE.md` count line trackable. (Could be folded into the next stage-completion update.)
 2. **Implementer-report branch name** — the spawn-card.ps1 left the worktree on the auto-generated branch `worktree-agent-abce4939621571956` instead of the conventional `feat/COMPOSER-001-…` slug. Cosmetic only; operator can rename via `git branch -m feat/COMPOSER-001-wire-preset-prefill` before push.
 3. **Future-proofing** the dispatch path: `ArgumentGameSurface.handleActionDockAction` now has both `actionDockToComposerPreset` (line 355) and the existing `handleAction(...)` per-action branches. ST-002 (Cards-detail suggested-reply flags) will land another consumer of the same seam. A small follow-up could thin the per-action `handleAction` mapping into a single table, but that's a refactor and out of scope here.
 

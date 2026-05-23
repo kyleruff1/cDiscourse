@@ -186,7 +186,7 @@ Nothing changes in `src/domain/constitution/*` or `supabase/migrations/*`. RULE-
     - if `action.presetKey` is null but `action.suggestedMove` is non-null and a higher-level surface (e.g. the timeline dock) is mounted, forward to the dock via an existing callback prop (left as an optional pass-through; the composer's own behavior is preset-only).
   - pass `onSuggestedMove={handleValidationAction}` to `<ComposerValidationPanel ... />`.
   - **the submit button is unchanged.** `canSubmit` still uses `evaluationResult?.allowPost ?? false` exactly as today. The chip changes *what the user can do next*, not *whether the user can post*.
-- `docs/current-status.md` — append a one-paragraph section "RULE-002 — Validation-action map (status)" noting design draft is in `docs/designs/RULE-002.md`. **Net delta ~+15 lines.**
+- `docs/core/current-status.md` — append a one-paragraph section "RULE-002 — Validation-action map (status)" noting design draft is in `docs/designs/RULE-002.md`. **Net delta ~+15 lines.**
 
 ### Deleted files
 

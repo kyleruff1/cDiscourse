@@ -5,7 +5,7 @@ fields **separate**: the **story need**, the **current app support**, the
 **missing app support**, the **issue target**, and the **acceptance criteria**.
 
 Every proposed card is **deduped** against the existing roadmap
-(`docs/ux-ui-project-board.md`, `scripts/github/uxBoardCards.json`). Where an
+(`docs/core/ux-ui-project-board.md`, `scripts/github/uxBoardCards.json`). Where an
 existing card already covers a need, **no new card is created** — the storyboard
 is recorded as *story evidence* on the existing card. See
 [`storyboard-to-roadmap-map.md`](storyboard-to-roadmap-map.md).

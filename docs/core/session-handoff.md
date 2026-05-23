@@ -8,8 +8,8 @@ How to resume work in a new Claude Code session after compaction or interruption
 
 1. Open the project root: `C:\Users\kyler\cdiscourse\debate-constitution-app`
 2. Run the checkpoint: `npm run checkpoint`
-3. Read `docs/current-status.md` — confirms what is done, stubbed, and blocked
-4. Read `docs/known-blockers.md` — active issues that affect what commands you can run
+3. Read `docs/core/current-status.md` — confirms what is done, stubbed, and blocked
+4. Read `docs/core/known-blockers.md` — active issues that affect what commands you can run
 5. Check git status: `git status`
 6. Do NOT start new feature work until `npm run typecheck` and `npm run test` pass
 
@@ -30,9 +30,9 @@ All three must pass before proceeding with any implementation.
 | Priority | File | Why |
 |---|---|---|
 | 1 | `CLAUDE.md` | Project rules, current stage, security constraints |
-| 2 | `docs/current-status.md` | What works, what is blocked, what is stubbed |
-| 3 | `docs/known-blockers.md` | Active blockers — affects what you can run |
-| 4 | `docs/implementation-plan.md` | Stage-gated build order and verification steps |
+| 2 | `docs/core/current-status.md` | What works, what is blocked, what is stubbed |
+| 3 | `docs/core/known-blockers.md` | Active blockers — affects what you can run |
+| 4 | `docs/core/implementation-plan.md` | Stage-gated build order and verification steps |
 | 5 | `src/domain/constitution/engine.ts` | Core rules engine — read before touching anything nearby |
 | 6 | `src/domain/constitution/types.ts` | Canonical domain types |
 

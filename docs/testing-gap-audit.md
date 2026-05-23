@@ -182,7 +182,7 @@ This document maps every meaningful behavior in the codebase against what is act
 | RLS documented and enabled on all tables | Migration 0002 + 0004 | ✅ | All tables `ENABLE ROW LEVEL SECURITY` | No | — |
 | `.env` in `.gitignore` | `.gitignore` inspection | ✅ | Line 34: `.env` | No | — |
 | `.env.example` safe (no real secrets) | File inspection | ✅ | Only placeholder values | No | — |
-| Function deploy command documented | `docs/known-blockers.md`, `docs/mvp-smoke-test.md` | ✅ | | No | — |
+| Function deploy command documented | `docs/core/known-blockers.md`, `docs/mvp-smoke-test.md` | ✅ | | No | — |
 | Migrations applied to a real DB | — | 🔲 | Blocked by Docker / no linked project | Yes (live) | **High** |
 | Edge Function deployed and reachable | — | 🔲 | Not deployed | Yes (live) | **High** |
 

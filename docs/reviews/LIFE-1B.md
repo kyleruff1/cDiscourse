@@ -52,7 +52,7 @@ The issue body listed four acceptance criteria. All four are met:
 
 ## `@deprecated` safety-scan note (for future readers)
 
-The implementer flagged a subtle hazard worth recording: the literal token `@deprecated` matches the X-handle regex `@<3-15-alphanum>` that `scripts/maintenance/diagnosticInspectPackage` and similar safety scans use to look for leaked X handles. The retired alias's JSDoc comment contained `@deprecated Prefer …` which would trip that scan as a false positive going forward. By retiring the alias the false-positive source is eliminated. The new doc paragraph in `docs/current-status.md` deliberately phrases the change as "JSDoc-deprecated" / "deprecated alias" and never uses the bare `@deprecated` token — verified by Grep, zero matches in the new doc.
+The implementer flagged a subtle hazard worth recording: the literal token `@deprecated` matches the X-handle regex `@<3-15-alphanum>` that `scripts/maintenance/diagnosticInspectPackage` and similar safety scans use to look for leaked X handles. The retired alias's JSDoc comment contained `@deprecated Prefer …` which would trip that scan as a false positive going forward. By retiring the alias the false-positive source is eliminated. The new doc paragraph in `docs/core/current-status.md` deliberately phrases the change as "JSDoc-deprecated" / "deprecated alias" and never uses the bare `@deprecated` token — verified by Grep, zero matches in the new doc.
 
 ## Blockers
 

@@ -44,7 +44,7 @@ that named cause.
 - **Fix B1 — unit test.** A new Jest test asserting the log line's shape (layer enum, path/detail presence, sanitized
   content) and absence of forbidden fields (API key, `Authorization`, raw response text, room id, user id, reasonCode
   literals). Mirrors the existing `__tests__/semanticAnthropicSourceScan.test.ts` posture.
-- **Updated `docs/current-status.md`.** Re-baselines Stage 6.4 with a SMOKE-FIX-001 footnote that names the new function
+- **Updated `docs/core/current-status.md`.** Re-baselines Stage 6.4 with a SMOKE-FIX-001 footnote that names the new function
   log format and points to this design.
 
 ### Out of scope (explicitly — do NOT design or implement in this card)
@@ -99,7 +99,7 @@ Any violation is a blocker.
 7. **No client surface change.** `src/features/semanticReferee/` and `src/features/arguments/useSemanticReferee.ts` are
    not modified. No new prop, no new type, no new export.
 8. **`process-language-draft` and `mcpAdapter.ts` are not modified.** SMOKE-FIX-001 stays inside `anthropicProvider.ts`,
-   `schema.ts`, plus the two new test files and `docs/current-status.md`.
+   `schema.ts`, plus the two new test files and `docs/core/current-status.md`.
 9. **Idempotent under re-deploy.** Running the migration is not part of this card (there is no migration). Running
    `supabase functions deploy semantic-referee --linked` twice in a row is a no-op.
 
@@ -254,7 +254,7 @@ The recommended test additionally asserts the forbidden-substring list — the l
 `Authorization`, `Bearer`, `sk-ant-`, `xai-`, `sb_secret_` (assembled from fragments at runtime so the test itself does
 not commit a key-shaped literal) — do not appear anywhere inside the two `console.warn` call sites.
 
-### 5.5 `docs/current-status.md` footnote
+### 5.5 `docs/core/current-status.md` footnote
 
 A 3-line addition under the Stage 6.4 line documenting the new function log format and pointing to this design. No
 status change; Stage 6.4 stays current.
@@ -370,7 +370,7 @@ persists, SMOKE-FIX-002 picks it up — that does NOT block closing SMOKE-FIX-00
 - [ ] No change to `src/features/`, `src/lib/edgeFunctions.ts`, `src/features/semanticReferee/triggerGates.ts`,
       `src/features/semanticReferee/semanticTriggerInput.ts`, MCP-018's `mcpAdapter.ts`, `process-language-draft`, or any
       migration. No change to `PACKET_VERSION`, `ClassifyMoveDisabledReason`, or `SemanticActorRole`.
-- [ ] `docs/current-status.md` carries the 3-line footnote naming the new log format.
+- [ ] `docs/core/current-status.md` carries the 3-line footnote naming the new log format.
 - [ ] After operator deploy + smoke-test re-run: move 1 succeeds; move 2 + probe either succeed OR fail with the new
       `{layer, path|detail, inputHash}` log line for each failing call.
 

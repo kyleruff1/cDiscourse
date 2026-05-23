@@ -615,7 +615,7 @@ The plan card delivers only:
 - The Vertex AI note at `docs/deployment/claude-code-vertex-ai-note.md`.
 - Optional script scaffolds under `scripts/deploy/` that are dry-run-only (if §10 review passes).
 - Roadmap updates: refresh of HOST-001 (#27); optional new HOST-004…HOST-008 issues with proper labels + Project #1 fields.
-- A status entry in `docs/current-status.md` summarizing the plan.
+- A status entry in `docs/core/current-status.md` summarizing the plan.
 
 ---
 

@@ -2,7 +2,7 @@
 
 _Target environment: **cdiscourse.com/dev** (Release 6.8 public dev hosting). Last updated: 2026-05-18._
 
-Roadmap card: [HOST-003 in `docs/ux-ui-project-board.md`](ux-ui-project-board.md). Sister cards already merged on `main`: HOST-002 (dev banner + bot/test room marker), TL-001 / TL-002 / TL-003 (Timeline-first room shell), ST-001 (Cards relabel), SW-001 (soft standing bands).
+Roadmap card: [HOST-003 in `docs/core/ux-ui-project-board.md`](ux-ui-project-board.md). Sister cards already merged on `main`: HOST-002 (dev banner + bot/test room marker), TL-001 / TL-002 / TL-003 (Timeline-first room shell), ST-001 (Cards relabel), SW-001 (soft standing bands).
 
 This document is the **exact** pre-launch smoke test that must pass before announcing or sharing a fresh dev deployment with anyone outside the operator. It is intentionally narrower than the full UX checklist in [`docs/browser-visual-test.md`](browser-visual-test.md) and the MVP local-dev smoke in [`docs/mvp-smoke-test.md`](mvp-smoke-test.md).
 
@@ -131,4 +131,4 @@ After every full pass, append a row to the table below. Do not delete previous r
 
 - Update this doc only when a new Stage adds a check, a check becomes obsolete, or a fail-criterion needs tightening.
 - Keep historical rows in the "Post-smoke record" table — they are evidence of what was verified at which commit.
-- Cross-link to `docs/ux-ui-project-board.md` (HOST-003 card) so the maintenance loop stays visible from the roadmap.
+- Cross-link to `docs/core/ux-ui-project-board.md` (HOST-003 card) so the maintenance loop stays visible from the roadmap.

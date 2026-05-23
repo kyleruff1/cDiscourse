@@ -5,7 +5,7 @@
 **Owner:** Kyler.
 **Last updated:** 2026-05-18.
 
-This document expands `docs/ux-ui-project-board.md` for the next major product direction: the argument room as a **playable argument tree** rather than a linear message list. It does **not** replace the board doc — it deepens it with the data primitives, lifecycle, board action dock, and game constraints that the Wave 1–4 cards below assume.
+This document expands `docs/core/ux-ui-project-board.md` for the next major product direction: the argument room as a **playable argument tree** rather than a linear message list. It does **not** replace the board doc — it deepens it with the data primitives, lifecycle, board action dock, and game constraints that the Wave 1–4 cards below assume.
 
 Existing baseline that survives every card here:
 
@@ -554,4 +554,4 @@ This is the dependency order:
 6. **ST-002** drives Cards-detail suggestions from lifecycle + metadata.
 7. **GAME-001** adds exhaustion / moved-on / synthesis-ready advisories.
 
-Each card runs through the standard Design → Build → Review agent loop (see `docs/agent-workflow.md`).
+Each card runs through the standard Design → Build → Review agent loop (see `docs/core/agent-workflow.md`).

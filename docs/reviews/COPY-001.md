@@ -20,7 +20,7 @@ COPY-001 is an audit-first, docs-led card with a small, purely-additive code har
 - doctrine scan: clean — the verdict tokens (`right`, `wrong`, `validated`) appear ONLY as ban-list data + test fixture assertions, never as user-facing labels. No `console.log`. No `from public.arguments`. No `insert into public.arguments`.
 
 ## Design conformance
-- [x] All design file-changes are present — `docs/designs/COPY-001.md` (219 lines), `docs/copy-review/plain-language-labels-pass-1.md` (435 lines), 5-line append to `pointLifecycleModel.ts`, 5-line append to `moveMetadataLedger.ts`, new `__tests__/copyReviewBanListGaps.test.ts` (91 lines), 17-line note in `docs/current-status.md`.
+- [x] All design file-changes are present — `docs/designs/COPY-001.md` (219 lines), `docs/copy-review/plain-language-labels-pass-1.md` (435 lines), 5-line append to `pointLifecycleModel.ts`, 5-line append to `moveMetadataLedger.ts`, new `__tests__/copyReviewBanListGaps.test.ts` (91 lines), 17-line note in `docs/core/current-status.md`.
 - [x] No undocumented file-changes — `git diff main..HEAD --stat` matches the design plan exactly.
 - [x] Data model matches design — design says "no new data model"; diff confirms zero new types / interfaces / unions.
 - [x] API contracts match design — design says R1–R5 are consumer obligations (not new public APIs in this card); diff confirms no new exports were added.

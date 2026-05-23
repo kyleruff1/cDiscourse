@@ -290,7 +290,7 @@ the vocabulary.
   array; add `import { AdminMetadataEventsTab }`; add the
   `{tab === 'metadata_events' && <AdminMetadataEventsTab />}` render branch.
   **~+3 lines.** Everything else stays.
-- `docs/current-status.md` — bump the test count + add the META-1C note
+- `docs/core/current-status.md` — bump the test count + add the META-1C note
   **after** the implementer confirms `npm run test` (per test-discipline).
 - `CLAUDE.md` — the operator/implementer bumps the "Current stage" line on stage
   completion per repo convention. Not a META-1C code change.
@@ -652,7 +652,7 @@ React Testing Library patterns already used by `adminArguments.test.ts` /
   shape, the filters, the sort, the a11y attributes, the ban-list.
 
 Estimated test-count delta: **~55 tests**, **2 new suites**. The implementer
-captures the exact count from `npm run test` and updates `docs/current-status.md`
+captures the exact count from `npm run test` and updates `docs/core/current-status.md`
 (test-discipline §"Test count tracking").
 
 ---

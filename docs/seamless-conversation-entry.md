@@ -76,7 +76,7 @@ Pure function. When the user opens a gallery card, the room shell pre-activates 
 9. **Almost synthesis** — the two sides have converged enough to summarise.
 10. **Quiet beginner rooms** — low-activity rooms; an easy place to start.
 
-Stage 6.4's `hot_unresolved` lane was retired; cards split between `jump_in` (hot_now / overheated) and `logic_traps` (unresolved_deep_chain). Stage 6.4's `easy_first_move` lane was renamed to `quiet_beginner_rooms` (classification rule unchanged). See `docs/current-status.md` § GAL-001 and `docs/designs/GAL-001.md` § "Deterministic grouping" for the full 14-row priority chain.
+Stage 6.4's `hot_unresolved` lane was retired; cards split between `jump_in` (hot_now / overheated) and `logic_traps` (unresolved_deep_chain). Stage 6.4's `easy_first_move` lane was renamed to `quiet_beginner_rooms` (classification rule unchanged). See `docs/core/current-status.md` § GAL-001 and `docs/designs/GAL-001.md` § "Deterministic grouping" for the full 14-row priority chain.
 
 Each card lives in **exactly one** section (priority-ordered).
 

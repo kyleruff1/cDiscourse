@@ -855,7 +855,7 @@ The build of part A in three reviewable slices, in order:
 **Slice 3 — the 3 test files.**
 - `argumentModeModel.test.ts`, `argumentModeBanList.test.ts`,
   `argumentModeNoLegalAdvice.test.ts` (see §"Test plan").
-- `npm run test` passes; capture the new count; update `docs/current-status.md`.
+- `npm run test` passes; capture the new count; update `docs/core/current-status.md`.
 
 The setup-screen component (`ModeSetupScreen.tsx` etc.) is **not** in any of these three
 slices — it is the named follow-up card GAME-003B.
@@ -998,7 +998,7 @@ per `test-discipline`).
   with the ban-list test intentionally; defence in depth.
 
 Expected: roughly **55–75 new tests** across the three files. Test count goes up; update
-`docs/current-status.md` after `npm run test` confirms the number.
+`docs/core/current-status.md` after `npm run test` confirms the number.
 
 ---
 
@@ -1146,7 +1146,7 @@ Expected: roughly **55–75 new tests** across the three files. Test count goes 
   not a follow-up. Each public function is unit-tested including failure cases
   (`coerceArgumentMode` nulls, `argumentModeTemplate` throw). Ban-list and
   no-legal-advice safety tests follow the established repo pattern. Test count goes up;
-  `docs/current-status.md` updated only after `npm run test` confirms the new number.
+  `docs/core/current-status.md` updated only after `npm run test` confirms the new number.
 
 ---
 
