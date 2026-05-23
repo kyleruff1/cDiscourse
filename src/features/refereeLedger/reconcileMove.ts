@@ -163,6 +163,18 @@ function l2SignalForCategory(
 ): (ReconcileSignal & { confidence: SemanticConfidence }) | null {
   if (!packet) return null;
 
+  // MCP-MOD-004 — source-of-truth handshake: this `classifierFor` table is
+  // structurally `category → classifier` (the INVERSE direction of the
+  // catalog's `id → ledgerFeedbackCode` field), and a single classifier id
+  // may appear under multiple categories (e.g. `responds_to_parent` surfaces
+  // on both `continuity` and `direct_response`). Inverting the catalog to
+  // derive this table is not a behaviour-preserving change, so the table
+  // stays here. The catalog's `ledgerFeedbackCode` is the PRIMARY per-id
+  // feedback code (parity-checked by
+  // `__tests__/semanticClassifierCatalogParity.test.ts`); the per-category
+  // feedback wording is owned by `reconcileCategory` / `softFeedbackCode`
+  // (see `reconciliation.ts`). This is the documented
+  // "smallest behaviour-preserving change" allowed by MCP-MOD-004's task spec.
   const classifierFor: Partial<Record<RefereePointCategory, SemanticClassifierId>> = {
     continuity: 'responds_to_parent',
     direct_response: 'responds_to_parent',

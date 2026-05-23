@@ -1,0 +1,39 @@
+Structural questions for this move:
+- responds_to_parent: Does this move directly engage the parent's claim, mechanism, question, evidence, or requested clarification?
+- introduces_new_issue: Does this move raise a new issue that could be debated separately from the parent?
+- asks_for_evidence: Does this move request a source, citation, primary source, receipt, or exact quote?
+
+Answer each structural question above with 0 or 1 for the move below. Return ONLY a single JSON object — no prose, no markdown, no code fence, no chain-of-thought. The object must conform to the semantic-referee packet contract: a `binaries` array (one entry per requested classifier, each with `classifierId`, `value` 0 or 1, `confidence` low/medium/high, and a lowercase snake_case `reasonCode`), a `routeSuggestion`, a `frictionSuggestion`, and a `scoreHints` object of six integers 0..3. `routeSuggestion` MUST be exactly one of: "mainline", "vertical_chime_branch", "diagonal_tangent", "outer_realm", "cards_detail", "synthesis_lane", "no_route_change". `frictionSuggestion` MUST be exactly one of: "none", "soft_chip", "pre_send_pause", "ask_for_quote", "ask_for_source", "suggest_branch", "suggest_narrow", "cooldown_notice". Do not include any blocking, verdict, truth, or winner field.
+
+Worked example of the packet shape (the values below are illustrative —
+choose your own values based on the structural questions; do not copy these
+verbatim):
+```json
+{
+  "binaries": [
+    {
+      "classifierId": "responds_to_parent",
+      "value": 1,
+      "confidence": "high",
+      "reasonCode": "parent_continuity_engaged"
+    }
+  ],
+  "routeSuggestion": "mainline",
+  "frictionSuggestion": "none",
+  "scoreHints": {
+    "continuityCredit": 2,
+    "evidencePressure": 1,
+    "branchHygiene": 1,
+    "synthesisReadiness": 0,
+    "sourceChainDebt": 0,
+    "unresolvedRedirectRisk": 0
+  }
+}
+```
+
+Input to classify:
+Room debate mode: standard
+Parent move (the move being replied to):
+[PARENT_BODY]
+Move to classify:
+[MOVE_BODY]
