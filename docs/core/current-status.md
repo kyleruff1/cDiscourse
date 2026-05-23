@@ -237,6 +237,21 @@ standing change). Issue #210.
   becomes dead code without compile errors (the optional payload fields
   on `SubmitArgumentInput` are non-breaking).
 
+- **QOL-041.1 fix-forward (issue #256):** the `db push` of step 1 above
+  failed against the remote with SQLSTATE 42702 — five unqualified
+  `debate_id` references in three INSERT-policy WITH-CHECK subqueries
+  (`ci_insert_author` / `ca_insert_receiver` / `mr_insert_reactor`)
+  were ambiguous between the policy-target row and the joined subquery
+  row. Per CLAUDE.md doctrine the original migration is not edited;
+  the fix-forward
+  `supabase/migrations/20260523000001_qol_041_1_fix_concession_acceptances_policies.sql`
+  DROPs and recreates the three policies with each outer reference
+  qualified (`concession_items.debate_id` /
+  `concession_acceptances.debate_id` / `move_reactions.debate_id`).
+  Policy logic is preserved verbatim; no schema change, no data
+  migration, no `ALTER TABLE`. Operator follow-up after merge: re-run
+  `npx supabase db push --linked` — both migrations apply in order.
+
 ## QOL-035 — User-facing terminology scrub: no game, prefer Argument over Debate (Epic 12 — Rules UX · Doctrine)
 
 **Status:** Build complete, awaiting Review — runs the
