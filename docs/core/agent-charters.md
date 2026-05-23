@@ -10,7 +10,7 @@ principle holds for these higher-level roles: a charter is read by a
 session, scoped to a single task by the operator, and discarded — not
 auto-invoked by the model. See QOL-018 for context.
 
-> **Always pair these charters with `docs/agent-workflow.md`.** The
+> **Always pair these charters with `docs/core/agent-workflow.md`.** The
 > workflow doc defines the cadence; charters define the lane.
 
 > **Charters vs `.claude/agents/`.** The repo's `.claude/agents/`
@@ -55,9 +55,9 @@ Stop and report if any of these fail. Do not begin implementation while
 the working tree is dirty in a way you did not create or while baseline
 tests are red.
 
-**Read first:** `CLAUDE.md` · `docs/agent-workflow.md` ·
-`docs/current-status.md` · `docs/session-handoff.md` ·
-`docs/ux-ui-project-board.md` · the specific issue body.
+**Read first:** `CLAUDE.md` · `docs/core/agent-workflow.md` ·
+`docs/core/current-status.md` · `docs/core/session-handoff.md` ·
+`docs/core/ux-ui-project-board.md` · the specific issue body.
 
 **Never** call Anthropic, xAI, OpenAI, or the X API. **Never** deploy
 Supabase functions. **Never** send real emails. **Never** use
@@ -67,11 +67,11 @@ service-role. **Never** touch `.env*`.
 
 ## 1. `project-board-manager`
 
-**Mission.** Keep `docs/ux-ui-project-board.md`, the issues on
+**Mission.** Keep `docs/core/ux-ui-project-board.md`, the issues on
 `kyleruff1/cDiscourse`, and Project #1 in sync. Add/rename/rebucket
 cards; update the doc; reflect changes on the live project.
 
-**First files to read.** `docs/ux-ui-project-board.md` ·
+**First files to read.** `docs/core/ux-ui-project-board.md` ·
 `docs/github-projects-setup.md` · `scripts/github/uxBoardCards.json` ·
 `scripts/github/syncUxProjectBoard.js` ·
 `scripts/github/applyUxProjectBoard.sh`.
@@ -104,8 +104,8 @@ created/updated, dedupe summary, any field-option drift detected.
 charter fits the issue. Implement one issue's smallest complete vertical
 slice; produce a clean commit with the workflow's footer; sign off.
 
-**First files to read.** The issue body · `docs/agent-workflow.md` ·
-`docs/current-status.md` · the closest sibling implementation + its
+**First files to read.** The issue body · `docs/core/agent-workflow.md` ·
+`docs/core/current-status.md` · the closest sibling implementation + its
 tests.
 
 **Allowed tools.** Read / Edit / Write / Glob / Grep / Bash.
@@ -120,7 +120,7 @@ dependencies without operator approval.
 Targeted tests prove the issue's acceptance criteria by name.
 
 **When to update Project Status.** After commit lands, per
-`docs/agent-workflow.md` § F:
+`docs/core/agent-workflow.md` § F:
 - All acceptance criteria proven by tests → `Done`.
 - Tests green but needs browser/visual check → `Needs Review`.
 - External blocker → `Blocked`.
@@ -258,7 +258,7 @@ tests.
 **Mission.** Implement Hosting cards: HOST-001 / HOST-002 / HOST-003,
 plus QOL-016 (Supabase Auth + redirect audit).
 
-**First files to read.** The issue body · `docs/architecture.md` ·
+**First files to read.** The issue body · `docs/core/architecture.md` ·
 `docs/scalability-notes.md` · `app.json` / `app.config.*` (Expo web
 config) · `docs/edge-functions.md`.
 
@@ -353,7 +353,7 @@ strings, raw X data, raw hostile text, forbidden verdict tokens,
 internal snake_case codes leaking into UI.
 
 **First files to read.** The diff itself ·
-`docs/agent-workflow.md` § E (safe-to-stage denylist) · `CLAUDE.md` §
+`docs/core/agent-workflow.md` § E (safe-to-stage denylist) · `CLAUDE.md` §
 "Security — Non-Negotiable" · `.gitignore`.
 
 **Allowed tools.** Bash (`git diff --cached`, `git diff`, `grep`,
@@ -375,7 +375,7 @@ Note: regex literals **inside** the scanner script itself, and inside
 tests that prove the scanner works, are intentional and safe — qa-verifier
 should know to whitelist those files (`scripts/github/agentIssueRunner.js`,
 `scripts/github/syncUxProjectBoard.js`, `__tests__/syncUxProjectBoard.test.ts`,
-`__tests__/agentIssueRunner.test.ts`, `docs/agent-charters.md`).
+`__tests__/agentIssueRunner.test.ts`, `docs/core/agent-charters.md`).
 
 **When to update Project Status.** This role does not own an issue, so
 it does not sign off as Done. It either (a) approves an existing

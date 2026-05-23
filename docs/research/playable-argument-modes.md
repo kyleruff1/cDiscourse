@@ -28,7 +28,7 @@ value is not a verdict at the end; it is a clearer fight in the middle: each cla
 unresolved axis legible, each side-issue parked where it can be picked up later instead of
 derailing the mainline.
 
-The product board (`docs/ux-ui-project-board.md`) already encodes the surface pivot:
+The product board (`docs/core/ux-ui-project-board.md`) already encodes the surface pivot:
 
 - **Timeline = primary gameplay surface.** Users land in the argument timeline, understand the
   fight in seconds, and inspect the strongest and weakest talking points visually.

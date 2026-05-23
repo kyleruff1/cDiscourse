@@ -79,7 +79,7 @@ A new test `__tests__/movePositionThreadBudget.test.ts` covers:
 
 ## 5. User impact
 
-This is the only behavior-changing card in the slate. The release note (added to `docs/current-status.md` when the
+This is the only behavior-changing card in the slate. The release note (added to `docs/core/current-status.md` when the
 card lands) reads approximately:
 
 > Stage 6.4.x — From each participant's SECOND move onward, the semantic referee evaluates the FULL thread context, not
@@ -165,7 +165,7 @@ Two levels:
       called out in the PR.
 - [ ] `npm run typecheck && npm run lint && npm run test` all pass.
 - [ ] Smoke-test re-run produces the expected skip-and-classify pattern.
-- [ ] `docs/current-status.md` carries the release note from §5.
+- [ ] `docs/core/current-status.md` carries the release note from §5.
 
 ## 11. Risks
 

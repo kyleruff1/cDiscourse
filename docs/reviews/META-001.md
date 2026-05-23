@@ -102,8 +102,8 @@ write, no service-role, no `.env*` change, no AI call. Verification green.
     `pointLifecyclePlainLabels.test.ts` (1 assertion bookkeeping for the
     `evidence_debt` label change) and `seamlessConversationEntry.test.ts` (same
     bookkeeping). Both updates are documented in the design and in
-    `docs/current-status.md`.
-  - `docs/current-status.md` extended with the META-001 entry (the
+    `docs/core/current-status.md`.
+  - `docs/core/current-status.md` extended with the META-001 entry (the
     implementer prepended the new entry per the prior-card pattern; the
     LIFE-001 block is preserved underneath).
   - `docs/designs/META-001.md` introduced (1511 lines) — committed by the
@@ -367,7 +367,7 @@ None.
    match. Probably a recount-stale report; no impact on coverage. The
    `metadataDoctrineAnchors.test.ts` count (14) matches the brief exactly.
 
-5. **`docs/current-status.md` ordering** — The implementer correctly prepended
+5. **`docs/core/current-status.md` ordering** — The implementer correctly prepended
    the META-001 block above the LIFE-001 block; the `_Last updated` line now
    correctly reads `META-001 ... build complete`. Matches the prior-card
    convention from LIFE-001 / BR-001 / VG-002.

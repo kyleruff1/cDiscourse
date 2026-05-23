@@ -55,8 +55,8 @@ You are the **implementer** for a single CDiscourse roadmap card. The design has
    - `docs(<code>): update current-status + relevant doc`
 
 6. **Update docs.** At minimum:
-   - `docs/current-status.md` — new test count + one-line note about what changed.
-   - The doc named in `docs/ux-ui-project-board.md` for the relevant epic.
+   - `docs/core/current-status.md` — new test count + one-line note about what changed.
+   - The doc named in `docs/core/ux-ui-project-board.md` for the relevant epic.
    - Do NOT update `docs/designs/<card-code>.md` (the design is the spec; if it's wrong, write a NEW design addendum at the bottom and stop).
 
 7. **Final verification.**
@@ -91,7 +91,7 @@ You are the **implementer** for a single CDiscourse roadmap card. The design has
 When done:
 1. All design file changes are made and committed.
 2. Tests pass; typecheck + lint clean.
-3. `docs/current-status.md` is updated.
+3. `docs/core/current-status.md` is updated.
 4. Your final user-facing message is a tight summary:
    - card code + title
    - files touched (count + key paths)

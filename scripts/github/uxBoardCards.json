@@ -106,7 +106,7 @@
       "phase": "Design",
       "body": [
         "## Goal",
-        "Keep `docs/ux-ui-project-board.md`, repo issues, and Project #1 in sync via a small, safe, dry-run-default script. Avoid hand-editing 35+ project items in the GitHub UI when a doc/issue rename or rebucket happens.",
+        "Keep `docs/core/ux-ui-project-board.md`, repo issues, and Project #1 in sync via a small, safe, dry-run-default script. Avoid hand-editing 35+ project items in the GitHub UI when a doc/issue rename or rebucket happens.",
         "",
         "## Acceptance",
         "- `scripts/github/syncUxProjectBoard.js` exists, defaults to `--dry-run`, only mutates GitHub when `--apply` is passed AND `gh` is installed AND `gh auth status` is clean with `project` scope.",
@@ -134,7 +134,7 @@
         "Define repo-local charters for the recurring agent roles future Claude Code sessions take on (project-board-manager, ux-board-designer, timeline-gameboard-implementer, sidecar-tools-implementer, supabase-email-validation-tester, bot-corpus-runner, qa-secret-scan-verifier).",
         "",
         "## Acceptance",
-        "- `docs/agent-charters.md` enumerates each role with mission, allowed tools, forbidden actions, files to read first, verification commands, and final-report format.",
+        "- `docs/core/agent-charters.md` enumerates each role with mission, allowed tools, forbidden actions, files to read first, verification commands, and final-report format.",
         "- Charters are documentation only — they do NOT create `.claude/agents/*.md` files unless the repo establishes that convention later.",
         "- Bot skill SKILL.md files under `.claude/skills/bot-provocateur/` and `.claude/skills/bot-revocateur/` are unchanged (validator hashes must match).",
         "- `npm run skills:validate` continues to pass.",

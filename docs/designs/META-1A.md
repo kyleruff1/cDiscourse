@@ -192,7 +192,7 @@ These rows are converted into META-001 `ManualTagEntry[]` (the in-memory shape
   like the other wrappers. If the implementer prefers `edgeFunctions.ts`, that
   is acceptable — but then update `pointTagsApi.test.ts` paths. The design
   assumes `pointTagsApi.ts`. **No change to `edgeFunctions.ts` required.**
-- `docs/current-status.md` — bump test count + add the META-1A note after the
+- `docs/core/current-status.md` — bump test count + add the META-1A note after the
   implementer confirms `npm run test`.
 - `CLAUDE.md` — bump the "Current stage" line on stage completion (operator /
   implementer per repo convention).
@@ -529,7 +529,7 @@ mirror, the `persistedTagsToManualTagEntries` adapter) **is** directly executed.
 Estimated test-count delta: **+~95 tests** (≈ 80 eligibility-matrix cases +
 ~15 contract / migration / adapter / mirror tests). New suites: **4**. The
 implementer captures the exact count from `npm run test` and updates
-`docs/current-status.md` (test discipline §"Test count tracking").
+`docs/core/current-status.md` (test discipline §"Test count tracking").
 
 **Pre-merge verification limit (read this):** META-1A's *end-to-end* behavior
 (migration applies, RLS blocks an observer, the function deploys and rejects

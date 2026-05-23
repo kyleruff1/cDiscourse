@@ -36,7 +36,7 @@ non-environmental test suite all pass. No concerns remain.
 ## Design conformance
 
 - [x] All design file-changes are present (3 new files + 1 modified production
-  file + 3 test files + docs/current-status.md)
+  file + 3 test files + docs/core/current-status.md)
 - [x] No undocumented file-changes (`git diff main..HEAD --stat` matches the
   expected footprint exactly; package.json/package-lock.json diff is empty)
 - [x] Data model matches design (`PacingRule` / `PacingMoveRecord` /

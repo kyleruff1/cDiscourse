@@ -4,7 +4,7 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 > **GitHub Projects board status (reconciled 2026-05-22).** Project #1
 > "CDiscourse UX/UI Roadmap" (owner `kyleruff1`) mirrors
-> `docs/ux-ui-project-board.md`. All open roadmap issues are on the
+> `docs/core/ux-ui-project-board.md`. All open roadmap issues are on the
 > board; Risk + Area fields exist; `QOL-015…042` already exist as
 > issues; `QOL-001…014` are superseded (see `uxBoardCards.json`). The
 > Stage-6.5 implementation prompts below (6.5, 6.5-PB, 6.5-AE, 6.6-OE,
@@ -79,7 +79,7 @@ After the designer completes, report design doc path + commit SHA + readiness to
 >
 > Read first: `docs/designs/QOL-030.md`, `docs/ux-storyboards/one-box-interface-model.md`,
 > `docs/ux-storyboards/priority-implementation-queue.md` (item P1-C1),
-> `docs/ux-storyboards/design-cycle-handoff.md`, and `docs/ux-ui-project-board.md`
+> `docs/ux-storyboards/design-cycle-handoff.md`, and `docs/core/ux-ui-project-board.md`
 > → "Supersession map".
 >
 > Baseline: `git status -sb`, `npm run checkpoint`, `npm run typecheck`,
@@ -215,7 +215,7 @@ Infrastructure: project `qsciikhztvzzohssddrq`, migrations 0001–0007 applied. 
 **Run `bot:fixture:corpus:50` only after the 10-room corpus reads usefully** — see `docs/bot-engagement-corpus.md`.
 **AI (Anthropic) not called in Stage 6.1.3.1: confirmed.**
 
-See `docs/current-status.md` for full status.
+See `docs/core/current-status.md` for full status.
 See `docs/bot-fixture-runner.md` for runner / fixture authoring rules (updated 6.1.3.1).
 See `docs/bot-engagement-corpus.md` for the corpus artifact spec.
 See `docs/bot-topic-bank.md` for the topic library.
@@ -227,9 +227,9 @@ See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur
 
 > Implement #1 TL-001 (Timeline as default room landing mode), then #2 TL-002 (root marker), then #3 TL-003 (no-redirect board shell). Stay strictly within Stage 6.5.
 >
-> Read first: `docs/ux-ui-project-board.md`, `docs/argument-stack-timeline-surface.md`, `docs/conversation-gallery-ux.md`.
+> Read first: `docs/core/ux-ui-project-board.md`, `docs/argument-stack-timeline-surface.md`, `docs/conversation-gallery-ux.md`.
 >
-> Charter to follow: `docs/agent-charters.md` § "timeline-gameboard-implementer".
+> Charter to follow: `docs/core/agent-charters.md` § "timeline-gameboard-implementer".
 >
 > Acceptance is the criteria in each issue body; tests in `__tests__/roomEntryDefaultMode.test.ts` and adjacent files. Do not skip the existing mode-persistence contract.
 >
@@ -285,11 +285,11 @@ See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur
 >
 > 1. `node scripts/github/agentIssueRunner.js claim --issue <n> --agent <charter> --apply` — claim it on GitHub.
 > 2. Create a branch: `git checkout -b agent/<n>-<prefix-lowercase>`.
-> 3. Read `docs/agent-workflow.md` § C–E and the charter for `<charter>` in `docs/agent-charters.md`.
+> 3. Read `docs/core/agent-workflow.md` § C–E and the charter for `<charter>` in `docs/core/agent-charters.md`.
 > 4. Read the issue body via `gh issue view <n> --json number,title,body,labels,url`.
 > 5. Implement the smallest complete vertical slice that satisfies the acceptance criteria.
 > 6. Add/update tests. Run `npm run typecheck && npm run lint && npm test -- --testPathPattern="<targeted>" && npm run test`.
-> 7. Commit using the footer format in `docs/agent-workflow.md` § E.
+> 7. Commit using the footer format in `docs/core/agent-workflow.md` § E.
 > 8. `node scripts/github/agentIssueRunner.js signoff --issue <n> --commit <hash> --status "<…>" --agent <charter> --apply`.
 > 9. Append a row to `docs/product-status-ledger.md`.
 > 10. **Do not push** until operator confirms.
@@ -311,7 +311,7 @@ See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur
 
 ## Prompt A3 — Run QA verifier on last commit
 
-> Charter: `qa-verifier-agent` in `docs/agent-charters.md`.
+> Charter: `qa-verifier-agent` in `docs/core/agent-charters.md`.
 >
 > Run the four secret-scan commands from § "Verification commands" against the last commit:
 >

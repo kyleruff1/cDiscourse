@@ -171,7 +171,7 @@ Prompt:
 
   Follow the roadmap-implementer agent definition. Phases: verify baseline,
   implement per design, test as you go, lint/typecheck before commits,
-  update docs/current-status.md, final verification.
+  update docs/core/current-status.md, final verification.
 
   Do NOT push. Do NOT deploy. Do NOT redesign.
 EOF

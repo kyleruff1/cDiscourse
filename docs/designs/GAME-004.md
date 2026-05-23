@@ -18,7 +18,7 @@ here so the implementer is not surprised.
    exist.** The issue's "Part of …" line points at it. A repo search
    (`Glob "docs/roadmap-expansions/**"`) returns no files. Per the coordinator
    brief the issue body is self-sufficient; this design depends only on the
-   issue body, `docs/ux-ui-project-board.md`, and the existing code.
+   issue body, `docs/core/ux-ui-project-board.md`, and the existing code.
 
 2. **There is no persisted "private vs public" flag and no persisted
    "invited opponent" anywhere in the schema.** `public.debates`
@@ -710,7 +710,7 @@ React Testing Library setup.
   `functions.invoke` → zero matches.
 
 (Test-count expectation: roughly +55–70 tests across the three files. The
-implementer updates `docs/current-status.md` with the confirmed number after
+implementer updates `docs/core/current-status.md` with the confirmed number after
 `npm run test` passes — per test-discipline, only after it actually passes.)
 
 ---

@@ -134,7 +134,7 @@ To deploy a feature branch to a preview URL: open a GitHub PR. Netlify auto-crea
 Once HOST-006 (DNS) and HOST-007 (IAP) land and the Cloud Run path is live at `https://dev.cdiscourse.com`, the operator can:
 1. Turn off Netlify auto-deploy (Site settings → Build & deploy → Stop builds).
 2. Optionally delete the Netlify site after a week of running both side-by-side to confirm Cloud Run is stable.
-3. Update `docs/current-status.md` to mark HOST-SIMPLE-001 as superseded by the Cloud Run path.
+3. Update `docs/core/current-status.md` to mark HOST-SIMPLE-001 as superseded by the Cloud Run path.
 
 Until then, **HOST-SIMPLE-001 and HOST-001 coexist**: HOST-001's Dockerfile and Cloud Run scaffolding stay in the repo; they don't conflict with Netlify because Netlify ignores them.
 

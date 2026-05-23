@@ -9,7 +9,7 @@ the **QOL-030 one-box composer** — a single switchable box re-typed by the
 flash menu, not a fixed dock. The dock's no-redirect / in-room-mount behaviour
 remains valid and is *kept* as a requirement of QOL-030. **Do not extend
 COMPOSER-002 as a standalone composer; build QOL-030.** See
-`docs/ux-ui-project-board.md` → "Supersession map" and the QOL-030 design doc.
+`docs/core/ux-ui-project-board.md` → "Supersession map" and the QOL-030 design doc.
 
 ---
 

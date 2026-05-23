@@ -1,7 +1,7 @@
 # GitHub Projects setup — CDiscourse UX/UI Roadmap
 
 Operator-level setup notes for working with the live GitHub Project that
-mirrors `docs/ux-ui-project-board.md`.
+mirrors `docs/core/ux-ui-project-board.md`.
 
 - **Project URL:** https://github.com/users/kyleruff1/projects/1
 - **Project number:** 1

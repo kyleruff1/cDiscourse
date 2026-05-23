@@ -251,7 +251,7 @@ inside `BRAND`. The token module stays a static object.
   font-load flash on cold boot. The font dep is a fallback if the
   audit shows the system stack is illegible on Android.
 
-- `docs/current-status.md` — ~+12 lines.
+- `docs/core/current-status.md` — ~+12 lines.
   Append a new sub-section under "BRAND-001 — CivilDiscourse global
   identity (Stage 6.5)" titled "Stage 2 — Logo sizing + tagline".
   Update the "Status" line. Do NOT bump the global test count in
@@ -383,7 +383,7 @@ and frozen. No runtime mutation, no factory.
   `Epic 9 — Profile, Preferences, Avatar, Identity`), the wide
   layout has ~ (viewportWidth − 168px logo − 220px tagline − 24px
   gaps) of breathing room before the right slot clips. Document
-  this as a known constraint in `docs/current-status.md` so the
+  this as a known constraint in `docs/core/current-status.md` so the
   Profile card knows about it.
 
 - **Doctrine edge case: tagline becoming a verdict.** If a future

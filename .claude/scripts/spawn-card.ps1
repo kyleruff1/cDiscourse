@@ -117,7 +117,7 @@ switch ($Phase) {
         Write-Output ""
         Write-Output "  Follow the roadmap-implementer agent definition. Phases: verify baseline,"
         Write-Output "  implement per design, test as you go, lint/typecheck before commits,"
-        Write-Output "  update docs/current-status.md, final verification."
+        Write-Output "  update docs/core/current-status.md, final verification."
         Write-Output ""
         Write-Output "  Do NOT push. Do NOT deploy. Do NOT redesign."
     }

@@ -29,14 +29,14 @@ The 2026-05-23 smoke-test re-run after SMOKE-FIX-001's deploy (runId `5f67680a`,
   - a full `scoreHints` object with all six integer fields set inside the `0..3` range.
 - **Edit 3 — bump `SEED_PROMPT_VERSION`** from `'mcp-semantic-referee-prompt-v0'` to `'mcp-semantic-referee-prompt-v1'` (the file comment at lines 28-31 explicitly says a wording change bumps this).
 - **New test — `__tests__/semanticRefereeSeedPromptEnumCoverage.test.ts`.** Source-scans `seedPrompt.ts` and asserts: (a) every `SemanticRouteSuggestion` enum value appears as a literal in the source; (b) every `SemanticFrictionSuggestion` enum value appears as a literal in the source; (c) the worked example block is present and well-formed; (d) `SEED_PROMPT_VERSION === 'mcp-semantic-referee-prompt-v1'`; (e) the worked example contains no token from the SMOKE-FIX-001 ban-list (`winner / loser / won / lost / right / wrong / true / false / correct / incorrect / verdict / proven / disproven / defeated / popular / unpopular / liar / lying / dishonest`) and no banned phrase (`bad faith`).
-- **Updated `docs/current-status.md`.** A 3-line footnote under the Stage 6.4 line documenting the bump to prompt v1 and pointing to this design.
+- **Updated `docs/core/current-status.md`.** A 3-line footnote under the Stage 6.4 line documenting the bump to prompt v1 and pointing to this design.
 
 ### Out of scope (explicitly — do NOT design or implement in this card)
 
 - **Any change to `schema.ts`.** The schema is the contract; the prompt fits the contract. Widening or loosening the schema would change the public contract.
 - **Any change to `anthropicProvider.ts`**, including SMOKE-FIX-001's diagnostic `console.warn` lines. Those stay. They will tell us if the next re-run still fails and where.
 - **Any change to `contentSafetyScan.ts`** (the outbound content scanner). No new exemption, no new field, no widened ban-list.
-- **Any change to `mockProvider.ts`, `mcpAdapter.ts`, `mcpAdapterCore.ts`**, or the `process-language-draft` Edge Function. SMOKE-FIX-002 stays inside `seedPrompt.ts` plus one new test file plus the `docs/current-status.md` footnote.
+- **Any change to `mockProvider.ts`, `mcpAdapter.ts`, `mcpAdapterCore.ts`**, or the `process-language-draft` Edge Function. SMOKE-FIX-002 stays inside `seedPrompt.ts` plus one new test file plus the `docs/core/current-status.md` footnote.
 - **Any change to `src/features/`** — including `triggerGates.ts`, `semanticTriggerInput.ts`, `useSemanticReferee.ts`, `semanticRefereeTypes.ts`, `semanticRefereeValidator.ts`, `semanticCache.ts`, `semanticRefereeCacheKey.ts`.
 - **Any change to `src/lib/edgeFunctions.ts`** (the Node-side `classifyMove` wrapper).
 - **Any change to `PACKET_VERSION`, `ClassifyMoveDisabledReason`, `SemanticActorRole`, or the catalog v0 classifier-id list.** Catalog v0 is frozen.
@@ -350,7 +350,7 @@ Notes on the test:
 - The test imports `ALL_ROUTE_SUGGESTIONS` and `ALL_FRICTION_SUGGESTIONS` from `src/features/semanticReferee/semanticRefereeTypes.ts` (the Node-side mirror of `types.ts`) — those are the canonical Node-side arrays already used by the trigger gates and validator. The existing `__tests__/semanticDenoNodeParity.test.ts` already enforces that the Deno-side `ALL_ROUTE_SUGGESTIONS` / `ALL_FRICTION_SUGGESTIONS` arrays match the Node-side ones, so we have one source of truth for the test to read.
 - The test runs against pure Node files — no Deno requirement, no `npm:` resolver.
 
-### 5.5 `docs/current-status.md` — 3-line footnote
+### 5.5 `docs/core/current-status.md` — 3-line footnote
 
 Appended under the Stage 6.4 line:
 
@@ -451,7 +451,7 @@ The smoke-test re-run is a manual operator step — the card design treats the r
 - [ ] No change to `src/features/`, `src/lib/edgeFunctions.ts`, `supabase/functions/_shared/semanticReferee/schema.ts`, `supabase/functions/_shared/semanticReferee/anthropicProvider.ts`, `supabase/functions/_shared/semanticReferee/contentSafetyScan.ts`, `supabase/functions/_shared/semanticReferee/mockProvider.ts`, `supabase/functions/_shared/semanticReferee/mcpAdapter.ts`, or any migration.
 - [ ] No change to `PACKET_VERSION`, `ClassifyMoveDisabledReason`, `SemanticActorRole`, or any catalog-v0 classifier id.
 - [ ] No change to SMOKE-FIX-001's diagnostic `console.warn` lines in `anthropicProvider.ts`. They stay (they are the named-cause feedback channel for SMOKE-FIX-003 if needed).
-- [ ] `docs/current-status.md` carries a 3-line footnote naming the v0 → v1 bump and pointing to this design.
+- [ ] `docs/core/current-status.md` carries a 3-line footnote naming the v0 → v1 bump and pointing to this design.
 - [ ] After Supabase auto-redeploy + operator smoke-test re-run: move 1, move 2, and the post-flip probe each return `enabled: true` packets satisfying the outbound `SemanticRefereePacketSchema` (no `validation_failed` shapes recorded in the function logs for the run window).
 
 ---

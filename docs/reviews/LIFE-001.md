@@ -56,7 +56,7 @@ AI call. Verification green.
   - `__tests__/pointLifecycleClustersIntegration.test.ts`
   - `src/features/arguments/gameCopy.ts` (17 new keys + 1 updated value)
   - `__tests__/seamlessConversationEntry.test.ts` (one-line label update)
-  - `docs/current-status.md` (LIFE-001 entry)
+  - `docs/core/current-status.md` (LIFE-001 entry)
 - [x] No undocumented file-changes — `git diff main..HEAD --name-only` matches the design's file list one-for-one.
 - [x] Data model matches design — `PointLifecycleState` (19 entries — 18 lifecycle + the doctrine-consistent `archived_or_resolved` terminal that the design also enumerates as the 18th + 1; `ALL_POINT_LIFECYCLE_STATES.length === 19` per the model test), `LIFECYCLE_PRIORITY` (every value present; integers; `archived_or_resolved=0` < `open=30`; `exhausted=90` > `rebutted=50`; `ignored_by_both=85` > `ignored_by_affirmative=80`; `synthesis_ready=5` < `open=30`), `PointLifecycleSnapshot` / `PointLifecycleClusterSummary` / `PointLifecycleMap` / `LifecycleAdvisoryConfig` / `DEFAULT_LIFECYCLE_ADVISORY_CONFIG` all match the design verbatim.
 - [x] API contracts match design — `derivePointLifecycleSnapshot` / `deriveClusterLifecycleSummary` / `buildPointLifecycleMap` / `getPointLifecyclePlainLabel` / `_forbiddenLifecycleTokens` exported with the documented input shapes. `index.ts` re-export surface matches the design barrel.
@@ -124,9 +124,9 @@ infrastructure. No upstream change needed.
 - The runner pipeline (`scripts/bot-fixtures/`) reads the *code* `synthesis_ready` via internal log paths, not the human label. Confirmed by reading the design's note + checking that no production code path matches the literal string `'Near resolution'` outside the (now-removed) old `PLAIN_LANGUAGE_COPY` entry.
 - No other test regresses. Test count went up by exactly +115.
 
-## `docs/current-status.md` LIFE-001 entry — format check
+## `docs/core/current-status.md` LIFE-001 entry — format check
 
-Compared to the BR-001 entry at `docs/current-status.md:42–61` (also Release 6.6, also "build complete, awaiting Review"):
+Compared to the BR-001 entry at `docs/core/current-status.md:42–61` (also Release 6.6, also "build complete, awaiting Review"):
 
 - Both lead with `## <CODE> — <title> (Release 6.6)` + `**Status:** Build complete, awaiting Review.`.
 - Both enumerate new files, the doctrine bullets, the "no migration / no Edge Function / no service-role / no `.env*`" guard line, the test delta line ending with the new baseline `<count> tests / <suites> suites passing`, and the design pointer.

@@ -4,8 +4,8 @@ Every storyboard moment mapped to a roadmap card. A moment either **maps to an
 existing card** (cite it; do not duplicate) or **needs a new card** (propose the
 key + acceptance criteria).
 
-Roadmap sources of truth: `docs/ux-ui-project-board.md` (epics + cards),
-`docs/current-status.md` (what is built), `scripts/github/uxBoardCards.json`
+Roadmap sources of truth: `docs/core/ux-ui-project-board.md` (epics + cards),
+`docs/core/current-status.md` (what is built), `scripts/github/uxBoardCards.json`
 (the local issue catalogue). Canonical epic prefixes: **TL** Timeline, **VG**
 Visual Grammar, **BR** Branches, **SC** Sidecar Rail, **ST** Stack Detail,
 **EV** Evidence, **SW** Strength/Weakness, **IX** Interaction, **PR** Profiles,

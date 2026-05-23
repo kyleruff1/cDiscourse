@@ -4,7 +4,7 @@
 **Status:** Design summary.
 **Epic:** Rules UX.
 **Movement:** A (documentation). First card in the modularity slate.
-**Meta-roadmap:** [`docs/roadmap-expansions/2026-05-22-semantic-referee-modularity-roadmap.md`](../../roadmap-expansions/2026-05-22-semantic-referee-modularity-roadmap.md) — this document moves to `docs/core/roadmap-semantic-referee-modularity.md` as part of this card's deliverable.
+**Meta-roadmap:** [`docs/core/roadmap-semantic-referee-modularity.md`](../../core/roadmap-semantic-referee-modularity.md).
 **Depends on:** nothing.
 **Unblocks:** MCP-MOD-002, MCP-MOD-003 (both write into `docs/architecture/`, a sibling subfolder created here).
 

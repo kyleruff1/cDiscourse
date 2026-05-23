@@ -43,7 +43,7 @@ agent's job is to close those windows quickly via
 | 2026-05-18 | #3 TL-003 | Timeline board shell with no page redirect | Done | e26bb82 | timeline-ui-agent | tc=pass; lint=pass; tests=2201 | Merged via PR #47 bundle. |
 | 2026-05-18 | #2 TL-002 | Timeline onboarding focus on first point | Done | 1d4b925 | timeline-ui-agent | tc=pass; lint=pass; tests=2201 | Merged via PR #47 bundle. |
 | 2026-05-18 | #1 TL-001 | Make Timeline the default room landing mode | Done | 6b660cd | timeline-ui-agent | tc=pass; lint=pass; tests=2201 | Merged via PR #47 bundle. |
-| 2026-05-18 | #36 PM-001 | Create docs/ux-ui-project-board.md | Done | f8b23c6 | project-board-manager | tc=pass; lint=pass; tests=1899 | Doc landed in board commit. |
+| 2026-05-18 | #36 PM-001 | Create docs/core/ux-ui-project-board.md | Done | f8b23c6 | project-board-manager | tc=pass; lint=pass; tests=1899 | Doc landed in board commit. |
 | 2026-05-18 | #44 QOL-020 | Open-room engagement runner patch | Not Started | — | — | — | New card. |
 | 2026-05-18 | #43 QOL-019 | Bot tester prompt refresh | Not Started | — | — | — | New card. |
 | 2026-05-18 | #42 QOL-018 | Repo-local Claude agent charters | In Progress | this commit | project-board-manager | tc=pass; lint=pass; tests=1899 | Charters doc + workflow doc + runner scaffold landing now; final sign-off when runner tests are green. |

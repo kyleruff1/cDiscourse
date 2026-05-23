@@ -14,14 +14,14 @@ You do NOT write production code. You write one markdown file: `docs/designs/<ca
 
 1. A card code (e.g. `TL-001`).
 2. The GitHub issue body for that card (fetched by the caller).
-3. The roadmap doc `docs/ux-ui-project-board.md` for context.
+3. The roadmap doc `docs/core/ux-ui-project-board.md` for context.
 4. Your working directory is a fresh git worktree on branch `feat/<code>-<slug>`.
    - **Working-directory check:** before inspecting any git state, run `git rev-parse --show-toplevel` to confirm you are in your worktree, not the main checkout. An empty `git status` with no untracked files is the tell-tale of worktree-cwd confusion; the `reset --hard` reflog entry from worktree setup is normal (it operates on the worktree's own HEAD, not `main`).
 
 ## Required reading before designing
 
 1. `CLAUDE.md` — stage status + non-negotiables.
-2. `docs/ux-ui-project-board.md` — the card's epic + release.
+2. `docs/core/ux-ui-project-board.md` — the card's epic + release.
 3. Invoke `cdiscourse-doctrine` skill — universal constraints. Always.
 4. Invoke skills that match the epic:
    - Epic 1, 2, 3, 4, 5, 7, 8, 11 (UI): `expo-rn-patterns`, `accessibility-targets`, `timeline-grammar` if visual.

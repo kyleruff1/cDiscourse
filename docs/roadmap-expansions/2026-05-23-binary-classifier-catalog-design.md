@@ -16,7 +16,7 @@ proposal in this document that would require the model to emit prose is out of s
 - [`docs/designs/MCP-001.md`](../designs/MCP-001.md) — the original 23-id catalog declaration.
 - [`docs/testing-runs/2026-05-22-smoke-test-failure-investigation.md`](../testing-runs/2026-05-22-smoke-test-failure-investigation.md) — the reasonCode safety risk surfaced here.
 - [`docs/designs/SMOKE-FIX-001.md`](../designs/SMOKE-FIX-001.md) — the focused fix that restores live classification quickly; independent of this catalog work.
-- [`docs/roadmap-expansions/2026-05-22-semantic-referee-modularity-roadmap.md`](2026-05-22-semantic-referee-modularity-roadmap.md) — the 8-card modularity slate (issues #230-#237). This catalog design lands after MCP-MOD-004.
+- [`docs/core/roadmap-semantic-referee-modularity.md`](../core/roadmap-semantic-referee-modularity.md) — the 8-card modularity slate (issues #230-#237). This catalog design lands after MCP-MOD-004.
 
 ---
 

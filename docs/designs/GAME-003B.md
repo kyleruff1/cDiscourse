@@ -4,7 +4,7 @@
 **Epic:** Epic 12 — Evidence-Enhanced Game Rules and Flow (setup / room-creation layer).
 **Release:** Roadmap — pairs with QOL-030 (Release 6.6 one-box foundation); see §13.
 **Issue:** local catalogue card `GAME-003B` — a blank storyboard-dependency card listed
-in `docs/ux-ui-project-board.md` §"GAME-003B are blank cards the storyboards depend on".
+in `docs/core/ux-ui-project-board.md` §"GAME-003B are blank cards the storyboards depend on".
 No GitHub issue yet; an operator creates it from `scripts/github/uxBoardCards.json`.
 **Branch:** `feat/GAME-003B-design`.
 **Companion docs:**
@@ -121,7 +121,7 @@ is optional with a safe default.**
 | `docs/designs/QOL-030.md` §5 (F1 both scenarios) | "`root_claim` carries room setup (title, visibility, invite) — the root box is the *only* box that also configures the room." This is GAME-003B's integration target. |
 | `docs/designs/QOL-038.md` §2 | The invite affordance lives in the `root_claim` box's room-setup section; QOL-038 owns the backend. GAME-003B's panel hosts the field; `createRoomInvite` is QOL-038's. |
 | `docs/designs/QOL-039.md` §6.1 | The create-time visibility control is "a `root_claim` box room-setup field" — exactly the control GAME-003B builds. QOL-039 owns the column + RLS. |
-| `docs/ux-ui-project-board.md` §"blank cards" | GAME-003B is a blank storyboard-dependency card; it "must be designed before confident implementation." This doc is that design. |
+| `docs/core/ux-ui-project-board.md` §"blank cards" | GAME-003B is a blank storyboard-dependency card; it "must be designed before confident implementation." This doc is that design. |
 
 ---
 

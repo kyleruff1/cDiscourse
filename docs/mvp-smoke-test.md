@@ -130,6 +130,6 @@ Infrastructure blockers resolved:
 
 Remaining:
 1. Run the browser smoke test — `npm run web -- --clear` then walk sections A–K
-2. Rotate the ANTHROPIC_API_KEY (exposed in chat) — see `docs/known-blockers.md`
+2. Rotate the ANTHROPIC_API_KEY (exposed in chat) — see `docs/core/known-blockers.md`
 
 See `docs/browser-visual-test.md` for the full checklist.

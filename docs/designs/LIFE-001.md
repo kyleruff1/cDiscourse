@@ -1007,7 +1007,7 @@ Expected test-count delta: approximately **+115 to +145**.
 - **GAL-002** — Gallery first-suggested-move hint reads the root cluster's lifecycle state.
 - **AN-003** — Tree playability diagnostics aggregates per-room counts.
 
-Per `docs/ux-ui-project-board.md` line 411: "LIFE-001 blocks META-001, ST-002 expansion, GAL-002 expansion, GAME-001, RULE-003 (lifecycle state is the input)."
+Per `docs/core/ux-ui-project-board.md` line 411: "LIFE-001 blocks META-001, ST-002 expansion, GAL-002 expansion, GAME-001, RULE-003 (lifecycle state is the input)."
 
 ### LIFE-001 is blocked by
 
@@ -1113,7 +1113,7 @@ These appeared while walking the design. Each passes the three-criterion test (r
 
 **Boundary concern: does META-001 actually need to ship before LIFE-001 can be wired into the UI?**
 
-Per the dependency chart in `docs/ux-ui-project-board.md` line 411: "LIFE-001 blocks META-001". The roadmap says Wave 1 ordering is BR-001 → LIFE-001 → META-001. LIFE-001 produces the lifecycle state; META-001 produces tag / metadata events that *consume* lifecycle state.
+Per the dependency chart in `docs/core/ux-ui-project-board.md` line 411: "LIFE-001 blocks META-001". The roadmap says Wave 1 ordering is BR-001 → LIFE-001 → META-001. LIFE-001 produces the lifecycle state; META-001 produces tag / metadata events that *consume* lifecycle state.
 
 I have audited this card to ensure LIFE-001 can ship completely without META-001:
 

@@ -56,7 +56,7 @@ Verified against GitHub issues, `docs/designs/`, `docs/reviews/`, and git histor
 - **No MCP implementation card existed before this pass.** Every MCP card to date is design-only.
 - **No `src/features/semanticReferee/` directory exists.** Verified: the path is absent on `main`.
 - **No semantic test files exist.** Verified: `__tests__/` has zero `semantic*` files.
-- **BR-004 already hit the missing-foundation problem.** `docs/current-status.md` records that BR-004's implementer had to define `SemanticOverrideLane` as a *local mirror* because "MCP-010 (#165) is a design-only card — no `SemanticOverrideLane` exists in `src/`." That local mirror is live drift pressure: the MCP foundation types do not exist, so downstream cards are forced to copy them. This is concrete evidence that the foundation card (MCP-011) is overdue.
+- **BR-004 already hit the missing-foundation problem.** `docs/core/current-status.md` records that BR-004's implementer had to define `SemanticOverrideLane` as a *local mirror* because "MCP-010 (#165) is a design-only card — no `SemanticOverrideLane` exists in `src/`." That local mirror is live drift pressure: the MCP foundation types do not exist, so downstream cards are forced to copy them. This is concrete evidence that the foundation card (MCP-011) is overdue.
 
 ### 2.3 Open issues inspected
 
@@ -226,7 +226,7 @@ This is the shared "definition of done" checklist. Every `roadmap-reviewer` pass
 
 ### 8.3 Verification gates
 
-`npm run skills:validate`, `npm run typecheck`, `npm run lint`, `npm run test` — all clean. Test count rises; `docs/current-status.md` updated with the new count.
+`npm run skills:validate`, `npm run typecheck`, `npm run lint`, `npm run test` — all clean. Test count rises; `docs/core/current-status.md` updated with the new count.
 
 ## 9. Operator decisions
 

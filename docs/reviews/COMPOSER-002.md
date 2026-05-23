@@ -41,7 +41,7 @@ No concerns remain.
 ## Design conformance
 
 - [x] All design file-changes are present (NEW `ArgumentComposerDock.tsx`; MODIFIED
-  `App.tsx`, `ArgumentComposer.tsx`, `docs/current-status.md`; 4 new test files)
+  `App.tsx`, `ArgumentComposer.tsx`, `docs/core/current-status.md`; 4 new test files)
 - [x] No undocumented file-changes — `git diff main..HEAD --stat` is exactly the 9 expected
   files (design doc itself is the design commit). `ArgumentTreeScreen.tsx` has zero diff,
   as the design's "default plan: do not modify" predicted.

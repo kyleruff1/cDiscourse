@@ -25,7 +25,7 @@ RULE-002 ships a pure-TS validation-action adapter (`src/features/rulesUx/valida
 
 ## Design conformance
 
-- [x] All design file-changes are present: `validationActionMap.ts`, `validationActionMap.test.ts`, `ComposerValidationPanel.tsx`, `ArgumentComposer.tsx`, `docs/current-status.md`. Exactly six files diffed, matching the brief's expected footprint.
+- [x] All design file-changes are present: `validationActionMap.ts`, `validationActionMap.test.ts`, `ComposerValidationPanel.tsx`, `ArgumentComposer.tsx`, `docs/core/current-status.md`. Exactly six files diffed, matching the brief's expected footprint.
 - [x] No undocumented file-changes (GAL-001 / GAL-002 / BRAND-001 / RULE-001 / RULE-003 / suggestedMovesModel / quickActionPresets / timelineNodeActionDockModel / engine / migrations all zero-diff).
 - [x] Data model matches design: 23 codes (16 engine + 7 advisory), `ValidationActionUx` shape matches contract, `VALIDATION_ACTION_MAP` is `Readonly<Record<...>>`, `ALL_VALIDATION_ACTION_CODES` is frozen, three public readers + one render-contract helper exported, `_forbiddenValidationActionTokens` exported for tests.
 - [x] API contracts match design: `getValidationAction` is total, `mapValidationActionOrSuppress` normalises and suppresses unknowns, `shouldRenderValidationActionChip` is the renderer guard. Field caps (`chipLabel` ≤ 32, `helperLine` ≤ 80) verified at runtime: chipLabel max = 26, helperLine max = 78.

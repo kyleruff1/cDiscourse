@@ -95,7 +95,7 @@ HOST-001 lands the architecture surface for the `cdiscourse-dev` Cloud Run servi
 | `src/lib/supabase.ts` reads `window.__CDISCOURSE_RUNTIME_ENV__` BEFORE `process.env` | **PASS** | Resolution order explicit at lines 49–53; tests assert via source-scan regex. |
 | New test files (3 expected) | **PASS** | `__tests__/supabaseClientRuntimeEnv.test.ts` (11 tests), `__tests__/dockerfileShape.test.ts` (24 tests), `__tests__/hostOneBuildScripts.test.ts` (49 tests) = 84 new tests confirmed. |
 | Tests don't shell out to `docker` / `gcloud` | **PASS** | `dockerfileShape.test.ts` is pure source-scan over file contents; `hostOneBuildScripts.test.ts` only spawns Node entrypoints with `--dry`. No external CLI calls. |
-| `docs/current-status.md` HOST-001 entry replaces cleanly | **PASS** | Old "Plan written" entry replaced by "Implementation complete, awaiting operator deploy"; only legacy mention is a pre-existing context reference at line 76 describing the master-plan card list (legitimate). |
+| `docs/core/current-status.md` HOST-001 entry replaces cleanly | **PASS** | Old "Plan written" entry replaced by "Implementation complete, awaiting operator deploy"; only legacy mention is a pre-existing context reference at line 76 describing the master-plan card list (legitimate). |
 
 ## Implementation deviations from design — verdict each
 

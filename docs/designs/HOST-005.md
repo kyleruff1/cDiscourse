@@ -569,14 +569,14 @@ Cloud Audit Logs are automatic; no extra config. Every `gcloud secrets versions 
 ### Modified files (committed by HOST-005's implementer)
 
 - `docs/deployment/host-001-operator-runbook.md` — Phase 3 step 13 already references HOST-005 ("HOST-005 secret create + IAM binding"); extend the body of step 13 to link to `docs/deployment/host-005-secrets-runbook.md` and to mention the two helper scripts by path. **Do not change Phase 1 / 2 / 4 / 5 structure.** Approx +10 lines, no deletions.
-- `docs/current-status.md` — add a top-level "HOST-005 — Secret Manager migration" section similar in shape to the existing HOST-001 entry. Approx +30 lines, no deletions.
+- `docs/core/current-status.md` — add a top-level "HOST-005 — Secret Manager migration" section similar in shape to the existing HOST-001 entry. Approx +30 lines, no deletions.
 
 ### Explicitly NOT modified
 
 - `infra/cloud-run/cdiscourse-dev.template.yaml` — already declares the two `secretKeyRef` names. **HOST-005 must not edit this.** If a name mismatch ever appears, the implementer surfaces the deviation and stops.
 - `infra/iam/cdiscourse-dev-runner.iam.yaml` — already enumerates the two resource-scoped `roles/secretmanager.secretAccessor` bindings (lines 31–43) for the same two secret names. HOST-005 must not edit this.
 - `scripts/runtime/server.mjs`, `scripts/build/inject-runtime-env.{mjs,ps1,sh}`, `src/lib/supabase.ts` — HOST-001 shipped these. HOST-005 must not edit them.
-- `docs/ux-ui-project-board.md` — the implementer of HOST-005 will sync the project board via the existing GitHub Project workflow; the design doc does not pre-stage that edit.
+- `docs/core/ux-ui-project-board.md` — the implementer of HOST-005 will sync the project board via the existing GitHub Project workflow; the design doc does not pre-stage that edit.
 - `docs/deployment/google-cloud-run-hosting-plan.md` — the master plan is reference-only; HOST-005 does not edit it.
 - Any production-namespaced file (`cdiscourse-prod-*`). HOST-008 stub-only.
 

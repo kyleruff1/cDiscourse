@@ -40,8 +40,8 @@ $cards = @(
     @{ code='RULE-002'; title='Evidence symmetry between validation and visuals'; epic='epic:rules-ux'; priority='priority:p1'; effort='effort:m'; release='release:6.6'; goal='Rules do not just block or warn -- they create gameplay affordances. Weak topic -> May be drifting chip; parent nonresponsive -> Reconnect to parent suggestion; missing source -> source-chain action; missing quote -> quote request; scope risk -> narrow action; definition ambiguity -> clarify/define.'; accept='- Warning becomes a suggested move.|- Suggested move is one click from timeline.|- Ordinary replies remain postable.'; tests='' },
     @{ code='AN-001'; title='Deterministic board diagnostics'; epic='epic:analytics'; priority='priority:p2'; effort='effort:m'; release='release:6.7'; goal='Pure-model dev/debug board readout: hot zones, unresolved axes, strong/weak counts, evidence debt count, branch count, synthesis-ready count, no-rebuttal count.'; accept='- Pure deterministic model.|- No xAI/Anthropic calls.|- Useful for UI tests and debug only.'; tests='' },
     @{ code='AN-002'; title='Visual QA snapshots'; epic='epic:analytics'; priority='priority:p2'; effort='effort:m'; release='release:6.8'; goal='Fixture timelines for visual review: no rebuttal, straight 10-move chain, source-chain fight, evidence-heavy branch, tangent/kink branch, synthesis path, 250-node stress board, avatar/profile display.'; accept='- Fixture model tests pass.|- Browser visual checklist references fixtures.'; tests='' },
-    @{ code='PM-001'; title='Create docs/ux-ui-project-board.md'; epic='epic:project-mgmt'; priority='priority:p0'; effort='effort:s'; release='release:6.5'; goal='Canonical roadmap doc.'; accept='- Document exists.|- References Stage 6.2/6.3/6.4 as baseline.|- Does not claim unbuilt features are done.'; tests=''; status='Done' },
-    @{ code='PM-002'; title='Add Now/Next/Later tracker to docs/current-status.md'; epic='epic:project-mgmt'; priority='priority:p1'; effort='effort:s'; release='release:6.5'; goal='Make docs/current-status.md show the active UX board stage.'; accept='- Current stage identifies next UX target.|- Completed stages remain historically accurate.|- Test count updated only after actual implementation.'; tests='' }
+    @{ code='PM-001'; title='Create docs/core/ux-ui-project-board.md'; epic='epic:project-mgmt'; priority='priority:p0'; effort='effort:s'; release='release:6.5'; goal='Canonical roadmap doc.'; accept='- Document exists.|- References Stage 6.2/6.3/6.4 as baseline.|- Does not claim unbuilt features are done.'; tests=''; status='Done' },
+    @{ code='PM-002'; title='Add Now/Next/Later tracker to docs/core/current-status.md'; epic='epic:project-mgmt'; priority='priority:p1'; effort='effort:s'; release='release:6.5'; goal='Make docs/core/current-status.md show the active UX board stage.'; accept='- Current stage identifies next UX target.|- Completed stages remain historically accurate.|- Test count updated only after actual implementation.'; tests='' }
 )
 
 $tempDir = Join-Path $env:TEMP "cd-roadmap-issues"
@@ -56,8 +56,8 @@ foreach ($c in $cards) {
     $acceptLines = $c.accept -replace '\|', "`n"
     $body = "**Epic:** $($c.epic.Replace('epic:',''))  `n**Priority:** $($c.priority.Replace('priority:',''))  `n**Effort:** $($c.effort.Replace('effort:',''))  `n**Release:** $($c.release.Replace('release:',''))`n`n## Goal`n$($c.goal)`n`n## Acceptance criteria`n$acceptLines"
     if ($c.tests) { $body += "`n`n## Tests`n$($c.tests)" }
-    if ($c.status -eq 'Done') { $body += "`n`n---`n**Status:** Done. See docs/ux-ui-project-board.md." }
-    $body += "`n`n---`nSee [``docs/ux-ui-project-board.md``](docs/ux-ui-project-board.md) for full context, dependencies, and the rest of the roadmap."
+    if ($c.status -eq 'Done') { $body += "`n`n---`n**Status:** Done. See docs/core/ux-ui-project-board.md." }
+    $body += "`n`n---`nSee [``docs/core/ux-ui-project-board.md``](docs/core/ux-ui-project-board.md) for full context, dependencies, and the rest of the roadmap."
 
     $bodyFile = Join-Path $tempDir ("$($c.code).md")
     Set-Content -Path $bodyFile -Value $body -Encoding utf8

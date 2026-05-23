@@ -188,7 +188,7 @@ One new migration file: `supabase/migrations/20260522000011_admin_ai_001_semanti
 
 - **`src/features/admin/index.ts`** — export `AdminSemanticRefereeTab` + the config API (mirrors the existing barrel). ~+2 lines.
 
-- **`docs/current-status.md`** — new card status block + the updated test count (implementer fills in the real number after `npm run test`). ~+10 lines.
+- **`docs/core/current-status.md`** — new card status block + the updated test count (implementer fills in the real number after `npm run test`). ~+10 lines.
 
 - **`CLAUDE.md`** — update the "Current stage" line per the stage-completion convention (the implementer does this only if the stage convention requires it for this card; if the card lands as a Phase-E follow-up without a stage bump, leave `CLAUDE.md` untouched). ~+1 line or 0.
 
@@ -539,7 +539,7 @@ All tests are mock/bridge/fixture-driven — **no test makes a live Anthropic ca
 - **Migration sanity** — local `npx supabase db reset` runs the new migration cleanly; `npx supabase db lint` passes. (Operator/local-only — the implementer runs it locally if Docker is up; CI-time coverage is the schema/RLS shape asserted indirectly by the resolver tests against the documented contract.)
 - **Edge Function integration** (`__tests__/semanticEdgeAuthRuntimeConfig.test.ts`, marked the same way MCP-016's `semanticEdgeAuth.test.ts` is marked — local `supabase functions serve`) — the `semantic-referee` function with a DB row of `enabled:true, provider:'mock'` returns a `provider:'mock'` packet; with `enabled:false` returns `{ enabled:false, reason:'disabled' }`; with the RPC stubbed to fail, falls through to env. Optional if `functions serve` is unavailable in CI — the resolver + registry unit tests are the CI-time coverage.
 
-Test count must go **up**; the implementer captures the new total after `npm run test` and records it in `docs/current-status.md`.
+Test count must go **up**; the implementer captures the new total after `npm run test` and records it in `docs/core/current-status.md`.
 
 ---
 
@@ -598,7 +598,7 @@ ADMIN-AI-001 explicitly does **not** include:
 - **cdiscourse-doctrine §5 (operator constraint #5) — JWT verification stays:** `admin-users` keeps `verify_jwt = true` + `requireAdmin`; the two new actions ride the same auth pipeline; no caller-scoped client bypass. ✓
 - **operator constraint #7, #8 — confirmation steps:** switching to Anthropic requires `confirmAnthropic: true`, enforced *server-side* by the zod `.refine()` (the dialog is the UX, the refine is the wall); switching to Mock needs no confirmation flag — one-click rollback. ✓
 - **supabase-edge-contract — no direct `public.arguments` insert:** this card writes only to `semantic_referee_runtime_config` and `semantic_referee_config_audit`, never to `public.arguments`; `submit-argument` is untouched. ✓
-- **test-discipline — tests are part of done:** the plan covers the resolver (happy + 5 failure cases), the registry resolution precedence, the schemas (incl. the confirmation refine), the client wrapper, the UI tab, the ban-list scan (mandatory — new user-facing strings), the secret source-scan, and migration sanity. Every new public function has happy-path + failure-case tests. Test count goes up; `docs/current-status.md` is updated. ✓
+- **test-discipline — tests are part of done:** the plan covers the resolver (happy + 5 failure cases), the registry resolution precedence, the schemas (incl. the confirmation refine), the client wrapper, the UI tab, the ban-list scan (mandatory — new user-facing strings), the secret source-scan, and migration sanity. Every new public function has happy-path + failure-case tests. Test count goes up; `docs/core/current-status.md` is updated. ✓
 - **cdiscourse-doctrine §9 — plain language:** the UI labels (`Anthropic` / `Mock` / `Fixture (dev/test)` / `Coming later (MCP-018)`) are plain; no internal validation code (`source_chain_lexical` etc.) is surfaced; the `provider_mode` codes are mapped to readable labels in the tab. ✓
 - **cdiscourse-doctrine §10 — v1 scope:** no voting, no winner-producing scoring, no real-time collaborative editing, no OAuth, no public API, no push, no argument search introduced. ✓
 
