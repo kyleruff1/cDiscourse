@@ -132,7 +132,7 @@ const STATUS_DESCRIPTIONS: Record<GameRestingStatus, string> = {
   claim_currently_ahead: 'This claim is currently better supported than its counter.',
   surrendered: 'The point has been fully conceded by the author.',
   peace_treaty_ish: 'A partial resolution or narrowing agreement was reached.',
-  needs_judge_human_review: 'A human moderator should review this thread.',
+  needs_judge_human_review: 'A human admin should review this thread.',
 };
 
 const STATUS_SEVERITY: Record<GameRestingStatus, GameStatusResult['severity']> = {

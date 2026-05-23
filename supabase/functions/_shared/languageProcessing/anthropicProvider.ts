@@ -51,16 +51,16 @@ Return ONLY a valid JSON object matching the schema described in the user prompt
 
 function buildUserPrompt(input: LanguageProcessingInput): string {
   const lines: string[] = [
-    `Debate resolution: ${input.debateResolution}`,
+    `Argument resolution: ${input.debateResolution}`,
   ];
   if (input.debateDescription) {
-    lines.push(`Debate description: ${input.debateDescription}`);
+    lines.push(`Argument description: ${input.debateDescription}`);
   }
   if (input.parentArgumentBody) {
     lines.push(`Parent argument (the argument being replied to):\n${input.parentArgumentBody}`);
   }
   lines.push(`Source kind: ${input.sourceKind}`);
-  if (input.userSide) lines.push(`User's debate side: ${input.userSide}`);
+  if (input.userSide) lines.push(`User's argument side: ${input.userSide}`);
   if (input.currentDraft?.argumentType) {
     lines.push(`User's current argument type selection: ${input.currentDraft.argumentType}`);
   }

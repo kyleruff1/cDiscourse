@@ -573,7 +573,7 @@ export const OBSERVER_COPY = {
   qualifiersHelp: 'See how the move was classified.',
   requestDeletionHelp: 'Request that your message be removed.',
   splitBranchHelp: 'Open a side issue without losing the main thread.',
-  flagHelp: 'Send to moderators for review.',
+  flagHelp: 'Send to admins for review.',
   replyHelp: 'Post your move on this card.',
   disagreeHelp: 'Challenge this move directly.',
   askQuoteHelp: 'Ask the speaker to quote the exact passage.',
@@ -977,7 +977,7 @@ export const BOT_MARKER_COPY = Object.freeze({
   participant_marker_persona: '{persona} · test bot', // when a persona label exists
   participant_a11y:
     'This participant is a test bot, not a person. Test bots help '
-    + 'exercise public rooms; they never judge a debate.',
+    + 'exercise public rooms; they never judge an argument.',
 
   // Gallery card + in-room room-level marker.
   room_marker: 'Test room',
@@ -1021,7 +1021,7 @@ export const ARGUMENT_MODE_COPY = Object.freeze({
   name_casual_disagreement: 'Friendly disagreement',
   name_court_record_strict: 'Court-of-record style',
   name_internet_fact_check: 'Fact-check this claim',
-  name_debate_club: 'Debate club',
+  name_debate_club: 'Practice argument club',
   name_domestic_bickering: 'Household disagreement',
   name_co_parenting_custody: 'Co-parenting discussion',
   name_political_debate: 'Political-issue argument',
@@ -1040,7 +1040,7 @@ export const ARGUMENT_MODE_COPY = Object.freeze({
   desc_internet_fact_check:
     'Check a claim source by source. Asking for a source is the main move.',
   desc_debate_club:
-    'A structured practice debate with gentle turn-taking and a wrap-up.',
+    'A structured practice argument with gentle turn-taking and a wrap-up.',
   desc_domestic_bickering:
     'A relaxed disagreement between people who share a home.',
   desc_co_parenting_custody:

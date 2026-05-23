@@ -309,7 +309,7 @@ const ACT_ENTRY_DEFINITIONS: Readonly<Record<ActEntryId, ActEntryDefinition>> = 
     kind: 'direct',
     group: 'direct',
     label: 'Send for review',
-    accessibilityLabel: 'Send this move to moderators for review',
+    accessibilityLabel: 'Send this move to admins for review',
     opensBoxType: null,
     argumentType: null,
   }),

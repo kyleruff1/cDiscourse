@@ -31,13 +31,13 @@ user_is_manipulating, argument_is_true, argument_is_false, user_should_be_banned
 content_should_be_hidden, debate_winner, bad_faith_detected.`;
 
 function buildUserPrompt(input: LanguageProcessingInput): string {
-  const lines: string[] = [`Debate resolution: ${input.debateResolution}`];
-  if (input.debateDescription) lines.push(`Debate description: ${input.debateDescription}`);
+  const lines: string[] = [`Argument resolution: ${input.debateResolution}`];
+  if (input.debateDescription) lines.push(`Argument description: ${input.debateDescription}`);
   if (input.parentArgumentBody) {
     lines.push(`Parent argument:\n${input.parentArgumentBody}`);
   }
   lines.push(`Source kind: ${input.sourceKind}`);
-  if (input.userSide) lines.push(`User's debate side: ${input.userSide}`);
+  if (input.userSide) lines.push(`User's argument side: ${input.userSide}`);
   lines.push(`Text to process:\n${input.rawText}`);
   return lines.join('\n\n');
 }

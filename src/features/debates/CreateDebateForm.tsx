@@ -33,13 +33,13 @@ export function CreateDebateForm({ onSubmit, onCancel }: Props) {
   };
 
   return (
-    <Screen title="New Debate">
+    <Screen title="New Argument">
       <View style={styles.form}>
         <TextInputField
           label="Title"
           value={title}
           onChangeText={setTitle}
-          placeholder="A short label for this debate"
+          placeholder="A short label for this argument"
         />
         <TextInputField
           label="Resolution"
@@ -55,7 +55,7 @@ export function CreateDebateForm({ onSubmit, onCancel }: Props) {
         />
         {error ? <ErrorNotice message={error} /> : null}
         <Button
-          label="Create Debate"
+          label="Create Argument"
           onPress={handleSubmit}
           loading={submitting}
           disabled={!isValid}

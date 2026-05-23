@@ -234,8 +234,8 @@ export const VALIDATION_ACTION_MAP: Readonly<Record<ValidationActionCode, Valida
   },
   needs_moderator_review: {
     code: 'needs_moderator_review',
-    chipLabel: 'Awaiting moderator',
-    helperLine: 'A moderator will review before this lands.',
+    chipLabel: 'Awaiting admin',
+    helperLine: 'An admin will review before this lands.',
     suggestedMove: null,
     dockAction: null,
     presetKey: null,

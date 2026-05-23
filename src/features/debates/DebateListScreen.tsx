@@ -130,7 +130,7 @@ function DebateRow({ debate, onPress }: DebateRowProps) {
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       onPress={() => onPress(debate)}
       accessibilityRole="button"
-      accessibilityLabel={`Open debate: ${debate.title}`}
+      accessibilityLabel={`Open argument: ${debate.title}`}
     >
       <View style={[styles.cell, { width: COL.status }]}>
         <View style={styles.cardStatus}>
@@ -248,7 +248,7 @@ export function DebateListScreen({
 
   const isInitialLoad = loading && debates.length === 0;
   if (isInitialLoad) {
-    return <LoadingNotice message="Loading debates…" />;
+    return <LoadingNotice message="Loading arguments…" />;
   }
 
   const sortHuman = sortField === 'updated_at'
@@ -260,12 +260,12 @@ export function DebateListScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Debates</Text>
+        <Text style={styles.headerTitle}>Arguments</Text>
         <Pressable
           style={styles.newButton}
           onPress={() => setShowCreate(true)}
           accessibilityRole="button"
-          accessibilityLabel="Create new debate"
+          accessibilityLabel="Create new argument"
         >
           <Text style={styles.newButtonText}>+ New</Text>
         </Pressable>
@@ -273,7 +273,7 @@ export function DebateListScreen({
 
       {error ? (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>Could not load debates. Pull to refresh. (detail: {error})</Text>
+          <Text style={styles.errorText}>Could not load arguments. Pull to refresh. (detail: {error})</Text>
         </View>
       ) : null}
 
@@ -323,9 +323,9 @@ export function DebateListScreen({
             {sortedDebates.length === 0 ? (
               <View style={{ minWidth: TABLE_WIDTH }}>
                 <EmptyState
-                  title="No debates yet"
-                  body={'Tap "+ New" to start the first debate.'}
-                  actionLabel="Create Debate"
+                  title="No arguments yet"
+                  body={'Tap "+ New" to start the first argument.'}
+                  actionLabel="Create Argument"
                   onAction={() => setShowCreate(true)}
                 />
               </View>

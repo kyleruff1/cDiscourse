@@ -20,7 +20,7 @@
 export const PROFILE_TAGS_ROW_COPY = {
   label: 'Profile tags',
   helper:
-    'Add a few optional tags about your interests and how you like to debate.',
+    'Add a few optional tags about your interests and how you like to argue.',
   open: 'Open profile tags',
   openHint: 'Choose a few optional tags for your profile',
   /** Shown in the row when one or more tags are selected. */
@@ -58,7 +58,7 @@ export const PROFILE_TAG_CATEGORY_COPY = {
     helper: 'Broad subjects you enjoy discussing.',
   },
   debate_style: {
-    title: 'Debate style',
+    title: 'Argument style',
     helper: 'How you like to take part in a discussion.',
   },
   availability: {
