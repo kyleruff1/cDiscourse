@@ -239,15 +239,39 @@ export const sanitizeMcpRawPayload = mcpAdapterCoreModule.sanitizeMcpRawPayload;
 
 const seedPromptModule = require(`${SHARED}/seedPrompt`) as {
   SEED_PROMPT_VERSION: string;
-  CLASSIFIER_QUESTION_TEXT: Readonly<Record<string, string>>;
   buildClassifierPrompt: (request: ClassifyMoveRequest) => string;
   SEED_PROMPT_CLASSIFIER_IDS: readonly string[];
 };
 
 export const SEED_PROMPT_VERSION = seedPromptModule.SEED_PROMPT_VERSION;
-export const CLASSIFIER_QUESTION_TEXT = seedPromptModule.CLASSIFIER_QUESTION_TEXT;
 export const buildClassifierPrompt = seedPromptModule.buildClassifierPrompt;
 export const SEED_PROMPT_CLASSIFIER_IDS = seedPromptModule.SEED_PROMPT_CLASSIFIER_IDS;
+
+// ── semanticClassifierCatalog.ts (Deno-side mirror; MCP-MOD-005 surfaces
+//    the catalog so tests previously routed through `CLASSIFIER_QUESTION_TEXT`
+//    can read `structuralQuestion` directly from the catalog) ────────────
+
+const denoCatalogModule = require(`${SHARED}/semanticClassifierCatalog`) as {
+  SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<{
+    readonly id: string;
+    readonly structuralQuestion: string;
+    readonly binarySignal: string;
+    readonly family: string;
+    readonly bannerCode: string | null;
+    readonly ledgerFeedbackCode: string | null;
+  }>;
+  CATALOG_BY_ID: ReadonlyMap<string, {
+    readonly id: string;
+    readonly structuralQuestion: string;
+    readonly binarySignal: string;
+    readonly family: string;
+    readonly bannerCode: string | null;
+    readonly ledgerFeedbackCode: string | null;
+  }>;
+};
+
+export const DENO_SEMANTIC_CLASSIFIER_CATALOG = denoCatalogModule.SEMANTIC_CLASSIFIER_CATALOG;
+export const DENO_CATALOG_BY_ID = denoCatalogModule.CATALOG_BY_ID;
 
 // ── contentSafetyScan.ts (zod-free Deno content scanner) ────────────
 

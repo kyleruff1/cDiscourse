@@ -13,8 +13,8 @@
  *   2. `ALL_SEMANTIC_CLASSIFIER_IDS` (`semanticRefereeTypes.ts`) — the canonical
  *      ordered id list. This catalog's entries declare in the same order.
  *   3. `SEMANTIC_CLASSIFIER_CATALOG` (this file) — the canonical per-id metadata
- *      table. `seedPrompt.ts`'s `CLASSIFIER_QUESTION_TEXT` derives from this
- *      catalog (via the byte-identical Deno mirror); the banner library's
+ *      table. `seedPrompt.ts`'s `buildClassifierPrompt` iterates this catalog
+ *      directly (via the byte-identical Deno mirror); the banner library's
  *      primary per-id code and the ledger's primary per-id feedback code are
  *      cross-checked against this catalog by parity tests.
  *
@@ -69,8 +69,9 @@ export interface SemanticClassifierCatalogEntry {
   readonly binarySignal: string;
   /**
    * The structural yes/no question asked of the model. The Deno mirror's
-   * `CLASSIFIER_QUESTION_TEXT` derives from this field, so any wording change
-   * here propagates to the live prompt.
+   * `buildClassifierPrompt` iterates the Deno catalog directly and reads this
+   * field (post-MCP-MOD-005), so any wording change here propagates to the
+   * live prompt.
    */
   readonly structuralQuestion: string;
   /** The MCP-MOD-002 family grouping this id belongs to. */

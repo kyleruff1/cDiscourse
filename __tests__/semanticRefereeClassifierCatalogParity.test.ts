@@ -1,7 +1,8 @@
 /**
- * MCP-MOD-002 — parity guard between the classifier-catalog inventory doc
- * (`docs/architecture/semantic-referee-classifier-catalog.md`) and the
- * authoritative seed prompt (`supabase/functions/_shared/semanticReferee/seedPrompt.ts`).
+ * MCP-MOD-002 / MCP-MOD-005 — parity guard between the classifier-catalog
+ * inventory doc (`docs/architecture/semantic-referee-classifier-catalog.md`)
+ * and the authoritative semantic-referee catalog
+ * (`supabase/functions/_shared/semanticReferee/semanticClassifierCatalog.ts`).
  *
  * Two invariants:
  *
@@ -10,9 +11,11 @@
  *      fails this test.
  *
  *   2. For every id, the AI question rendered inside the inventory's
- *      `<!-- ai-question:<id> -->` marker matches `CLASSIFIER_QUESTION_TEXT[id]`
- *      byte-for-byte. A wording change to a question without a doc update
- *      fails this test.
+ *      `<!-- ai-question:<id> -->` marker matches the catalog's
+ *      `structuralQuestion` field byte-for-byte. A wording change to a
+ *      question without a doc update fails this test. (Post-MCP-MOD-005 the
+ *      catalog IS the source of truth; the previous `CLASSIFIER_QUESTION_TEXT`
+ *      indirection was removed.)
  *
  * The extraction convention is documented in the inventory doc's "How to read
  * each section" intro: each section's AI question is rendered in a fenced
@@ -24,7 +27,7 @@
 import fs from 'fs';
 import path from 'path';
 import {
-  CLASSIFIER_QUESTION_TEXT,
+  DENO_CATALOG_BY_ID,
   DENO_ALL_SEMANTIC_CLASSIFIER_IDS,
 } from './_helpers/semanticRefereeDeno';
 
@@ -79,14 +82,15 @@ describe('classifier-catalog inventory parity (MCP-MOD-002)', () => {
     expect(DENO_ALL_SEMANTIC_CLASSIFIER_IDS.length).toBe(23);
   });
 
-  it('renders every AI question byte-for-byte the same as CLASSIFIER_QUESTION_TEXT', () => {
+  it('renders every AI question byte-for-byte the same as the catalog structuralQuestion', () => {
     const mismatches: Array<{
       id: string;
       expected: string;
       actual: string | null;
     }> = [];
     for (const id of DENO_ALL_SEMANTIC_CLASSIFIER_IDS) {
-      const expected = CLASSIFIER_QUESTION_TEXT[id];
+      const entry = DENO_CATALOG_BY_ID.get(id);
+      const expected = entry?.structuralQuestion ?? '';
       const actual = extractAiQuestion(doc, id);
       if (actual === null || actual !== expected) {
         mismatches.push({ id, expected, actual });

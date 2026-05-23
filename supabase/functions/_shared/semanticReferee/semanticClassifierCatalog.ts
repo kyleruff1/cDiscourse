@@ -24,7 +24,9 @@
  *   - Every `structuralQuestion` asks about the move's STRUCTURE — never about
  *     truth, popularity, person, or outcome. The ban-list test in
  *     `__tests__/semanticAnthropicSeedPromptBanList.test.ts` scans every entry
- *     (via `CLASSIFIER_QUESTION_TEXT`, which is derived from this catalog).
+ *     directly (post-MCP-MOD-005 the catalog is the sole source of truth for
+ *     per-id question text — `seedPrompt.ts`'s `buildClassifierPrompt`
+ *     iterates this catalog directly, no lookup table).
  *   - `bannerCode` / `ledgerFeedbackCode` are deterministic mapping anchors.
  *     They surface user-visible language only after passing through the banner
  *     library / ledger reconciliation; this catalog never authors a
@@ -50,8 +52,9 @@ export interface SemanticClassifierCatalogEntry {
   readonly binarySignal: string;
   /**
    * The structural yes/no question asked of the model. `seedPrompt.ts`'s
-   * `CLASSIFIER_QUESTION_TEXT` derives from this field, so any wording change
-   * here propagates to the live prompt.
+   * `buildClassifierPrompt` reads this field directly when iterating the
+   * catalog (post-MCP-MOD-005), so any wording change here propagates to the
+   * live prompt.
    */
   readonly structuralQuestion: string;
   /** The MCP-MOD-002 family grouping this id belongs to. */

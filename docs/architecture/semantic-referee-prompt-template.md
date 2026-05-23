@@ -3,7 +3,7 @@
 **Card:** MCP-MOD-003 (Rules UX · P2 · S · Release 6.9 · Movement A).
 **System-prompt source-of-truth:** `supabase/functions/_shared/semanticReferee/anthropicClassifierCore.ts` — the `SEMANTIC_REFEREE_SYSTEM_PROMPT` exported constant.
 **User-message source-of-truth:** `supabase/functions/_shared/semanticReferee/seedPrompt.ts` — the `buildClassifierPrompt(request)` function and its three internal blocks (per-id question list, strict-JSON instruction, worked example).
-**Per-id question source-of-truth:** `supabase/functions/_shared/semanticReferee/seedPrompt.ts` — the `CLASSIFIER_QUESTION_TEXT` constant (23 entries, parity-locked to `ALL_SEMANTIC_CLASSIFIER_IDS`).
+**Per-id question source-of-truth:** `supabase/functions/_shared/semanticReferee/semanticClassifierCatalog.ts` — `SEMANTIC_CLASSIFIER_CATALOG[].structuralQuestion` (23 entries, parity-locked to `ALL_SEMANTIC_CLASSIFIER_IDS`). Post-MCP-MOD-005 `buildClassifierPrompt` iterates this catalog directly; there is no per-id lookup table in `seedPrompt.ts`.
 **Redacted-input source-of-truth:** `supabase/functions/_shared/semanticReferee/seedPrompt.ts` — the `buildInputBlock(request)` private helper; the input that reaches it has already been double-redacted on the client and at the Edge boundary by `redaction.ts`.
 
 This document inventories the structure of the semantic-referee seed prompt as it is built today (the
@@ -172,17 +172,22 @@ mechanism is mechanical:
    today's wired path (`useSemanticReferee` → `submit-argument` → `semantic-referee` Edge Function),
    the list is the 9-id `POST_SUBMIT_CLASSIFIER_SET` from `src/features/semanticReferee/semanticTriggerInput.ts`
    batched into ≤ 2 calls of ≤ 5 classifiers each by MCP-012's batching logic.
-2. `buildClassifierPrompt` iterates the list, de-duplicates while preserving first-seen order, looks
-   up each id in `CLASSIFIER_QUESTION_TEXT`, and emits `- <id>: <question>` on its own line. An
-   unknown / non-catalog id is skipped silently (the inbound `ClassifyMoveRequestSchema` already
-   rejects such a request before the provider runs).
+2. `buildClassifierPrompt` iterates `SEMANTIC_CLASSIFIER_CATALOG` directly (post-MCP-MOD-005),
+   filters by the request's `requestedClassifiers` (treated as a set for membership), de-duplicates,
+   and emits `- <id>: <entry.structuralQuestion>` on its own line. Iteration order is the catalog's
+   declaration order — same as `ALL_SEMANTIC_CLASSIFIER_IDS` — which matches the order the pre-refactor
+   per-id lookup produced for the typical wired-path call (the request lists ids in catalog order).
+   An unknown / non-catalog id in the request is silently absent from the output (catalog-iteration
+   simply does not match it); the inbound `ClassifyMoveRequestSchema` already rejects requests that
+   carry one before the provider runs.
 3. The line list is prepended with the literal header `Structural questions for this move:` and
    joined with `\n`. The header and the question list are then joined with the strict-JSON
    instruction (§2), the worked example, and the redacted input block (§4) by single-newline
    separators (and one blank line between each subsection).
 
 The per-id question text is the source-of-truth — a wording change is a one-line edit in
-`CLASSIFIER_QUESTION_TEXT` and a `SEED_PROMPT_VERSION` bump. The classifier-catalog inventory
+`SEMANTIC_CLASSIFIER_CATALOG` (the `structuralQuestion` field of the relevant entry) and a
+`SEED_PROMPT_VERSION` bump. The classifier-catalog inventory
 (`docs/architecture/semantic-referee-classifier-catalog.md`) renders every question byte-for-byte
 under its own per-id marker; this document only inventories the assembly mechanism plus one
 deterministic sample.
@@ -319,12 +324,12 @@ Which file owns which piece of the prompt:
 | Default model id | `supabase/functions/_shared/semanticReferee/anthropicClassifierCore.ts` | `DEFAULT_SEMANTIC_REFEREE_MODEL` | The default Haiku-class model alias (`claude-haiku-4-5`). Overridable by `SEMANTIC_REFEREE_MODEL` env. |
 | Output token bound | `supabase/functions/_shared/semanticReferee/anthropicClassifierCore.ts` | `MAX_TOKENS` | `900`. |
 | Decoding temperature | `supabase/functions/_shared/semanticReferee/anthropicClassifierCore.ts` | `TEMPERATURE` | `0` — deterministic, no sampling. |
-| Per-id question text | `supabase/functions/_shared/semanticReferee/seedPrompt.ts` | `CLASSIFIER_QUESTION_TEXT` | The 23-entry record of `SemanticClassifierId` → structural yes/no question. |
-| Prompt assembly | `supabase/functions/_shared/semanticReferee/seedPrompt.ts` | `buildClassifierPrompt(request)` | Joins the per-id question list, the strict-JSON instruction, the worked example, and the redacted input block into a single user-message string. |
+| Per-id question text | `supabase/functions/_shared/semanticReferee/semanticClassifierCatalog.ts` | `SEMANTIC_CLASSIFIER_CATALOG[].structuralQuestion` | The 23-entry catalog of `SemanticClassifierId` → structural yes/no question. Post-MCP-MOD-005 `seedPrompt.ts` reads this directly; no lookup table. |
+| Prompt assembly | `supabase/functions/_shared/semanticReferee/seedPrompt.ts` | `buildClassifierPrompt(request)` | Iterates `SEMANTIC_CLASSIFIER_CATALOG`, filters by `request.requestedClassifiers`, then joins the per-id question list with the strict-JSON instruction, the worked example, and the redacted input block into a single user-message string. |
 | Redacted input frame | `supabase/functions/_shared/semanticReferee/seedPrompt.ts` | `buildInputBlock(request)` (private) | Frames the already-redacted room context, parent body, and move body for the prompt. Does not redact. |
 | Prompt-version stamp | `supabase/functions/_shared/semanticReferee/seedPrompt.ts` | `SEED_PROMPT_VERSION` | `mcp-semantic-referee-prompt-v1` — bumped whenever the wording of any question, instruction, or worked example changes. |
 | Catalog-id list re-export | `supabase/functions/_shared/semanticReferee/seedPrompt.ts` | `SEED_PROMPT_CLASSIFIER_IDS` | Re-exports `ALL_SEMANTIC_CLASSIFIER_IDS` from `types.ts` so tests do not re-import `types.ts` solely for this. |
-| Catalog id source-of-truth | `supabase/functions/_shared/semanticReferee/types.ts` | `ALL_SEMANTIC_CLASSIFIER_IDS` | The 23 frozen catalog-v0 ids. The mirror test fails the build if `CLASSIFIER_QUESTION_TEXT` has an extra key or a missing entry. |
+| Catalog id source-of-truth | `supabase/functions/_shared/semanticReferee/types.ts` | `ALL_SEMANTIC_CLASSIFIER_IDS` | The 23 frozen catalog-v0 ids. The mirror test fails the build if `SEMANTIC_CLASSIFIER_CATALOG` has an extra entry or a missing id. |
 | Route / friction enums | `supabase/functions/_shared/semanticReferee/types.ts` | `ALL_ROUTE_SUGGESTIONS`, `ALL_FRICTION_SUGGESTIONS` | The 7 + 8 allowed values. The user-message instruction enumerates them inline. |
 | Client-side redaction | `src/features/semanticReferee/clientRedaction.ts` | `redactBodyForReferee` | First-pass body redaction on the device, before `useSemanticReferee` posts. |
 | Edge-boundary redaction | `supabase/functions/_shared/semanticReferee/redaction.ts` | `redactClassifyMoveRequest`, `redactString` | Second-pass body redaction at the Edge Function boundary. The authoritative pass. |
@@ -365,8 +370,8 @@ The ban-list test `__tests__/semanticAnthropicSeedPromptBanList.test.ts` is the 
 enforces three structural invariants on the prompt at every change. A wording change that introduces
 a verdict / person / popularity token fails the test immediately:
 
-- Invariant 1 — `CLASSIFIER_QUESTION_TEXT` has one entry for each of the 23
-  `ALL_SEMANTIC_CLASSIFIER_IDS` and no extra keys (id-coverage parity).
+- Invariant 1 — `SEMANTIC_CLASSIFIER_CATALOG` has one entry for each of the 23
+  `ALL_SEMANTIC_CLASSIFIER_IDS` and no extra ids (id-coverage parity).
 - Invariant 2 — every structural question is free of the doctrine ban-list vocabulary (`winner`,
   `loser`, `won`, `lost`, `right`, `wrong`, `true`, `false`, `correct`, `incorrect`, `verdict`,
   `proven`, `disproven`, `defeated`, `popular`, `unpopular`, `liar`, `lying`, `dishonest`, and the
@@ -401,12 +406,12 @@ violation and a roadmap-level decision, not a routine refactor.
    object. The line MUST stay verbatim or in a logically equivalent form that still names: "return
    ONLY a single JSON object", "no prose", "no markdown", "no code fence", "no chain-of-thought".
 
-3. **Per-id questions are STRUCTURAL only.** Every entry in `CLASSIFIER_QUESTION_TEXT` asks about
-   the move's structure — continuity, evidence presence / shape / source-chain, branch placement,
-   constructive movement (narrowing / concession / synthesis-readiness), pacing, mode fit, friction.
-   No question asks the model whether anything is true, correct, right, wrong, factual, proven,
-   popular, or who is winning. The ban-list test enforces this automatically; a future addition must
-   pass it.
+3. **Per-id questions are STRUCTURAL only.** Every `structuralQuestion` in
+   `SEMANTIC_CLASSIFIER_CATALOG` asks about the move's structure — continuity, evidence presence /
+   shape / source-chain, branch placement, constructive movement (narrowing / concession /
+   synthesis-readiness), pacing, mode fit, friction. No question asks the model whether anything is
+   true, correct, right, wrong, factual, proven, popular, or who is winning. The ban-list test
+   enforces this automatically; a future addition must pass it.
 
 4. **The enumerated route / friction lists must match `ALL_ROUTE_SUGGESTIONS` and
    `ALL_FRICTION_SUGGESTIONS` in `types.ts`.** SMOKE-FIX-002 added inline enumeration to the
@@ -422,10 +427,11 @@ violation and a roadmap-level decision, not a routine refactor.
    tokens nested in otherwise-valid strings. Three independent walls.
 
 6. **Per-call selection emits ONLY the requested classifiers.** `buildClassifierPrompt` iterates
-   `request.requestedClassifiers` in order, de-duplicates, looks each id up in
-   `CLASSIFIER_QUESTION_TEXT`, and skips an unknown id silently. It never iterates the full
-   `ALL_SEMANTIC_CLASSIFIER_IDS` list. A future change must keep this contract — the live provider
-   is charged per token and the per-call ≤ 5 batching limit is doctrine.
+   `SEMANTIC_CLASSIFIER_CATALOG` and filters by `request.requestedClassifiers` (membership-checked
+   via a `Set`), de-duplicates, and skips an unknown id silently. The output's iteration order is
+   the catalog's declaration order (post-MCP-MOD-005), not the caller's order. A future change must
+   keep this contract — the live provider is charged per token and the per-call ≤ 5 batching limit
+   is doctrine.
 
 7. **The redaction pipeline runs UNCONDITIONALLY before any provider sees a body.** The client-side
    first pass (`clientRedaction.ts`) is the early defence; the Edge-boundary second pass

@@ -1,12 +1,14 @@
 /**
- * MCP-MOD-004 — `seedPrompt.ts` no per-id hardcoded id-strings (source scan).
+ * MCP-MOD-004 / MCP-MOD-005 — `seedPrompt.ts` no per-id hardcoded id-strings
+ * (source scan).
  *
- * The reviewer's primary regression check. After the source-of-truth
- * extraction, the per-id question text is derived from
- * `SEMANTIC_CLASSIFIER_CATALOG` rather than hand-written in `seedPrompt.ts`.
- * This test reads `seedPrompt.ts` AS SOURCE TEXT (with line and block comments
- * stripped) and asserts that NO literal `SemanticClassifierId` id-string
- * appears in the executable source.
+ * The reviewer's primary regression check. After the MCP-MOD-004 source-of-truth
+ * extraction and the MCP-MOD-005 prompt-template refactor, the per-id question
+ * text is sourced directly from `SEMANTIC_CLASSIFIER_CATALOG` and
+ * `buildClassifierPrompt` ITERATES the catalog rather than reading a per-id
+ * lookup table. This test reads `seedPrompt.ts` AS SOURCE TEXT (with line and
+ * block comments stripped) and asserts that NO literal `SemanticClassifierId`
+ * id-string appears in the executable source.
  *
  * A failure means either:
  *
@@ -95,12 +97,15 @@ describe('MCP-MOD-004 — seedPrompt.ts source scan: no per-id hardcoded id-stri
     );
   });
 
-  it('the source file derives CLASSIFIER_QUESTION_TEXT from the catalog (no hand-written 23-entry record literal)', () => {
-    // The derived form uses Object.fromEntries over SEMANTIC_CLASSIFIER_CATALOG.
-    expect(STRIPPED_SRC).toMatch(/Object\.fromEntries/);
+  it('buildClassifierPrompt iterates SEMANTIC_CLASSIFIER_CATALOG directly (no per-id lookup table, no hand-written 23-entry record literal)', () => {
+    // Post-MCP-MOD-005: the function is a single for-loop over the catalog.
+    // The source must contain `for (const entry of SEMANTIC_CLASSIFIER_CATALOG)`
+    // (the iteration pattern) and must NOT export `CLASSIFIER_QUESTION_TEXT`
+    // (the lookup-table indirection is gone).
     expect(STRIPPED_SRC).toMatch(
-      /SEMANTIC_CLASSIFIER_CATALOG\.map\s*\(/,
+      /for\s*\(\s*const\s+entry\s+of\s+SEMANTIC_CLASSIFIER_CATALOG\s*\)/,
     );
+    expect(STRIPPED_SRC).not.toMatch(/export\s+const\s+CLASSIFIER_QUESTION_TEXT/);
   });
 
   for (const id of ALL_SEMANTIC_CLASSIFIER_IDS) {

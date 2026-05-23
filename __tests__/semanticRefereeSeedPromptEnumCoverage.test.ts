@@ -139,8 +139,9 @@ describe('SMOKE-FIX-002 — seed-prompt enum coverage', () => {
     // this scan exists to guard. We therefore strip JSDoc block comments
     // wholesale (`/** ... */`) before the per-segment scan. The scan still
     // catches banned tokens in the executable string literals — the
-    // `instruction`, `workedExample`, `buildInputBlock`, `CLASSIFIER_QUESTION_TEXT`,
-    // and any prompt text the model is exposed to.
+    // `instruction`, `workedExample`, `buildInputBlock`, the catalog-iteration
+    // line in `buildClassifierPrompt`, and any prompt text the model is
+    // exposed to.
     const PROHIBITION_MARKER = /(do not|must not)/i;
     const withoutJsDocBlocks = src.replace(/\/\*\*[\s\S]*?\*\//g, '');
     const stripped = withoutJsDocBlocks

@@ -6,11 +6,10 @@
  *
  *   1. Every member of `ALL_SEMANTIC_CLASSIFIER_IDS` has a catalog entry.
  *   2. Every catalog entry's `id` is in `ALL_SEMANTIC_CLASSIFIER_IDS`.
- *   3. For every id, `CATALOG_BY_ID.get(id).structuralQuestion ===
- *      CLASSIFIER_QUESTION_TEXT[id]` (post-refactor this is tautological — the
- *      live `CLASSIFIER_QUESTION_TEXT` is derived from the catalog — but the
- *      test stays as forward-compat insurance if a future change re-introduces
- *      a hand-written `CLASSIFIER_QUESTION_TEXT`).
+ *   3. For every id, `CATALOG_BY_ID.get(id).structuralQuestion` is a non-empty
+ *      string (post-MCP-MOD-005 the catalog IS the source of truth — the prior
+ *      `CLASSIFIER_QUESTION_TEXT` indirection was removed; `buildClassifierPrompt`
+ *      reads `structuralQuestion` directly from the catalog).
  *   4. For every id, `CATALOG_BY_ID.get(id).bannerCode` is either `null` OR
  *      matches a banner code that exists in `REFEREE_BANNER_LIBRARY`.
  *   5. For every id, `CATALOG_BY_ID.get(id).bannerCode` matches the FIRST entry
@@ -35,7 +34,6 @@ import {
 } from '../src/features/refereeBanners/classifierBannerMap';
 import { BANNER_BY_CODE } from '../src/features/refereeBanners/refereeBannerLibrary';
 import { ALL_REFEREE_FEEDBACK_CODES } from '../src/features/refereeLedger/types';
-import { CLASSIFIER_QUESTION_TEXT } from './_helpers/semanticRefereeDeno';
 
 const KNOWN_FAMILIES: ReadonlyArray<SemanticClassifierFamily> = [
   'parent_continuity',
@@ -84,13 +82,13 @@ describe('semantic classifier catalog — structural-question parity', () => {
     }
   });
 
-  it('catalog structuralQuestion matches CLASSIFIER_QUESTION_TEXT for every id (forward-compat insurance)', () => {
+  it('every catalog entry exposes a non-empty structuralQuestion (the catalog is the source of truth post-MCP-MOD-005)', () => {
     for (const id of ALL_SEMANTIC_CLASSIFIER_IDS) {
       const entry = CATALOG_BY_ID.get(id);
       expect(entry).toBeDefined();
-      expect((entry as SemanticClassifierCatalogEntry).structuralQuestion).toBe(
-        CLASSIFIER_QUESTION_TEXT[id],
-      );
+      const question = (entry as SemanticClassifierCatalogEntry).structuralQuestion;
+      expect(typeof question).toBe('string');
+      expect(question.length).toBeGreaterThan(0);
     }
   });
 

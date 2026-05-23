@@ -5,13 +5,13 @@
  * Carries one bounded STRUCTURAL yes/no question for every catalog-v0
  * classifier id frozen in `types.ts` (`ALL_SEMANTIC_CLASSIFIER_IDS`).
  *
- * Authority chain (post-MCP-MOD-004):
+ * Authority chain (post-MCP-MOD-005):
  *
- *   `semanticClassifierCatalog.ts`  →  `CLASSIFIER_QUESTION_TEXT` (this file)
+ *   `semanticClassifierCatalog.ts`  →  `buildClassifierPrompt` (this file)
  *
- * The per-id question text is no longer hand-written here. Every entry in
- * `CLASSIFIER_QUESTION_TEXT` is derived from `SEMANTIC_CLASSIFIER_CATALOG`'s
- * `structuralQuestion` field by iterating the catalog at module load. A
+ * The per-id question text lives in the catalog. `buildClassifierPrompt`
+ * iterates `SEMANTIC_CLASSIFIER_CATALOG` directly and filters by the request's
+ * `requestedClassifiers`. There is no per-id lookup table in this file. A
  * wording change is a one-line edit in the catalog and bumps
  * `SEED_PROMPT_VERSION` here.
  *
@@ -20,9 +20,10 @@
  *     evidence hygiene, branch hygiene, movement, mode fit, friction. NO
  *     question asks the model whether anything is true, correct, right, wrong,
  *     factual, proven, popular, or who is winning.
- *   - `__tests__/semanticAnthropicSeedPromptBanList.test.ts` scans every string
- *     here for the doctrine ban-list vocabulary AND asserts id-coverage parity
- *     with `ALL_SEMANTIC_CLASSIFIER_IDS` (every id, no extra keys).
+ *   - `__tests__/semanticAnthropicSeedPromptBanList.test.ts` scans every catalog
+ *     entry's `structuralQuestion` for the doctrine ban-list vocabulary AND
+ *     asserts id-coverage parity with `ALL_SEMANTIC_CLASSIFIER_IDS` (every id,
+ *     no extra entries).
  *
  * This file is PURE TYPESCRIPT — it imports only `types.ts` and
  * `semanticClassifierCatalog.ts`. Zero `npm:` imports, so the
@@ -38,27 +39,6 @@ import { SEMANTIC_CLASSIFIER_CATALOG } from './semanticClassifierCatalog.ts';
  * question bumps this to `-v1` and invalidates the upstream cache.
  */
 export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v1';
-
-/**
- * One bounded STRUCTURAL yes/no question for each catalog-v0 classifier id.
- * The model answers each with `0` or `1`. The question describes the move, not
- * the person; it asks a structural / play-quality question, never a truth one.
- *
- * Derived from `SEMANTIC_CLASSIFIER_CATALOG` — the catalog is the
- * source-of-truth (MCP-MOD-004). Adding or removing an id requires the catalog
- * update (and a `SemanticClassifierId` union edit); editing a question is a
- * one-line catalog edit + a `SEED_PROMPT_VERSION` bump.
- *
- * Keyed by every `SemanticClassifierId` — the mirror test fails the build if a
- * future catalog change adds an id without a catalog entry, or adds an extra
- * key not in the catalog.
- */
-export const CLASSIFIER_QUESTION_TEXT: Readonly<Record<SemanticClassifierId, string>> =
-  Object.freeze(
-    Object.fromEntries(
-      SEMANTIC_CLASSIFIER_CATALOG.map((entry) => [entry.id, entry.structuralQuestion]),
-    ) as Record<SemanticClassifierId, string>,
-  );
 
 /**
  * The redacted-input block: the move + parent bodies + room context the model
@@ -90,17 +70,21 @@ function buildInputBlock(request: ClassifyMoveRequest): string {
  * Only the requested classifiers' questions are emitted — never others. An
  * unknown / non-catalog id in `requestedClassifiers` is skipped silently (the
  * inbound schema already rejects such a request before the provider runs).
+ *
+ * Iteration order follows `SEMANTIC_CLASSIFIER_CATALOG`'s declaration order,
+ * which matches `ALL_SEMANTIC_CLASSIFIER_IDS`. This preserves the byte-identical
+ * order the pre-MCP-MOD-005 per-id lookup produced when the request listed ids
+ * in catalog order — the typical wired-path call. The iteration-order test
+ * (`semanticPromptBuildClassifierIterationOrder.test.ts`) pins this.
  */
 export function buildClassifierPrompt(request: ClassifyMoveRequest): string {
-  // De-duplicate while preserving first-seen order; emit only catalog ids.
-  const seen = new Set<string>();
+  const requestedIds = new Set<string>(request.requestedClassifiers);
+  const seen = new Set<SemanticClassifierId>();
   const questionLines: string[] = [];
-  for (const id of request.requestedClassifiers) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const question = CLASSIFIER_QUESTION_TEXT[id as SemanticClassifierId];
-    if (question === undefined) continue;
-    questionLines.push(`- ${id}: ${question}`);
+  for (const entry of SEMANTIC_CLASSIFIER_CATALOG) {
+    if (!requestedIds.has(entry.id) || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    questionLines.push(`- ${entry.id}: ${entry.structuralQuestion}`);
   }
 
   const instruction = [
