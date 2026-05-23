@@ -69,7 +69,7 @@
       "selectedTagCodes": [],
       "evidence": {
         "label": "Stanford working paper (2022, Bloom et al.) on remote-work productivity",
-        "sourceText": null
+        "sourceText": "Stanford working paper series, 2022, by Bloom and colleagues on remote-work productivity. The paper documents directional correlations between full remote-work mandates and engineering productivity decline in coordination-heavy roles. The specific table, page reference, and supporting sentence are not surfaced in this move — see follow-up."
       },
       "expectedStatus": "posted",
       "expectedClassifierSignal": [
