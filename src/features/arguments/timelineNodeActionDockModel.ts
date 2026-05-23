@@ -416,7 +416,7 @@ const ACTION_A11Y_LABELS: Readonly<Record<TimelineNodeActionDockActionCode, stri
   mark_ignored: 'Mark this point as not responded to',
   branch: 'Open a side issue from this point',
   synthesize: 'Summarise where this cluster landed',
-  flag: 'Send this move to moderators for review',
+  flag: 'Send this move to admins for review',
   open_cards_detail: 'Open the cards detail view for this point',
   expand_branch: 'Expand this collapsed branch',
 });

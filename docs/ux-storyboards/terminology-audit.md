@@ -17,7 +17,7 @@ table names like `debates` keep their internal names.
 
 - Files scanned: **286**
 - Live prohibited violations: **0**
-- Live discouraged usages: **25**
+- Live discouraged usages: **17**
 - Legacy (not-mounted) findings: **7**
 
 No prohibited terminology in live, mounted user-facing surfaces. ✅
@@ -33,14 +33,6 @@ not a hard blocker.
 
 | File | Line | Severity | Term | Suggested replacement | Excerpt |
 |---|---|---|---|---|---|
-| `src/features/arguments/ArgumentTreeScreen.tsx` | 172 | discouraged | debate | argument | This debate has no posted arguments. Be the first to submit. |
-| `src/features/arguments/gameCopy.ts` | 576 | discouraged | moderator | observer / admin (context-dependent) | Send to moderators for review. |
-| `src/features/arguments/gameCopy.ts` | 980 | discouraged | debate | argument | exercise public rooms; they never judge a debate. |
-| `src/features/arguments/gameCopy.ts` | 1024 | discouraged | debate | argument | Debate club |
-| `src/features/arguments/gameCopy.ts` | 1043 | discouraged | debate | argument | A structured practice debate with gentle turn-taking and a wrap-up. |
-| `src/features/arguments/gameStatus.ts` | 135 | discouraged | moderator | observer / admin (context-dependent) | A human moderator should review this thread. |
-| `src/features/arguments/oneBox/actPopoutModel.ts` | 312 | discouraged | moderator | observer / admin (context-dependent) | Send this move to moderators for review |
-| `src/features/arguments/timelineNodeActionDockModel.ts` | 419 | discouraged | moderator | observer / admin (context-dependent) | Send this move to moderators for review |
 | `src/features/debates/CreateDebateForm.tsx` | 36 | discouraged | debate | argument | New Debate |
 | `src/features/debates/CreateDebateForm.tsx` | 42 | discouraged | debate | argument | A short label for this debate |
 | `src/features/debates/CreateDebateForm.tsx` | 58 | discouraged | debate | argument | Create Debate |

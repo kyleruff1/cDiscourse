@@ -169,7 +169,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         {!loading && visibleArgumentIds.length === 0 ? (
           <EmptyState
             title="No arguments yet"
-            body="This debate has no posted arguments. Be the first to submit."
+            body="This argument has no posted moves yet. Be the first to submit."
           />
         ) : null}
 
