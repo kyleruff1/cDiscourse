@@ -344,12 +344,12 @@ Could this move be tightened by its author before it is sent?
 
 ### `fits_selected_debate_mode`
 
-- **Binary signal:** The move's register fits the room's selected debate mode.
+- **Binary signal:** The move's register fits the room's selected argument mode.
 - **AI question:**
 
 <!-- ai-question:fits_selected_debate_mode -->
 ```
-Does this move's register fit the room's selected debate mode?
+Does this move's register fit the room's selected argument mode?
 ```
 
 - **Banner code:** `mode_mismatch_fits_the_room`.

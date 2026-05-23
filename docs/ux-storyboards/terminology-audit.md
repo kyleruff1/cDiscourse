@@ -15,9 +15,9 @@ table names like `debates` keep their internal names.
 
 ## Summary
 
-- Files scanned: **258**
+- Files scanned: **286**
 - Live prohibited violations: **0**
-- Live discouraged usages: **29**
+- Live discouraged usages: **25**
 - Legacy (not-mounted) findings: **7**
 
 No prohibited terminology in live, mounted user-facing surfaces. ✅
@@ -33,17 +33,13 @@ not a hard blocker.
 
 | File | Line | Severity | Term | Suggested replacement | Excerpt |
 |---|---|---|---|---|---|
-| `src/domain/constitution/constitution.v1.ts` | 142 | discouraged | debate | argument | Argument body must share sufficient term overlap with the debate resolution. |
-| `src/domain/constitution/constitution.v1.ts` | 181 | discouraged | moderator | observer / admin (context-dependent) | Flags likely personal attacks or profanity for moderator review. |
-| `src/domain/constitution/constitution.v1.ts` | 358 | discouraged | debate | argument | Challenging the scope or framing of the debate. |
-| `src/domain/constitution/constitution.v1.ts` | 508 | discouraged | moderator | observer / admin (context-dependent) | Moderator review needed |
-| `src/domain/constitution/constitution.v1.ts` | 509 | discouraged | moderator | observer / admin (context-dependent) | Flagged for moderator review. |
-| `src/features/arguments/ArgumentTreeScreen.tsx` | 171 | discouraged | debate | argument | This debate has no posted arguments. Be the first to submit. |
-| `src/features/arguments/gameCopy.ts` | 487 | discouraged | moderator | observer / admin (context-dependent) | Send to moderators for review. |
-| `src/features/arguments/gameCopy.ts` | 891 | discouraged | debate | argument | exercise public rooms; they never judge a debate. |
-| `src/features/arguments/gameCopy.ts` | 935 | discouraged | debate | argument | Debate club |
-| `src/features/arguments/gameCopy.ts` | 954 | discouraged | debate | argument | A structured practice debate with gentle turn-taking and a wrap-up. |
+| `src/features/arguments/ArgumentTreeScreen.tsx` | 172 | discouraged | debate | argument | This debate has no posted arguments. Be the first to submit. |
+| `src/features/arguments/gameCopy.ts` | 576 | discouraged | moderator | observer / admin (context-dependent) | Send to moderators for review. |
+| `src/features/arguments/gameCopy.ts` | 980 | discouraged | debate | argument | exercise public rooms; they never judge a debate. |
+| `src/features/arguments/gameCopy.ts` | 1024 | discouraged | debate | argument | Debate club |
+| `src/features/arguments/gameCopy.ts` | 1043 | discouraged | debate | argument | A structured practice debate with gentle turn-taking and a wrap-up. |
 | `src/features/arguments/gameStatus.ts` | 135 | discouraged | moderator | observer / admin (context-dependent) | A human moderator should review this thread. |
+| `src/features/arguments/oneBox/actPopoutModel.ts` | 312 | discouraged | moderator | observer / admin (context-dependent) | Send this move to moderators for review |
 | `src/features/arguments/timelineNodeActionDockModel.ts` | 419 | discouraged | moderator | observer / admin (context-dependent) | Send this move to moderators for review |
 | `src/features/debates/CreateDebateForm.tsx` | 36 | discouraged | debate | argument | New Debate |
 | `src/features/debates/CreateDebateForm.tsx` | 42 | discouraged | debate | argument | A short label for this debate |

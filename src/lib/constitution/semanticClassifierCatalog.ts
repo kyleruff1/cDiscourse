@@ -448,8 +448,8 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
     }),
     Object.freeze({
       id: 'fits_selected_debate_mode',
-      binarySignal: "The move's register fits the room's selected debate mode.",
-      structuralQuestion: "Does this move's register fit the room's selected debate mode?",
+      binarySignal: "The move's register fits the room's selected argument mode.",
+      structuralQuestion: "Does this move's register fit the room's selected argument mode?",
       family: 'mode_fit',
       bannerCode: 'mode_mismatch_fits_the_room',
       bannerCodePriorityList: Object.freeze([
