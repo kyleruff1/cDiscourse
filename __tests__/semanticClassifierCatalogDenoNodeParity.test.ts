@@ -1,5 +1,5 @@
 /**
- * MCP-MOD-004 — Node ↔ Deno semantic-classifier-catalog parity.
+ * MCP-MOD-004 / MCP-MOD-006 — Node ↔ Deno semantic-classifier-catalog parity.
  *
  * `semanticClassifierCatalog.ts` lives in two places: the Node-side source of
  * truth at `src/lib/constitution/semanticClassifierCatalog.ts` and the
@@ -10,6 +10,12 @@
  * directly (it cannot import the Node file — Deno needs `.ts`-extension
  * specifiers; the Node toolchain forbids them). This test reads BOTH files AS
  * SOURCE TEXT and fails the build if the per-id catalog entry literals drift.
+ *
+ * Post-MCP-MOD-006: the catalog now also carries `bannerCodePriorityList` and
+ * `ledgerCategories` per entry. The byte-identical span comparison covers
+ * those fields automatically; dedicated extractors (`extractBannerPriorityLists`,
+ * `extractLedgerCategoriesLists`) add per-field assertions for clearer
+ * diagnostics on drift.
  *
  * Mirrors the existing pattern from
  * `__tests__/semanticAnthropicContentScanParity.test.ts` — extract bounded
@@ -89,6 +95,37 @@ function extractFamilies(span: string): string[] {
   return Array.from(span.matchAll(/\bfamily:\s*'([^']+)'/g)).map((m) => m[1]);
 }
 
+/**
+ * Extract every `bannerCodePriorityList: Object.freeze([...]),` literal in
+ * declaration order. Returns one array of string literals per catalog row,
+ * preserving the inner ordering. (MCP-MOD-006.)
+ */
+function extractBannerPriorityLists(span: string): Array<string[]> {
+  const re = /\bbannerCodePriorityList:\s*Object\.freeze\(\s*\[([^\]]*)\]\s*\)/g;
+  const out: Array<string[]> = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(span)) !== null) {
+    const inner = m[1];
+    out.push(Array.from(inner.matchAll(/'([^']+)'/g)).map((s) => s[1]));
+  }
+  return out;
+}
+
+/**
+ * Extract every `ledgerCategories: Object.freeze([...]),` literal in
+ * declaration order. (MCP-MOD-006.)
+ */
+function extractLedgerCategoriesLists(span: string): Array<string[]> {
+  const re = /\bledgerCategories:\s*Object\.freeze\(\s*\[([^\]]*)\]\s*\)/g;
+  const out: Array<string[]> = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(span)) !== null) {
+    const inner = m[1];
+    out.push(Array.from(inner.matchAll(/'([^']+)'/g)).map((s) => s[1]));
+  }
+  return out;
+}
+
 describe('semantic classifier catalog — Node ↔ Deno source-text parity', () => {
   it('both source files exist', () => {
     expect(fs.existsSync(NODE_CATALOG_PATH)).toBe(true);
@@ -137,6 +174,22 @@ describe('semantic classifier catalog — Node ↔ Deno source-text parity', () 
     expect(nodeFamilies).toHaveLength(23);
     expect(denoFamilies).toHaveLength(23);
     expect(denoFamilies).toEqual(nodeFamilies);
+  });
+
+  it('every per-id bannerCodePriorityList literal matches between the Node and Deno files (MCP-MOD-006)', () => {
+    const nodeLists = extractBannerPriorityLists(extractCatalogSpan(nodeSrc));
+    const denoLists = extractBannerPriorityLists(extractCatalogSpan(denoSrc));
+    expect(nodeLists).toHaveLength(23);
+    expect(denoLists).toHaveLength(23);
+    expect(denoLists).toEqual(nodeLists);
+  });
+
+  it('every per-id ledgerCategories literal matches between the Node and Deno files (MCP-MOD-006)', () => {
+    const nodeLists = extractLedgerCategoriesLists(extractCatalogSpan(nodeSrc));
+    const denoLists = extractLedgerCategoriesLists(extractCatalogSpan(denoSrc));
+    expect(nodeLists).toHaveLength(23);
+    expect(denoLists).toHaveLength(23);
+    expect(denoLists).toEqual(nodeLists);
   });
 
   it('the Node file imports SemanticClassifierId from the features tree (not the Deno mirror)', () => {

@@ -1,12 +1,14 @@
 /**
- * MCP-MOD-004 — Semantic classifier catalog (Node-side source of truth).
+ * MCP-MOD-004 / MCP-MOD-006 — Semantic classifier catalog (Node-side source of truth).
  *
  * Single TypeScript object that holds, per catalog-v0 classifier id, every
  * piece of per-id metadata: the binary signal, the structural yes/no question
- * asked of the AI, the family grouping, the primary banner code, the primary
- * ledger feedback code, and an optional plain-language label.
+ * asked of the AI, the family grouping, the primary banner code AND the full
+ * ordered banner-code priority list, the primary ledger feedback code AND the
+ * full list of ledger categories the id surfaces under, and an optional
+ * plain-language label.
  *
- * Authority chain (post-MCP-MOD-004):
+ * Authority chain (post-MCP-MOD-006):
  *
  *   1. `SemanticClassifierId` union (`semanticRefereeTypes.ts`) — the canonical
  *      id union. This catalog imports the union, never widens it.
@@ -15,8 +17,11 @@
  *   3. `SEMANTIC_CLASSIFIER_CATALOG` (this file) — the canonical per-id metadata
  *      table. `seedPrompt.ts`'s `buildClassifierPrompt` iterates this catalog
  *      directly (via the byte-identical Deno mirror); the banner library's
- *      primary per-id code and the ledger's primary per-id feedback code are
- *      cross-checked against this catalog by parity tests.
+ *      `CLASSIFIER_TO_BANNERS` table is now a DERIVED VIEW over each entry's
+ *      `bannerCodePriorityList` (MCP-MOD-006), and the ledger's `classifierFor`
+ *      lookup is now a DERIVED VIEW over each entry's `ledgerCategories`
+ *      (MCP-MOD-006). `toPlainLanguage` consults `plainLanguageLabel` first
+ *      before falling back to the gameCopy table.
  *
  * This file is PURE TYPESCRIPT — same purity rules as `engine.ts`. NO imports
  * from Supabase, React, or any network library. NO runtime side effect. NO
@@ -28,26 +33,32 @@
  *     `__tests__/semanticAnthropicSeedPromptBanList.test.ts` scans every entry.
  *   - Every `binarySignal` is plain-language description of a structural
  *     property — never a verdict, never a person label.
- *   - `bannerCode` / `ledgerFeedbackCode` are deterministic mapping anchors.
- *     They surface user-visible language only after passing through the banner
- *     library and the ledger reconciliation; the catalog never authors a
- *     user-facing string itself.
+ *   - `bannerCode` / `bannerCodePriorityList` / `ledgerFeedbackCode` /
+ *     `ledgerCategories` are deterministic mapping anchors. They surface
+ *     user-visible language only after passing through the banner library and
+ *     the ledger reconciliation; the catalog never authors a user-facing
+ *     string itself.
  *
- * Documented design departures (MCP-MOD-004 task spec):
+ * Documented design departures (MCP-MOD-004 task spec, MCP-MOD-006 extension):
  *   - The catalog exposes a single `bannerCode` field — the PRIMARY banner code
- *     for an id. The banner library's `selectBanner` consumes the FULL priority
- *     list per id (`CLASSIFIER_TO_BANNERS[id]: readonly string[]`), so the
- *     library keeps that table while the catalog holds the primary entry. A
- *     parity test asserts `CATALOG_BY_ID.get(id).bannerCode ===
- *     CLASSIFIER_TO_BANNERS[id][0]` (or both `null` / `[]` for intentionally
- *     silent ids).
+ *     for an id — AS WELL AS `bannerCodePriorityList`, the full ordered
+ *     candidate list `selectBanner` consumes. The two fields are kept in sync
+ *     (`bannerCode === bannerCodePriorityList[0]` for every non-silent id).
+ *     The banner library's `CLASSIFIER_TO_BANNERS` is now derived from the
+ *     catalog (post-MCP-MOD-006), so the catalog is the single source of truth
+ *     for both the primary and the priority list. The parity assertion that
+ *     used to compare against a separate library table now asserts internal
+ *     consistency (`bannerCode === bannerCodePriorityList[0]`).
  *   - The catalog exposes a single `ledgerFeedbackCode` field — the PRIMARY
- *     feedback code for an id. The ledger's `classifierFor` table is structured
- *     as `RefereePointCategory → SemanticClassifierId` (the inverse direction),
- *     and a single classifier may surface on multiple categories (e.g.
- *     `responds_to_parent` maps the `continuity` and `direct_response`
- *     categories). The ledger keeps that table; the catalog records the
- *     primary feedback code per id for parity / documentation.
+ *     feedback code for an id — AS WELL AS `ledgerCategories`, the list of
+ *     `RefereePointCategory` values the id surfaces under in the ledger's
+ *     `l2SignalForCategory` lookup. A single classifier may surface on
+ *     multiple categories (e.g. `responds_to_parent` surfaces under both
+ *     `continuity` and `direct_response`). The ledger's `classifierFor` table
+ *     is now derived from the catalog (post-MCP-MOD-006). The per-category
+ *     feedback wording is owned by `reconcileCategory` / `softFeedbackCode`
+ *     (`reconciliation.ts`); the catalog records the PRIMARY per-id feedback
+ *     code for parity / documentation.
  */
 
 import type { SemanticClassifierId } from '../../features/semanticReferee/semanticRefereeTypes';
@@ -83,10 +94,21 @@ export interface SemanticClassifierCatalogEntry {
    * `contains_unplayable_insult_only`).
    *
    * For ids with multiple candidate codes in the banner library, this is the
-   * FIRST entry of `CLASSIFIER_TO_BANNERS[id]` (the primary). The full priority
-   * list is owned by the banner library; `selectBanner` consumes it.
+   * FIRST entry of `bannerCodePriorityList`. The two fields are kept in sync
+   * by the parity test (`bannerCode === bannerCodePriorityList[0]` for every
+   * non-silent id; `bannerCode === null` ↔ `bannerCodePriorityList === []`).
    */
   readonly bannerCode: string | null;
+  /**
+   * The FULL ordered list of candidate banner codes for this id. `selectBanner`
+   * iterates this list (in order) when building its pool — the priority within
+   * a category is preserved by list order. Empty for intentionally-silent ids
+   * (the `INTENTIONALLY_SILENT_CLASSIFIERS` carve-out — currently only
+   * `contains_unplayable_insult_only`). Added in MCP-MOD-006 — the catalog now
+   * owns the full per-id priority list; the banner library's
+   * `CLASSIFIER_TO_BANNERS` is a derived view over this field.
+   */
+  readonly bannerCodePriorityList: readonly string[];
   /**
    * The primary referee-ledger feedback code emitted when this binary fires
    * `value=1` on its primary category. `null` when the id contributes only
@@ -95,8 +117,30 @@ export interface SemanticClassifierCatalogEntry {
    */
   readonly ledgerFeedbackCode: string | null;
   /**
-   * Optional plain-language label for downstream UI surfaces. Catalog v0 has
-   * no entry here for any id — left as a forward-compatibility seam.
+   * The list of `RefereePointCategory` values this id surfaces under in the
+   * ledger's `l2SignalForCategory` lookup. A single classifier may surface
+   * under multiple categories (e.g. `responds_to_parent` is read for BOTH
+   * `continuity` AND `direct_response`). Empty when the id contributes
+   * through `scoreHints`, the anti-amplification context, or layer-1 facts
+   * only (no direct per-id category lookup). Added in MCP-MOD-006 — the
+   * catalog now owns the per-id category list; the ledger's `classifierFor`
+   * table is a derived view (inverse) over this field. The per-category
+   * feedback wording is owned by `reconcileCategory` / `softFeedbackCode`
+   * (`src/features/refereeLedger/reconciliation.ts`); the catalog's
+   * `ledgerFeedbackCode` is the PRIMARY per-id feedback code only.
+   *
+   * Typed as `readonly string[]` (matching `bannerCodePriorityList`'s posture)
+   * so the catalog stays standalone-pure and does not need to `import type`
+   * from the features tree. The parity test
+   * (`__tests__/semanticClassifierCatalogParity.test.ts`) enforces that
+   * every value is a member of `ALL_REFEREE_POINT_CATEGORIES`.
+   */
+  readonly ledgerCategories: readonly string[];
+  /**
+   * Optional plain-language label for downstream UI surfaces. When present,
+   * `toPlainLanguage(id)` returns this label in preference to the gameCopy
+   * fallback (MCP-MOD-006). Catalog v0 has no entry here for any id — left
+   * as a forward-compatibility seam.
    */
   readonly plainLanguageLabel?: string;
 }
@@ -115,7 +159,13 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         "Does this move directly engage the parent's claim, mechanism, question, evidence, or requested clarification?",
       family: 'parent_continuity',
       bannerCode: 'continuity_clean_tie',
+      bannerCodePriorityList: Object.freeze([
+        'continuity_clean_tie',
+        'continuity_engages_mechanism',
+        'continuity_picks_up_thread',
+      ]),
       ledgerFeedbackCode: 'clean_parent_tie',
+      ledgerCategories: Object.freeze(['continuity', 'direct_response']),
     }),
     Object.freeze({
       id: 'introduces_new_issue',
@@ -125,7 +175,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move raise a new issue that could be debated separately from the parent?',
       family: 'parent_continuity',
       bannerCode: 'tangent_new_issue_here',
+      bannerCodePriorityList: Object.freeze([
+        'tangent_new_issue_here',
+        'branch_belongs_on_branch',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'asks_for_evidence',
@@ -135,7 +190,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move request a source, citation, primary source, receipt, or exact quote?',
       family: 'evidence',
       bannerCode: 'evidence_debt_opened',
+      bannerCodePriorityList: Object.freeze([
+        'evidence_debt_opened',
+        'evidence_debt_a_source_would_help',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'provides_evidence',
@@ -145,7 +205,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move include or reference an attached source, excerpt, quotation, or record?',
       family: 'evidence',
       bannerCode: 'evidence_debt_source_attached',
+      bannerCodePriorityList: Object.freeze([
+        'evidence_debt_source_attached',
+        'evidence_debt_resolved',
+      ]),
       ledgerFeedbackCode: 'source_attached',
+      ledgerCategories: Object.freeze(['evidence_provided']),
     }),
     Object.freeze({
       id: 'evidence_supports_claim',
@@ -155,7 +220,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does the attached evidence appear to attach to the exact claim being made in this move?',
       family: 'evidence',
       bannerCode: 'evidence_debt_resolved',
+      bannerCodePriorityList: Object.freeze([
+        'evidence_debt_resolved',
+        'evidence_debt_source_attached',
+      ]),
       ledgerFeedbackCode: 'evidence_connects',
+      ledgerCategories: Object.freeze(['evidence_relevance']),
     }),
     Object.freeze({
       id: 'quote_anchors_parent',
@@ -165,7 +235,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move quote or paraphrase a span of the parent and then engage that span in its body?',
       family: 'parent_continuity',
       bannerCode: 'clever_rebuttal_anchored',
+      bannerCodePriorityList: Object.freeze([
+        'clever_rebuttal_anchored',
+        'continuity_clean_tie',
+      ]),
       ledgerFeedbackCode: 'nicely_anchored',
+      ledgerCategories: Object.freeze(['quote_anchoring']),
     }),
     Object.freeze({
       id: 'narrows_claim',
@@ -175,7 +250,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move limit a broader claim to a more specific, more defensible scope?',
       family: 'movement',
       bannerCode: 'synthesis_nice_narrowing',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_nice_narrowing',
+        'synthesis_narrow_concession_noted',
+      ]),
       ledgerFeedbackCode: 'nice_narrowing',
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'concedes_narrow_point',
@@ -185,7 +265,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move accept a specific, limited point raised by the other participant?',
       family: 'movement',
       bannerCode: 'synthesis_narrow_concession_noted',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_narrow_concession_noted',
+        'synthesis_nice_narrowing',
+      ]),
       ledgerFeedbackCode: 'concession_noted',
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'requests_clarification',
@@ -195,7 +280,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move ask what the other participant means by a term or statement?',
       family: 'parent_continuity',
       bannerCode: 'continuity_clarification_landed',
+      bannerCodePriorityList: Object.freeze([
+        'continuity_clarification_landed',
+        'quote_needed_pin_the_passage',
+      ]),
       ledgerFeedbackCode: 'clarification_in_play',
+      ledgerCategories: Object.freeze(['clarification']),
     }),
     Object.freeze({
       id: 'answers_clarification',
@@ -205,7 +295,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move answer a clarification request raised earlier in the thread?',
       family: 'parent_continuity',
       bannerCode: 'continuity_clarification_landed',
+      bannerCodePriorityList: Object.freeze([
+        'continuity_clarification_landed',
+        'continuity_answers_question',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'shifts_to_person_or_intent',
@@ -215,7 +310,11 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move redirect from the argument toward the other participant or their intent?',
       family: 'friction',
       bannerCode: 'hot_take_keeps_it_about_the_claim',
+      bannerCodePriorityList: Object.freeze([
+        'hot_take_keeps_it_about_the_claim',
+      ]),
       ledgerFeedbackCode: 'back_to_the_claim',
+      ledgerCategories: Object.freeze(['person_intent_drift']),
     }),
     Object.freeze({
       id: 'uses_popularity_as_evidence',
@@ -225,7 +324,11 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move use likes, shares, virality, or an "everyone says" appeal as evidentiary support?',
       family: 'evidence',
       bannerCode: 'source_chain_gap_popularity_not_proof',
+      bannerCodePriorityList: Object.freeze([
+        'source_chain_gap_popularity_not_proof',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'contains_playable_hot_take',
@@ -235,7 +338,13 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Is this move spicy, contrarian, or provocative while still being a coherent, answerable claim?',
       family: 'mode_fit',
       bannerCode: 'hot_take_playable',
+      bannerCodePriorityList: Object.freeze([
+        'hot_take_playable',
+        'hot_take_has_an_edge',
+        'hot_take_room_can_engage',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'contains_unplayable_insult_only',
@@ -245,7 +354,9 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Is this move only an insult, with no claim, question, or evidence to engage?',
       family: 'friction',
       bannerCode: null,
+      bannerCodePriorityList: Object.freeze([]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'is_satire_or_parody',
@@ -255,7 +366,11 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move itself read as satire, parody, a meme, or fiction rather than a literal claim?',
       family: 'mode_fit',
       bannerCode: 'hot_take_invites_a_reply',
+      bannerCodePriorityList: Object.freeze([
+        'hot_take_invites_a_reply',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'uses_satire_as_evidence',
@@ -265,7 +380,11 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move use satire, parody, a meme, or fiction as factual support for a claim?',
       family: 'evidence',
       bannerCode: 'source_chain_gap_satire_not_evidence',
+      bannerCodePriorityList: Object.freeze([
+        'source_chain_gap_satire_not_evidence',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'cites_retraction',
@@ -275,7 +394,11 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move cite a retraction, correction, update, or changed record?',
       family: 'evidence',
       bannerCode: 'source_chain_gap_retraction_noted',
+      bannerCodePriorityList: Object.freeze([
+        'source_chain_gap_retraction_noted',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'creates_source_chain_gap',
@@ -285,7 +408,13 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move leave a gap in the source trail — a missing origin, quote, context, or link?',
       family: 'evidence',
       bannerCode: 'source_chain_gap_chain_breaks',
+      bannerCodePriorityList: Object.freeze([
+        'source_chain_gap_chain_breaks',
+        'source_chain_gap_trace_it_back',
+        'source_chain_gap_one_more_link',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'suggests_side_branch',
@@ -295,7 +424,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Would this move read more cleanly on a same-topic side branch than on the main line?',
       family: 'routing',
       bannerCode: 'branch_new_voice_welcome',
+      bannerCodePriorityList: Object.freeze([
+        'branch_new_voice_welcome',
+        'branch_belongs_on_branch',
+      ]),
       ledgerFeedbackCode: 'clean_branch',
+      ledgerCategories: Object.freeze(['branch_hygiene']),
     }),
     Object.freeze({
       id: 'suggests_diagonal_tangent',
@@ -305,7 +439,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Does this move step to a related but distinct issue that fits its own tangent branch?',
       family: 'routing',
       bannerCode: 'tangent_different_axis',
+      bannerCodePriorityList: Object.freeze([
+        'tangent_different_axis',
+        'tangent_new_issue_here',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'fits_selected_debate_mode',
@@ -313,7 +452,11 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
       structuralQuestion: "Does this move's register fit the room's selected debate mode?",
       family: 'mode_fit',
       bannerCode: 'mode_mismatch_fits_the_room',
+      bannerCodePriorityList: Object.freeze([
+        'mode_mismatch_fits_the_room',
+      ]),
       ledgerFeedbackCode: 'fits_the_room',
+      ledgerCategories: Object.freeze(['staying_in_mode']),
     }),
     Object.freeze({
       id: 'needs_pre_send_pause',
@@ -322,7 +465,12 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
       structuralQuestion: 'Could this move be tightened by its author before it is sent?',
       family: 'movement',
       bannerCode: 'pacing_a_pause_before_sending',
+      bannerCodePriorityList: Object.freeze([
+        'pacing_a_pause_before_sending',
+        'pacing_take_a_short_pause',
+      ]),
       ledgerFeedbackCode: null,
+      ledgerCategories: Object.freeze([]),
     }),
     Object.freeze({
       id: 'ready_for_synthesis',
@@ -332,7 +480,13 @@ export const SEMANTIC_CLASSIFIER_CATALOG: ReadonlyArray<SemanticClassifierCatalo
         'Is there clear shared ground in the thread plus only limited unresolved debt?',
       family: 'movement',
       bannerCode: 'synthesis_shared_ground_named',
+      bannerCodePriorityList: Object.freeze([
+        'synthesis_shared_ground_named',
+        'synthesis_almost_there',
+        'synthesis_sides_converging',
+      ]),
       ledgerFeedbackCode: 'synthesis_named',
+      ledgerCategories: Object.freeze(['synthesis']),
     }),
   ]);
 

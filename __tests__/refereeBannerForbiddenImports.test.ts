@@ -149,12 +149,17 @@ describe('MCP-014 forbidden-imports — only the documented cross-feature import
    *   - `../semanticReferee/` — MCP-011 type contract (import type only).
    *   - `../refereeLedger/`   — MCP-013 type contract (import type only).
    *   - `../arguments/gameCopy` — the plain-language map (runtime allowed).
+   *   - `../../lib/constitution/semanticClassifierCatalog` — the per-id
+   *     catalog source of truth (post-MCP-MOD-006). `CLASSIFIER_TO_BANNERS`
+   *     is now a derived view over `SEMANTIC_CLASSIFIER_CATALOG`'s
+   *     `bannerCodePriorityList` field; the runtime import is required.
    * Everything else is a violation.
    */
   const ALLOWED_CROSS_FEATURE = [
     '../semanticReferee/',
     '../refereeLedger/',
     '../arguments/gameCopy',
+    '../../lib/constitution/semanticClassifierCatalog',
   ];
 
   for (const file of REFEREE_BANNER_FILES) {
@@ -179,6 +184,8 @@ describe('MCP-014 forbidden-imports — only the documented cross-feature import
   it('the MCP-011 / MCP-013 imports are type-only', () => {
     // types.ts and the data files reference MCP-011 / MCP-013 — every such
     // import must be `import type` (the contract is consumed, never executed).
+    // The semantic-classifier catalog (post-MCP-MOD-006) is a RUNTIME import
+    // and is NOT subject to the type-only constraint; the loop skips it.
     for (const file of ['types.ts', 'refereeBannerLibrary.ts', 'classifierBannerMap.ts']) {
       const imports = importLines(readSrc(file));
       for (const line of imports) {
