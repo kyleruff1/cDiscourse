@@ -132,7 +132,7 @@ export const REDUCE_MOTION_COPY = {
 
 export const SIDE_LABEL_COPY = {
   label: 'Side labels',
-  helper: 'How the two sides of a debate are named.',
+  helper: 'How the two sides of an argument are named.',
   options: {
     for_against: 'For / Against',
     side_a_b: 'Side A / Side B',

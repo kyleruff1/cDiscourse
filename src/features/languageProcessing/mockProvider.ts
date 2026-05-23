@@ -138,10 +138,10 @@ export function runMockLanguageProcessing(
 
   const topicExplanation =
     topicScore < 0.05
-      ? 'Low lexical overlap with debate resolution.'
+      ? 'Low lexical overlap with argument resolution.'
       : topicScore < 0.25
-      ? 'Moderate lexical overlap with debate resolution.'
-      : 'Good lexical overlap with debate resolution.';
+      ? 'Moderate lexical overlap with argument resolution.'
+      : 'Good lexical overlap with argument resolution.';
 
   return {
     cleanedText,

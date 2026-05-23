@@ -17,7 +17,7 @@ table names like `debates` keep their internal names.
 
 - Files scanned: **286**
 - Live prohibited violations: **0**
-- Live discouraged usages: **11**
+- Live discouraged usages: **0**
 - Legacy (not-mounted) findings: **0**
 
 No prohibited terminology in live, mounted user-facing surfaces. ✅
@@ -31,19 +31,7 @@ _None._
 "debate" / "moderator" in user-facing copy. Reword opportunistically;
 not a hard blocker.
 
-| File | Line | Severity | Term | Suggested replacement | Excerpt |
-|---|---|---|---|---|---|
-| `src/features/languageProcessing/buildAnthropicRequest.ts` | 34 | discouraged | debate | argument | Debate resolution: |
-| `src/features/languageProcessing/buildAnthropicRequest.ts` | 35 | discouraged | debate | argument | Debate description: |
-| `src/features/languageProcessing/buildAnthropicRequest.ts` | 40 | discouraged | debate | argument | User's debate side: |
-| `src/features/languageProcessing/mockProvider.ts` | 141 | discouraged | debate | argument | Low lexical overlap with debate resolution. |
-| `src/features/languageProcessing/mockProvider.ts` | 143 | discouraged | debate | argument | Moderate lexical overlap with debate resolution. |
-| `src/features/languageProcessing/mockProvider.ts` | 144 | discouraged | debate | argument | Good lexical overlap with debate resolution. |
-| `src/features/preferences/preferencesCopy.ts` | 135 | discouraged | debate | argument | How the two sides of a debate are named. |
-| `src/features/profileTags/profileTagCopy.ts` | 23 | discouraged | debate | argument | Add a few optional tags about your interests and how you like to debate. |
-| `src/features/profileTags/profileTagCopy.ts` | 61 | discouraged | debate | argument | Debate style |
-| `src/features/rulesUx/validationActionMap.ts` | 237 | discouraged | moderator | observer / admin (context-dependent) | Awaiting moderator |
-| `src/features/rulesUx/validationActionMap.ts` | 238 | discouraged | moderator | observer / admin (context-dependent) | A moderator will review before this lands. |
+_None._
 
 ## Legacy / not-currently-mounted findings
 
