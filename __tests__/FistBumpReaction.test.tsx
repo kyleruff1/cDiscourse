@@ -136,14 +136,9 @@ describe('FistBumpReaction — source contract', () => {
     expect(code).not.toMatch(/\bscore\b/i);
     expect(code).not.toMatch(/\bvote\b/i);
     expect(code).not.toMatch(/\bstanding\b/i);
-    // `weight` is allowed in CSS contexts (`fontWeight: '600'`); check
-    // it is ONLY ever the React Native style prop.
-    const weightMatches = code.match(/\bweight\b/gi) || [];
-    for (const _m of weightMatches) {
-      // No standalone usage — must always be preceded by 'font'.
-      const re = /(?<!font)\bweight\b/gi;
-      expect(code).not.toMatch(re);
-    }
+    // `weight` is allowed in CSS contexts (`fontWeight: '600'`); confirm it
+    // is ONLY ever preceded by 'font' (i.e., never appears as a standalone token).
+    expect(code).not.toMatch(/(?<!font)\bweight\b/gi);
   });
 
   it('imports MoveReactionSummary from the model (single source of truth)', () => {
