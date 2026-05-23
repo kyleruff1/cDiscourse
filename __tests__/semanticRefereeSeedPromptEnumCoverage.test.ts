@@ -76,12 +76,20 @@ const SHAPE_PATTERNS: readonly RegExp[] = [
 describe('SMOKE-FIX-002 — seed-prompt enum coverage', () => {
   const src = fs.readFileSync(SEED_PROMPT_PATH, 'utf8');
 
-  it('SEED_PROMPT_VERSION is bumped to v1', () => {
+  it('SEED_PROMPT_VERSION is bumped to v2', () => {
+    // SMOKE-FIX-002 bumped v0 → v1.
+    // MCP-MOD-008 bumped v1 → v2 (buildInputBlock emits the optional Room thread
+    // context block when priorMovesRedacted is present — a structural format
+    // change that invalidates the upstream cache and signals to the cache that
+    // the prior-moves payload bytes are part of the prompt the model receives).
     expect(src).toContain(
-      "export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v1';",
+      "export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v2';",
     );
     expect(src).not.toContain(
       "export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v0';",
+    );
+    expect(src).not.toContain(
+      "export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v1';",
     );
   });
 

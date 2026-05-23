@@ -74,9 +74,16 @@ export function redactString(input: string): string {
 }
 
 /**
- * Return a copy of the request with `moveBodyRedacted` / `parentBodyRedacted`
- * run through the defensive redaction pass. Every other field is passed through
- * unchanged. The function never mutates its input.
+ * Return a copy of the request with `moveBodyRedacted` / `parentBodyRedacted` /
+ * every entry in `priorMovesRedacted` run through the defensive redaction pass.
+ * Every other field is passed through unchanged. The function never mutates
+ * its input.
+ *
+ * MCP-MOD-008: when `priorMovesRedacted` is present, the redactor runs over
+ * each entry's `bodyRedacted` — the same belt-and-suspenders posture the
+ * current code applies to `moveBodyRedacted` and `parentBodyRedacted`.
+ * `authorAlias` is NOT redacted; it is a non-identifying chronological alias
+ * by construction and the schema bounds its length.
  */
 export function redactClassifyMoveRequest(request: ClassifyMoveRequest): ClassifyMoveRequest {
   const redacted: ClassifyMoveRequest = {
@@ -85,6 +92,12 @@ export function redactClassifyMoveRequest(request: ClassifyMoveRequest): Classif
   };
   if (request.parentBodyRedacted !== undefined) {
     redacted.parentBodyRedacted = redactString(request.parentBodyRedacted);
+  }
+  if (request.priorMovesRedacted !== undefined) {
+    redacted.priorMovesRedacted = request.priorMovesRedacted.map((entry) => ({
+      authorAlias: entry.authorAlias,
+      bodyRedacted: redactString(entry.bodyRedacted),
+    }));
   }
   return redacted;
 }

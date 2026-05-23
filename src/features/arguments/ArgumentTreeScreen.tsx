@@ -339,6 +339,16 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
       ? rows.find((r) => r.id === justPosted.parentId)
       : undefined;
     setClassifiedMoveId(justPosted.id);
+    // MCP-MOD-008 — assemble the room's prior moves (every move except the
+    // just-posted one) in chronological order. The hook uses this to:
+    //   1. Refuse classification when this is the author's FIRST move (the
+    //      move-position gate from MCP-MOD-007).
+    //   2. Build a stable alias map (A/B/C from distinct authors) for the
+    //      priorMovesRedacted payload sent to the boundary.
+    // `rows` is already chronologically ordered by `useArgumentRoomMessages`.
+    const priorMoves = rows
+      .filter((r) => r.id !== justPosted.id)
+      .map((r) => ({ id: r.id, authorId: r.authorId, body: r.body }));
     // Fire-and-forget — the post already happened; this never blocks anything.
     void refereeOnMovePosted({
       roomId: debate.id,
@@ -347,6 +357,8 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
       body: justPosted.body,
       parentBody: parentRow?.body ?? null,
       participantSide,
+      authorId: justPosted.authorId,
+      priorMoves,
       roomContext: {
         selectedMoveType: justPosted.argumentType ?? undefined,
         side:

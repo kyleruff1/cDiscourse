@@ -36,14 +36,30 @@ import { SEMANTIC_CLASSIFIER_CATALOG } from './semanticClassifierCatalog.ts';
 /**
  * The prompt-version string the packet is stamped with. Matches MCP-002's
  * `promptVersion` and MCP-016's `MOCK_PROMPT_VERSION` — a wording change to any
- * question bumps this to `-v1` and invalidates the upstream cache.
+ * question bumps this and invalidates the upstream cache.
+ *
+ * Bumped to `-v2` in MCP-MOD-008: `buildInputBlock` now emits an optional
+ * `Room thread context:` block above the parent + move blocks when the request
+ * carries `priorMovesRedacted`. The structural format of the prompt changed,
+ * so the version bumps and the upstream packet cache invalidates cleanly.
  */
-export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v1';
+export const SEED_PROMPT_VERSION = 'mcp-semantic-referee-prompt-v2';
 
 /**
  * The redacted-input block: the move + parent bodies + room context the model
  * classifies. Bodies arrive already redacted (`redaction.ts`); this only frames
  * them for the prompt.
+ *
+ * MCP-MOD-008: when `request.priorMovesRedacted` is non-empty, the function
+ * emits a "Room thread context" block ABOVE the parent + move blocks. Each
+ * prior move is formatted as `- Move N by <alias>: <redacted body>`. The
+ * block is omitted entirely when `priorMovesRedacted` is absent or empty —
+ * the pre-MCP-MOD-008 prompt shape is preserved byte-for-byte in that case.
+ *
+ * Aliases are STABLE and NON-IDENTIFYING. They are assigned by the caller from
+ * the chronological order of distinct authors in the room. The boundary
+ * schema bounds `authorAlias` length (MAX_ALIAS_LEN); the system prompt
+ * already prohibits person-labeling.
  */
 function buildInputBlock(request: ClassifyMoveRequest): string {
   const lines: string[] = ['Input to classify:'];
@@ -53,6 +69,15 @@ function buildInputBlock(request: ClassifyMoveRequest): string {
   if (ctx.selectedMoveType) lines.push(`Declared move type: ${ctx.selectedMoveType}`);
   if (ctx.side) lines.push(`Participant side: ${ctx.side}`);
   if (ctx.actorRole) lines.push(`Participant role: ${ctx.actorRole}`);
+  // MCP-MOD-008 — emit the room-thread-context block when prior moves are present.
+  const priorMoves = request.priorMovesRedacted;
+  if (priorMoves !== undefined && priorMoves.length > 0) {
+    lines.push('Room thread context (most recent move is the one to classify):');
+    for (let i = 0; i < priorMoves.length; i += 1) {
+      const entry = priorMoves[i];
+      lines.push(`- Move ${i + 1} by ${entry.authorAlias}: ${entry.bodyRedacted}`);
+    }
+  }
   if (request.parentBodyRedacted !== undefined) {
     lines.push(`Parent move (the move being replied to):\n${request.parentBodyRedacted}`);
   } else {
