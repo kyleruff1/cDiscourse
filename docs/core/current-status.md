@@ -1,5 +1,241 @@
 # CDiscourse — Current Status
-<!-- Latest implementer card: QOL-035 (user-facing terminology scrub — replaced "debate" with "argument" and "moderator" with "admin" across 16 mounted user-facing files, drove ux:terminology:audit live + legacy counts to zero, strict-mode audit clean). Full suite is 9542 tests / 360 suites (all passing, unchanged from MCP-CAT-001 baseline — no test had to be updated because no test asserted the modified strings). -->
+<!-- Latest implementer card: QOL-041 (Concession list + acceptance gradient + fist-bump — fills QOL-030's deferred internals for the respond / respond_to_concession box types, plus the no-score acknowledgment reaction). Six pure-TS models + three UI components + 1 migration + 1 new Edge Function (react-to-move) + submit-argument extension. Full suite is 9757 tests / 372 suites (all passing, +215 from QOL-035 baseline). Typecheck + lint + ux:terminology:audit all clean. -->
+
+## QOL-041 — Concession list + acceptance gradient + fist-bump reaction (Epic 12 — Rules UX)
+
+**Status:** Build complete, awaiting Review — fills the deliberate hole
+QOL-030 left in the `respond` and `respond_to_concession` box types
+(QOL-030 §6.2 / §12 explicitly named "the concession-gradient internals
+(QOL-041)" as a hole for this card to fill). Ships three structured
+surfaces a concession exchange needs: (1) the itemized concession list
+(the concession section of the `respond` box is now a forced list of
+separately-addressable points, each its own row); (2) the per-concession
+5-level acceptance gradient (the `respond_to_concession` box mirrors the
+incoming concession set row-for-row; each row picks one of `agree` /
+`agree_with_caveat` / `disagree_framing` / `disagree_context` /
+`disagree_fact` with a clarification required whenever the level is not
+`agree`); (3) the no-score fist-bump acknowledgment reaction (the ONE
+allowed reaction in v1 because it carries no score, no verdict, no
+standing change). Issue #210.
+
+- **What it ships — new pure-TS models (`src/features/concessions/`):**
+  `acceptanceGradient.ts` (5-level `AcceptanceLevel` enum, the verbatim
+  design §7.2 `ACCEPTANCE_LEVEL_COPY` plain-language map,
+  `acceptanceRequiresClarification` predicate, the
+  `ACCEPTANCE_TO_CONCESSION_EFFECT` vocabulary bridge to the shipped
+  point-standing `ConcessionEffect` families); `concessionListModel.ts`
+  (forced-list draft model — cap 8 items / 600-char-per-item, validation
+  with plain-language `firstReason`, payload builder); `respondToConcessionModel.ts`
+  (mirrored forced-list — buildRespondToConcessionDraft, setRowLevel /
+  setRowClarification, `isPostable()` enforcing every-row-picked +
+  every-non-agree-row-has-clarification, payload builder);
+  `activeDisagreement.ts` (deterministic derivation — `deriveActiveDisagreement`
+  with `fact > context > framing` precedence + newest-argument-wins
+  rule; `agree_with_caveat` is a rider, not a dispute); `moveReactionModel.ts`
+  (`MoveReactionKind` with EXACTLY ONE value `fist_bump`; `summarizeReactions`
+  returns `{ fistBumpCount, viewerHasReacted }` for rendering only);
+  `index.ts` (public surface re-export).
+
+- **What it ships — new UI components:**
+  `src/features/arguments/oneBox/schemas/AcceptanceGradientControl.tsx`
+  (5-segment radio group — color-independent "✓" selection marker, 44dp,
+  radio + radiogroup roles, NO LayoutAnimation, NO Animated);
+  `src/features/arguments/oneBox/schemas/ConcessionListSection.tsx`
+  (forced-list section that plugs into the `respond` box; collapsible
+  default-collapsed when empty; per-item TextInput; validation
+  `firstReason` rendered as a visible single-line `accessibilityLiveRegion`);
+  `src/features/arguments/oneBox/schemas/RespondToConcessionSchema.tsx`
+  (the `respond_to_concession` box body — mirrors every incoming item;
+  Post disabled with a VISIBLE reason via the `firstDisabledReason`,
+  NEVER silent; the Post's `accessibilityLabel` includes the reason
+  when disabled); `src/features/concessions/FistBumpReaction.tsx`
+  (the acknowledgment affordance — renders NOTHING on own-move; "✓"
+  indicator is color-independent; optional "·N" count from row count
+  only, NEVER stored, NEVER feeds standing).
+
+- **What it ships — new DB + Edge:**
+  `supabase/migrations/20260522000012_qol_041_concession_acceptance.sql`
+  (three tables — `concession_items` (1..600-char text via CHECK; unique
+  (argument_id, ordinal); soft-delete only), `concession_acceptances`
+  (5-value `acceptance_level` CHECK; `clarification_required_unless_agree`
+  CHECK as defense-in-depth; immutable — no UPDATE/DELETE policy;
+  receiver-only INSERT via RLS), `move_reactions` (kind CHECK contains
+  EXACTLY ONE value `fist_bump`; partial unique index allows toggle on/off
+  via soft-delete; no score column anywhere)). NEVER stores LEVEL +
+  CLARIFICATION delta — QOL-041 consumes (does NOT re-derive) the
+  point-standing economy.
+  `supabase/functions/react-to-move/index.ts` (~225 lines — the SOLE
+  write path for `move_reactions`; JWT-verified, caller-scoped to reactor;
+  own-bubble rejection; idempotent re-add via soft-delete reactivation;
+  NEVER touches `public.arguments`; NEVER imports point-standing; NEVER
+  makes an AI call; service-role used ONLY for the best-effort audit row;
+  returns the render-only summary `{ fistBumpCount, viewerHasReacted }`).
+  `supabase/config.toml` registers `verify_jwt = true` for the function.
+
+- **What it ships — modified files:**
+  `supabase/functions/submit-argument/index.ts` (accepts optional
+  `concession_items[]` on a `respond` move + optional `concession_acceptances[]`
+  on a `respond_to_concession` move; inserts child rows after the parent
+  argument insert; on any child-insert failure, soft-rolls-back the
+  parent argument via `status='deleted'` so the move stays atomic from
+  the user's perspective; authoritative defense-in-depth check that only
+  the conceded-to author may grade; clarification-required-unless-agree
+  re-asserted server-side; NEVER imports any point-standing module).
+  `supabase/functions/_shared/validationSchemas.ts` (`AcceptanceLevelSchema`,
+  `ConcessionItemPayloadSchema` with 1..600-char text + ordinal >= 0,
+  `ConcessionAcceptancePayloadSchema` with a `.refine` enforcing
+  clarification-required-unless-agree; `SubmitArgumentSchema` extended
+  with optional `concession_items[]` (max 8 — mirrors `MAX_CONCESSION_ITEMS`)
+  + `concession_acceptances[]`). `src/lib/edgeFunctions.ts` (extends
+  `SubmitArgumentInput` with optional `concession_items` +
+  `concession_acceptances`; adds `reactToMove()` wrapper for the new
+  Edge Function — returns the `ReactToMoveSummary` shape with NO score
+  field structurally). `src/lib/types.ts` (re-exports `AcceptanceLevel`,
+  `MoveReactionKind` via `export type` declarations; adds
+  `ConcessionItem`, `ConcessionAcceptance`, `MoveReaction` row interfaces
+  as cross-feature domain types).
+
+- **Doctrine encoded (cdiscourse-doctrine §1 / §4 / §6 / §9 ·
+  point-standing-economy):** a concession is a scoring REPAIR, not a
+  defeat — no QOL-041 surface labels a concession a loss or the
+  receiver a winner. The gradient is the receiver's STATED STANCE,
+  mapped to `ConcessionEffect` VOCABULARY only; no delta, no score is
+  stored or shown by this card. "Disagree based on fact" describes the
+  RECEIVER'S STANCE toward a point, never a verdict that the point is
+  false. `fact > context > framing` is a UI-FOCUS materiality ordering,
+  not a truth rank — the source comment documents this. Score never
+  blocks posting; the conditional clarification is a VALIDATION block
+  in the same family as the existing length check (cdiscourse-doctrine
+  §1: "Validation can block, score cannot."). The fist-bump carries NO
+  score, NO standing change, NO weight; the single-value `kind` enum
+  makes the `move_reactions` table structurally incapable of becoming a
+  voting system in v1 (anti-amplification respected by construction).
+  No AI calls anywhere (deterministic + pure for the model layer; the
+  Edge Function makes no provider call). No service-role in client code.
+  All `arguments` writes still go through `submit-argument`; the new
+  `react-to-move` function never touches `arguments`. RLS enabled on all
+  three new tables; no DELETE policy anywhere — soft-delete only. Edge
+  Functions never log Authorization. Plain language only — no internal
+  codes leak; `argument` preferred over `debate` in every new copy
+  string.
+
+- **Hard constraints honored:** `src/lib/constitution/engine.ts` NOT
+  modified. No new `arguments.argument_type` value. `concession` is
+  already a valid argument type; QOL-041 ships the structured INPUT
+  surface that the existing engine consumes. `SEMANTIC_REFEREE_PACKET_VERSION`,
+  `SEED_PROMPT_VERSION`, every classifier id, the MCP adapter, and the
+  `process-language-draft` function are ALL untouched. No client file
+  inserts into `public.arguments` / `concession_items` / `concession_acceptances`
+  / `move_reactions` directly (a doctrine test asserts this for all 9
+  QOL-041 client files). The migration carries NO standing / score /
+  weight / delta column (a doctrine test asserts this against the
+  migration source). The Edge Function NEVER imports `pointStanding` /
+  `PointStandingDelta` / `gradeRepair` / `gradeChallenge` (a doctrine
+  test asserts this with comment-stripping).
+
+- **Tests (5 pure-model + 4 UI + 2 Edge-contract + 1 doctrine = 12 new
+  suites / 218 new tests):** `acceptanceGradient.test.ts` (5-level enum
+  vocab; `acceptanceRequiresClarification`; `ACCEPTANCE_TO_CONCESSION_EFFECT`
+  maps to known ConcessionEffect families; ban-list); `concessionListModel.test.ts`
+  (add/remove/reorder/update; empty list is VALID; 8-item cap; 600-char
+  cap; over-cap / empty-item / over-length validation; payload builder
+  trims + contiguous ordinals); `respondToConcessionModel.test.ts`
+  (mirror; setRowLevel preserves clarification across re-pick (D3);
+  isPostable enforces every-row-picked + every-non-agree-has-clarification;
+  storyboard cases); `activeDisagreement.test.ts` (storyboard Step 8
+  agree+disagree_fact → fact; precedence; newest-argument-wins; rider
+  rule); `moveReactionModel.test.ts` (ONE value vocab; counts active
+  rows only; viewer flag; shape has no score field structurally);
+  `ConcessionListSection.test.tsx` (source-scan: exactly ONE TextInput
+  in the section; forced-list shape; validation surface; 44dp; ban-list);
+  `AcceptanceGradientControl.test.tsx` (radio + radiogroup roles; "✓"
+  selection marker; iterates ALL_ACCEPTANCE_LEVELS; SEGMENT_MIN_HEIGHT
+  = 44; NO LayoutAnimation); `RespondToConcessionSchema.test.tsx`
+  (mirrors every incoming item; conditional clarification render;
+  Post disabled with visible reason; buildConcessionAcceptancesPayload
+  integration); `FistBumpReaction.test.tsx` (renders null on own move;
+  toggle role; "✓" indicator; NO score/vote/standing field; never uses
+  agree/like/upvote/approve); `submit-argument-concessions.test.ts`
+  (source-scan: inserts items + acceptances; soft-rollback on failure;
+  conceded-to-only authorization; clarification-required server check;
+  migration ↔ Zod vocabulary parity; migration carries NO standing/
+  score column); `react-to-move.test.ts` (source-scan: JWT gate;
+  caller-scoped client; own-bubble rejection; idempotent re-add;
+  soft-delete only; NO score path; NO AI call; NO standing import);
+  `qol041-doctrine.test.ts` (ban-list scan over EVERY 38 user-facing
+  QOL-041 strings; pure-model source-purity scan over 6 files;
+  client-side direct-write guard over 9 files; 5-level vocabulary
+  parity across migration + Edge + client model).
+
+- **Implementer decisions documented:**
+  - **Migration sequential numbering:** the design named the migration
+    `20260521000010_qol_041_concession_acceptance.sql`, but that prefix
+    is taken by the shipped `20260521000010_qol042_argument_room_links.sql`.
+    Bumped to `20260522000012_qol_041_concession_acceptance.sql` to land
+    after the most recent `20260522000011_admin_ai_001_…` migration.
+    Migrations are monotonic; the design's collision was a typo, not a
+    constraint.
+  - **Vocabulary bridge mapping:** the design §4 mandates a deterministic
+    mapping from each `AcceptanceLevel` to a `ConcessionEffect` family,
+    but does NOT specify which family each level maps to. Chose:
+    `agree` + `agree_with_caveat` → `explicit_narrow_concession_preserves_broad_point`
+    (the most common / charitable interpretation — the offered
+    concession was accepted); every `disagree_*` →
+    `performative_concession_no_repair` (the offered concession did NOT
+    function as a repair from the receiver's perspective). The future
+    wiring stage may refine this; the bridge here is a LABEL
+    correspondence, not a scoreboard.
+  - **`react-to-move` audit row:** mirrored the `apply-manual-tag`
+    pattern — best-effort audit insert via service role, swallow errors,
+    don't block the user response. Service role is used exactly ONCE
+    (for the audit), satisfying the doctrine "service-role used ONLY for
+    the best-effort audit row" pattern.
+  - **`renderSchema` (`boxModel.ts`) untouched:** `boxModel.renderSchema()`
+    already returns the right `SchemaKind` + sections for `respond`
+    (`composite` / `[concession_list, body]`) and `respond_to_concession`
+    (`forced_list` / `[concession_list]`). The QOL-041 UI components are
+    READY for the consumer / host to mount; wiring them into
+    `OneBox.tsx` is composition logic the consumer owns (the QOL-037
+    `RespondToEvidenceForm` follows the same precedent — built as a
+    standalone surface, host wires it). No `boxModel.ts` change needed.
+  - **Atomic move via soft-rollback:** `supabase-js` cannot wrap
+    multi-statement transactions across separate `.insert()` calls. On a
+    child-insert failure (`concession_items` or `concession_acceptances`)
+    the Edge Function sets the parent argument's `status='deleted'` —
+    the closest atomic approximation available. From the user's
+    perspective the move is atomic: either everything posts or nothing
+    is visible.
+  - **Q1-Q5 design defaults shipped:** Q1 cap = 8 items; Q2
+    `agree_with_caveat` requires clarification (the caveat is a rider,
+    not a `framing`/`context`/`fact` axis); Q3 any room reader may
+    fist-bump (but NEVER own-move — enforced in the Edge Function); Q4
+    `react-to-move` ships in the same card (operator decides whether to
+    deploy together or stage); Q5 the tiny "·N" count is shown
+    (controllable via `showCount=false` prop for a future
+    conservative-reading rollout).
+
+- **+215 tests / +12 suites.** Full suite **9757 tests / 372 suites —
+  all passing** (from the 9542 / 360 QOL-035 baseline). Typecheck + lint
+  clean. `npm run ux:terminology:audit` clean (0 live prohibited).
+
+- **Operator follow-up (per design §16):**
+  1. `npx supabase db push --linked` — applies
+     `20260522000012_qol_041_concession_acceptance.sql` (the three
+     tables + RLS).
+  2. `npx supabase functions deploy submit-argument --linked` — picks
+     up the `concession_items[]` / `concession_acceptances[]` payload
+     handling.
+  3. `npx supabase functions deploy react-to-move --linked` — deploys
+     the new fist-bump function.
+  No `.env` changes. No secrets. No service-role key handling beyond
+  the existing Edge-Function pattern. Until the deploy lands, the new
+  box types render but posts that carry concession arrays would be
+  rejected by the un-extended deployed `submit-argument` — so the
+  deploy must precede enabling the QOL-041 box types in the client.
+  Rollback: `git revert` the QOL-041 merge commit + `supabase db reset`
+  — the three tables and the Edge Function disappear; the client model
+  becomes dead code without compile errors (the optional payload fields
+  on `SubmitArgumentInput` are non-breaking).
 
 ## QOL-035 — User-facing terminology scrub: no game, prefer Argument over Debate (Epic 12 — Rules UX · Doctrine)
 
