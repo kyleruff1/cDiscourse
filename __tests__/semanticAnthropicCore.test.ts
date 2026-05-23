@@ -20,10 +20,23 @@ import {
   parseJsonFromContent,
   sanitizeRawPayload,
   buildClassifierPrompt,
-  CLASSIFIER_QUESTION_TEXT,
+  DENO_CATALOG_BY_ID,
   SEED_PROMPT_VERSION,
 } from './_helpers/semanticRefereeDeno';
 import type { ClassifyMoveRequest } from '../src/lib/edgeFunctions';
+
+/**
+ * MCP-MOD-005: tests that previously referenced `CLASSIFIER_QUESTION_TEXT[id]`
+ * now read `structuralQuestion` from the catalog directly (the catalog is the
+ * source of truth; the `CLASSIFIER_QUESTION_TEXT` indirection was removed).
+ */
+function questionFor(id: string): string {
+  const entry = DENO_CATALOG_BY_ID.get(id);
+  if (!entry) {
+    throw new Error(`catalog has no entry for id "${id}"`);
+  }
+  return entry.structuralQuestion;
+}
 
 function makeRequest(overrides: Partial<ClassifyMoveRequest> = {}): ClassifyMoveRequest {
   return {
@@ -107,9 +120,9 @@ describe('buildClassifierPrompt', () => {
       makeRequest({ requestedClassifiers: ['responds_to_parent', 'asks_for_evidence'] }),
     );
     expect(prompt).toContain('responds_to_parent');
-    expect(prompt).toContain(CLASSIFIER_QUESTION_TEXT.responds_to_parent);
+    expect(prompt).toContain(questionFor('responds_to_parent'));
     expect(prompt).toContain('asks_for_evidence');
-    expect(prompt).toContain(CLASSIFIER_QUESTION_TEXT.asks_for_evidence);
+    expect(prompt).toContain(questionFor('asks_for_evidence'));
   });
 
   it('emits ONLY the requested classifiers, not every catalog id', () => {

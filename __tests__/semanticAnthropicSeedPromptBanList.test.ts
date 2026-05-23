@@ -1,14 +1,18 @@
 /**
- * MCP-017 — semantic-referee seed-prompt ban-list + id-coverage mirror.
+ * MCP-017 / MCP-MOD-005 — semantic-referee seed-prompt ban-list + id-coverage
+ * mirror.
  *
  * The structural mirror test for `seedPrompt.ts` (design §"Open item 2"). It
  * does NOT assert byte-identity against MCP-002's seed bank — the id
  * vocabularies differ (90 verbose seed ids vs 23 catalog ids, OQ-2). Instead it
  * asserts the three safety-relevant invariants:
  *
- *   1. `CLASSIFIER_QUESTION_TEXT` has an entry for every one of the 23
- *      `ALL_SEMANTIC_CLASSIFIER_IDS` and NO extra keys (id-coverage parity — a
- *      future catalog change without a `seedPrompt.ts` change fails CI).
+ *   1. `SEMANTIC_CLASSIFIER_CATALOG` has an entry for every one of the 23
+ *      `ALL_SEMANTIC_CLASSIFIER_IDS` and NO extra ids (id-coverage parity — a
+ *      future catalog change without an id-union edit fails CI). Post-MCP-MOD-005
+ *      the catalog itself is the source of truth (the prior
+ *      `CLASSIFIER_QUESTION_TEXT` indirection was removed); this assertion now
+ *      reads `structuralQuestion` from the catalog directly.
  *   2. Every structural question is free of the doctrine ban-list vocabulary —
  *      verdict / person / popularity / handle / URL / secret shapes — so a
  *      question can never ask the model for a truth verdict. The system prompt
@@ -22,7 +26,7 @@
  * a legitimate word like "correction" never trips the "correct" token.
  */
 import {
-  CLASSIFIER_QUESTION_TEXT,
+  DENO_CATALOG_BY_ID,
   SEMANTIC_REFEREE_SYSTEM_PROMPT,
   buildClassifierPrompt,
   SEED_PROMPT_CLASSIFIER_IDS,
@@ -30,6 +34,15 @@ import {
 } from './_helpers/semanticRefereeDeno';
 import { ALL_SEMANTIC_CLASSIFIER_IDS } from '../src/features/semanticReferee';
 import type { ClassifyMoveRequest } from '../src/lib/edgeFunctions';
+
+/** Read the structural question for an id from the Deno catalog. */
+function questionFor(id: string): string {
+  const entry = DENO_CATALOG_BY_ID.get(id);
+  if (!entry) {
+    throw new Error(`catalog has no entry for id "${id}"`);
+  }
+  return entry.structuralQuestion;
+}
 
 /** Verdict / outcome / popularity tokens — banned in any question string. */
 const BANNED_TOKENS: readonly string[] = [
@@ -109,19 +122,21 @@ function makeRequest(overrides: Partial<ClassifyMoveRequest> = {}): ClassifyMove
 // ── Invariant 1 — id-coverage parity ──────────────────────────────
 
 describe('seed prompt — id-coverage parity with the catalog', () => {
-  it('CLASSIFIER_QUESTION_TEXT has an entry for every catalog-v0 classifier id', () => {
+  it('SEMANTIC_CLASSIFIER_CATALOG has an entry for every catalog-v0 classifier id', () => {
     for (const id of ALL_SEMANTIC_CLASSIFIER_IDS) {
-      expect(typeof CLASSIFIER_QUESTION_TEXT[id]).toBe('string');
-      expect(CLASSIFIER_QUESTION_TEXT[id].length).toBeGreaterThan(0);
+      const entry = DENO_CATALOG_BY_ID.get(id);
+      expect(entry).toBeDefined();
+      expect(typeof entry?.structuralQuestion).toBe('string');
+      expect(entry?.structuralQuestion.length ?? 0).toBeGreaterThan(0);
     }
   });
 
-  it('CLASSIFIER_QUESTION_TEXT has NO extra keys beyond the 23 catalog ids', () => {
+  it('SEMANTIC_CLASSIFIER_CATALOG has NO extra ids beyond the 23 catalog ids', () => {
     const catalog = new Set<string>(ALL_SEMANTIC_CLASSIFIER_IDS as readonly string[]);
-    for (const key of Object.keys(CLASSIFIER_QUESTION_TEXT)) {
-      expect(catalog.has(key)).toBe(true);
+    for (const id of DENO_CATALOG_BY_ID.keys()) {
+      expect(catalog.has(id)).toBe(true);
     }
-    expect(Object.keys(CLASSIFIER_QUESTION_TEXT)).toHaveLength(ALL_SEMANTIC_CLASSIFIER_IDS.length);
+    expect(DENO_CATALOG_BY_ID.size).toBe(ALL_SEMANTIC_CLASSIFIER_IDS.length);
   });
 
   it('there are exactly 23 catalog ids (the frozen catalog-v0 set)', () => {
@@ -146,7 +161,7 @@ describe('seed prompt — id-coverage parity with the catalog', () => {
 describe('seed prompt — no verdict / person / popularity vocabulary', () => {
   it('every structural question is free of the doctrine ban-list vocabulary', () => {
     for (const id of ALL_SEMANTIC_CLASSIFIER_IDS) {
-      expectClean(CLASSIFIER_QUESTION_TEXT[id], `question for "${id}"`);
+      expectClean(questionFor(id), `question for "${id}"`);
     }
   });
 
