@@ -68,7 +68,7 @@ export const ClassifyMoveRequestSchema = z
         selectedAction: z.string().max(MAX_STRING_FIELD_LEN).optional(),
         selectedMoveType: z.string().max(MAX_STRING_FIELD_LEN).optional(),
         side: z.enum(['affirmative', 'negative', 'observer', 'moderator']).optional(),
-        actorRole: z.enum(['initiator', 'primary_opponent', 'chime_in', 'observer']).optional(),
+        actorRole: z.enum(['initiator', 'primary_opponent', 'chime_in', 'observer', 'moderator']).optional(),
       })
       .strict(),
     requestedClassifiers: z
