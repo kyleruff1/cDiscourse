@@ -33,6 +33,10 @@ import {
   buildNodeAccessibilityLabel,
   deriveBranchLabel,
 } from './keyboardNavigationModel';
+// COMP-001 — type-only import of the cross-node mutation shape. The model
+// stores mutations as opaque objects keyed by targetMoveId; the rendering
+// layer is the consumer that maps the enum value to a visual treatment.
+import type { NodeVisualMutation } from '../semanticReferee/compositionTypes';
 
 // ── Public types ───────────────────────────────────────────────
 
@@ -145,6 +149,14 @@ export interface ArgumentSurfaceState {
   activeMessageId: string | null;
   /** Cached chronological list of message ids. */
   chronologicalIds: string[];
+  /**
+   * COMP-001 — Cross-node visual mutations keyed by targetMoveId. Optional;
+   * absent when no composition has run for the room (e.g., observer / read-
+   * only mode). The rendering layer reads via `getCrossNodeMutations` to
+   * fetch the per-node mutation list and translate enum values via the
+   * existing `gameCopy.toPlainLanguage` pattern.
+   */
+  crossNodeMutations?: ReadonlyMap<string, readonly NodeVisualMutation[]>;
 }
 
 // ── Constants ──────────────────────────────────────────────────
@@ -470,6 +482,26 @@ export function defaultSurfaceState(messages: ArgumentMessageInput[]): ArgumentS
 
 export function toggleSurfaceMode(mode: ArgumentSurfaceMode): ArgumentSurfaceMode {
   return mode === 'stack' ? 'timeline' : 'stack';
+}
+
+/**
+ * COMP-001 — Lookup helper for cross-node mutations on a specific moveId.
+ * Returns an empty array when the surface state has no `crossNodeMutations`
+ * map (the common case in observer / read-only mode) or when the queried
+ * moveId has no recorded mutations. The bubble-rendering code calls this
+ * helper for each rendered node and renders chips / pills per the mutation's
+ * enum value (translated via `gameCopy.toPlainLanguage` downstream).
+ */
+export function getCrossNodeMutations(
+  state: ArgumentSurfaceState,
+  moveId: string,
+): readonly NodeVisualMutation[] {
+  const map = state.crossNodeMutations;
+  if (!map) {
+    return [];
+  }
+  const list = map.get(moveId);
+  return list ?? [];
 }
 
 // ── Exposed constants ─────────────────────────────────────────

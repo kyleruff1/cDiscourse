@@ -34,6 +34,26 @@ const { createBotClient, signInBot } = require('./supabaseClient');
 const { buildSubmitArgumentBody, invokeSubmitArgument } = require('./submitMove');
 const { loadScenario } = require('./loadScenario');
 
+// COMP-001 — Optional composition-layer logging. The orchestrator continues
+// to work if the composition module fails to import; the import is
+// guarded with a try/catch and the rest of the run carries on. Composition
+// is DIAGNOSTIC ONLY — the smoke test's exit code is unchanged.
+let composeVisualState = null;
+let EMPTY_COMPOSITION_STATE = null;
+try {
+  // The composition layer is pure TS — Node can require the transpiled
+  // version when one exists. In the absence of a build artifact (typical
+  // for this repo where the smoke test runs against the live Supabase
+  // project, not local TS), the import returns null and logging is
+  // skipped. This is the documented graceful-degrade pathway.
+  const compModule = require('../../src/features/semanticReferee/compositionLayer.ts');
+  composeVisualState = compModule.composeVisualState;
+  EMPTY_COMPOSITION_STATE = compModule.EMPTY_COMPOSITION_STATE;
+} catch (_err) {
+  composeVisualState = null;
+  EMPTY_COMPOSITION_STATE = null;
+}
+
 const REPO_ROOT = process.cwd();
 const LOG_DIR = path.join(REPO_ROOT, 'logs', 'mcp-smoke-test');
 const SCENARIO_ID = 'smoke-test-mcp-remote-work-productivity';
@@ -245,6 +265,12 @@ async function runPass({ pass, scenario, botA, botB, constitutionId }) {
 
   const argIdByMoveId = {};
   const bodyByMoveId = {};
+  // COMP-001 — diagnostic composition state accumulator. Only used when
+  // composeVisualState was successfully imported above; nothing changes in
+  // the orchestrator's flow otherwise.
+  let compositionState = EMPTY_COMPOSITION_STATE;
+  const compositionByMoveId = {};
+  const authorMoveCount = {};
   let halt = false;
   for (const move of scenario.moves) {
     if (halt) break;
@@ -309,6 +335,48 @@ async function runPass({ pass, scenario, botA, botB, constitutionId }) {
     if (halt) break;
     const merged = classify.mergedPacket;
     console.log(`[smoke-test] ${pass}/${move.moveId} classify provider=${merged && merged.provider} binaries=${merged && merged.binaries.length} latency=${classify.totalLatencyMs}ms`);
+
+    // COMP-001 — optional diagnostic composition pass. The function is pure;
+    // we feed it the merged packet, the accumulated state, and the move
+    // metadata. The result is recorded on the moveLog as `composition`
+    // (or omitted entirely when the layer wasn't imported).
+    if (composeVisualState && EMPTY_COMPOSITION_STATE && merged) {
+      try {
+        const prevCount = authorMoveCount[move.authorAlias] || 0;
+        const authorMovePosition = prevCount === 0 ? 'first' : 'subsequent';
+        authorMoveCount[move.authorAlias] = prevCount + 1;
+        const compositionInput = {
+          packet: merged,
+          threadState: compositionState,
+          moveMeta: {
+            moveId: argId,
+            parentId: parentArgumentId || null,
+            authorId: move.authorAlias,
+            argumentType: move.argumentType,
+            side: postSide,
+            disagreementAxis: move.disagreementAxis || null,
+            authorMovePosition,
+          },
+          ancestors: [],
+        };
+        const result = composeVisualState(compositionInput);
+        compositionState = result.nextState;
+        compositionByMoveId[move.moveId] = {
+          mutationCount: result.mutations.length,
+          mutations: result.mutations.map((m) => ({
+            targetMoveId: m.targetMoveId,
+            mutation: m.mutation,
+            sourceClassifier: String(m.sourceClassifier),
+            sourceMoveId: m.sourceMoveId,
+          })),
+        };
+        moveLog.composition = compositionByMoveId[move.moveId];
+        console.log(`[smoke-test] ${pass}/${move.moveId} composition emitted ${result.mutations.length} mutations`);
+      } catch (compErr) {
+        // Diagnostic only — failure does not affect the smoke test's exit code.
+        moveLog.compositionError = String(compErr && compErr.message || 'unknown').slice(0, 200);
+      }
+    }
   }
 
   passLog.endMs = Date.now();
