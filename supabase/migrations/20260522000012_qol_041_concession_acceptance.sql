@@ -1,3 +1,33 @@
+-- ── QOL-041.2 RECOVERY — IN-PLACE EDIT (2026-05-23) ─────────────────
+--
+-- This migration was edited in place on 2026-05-23 per issue #258
+-- (QOL-041.2). The original version (merged via PR #255, commit
+-- a41dd3c) contained 5 unqualified `debate_id` references in INSERT-
+-- policy WITH-CHECK subqueries that caused SQLSTATE 42702 on every
+-- deploy attempt.
+--
+-- The QOL-041.1 fix-forward attempt (PR #257, commit df0a61d) added a
+-- subsequent migration to recreate the broken policies with qualified
+-- references. That approach failed empirically: Postgres applies
+-- migrations in order, so the broken original always failed before
+-- the fix-forward could run. The fix-forward migration
+-- (20260523000001_qol_041_1_fix_concession_acceptances_policies.sql)
+-- is REMOVED in this recovery PR.
+--
+-- DOCTRINE EXCEPTION: CLAUDE.md §8 normally forbids editing migration
+-- files after they have been APPLIED. The exception is justified here
+-- by the factual condition that this migration has NEVER been applied
+-- to any database (verified via `npx supabase migration list --linked`
+-- on 2026-05-23T22:54Z — Remote column empty for 20260522000012). No
+-- environment divergence exists. The exception is one-time and
+-- scoped narrowly to this recovery; future migration-bearing cards
+-- continue to follow the standard never-edit-applied doctrine.
+--
+-- The schema state produced by this migration is unchanged from what
+-- the original QOL-041 design intended. Only the SQL ambiguity is
+-- resolved.
+-- ─────────────────────────────────────────────────────────────────────
+
 -- ============================================================
 -- Migration: 20260522000012_qol_041_concession_acceptance
 -- Description: QOL-041 — Concession list, per-concession acceptance
@@ -89,13 +119,13 @@ create policy ci_insert_author
     and exists (
       select 1 from public.arguments a
       where a.id = argument_id
-        and a.debate_id = debate_id
+        and a.debate_id = concession_items.debate_id
         and a.author_id = author_id
     )
     and exists (
       select 1 from public.arguments p
       where p.id = conceded_to_argument_id
-        and p.debate_id = debate_id
+        and p.debate_id = concession_items.debate_id
     )
   );
 
@@ -195,7 +225,7 @@ create policy ca_insert_receiver
     and exists (
       select 1 from public.arguments r
       where r.id = argument_id
-        and r.debate_id = debate_id
+        and r.debate_id = concession_acceptances.debate_id
         and r.author_id = receiver_id
     )
     -- The conceded-to node's author MUST be the receiver — only the
@@ -206,7 +236,7 @@ create policy ca_insert_receiver
       join public.arguments p
         on p.id = ci.conceded_to_argument_id
       where ci.id = concession_item_id
-        and ci.debate_id = debate_id
+        and ci.debate_id = concession_acceptances.debate_id
         and p.author_id = receiver_id
     )
   );
@@ -283,7 +313,7 @@ create policy mr_insert_reactor
     and exists (
       select 1 from public.arguments a
       where a.id = argument_id
-        and a.debate_id = debate_id
+        and a.debate_id = move_reactions.debate_id
     )
   );
 
