@@ -11,6 +11,8 @@
 import { supabase } from './supabase';
 import type { ArgumentType, ArgumentSide, DisagreementAxis } from '../domain/constitution/types';
 import type { SemanticRefereePacket } from '../features/semanticReferee';
+import type { AcceptanceLevel } from '../features/concessions/acceptanceGradient';
+import type { MoveReactionKind } from '../features/concessions/moveReactionModel';
 
 // ── Request / response types ──────────────────────────────────
 
@@ -27,6 +29,33 @@ export interface ArgumentTargetInput {
   user_stated_uncertainty?: boolean;
 }
 
+/**
+ * QOL-041 — one entry of the optional concession_items[] array on a
+ * `respond` submission. Mirrors `ConcessionItemPayload` in
+ * `src/features/concessions/concessionListModel.ts`.
+ */
+export interface ConcessionItemSubmitInput {
+  ordinal: number;
+  item_text: string;
+}
+
+/**
+ * QOL-041 — one entry of the optional concession_acceptances[] array on
+ * a `respond_to_concession` submission. Mirrors
+ * `ConcessionAcceptancePayload` in
+ * `src/features/concessions/respondToConcessionModel.ts`.
+ *
+ * Doctrine: `clarification_body` is REQUIRED when `acceptance_level !==
+ * 'agree'`. The Edge Function rejects a missing clarification as a
+ * `validation_failed` blocking error; the client model's `isPostable()`
+ * prevents the submission entirely.
+ */
+export interface ConcessionAcceptanceSubmitInput {
+  concession_item_id: string;
+  acceptance_level: AcceptanceLevel;
+  clarification_body: string;
+}
+
 export interface SubmitArgumentInput {
   debate_id: string;
   parent_id?: string | null;
@@ -39,6 +68,20 @@ export interface SubmitArgumentInput {
   client_validation?: Record<string, unknown>;
   /** Client-generated UUID (from PendingSubmission.clientSubmissionId). Same UUID on retry returns existing argument without re-inserting. */
   client_submission_id?: string;
+  /**
+   * QOL-041 — optional concession_items array. Present on a `respond`
+   * move when the conceding party concedes at least one point. Cap of 8
+   * items (mirrors `MAX_CONCESSION_ITEMS`). When absent or empty the
+   * response is a pure refutation.
+   */
+  concession_items?: ConcessionItemSubmitInput[];
+  /**
+   * QOL-041 — optional concession_acceptances array. Present on a
+   * `respond_to_concession` move; one entry per incoming concession
+   * item being graded. The Edge Function inserts these rows in the
+   * same call as the parent argument.
+   */
+  concession_acceptances?: ConcessionAcceptanceSubmitInput[];
 }
 
 export interface SubmitArgumentValidation {
@@ -541,6 +584,105 @@ export async function classifyMove(
     return { ok: false, error: { error: 'empty_response' }, status: 500 };
   }
 
+  return { ok: true, data };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// react-to-move (QOL-041)
+//
+// The fist-bump (acknowledge) write path. JWT-verified, caller-scoped to the
+// reactor, idempotent. Toggling off soft-deletes the row; toggling back on
+// re-activates the soft-deleted row.
+//
+// Doctrine (QOL-041 §11):
+//   - The fist-bump carries NO SCORE, NO STANDING CHANGE.
+//   - The function returns a render-only summary
+//     `{ fistBumpCount, viewerHasReacted }` — never a score, never a weight.
+//   - The function never touches `public.arguments` and never touches any
+//     standing path.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ReactToMoveAction = 'add' | 'remove';
+
+export interface ReactToMovePayload {
+  action: ReactToMoveAction;
+  debateId: string;
+  argumentId: string;
+  /**
+   * QOL-041 — defaults to `'fist_bump'` (the only allowed kind in v1).
+   * Adding any other kind would require a NEW migration AND a doctrine
+   * review (v1 scope bans voting); the Edge Function rejects an unknown
+   * kind with `invalid_kind`.
+   */
+  kind?: MoveReactionKind;
+}
+
+/**
+ * The render-only summary the function returns alongside the active
+ * reaction list. Mirrors `MoveReactionSummary` in
+ * `src/features/concessions/moveReactionModel.ts`. No score field —
+ * the shape itself guarantees the reaction never crosses into scoring.
+ */
+export interface ReactToMoveSummary {
+  fistBumpCount: number;
+  viewerHasReacted: boolean;
+}
+
+export interface ReactToMoveActiveRow {
+  id: string;
+  reactorId: string;
+  kind: MoveReactionKind;
+  createdAt: string;
+}
+
+export interface ReactToMoveSuccess {
+  argumentId: string;
+  summary: ReactToMoveSummary;
+  activeReactions: ReactToMoveActiveRow[];
+}
+
+export type ReactToMoveOutcome =
+  | { ok: true; data: ReactToMoveSuccess }
+  | {
+      ok: false;
+      error: { error: string; reason?: string; detail?: string };
+      status: number;
+    };
+
+/**
+ * Add or remove a reaction (fist-bump) on a posted move. Idempotent —
+ * re-adding an already-active row is a no-op success; removing an
+ * absent row is a no-op success. Never throws.
+ */
+export async function reactToMove(
+  payload: ReactToMovePayload,
+): Promise<ReactToMoveOutcome> {
+  const { data, error } = await supabase.functions.invoke<ReactToMoveSuccess>(
+    'react-to-move',
+    { body: payload },
+  );
+  if (error) {
+    let errorBody: { error: string; reason?: string; detail?: string } = {
+      error: 'network_error',
+    };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) {
+        errorBody = (await raw.json()) as {
+          error: string;
+          reason?: string;
+          detail?: string;
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+    const status =
+      (error as { status?: number }).status
+      ?? ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+  if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
   return { ok: true, data };
 }
 

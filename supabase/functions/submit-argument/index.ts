@@ -355,6 +355,180 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return internalError(`Failed to insert argument: ${insertError?.message ?? 'unknown'}`);
   }
 
+  // ── QOL-041 — insert concession_items + concession_acceptances ────
+  //
+  // The conceding-party's `respond` move may carry an optional
+  // concession_items[] array; the receiver's `respond_to_concession`
+  // move may carry an optional concession_acceptances[] array. Both go
+  // into their own tables, in the same Edge-Function call as the
+  // parent argument so the move is atomic (design §5.6 — "Inserting
+  // them in the same Edge-Function transaction keeps the move
+  // atomic"). Postgres does not support a single multi-statement
+  // transaction across supabase-js calls; on a child-insert failure
+  // the parent argument is soft-rolled-back by setting status='deleted'
+  // (the closest atomic-rollback approximation available to the
+  // service client). Doctrine: the child-row inserts NEVER touch
+  // standing / score; they only persist LEVEL + CLARIFICATION (QOL-041
+  // §4 / §11).
+  if (data.concession_items && data.concession_items.length > 0) {
+    const itemsRows = data.concession_items.map((it) => ({
+      debate_id: data.debate_id,
+      argument_id: insertedArg.id,
+      conceded_to_argument_id: data.parent_id, // a concession is always to a parent
+      author_id: user.id,
+      ordinal: it.ordinal,
+      item_text: it.item_text.trim(),
+    }));
+    // A concession requires a parent (the node being responded to).
+    if (!data.parent_id) {
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return validationFailed({
+        error: 'validation_failed',
+        blockingErrors: [
+          {
+            ruleCode: 'qol_041_concession',
+            flagCode: 'concession_requires_parent',
+            severity: 'blocking' as const,
+            message: 'A concession can only be attached to a reply (parent_id is required).',
+            payload: {},
+          },
+        ],
+        warnings: [],
+        normalizedTags: [],
+      });
+    }
+    const { error: itemsErr } = await serviceClient
+      .from('concession_items')
+      .insert(itemsRows);
+    if (itemsErr) {
+      // Soft-rollback the parent argument so the move is atomic.
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return internalError(
+        `concession_items_insert_failed:${String(itemsErr.message || 'unknown').slice(0, 120)}`,
+      );
+    }
+  }
+
+  if (data.concession_acceptances && data.concession_acceptances.length > 0) {
+    // Defense-in-depth: the receiver must be the author of the
+    // conceded-to node for EVERY incoming concession_item the acceptance
+    // refers to. The migration RLS enforces this too; this server-side
+    // check produces a clean validation_failed error instead of an RLS
+    // bypass attempt.
+    const itemIds = data.concession_acceptances.map((a) => a.concession_item_id);
+    const { data: items, error: itemsLookupErr } = await serviceClient
+      .from('concession_items')
+      .select('id, debate_id, conceded_to_argument_id')
+      .in('id', itemIds);
+    if (itemsLookupErr || !items) {
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return internalError('concession_items_lookup_failed');
+    }
+    if (items.length !== itemIds.length) {
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return validationFailed({
+        error: 'validation_failed',
+        blockingErrors: [
+          {
+            ruleCode: 'qol_041_concession',
+            flagCode: 'concession_item_unknown',
+            severity: 'blocking' as const,
+            message: 'One of the concession items being graded was not found.',
+            payload: {},
+          },
+        ],
+        warnings: [],
+        normalizedTags: [],
+      });
+    }
+    // Every item must belong to this debate.
+    const wrongDebate = items.some((it) => it.debate_id !== data.debate_id);
+    if (wrongDebate) {
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return validationFailed({
+        error: 'validation_failed',
+        blockingErrors: [
+          {
+            ruleCode: 'qol_041_concession',
+            flagCode: 'concession_item_wrong_debate',
+            severity: 'blocking' as const,
+            message: 'A concession item belongs to a different room.',
+            payload: {},
+          },
+        ],
+        warnings: [],
+        normalizedTags: [],
+      });
+    }
+    // Only the conceded-to author may grade. We look up the
+    // conceded-to-node author for every item and confirm it matches the
+    // caller.
+    const concededToIds = Array.from(new Set(items.map((it) => it.conceded_to_argument_id)));
+    const { data: concededTo, error: concededLookupErr } = await serviceClient
+      .from('arguments')
+      .select('id, author_id')
+      .in('id', concededToIds);
+    if (concededLookupErr || !concededTo) {
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return internalError('conceded_to_lookup_failed');
+    }
+    const concededToAuthorById = new Map<string, string>();
+    for (const row of concededTo) {
+      concededToAuthorById.set(row.id, row.author_id);
+    }
+    const notReceiver = items.some(
+      (it) => concededToAuthorById.get(it.conceded_to_argument_id) !== user.id,
+    );
+    if (notReceiver) {
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return forbidden(
+        'Only the participant the concession was made to may grade it.',
+      );
+    }
+    // Authoritative clarification-required check (mirrors the
+    // migration CHECK + the client `respondToConcessionModel.isPostable()`).
+    const missingClarification = data.concession_acceptances.find(
+      (a) =>
+        a.acceptance_level !== 'agree'
+        && a.clarification_body.trim().length === 0,
+    );
+    if (missingClarification) {
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return validationFailed({
+        error: 'validation_failed',
+        blockingErrors: [
+          {
+            ruleCode: 'qol_041_concession',
+            flagCode: 'clarification_required_unless_agree',
+            severity: 'blocking' as const,
+            message: 'Explain why you disagree on each point.',
+            payload: { concessionItemId: missingClarification.concession_item_id },
+          },
+        ],
+        warnings: [],
+        normalizedTags: [],
+      });
+    }
+    const acceptanceRows = data.concession_acceptances.map((a) => ({
+      debate_id: data.debate_id,
+      concession_item_id: a.concession_item_id,
+      argument_id: insertedArg.id,
+      receiver_id: user.id,
+      acceptance_level: a.acceptance_level,
+      clarification_body:
+        a.acceptance_level === 'agree' ? '' : a.clarification_body.trim(),
+    }));
+    const { error: acceptanceErr } = await serviceClient
+      .from('concession_acceptances')
+      .insert(acceptanceRows);
+    if (acceptanceErr) {
+      await serviceClient.from('arguments').update({ status: 'deleted' }).eq('id', insertedArg.id);
+      return internalError(
+        `concession_acceptances_insert_failed:${String(acceptanceErr.message || 'unknown').slice(0, 120)}`,
+      );
+    }
+  }
+
   // ── Insert argument tags ──────────────────────────────────────
   let insertedTags: unknown[] = [];
   if (evalResult.normalizedTags.length > 0) {
