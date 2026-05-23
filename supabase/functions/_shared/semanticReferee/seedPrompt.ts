@@ -144,6 +144,11 @@ export function buildClassifierPrompt(request: ClassifyMoveRequest): string {
     'each with `classifierId`, `value` 0 or 1, `confidence` low/medium/high,',
     'and a lowercase snake_case `reasonCode`), a `routeSuggestion`, a',
     '`frictionSuggestion`, and a `scoreHints` object of six integers 0..3.',
+    '`routeSuggestion` MUST be exactly one of: "mainline", "vertical_chime_branch",',
+    '"diagonal_tangent", "outer_realm", "cards_detail", "synthesis_lane",',
+    '"no_route_change". `frictionSuggestion` MUST be exactly one of: "none",',
+    '"soft_chip", "pre_send_pause", "ask_for_quote", "ask_for_source",',
+    '"suggest_branch", "suggest_narrow", "cooldown_notice".',
     'Do not include any blocking, verdict, truth, or winner field.',
   ].join(' ');
 
