@@ -1,5 +1,5 @@
 /**
- * MCP-MOD-004 — semantic classifier catalog parity tests.
+ * MCP-MOD-004 / MCP-MOD-006 — semantic classifier catalog parity tests.
  *
  * Asserts the Node-side `SEMANTIC_CLASSIFIER_CATALOG` agrees with the rest of
  * the per-id sources of truth:
@@ -12,13 +12,21 @@
  *      reads `structuralQuestion` directly from the catalog).
  *   4. For every id, `CATALOG_BY_ID.get(id).bannerCode` is either `null` OR
  *      matches a banner code that exists in `REFEREE_BANNER_LIBRARY`.
- *   5. For every id, `CATALOG_BY_ID.get(id).bannerCode` matches the FIRST entry
- *      of `CLASSIFIER_TO_BANNERS[id]` — the catalog's primary code is the
- *      banner library's primary candidate.
+ *   5. For every id, `CATALOG_BY_ID.get(id).bannerCode === bannerCodePriorityList[0]`
+ *      OR both `null` / `[]` (MCP-MOD-006 — the catalog now owns the full
+ *      priority list; the primary `bannerCode` is the first entry of that
+ *      list). The banner library's `CLASSIFIER_TO_BANNERS` table is now a
+ *      derived view; the parity assertion is internal to the catalog.
  *   6. For every id, `CATALOG_BY_ID.get(id).ledgerFeedbackCode` is either
  *      `null` OR matches a code in `ALL_REFEREE_FEEDBACK_CODES`.
  *   7. For every id, `CATALOG_BY_ID.get(id).family` is one of the six known
  *      families.
+ *   8. (MCP-MOD-006) For every id, every value in
+ *      `CATALOG_BY_ID.get(id).ledgerCategories` is a member of
+ *      `ALL_REFEREE_POINT_CATEGORIES`.
+ *   9. (MCP-MOD-006) The catalog-derived `CLASSIFIER_TO_BANNERS` view
+ *      preserves the live banner library shape — every code is valid AND
+ *      `INTENTIONALLY_SILENT_CLASSIFIERS` members have empty lists.
  */
 import {
   SEMANTIC_CLASSIFIER_CATALOG,
@@ -32,8 +40,14 @@ import { ALL_SEMANTIC_CLASSIFIER_IDS } from '../src/features/semanticReferee';
 import {
   CLASSIFIER_TO_BANNERS,
 } from '../src/features/refereeBanners/classifierBannerMap';
-import { BANNER_BY_CODE } from '../src/features/refereeBanners/refereeBannerLibrary';
-import { ALL_REFEREE_FEEDBACK_CODES } from '../src/features/refereeLedger/types';
+import {
+  BANNER_BY_CODE,
+  INTENTIONALLY_SILENT_CLASSIFIERS,
+} from '../src/features/refereeBanners/refereeBannerLibrary';
+import {
+  ALL_REFEREE_FEEDBACK_CODES,
+  ALL_REFEREE_POINT_CATEGORIES,
+} from '../src/features/refereeLedger/types';
 
 const KNOWN_FAMILIES: ReadonlyArray<SemanticClassifierFamily> = [
   'parent_continuity',
@@ -127,19 +141,101 @@ describe('semantic classifier catalog — banner-code parity', () => {
     }
   });
 
-  it('every non-null bannerCode matches the FIRST code in CLASSIFIER_TO_BANNERS[id] (catalog is the primary; the banner library keeps the full priority list)', () => {
+  it('every code in any entry.bannerCodePriorityList exists in REFEREE_BANNER_LIBRARY (MCP-MOD-006)', () => {
+    for (const entry of SEMANTIC_CLASSIFIER_CATALOG) {
+      for (const code of entry.bannerCodePriorityList) {
+        expect({ id: entry.id, code, exists: BANNER_BY_CODE.has(code) }).toEqual({
+          id: entry.id,
+          code,
+          exists: true,
+        });
+      }
+    }
+  });
+
+  it('every entry has bannerCode === bannerCodePriorityList[0] OR both null/[] (MCP-MOD-006 catalog-internal invariant)', () => {
     for (const id of ALL_SEMANTIC_CLASSIFIER_IDS) {
       const entry = CATALOG_BY_ID.get(id);
       expect(entry).toBeDefined();
-      const catalogCode = (entry as SemanticClassifierCatalogEntry).bannerCode;
-      const libraryCodes = CLASSIFIER_TO_BANNERS[id];
-      if (catalogCode === null) {
-        expect(libraryCodes.length).toBe(0);
+      const e = entry as SemanticClassifierCatalogEntry;
+      if (e.bannerCode === null) {
+        expect(e.bannerCodePriorityList.length).toBe(0);
       } else {
-        expect(libraryCodes.length).toBeGreaterThan(0);
-        expect(libraryCodes[0]).toBe(catalogCode);
+        expect(e.bannerCodePriorityList.length).toBeGreaterThan(0);
+        expect(e.bannerCodePriorityList[0]).toBe(e.bannerCode);
       }
     }
+  });
+
+  it('the derived CLASSIFIER_TO_BANNERS view equals the catalog entry-for-entry (MCP-MOD-006)', () => {
+    for (const id of ALL_SEMANTIC_CLASSIFIER_IDS) {
+      const entry = CATALOG_BY_ID.get(id);
+      expect(entry).toBeDefined();
+      const fromCatalog = (entry as SemanticClassifierCatalogEntry).bannerCodePriorityList;
+      const fromLibrary = CLASSIFIER_TO_BANNERS[id];
+      expect(fromLibrary).toEqual(fromCatalog);
+    }
+  });
+
+  it('intentionally-silent classifiers have an empty bannerCodePriorityList (MCP-MOD-006)', () => {
+    for (const id of INTENTIONALLY_SILENT_CLASSIFIERS) {
+      const entry = CATALOG_BY_ID.get(id);
+      expect(entry).toBeDefined();
+      expect((entry as SemanticClassifierCatalogEntry).bannerCodePriorityList).toEqual([]);
+      expect((entry as SemanticClassifierCatalogEntry).bannerCode).toBeNull();
+    }
+  });
+});
+
+describe('semantic classifier catalog — ledger-categories parity (MCP-MOD-006)', () => {
+  it('every value in any entry.ledgerCategories is a member of ALL_REFEREE_POINT_CATEGORIES', () => {
+    const known = new Set<string>(ALL_REFEREE_POINT_CATEGORIES as readonly string[]);
+    for (const entry of SEMANTIC_CLASSIFIER_CATALOG) {
+      for (const category of entry.ledgerCategories) {
+        expect({ id: entry.id, category, known: known.has(category) }).toEqual({
+          id: entry.id,
+          category,
+          known: true,
+        });
+      }
+    }
+  });
+
+  it('the inverted (category → id) view is collision-free in catalog v0', () => {
+    const seen: Record<string, string> = {};
+    for (const entry of SEMANTIC_CLASSIFIER_CATALOG) {
+      for (const category of entry.ledgerCategories) {
+        if (seen[category] !== undefined && seen[category] !== entry.id) {
+          throw new Error(
+            `category "${category}" collides — ids "${seen[category]}" and "${entry.id}"`,
+          );
+        }
+        seen[category] = entry.id;
+      }
+    }
+    // Exactly 10 (category, id) pairs exist in catalog v0 — the same 10
+    // entries the pre-MCP-MOD-006 inline `classifierFor` table held.
+    expect(Object.keys(seen).length).toBe(10);
+  });
+
+  it('exactly 9 ids carry at least one ledgerCategories entry; 14 carry none', () => {
+    const withCat = SEMANTIC_CLASSIFIER_CATALOG.filter(
+      (e) => e.ledgerCategories.length > 0,
+    );
+    const withoutCat = SEMANTIC_CLASSIFIER_CATALOG.filter(
+      (e) => e.ledgerCategories.length === 0,
+    );
+    expect(withCat).toHaveLength(9);
+    expect(withoutCat).toHaveLength(14);
+  });
+
+  it('responds_to_parent surfaces under exactly two categories (continuity + direct_response)', () => {
+    const entry = CATALOG_BY_ID.get('responds_to_parent');
+    expect(entry).toBeDefined();
+    expect((entry as SemanticClassifierCatalogEntry).ledgerCategories).toEqual([
+      'continuity',
+      'direct_response',
+    ]);
   });
 });
 
