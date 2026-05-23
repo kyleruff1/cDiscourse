@@ -28,7 +28,7 @@ export function JoinDebatePanel({ debate, onJoin, onCancel }: Props) {
   };
 
   return (
-    <Screen title="Join Debate">
+    <Screen title="Join Argument">
       <View style={styles.container}>
         <Text style={styles.debateTitle}>{debate.title}</Text>
         <Text style={styles.resolution}>{debate.resolution}</Text>

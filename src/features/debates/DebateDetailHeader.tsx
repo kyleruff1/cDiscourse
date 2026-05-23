@@ -55,7 +55,7 @@ export function DebateDetailHeader({ debate, participantSide, onLeave, roomContr
           onPress={onLeave}
           style={styles.leaveButton}
           accessibilityRole="button"
-          accessibilityLabel="Leave debate"
+          accessibilityLabel="Leave argument"
         >
           <Text style={styles.leaveText}>Leave</Text>
         </Pressable>

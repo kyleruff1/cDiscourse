@@ -17,8 +17,8 @@ table names like `debates` keep their internal names.
 
 - Files scanned: **286**
 - Live prohibited violations: **0**
-- Live discouraged usages: **17**
-- Legacy (not-mounted) findings: **7**
+- Live discouraged usages: **11**
+- Legacy (not-mounted) findings: **0**
 
 No prohibited terminology in live, mounted user-facing surfaces. ✅
 
@@ -33,12 +33,6 @@ not a hard blocker.
 
 | File | Line | Severity | Term | Suggested replacement | Excerpt |
 |---|---|---|---|---|---|
-| `src/features/debates/CreateDebateForm.tsx` | 36 | discouraged | debate | argument | New Debate |
-| `src/features/debates/CreateDebateForm.tsx` | 42 | discouraged | debate | argument | A short label for this debate |
-| `src/features/debates/CreateDebateForm.tsx` | 58 | discouraged | debate | argument | Create Debate |
-| `src/features/debates/DebateDetailHeader.tsx` | 58 | discouraged | debate | argument | Leave debate |
-| `src/features/debates/JoinDebatePanel.tsx` | 31 | discouraged | debate | argument | Join Debate |
-| `src/features/debates/debatesApi.ts` | 105 | discouraged | debate | argument | Failed to create debate. |
 | `src/features/languageProcessing/buildAnthropicRequest.ts` | 34 | discouraged | debate | argument | Debate resolution: |
 | `src/features/languageProcessing/buildAnthropicRequest.ts` | 35 | discouraged | debate | argument | Debate description: |
 | `src/features/languageProcessing/buildAnthropicRequest.ts` | 40 | discouraged | debate | argument | User's debate side: |
@@ -56,15 +50,7 @@ not a hard blocker.
 Findings in source files that are not rendered in the running app
 (dead code behind a disabled render branch). Tracked, not failing.
 
-| File | Line | Severity | Term | Suggested replacement | Excerpt |
-|---|---|---|---|---|---|
-| `src/features/debates/DebateListScreen.tsx` | 133 | discouraged | debate | argument | Open debate: |
-| `src/features/debates/DebateListScreen.tsx` | 251 | discouraged | debate | argument | Loading debates… |
-| `src/features/debates/DebateListScreen.tsx` | 263 | prohibited | Debates (page/tab label) | Arguments | Debates |
-| `src/features/debates/DebateListScreen.tsx` | 268 | discouraged | debate | argument | Create new debate |
-| `src/features/debates/DebateListScreen.tsx` | 326 | discouraged | debate | argument | No debates yet |
-| `src/features/debates/DebateListScreen.tsx` | 327 | discouraged | debate | argument | Tap "+ New" to start the first debate. |
-| `src/features/debates/DebateListScreen.tsx` | 328 | discouraged | debate | argument | Create Debate |
+_None._
 
 ## How to fix
 

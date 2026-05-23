@@ -102,7 +102,7 @@ export async function createDebate(
     .single();
 
   if (debateError || !debate) {
-    return { ok: false, error: debateError?.message ?? 'Failed to create debate.' };
+    return { ok: false, error: debateError?.message ?? 'Failed to create argument.' };
   }
 
   // Auto-join the creator as moderator (non-fatal if it fails).
