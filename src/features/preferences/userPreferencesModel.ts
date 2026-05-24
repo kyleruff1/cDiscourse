@@ -61,7 +61,13 @@ export interface UserPreferences {
   colorMode: ColorAccessibilityMode;
   defaultRoomEntry: DefaultRoomEntryPreference;
   defaultSideLabel: DefaultSideLabelPreference;
-  /** Honest stub — persisted, drives nothing in v1 (no push notifications). */
+  /**
+   * Honest stub — persisted, drives nothing in v1 (no push
+   * notifications). QOL-040 shipped notification delivery without
+   * consuming this field; the preferences surface (per-trigger
+   * opt-out, quiet hours, global on/off, email unsubscribe) is
+   * deferred to a follow-up card (working name QOL-040.1).
+   */
   notificationsOptInStub: boolean;
 }
 

@@ -407,6 +407,16 @@ verify_jwt = true
 [functions.manage-room-invite]
 verify_jwt = false
 
+# QOL-040 — room-notifications. Every action requires a valid JWT;
+# the function inserts notification rows into `public.room_notifications`
+# for the non-argument-derived triggers (invite, room_made_private,
+# chime_in_posted, chime_in_rejected, argument_settled,
+# invite_accepted_by_invitee). The argument-derived triggers
+# (new_response, concession_challenged, source_requested,
+# evidence_supplied) are inserted by submit-argument as a side effect.
+[functions.room-notifications]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
