@@ -256,3 +256,40 @@ export async function fetchArgumentRelations(
     },
   };
 }
+
+/**
+ * META-1B — Scoped reconcile fetcher for the realtime channel.
+ *
+ * Returns the active set of `point_tags` rows for the supplied argument ids
+ * in one batched query. Used by `usePointTagsRealtime` on `SUBSCRIBED` and
+ * on every reconnect to converge state with the server after a missed
+ * events window.
+ *
+ * - Read-only SELECT — the documented exception to the
+ *   "Edge Function is the only write path" rule (same as
+ *   `fetchArgumentRelations`).
+ * - No service-role; uses the shared authed `supabase` client. RLS gates
+ *   visibility (private rooms inherit the QOL-039 access check via
+ *   `pt_select_read_access`'s EXISTS on `public.arguments`).
+ * - Empty `argumentIds` short-circuits with `ok: true, data: []` so the
+ *   reconcile path is safe on rooms with zero messages.
+ * - Errors return `ok: false` so the hook can fall back to the loader's
+ *   full `refresh()` as a safety net.
+ *
+ * Pure transport (no scoring, no AI, no derivation).
+ */
+export async function fetchPointTagsForArguments(
+  argumentIds: ReadonlyArray<string>,
+): Promise<ApiResult<PersistedPointTag[]>> {
+  if (!SUPABASE_CONFIGURED) return { ok: true, data: [] };
+  if (argumentIds.length === 0) return { ok: true, data: [] };
+  // Hard cap matches the gallery loader's PostgREST `in()` budget.
+  const ids = argumentIds.slice(0, 1000);
+  const { data, error } = await supabase
+    .from('point_tags')
+    .select('id,debate_id,argument_id,tag_code,tagged_by,created_at,removed_at')
+    .in('argument_id', ids)
+    .is('removed_at', null);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: ((data ?? []) as RawPointTag[]).map(mapPointTag) };
+}

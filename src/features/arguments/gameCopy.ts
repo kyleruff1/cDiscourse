@@ -1279,6 +1279,36 @@ export const ROOM_VISIBILITY_LABEL: Readonly<Record<'public' | 'private', string
     private: ROOM_VISIBILITY_COPY.option_private_label,
   });
 
+/**
+ * META-1B — Plain-language strings for the realtime point-tags layer.
+ *
+ * The realtime channel makes other participants' tag changes visible
+ * without a refresh. The visual surface is silent (the tag simply appears
+ * in the metadata ledger via the existing read path); these strings are
+ * used only for `AccessibilityInfo.announceForAccessibility` and the
+ * optional subscription-status diagnostic.
+ *
+ * Doctrine:
+ *   - Move-anchored, NEVER person-anchored. No slot for tagger identity.
+ *   - The tag label is the META-001 plain-language label (passed in by the
+ *     caller). No verdict prose. No popularity / engagement framing.
+ *   - The "paused — reconnecting" diagnostic describes the transport, not
+ *     the user or the move.
+ */
+export const ROOM_REALTIME_COPY = Object.freeze({
+  /** Announced when another participant applies a manual tag to any move
+   *  in the open room. `label` is the META-001 plain-language label. */
+  tagAppliedAnnouncement: (label: string): string => `A "${label}" tag was added to a move.`,
+  /** Announced when a manual tag is removed from any move in the open room. */
+  tagRemovedAnnouncement: (label: string): string => `A "${label}" tag was removed from a move.`,
+  /** Optional diagnostic chip — shown while the channel is subscribed. */
+  statusOn: 'Live updates: on',
+  /** Optional diagnostic chip — shown while the channel is mid-reconnect. */
+  statusReconnecting: 'Live updates: paused — reconnecting',
+  /** Optional diagnostic chip — shown after backoff is exhausted. */
+  statusFailed: 'Live updates: paused — open the room again to retry',
+} as const);
+
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
   header: 'One quick look before you post',
