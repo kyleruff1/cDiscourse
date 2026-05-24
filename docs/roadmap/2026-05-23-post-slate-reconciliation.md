@@ -1,5 +1,7 @@
 # Post-Slate Roadmap Reconciliation — 2026-05-23
 
+> **Superseded by [2026-05-24-post-interaction-epic-reconciliation.md](./2026-05-24-post-interaction-epic-reconciliation.md).**
+
 > **Why this exists.** The autonomous pipeline had been operating against a chain of cards drafted from extrapolated session context rather than from verified roadmap state. The QOL-036 halt confirmed at least one card the chain treated as outstanding had actually shipped two days before MCP-CAT-001. This document is the verified roadmap snapshot before any further pipeline work is proposed. Reconciliation only — no code modified, no issues filed, no project-board changes.
 
 ## 1. Executive summary
