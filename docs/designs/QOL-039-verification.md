@@ -494,54 +494,53 @@ ships; QOL-039 does not need to drive new pre-activation logic.
 
 ---
 
-## §9 — Operator Decisions Needed
+## §9 — Operator Decisions — RESOLVED (2026-05-24)
 
-The implementer **must wait** for operator decisions on these three items
-before starting the build:
+The operator resolved all three NEEDS COORDINATION items on 2026-05-24. The
+canonical decisions and their full rationale are recorded in
+[`docs/designs/QOL-039.md` §E1](./QOL-039.md#e1--operator-decisions-2026-05-24).
+Summary table:
 
-| # | Decision | Default if unstated | Recommended |
+| # | Decision | Operator selection | Implementation reference |
 |---|---|---|---|
-| OD-1 | Q4/§5.2 — moderator allowance for `→ private` transition | Mods ALLOWED at DB+RLS; UI gates UI to creator-only (Option A). | **Option A** — narrow UI gate to creator-only; preserve DB+RLS three-layer defense; file `QOL-040.2` if mod path needed later. |
-| OD-2 | Q5/§6 — audit trail table | Defer (Option A). | **Option B** with the Edge Function path — atomic UPDATE+INSERT via a new `record-visibility-transition` Edge Function; counts-only audit row to preserve privacy. |
-| OD-3 | If OD-2 = Option B, then: Edge Function path or client INSERT-policy path? | Edge Function path. | **Edge Function path** (`record-visibility-transition`). Atomic; matches `manage-room-invite` precedent; no client INSERT policy needed on the audit table. |
+| OD-1 | Moderator allowance for `→ private` transition | **Option A** — creator-only UI gate; DB+RLS retain mod path as defense-in-depth; QOL-040.2 reserved as follow-up. | Design §E1.1, §E1.4 — `canTransitionToPrivate` drops the mod arm. |
+| OD-2 | Audit trail table | **Option B** — ship `room_visibility_changes` in QOL-039's migration; counts-only privacy guard; chime-in argument IDs (not user IDs) for moderation review. | Design §E1.2 — full column shape + RLS policies + OPS-001 four-class checklist. |
+| OD-3 | Edge Function path or client INSERT-policy path | **Edge Function path** — new `record-visibility-transition` function handles atomic UPDATE + audit INSERT + notification dispatch. | Design §E1.3 — full Edge Function specification + tests + cross-function call pattern. |
 
-The implementer should produce the build only after these three decisions are
-recorded — either inline in this verification doc or as a separate operator
-comment on the PR.
-
----
-
-## §10 — Minor Updates to the Design (no operator decision needed)
-
-These are small clarifications the implementer should make to the design doc
-in-place when starting the build, even if no operator decision changes the
-substantive scope:
-
-1. **§4.1 / §4.5 — migration filename**: change `20260521000001` to
-   `20260524000015` (or the live next-free slot at commit time).
-2. **§5.4 — `RoomVisibilityChangeEvent` shape**: replace the structured
-   `audiences` object with `priorReadAccessIds` + `rejectedChimeInUserIds` per
-   §5.1 above. The two-trigger dispatch (one `room_made_private` call + N
-   `chime_in_rejected` calls) replaces the design's implied single-event-with-
-   sub-audiences mental model.
-3. **§4.3.5 — `argument_tags`**: confirm the live policy delegates through
-   `EXISTS arguments`; if so (confirmed by this pass), drop the §4.3.5 work
-   item and add an in-migration comment noting the delegation. If a future
-   maintainer refactors `argument_tags` SELECT to a direct `debates` join,
-   they MUST preserve the visibility gate.
-4. **§5.1 — moderator allowance**: subject to OD-1; if Option A is selected,
-   simplify `canTransitionToPrivate` to creator-only (drop the
-   `callerIsModeratorOrAdmin` arm at the UI/model layer; preserve at the
-   DB+RLS layer).
-5. **§6.4 — Private-room read-time chrome**: add a sentence clarifying that a
-   QOL-038 pending invitee redeeming into a now-private room is the normal
-   accept flow — no special UI state required (per §3 above).
-6. **§11 — Out of Scope**: subject to OD-2; if Option B is selected, remove
-   the "audit table out of scope" bullet and reference the new table.
+**Implementer status:** unblocked. Proceed with the build using
+`docs/designs/QOL-039.md` (including the §E1 enrichment) + this verification
+doc (with §9 marked RESOLVED) + the six minor updates in §10 as the canonical
+contract.
 
 ---
 
-## §11 — Readiness
+## §10 — Minor Updates — APPLIED via design §E1 (2026-05-24)
+
+All six minor updates were captured in the design enrichment §E1 (or the §E1.4
+–E1.8 sub-sections that cross-reference each item). Status:
+
+| # | Update | Status | Reference |
+|---|---|---|---|
+| 1 | Migration filename `20260521000001` → `20260524000015` | APPLIED | Design §E1.7. |
+| 2 | `RoomVisibilityChangeEvent` shape → flat `priorReadAccessIds` + `rejectedChimeInUserIds` + `rejectedChimeInArgumentIds` | APPLIED | Design §E1.5. |
+| 3 | `argument_tags` delegation confirmation comment | APPLIED | Design §E1.6. |
+| 4 | `canTransitionToPrivate` simplification to creator-only (per OD-1) | APPLIED | Design §E1.4. |
+| 5 | §6.4 QOL-038 pending invitee clarification | APPLIED | Design §E1.8. |
+| 6 | §11 Out of Scope update — remove "audit table out of scope" bullet (per OD-2) | APPLIED | Design §E1.2 explicitly removes the bullet; the audit table is now in scope. |
+
+The implementer reads design §E1 (including §E1.1–E1.8) as the canonical
+specification for each of these updates.
+
+---
+
+## §11 — Readiness — UNBLOCKED (2026-05-24)
+
+Operator decisions OD-1, OD-2, OD-3 are resolved (see §9 above). The six §10
+minor updates are applied via design §E1. The implementer proceeds with the
+build using `docs/designs/QOL-039.md` §E1 as the canonical operator-decisions
+contract alongside the original design above.
+
+### Original readiness assessment (preserved for posterity)
 
 **Status:** Blocked on operator decisions OD-1, OD-2, OD-3. After those are
 recorded, the implementer can proceed with the build using:
