@@ -58,6 +58,15 @@ import { densityToTimelineMode } from './src/features/preferences/userPreference
 // PR-002 — "Profile tags" popout. Reached via a row inside the PR-001
 // preferences popout; mounted alongside it as a second core Modal.
 import { ProfileTagPopout, useProfileTags } from './src/features/profileTags';
+// QOL-040 — in-app notification surface. The badge sits on the
+// Arguments tab; the list screen renders as a routed sub-screen
+// when the user taps the badge. No push (v1 scope).
+import {
+  NotificationBadge,
+  NotificationListScreen,
+  useNotifications,
+} from './src/features/notifications';
+import type { NotificationDeepLink, RoomNotification } from './src/features/notifications';
 
 // ── AppRoot: session-gated routing ────────────────────────────
 
@@ -349,6 +358,31 @@ function MainAppShell({
 
   const hasDebate = Boolean(state.snapshot.selectedDebateId);
 
+  // QOL-040 — notification list + badge. The hook polls on
+  // signed-in mount; the badge sits on the Arguments tab; the
+  // list screen renders as an in-Arguments-tab sub-screen when
+  // `notificationsOpen` is true. No router — the Stage 6.4
+  // tab-host pattern is preserved.
+  const notifications = useNotifications(state.snapshot.userId);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const handleOpenNotificationDeepLink = React.useCallback(
+    (link: NotificationDeepLink, _n: RoomNotification): void => {
+      // Close the list, then select the debate. Stage 6.4's
+      // open-room-at-node path drives the room landing; the
+      // `activeArgumentId` field is reserved for a follow-up
+      // (the existing entry-hint mechanism does not yet take an
+      // explicit id; this is a known v1 gap recorded as a
+      // §17 design follow-up).
+      setNotificationsOpen(false);
+      const target = debates.find((d) => d.id === link.debateId);
+      if (target) {
+        const side = target.myParticipantSide ?? 'observer';
+        selectDebate(target, side);
+      }
+    },
+    [debates, selectDebate],
+  );
+
   // QOL-038 — consume the accepted-invite hand-off. Wait until debates
   // is loaded (so the participant row from the accept step is in scope)
   // then select that debate with the side stored on the participant row.
@@ -457,30 +491,78 @@ function MainAppShell({
             accessibilityRole="tab"
             accessibilityLabel={TAB_LABELS[t]}
           >
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
-              {TAB_LABELS[t]}
-            </Text>
+            <View style={styles.tabContent}>
+              <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
+                {TAB_LABELS[t]}
+              </Text>
+              {/* QOL-040 — unread-notification badge on the Arguments
+                  tab only. Renders nothing when count === 0. */}
+              {t === 'arguments' ? (
+                <View style={styles.tabBadgeSlot}>
+                  <NotificationBadge unreadCount={notifications.unreadCount} />
+                </View>
+              ) : null}
+            </View>
           </Pressable>
         ))}
       </View>
 
       <View style={styles.body}>
-        {/* Arguments tab: Conversation Gallery (no room selected). */}
-        {activeTab === 'arguments' && !hasDebate && (
-          <ConversationGalleryScreen
-            debates={debates}
-            argumentsByDebateId={galleryArgs.argumentsByDebateId}
-            currentUserId={state.snapshot.userId || null}
-            loading={debatesLoading || galleryArgs.loading}
-            error={debatesError || galleryArgs.error}
-            onRefresh={() => { refresh(); galleryArgs.refresh(); }}
-            onCreate={create}
-            onJoin={join}
-            onSelect={(debate, side, hint) => {
-              setEntryHint(hint || null);
-              selectDebate(debate, side);
-            }}
+        {/* QOL-040 — notification list screen. Renders as a routed
+            sub-screen on top of the Arguments tab when the user
+            taps the "Notifications" trigger in the gallery
+            toolbar. Closing the list returns to the gallery. */}
+        {activeTab === 'arguments' && notificationsOpen && (
+          <NotificationListScreen
+            notifications={notifications.notifications}
+            unreadCount={notifications.unreadCount}
+            loading={notifications.loading}
+            error={notifications.error}
+            onRefresh={() => notifications.refresh()}
+            onMarkOneRead={(id) => notifications.markOneRead(id)}
+            onMarkAllRead={() => notifications.markAllRead()}
+            onOpenDeepLink={handleOpenNotificationDeepLink}
           />
+        )}
+        {/* Arguments tab: Conversation Gallery (no room selected). */}
+        {activeTab === 'arguments' && !hasDebate && !notificationsOpen && (
+          <View style={styles.galleryWithToolbar}>
+            {/* QOL-040 — gallery toolbar exposes the
+                "Notifications" entry. The badge mirrors the tab
+                badge so the unread count is visible at the
+                gallery surface even when the user is already on
+                the Arguments tab. */}
+            <View style={styles.galleryToolbar}>
+              <Pressable
+                style={styles.notificationsTrigger}
+                onPress={() => setNotificationsOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Open notifications"
+                accessibilityHint="Shows your unread invites, replies, and other room activity."
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                testID="open-notifications-trigger"
+              >
+                <Text style={styles.notificationsTriggerText}>Notifications</Text>
+                <View style={styles.tabBadgeSlot}>
+                  <NotificationBadge unreadCount={notifications.unreadCount} testID="notification-badge-toolbar" />
+                </View>
+              </Pressable>
+            </View>
+            <ConversationGalleryScreen
+              debates={debates}
+              argumentsByDebateId={galleryArgs.argumentsByDebateId}
+              currentUserId={state.snapshot.userId || null}
+              loading={debatesLoading || galleryArgs.loading}
+              error={debatesError || galleryArgs.error}
+              onRefresh={() => { refresh(); galleryArgs.refresh(); }}
+              onCreate={create}
+              onJoin={join}
+              onSelect={(debate, side, hint) => {
+                setEntryHint(hint || null);
+                selectDebate(debate, side);
+              }}
+            />
+          </View>
         )}
         {/* Old sortable table is dev-only behind the chip; keep mount path so
             admin / tests can still reach it via a separate route if needed. */}
@@ -500,8 +582,10 @@ function MainAppShell({
             COMPOSER-002 — the room stays mounted while composing; the
             composer renders as an in-room dock overlay (below). Keeping
             ArgumentTreeScreen mounted preserves viewMode, the active node,
-            the entry-hint micro-moment, and scroll position for free. */}
-        {activeTab === 'arguments' && hasDebate && currentDebate && (
+            the entry-hint micro-moment, and scroll position for free.
+            QOL-040 — the room is hidden while the notification list
+            sub-screen is open. */}
+        {activeTab === 'arguments' && hasDebate && currentDebate && !notificationsOpen && (
           <View style={styles.debateRoom}>
             {/* Room header */}
             <DebateDetailHeader
@@ -695,8 +779,35 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#6366f1' },
+  tabContent: { flexDirection: 'row', alignItems: 'center' },
   tabText: { fontSize: 12, color: BRAND.text.muted, fontWeight: '500' },
   tabTextActive: { color: BRAND.text.primary },
+  // QOL-040 — tab badge sits to the right of the tab label.
+  tabBadgeSlot: { marginLeft: 6 },
+  galleryWithToolbar: { flex: 1 },
+  galleryToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  notificationsTrigger: {
+    minHeight: 44,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#1f1c2c',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  notificationsTriggerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: BRAND.text.primary,
+  },
   body: { flex: 1, backgroundColor: BRAND.surface.app.bg },
   debateRoom: { flex: 1, backgroundColor: BRAND.surface.app.bg },
 
