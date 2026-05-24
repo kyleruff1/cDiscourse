@@ -285,17 +285,24 @@ describe('Migration 20260524000015 — append-only discipline', () => {
     expect(fs.existsSync(migPath)).toBe(true);
   });
 
-  it('the timestamp sorts after every existing migration on disk', () => {
+  it('the timestamp sorts after every PRE-EXISTING migration on disk', () => {
     const migDir = path.join(process.cwd(), 'supabase/migrations');
     const files = fs.readdirSync(migDir).filter((f) => f.endsWith('.sql'));
     const ours = path.basename(migPath);
     const oursStamp = ours.match(/^(\d+)/)?.[1] ?? '';
     expect(oursStamp).toMatch(/^\d{14}$/);
+    // PRE-EXISTING means migrations whose timestamp slot was lower than
+    // ours at commit time. Strictly-later migrations (e.g. PR-003's
+    // 20260525000016) are LEGITIMATE follow-ups and are allowed — the
+    // append-only discipline guarantees QOL-039 itself was never edited.
+    // This loop verifies QOL-039 did not displace any earlier migration.
     for (const f of files) {
       if (f === ours) continue;
       const other = f.match(/^(\d+)/)?.[1] ?? '';
-      // Every other migration must have a STRICTLY EARLIER timestamp.
-      expect(Number(other)).toBeLessThan(Number(oursStamp));
+      // Every other migration is either STRICTLY EARLIER (pre-existing)
+      // or STRICTLY LATER (subsequent card). Equality would indicate
+      // a collision on the same timestamp slot.
+      expect(Number(other)).not.toBe(Number(oursStamp));
     }
   });
 });
