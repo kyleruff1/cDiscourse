@@ -8,8 +8,8 @@
  * No service-role usage. No public.arguments mutation from this component.
  * Editing message bodies is not exposed.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
@@ -61,14 +61,16 @@ import { buildArtifactsByMessageId } from './argumentGameSurfaceEvidence';
 // members)) and rebuilds whenever the target / actor / upstream inputs
 // change.
 import { buildPointLifecycleMap } from '../lifecycle';
-import { buildMoveMetadataLedger } from '../metadata';
+import { buildMoveMetadataLedger, getManualTagPlainLabel } from '../metadata';
 import {
   applyManualTag,
   removeManualTag,
   persistedTagsToManualTagEntries,
   type ApplyManualTagResult,
 } from '../metadata/pointTagsApi';
+import { diffPointTagSets, pickLatestChange } from '../metadata/pointTagsRealtime';
 import type { ManualTagCode } from '../metadata';
+import { ROOM_REALTIME_COPY } from './gameCopy';
 import type { PersistedPointTag } from './types';
 import {
   buildTimelineNodeActionDockModel,
@@ -424,6 +426,36 @@ export function ArgumentGameSurface({
     }),
     [timelineMap, lifecycleMap, artifactsByMessageIdMap, manualTagsByMessageId],
   );
+
+  // META-1B — Screen-reader announcement when persisted manual-tag state
+  // changes (a participant in this room or another tab applied / removed
+  // a tag). Silent visually — the tag simply appears in the ledger via the
+  // existing read path; the announcement is the screen-reader equivalent
+  // of that appearance. Move-anchored, NEVER person-anchored (no slot for
+  // tagger identity in `ROOM_REALTIME_COPY`). Skips the first render to
+  // avoid announcing the initial load. Doctrine-clean: the label comes
+  // from `getManualTagPlainLabel` (META-001 plain-language only).
+  const prevPointTagsRef = useRef<Record<string, PersistedPointTag[]> | null>(null);
+  useEffect(() => {
+    const prev = prevPointTagsRef.current;
+    const curr = pointTagsByArgumentId || {};
+    prevPointTagsRef.current = curr;
+    if (prev === null) return; // initial render; do not announce
+    const diff = diffPointTagSets(prev, curr);
+    if (diff.added.length === 0 && diff.removed.length === 0) return;
+    const latest = pickLatestChange(diff);
+    if (!latest) return;
+    const label = getManualTagPlainLabel(latest.row.tagCode);
+    const message =
+      latest.kind === 'apply'
+        ? ROOM_REALTIME_COPY.tagAppliedAnnouncement(label)
+        : ROOM_REALTIME_COPY.tagRemovedAnnouncement(label);
+    try {
+      AccessibilityInfo.announceForAccessibility(message);
+    } catch {
+      // Never throws to the user; the announcement is best-effort.
+    }
+  }, [pointTagsByArgumentId]);
 
   const activeViewModel = useMemo(() => viewModels.find((v) => v.isActive) || null, [viewModels]);
 
