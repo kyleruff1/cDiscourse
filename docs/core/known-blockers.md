@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-23 (Stage 6.4 / OPS-001)_
+_Last updated: 2026-05-24 (Stage 6.4 / OPS-002)_
 
 ---
 
@@ -70,6 +70,83 @@ trigger / extension dependencies. The full policy text and the four-class
 table live in the reviewer template; the cross-references in this file,
 in `CLAUDE.md` § "Supabase Conventions", and in `docs/core/agent-charters.md`
 all point back to that canonical location.
+
+### ✅ Pipeline Branch-Naming Misalignment + Worktree Orphan Accumulation (OPS-002)
+
+**Incident.** Four consecutive autonomous pipeline sessions — QOL-039
+(#268, PR shipped), RECON-001 (#272, PR shipped), QOL-040.3 (#274, PR
+shipped), and QOL-036.1 (#273, PR shipped) — required push-time
+refspec reconciliation between the `spawn-card.ps1` prompt's named
+branch (`feat/<code>-<slug>`) and the implementer subagent's actual
+working branch (`worktree-agent-<hash>`). All four shipped successfully
+via `git push origin worktree-agent-<hash>:feat/<code>-<slug>`, but the
+refspec is fragile (operator-typed each time, no automation) and the
+mismatch leaks into review docs and operator-next-step lists where the
+branch name is referenced. Separately, 96 orphan worktrees accumulated
+under `.claude/worktrees/` (all marked `locked`), each tying up disk
+space and blocking `gh pr merge --delete-branch` for the merged
+card. The gap is operational hygiene, not correctness — the pipeline
+shipped — but the friction compounds with each card.
+
+**Root cause.** The `isolation="worktree"` runtime in the Claude Code
+harness creates a worktree on a new local branch named
+`worktree-agent-<hash>` (the runtime's convention, not configurable
+from the subagent prompt). The `spawn-card.ps1` and `spawn-card.sh`
+scripts compute and embed `feat/<code>-<slug>` into the agent
+prompt — a branch name the runtime never adopts. The implementer
+charter at `.claude/agents/roadmap-implementer.md:14` describes the
+working directory as the `feat/<code>-<slug>` branch, but the
+description was aspirational: the charter did not previously include a
+rename step. The mismatch propagated through every subsequent
+charter sentence that referenced the branch name.
+
+**Resolution (OPS-002, #275).** Two coordinated changes:
+
+1. **Rename step added to the implementer charter as a new Phase
+   order step 1.** Before any baseline check or implementation, the
+   implementer subagent runs `git branch -m feat/<code>-<slug>` to
+   rename the auto-branch to the named feat branch. The rest of the
+   pipeline (commits, charter sentences, operator push, PR title,
+   squash-merge) then uses one consistent name. The `spawn-card.ps1`
+   and `spawn-card.sh` scripts are unchanged; the implementer charter
+   absorbs the alignment.
+
+2. **Worktree cleanup procedure added to the reviewer charter as a
+   new section "Post-merge worktree cleanup (operator step)."** The
+   operator runs the procedure after each PR merges: `git worktree
+   remove --force <path>` plus `git branch -D <branch>` for both
+   branch-name forms (the auto-branch for pre-OPS-002 cards is
+   preserved as a fallback). Cross-platform notes cover the
+   PowerShell-vs-Bash invocation; a bulk pass for the 96 historical
+   orphans is documented as operator-judgement-gated and is NOT
+   automated by OPS-002.
+
+**Lesson for future sessions.** Two rules:
+
+- **Rule 1 (alignment):** The implementer charter is the canonical
+  place to operationalise a branch-name expectation. When a script
+  prints a branch name into a subagent prompt, the subagent's charter
+  must include the step that makes the local branch match the
+  printed name. Aspirational charter sentences ("your branch is X")
+  do not configure runtime behaviour; the subagent must run the
+  command. The spawn-card scripts remain the source of the *name*,
+  but the implementer is the source of the *binding*.
+
+- **Rule 2 (cleanup):** Worktree creation is automated; worktree
+  removal is not. Every pipeline that uses `isolation="worktree"` for
+  per-card work must document a per-card cleanup procedure adjacent
+  to the success-path documentation. The procedure runs after merge,
+  not before. Bulk cleanup of historical orphans is
+  operator-judgement-gated because mis-identifying a non-merged
+  worktree as orphan loses work.
+
+The OPS-001 reviewer-template lesson and the OPS-002 alignment lesson
+together form the foundation of the OPS-* series: OPS cards capture
+process bugs that ship product correctly but accumulate operational
+friction; they fix the process, not the product. Future OPS cards
+follow the same shape (a single design doc, a verbatim lesson block,
+a minimal-footprint implementer diff, and a verification table in the
+reviewer doc that confirms the lesson is recorded).
 
 ---
 
