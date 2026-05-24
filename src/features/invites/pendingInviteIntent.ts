@@ -10,21 +10,29 @@
  *     Supabase confirmation email)
  *   - a browser restart on the same device
  *
- * So the intent lives in the **persisted** session snapshot, not React
- * state. This module owns the pure serialise/restore + freshness rules.
+ * So the intent lives in BOTH (a) the persisted session snapshot (when
+ * a user is signed in, via sessionStorage.ts) AND (b) a dedicated
+ * device-local AsyncStorage key under the well-known anon name
+ * (`cdiscourse:pending-invite-intent`). Path (b) covers the
+ * "anonymous → sign up → sign in" handshake where there is no user-keyed
+ * snapshot to carry the intent.
  *
  * Doctrine:
  *  - 24h freshness window — a user who signed up, abandoned, and returned
  *    weeks later should NOT be silently redirected into a stale room.
  *    `loadFreshPendingInviteIntent` drops stale rows on read.
  *  - The token itself is NOT logged anywhere by this module; the only
- *    place it appears is in the persisted snapshot blob (AsyncStorage /
- *    sessionStorage) and the in-memory reducer state.
- *  - All functions are pure. The impure storage layer is in
- *    sessionStorage.ts (AsyncStorage) — this module just describes the
- *    shape and the freshness predicate.
+ *    place it appears is in the persisted storage blob and the
+ *    in-memory reducer state.
+ *  - The pure helpers (build / parse / freshness) carry zero I/O. The
+ *    persisted-storage helpers (load / save / clear) live below them
+ *    and use the same AsyncStorage seam the rest of session/ uses.
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isValidInviteTokenShape } from './inviteDeepLink';
+
+/** AsyncStorage key for the device-local intent slot. */
+export const PENDING_INVITE_INTENT_STORAGE_KEY = 'cdiscourse:pending-invite-intent';
 
 /** The persisted intent shape, added to `AppSessionSnapshot`. */
 export interface PendingInviteIntent {
@@ -115,4 +123,59 @@ export function loadFreshPendingInviteIntent(
   if (!parsed) return null;
   if (!isPendingInviteIntentFresh(parsed, nowIso)) return null;
   return parsed;
+}
+
+// ── Persisted storage helpers ─────────────────────────────────
+
+/**
+ * Persist the intent to its dedicated AsyncStorage key. This survives
+ * sign-in handshakes and cold starts where there is no user-keyed
+ * snapshot to carry the intent (the anonymous → sign-up case).
+ *
+ * Storage failure is non-fatal: a freshly captured intent that fails
+ * to persist is still live in React state; only the cold-start path
+ * needs persistence to recover.
+ */
+export async function savePendingInviteIntentToStorage(
+  intent: PendingInviteIntent,
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      PENDING_INVITE_INTENT_STORAGE_KEY,
+      JSON.stringify(intent),
+    );
+  } catch {
+    // Non-fatal — see doctrine.
+  }
+}
+
+/**
+ * Load + parse + freshness-check the persisted intent. Returns `null`
+ * for missing / malformed / stale. NEVER throws.
+ */
+export async function loadPendingInviteIntentFromStorage(
+  nowIso: string,
+): Promise<PendingInviteIntent | null> {
+  try {
+    const raw = await AsyncStorage.getItem(PENDING_INVITE_INTENT_STORAGE_KEY);
+    if (!raw) return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+    return loadFreshPendingInviteIntent(parsed, nowIso);
+  } catch {
+    return null;
+  }
+}
+
+/** Remove the persisted intent. Idempotent. */
+export async function clearPendingInviteIntentFromStorage(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(PENDING_INVITE_INTENT_STORAGE_KEY);
+  } catch {
+    // Non-fatal.
+  }
 }

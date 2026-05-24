@@ -93,6 +93,9 @@ describe('manage-room-invite — create schema', () => {
       inviteeEmail: 'alice@example.com',
       intendedSeat: 'co_primary',
     });
+    // Narrow the discriminated union before reading the action-specific
+    // field.
+    if (parsed.action !== 'create') throw new Error('schema parsed wrong action');
     expect(parsed.intendedSeat).toBe('co_primary');
   });
 

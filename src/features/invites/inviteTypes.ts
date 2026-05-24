@@ -1,69 +1,48 @@
 /**
- * Invite types — UI/foundation only.
- * No Supabase migration created in this stage.
- * No email sending in this stage.
- * No service-role keys.
+ * Invite types — UI form-state shapes.
  *
- * Stage 6.1.0
+ * QOL-038 rewrite (2026-05-24): the Stage 6.1.0 placeholder shapes
+ * (`PlannedInvite`, `InviteRole`, `InviteFormState` with `role` field)
+ * are replaced by the real shapes — the placeholder local-state model
+ * is no longer needed. The DB-shape mirror (`ArgumentRoomInviteRecord`)
+ * now aligns to the migration's final column set: `intended_seat`,
+ * `revoked_at`, non-null `invitee_email_lower`.
+ *
+ * The full `RoomInvite` shape lives in `inviteModel.ts` — this file is
+ * just the UI form shapes + the snake_case DB-row alias used by
+ * server-touching adapters.
  */
+import type { IntendedSeat, InviteStatus } from './inviteModel';
 
-export type InviteStatus =
-  | 'planned'
-  | 'sent'
-  | 'accepted'
-  | 'expired'
-  | 'cancelled';
+export type { InviteStatus, IntendedSeat } from './inviteModel';
 
-export type InviteRole = 'challenger' | 'supporter' | 'observer' | 'any';
-
-/** Local-only planned invite — not persisted to DB in this stage. */
-export interface PlannedInvite {
-  id: string;
-  debateId: string;
-  inviteeEmail: string | null;
-  inviteeDisplayName: string | null;
-  role: InviteRole;
-  status: InviteStatus;
-  createdAt: string;
-}
-
-/** Future DB shape (not created as migration in Stage 6.1.0). */
+/**
+ * Snake_case alias for the persisted row shape. Kept for adapters that
+ * read raw DB rows; production client code should consume `RoomInvite`
+ * from `inviteModel.ts` instead.
+ */
 export interface ArgumentRoomInviteRecord {
   id: string;
   debate_id: string;
   invited_by: string;
-  invitee_email_lower: string | null;
+  invitee_email_lower: string;
   invitee_profile_id: string | null;
-  role_or_side: string;
+  intended_seat: IntendedSeat;
   status: InviteStatus;
   token_hash: string;
   created_at: string;
   expires_at: string;
   accepted_at: string | null;
+  revoked_at: string | null;
 }
 
+/** The InvitePanel form's local state. */
 export interface InviteFormState {
-  emailOrName: string;
-  role: InviteRole;
-  submitted: boolean;
+  email: string;
+  submitting: boolean;
   error: string | null;
 }
 
 export function emptyInviteForm(): InviteFormState {
-  return {
-    emailOrName: '',
-    role: 'any',
-    submitted: false,
-    error: null,
-  };
-}
-
-export function validateInviteInput(emailOrName: string): string | null {
-  if (!emailOrName || emailOrName.trim().length === 0) {
-    return 'Enter an email or display name.';
-  }
-  if (emailOrName.trim().length > 200) {
-    return 'Too long.';
-  }
-  return null;
+  return { email: '', submitting: false, error: null };
 }

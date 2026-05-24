@@ -2,14 +2,27 @@
  * QOL-038 — pure-model tests for `src/features/invites/pendingInviteIntent.ts`.
  *
  * Covers build / parse round-trip, freshness predicate, stale drop on
- * load, malformed handling, and the never-throw contract of the parser.
+ * load, malformed handling, the never-throw contract of the parser, and
+ * the AsyncStorage save/load/clear helpers (dedicated key so the intent
+ * survives the anonymous → sign-up handshake where no user-keyed
+ * snapshot is yet written).
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 import {
   PENDING_INVITE_INTENT_FRESHNESS_MS,
+  PENDING_INVITE_INTENT_STORAGE_KEY,
   buildPendingInviteIntent,
+  clearPendingInviteIntentFromStorage,
   isPendingInviteIntentFresh,
   loadFreshPendingInviteIntent,
+  loadPendingInviteIntentFromStorage,
   parsePendingInviteIntent,
+  savePendingInviteIntentToStorage,
 } from '../src/features/invites/pendingInviteIntent';
 
 const GOOD_TOKEN = 'aB12345678901234567890123456789012345678901';
@@ -107,5 +120,56 @@ describe('loadFreshPendingInviteIntent', () => {
     expect(loadFreshPendingInviteIntent({ token: 'short', capturedAt: NOW }, NOW)).toBeNull();
     expect(loadFreshPendingInviteIntent(null, NOW)).toBeNull();
     expect(loadFreshPendingInviteIntent('garbage', NOW)).toBeNull();
+  });
+});
+
+// ── AsyncStorage helpers ──────────────────────────────────────
+
+describe('savePendingInviteIntentToStorage / load / clear', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it('uses the dedicated PENDING_INVITE_INTENT_STORAGE_KEY (not the user-keyed snapshot)', () => {
+    // The key is well-known so the anonymous → sign-up handshake can
+    // find the intent regardless of the (still-null) user id.
+    expect(PENDING_INVITE_INTENT_STORAGE_KEY).toBe('cdiscourse:pending-invite-intent');
+  });
+
+  it('round-trips a fresh intent through storage', async () => {
+    const nowIso = new Date().toISOString();
+    const fresh = { token: GOOD_TOKEN, capturedAt: nowIso };
+    await savePendingInviteIntentToStorage(fresh);
+    const loaded = await loadPendingInviteIntentFromStorage(nowIso);
+    expect(loaded).toEqual(fresh);
+  });
+
+  it('drops a stale intent on load', async () => {
+    const stale = {
+      token: GOOD_TOKEN,
+      capturedAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+    };
+    await savePendingInviteIntentToStorage(stale);
+    const loaded = await loadPendingInviteIntentFromStorage(new Date().toISOString());
+    expect(loaded).toBeNull();
+  });
+
+  it('returns null for missing storage', async () => {
+    const loaded = await loadPendingInviteIntentFromStorage(new Date().toISOString());
+    expect(loaded).toBeNull();
+  });
+
+  it('clears the persisted intent', async () => {
+    const fresh = { token: GOOD_TOKEN, capturedAt: new Date().toISOString() };
+    await savePendingInviteIntentToStorage(fresh);
+    await clearPendingInviteIntentFromStorage();
+    const loaded = await loadPendingInviteIntentFromStorage(new Date().toISOString());
+    expect(loaded).toBeNull();
+  });
+
+  it('tolerates corrupt persisted JSON', async () => {
+    await AsyncStorage.setItem(PENDING_INVITE_INTENT_STORAGE_KEY, '{{not valid}}');
+    const loaded = await loadPendingInviteIntentFromStorage(new Date().toISOString());
+    expect(loaded).toBeNull();
   });
 });

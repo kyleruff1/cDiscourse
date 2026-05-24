@@ -1,9 +1,20 @@
 /**
- * InvitePanel — UI-only invite placeholder.
- * No email sending, no Supabase migration in this stage.
- * Stage 6.1.0
+ * QOL-038 — InvitePanel: the inviter-side affordance for the open
+ * argument room. Replaces the Stage 6.1.0 placeholder ("planned invite
+ * / copy text") with the real create + revoke flow.
+ *
+ * Hosted inline in the room toolbar (same placement as the placeholder).
+ * `useRoomInvites` owns load + create + revoke + lastInviteLink state.
+ * The Edge Function is the single write path — this component never
+ * inserts into argument_room_invites directly and never imports a
+ * service-role key.
+ *
+ * Doctrine: every label / placeholder / button copy / inline error is
+ * sourced from `inviteCopy.ts` (the doctrine ban-list test scans those
+ * strings). Internal codes from the Edge Function are mapped through
+ * `plainLanguageForInviteError` before they reach the UI.
  */
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -11,50 +22,90 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  INVITE_PANEL_COPY,
-  buildInviteText,
-} from './inviteCopy';
-import { emptyInviteForm, validateInviteInput } from './inviteTypes';
-import type { InviteFormState } from './inviteTypes';
+import { INVITE_PANEL_COPY, validateInviteEmailInput } from './inviteCopy';
+import { useRoomInvites } from './useRoomInvites';
+import type { InviteSummaryForInviter } from './inviteModel';
 import { SURFACE_TOKENS, STATUS } from '../../lib/designTokens';
 
 interface Props {
+  debateId: string;
   roomTitle: string;
-  claim: string;
+  /**
+   * True when the operator-gated email path is enabled. QOL-038 ships
+   * with this false (the inviter sees a "Copy invite link" affordance).
+   * QOL-040 will eventually flip the env var at deploy time.
+   */
+  emailEnabled?: boolean;
+  /**
+   * True when the caller can mint invites for this room. Observers / a
+   * pure read-only session get false → the "only participants" notice
+   * is rendered and the email field is hidden. The parent decides this
+   * (room contract + participant side) so the panel doesn't duplicate
+   * the GAME-004 logic.
+   */
+  canInvite?: boolean;
   onClose?: () => void;
 }
 
-export function InvitePanel({ roomTitle, claim, onClose }: Props) {
-  const [form, setForm] = useState<InviteFormState>(emptyInviteForm());
-  const [copied, setCopied] = useState<'text' | 'link' | null>(null);
+export function InvitePanel({
+  debateId,
+  roomTitle: _roomTitle,
+  emailEnabled = false,
+  canInvite = true,
+  onClose,
+}: Props) {
+  const { invites, loading, error, lastInviteLink, create, revoke, refresh, clearLink } =
+    useRoomInvites(debateId);
+  const [email, setEmail] = useState('');
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
-  const handleMarkPlanned = () => {
-    const error = validateInviteInput(form.emailOrName);
-    if (error) {
-      setForm((f) => ({ ...f, error }));
+  const handleSubmit = useCallback(async () => {
+    const validation = validateInviteEmailInput(email);
+    if (validation) {
+      setInlineError(validation);
       return;
     }
-    setForm((f) => ({ ...f, submitted: true, error: null }));
-  };
+    setInlineError(null);
+    setSubmitting(true);
+    const result = await create({ inviteeEmail: email.trim() });
+    setSubmitting(false);
+    if (result) {
+      setEmail('');
+    }
+  }, [create, email]);
 
-  const handleCopyText = () => {
-    // Clipboard not imported to avoid native-module dependency; show feedback only
-    setCopied('text');
-    setTimeout(() => setCopied(null), 2000);
-  };
+  const handleCopyLink = useCallback(() => {
+    // No clipboard import — the panel renders the link as a selectable
+    // <Text> below so the user copies via long-press / drag. Setting the
+    // "Copied" state is the UI feedback the design specifies.
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 1500);
+  }, []);
 
-  const handleCopyLink = () => {
-    setCopied('link');
-    setTimeout(() => setCopied(null), 2000);
-  };
+  if (!canInvite) {
+    return (
+      <View style={styles.panel} accessibilityLabel={INVITE_PANEL_COPY.toolbarChipAccessibility}>
+        <View style={styles.header}>
+          <Text style={styles.title}>{INVITE_PANEL_COPY.title}</Text>
+          {onClose && (
+            <Pressable onPress={onClose} accessibilityLabel={INVITE_PANEL_COPY.closePanel}>
+              <Text style={styles.closeBtn}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+        <Text style={styles.notAllowedText}>{INVITE_PANEL_COPY.notAllowedNotice}</Text>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.panel} accessibilityLabel="Invite panel">
+    <View style={styles.panel} accessibilityLabel={INVITE_PANEL_COPY.toolbarChipAccessibility}>
       <View style={styles.header}>
         <Text style={styles.title}>{INVITE_PANEL_COPY.title}</Text>
         {onClose && (
-          <Pressable onPress={onClose} accessibilityLabel="Close invite panel">
+          <Pressable onPress={onClose} accessibilityLabel={INVITE_PANEL_COPY.closePanel}>
             <Text style={styles.closeBtn}>✕</Text>
           </Pressable>
         )}
@@ -63,52 +114,129 @@ export function InvitePanel({ roomTitle, claim, onClose }: Props) {
       <Text style={styles.subtitle}>{INVITE_PANEL_COPY.subtitle}</Text>
       <Text style={styles.body}>{INVITE_PANEL_COPY.bodyDescription}</Text>
 
-      {!form.submitted ? (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder={INVITE_PANEL_COPY.emailOrNamePlaceholder}
-            value={form.emailOrName}
-            onChangeText={(v) => setForm((f) => ({ ...f, emailOrName: v, error: null }))}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            accessibilityLabel="Email or display name"
-          />
-          {form.error && <Text style={styles.error}>{form.error}</Text>}
+      <TextInput
+        style={styles.input}
+        placeholder={INVITE_PANEL_COPY.emailPlaceholder}
+        placeholderTextColor={SURFACE_TOKENS.textMuted}
+        value={email}
+        onChangeText={(v) => {
+          setEmail(v);
+          if (inlineError) setInlineError(null);
+        }}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        accessibilityLabel={INVITE_PANEL_COPY.emailLabel}
+        editable={!submitting}
+        testID="invite-panel-email-input"
+      />
+      {inlineError && <Text style={styles.error}>{inlineError}</Text>}
+      {error && !inlineError && <Text style={styles.error}>{error}</Text>}
 
-          <Pressable style={styles.btnSecondary} onPress={handleMarkPlanned}>
-            <Text style={styles.btnSecondaryText}>
-              {INVITE_PANEL_COPY.markAsPlanned}
-            </Text>
-          </Pressable>
-        </>
-      ) : (
-        <View style={styles.confirmedRow}>
-          <Text style={styles.confirmedText}>
-            Marked as planned: {form.emailOrName}
+      <Pressable
+        style={[styles.btnPrimary, submitting && styles.btnDisabled]}
+        onPress={handleSubmit}
+        disabled={submitting || !email}
+        accessibilityRole="button"
+        accessibilityLabel={INVITE_PANEL_COPY.sendButton}
+        testID="invite-panel-send"
+      >
+        <Text style={styles.btnPrimaryText}>
+          {submitting ? INVITE_PANEL_COPY.sendingButton : INVITE_PANEL_COPY.sendButton}
+        </Text>
+      </Pressable>
+
+      {/* Fresh-create link affordance — only when email is OFF and we
+          have a link from the most-recent create call. */}
+      {!emailEnabled && lastInviteLink && (
+        <View style={styles.linkBox} testID="invite-panel-link-box">
+          <Text style={styles.linkLabel}>{INVITE_PANEL_COPY.copyLinkButton}</Text>
+          <Text style={styles.linkText} selectable>
+            {lastInviteLink}
           </Text>
+          <View style={styles.linkButtonRow}>
+            <Pressable
+              style={styles.btnSecondary}
+              onPress={handleCopyLink}
+              accessibilityRole="button"
+              accessibilityLabel={INVITE_PANEL_COPY.copyLinkButton}
+            >
+              <Text style={styles.btnSecondaryText}>
+                {linkCopied ? INVITE_PANEL_COPY.copyLinkSuccess : INVITE_PANEL_COPY.copyLinkButton}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={styles.btnSecondary}
+              onPress={clearLink}
+              accessibilityRole="button"
+              accessibilityLabel="Hide link"
+            >
+              <Text style={styles.btnSecondaryText}>Hide</Text>
+            </Pressable>
+          </View>
         </View>
       )}
+      {emailEnabled && lastInviteLink && (
+        <Text style={styles.notice}>{INVITE_PANEL_COPY.emailedNotice}</Text>
+      )}
 
-      <View style={styles.actions}>
-        <Pressable style={styles.actionBtn} onPress={handleCopyText}>
-          <Text style={styles.actionText}>
-            {copied === 'text' ? 'Copied!' : INVITE_PANEL_COPY.copyInviteText}
-          </Text>
-        </Pressable>
-        <Pressable style={styles.actionBtn} onPress={handleCopyLink}>
-          <Text style={styles.actionText}>
-            {copied === 'link' ? 'Copied!' : INVITE_PANEL_COPY.copyRoomLink}
-          </Text>
-        </Pressable>
+      {/* Existing-invites list. */}
+      {loading && invites.length === 0 ? (
+        <Text style={styles.notice}>Loading invites…</Text>
+      ) : invites.length > 0 ? (
+        <View style={styles.invitesList} testID="invite-panel-list">
+          {invites.map((inv) => (
+            <InviteRow key={inv.inviteId} invite={inv} onRevoke={revoke} />
+          ))}
+        </View>
+      ) : null}
+
+      <Pressable onPress={refresh} accessibilityLabel="Refresh invites" hitSlop={6}>
+        <Text style={styles.refreshLink}>Refresh</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+// ── Row ───────────────────────────────────────────────────────
+
+interface InviteRowProps {
+  invite: InviteSummaryForInviter;
+  onRevoke: (inviteId: string) => Promise<boolean>;
+}
+
+function InviteRow({ invite, onRevoke }: InviteRowProps) {
+  const [revoking, setRevoking] = useState(false);
+  const isPending = invite.status === 'pending';
+  const handleRevoke = useCallback(async () => {
+    setRevoking(true);
+    await onRevoke(invite.inviteId);
+    setRevoking(false);
+  }, [onRevoke, invite.inviteId]);
+
+  return (
+    <View style={styles.inviteRow} testID={`invite-row-${invite.inviteId}`}>
+      <View style={styles.inviteRowText}>
+        <Text style={styles.inviteEmail}>{invite.inviteeEmailMasked}</Text>
+        <Text style={styles.inviteMeta}>
+          {invite.status === 'pending' && INVITE_PANEL_COPY.pendingChipLabel}
+          {invite.status === 'revoked' && INVITE_PANEL_COPY.revokedChipLabel}
+          {invite.status === 'accepted' && INVITE_PANEL_COPY.acceptedChipLabel}
+          {invite.status === 'expired' && 'Expired'}
+        </Text>
       </View>
-
-      <Text style={styles.notice}>{INVITE_PANEL_COPY.inviteBackendNotice}</Text>
-
-      <Text style={styles.previewLabel}>Invite text preview:</Text>
-      <Text style={styles.preview} selectable>
-        {buildInviteText(roomTitle, claim)}
-      </Text>
+      {isPending && (
+        <Pressable
+          onPress={handleRevoke}
+          disabled={revoking}
+          accessibilityRole="button"
+          accessibilityLabel={`${INVITE_PANEL_COPY.revokeButton} invite for ${invite.inviteeEmailMasked}`}
+          testID={`invite-row-revoke-${invite.inviteId}`}
+        >
+          <Text style={styles.revokeLink}>
+            {revoking ? '…' : INVITE_PANEL_COPY.revokeButton}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -162,62 +290,99 @@ const styles = StyleSheet.create({
     color: STATUS.danger.fg,
     marginBottom: 6,
   },
-  btnSecondary: {
-    backgroundColor: SURFACE_TOKENS.raised,
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  btnSecondaryText: {
-    fontSize: 13,
-    color: SURFACE_TOKENS.textSecondary,
-    fontWeight: '600',
-  },
-  confirmedRow: {
-    backgroundColor: STATUS.success.bg,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-  },
-  confirmedText: {
-    fontSize: 12,
-    color: STATUS.success.fg,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  actionBtn: {
-    flex: 1,
+  btnPrimary: {
     backgroundColor: STATUS.info.bg,
     borderRadius: 8,
     padding: 10,
     alignItems: 'center',
+    marginBottom: 10,
   },
-  actionText: {
-    fontSize: 12,
+  btnDisabled: { opacity: 0.5 },
+  btnPrimaryText: {
+    fontSize: 13,
     color: STATUS.info.fg,
+    fontWeight: '700',
+  },
+  btnSecondary: {
+    backgroundColor: SURFACE_TOKENS.raised,
+    borderRadius: 8,
+    padding: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  btnSecondaryText: {
+    fontSize: 12,
+    color: SURFACE_TOKENS.textSecondary,
     fontWeight: '600',
   },
-  notice: {
+  linkBox: {
+    backgroundColor: SURFACE_TOKENS.elevated,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  linkLabel: {
     fontSize: 11,
     color: SURFACE_TOKENS.textMuted,
-    marginBottom: 10,
-    fontStyle: 'italic',
-  },
-  previewLabel: {
-    fontSize: 11,
-    color: SURFACE_TOKENS.textSecondary,
     marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  preview: {
+  linkText: {
     fontSize: 12,
+    color: SURFACE_TOKENS.textPrimary,
+    fontFamily: 'monospace',
+    marginBottom: 8,
+  },
+  linkButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  notice: {
+    fontSize: 12,
+    color: SURFACE_TOKENS.textMuted,
+    marginBottom: 8,
+  },
+  notAllowedText: {
+    fontSize: 13,
     color: SURFACE_TOKENS.textSecondary,
-    backgroundColor: SURFACE_TOKENS.elevated,
-    padding: 8,
-    borderRadius: 6,
-    lineHeight: 18,
+    paddingVertical: 8,
+  },
+  invitesList: {
+    borderTopWidth: 1,
+    borderTopColor: SURFACE_TOKENS.border,
+    marginTop: 6,
+    paddingTop: 8,
+  },
+  inviteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  inviteRowText: {
+    flex: 1,
+  },
+  inviteEmail: {
+    fontSize: 13,
+    color: SURFACE_TOKENS.textPrimary,
+    fontWeight: '600',
+  },
+  inviteMeta: {
+    fontSize: 11,
+    color: SURFACE_TOKENS.textMuted,
+  },
+  revokeLink: {
+    fontSize: 12,
+    color: STATUS.danger.fg,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  refreshLink: {
+    fontSize: 11,
+    color: SURFACE_TOKENS.textMuted,
+    textAlign: 'right',
+    marginTop: 6,
   },
 });

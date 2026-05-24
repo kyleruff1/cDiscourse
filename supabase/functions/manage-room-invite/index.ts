@@ -33,7 +33,6 @@ import {
   ok,
   badRequest,
   unauthorized,
-  forbidden,
   methodNotAllowed,
   validationFailed,
   internalError,
