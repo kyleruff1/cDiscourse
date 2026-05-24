@@ -1,20 +1,64 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { TextInputField } from '../../components/TextInputField';
 import { Button } from '../../components/Button';
 import { ErrorNotice } from '../../components/ErrorNotice';
-import type { CreateDebateInput } from './types';
+import { ROOM_VISIBILITY_COPY } from '../arguments/gameCopy';
+import type { CreateDebateInput, RoomVisibility } from './types';
 
 interface Props {
   onSubmit: (input: CreateDebateInput) => Promise<void>;
   onCancel: () => void;
 }
 
+/**
+ * QOL-039 — visibility option row with a single radio target. 44px hit
+ * surface per `accessibility-targets`; shape + label + check carry the
+ * selection state — color is not the only signal.
+ */
+function VisibilityOption({
+  value,
+  label,
+  helper,
+  selected,
+  onSelect,
+}: {
+  value: RoomVisibility;
+  label: string;
+  helper: string;
+  selected: boolean;
+  onSelect: (next: RoomVisibility) => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => onSelect(value)}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, disabled: false }}
+      accessibilityLabel={`${label}. ${helper}`}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={[styles.visibilityOption, selected ? styles.visibilityOptionSelected : null]}
+      testID={`create-debate-visibility-${value}`}
+    >
+      <View style={styles.visibilityOptionHeader}>
+        <Text style={[styles.visibilityCheck, selected ? styles.visibilityCheckOn : null]}>
+          {selected ? '●' : '○'}
+        </Text>
+        <Text style={[styles.visibilityLabel, selected ? styles.visibilityLabelSelected : null]}>
+          {label}
+        </Text>
+      </View>
+      <Text style={styles.visibilityHelper}>{helper}</Text>
+    </Pressable>
+  );
+}
+
 export function CreateDebateForm({ onSubmit, onCancel }: Props) {
   const [title, setTitle] = useState('');
   const [resolution, setResolution] = useState('');
   const [description, setDescription] = useState('');
+  // QOL-039 — visibility defaults to 'public' (today's behavior).
+  const [visibility, setVisibility] = useState<RoomVisibility>('public');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +69,12 @@ export function CreateDebateForm({ onSubmit, onCancel }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit({ title: title.trim(), resolution: resolution.trim(), description: description.trim() });
+      await onSubmit({
+        title: title.trim(),
+        resolution: resolution.trim(),
+        description: description.trim(),
+        visibility,
+      });
     } catch {
       setError('Something went wrong. Please try again.');
     }
@@ -53,6 +102,33 @@ export function CreateDebateForm({ onSubmit, onCancel }: Props) {
           onChangeText={setDescription}
           placeholder="Background context or rules"
         />
+        {/* QOL-039 — visibility control. radiogroup of two 44px Pressables;
+            shape (check mark) + bolder label both carry the selection state
+            (color is not the only signal). */}
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel={ROOM_VISIBILITY_COPY.group_label}
+          style={styles.visibilityGroup}
+          testID="create-debate-visibility-group"
+        >
+          <Text style={styles.visibilityGroupLabel}>{ROOM_VISIBILITY_COPY.group_label}</Text>
+          <View style={styles.visibilityRow}>
+            <VisibilityOption
+              value="public"
+              label={ROOM_VISIBILITY_COPY.option_public_label}
+              helper={ROOM_VISIBILITY_COPY.option_public_helper}
+              selected={visibility === 'public'}
+              onSelect={setVisibility}
+            />
+            <VisibilityOption
+              value="private"
+              label={ROOM_VISIBILITY_COPY.option_private_label}
+              helper={ROOM_VISIBILITY_COPY.option_private_helper}
+              selected={visibility === 'private'}
+              onSelect={setVisibility}
+            />
+          </View>
+        </View>
         {error ? <ErrorNotice message={error} /> : null}
         <Button
           label="Create Argument"
@@ -68,4 +144,58 @@ export function CreateDebateForm({ onSubmit, onCancel }: Props) {
 
 const styles = StyleSheet.create({
   form: { gap: 4 },
+  visibilityGroup: {
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  visibilityGroupLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#444',
+  },
+  visibilityRow: {
+    gap: 8,
+  },
+  visibilityOption: {
+    minHeight: 44,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fafafa',
+    gap: 4,
+  },
+  visibilityOptionSelected: {
+    borderColor: '#444',
+    borderWidth: 2,
+    backgroundColor: '#f4f4f4',
+  },
+  visibilityOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  visibilityCheck: {
+    fontSize: 16,
+    color: '#888',
+  },
+  visibilityCheckOn: {
+    color: '#222',
+  },
+  visibilityLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#444',
+  },
+  visibilityLabelSelected: {
+    fontWeight: '700',
+    color: '#222',
+  },
+  visibilityHelper: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 24,
+  },
 });

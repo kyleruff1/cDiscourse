@@ -2,7 +2,36 @@ export { DebateListScreen } from './DebateListScreen';
 export { DebateDetailHeader } from './DebateDetailHeader';
 export { useDebates } from './useDebates';
 export { useCurrentDebate } from './useCurrentDebate';
-export type { Debate, DebateStatus, ParticipantSide, CreateDebateInput } from './types';
+export type {
+  Debate,
+  DebateStatus,
+  ParticipantSide,
+  CreateDebateInput,
+  RoomVisibility,
+} from './types';
+
+// QOL-039 — room visibility model + transition.
+export {
+  canTransitionToPrivate,
+  buildTransitionConsequences,
+  countChimeInBranchesFromSeatMap,
+  summarizeRejectedChimeInBranches,
+  ALL_ROOM_VISIBILITIES,
+  ALL_TRANSITION_REASONS,
+  ALL_TRANSITION_EFFECTS,
+  ROOM_VISIBILITY_COPY,
+} from './roomVisibilityModel';
+export type {
+  TransitionReason,
+  TransitionEffect,
+  VisibilityTransitionContext,
+  TransitionEligibility,
+  TransitionConsequences,
+  RoomVisibilityChangeEvent,
+  RejectedChimeInBranchSummary,
+} from './roomVisibilityModel';
+export { transitionRoomToPrivate } from './debatesApi';
+export type { RoomVisibilityTransitionResult } from './debatesApi';
 
 // GAME-004 — 1v1 PvP room contract + Primary Opponent model.
 export { RoomContractSeatStrip, roomTypeGlyph } from './RoomContractSeatStrip';

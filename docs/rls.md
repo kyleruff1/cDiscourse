@@ -44,13 +44,13 @@ Declared `SECURITY DEFINER` with `SET search_path = public` to prevent privilege
 | `tag_definitions` | ALL | authenticated | mod/admin only |
 | `flag_definitions` | SELECT | authenticated | always |
 | `flag_definitions` | ALL | authenticated | mod/admin only |
-| `debates` | SELECT | authenticated | open/locked, own, participant, OR mod/admin |
+| `debates` | SELECT | authenticated | creator, mod/admin, participant, OR (visibility=public AND status IN open/locked) |
 | `debates` | INSERT | authenticated | `created_by = auth.uid()` |
-| `debates` | UPDATE | authenticated | creator OR mod/admin |
-| `debate_participants` | SELECT | authenticated | own membership, open debate, OR mod/admin |
+| `debates` | UPDATE | authenticated | creator OR mod/admin (one-way visibility trigger enforces public→private only) |
+| `debate_participants` | SELECT | authenticated | own membership, mod/admin, debate participant, OR public-open debate |
 | `debate_participants` | INSERT | authenticated | `user_id = auth.uid()` |
 | `debate_participants` | DELETE | authenticated | own OR mod/admin |
-| `arguments` | SELECT | authenticated | posted+open-debate, own, OR mod/admin |
+| `arguments` | SELECT | authenticated | own, mod/admin, OR (status=posted AND (public-open debate OR debate participant)) |
 | `arguments` | INSERT | authenticated | `author_id = auth.uid()` |
 | `arguments` | UPDATE | authenticated | own OR mod/admin |
 | `argument_tags` | SELECT | authenticated | mirrors argument visibility |
@@ -69,6 +69,9 @@ Declared `SECURITY DEFINER` with `SET search_path = public` to prevent privilege
 | `argument_room_links` | SELECT | authenticated | source room visible (open/locked, source-room participant, OR mod/admin) — active rows only |
 | `argument_room_links` | INSERT | authenticated | source-room participant, `created_by = auth.uid()` (+ `link_target_must_be_locked` trigger: target is a settled, readable room) |
 | `argument_room_links` | UPDATE | authenticated | link author OR mod/admin — soft-remove only (`link_columns_immutable` trigger: only `is_removed` may change) |
+| `room_visibility_changes` | SELECT | authenticated | mod/admin OR room creator OR triggering user (own audit row) |
+| `room_visibility_changes` | INSERT | service_role only — **no INSERT policy for authenticated**; `record-visibility-transition` writes the row |
+| `room_visibility_changes` | UPDATE / DELETE | — | **no policy** — audit log is append-only |
 
 ---
 
@@ -87,6 +90,36 @@ Declared `SECURITY DEFINER` with `SET search_path = public` to prevent privilege
 
 - Draft debates (`status = 'draft'`) are visible only to the creator and mods. This allows creators to prepare a debate before publishing.
 - Locked debates remain readable — they just don't accept new arguments. The application layer enforces the no-new-arguments rule; the RLS allows reading.
+
+### Room visibility (QOL-039)
+
+- `debates.visibility` (`'public'` | `'private'`) governs READ access + listing. v1
+  default is `'public'` so every pre-migration row keeps today's behavior.
+- The `public → private` transition is one-way: a `BEFORE UPDATE OF visibility`
+  trigger raises `room_visibility_is_one_way` on any reverse attempt. Mods and
+  admins are **not** exempted at the DB layer — re-exposing a private room is
+  forbidden universally.
+- The UI/model gate (`canTransitionToPrivate` in
+  `src/features/debates/roomVisibilityModel.ts`) is **creator-only** per the
+  operator decision OD-1; mods receive `not_room_creator` even though the
+  DB+RLS layer would permit them. The DB+RLS permission remains as
+  defense-in-depth. A future card (QOL-040.2, unfiled) would extend the
+  notification path to mods and widen the UI gate.
+- The transition runs through the **`record-visibility-transition` Edge
+  Function** (OD-3): caller JWT verified, creator-only enforced server-side,
+  service-role UPDATE + audit INSERT + QOL-040 `room_made_private` +
+  per-chime-in `chime_in_rejected` notification dispatch. Notification
+  failures never roll back the transition.
+- Two new `SECURITY DEFINER` helpers — `is_debate_private(uuid)` and
+  `is_debate_open_or_locked_public(uuid)` — keep the visibility checks
+  non-recursive (same pattern as `is_debate_open_or_locked` from migration
+  `20260516000006`).
+- `argument_tags` SELECT auto-inherits the visibility gate via its existing
+  `EXISTS arguments` delegation — no separate policy change (E1.6).
+- `room_visibility_changes` is the append-only audit table (OD-2). Counts and
+  chime-in **argument IDs** only — never individual dropped-observer user IDs.
+  Three SELECT policies (mod/admin, room creator, triggering user); INSERT is
+  service-role only via the Edge Function.
 
 ### `argument_room_links` — Cross-room reference (QOL-042)
 

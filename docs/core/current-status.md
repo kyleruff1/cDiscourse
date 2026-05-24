@@ -1,5 +1,102 @@
 # CDiscourse — Current Status
-<!-- Latest implementer card: QOL-040 (Invite & response notification lifecycle — Epic Interaction). One pure-TS model (notificationModel) + 1 migration + 1 new Edge Function (room-notifications) + submit-argument side-effect insert + 1 client API + 1 hook + 3 UI components (NotificationListScreen, NotificationRow, NotificationBadge) + App.tsx wiring (badge on Arguments tab, gallery toolbar "Notifications" trigger, in-tab sub-screen). Email scaffold for the `invite` trigger ONLY (E1, off by default behind INVITE_EMAIL_ENABLED; mirrors request-argument-deletion's Resend pattern verbatim; new InviteEmailStatus union matches QOL-038's existing contract). User preferences DEFERRED (E3/E7.2 — notificationsOptInStub stays unchanged; useNotifications always polls); eleventh trigger invite_expired_notice DEFERRED (E2.3/E7.3). No QOL-038 file modifications (E7.4). Full suite is 10163 tests / 400 suites (all passing, +187 from QOL-038 baseline). Typecheck + lint clean. -->
+<!-- Latest implementer card: QOL-039 (Public ↔ Private Room Visibility Transition Rules — Epic Interaction). 1 migration (debates.visibility + one-way trigger + 2 SECURITY DEFINER helpers + 4 RLS policy replacements + room_visibility_changes audit table) + 1 new Edge Function (record-visibility-transition) + 1 pure-TS model (roomVisibilityModel) + 1 new UI component (MakePrivateConfirmation) + threading through types/debatesApi/gameCopy/conversationGalleryModel/CreateDebateForm/DebateDetailHeader/config.toml. OD-1 creator-only UI gate; DB+RLS keep creator-or-mod as defense-in-depth. OD-2 audit table is counts + chime-in argument IDs (never individual dropped-observer user IDs). OD-3 Edge Function path (atomic UPDATE + audit INSERT + notification dispatch). No QOL-038 / QOL-040 file modifications (E4). Full suite is 10393 tests / 414 suites (all passing, +230 from QOL-040 baseline). Typecheck + lint clean. -->
+
+## QOL-039 — Public ↔ Private Room Visibility Transition Rules (Epic Interaction)
+
+**Status:** Build complete, awaiting Review — adds the room visibility
+field, the one-way `public → private` transition, the creator-only UI
+gate (OD-1), the counts-only audit table (OD-2), and the
+`record-visibility-transition` Edge Function (OD-3) that atomically
+flips visibility, writes the audit row, and dispatches the QOL-040
+notifications.
+
+**Doctrine highlights:**
+
+- Visibility is an access property of the room, NEVER a verdict. Making
+  a room private is a structural transition, never a punishment.
+- One-way: `public → private` only. The `BEFORE UPDATE OF visibility`
+  trigger rejects any reverse attempt — mods/admins are not exempted.
+- The transition mutates ONE column on ONE `debates` row and ZERO
+  `arguments` rows. "Retained (muted), never deleted" is met by
+  definition; only the read audience shrinks.
+- The audit table records COUNTS + chime-in ARGUMENT IDs only — never
+  individual dropped-observer user IDs (OD-2 privacy guard).
+- The Edge Function is creator-only at the server layer to match
+  QOL-040's `room_made_private` handler. The DB+RLS layer keeps the
+  creator-or-mod permission as defense-in-depth.
+- All copy is plain English, ban-list-clean (no winner/loser/true/false/
+  correct/liar/booted/kicked/rejected (person)/unwanted (person)/shame/
+  viral/trending). User-facing strings say "argument", not "debate"
+  (QOL-035).
+- Notification dispatch failures NEVER roll back the transition
+  (mirrors the `submit-argument` side-effect pattern).
+
+**Files added:**
+- `supabase/migrations/20260524000015_qol_039_room_visibility.sql`
+  (~280 lines): visibility column + one-way trigger + 2 SECURITY
+  DEFINER helpers + 4 RLS policy replacements + audit table + 3
+  SELECT policies + OPS-001 four-class compliance.
+- `supabase/functions/record-visibility-transition/index.ts`
+  (~350 lines): JWT-verified, creator-only, atomic UPDATE + audit
+  INSERT + cross-function `room_made_private` + per-chime-in
+  `chime_in_rejected` notification dispatch via `room-notifications`.
+- `src/features/debates/roomVisibilityModel.ts` (~250 lines): pure-TS
+  model with `canTransitionToPrivate`, `buildTransitionConsequences`,
+  `summarizeRejectedChimeInBranches`, `RoomVisibilityChangeEvent`.
+  Zero React / Supabase / network / AI imports.
+- `src/features/debates/MakePrivateConfirmation.tsx` (~190 lines):
+  neutral confirmation modal with the six effect bullets,
+  count-aware chime-in copy variant, 44px targets, accessibilityRole +
+  busy state.
+
+**Files modified:**
+- `src/features/debates/types.ts`: `visibility: RoomVisibility` on
+  `Debate`; `visibility?: RoomVisibility` on `CreateDebateInput`.
+- `src/features/debates/debatesApi.ts`: visibility threaded through
+  list/create; `transitionRoomToPrivate` wrapper calls the Edge
+  Function (NOT a direct UPDATE per OD-3).
+- `src/features/arguments/gameCopy.ts`: frozen `ROOM_VISIBILITY_COPY`
+  block + four plain-language reason codes. No verdict / shaming /
+  popularity tokens.
+- `src/features/debates/conversationGalleryModel.ts`: `visibility` on
+  `ConversationGalleryCard`; `classifyCardToSection` routes private
+  cards to `my_rooms` only.
+- `src/features/debates/CreateDebateForm.tsx`: 2-option visibility
+  segmented control (radiogroup, default 'public'); shape (check
+  mark) + label weight carry selection beyond color.
+- `src/features/debates/DebateDetailHeader.tsx`: creator-only
+  make-private action + private-room badge + neutral inline error
+  display.
+- `src/features/debates/index.ts`: barrel re-exports for the new
+  model symbols + `transitionRoomToPrivate`.
+- `supabase/config.toml`: registers
+  `[functions.record-visibility-transition] verify_jwt = true`.
+- `docs/rls.md`: policy table rows updated for `debates`,
+  `debate_participants`, `arguments`; new "Room visibility" section;
+  `room_visibility_changes` policy row added.
+
+**Test count:** 10163 → 10393 (+230 new tests). Suites: 400 → 414
+(+14). Typecheck + lint clean.
+
+**Operator follow-up to ship live:**
+1. `npx supabase db push --linked` — apply migration
+   `20260524000015_qol_039_room_visibility.sql`. Adds the visibility
+   column (backfilled to 'public' for every existing row), the
+   one-way trigger, the two SECURITY DEFINER helpers, the four RLS
+   policy replacements, and the audit table.
+2. `npx supabase db lint` — confirm the new policies + trigger +
+   audit table lint clean.
+3. `npx supabase functions deploy record-visibility-transition --linked` —
+   deploy the new Edge Function. QOL-040's `room-notifications` is
+   unchanged; the cross-function call uses its existing contract.
+
+No env var changes (the function reuses the service-role key
+already in Supabase secrets). No dependency installs. No
+modifications to any QOL-038 or QOL-040 file (per the design's E4
+authority boundary).
+
+See `docs/designs/QOL-039.md` (original + §E1-§E4 operator decisions
+enrichment) and `docs/designs/QOL-039-verification.md`.
 
 ## QOL-040 — Invite & response notification lifecycle (Epic Interaction)
 

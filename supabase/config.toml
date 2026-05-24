@@ -417,6 +417,16 @@ verify_jwt = false
 [functions.room-notifications]
 verify_jwt = true
 
+# QOL-039 — record-visibility-transition. Every call requires a valid
+# JWT; the function performs the visibility UPDATE, inserts the audit
+# row in `public.room_visibility_changes`, and dispatches the QOL-040
+# `room_made_private` + per-chime-in `chime_in_rejected` notifications
+# via cross-function calls to `room-notifications`. Caller authorization
+# is creator-only (OD-1); the DB+RLS layer keeps the existing creator-or-
+# mod permission as defense-in-depth.
+[functions.record-visibility-transition]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

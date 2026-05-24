@@ -67,6 +67,7 @@ function debate(partial: Partial<Debate> & { id: string }): Debate {
     createdAt: partial.createdAt ?? isoAt(BASE_MS),
     updatedAt: partial.updatedAt ?? isoAt(BASE_MS),
     myParticipantSide: partial.myParticipantSide ?? null,
+    visibility: partial.visibility ?? 'public',
   };
 }
 
@@ -115,6 +116,7 @@ function card(partial: Partial<ConversationGalleryCard> = {}): ConversationGalle
     hasNoRebuttal: false,
     hasUserJoined: false,
     openStatus: 'open',
+    visibility: 'public',
     bucket: 'all_open',
     heatLevel: 'cold',
     temperament: 'curious',

@@ -40,6 +40,7 @@ function debate(partial: Partial<Debate> & { id: string }): Debate {
     createdAt: partial.createdAt ?? isoAt(base),
     updatedAt: partial.updatedAt ?? isoAt(base),
     myParticipantSide: partial.myParticipantSide ?? null,
+    visibility: partial.visibility ?? 'public',
   };
 }
 
@@ -400,6 +401,7 @@ describe('sortConversationGalleryCards', () => {
       createdAt: '', updatedAt: '',
       moveCount: 0, rebuttalCount: 0, participantCount: 0,
       hasNoRebuttal: false, hasUserJoined: false, openStatus: 'open',
+      visibility: 'public',
       bucket: 'all_open', heatLevel: 'cold', temperament: 'plain',
       issueFrame: 'unknown', dominantAxis: 'none',
       sourceChainRisk: 'unknown', evidentiaryRisk: 'unknown', amplificationRisk: 'none_observed',

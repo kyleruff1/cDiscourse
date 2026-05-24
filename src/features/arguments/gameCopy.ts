@@ -479,6 +479,16 @@ export const PLAIN_LANGUAGE_COPY = {
   semantic_override_recorded_answers: 'You marked this as a direct reply.',
   semantic_override_original_suggestion: 'Referee had suggested another lane.',
   semantic_override_change: 'Change',
+  // QOL-039 — Room visibility reason codes (plain-language, never raw).
+  // The action is HIDDEN when ineligible (no silent no-op), but a rare
+  // surface — e.g. an admin tool — may need to label the reason; this
+  // routes the internal code through toPlainLanguage just like every
+  // other internal code in the system.
+  eligible: 'You can make this argument private.',
+  already_private: 'This argument is already private.',
+  not_room_creator:
+    'Only the person who started this argument can change its visibility.',
+  room_archived: 'This argument is closed — its visibility is fixed.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;
@@ -1169,6 +1179,105 @@ export const ARGUMENT_MODE_COPY = Object.freeze({
   helper_the_rules_heading: 'The rules',
   helper_picker_hint: 'The room creator picks the mode for this argument.',
 } as const);
+
+/**
+ * QOL-039 — Room visibility transition copy.
+ *
+ * A "make private" transition is a STRUCTURAL access change, never a
+ * verdict, never a penalty, never shaming. Every string is plain English
+ * (no snake_case leak), neutral, and ban-list-clean: zero
+ * winner / loser / true / false / correct / liar / dishonest / bad faith /
+ * booted / kicked / removed / rejected / unwanted (person) / shame tokens.
+ *
+ * The `effect_*` keys map 1:1 to the `TransitionEffect` codes in
+ * `roomVisibilityModel.ts`. The two `effect_chime_in_branches_retained_*`
+ * variants pick which copy renders based on `retainedChimeInBranchCount`:
+ *   - `_zero` for 0 (omits the count-specific nuance but is still shown)
+ *   - `_one`  for 1 (singular wording)
+ *   - `_many` for N > 1 (with a `{count}` placeholder)
+ *
+ * The `reason_*` keys map 1:1 to the `TransitionReason` codes — these are
+ * what `toPlainLanguage` returns for the surface that needs a neutral
+ * "why can't I do this?" line (in v1, only the create-time path needs
+ * them; the action is HIDDEN, not errored, when ineligible).
+ *
+ * Read by:
+ *   - `CreateDebateForm.tsx` (visibility segmented control + helpers)
+ *   - `roomVisibilityModel.test.ts` (ban-list scan)
+ *   - the room shell that hosts the `make private` action + confirmation
+ *
+ * Authored nowhere else — `roomVisibilityModel.ts` re-exports this block
+ * but never inlines a label.
+ */
+export const ROOM_VISIBILITY_COPY = Object.freeze({
+  // Visibility option labels (the segmented control + the chip).
+  option_public_label: 'Public',
+  option_public_helper: 'Anyone can find and read this argument.',
+  option_private_label: 'Private',
+  option_private_helper: 'Only people you invite can find and read this argument.',
+  group_label: 'Who can see this argument',
+
+  // Action labels.
+  action_make_private_label: 'Make this argument private',
+  action_make_private_hint: 'Only the people already in this argument will be able to read it.',
+
+  // Confirmation modal scaffolding.
+  confirmation_title: 'Make this argument private?',
+  confirmation_intro: 'Here is what will change:',
+  confirmation_primary: 'Make private',
+  confirmation_cancel: 'Cancel',
+  confirmation_post_action_toast: 'This argument is now private.',
+
+  // Effect bullets (one per TransitionEffect code).
+  effect_leaves_public_list:
+    'This argument leaves the public list — it will not show up for people browsing.',
+  effect_non_participants_lose_read:
+    'People who are not already in this argument will no longer be able to read it.',
+  effect_participants_keep_access:
+    'Everyone currently in this argument keeps full access.',
+  effect_content_unchanged:
+    'Nothing is deleted or hidden — every message stays exactly as it is.',
+  effect_chime_in_branches_retained_zero:
+    'Any side branches stay in the record, visible to the people in this argument.',
+  effect_chime_in_branches_retained_one:
+    'The 1 side branch stays in the record, visible to the people in this argument.',
+  effect_chime_in_branches_retained_many:
+    'The {count} side branches stay in the record, visible to the people in this argument.',
+  effect_one_way:
+    'This cannot be undone — a private argument stays private.',
+
+  // Private-room read-time chrome.
+  badge_private: 'Private',
+  badge_private_a11y:
+    'This argument is private — only invited people can read it.',
+
+  // Reason codes — neutral plain-language for the rare surface that
+  // needs to explain "why isn't the action available?". The default UI
+  // simply omits the action (no silent no-op surface needed).
+  reason_eligible: 'You can make this argument private.',
+  reason_already_private: 'This argument is already private.',
+  reason_not_room_creator:
+    'Only the person who started this argument can change its visibility.',
+  reason_room_archived: 'This argument is closed — its visibility is fixed.',
+
+  // Neutral error copy (RLS denial / network failure mid-transition).
+  error_not_allowed: "You cannot change this argument's visibility.",
+  error_network: 'Could not save the change. Try again in a moment.',
+  error_already_private:
+    'This argument was already made private. The list will refresh.',
+
+  // Deep-link no-access state — a non-participant opening a private-room
+  // deep link. Plain, never accusatory.
+  no_access_title: 'This argument is not available to you',
+  no_access_body: 'It is private — only invited people can read it.',
+} as const);
+
+/** Plain-language labels for the visibility taxonomy. Toggled-radio chip. */
+export const ROOM_VISIBILITY_LABEL: Readonly<Record<'public' | 'private', string>> =
+  Object.freeze({
+    public: ROOM_VISIBILITY_COPY.option_public_label,
+    private: ROOM_VISIBILITY_COPY.option_private_label,
+  });
 
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
