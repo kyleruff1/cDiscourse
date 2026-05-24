@@ -1,4 +1,16 @@
 -- ============================================================
+-- 2026-05-24 RECOVERY: removed one COMMENT ON POLICY ... ON
+-- storage.objects statement that required supabase_storage_admin
+-- ownership (the standard migration role lacks). The policy itself
+-- works correctly via the standard migration apply; only the
+-- explanatory COMMENT statement failed at apply time with
+-- SQLSTATE 42501 insufficient_privilege. Per OPS-001 Class 4 lesson:
+-- COMMENT ON {POLICY,...} ON storage.* requires ownership that
+-- migrations do not have. See docs/core/known-blockers.md
+-- "PR-003 Storage Schema Comment Ownership" for the full lesson.
+-- ============================================================
+--
+-- ============================================================
 -- Migration: 20260525000016_pr_003_profile_avatars
 -- Description: PR-003 — profile avatar bucket + storage RLS +
 --   profiles avatar columns + profiles UPDATE policy narrowing.
@@ -200,11 +212,17 @@ FOR SELECT
 TO public
 USING (storage.objects.bucket_id = 'profile-avatars');
 
-COMMENT ON POLICY "profile-avatars: anyone can read" ON storage.objects IS
-  'PR-003: public-read for the profile-avatars bucket. Avatars are low-sensitivity '
-  'profile cosmetics the user chose to upload as their profile picture. Signed-URL '
-  'support is a v2 follow-up; the moderation_status column gates per-user via the '
-  'upload-avatar Edge Function read_url_for_user action.';
+-- NOTE: A COMMENT ON POLICY ... ON storage.objects statement was REMOVED
+-- here on 2026-05-24 as part of the PR-003 deploy recovery. The
+-- standard Supabase migration role does NOT own storage.objects
+-- (owned by supabase_storage_admin), so COMMENT ON POLICY ... ON
+-- storage.* fails with SQLSTATE 42501 insufficient_privilege at apply
+-- time. The policy body itself + this inline SQL comment serve as the
+-- policy's documentation. See docs/core/known-blockers.md "PR-003
+-- Storage Schema Comment Ownership" lesson for the full pattern. The
+-- OPS-001 four-class textual review does NOT catch this — the SQL
+-- syntax is valid; the privilege error only surfaces against a live
+-- Supabase instance.
 
 -- INSERT / UPDATE / DELETE policies for the authenticated role are
 -- INTENTIONALLY OMITTED. With RLS enabled on storage.objects and no

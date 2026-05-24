@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-24 (Stage 6.4 / OPS-003)_
+_Last updated: 2026-05-24 (Stage 6.4 / PR-003 deploy recovery)_
 
 ---
 
@@ -273,6 +273,64 @@ the process, not the product. Future OPS cards continue to follow
 the same shape (single design doc, verbatim lesson block,
 minimal-footprint implementer diff, verification table in the
 reviewer doc that confirms the lesson is recorded).
+
+### ✅ PR-003 Storage Schema Comment Ownership (2026-05-24)
+
+**Problem:** PR-003's migration
+`20260525000016_pr_003_profile_avatars.sql` failed at apply time on
+statement 12 (`COMMENT ON POLICY "profile-avatars: anyone can read" ON
+storage.objects`) with `SQLSTATE 42501 must be owner of relation
+objects`. The migration's transaction rolled back cleanly; remote
+database was in pre-PR-003 state with PR-003's code already merged on
+main (PR #280, SHA `cf59816`). The chain conditional gate caught the
+failure correctly and deferred PR-004 to a fresh session.
+
+**Root cause:** The Supabase `storage` schema's `objects` table is
+owned by `supabase_storage_admin`, not by the standard migration
+runner role. `CREATE POLICY ... ON storage.objects` works because
+policy creation is granted to non-owners via Supabase's storage RLS
+setup; `COMMENT ON POLICY ... ON storage.objects` requires
+ownership that the migration role lacks. The OPS-001 four-class
+textual review does NOT catch this — the SQL syntax is valid; the
+privilege error only surfaces against a live Supabase instance.
+
+**Resolution:** Removed the single offending `COMMENT ON POLICY ...
+ON storage.objects` statement from migration 16 (the migration had
+not applied to remote, so editing in place was doctrine-compliant —
+distinct from the QOL-041.1 fix-forward precedent which applies only
+to migrations that DID partially apply). The policy itself remained
+intact; only its explanatory COMMENT documentation was removed.
+Added an inline SQL `-- NOTE: ... REMOVED` comment block at the
+removal site + a recovery header comment block at the migration top
+documenting the decision and pointing back to this lesson. Re-pushed
+migration successfully; deployed `upload-avatar` Edge Function;
+smoke verification 16/16 passing. Recovery committed directly to
+main per operator authorization (single-shot recovery; no PR-003.1
+filed because the recovery scope is operator-side and the migration
+had not previously shipped to remote).
+
+**Lesson for future migrations:** Any `COMMENT ON {POLICY,TABLE,
+COLUMN,...} ON storage.*` statement requires either:
+(a) running as `supabase_storage_admin` (not available in standard
+migrations),
+(b) omitting the COMMENT entirely — preferred, since the policy body
+itself + inline SQL `--` comments serve as the policy's
+documentation,
+(c) wrapping in a privilege-tolerant DO block:
+```sql
+DO $$ BEGIN
+  EXECUTE $sql$ COMMENT ON POLICY "name" ON storage.objects IS '...' $sql$;
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+```
+Future migrations affecting the storage schema should be tested via
+`npx supabase db reset --linked=false` (when Docker is available) OR
+via the Supabase MCP `apply_migration` dry-run on a branch DB before
+main-deploy to catch privilege issues that the OPS-001 textual
+review cannot see. This pattern is a Class 4 gap (function/extension
+dependencies) in the OPS-001 four-class checklist that the textual
+review does not flag because the SQL is syntactically valid; only
+the live apply surfaces the privilege boundary.
 
 ---
 
