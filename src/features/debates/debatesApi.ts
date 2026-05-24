@@ -1,5 +1,12 @@
 import { supabase, SUPABASE_CONFIGURED } from '../../lib/supabase';
-import type { Debate, CreateDebateInput, ParticipantSide, JoinResult, DebateApiResult } from './types';
+import type {
+  Debate,
+  CreateDebateInput,
+  ParticipantSide,
+  JoinResult,
+  DebateApiResult,
+  RoomVisibility,
+} from './types';
 
 // ── Row types ─────────────────────────────────────────────────
 
@@ -13,6 +20,8 @@ interface DebateRow {
   constitution_id: string;
   created_at: string;
   updated_at: string;
+  /** QOL-039 — column added by migration `20260524000015`. */
+  visibility: string;
 }
 
 interface ParticipantRow {
@@ -21,6 +30,15 @@ interface ParticipantRow {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+
+/**
+ * Coerce the DB column to the typed union, defaulting to `'public'` so a
+ * pre-migration row (extremely unlikely; the migration backfills) or a
+ * future-unknown value never undefined-poisons downstream consumers.
+ */
+function coerceVisibility(value: unknown): RoomVisibility {
+  return value === 'private' ? 'private' : 'public';
+}
 
 function mapDebateRow(row: DebateRow, myParticipantSide: ParticipantSide | null): Debate {
   return {
@@ -34,6 +52,7 @@ function mapDebateRow(row: DebateRow, myParticipantSide: ParticipantSide | null)
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     myParticipantSide,
+    visibility: coerceVisibility(row.visibility),
   };
 }
 
@@ -50,7 +69,7 @@ export async function listDebates(userId: string): Promise<DebateApiResult<Debat
   const [debatesRes, partRes] = await Promise.all([
     supabase
       .from('debates')
-      .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at')
+      .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility')
       .order('created_at', { ascending: false }),
     supabase
       .from('debate_participants')
@@ -65,6 +84,9 @@ export async function listDebates(userId: string): Promise<DebateApiResult<Debat
     sideMap.set(p.debate_id, p.side as ParticipantSide);
   }
 
+  // QOL-039 — RLS at `debates: select public-open, own, or participant`
+  // already withholds private rooms the caller cannot see. No belt-and-
+  // suspenders WHERE clause here; the RLS boundary is authoritative.
   const debates = ((debatesRes.data ?? []) as DebateRow[]).map((row) =>
     mapDebateRow(row, sideMap.get(row.id) ?? null),
   );
@@ -88,6 +110,10 @@ export async function createDebate(
     return { ok: false, error: 'No active constitution found. Ask an admin to publish one.' };
   }
 
+  // QOL-039 — visibility defaults to 'public' (today's behavior). Private-
+  // from-creation rooms set this explicitly on the input.
+  const visibility: RoomVisibility = input.visibility === 'private' ? 'private' : 'public';
+
   const { data: debate, error: debateError } = await supabase
     .from('debates')
     .insert({
@@ -97,8 +123,9 @@ export async function createDebate(
       description: input.description.trim(),
       status: 'open',
       constitution_id: (constitutionRow as { id: string }).id,
+      visibility,
     })
-    .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at')
+    .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility')
     .single();
 
   if (debateError || !debate) {
@@ -139,4 +166,72 @@ export async function joinDebate(
   }
 
   return { ok: true, data: { side, alreadyJoined: false } };
+}
+
+// ── QOL-039 — Room visibility transition ──────────────────────
+
+/**
+ * Result shape returned by the `record-visibility-transition` Edge Function
+ * per E1.3 of the design. The Edge Function does the UPDATE, the audit row
+ * INSERT, and the QOL-040 cross-function notification dispatches; the
+ * client receives the per-channel statuses for any UI hook that needs them.
+ */
+export interface RoomVisibilityTransitionResult {
+  transitionId: string;
+  retainedParticipantCount: number;
+  droppedParticipantCount: number;
+  rejectedChimeInCount: number;
+  notificationsDispatched: {
+    roomMadePrivate: 'sent' | 'queued' | 'not_configured' | 'skipped';
+    chimeInRejected: ReadonlyArray<{
+      argumentId: string;
+      status: 'sent' | 'queued' | 'not_configured' | 'skipped';
+    }>;
+  };
+  /**
+   * True when the visibility UPDATE landed but the audit-row INSERT
+   * failed. The transition is still complete; the operator reconciles via
+   * the Edge Function's structured log.
+   */
+  auditWritten: boolean;
+}
+
+/**
+ * Client wrapper for the visibility transition. Per OD-3, this calls the
+ * `record-visibility-transition` Edge Function rather than issuing a
+ * direct `UPDATE`. The Edge Function:
+ *
+ *   1. Verifies the caller is the room creator (OD-1 enforcement).
+ *   2. Re-derives current visibility — refuses on already-private (409).
+ *   3. Performs the visibility UPDATE.
+ *   4. Inserts the audit row with the counts + chime-in argument IDs (OD-2).
+ *   5. Dispatches the QOL-040 `room_made_private` notification.
+ *   6. Dispatches the QOL-040 `chime_in_rejected` notifications per chime-in.
+ *
+ * Notification dispatch failures never roll back the transition (mirrors
+ * the `submit-argument` notification side-effect pattern).
+ */
+export async function transitionRoomToPrivate(
+  debateId: string,
+): Promise<DebateApiResult<RoomVisibilityTransitionResult>> {
+  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+
+  const { data, error } = await supabase.functions.invoke<RoomVisibilityTransitionResult>(
+    'record-visibility-transition',
+    {
+      body: {
+        debateId,
+        triggerKind: 'manual_creator_action',
+      },
+    },
+  );
+
+  if (error || !data) {
+    return {
+      ok: false,
+      error: error?.message ?? 'Could not save the change. Try again in a moment.',
+    };
+  }
+
+  return { ok: true, data };
 }

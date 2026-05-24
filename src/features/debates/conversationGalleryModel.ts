@@ -268,6 +268,13 @@ export interface ConversationGalleryCard {
   hasNoRebuttal: boolean;
   hasUserJoined: boolean;
   openStatus: 'open' | 'draft' | 'locked' | 'archived';
+  /**
+   * QOL-039 — Room visibility. Drives the §6.4 gallery routing rule: a
+   * `'private'` card the user is in routes into the `'my_rooms'` lane and
+   * is excluded from every public-discovery lane. Defaults to `'public'`
+   * for any pre-migration card the loader projects.
+   */
+  visibility: 'public' | 'private';
 
   bucket: ConversationBucket;
   heatLevel: ConversationHeatLevel;
@@ -957,6 +964,10 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
       hasNoRebuttal,
       hasUserJoined: joinedSet.has(debate.id) || debate.myParticipantSide != null,
       openStatus: debate.status,
+      // QOL-039 — coerce to the typed union; pre-migration rows default
+      // to 'public' (today's behavior). The §6.4 routing rule in
+      // `classifyCardToSection` reads this column.
+      visibility: debate.visibility === 'private' ? 'private' : 'public',
 
       bucket,
       heatLevel: heat.level,
@@ -1486,6 +1497,17 @@ export interface GallerySectionGroup {
 export function classifyCardToSection(card: ConversationGalleryCard): ConversationGallerySection {
   // 1. Joined-room override — user's own rooms always come first.
   if (card.hasUserJoined) return 'my_rooms';
+
+  // QOL-039 §6.4 — A private room the caller can read (RLS returned it)
+  // is by definition a participant's own room. It must NEVER appear in
+  // the public-discovery lanes — only in "My rooms". This is belt-and-
+  // suspenders: RLS already withholds private rooms from non-participants,
+  // and the `hasUserJoined` check above already covers the most common
+  // case; this rule covers the seam (a participant's `hasUserJoined` is
+  // sometimes derived from a participant join that has not yet propagated
+  // into `joinedDebateIds`). Defaulting private cards to 'my_rooms' is
+  // safe — by RLS, only participants and mods can see them.
+  if (card.visibility === 'private') return 'my_rooms';
 
   // 2. No-rebuttal short-circuit — lowest-friction first move.
   if (card.hasNoRebuttal) return 'needs_rebuttal';
