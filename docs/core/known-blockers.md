@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-17 (Stage 6.1.2.4b)_
+_Last updated: 2026-05-23 (Stage 6.4 / OPS-001)_
 
 ---
 
@@ -29,6 +29,47 @@ Migration 0007 applied; `admin-users` Edge Function deployed (ACTIVE v1); dev hu
 
 ### ✅ Bot Fixture Runner Live End-to-End (Stage 6.1.2.4b)
 First live fixture run posted **7/7** moves for `sports-play-in` via normal auth + `submit-argument` (room `62305b8b-c11e-41a6-81b8-4c95daf73d2c`). Runner error classification, persona→side mapping, and parent-skipping repaired; fixture transitions and bodies aligned with the constitution and topic-satisfaction thresholds. No service-role key, no Anthropic. See `docs/testing-runs/2026-05-17-sports-play-in.md` and `docs/bot-fixture-runner.md`.
+
+### ✅ QOL-041 Migration Deploy Chain — Reviewer Template Strengthened (OPS-001)
+
+**Incident.** The QOL-041 work (#210, PR #255 at `a41dd3c`) shipped with a
+SQL bug: 5 unqualified `debate_id` references in 3 INSERT-policy
+`WITH CHECK` subqueries triggered `SQLSTATE 42702 ambiguous column
+reference` on every `npx supabase db push` attempt. The reviewer of PR #255
+approved the migration by structural read of the SQL ("well-formed per
+design §5") without running the migration against a real Postgres. The
+QOL-041.1 fix-forward attempt (#256, PR #257 at `df0a61d`) added a
+subsequent migration to recreate the broken policies with qualified
+references, but Postgres applies migrations in strict filename order — the
+broken original always failed first, its transaction rolled back, and the
+fix-forward migration never executed. The QOL-041.1 reviewer also approved
+by read because Docker was unavailable on Windows.
+
+**Recovery (QOL-041.2, #258, PR #259 at `6fcfdbf`).** The fix landed under
+a doctrine-scoped exception to CLAUDE.md §8 ("Never edit an applied
+migration"). The exception was permitted because the migration had never
+been *applied* to any database — `npx supabase migration list --linked` at
+2026-05-23T22:54Z confirmed the Remote column for `20260522000012` was
+empty. The recovery edited the original migration in place to qualify the
+5 ambiguous references and deleted the redundant fix-forward file. The
+exception is one-time, narrowly scoped, factually justified, and documented
+inline as a recovery-comment banner at lines 1–29 of the post-recovery
+migration file. Future migration-bearing cards continue to follow the
+standard never-edit-applied doctrine.
+
+**Template update (OPS-001, #260).** The reviewer template at
+`.claude/agents/roadmap-reviewer.md` now contains a mandatory subsection
+titled "Migration-bearing card verification (mandatory)" that triggers on
+any diff under `supabase/migrations/`. When Docker is available, reviewers
+must run `npx supabase db reset --linked=false` and block on apply failure.
+When Docker is not available, reviewers must document the limitation and
+perform a heightened textual review against four named issue classes —
+ambiguous column references in subqueries (QOL-041 motivating example),
+column type mismatches, implicit ordering dependencies, and function /
+trigger / extension dependencies. The full policy text and the four-class
+table live in the reviewer template; the cross-references in this file,
+in `CLAUDE.md` § "Supabase Conventions", and in `docs/core/agent-charters.md`
+all point back to that canonical location.
 
 ---
 
