@@ -427,6 +427,17 @@ verify_jwt = true
 [functions.record-visibility-transition]
 verify_jwt = true
 
+# PR-003 — upload-avatar. Three actions: upload (decode + resize + EXIF
+# strip + store + update profile via service-role), remove (delete both
+# storage objects + null profile columns), read_url_for_user (resolve
+# another user's avatar public URLs honouring the moderation_status
+# gate). Every action requires a signed-in caller; the service-role
+# client is used only for storage writes and the profiles UPDATE (the
+# narrowed UPDATE policy from migration 16 refuses client-JWT writes to
+# the four avatar columns).
+[functions.upload-avatar]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
