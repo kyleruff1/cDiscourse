@@ -252,8 +252,8 @@ USING (
 );
 
 -- 4.4 — argument_tags SELECT — NO POLICY CHANGE per E1.6.
--- The live `argument_tags` SELECT policy delegates through `EXISTS arguments`
--- (see `20260516000002_rls_policies.sql` lines 244-260). It therefore
+-- argument_tags SELECT delegates through EXISTS arguments (see
+-- `20260516000002_rls_policies.sql` lines 244-260). It therefore
 -- AUTO-INHERITS the visibility gate from the updated `arguments` SELECT
 -- policy above. If a future maintainer refactors `argument_tags` SELECT to
 -- a direct debates-join, they MUST preserve the visibility gate manually.
