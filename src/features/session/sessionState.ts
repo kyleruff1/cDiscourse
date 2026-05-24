@@ -3,6 +3,7 @@ import type {
   AppSessionSnapshot,
   DebateViewport,
   ComposerDraftSession,
+  PendingInviteIntentSlice,
   PendingSubmission,
 } from './types';
 
@@ -21,6 +22,7 @@ export const INITIAL_SESSION_STATE: SessionState = {
     activeDraft: null,
     pendingSubmission: null,
     lastSyncAt: null,
+    pendingInviteIntent: null,
   },
 };
 
@@ -37,7 +39,10 @@ export type SessionAction =
   | { type: 'SUBMISSION_SUCCEEDED'; clientSubmissionId: string }
   | { type: 'SUBMISSION_FAILED'; clientSubmissionId: string; error: string }
   | { type: 'SNAPSHOT_RESTORED'; snapshot: AppSessionSnapshot }
-  | { type: 'ERROR_CLEARED' };
+  | { type: 'ERROR_CLEARED' }
+  // ── QOL-038 — pending invite intent ──────────────────────────
+  | { type: 'SET_PENDING_INVITE_INTENT'; intent: PendingInviteIntentSlice }
+  | { type: 'CLEAR_PENDING_INVITE_INTENT' };
 
 export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
@@ -52,6 +57,12 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           viewport: null,
           activeDraft: null,
           pendingSubmission: null,
+          // QOL-038 — the headline preservation: a pending invite intent
+          // must survive the SIGNED_OUT → SIGNED_IN transition so the
+          // accept-on-first-signed-in trigger can fire after a fresh
+          // sign-up. The intent is consumed (CLEAR_PENDING_INVITE_INTENT)
+          // by the App.tsx accept handler once it succeeds.
+          pendingInviteIntent: state.snapshot.pendingInviteIntent,
         },
       };
 
@@ -66,7 +77,24 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
           activeDraft: null,
           pendingSubmission: null,
           lastSyncAt: null,
+          // QOL-038 — keep the intent across an explicit SIGNED_OUT too
+          // (the §6.5 "Sign in as someone else" path). The 24h freshness
+          // window in pendingInviteIntent.ts is the upper bound; an old
+          // intent is dropped on read.
+          pendingInviteIntent: state.snapshot.pendingInviteIntent,
         },
+      };
+
+    case 'SET_PENDING_INVITE_INTENT':
+      return {
+        ...state,
+        snapshot: { ...state.snapshot, pendingInviteIntent: action.intent },
+      };
+
+    case 'CLEAR_PENDING_INVITE_INTENT':
+      return {
+        ...state,
+        snapshot: { ...state.snapshot, pendingInviteIntent: null },
       };
 
     case 'DEBATE_SELECTED':

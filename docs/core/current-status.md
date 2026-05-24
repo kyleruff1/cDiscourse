@@ -1,5 +1,164 @@
 # CDiscourse — Current Status
-<!-- Latest implementer card: QOL-041 (Concession list + acceptance gradient + fist-bump — fills QOL-030's deferred internals for the respond / respond_to_concession box types, plus the no-score acknowledgment reaction). Six pure-TS models + three UI components + 1 migration + 1 new Edge Function (react-to-move) + submit-argument extension. Full suite is 9757 tests / 372 suites (all passing, +215 from QOL-035 baseline). Typecheck + lint + ux:terminology:audit all clean. -->
+<!-- Latest implementer card: QOL-038 (Invite → signup/auth → argument-room return path — Epic Interaction). Three pure-TS models (inviteModel, inviteDeepLink, pendingInviteIntent) + 1 migration + 1 new Edge Function (manage-room-invite, 5 actions) + 1 client API + 1 hook + 2 UI components (InvitePanel rewrite + InviteRedeemGate including §17 archived-room state) + App.tsx wiring (deep-link capture, redeem-gate orchestration, accept-on-first-signed-in trigger). Full suite is 9976 tests / 383 suites (all passing, +219 from QOL-041 baseline). Typecheck + lint + ux:terminology:audit all clean. -->
+
+## QOL-038 — Invite → signup/auth → argument-room return path (Epic Interaction)
+
+**Status:** Build complete, awaiting Review — closes Scenario 1's
+"single largest gap": a person invited to a live conflict cannot
+actually be brought into the right room. QOL-038 ships the invite data
+model (`argument_room_invites` migration + RLS), the write path
+(`manage-room-invite` Edge Function with five actions: create / revoke /
+list_for_debate / lookup_by_token / accept), the auth deep link
+(`/invite/<token>` route surviving signup and email-confirmation
+round-trip via a persisted `pendingInviteIntent` session slice), and
+seamless return entry (enrolling the invitee as a primary participant
+BEFORE the room renders so Stage 6.4 seamless entry shows them the
+primary view — no observer/side modal). The card includes the §17
+designer-pass enrichment for the soft-deleted-room edge case (a
+`409 room_archived` error path in both lookup_by_token and accept, plus
+a new `InviteRedeemGate` "Room archived" state).
+
+**Doctrine highlights:**
+
+- Raw invite token NEVER stored — only `token_hash` (sha-256 hex) goes
+  to the DB. The raw token appears only in the invite email link and in
+  the inviter's create-time response (the inviter's own capability, not
+  logged anywhere).
+- Email-binding check (§5.5 step 4) is the security spine: the
+  signed-in user's verified email MUST equal the invited address or
+  accept returns `403 invite_email_mismatch`. A forwarded link cannot
+  be redeemed by whoever receives the forward.
+- `verify_jwt = false` on the function is documented inline; every
+  mutating action re-checks the JWT explicitly inside the handler. The
+  only unauthenticated action (`lookup_by_token`) treats the token as
+  the auth and returns the absolute minimal projection (title +
+  display name, no email, no body).
+- The invitee enters as a primary participant (affirmative or negative —
+  opposite of the room creator's side, defaulting to negative). The
+  `debate_participants` insert is the only authoritative write of a
+  user's seat; the (debate_id, user_id) PK makes accept idempotent for
+  re-tap and for an already-member.
+- No service-role in the client. No raw token in audit rows or logs
+  (the audit payload carries `emailDomain` + `tokenIssued` bool only).
+- Stage 6.4 observer-default consistency: the invitee bypass is a
+  documented, narrowly-scoped exception — not a global default change.
+  The bypass is the `debate_participants` row insert that happens
+  BEFORE `selectDebate` runs.
+- Full doctrine ban-list scan over every exported invite string:
+  zero `winner` / `loser` / `challenger` / `opponent` / `debate
+  challenge` / `game invite` / verdict tokens. The post-QOL-035
+  terminology refresh (verification doc §5) is closed.
+
+**Files added:**
+- `supabase/migrations/20260524000013_qol_038_argument_room_invites.sql`
+  (~140 lines): the table + 4 RLS SELECT policies. NO INSERT / UPDATE /
+  DELETE policy for `authenticated` — every write goes through the
+  Edge Function's service-role client (mirrors annotate-evidence). All
+  column references inside subqueries are fully qualified per OPS-001
+  (no QOL-041-style ambiguous-column class). `pgcrypto` dependency for
+  `gen_random_uuid()` documented in the migration header.
+- `supabase/functions/manage-room-invite/index.ts` (~580 lines): the
+  five-action Edge Function. Includes the §17 archived branch in both
+  lookup_by_token AND accept. Defense-in-depth JWT re-check in every
+  mutating handler.
+- `supabase/functions/_shared/inviteSchemas.ts`,
+  `supabase/functions/_shared/inviteToken.ts`,
+  `supabase/functions/_shared/inviteTokenShape.ts`: Zod schemas +
+  Web-Crypto helpers. Token shape constants are shared via the small
+  dependency-free `inviteTokenShape.ts` so the Deno function does NOT
+  import from `src/`.
+- `src/features/invites/inviteModel.ts` (~190 lines): the RoomInvite
+  shape, the status machine, the live-status (TTL) compute, the
+  email-masking helpers.
+- `src/features/invites/inviteDeepLink.ts` (~160 lines): the parser
+  (NEVER throws — fail-open per design §6.2), the builder (throws on
+  bad token shape — programmer error), the token-shape predicate
+  (shared with the Edge Function's Zod schema for byte-identical
+  client/server agreement).
+- `src/features/invites/pendingInviteIntent.ts` (~190 lines): the
+  session slice shape, the 24h freshness window, and AsyncStorage
+  helpers under the well-known
+  `cdiscourse:pending-invite-intent` key so the intent survives the
+  anonymous → sign-up handshake where no user-keyed snapshot exists yet.
+- `src/features/invites/inviteApi.ts` (~165 lines): the five
+  `supabase.functions.invoke('manage-room-invite', …)` wrappers.
+- `src/features/invites/useRoomInvites.ts` (~120 lines): the
+  load + create + revoke hook for the inviter side.
+- `src/features/invites/InvitePanel.tsx` (~280 lines, REWRITTEN): the
+  inviter-side surface. Real create + revoke; "Copy invite link"
+  affordance conditional on (!emailEnabled && lastInviteLink); §7.1
+  not-allowed notice for observers; full a11y labels.
+- `src/features/invites/InviteRedeemGate.tsx` (~395 lines): the
+  invitee-side surface. Full §7.2 state machine + the §17
+  "Room archived" branch. Auto-fires accept on (signed-in + live
+  pending + email match — the email match is server-side). Universal
+  "Go to my arguments" escape hatch on every panel.
+- `src/features/invites/index.ts`: the barrel.
+- Tests: 219 new (`__tests__/inviteModel.test.ts` +29,
+  `inviteDeepLink.test.ts` +27, `pendingInviteIntent.test.ts` +21,
+  `sessionReducerInvite.test.ts` +11, `inviteSchemas.test.ts` +18,
+  `inviteToken.test.ts` +12, `manageRoomInviteSafety.test.ts` +15,
+  `manageRoomInviteEdgeCases.test.ts` +40, `inviteCopy.test.ts`
+  rewritten +22, `inviteCopyDoctrine.test.ts` +5,
+  `InvitePanel.test.tsx` +13, `InviteRedeemGate.test.tsx` +20).
+
+**Files modified:**
+- `src/features/invites/inviteCopy.ts`: complete rewrite per design §9
+  + the verification doc §5 terminology refresh.
+- `src/features/invites/inviteTypes.ts`: aligned to the migration's
+  final column set; placeholder shapes dropped.
+- `src/features/session/types.ts`,
+  `src/features/session/sessionState.ts`,
+  `src/features/session/sessionStorage.ts`,
+  `src/features/session/index.ts`: pendingInviteIntent slice +
+  SET_/CLEAR_ actions + the headline preservation property
+  (intent survives SIGNED_OUT → SIGNED_IN). The cascade-affected
+  `sessionBoot.test.ts`, `debates.test.ts`, `session.test.ts` updated
+  to carry the new field as null (no assertions weakened).
+- `supabase/config.toml`: registers
+  `[functions.manage-room-invite] verify_jwt = false` with rationale.
+- `App.tsx`: cold-start deep-link capture, InviteRedeemGate mounted
+  above MainAppShell while an intent is in flight, accept-on-first-
+  signed-in trigger via a one-shot prop. The toolbar chip
+  accessibility label is sourced from `INVITE_PANEL_COPY` (post-
+  QOL-035 framing — no more "challenger").
+- `docs/ux-storyboards/terminology-audit.md`: regenerated.
+
+**Operator follow-up:**
+- `npx supabase db push --linked` — applies the new migration.
+- `npx supabase functions deploy manage-room-invite --linked` — only
+  AFTER the migration applies. The function reads/writes
+  argument_room_invites.
+- No new env var required. Email delivery stays OFF until QOL-040
+  flips `INVITE_EMAIL_ENABLED=true` + `RESEND_API_KEY`. Until then the
+  inviter sees a "Copy invite link" affordance.
+- Native deep-link branch (`cdiscourse://invite/<token>`) requires
+  Expo Linking integration; the pure `parseInviteDeepLink` already
+  handles the native form, so the follow-up is just the impure read.
+
+**Operator pre-survey notes (Docker availability):**
+- Docker NOT available on this machine — the `npx supabase db reset
+  --linked=false` step from OPS-001 was skipped. The heightened
+  textual review is the gate: the migration's RLS subqueries were
+  hand-scanned for ambiguous-column patterns; every cross-table
+  reference uses an explicit table or alias prefix.
+
+**Doctrine self-check (re-read at final commit):**
+- §1 (truth labels): every visible invite string is ban-list clean. ✓
+- §4 (AI moderator): no AI in the invite flow. ✓
+- §6 (secrets): no SERVICE_ROLE / ANTHROPIC_API_KEY / RESEND_API_KEY
+  in src/. ✓
+- §8 (Supabase conventions): RLS enabled, no INSERT/UPDATE/DELETE
+  policy for authenticated, migration sequential + non-edited, never
+  hard-deletes an invite row from application code. ✓
+- §10 (v1 scope guards): no voting, no real-time, no OAuth, no public
+  API, no push notifications, no argument search. ✓
+
+**1805 → 9976 tests / 70 → 383 suites passing** (+219 from QOL-041
+baseline of 9757 / 372). Typecheck + lint + ux:terminology:audit
+all clean.
+
+---
 
 ## QOL-041 — Concession list + acceptance gradient + fist-bump reaction (Epic 12 — Rules UX)
 

@@ -53,6 +53,9 @@ function makeSnapshot(overrides?: Partial<AppSessionSnapshot>): AppSessionSnapsh
     activeDraft: null,
     pendingSubmission: null,
     lastSyncAt: null,
+    // QOL-038 — snapshot now carries a pendingInviteIntent slice (null
+    // by default). Existing session tests don't exercise invites.
+    pendingInviteIntent: null,
     ...overrides,
   };
 }

@@ -27,6 +27,18 @@ import { useAccountProfile } from './src/features/account/useAccountProfile';
 import { fetchCurrentAuthUser } from './src/features/account/accountApi';
 import { AdminScreen } from './src/features/admin';
 import { InvitePanel } from './src/features/invites/InvitePanel';
+// QOL-038 — invite surfaces. The InviteRedeemGate runs above MainAppShell
+// when a deep-linked invite is in flight. The toolbar accessibility
+// label comes from INVITE_PANEL_COPY (post-QOL-035 framing).
+import { INVITE_PANEL_COPY } from './src/features/invites/inviteCopy';
+import { InviteRedeemGate } from './src/features/invites/InviteRedeemGate';
+import {
+  parseInviteDeepLink,
+  buildPendingInviteIntent,
+  loadPendingInviteIntentFromStorage,
+  savePendingInviteIntentToStorage,
+  clearPendingInviteIntentFromStorage,
+} from './src/features/invites';
 import type { ArgumentRow } from './src/features/arguments';
 import type { ArgumentViewMode } from './src/features/arguments/ArgumentTreeScreen';
 import type { MoveDraftPatch } from './src/features/arguments/conversationMoves';
@@ -89,13 +101,136 @@ function AppRoot() {
     };
   }, [signedIn, userId]);
 
+  // ── QOL-038 — invite deep-link capture ─────────────────────
+  // On cold start, parse window.location for an `/invite/<token>`
+  // and capture it into the pendingInviteIntent slice + the
+  // dedicated device-local storage key. The intent flows through
+  // the SIGNED_OUT → SIGNED_IN reducer transition (the headline
+  // preservation property in sessionReducer.ts) so the
+  // accept-on-first-signed-in trigger can fire after a fresh
+  // sign-up. Native scheme (cdiscourse://invite/<token>) capture
+  // is left for a follow-up — Expo Linking integration is a
+  // dependency-level change beyond this card.
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const nowIso = new Date().toISOString();
+      // 1) Parse the cold-start URL. Web only here; native path is
+      //    follow-up. parseInviteDeepLink NEVER throws.
+      let token: string | null = null;
+      if (typeof window !== 'undefined' && window.location?.href) {
+        const parsed = parseInviteDeepLink(window.location.href);
+        if (parsed) token = parsed.token;
+      }
+      if (token) {
+        try {
+          const intent = buildPendingInviteIntent(token, nowIso);
+          await savePendingInviteIntentToStorage(intent);
+          if (!cancelled) dispatch({ type: 'SET_PENDING_INVITE_INTENT', intent });
+        } catch {
+          // Build can throw only on a bad token shape; the parser
+          // already gates that, so a throw here means a corrupt URL —
+          // ignore and let the app cold-start normally.
+        }
+        return;
+      }
+      // 2) No URL token — fall back to a persisted intent (e.g. from
+      //    a prior cold start the user has not yet completed). The
+      //    24h freshness drop is enforced inside the load helper.
+      const persisted = await loadPendingInviteIntentFromStorage(nowIso);
+      if (persisted && !cancelled) {
+        dispatch({ type: 'SET_PENDING_INVITE_INTENT', intent: persisted });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentional empty deps: this is a cold-start one-shot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The presence of a pendingInviteIntent (live) gates the
+  // InviteRedeemGate above every other screen. The gate orchestrates
+  // lookup_by_token → accept and calls back when done; this component
+  // owns the post-success selectDebate hand-off via the gallery on the
+  // first signed_in render.
+  const pendingInviteIntent = state.snapshot.pendingInviteIntent;
+  // When the gate succeeds it dispatches CLEAR + sets a one-shot
+  // post-accept debate id so the next MainAppShell render can fold the
+  // user into the room. The id lives in App-local React state because
+  // the room-open call (selectDebate) lives inside MainAppShell.
+  const [acceptedDebateId, setAcceptedDebateId] = React.useState<string | null>(null);
+
+  const handleAcceptedInvite = React.useCallback(
+    async (input: { debateId: string }) => {
+      await clearPendingInviteIntentFromStorage();
+      dispatch({ type: 'CLEAR_PENDING_INVITE_INTENT' });
+      setAcceptedDebateId(input.debateId);
+    },
+    [dispatch],
+  );
+
+  const handleInviteExit = React.useCallback(async () => {
+    await clearPendingInviteIntentFromStorage();
+    dispatch({ type: 'CLEAR_PENDING_INVITE_INTENT' });
+  }, [dispatch]);
+
+  const handleInviteSignOutAndRetry = React.useCallback(async () => {
+    // Sign out but keep the intent — the §6.5 "Sign in as someone
+    // else" path. The reducer preserves the intent across SIGNED_OUT
+    // (per the headline-preservation property).
+    if (signedIn) {
+      try {
+        const { supabase } = await import('./src/lib/supabase');
+        await supabase.auth.signOut();
+      } catch {
+        // ignore — signout failure leaves the user signed in, the
+        // accept will still fail with email_mismatch, and the gate
+        // will offer the retry again.
+      }
+    }
+    dispatch({ type: 'SIGNED_OUT' });
+  }, [dispatch, signedIn]);
+
+  const handleInvitePromptSignIn = React.useCallback(() => {
+    // The Auth screen renders next when status === 'signed_out'.
+    // Nothing extra to do from the gate — the gate is dismissed by
+    // virtue of the next render skipping it (it shows when status is
+    // signed_out but only via the InviteRedeemGate branch below).
+    dispatch({ type: 'SIGNED_OUT' });
+  }, [dispatch]);
+
   let content: React.ReactNode;
   if (state.status === 'unconfigured') {
     content = <LoadingNotice message="Starting…" />;
+  } else if (pendingInviteIntent) {
+    // QOL-038 — InviteRedeemGate runs ABOVE both the AuthScreen and
+    // MainAppShell when an invite is in flight. The gate decides
+    // (a) whether to prompt sign-in, (b) whether to auto-accept,
+    // (c) which §7.2 state to render. The escape hatch ("Go to my
+    // arguments") clears the intent and drops the user on the
+    // current AuthScreen / MainAppShell.
+    content = (
+      <InviteRedeemGate
+        token={pendingInviteIntent.token}
+        signedIn={signedIn}
+        viewerEmail={contactEmail}
+        onPromptSignIn={handleInvitePromptSignIn}
+        onAccepted={handleAcceptedInvite}
+        onExit={handleInviteExit}
+        onSignOutAndRetry={handleInviteSignOutAndRetry}
+      />
+    );
   } else if (state.status === 'signed_out') {
     content = <AuthScreen />;
   } else {
-    content = <MainAppShell preferences={prefs} />;
+    content = (
+      <MainAppShell
+        preferences={prefs}
+        acceptedInviteDebateId={acceptedDebateId}
+        onAcceptedInviteConsumed={() => setAcceptedDebateId(null)}
+      />
+    );
   }
 
   // BRAND-001 — Tapping the header logo deselects the active debate and
@@ -173,9 +308,21 @@ function AppRoot() {
 interface MainAppShellProps {
   /** PR-001 — device-local UI preferences, lifted from AppRoot. */
   preferences: UseUserPreferencesResult;
+  /**
+   * QOL-038 — debate id from a freshly-accepted invite. When non-null
+   * on first render, the shell selects the debate (with the side stored
+   * on the debate_participants row by the accept Edge Function) and
+   * calls onAcceptedInviteConsumed so the parent clears it.
+   */
+  acceptedInviteDebateId?: string | null;
+  onAcceptedInviteConsumed?: () => void;
 }
 
-function MainAppShell({ preferences }: MainAppShellProps) {
+function MainAppShell({
+  preferences,
+  acceptedInviteDebateId,
+  onAcceptedInviteConsumed,
+}: MainAppShellProps) {
   const { state, dispatch } = useAppSession();
   const { signOut, loading: signOutLoading } = useAuthSession();
   const [tab, setTab] = useState<ArgumentRoomTab>('arguments');
@@ -201,6 +348,42 @@ function MainAppShell({ preferences }: MainAppShellProps) {
   const { profile: currentProfile } = useAccountProfile(state.snapshot.userId);
 
   const hasDebate = Boolean(state.snapshot.selectedDebateId);
+
+  // QOL-038 — consume the accepted-invite hand-off. Wait until debates
+  // is loaded (so the participant row from the accept step is in scope)
+  // then select that debate with the side stored on the participant row.
+  // The debate's `myParticipantSide` is populated by listDebates from
+  // the freshly-inserted debate_participants row.
+  React.useEffect(() => {
+    if (!acceptedInviteDebateId) return;
+    if (debatesLoading) return;
+    const target = debates.find((d) => d.id === acceptedInviteDebateId);
+    if (target) {
+      // myParticipantSide is populated by listDebates from the
+      // debate_participants row the accept Edge Function just inserted.
+      // If the row hasn't synced yet, fall back to 'negative' — the
+      // doctrine-safe responder default the accept step uses when the
+      // room creator has no side row yet. The next refresh corrects it.
+      const side = target.myParticipantSide ?? 'negative';
+      selectDebate(target, side);
+      onAcceptedInviteConsumed?.();
+    } else {
+      // The participant row may not be in the debates list yet (the
+      // listDebates query runs once on mount; the accept step happened
+      // moments before). A single explicit refresh + retry-on-next-render
+      // handles the race.
+      void refresh();
+    }
+    // Intentional: this effect must re-run when debates updates so the
+    // first render after refresh() catches the target.
+  }, [
+    acceptedInviteDebateId,
+    debates,
+    debatesLoading,
+    refresh,
+    selectDebate,
+    onAcceptedInviteConsumed,
+  ]);
 
   const tabs = getVisibleTabs(currentProfile?.role ?? null, Boolean(__DEV__));
 
@@ -389,26 +572,38 @@ function MainAppShell({ preferences }: MainAppShellProps) {
                   </>
                 )}
                 <View style={styles.toolbarSep} />
-                {/* Invite */}
+                {/* Invite — QOL-038 + QOL-035 framing scrub. The
+                    accessibility label drops "challenger" in favour of
+                    the post-QOL-035 framing sourced from
+                    INVITE_PANEL_COPY.toolbarChipAccessibility. */}
                 <Pressable
                   style={styles.toolbarChip}
                   onPress={() => setInviteOpen((v) => !v)}
                   accessibilityRole="button"
-                  accessibilityLabel="Invite a challenger"
+                  accessibilityLabel={INVITE_PANEL_COPY.toolbarChipAccessibility}
                 >
                   <Text style={styles.toolbarChipText}>
-                    {inviteOpen ? 'Close invite' : 'Invite'}
+                    {inviteOpen ? 'Close invite' : INVITE_PANEL_COPY.toolbarChipLabel}
                   </Text>
                 </Pressable>
               </ScrollView>
             </View>
 
-            {/* Invite panel (inline, collapsible) */}
+            {/* Invite panel (inline, collapsible) — QOL-038 rewrite.
+                The panel uses useRoomInvites for the real Edge Function
+                create + revoke flow. `canInvite` is true when the
+                viewer is a primary participant (affirmative / negative)
+                or the room creator — pure observers see a notice. */}
             {inviteOpen && (
               <View style={styles.invitePanelWrapper}>
                 <InvitePanel
+                  debateId={currentDebate.id}
                   roomTitle={currentDebate.title}
-                  claim={currentDebate.resolution}
+                  canInvite={
+                    state.snapshot.userId === currentDebate.createdBy ||
+                    participantSide === 'affirmative' ||
+                    participantSide === 'negative'
+                  }
                   onClose={() => setInviteOpen(false)}
                 />
               </View>

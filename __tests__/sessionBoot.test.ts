@@ -51,6 +51,12 @@ function snap(overrides?: Partial<AppSessionSnapshot>): AppSessionSnapshot {
     activeDraft: null,
     pendingSubmission: null,
     lastSyncAt: null,
+    // QOL-038 — the AppSessionSnapshot now carries a pendingInviteIntent
+    // slice (null by default). The existing sessionBoot tests don't
+    // exercise the invite path; they merely need the field to be present
+    // so the TypeScript shape is satisfied. The dedicated invite-reducer
+    // tests live in sessionReducerInvite.test.ts.
+    pendingInviteIntent: null,
     ...overrides,
   };
 }
