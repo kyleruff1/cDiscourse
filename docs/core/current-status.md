@@ -1,8 +1,216 @@
 # CDiscourse — Current Status
+<!-- Latest implementer card: PR-003 (Avatar upload policy and storage — Profile epic opener). Adds the first storage-backed file-upload pipeline in the repo: new SQL migration `20260525000016_pr_003_profile_avatars.sql` creates the public-read `profile-avatars` bucket (2 MiB cap, JPG/PNG/WebP allowlist), adds four columns to `public.profiles` (`avatar_path`, `avatar_thumb_path`, `avatar_updated_at`, `avatar_moderation_status` with default 'allowed'), and narrows the profiles UPDATE policy via a same-table OLD subselect that freezes the four avatar columns against client-JWT writes. New Edge Function `supabase/functions/upload-avatar/index.ts` (~370 lines) dispatches three actions (upload / remove / read_url_for_user); the upload action decodes via `imagescript@1.2.17`, resizes to 256x256 + 64x64, re-encodes to WebP (EXIF stripped by construction — fresh encode emits no EXIF block), and writes both objects + the profile columns via service-role. The storage path is server-derived from `auth.uid()` so a caller cannot overwrite another user's avatar. JWT verify runs BEFORE the action switch so a new action variant cannot bypass auth. `read_url_for_user` honours the `avatar_moderation_status = 'removed'` gate by returning null URLs (the client falls back to the GeneratedAvatar placeholder silently — internal codes never surface). New client wrapper `src/features/account/avatarApi.ts` (~365 lines) holds pure helpers (`validateAvatarSelection`, `resolveAvatarPublicUrl` with optional `?v=<avatarUpdatedAt>` cache-bust, `buildAvatarUploadPayload`) and the three Edge Function callers. New presentational component `src/features/account/AvatarUploadSection.tsx` (~330 lines) mounts inside `AccountScreen`'s existing card above the User ID row (Q1 pattern); three visual states (no-avatar / present / uploading) with optimistic local-URI rendering and a translucent `ActivityIndicator` overlay; two-tap removal pattern (Confirm/Cancel — no Modal dep). Every Pressable carries `accessibilityRole="button"` + `accessibilityLabel` + `accessibilityState` + 44px `minHeight` + `hitSlop`; the image rendition exposes `accessibilityRole="image"` + label "Your profile photo"; error text uses `accessibilityLiveRegion="polite"`. No `<TextInput>` for any avatar field. `expo-image-picker` installed at `~17.0.11` via `npx expo install` (Expo SDK 54 compatible). `UserProfile` extended with the four avatar fields; `accountApi.fetchOwnProfile` projects them. `supabase/config.toml` registers `[functions.upload-avatar] verify_jwt = true`. **+250 new tests / +5 new suites**: `__tests__/avatarUploadValidation.test.ts` (28 tests — Q4 constants, Q2 MIME allowlist + size cap, parameter-suffix rejection, defensive non-string/non-number inputs), `__tests__/avatarApi.test.ts` (38 tests — Q3 buildAvatarUploadPayload with mocked fetch, resolveAvatarPublicUrl pure helper with cache-bust variants, Q5 readAvatarUrlsForUser moderation gating with allowed/removed/null/unknown coercion, Q6 error mapping, source-scan safety: no SERVICE_ROLE / AI provider / console.log), `__tests__/uploadAvatarEdgeFunction.test.ts` (53 tests — Q3 three-action dispatch with auth-before-switch ordering, server-derived storage path, single body parse, Q4 migration OPS-001 four-class header walk, storage bucket cap + MIME allowlist, no INSERT/UPDATE/DELETE policy on storage.objects for authenticated, doctrine ban-list), `__tests__/avatarUploadSection.test.tsx` (45 tests — Q1 testID conventions with `avatar-` prefix on all interactive elements, Q2 picker invocation shape including `mediaTypes: Images` / `allowsEditing: true` / `aspect: [1,1]` / `quality: 0.85` / `exif: false`, Q6 optimistic state machine + two-tap remove confirmation + cache-bust via avatarUpdatedAt, a11y role + label + state + hitSlop + minHeight 44 on every Pressable), `__tests__/avatarDoctrine.test.ts` (86 tests — verdict ban-list scan on AvatarUploadSection / avatarApi / AccountScreen, internal-code leak scan via messageForAvatarError for 14 error codes, Q5 moderation status invisible to user, plain-language spot checks naming JPG/PNG/WebP + 2 MB + 64 px). `__tests__/qol039Migration.test.ts` ordering test relaxed (append-only OK if QOL-039 itself untouched; collision detected via inequality). **10589 → 10839 tests / 422 → 427 suites passing.** Typecheck + lint clean. OPS-002/003 spawn-card regression 13/13. **Operator follow-up:** `npx supabase db push --linked` (apply migration 16) + `npx supabase functions deploy upload-avatar --linked` (deploy Edge Function). No new env var; the function uses only the existing `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`. No service-role in client (static source scan asserts this). No AI provider call. No META-001 / META-1A / META-1B / QOL-036* / QOL-038 / QOL-039 / QOL-040* / QOL-041 / COMP-001 / OPS-001/002/003 source modified outside the four files this card owns (AccountScreen.tsx, accountApi.ts, types.ts, config.toml — each an additive extension). See `docs/designs/PR-003.md`. -->
 <!-- Latest implementer card: META-1B (realtime multi-user manual-tag sync; first Supabase Realtime postgres-changes subscription in the production app). Builds on META-1A's persisted `point_tags` ledger: a new pure-TS reducer (`src/features/metadata/pointTagsRealtime.ts` — 285 lines) owns the merge / diff / echo-tracker / latest-change helpers; a new React hook (`src/features/metadata/usePointTagsRealtime.ts` — 290 lines) owns the channel lifecycle (topic `point_tags:debate:${debateId}`, INSERT + UPDATE bindings filtered by `debate_id=eq.<id>`, exponential backoff capped 30 s / max 6 attempts, teardown on unmount + debateId change, JWT-only auth via the shared `supabase` client — NO service-role). `useArgumentRoomMessages` (Option A integration per design §4) wires the hook in by default, merging realtime events directly into the existing `pointTagsByArgumentId` map; the META-1A read-path memo in `ArgumentGameSurface.tsx` picks up live changes transparently. New `fetchPointTagsForArguments(argumentIds)` co-located in `argumentsApi.ts` does the scoped reconcile on every `SUBSCRIBED` (initial + reconnect); fallback to the loader's full `refresh()` on RLS-denied / error. Echo suppression: `markLocalApply(rowId)` (id-keyed, one-shot, 60 s TTL) + `markLocalRemoveByPredicate({argumentId,tagCode,taggedByUserId})` (predicate-matched, one-shot) so own-writes never double-apply. New `ROOM_REALTIME_COPY` block in `gameCopy.ts` carries the screen-reader strings (`tagAppliedAnnouncement(label)` / `tagRemovedAnnouncement(label)` — move-anchored, no slot for tagger identity; status diagnostics). New `useEffect` in `ArgumentGameSurface.tsx` diffs `pointTagsByArgumentId` and fires `AccessibilityInfo.announceForAccessibility` with the META-001 plain-language label for the latest change (silent visual merge for sighted users; the tag simply appears via the existing read path). **No migration. No Edge Function change. No schema change.** QOL-039 visibility is RLS-natural (`pt_select_read_access`'s EXISTS on `public.arguments` inherits the room visibility check; private-room broadcasts reach only authorized subscribers). **+97 new tests / +4 new suites**: `__tests__/pointTagsRealtimeMerge.test.ts` (41 tests — reducer, mapper, diff, prune, ban-list scan, ROOM_REALTIME_COPY person-attribution check), `__tests__/usePointTagsRealtime.test.ts` (27 tests — first realtime-mock pattern in the repo: binding shape, subscribe-state transitions, teardown, 100x mount/unmount leak guard, INSERT + UPDATE handling, reconcile fan-out, logger payload safety), `__tests__/pointTagsRealtimeEcho.test.ts` (11 tests — own-write apply / remove suppression by id + predicate, two-participant concurrent apply, TTL expiry), `__tests__/pointTagsRealtimeReconcile.test.ts` (18 tests — `fetchPointTagsForArguments` query shape, `mergeReconcileResult` convergence, RLS-denied fallback, source security + doctrine scan: no SERVICE_ROLE, no AI provider import, no `console.log`, no direct `point_tags` write). **10589 tests / 422 suites passing** (10492 → 10589). Typecheck + lint clean. **Operator post-deploy verify (OQ-1):** Supabase dashboard → Database → Publications → confirm `point_tags` is in `supabase_realtime`; if absent, run `ALTER PUBLICATION supabase_realtime ADD TABLE public.point_tags;` once. No code change required either way. No META-001 / META-1A / QOL-* / COMP-* / OPS-* source modified outside the four files this card owns. See `docs/designs/META-1B.md`. -->
 <!-- Latest implementer card: OPS-003 (worktree cleanup procedure hardening — lock force, long paths, filesystem orphans, branch refs; pure operations card, no production code, no migration, no Edge Function, no script edit, no implementer-charter edit). Captures the four procedural gaps surfaced during the 2026-05-24 cleanup session — the first real-world execution of OPS-002's "Post-merge worktree cleanup (operator step)" procedure against the 96 orphan worktrees that pre-dated OPS-002. **EC-1 (lock force):** per-card step 2 now uses `git worktree remove -f -f` (double force) instead of `--force`; git distinguishes "locked" from "in-use" and agent-locked worktrees require double force. Single-force failed on 96/96 worktrees in the cleanup session. **EC-2 (Windows long paths):** new subsection adds the `\\?\` UNC long-path workaround for deep `node_modules/` trees exceeding MAX_PATH (260 chars); trigger string is the literal `Filename too long` substring in `git worktree remove` error output. **EC-3 (filesystem orphan sweep):** new top-level subsection adds a `Compare-Object`-based sweep between filesystem listing and git's worktree-list (found 8 orphans / ~1.45 GB in the cleanup session). **EC-4 (periodic branch-ref cleanup):** new top-level subsection adds a pattern-based bulk `git branch -D` pass (deleted 218 orphan refs in the cleanup session). Each handler is bracketed by an `<!-- OPS-003: EC-N handler -->` HTML comment marker as the stable contract surface for the regression test. The 2026-05-24 cleanup recovered 8.93 GB (48.56 GB → 57.49 GB free). **+5 new tests / +0 suites**: `__tests__/spawnCardBranchName.test.ts` extends with a third describe group "OPS-003 worktree cleanup procedure — charter contract (file scan)" containing 4 per-handler marker+signal-phrase tests plus 1 ordered-presence test; OPS-002's Groups 1 and 2 remain byte-identical. **10492 tests / 418 suites passing** (10487 → 10492). Typecheck + lint clean. Zero files touched outside the four named in design §6 (reviewer charter, known-blockers, test file, current-status). The `.claude/agents/roadmap-implementer.md`, `.claude/scripts/spawn-card.ps1`, `.claude/scripts/spawn-card.sh`, and `.claude/agents/roadmap-designer.md` files remain byte-identical (OPS-002's rename step preserved). No production source, no migration, no Edge Function, no secret. See `docs/designs/OPS-003.md`. -->
 <!-- Latest implementer card: OPS-002 (pipeline operational hygiene — spawn-card branch naming + worktree cleanup; pure operations card, no production code, no migration, no Edge Function, no script edit). Closes the four-session pattern from QOL-039 (#268), RECON-001 (#272), QOL-040.3 (#274), and QOL-036.1 (#273) where the implementer subagent's `isolation="worktree"` auto-branch (`worktree-agent-<hash>`) diverged from the `spawn-card.ps1` prompt's named feat branch (`feat/<code>-<slug>`), requiring the operator to push via a refspec workaround. Adopts **Option B** (charter rename, not script edit): `.claude/agents/roadmap-implementer.md` gains a new Phase-order step 1 ("Rename the worktree auto-branch to the named feat branch.") that runs `git branch -m feat/<code>-<slug>` before any baseline check; existing steps renumber to 2-8. `.claude/agents/roadmap-reviewer.md` gains a new section "Post-merge worktree cleanup (operator step)" between "What you must NOT do" and "Verdict rules" with verbatim cleanup commands (`git worktree remove --force <path>` + `git branch -D` for both branch-name forms), cross-platform PowerShell/Bash notes, and a bulk historical-orphan pass marked operator-judgement-gated. The review-doc template's "Operator next steps" block gets one new bullet pointing at the cleanup section. `docs/core/known-blockers.md` appends a verbatim OPS-002 lesson-capture entry under "RESOLVED — Previously Blocking" with the two-rule lesson (alignment + cleanup) and `_Last updated:_` bumps to `2026-05-24 (Stage 6.4 / OPS-002)`. **+8 new tests / +1 suite**: `__tests__/spawnCardBranchName.test.ts` mirrors the PS1 slug regex in TS (Group 1: 5 slug-parity tests across legacy dash / modern colon / long-truncated / empty / special-char inputs; pins the colon-double-prefix behaviour so a future PS1 strip-regex fix is a conscious test update) and asserts the charter rename-step contract (Group 2: 3 file-scan tests — heading present, command present, ordered before "Verify clean baseline"). **10487 tests / 418 suites passing** (10479 → 10487). Typecheck + lint clean. Zero files touched outside the five named in design §6 (charter pair, known-blockers, test file, current-status). The `spawn-card.ps1` and `spawn-card.sh` scripts remain byte-identical; `.claude/agents/roadmap-designer.md` remains byte-identical. No production source, no migration, no Edge Function, no secret. See `docs/designs/OPS-002.md`. -->
 <!-- Latest implementer card: QOL-040.3 (deep-link node pre-activation via Stage 6.4 entry-hint extension; pure routing refinement, no migration, no Edge Function). Adds an optional `entryHintForArgumentId?: string` field on `GalleryEntryHint`. `App.tsx`'s `handleOpenNotificationDeepLink` now calls a new pure helper `buildDeepLinkEntryHint(link)` and `setEntryHint(...)` BEFORE `selectDebate(target, side)`; the helper carries the notification's `activeArgumentId` into the room shell with `verbPhrase=''` (no micro-moment banner on the notification path) and `activate='latest'` (safe fallback when the id is no longer in the loaded slice). `ArgumentGameSurface.tsx`'s `initialActiveId` useMemo now delegates to a new pure-TS deriver `deriveInitialActiveMessageId(sorted, latestId, entryHint)` in `argumentGameSurfaceModel.ts` — the deriver honours the new field FIRST when set and the id is present in `sorted`, otherwise falls through to the existing `activate` policy (root / first_open_challenge / latest). Soft-deleted / wrong-room / RLS-hidden cases all fall through naturally via the loader's `status === 'posted'` + `debate_id` predicates and row-level RLS; no duplicate visibility check is required. Dev-only `console.warn` (no PII; opaque ids) surfaces the rare fallback case in the React consumer; the pure deriver is silent. **+27 new tests** across 2 new + 1 modified suite: `__tests__/notificationDeepLinkPreActivation.test.ts` (NEW, +18 tests covering hint present/absent/missing-id, empty slice, all GAL-002 fallback paths, source-file safety, doctrine ban-list), `__tests__/notificationDeepLinkRouting.test.ts` (NEW, +7 tests covering `buildDeepLinkEntryHint` with id / null / empty-string, source-file safety, doctrine ban-list), `__tests__/galleryEntryHintModel.test.ts` (MODIFIED, +2 tests asserting the field type-checks both with and without a value and that `deriveGalleryEntryHint` never sets it). **10479 tests / 417 suites passing** (10452 → 10479, +27 tests, +2 suites). Typecheck + lint clean. No schema, no Edge Function, no migration, no operator step. No QOL-036 / QOL-036.1 / QOL-038 / QOL-039 / QOL-040 source file modified (App.tsx is the only integration point — touched only inside the QOL-040 callback to thread the new field; the notifications module is untouched). See `docs/designs/QOL-040.3.md`. -->
+
+## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
+
+**Status:** Build complete (awaiting Review). Issue #25, branch
+`feat/PR-003-avatar-upload-policy-and-storage`.
+
+**Profile epic role:** PR-003 is the **opener** of the Profile epic
+(Epic 9). It establishes six patterns that PR-004 (#26 contact
+information update) consumes verbatim. The conditional gate for PR-004's
+launch depends on each of the six patterns below being explicit and
+file-anchored — without them, PR-004 cannot mirror the established
+shape.
+
+**Q1 — Profile screen extension pattern**
+- File: `src/features/account/AvatarUploadSection.tsx` (new, ~330
+  lines), mounted inside the existing card in `AccountScreen.tsx`
+  above the User ID row.
+- New presentational component file extracted (rather than inlined in
+  `AccountScreen`) so the upload flow can be unit-tested without
+  mounting the whole screen.
+- testID convention: every interactive element is prefixed
+  `avatar-` (e.g. `avatar-upload-section`, `avatar-current-image`,
+  `avatar-generated-placeholder`, `avatar-upload-button`,
+  `avatar-remove-button`, `avatar-remove-confirm-button`,
+  `avatar-remove-cancel-button`, `avatar-upload-spinner`,
+  `avatar-error-text`).
+- **PR-004 consumes:** add `src/features/account/ContactInfoSection.tsx`
+  with prefix `contact-` (e.g. `contact-info-section`,
+  `contact-email-value`, `contact-email-change-button`,
+  `contact-email-verify-pending`). Mount inside the same card
+  in `AccountScreen.tsx`. No new screen, no new route, no parallel
+  surface.
+
+**Q2 — Library choice**
+- Dep: `expo-image-picker@~17.0.11` (Expo SDK 54 compatible, installed
+  via `npx expo install expo-image-picker`).
+- Rationale: there is no RN primitive for accessing the photo library
+  or camera. `expo-image-picker` is the only library the
+  `expo-rn-patterns` skill names as acceptable for Expo-tracked
+  features. `expo-image-manipulator` and `expo-file-system` are
+  intentionally NOT added — server-side resize via `imagescript` in
+  the Edge Function avoids client-side image manipulation, and
+  `fetch(uri).then(r => r.blob())` works on both web and native
+  without `expo-file-system`.
+- **PR-004 consumes:** default to RN primitives. Email change goes
+  through `supabase.auth.updateUser({ email })` (no new dep needed).
+  If a verification-code input is added, document the rationale
+  in PR-004's §6-equivalent.
+
+**Q3 — Upload path**
+- File: `supabase/functions/upload-avatar/index.ts` (new, ~370 lines).
+- Three actions in a single dispatch shape: `upload` /
+  `remove` / `read_url_for_user` (mirrors `manage-room-invite`'s
+  multi-action shape).
+- JWT verify runs BEFORE the action switch so a new action variant
+  cannot bypass auth.
+- Service-role client is used ONLY for storage writes + the
+  narrowed-RLS profile UPDATE. Storage path is server-derived from
+  `auth.getUser().id` — never from the request body.
+- EXIF is stripped by construction: `imagescript@1.2.17` decodes
+  bytes to pixels, then resize + re-encode emits a fresh WebP with
+  no EXIF block.
+- `config.toml` registers `[functions.upload-avatar] verify_jwt = true`.
+- **PR-004 consumes:** email change uses `supabase.auth.updateUser`
+  directly (auth-managed, not a custom Edge Function). The SDK call
+  IS the privileged write; the wrapper file is
+  `src/features/account/contactApi.ts` mirroring
+  `src/features/account/avatarApi.ts`.
+
+**Q4 — Storage / data policy structure**
+- Migration: `supabase/migrations/20260525000016_pr_003_profile_avatars.sql`.
+- Policies created:
+  - `"profile-avatars: anyone can read"` on `storage.objects` (public
+    SELECT). INSERT / UPDATE / DELETE policies for the authenticated
+    role are INTENTIONALLY OMITTED — RLS default-denies, so absence is
+    denial. Service-role bypasses RLS.
+  - `"profiles: users update own — narrow"` on `public.profiles`
+    (replaces the prior unrestricted UPDATE; freezes the four avatar
+    columns against client-JWT writes via a same-table OLD subselect
+    pattern).
+- OPS-001 four-class header walks all four classes inline (Class 1
+  ambiguous refs / Class 2 type mismatches / Class 3 statement order /
+  Class 4 function-trigger-extension deps). pgcrypto note included
+  even though this migration does not use `gen_random_uuid()` (mirror
+  precedent from QOL-038 / QOL-040 / QOL-039).
+- **PR-004 consumes:** likely adds no new column to `profiles` (email
+  lives in `auth.users`). If a `contact_email_verified_at` cache
+  column is added, follow the four-class header pattern + the
+  narrowed UPDATE policy pattern.
+
+**Q5 — Moderation scaffolding**
+- Column: `public.profiles.avatar_moderation_status text NOT NULL
+  DEFAULT 'allowed' CHECK (avatar_moderation_status IN ('allowed',
+  'removed'))`.
+- Semantics: `'allowed'` (default — visible) / `'removed'` (hidden;
+  the `read_url_for_user` Edge Function action returns null URLs so
+  the client falls back to `GeneratedAvatar` silently). Internal
+  status code never surfaces as user copy.
+- v1 ships NO admin UI for flipping the status, NO notification on
+  moderation, NO AI loop, NO appeal flow — these are explicit
+  follow-up cards.
+- **PR-004 consumes:** email probably needs no moderation column (the
+  verification is the gate). If ever needed (e.g. spam-domain
+  flagging), apply the same dormant-column + `default 'allowed'`
+  pattern.
+
+**Q6 — Optimistic UI pattern**
+- File: `src/features/account/AvatarUploadSection.tsx` (state machine
+  lives in `handlePickAndUpload`, `handleStartRemove`,
+  `handleConfirmRemove`, `handleCancelRemove`).
+- Pattern: local-state-first — show the new value in the UI
+  immediately, run the API call in the background. Three upload
+  states (`idle` / `uploading` / `error`); three remove states (`idle`
+  / `confirming` / `removing`). On Edge Function success, swap to the
+  returned `publicUrl?v=<avatarUpdatedAt>` (cache-busted via the
+  timestamp). On error, revert to the prior `avatarPath` (or
+  placeholder) and surface a plain-copy inline error via
+  `accessibilityLiveRegion="polite"`. Destructive remove uses a
+  two-tap confirmation pattern (Confirm + Cancel) — NO `Modal` dep.
+- **PR-004 consumes:** email change shows the new email locally with
+  a "Verification pending" badge. On `supabase.auth.updateUser`
+  error, revert to the old email and show an inline plain-copy
+  error. On success, the badge persists until the user clicks the
+  verification link.
+
+**Doctrine highlights:**
+
+- Score / heat / popularity unaffected. Avatars are profile
+  cosmetics with zero effect on the game. Doctrine §1-§3 satisfied
+  by construction.
+- No AI call. The moderation column is deterministic scaffolding;
+  no model in the loop. Doctrine §4 + §7 satisfied.
+- The rules engine is untouched. Doctrine §5 satisfied.
+- No service-role in client (static source scan asserts
+  `__tests__/uploadAvatarEdgeFunction.test.ts` + the avatarApi
+  source-scan tests). Doctrine §6 satisfied.
+- All tables retain RLS. Migration is append-only (new file, no
+  edits to prior). Doctrine §8 satisfied.
+- All internal codes (`mime_not_allowed`, `too_large`, `empty`,
+  `image_too_small`, `storage_upload_failed`, `profile_update_failed`,
+  `removed`, `allowed`) NEVER appear in user-facing copy. The
+  `messageForAvatarError` mapper is the single conversion point;
+  the ban-list scan in `__tests__/avatarDoctrine.test.ts` enforces it.
+  Doctrine §9 satisfied.
+- v1 scope guards honoured: no voting, no real-time collaborative
+  editing, no OAuth, no public API, no push notifications, no
+  search. Doctrine §10 satisfied.
+
+**Files added:**
+
+- `supabase/migrations/20260525000016_pr_003_profile_avatars.sql`
+  (220 lines): bucket creation, profiles columns, narrowed UPDATE
+  policy, public-read storage policy.
+- `supabase/functions/upload-avatar/index.ts` (~370 lines): three-
+  action Edge Function (upload / remove / read_url_for_user).
+- `src/features/account/avatarApi.ts` (~365 lines): pure validation,
+  pure URL resolution with cache-bust, three Edge Function callers,
+  plain-language error mapping.
+- `src/features/account/AvatarUploadSection.tsx` (~330 lines):
+  presentational component (three visual states, optimistic UI,
+  two-tap remove).
+- `__tests__/avatarUploadValidation.test.ts` (28 tests)
+- `__tests__/avatarApi.test.ts` (38 tests)
+- `__tests__/uploadAvatarEdgeFunction.test.ts` (53 tests)
+- `__tests__/avatarUploadSection.test.tsx` (45 tests)
+- `__tests__/avatarDoctrine.test.ts` (86 tests)
+
+**Files modified (additive only):**
+
+- `src/features/account/AccountScreen.tsx` (+9 lines): mount
+  `<AvatarUploadSection />` above the User ID row inside the
+  existing card.
+- `src/features/account/accountApi.ts` (+14 lines): extend
+  `fetchOwnProfile` SELECT projection to include the four avatar
+  columns + map them onto the extended `UserProfile`.
+- `src/features/account/types.ts` (+13 lines): extend `UserProfile`
+  with `avatarPath`, `avatarThumbPath`, `avatarUpdatedAt`,
+  `avatarModerationStatus`.
+- `supabase/config.toml` (+11 lines): register
+  `[functions.upload-avatar] verify_jwt = true`.
+- `package.json` (+1 dep): `expo-image-picker@~17.0.11`.
+- `__tests__/qol039Migration.test.ts` (1 test relaxed): append-only
+  ordering test now allows legitimate strictly-later migrations
+  while still catching slot collisions.
+
+**Operator post-deploy steps:**
+
+1. `npx supabase db push --linked` — applies the new migration 16.
+2. `npx supabase functions deploy upload-avatar --linked` — deploys
+   the new Edge Function.
+3. No new env var required. The function uses only the existing
+   `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`
+   already present on the Edge Function platform.
+4. Smoke: sign in as a test user → Account screen → upload a small
+   JPEG → confirm the avatar renders → confirm
+   `storage.objects` has rows at `<user-id>/avatar-256.webp` and
+   `<user-id>/avatar-64.webp` → confirm `profiles.avatar_path` is
+   set.
+5. Negative smoke: try a 5 MB JPEG (expect "That photo is too
+   large"), try a `.gif` (expect "Use a JPG, PNG, or WebP photo"),
+   try "Remove" (confirm second-tap pattern, then verify storage
+   objects deleted + `profiles.avatar_path` null).
+
+**Test delta:** 10589 → 10839 tests (+250); 422 → 427 suites (+5).
+Typecheck + lint clean. OPS-002/003 spawn-card regression 13/13.
+
+---
 
 ## QOL-040.3 — Deep-link node pre-activation via Stage 6.4 entry-hint extension (Epic Interaction)
 
