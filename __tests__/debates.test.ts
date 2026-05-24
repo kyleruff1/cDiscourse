@@ -42,6 +42,9 @@ function snap(overrides?: Partial<AppSessionSnapshot>): AppSessionSnapshot {
     activeDraft: null,
     pendingSubmission: null,
     lastSyncAt: null,
+    // QOL-038 — snapshot now carries a pendingInviteIntent slice (null
+    // by default). Existing debates tests don't exercise invites.
+    pendingInviteIntent: null,
     ...overrides,
   };
 }

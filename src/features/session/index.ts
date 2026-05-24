@@ -4,6 +4,8 @@ export type {
   ComposerDraftSession,
   PendingSubmission,
   AppSessionSnapshot,
+  // QOL-038 — exported so feature code outside session/ can type the slice.
+  PendingInviteIntentSlice,
 } from './types';
 
 export { INITIAL_SESSION_STATE, sessionReducer } from './sessionState';
