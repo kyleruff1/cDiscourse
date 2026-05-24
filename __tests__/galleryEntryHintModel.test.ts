@@ -76,6 +76,7 @@ function baseCard(over: Partial<ConversationGalleryCard> = {}): ConversationGall
     hasNoRebuttal: false,
     hasUserJoined: false,
     openStatus: 'open',
+    visibility: 'public',
     bucket: 'all_open',
     heatLevel: 'cold',
     temperament: 'plain',

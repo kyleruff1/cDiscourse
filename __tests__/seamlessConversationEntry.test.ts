@@ -189,6 +189,7 @@ function makeCard(over: Partial<ConversationGalleryCard>): ConversationGalleryCa
     createdAt: '', updatedAt: '',
     moveCount: 1, rebuttalCount: 0, participantCount: 1,
     hasNoRebuttal: false, hasUserJoined: false, openStatus: 'open',
+    visibility: 'public',
     bucket: 'all_open', heatLevel: 'cold', temperament: 'plain',
     issueFrame: 'unknown', dominantAxis: 'none',
     sourceChainRisk: 'unknown', evidentiaryRisk: 'unknown', amplificationRisk: 'none_observed',

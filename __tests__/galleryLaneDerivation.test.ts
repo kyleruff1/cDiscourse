@@ -41,6 +41,7 @@ function makeCard(over: Partial<ConversationGalleryCard>): ConversationGalleryCa
     hasNoRebuttal: false,
     hasUserJoined: false,
     openStatus: 'open',
+    visibility: 'public',
     bucket: 'all_open',
     heatLevel: 'cold',
     temperament: 'plain',

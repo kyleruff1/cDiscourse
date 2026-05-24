@@ -27,6 +27,7 @@ const DEBATE: Debate = {
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
   myParticipantSide: 'affirmative',
+  visibility: 'public',
 };
 
 function makeDraft(overrides: Partial<ComposerDraft> = {}): ComposerDraft {
