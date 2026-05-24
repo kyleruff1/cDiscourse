@@ -17,6 +17,11 @@ import { useAuthSession } from './src/features/auth/useAuthSession';
 import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate, useRoomContract } from './src/features/debates';
 import { ConversationGalleryScreen } from './src/features/debates/ConversationGalleryScreen';
 import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
+// QOL-040.3 — pure helper that builds the entry hint from a notification
+// deep-link target. Lives in `src/features/debates/` because it produces
+// the GalleryEntryHint that the room shell consumes; the NotificationDeepLink
+// input is imported from the notifications module (read-only).
+import { buildDeepLinkEntryHint } from './src/features/debates/deepLinkEntryHint';
 import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
 import { ArgumentTreeScreen } from './src/features/arguments';
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
@@ -367,18 +372,22 @@ function MainAppShell({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const handleOpenNotificationDeepLink = React.useCallback(
     (link: NotificationDeepLink, _n: RoomNotification): void => {
-      // Close the list, then select the debate. Stage 6.4's
-      // open-room-at-node path drives the room landing; the
-      // `activeArgumentId` field is reserved for a follow-up
-      // (the existing entry-hint mechanism does not yet take an
-      // explicit id; this is a known v1 gap recorded as a
-      // §17 design follow-up).
+      // Close the list, then select the debate.
+      // QOL-040.3 — Forward the notification's argumentId as a hint so
+      // the room shell can pre-activate the specific move. The room
+      // consumer (ArgumentGameSurface) falls back to the latest move if
+      // the id is no longer in the loaded slice (soft-deleted, wrong
+      // room, or RLS-hidden), so this is always safe. When the
+      // notification has no specific move (`activeArgumentId` is null —
+      // e.g. an `invite` or revoked `chime_in_rejected`), the helper
+      // returns null and the room mounts with the latest move active as
+      // before.
       setNotificationsOpen(false);
       const target = debates.find((d) => d.id === link.debateId);
-      if (target) {
-        const side = target.myParticipantSide ?? 'observer';
-        selectDebate(target, side);
-      }
+      if (!target) return;
+      const side = target.myParticipantSide ?? 'observer';
+      setEntryHint(buildDeepLinkEntryHint(link));
+      selectDebate(target, side);
     },
     [debates, selectDebate],
   );

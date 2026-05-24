@@ -23,6 +23,7 @@ import { DeletionRequestSheet } from './DeletionRequestSheet';
 import {
   buildArgumentBubbleViewModels,
   buildArgumentTimelineMap,
+  deriveInitialActiveMessageId,
   getDisplayTitle,
   getLatestMessageId,
   getNextMessageId,
@@ -225,18 +226,35 @@ export function ArgumentGameSurface({
   // Stage 6.4: derive the initial active message from the entry hint, not
   // always the latest. needs_rebuttal cards open the root; source-chain
   // cards open the most-recent challenge/source-style move.
+  //
+  // QOL-040.3 — Honour `entryHint.entryHintForArgumentId` FIRST when set
+  // (notification deep-link path). The pure-TS deriver
+  // (`deriveInitialActiveMessageId`) returns that id when it is present
+  // in the loaded slice and falls through to the `activate` policy when
+  // it is absent (soft-deleted / wrong-room / RLS-hidden). The natural
+  // composition of debate-list RLS + argument-row RLS + soft-delete
+  // filter (`useArgumentRoomMessages` only loads `status === 'posted'`)
+  // makes `sorted.find(...)` returning undefined the single gate for
+  // every inaccessible case.
   const initialActiveId = useMemo<string | null>(() => {
-    if (!sorted.length) return null;
-    if (!entryHint) return latestId;
-    if (entryHint.activate === 'root') return sorted[0].id;
-    if (entryHint.activate === 'first_open_challenge') {
-      for (let i = sorted.length - 1; i >= 0; i--) {
-        const t = String(sorted[i].argumentType || '').toLowerCase();
-        if (t === 'rebuttal' || t === 'counter_rebuttal' || t === 'clarification_request') return sorted[i].id;
-      }
-      return latestId;
+    // QOL-040.3 — Dev-only diagnostic for the rare fallback case. No PII;
+    // only opaque ids. The pure deriver is silent; the warn lives here so
+    // the unit tests (which call the deriver directly) don't have to
+    // assert on a logging side effect.
+    if (
+      __DEV__ &&
+      sorted.length > 0 &&
+      entryHint?.entryHintForArgumentId &&
+      !sorted.find((m) => m.id === entryHint.entryHintForArgumentId)
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[QOL-040.3] Notification hint argument not in loaded slice; ' +
+        'falling back to latest move.',
+        { debateId: sorted[0]?.debateId, hintId: entryHint.entryHintForArgumentId },
+      );
     }
-    return latestId;
+    return deriveInitialActiveMessageId(sorted, latestId, entryHint);
   }, [sorted, latestId, entryHint]);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(initialActiveId);
   // IX-004 — companion state describing WHY the readout subject is what it

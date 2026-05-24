@@ -37,6 +37,11 @@ import {
 // stores mutations as opaque objects keyed by targetMoveId; the rendering
 // layer is the consumer that maps the enum value to a visual treatment.
 import type { NodeVisualMutation } from '../semanticReferee/compositionTypes';
+// QOL-040.3 — type-only import of GalleryEntryHint. Required by the
+// pure-TS deriver `deriveInitialActiveMessageId` so the React room
+// consumer can read the same selection rule that the unit tests do.
+// Type-only → erased at compile time → no runtime import cycle.
+import type { GalleryEntryHint } from '../debates/conversationGalleryModel';
 
 // ── Public types ───────────────────────────────────────────────
 
@@ -247,6 +252,70 @@ export function getNextMessageId(chronologicalIds: string[], currentId: string |
   if (idx < 0 || idx >= chronologicalIds.length - 1) return null;
   return chronologicalIds[idx + 1];
 }
+
+// ── QOL-040.3 — Deep-link node pre-activation deriver ────────
+
+/**
+ * QOL-040.3 — Pure-TS deriver for the room shell's `initialActiveId`.
+ *
+ * Mirrors the rule inside `ArgumentGameSurface.tsx`'s `initialActiveId`
+ * useMemo so the rule can be unit-tested without a React-tree render.
+ *
+ * Priority (first match wins):
+ *   1. `sorted.length === 0`                    → null
+ *   2. `entryHint == null`                      → latestId
+ *   3. `entryHint.entryHintForArgumentId`
+ *      present AND in `sorted`                  → that id
+ *      (QOL-040.3 — notification deep-link path)
+ *   4. `entryHint.entryHintForArgumentId`
+ *      present but absent from `sorted`         → fall through to step 5
+ *      (soft-deleted / wrong-room / RLS-hidden)
+ *   5. `entryHint.activate === 'root'`          → first message id
+ *   6. `entryHint.activate === 'first_open_challenge'`
+ *      → most recent message whose argumentType is rebuttal /
+ *        counter_rebuttal / clarification_request, else latestId
+ *   7. otherwise (`activate === 'latest'`)      → latestId
+ *
+ * Why the QOL-040.3 step honours the id only when it is in `sorted`:
+ *   - The room-message loader (`useArgumentRoomMessages`) filters
+ *     `status === 'posted'` at the SQL boundary. Soft-deleted rows
+ *     never appear in `sorted`.
+ *   - The same loader filters on `debate_id`. Wrong-room arguments
+ *     never appear in `sorted`.
+ *   - RLS at the row level hides arguments the caller cannot read.
+ *   - One `sorted.find(...)` covers all three cases naturally; no
+ *     duplicate visibility check is required.
+ *
+ * Pure: no Date, no Math.random, no I/O, no logging side effects. The
+ * dev-mode `console.warn` for the fallback case lives in the React
+ * consumer (`ArgumentGameSurface.tsx`); this helper is silent.
+ */
+export function deriveInitialActiveMessageId(
+  sorted: ArgumentMessageInput[],
+  latestId: string | null,
+  entryHint: GalleryEntryHint | null | undefined,
+): string | null {
+  if (!Array.isArray(sorted) || sorted.length === 0) return null;
+  if (!entryHint) return latestId;
+  if (entryHint.entryHintForArgumentId) {
+    const target = sorted.find((m) => m.id === entryHint.entryHintForArgumentId);
+    if (target) return target.id;
+    // Fall through to the existing `activate` policy.
+  }
+  if (entryHint.activate === 'root') return sorted[0].id;
+  if (entryHint.activate === 'first_open_challenge') {
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const t = String(sorted[i].argumentType || '').toLowerCase();
+      if (t === 'rebuttal' || t === 'counter_rebuttal' || t === 'clarification_request') {
+        return sorted[i].id;
+      }
+    }
+    return latestId;
+  }
+  return latestId;
+}
+
+// ── End QOL-040.3 region ─────────────────────────────────────
 
 export interface BubbleControlsContext {
   isCurrentUserAdmin?: boolean;

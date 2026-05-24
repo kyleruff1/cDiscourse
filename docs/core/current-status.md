@@ -1,5 +1,115 @@
 # CDiscourse — Current Status
-<!-- Latest implementer card: QOL-036.1 (composition-layer integration for payment-evidence pill state; pure-TS consumer model, no migration, no Edge Function). New file `src/features/evidence/paymentEvidencePillState.ts` exports `derivePaymentEvidencePillState`, `PaymentEvidencePillState`, `PaymentEvidencePillProvenance`, the frozen `MUTATION_TO_PILL_STATE` four-row table, and `PILL_STATE_CONFLICT_RULE`. The deriver merges COMP-001 mutations (`evidence_applicability_disputed`, `corroborating_document_attached`, `evidence_debt_opened`, `evidence_debt_resolved`) with layer-1 derivations (QOL-037 `deriveApplicabilityStatus` over `EvidenceResponseRecord[]`, EV-003 `EvidenceDebt[]` walk) per the §5 mapping: applicability + obligation are orthogonal axes; within-axis last-wins by `sourceMoveId.createdAt`; cross-layer last-wins with layer-1 ties (and a lifecycle-advancement guard so `accepted_by_both` is never regressed to `supplied`). Consumer surface uses `useSemanticReferee.getMutationsForMove(artifactArgumentId)` — no hook change. Caller pre-filters: `mutationsTargetingArtifactParent` (targets-the-parent) + `corroboratingMutations` (corroborator's ancestor chain reaches the parent). The deriver authors NO user-facing copy — `applicabilityChip` passes through `summarizeApplicabilityChip`; `debtChipStatus` is the EV-003 enum the renderer maps to its chip. JSDoc-only annotations added above the four COMP-001 rule branches in `compositionLayer.ts` pointing back to QOL-036.1 as the consumer (no logic change). Pill visibility = artifact visibility (existing RLS). No `pointStanding/` import — anti-amplification preserved. No new chip, no new enum value, no new `.tsx`. **+59 new tests** in `__tests__/paymentEvidencePillState.test.ts` (mapping coverage, conflict-rule constant, four happy paths, layer-1-only regression, layer-1+layer-2 corroboration, within-axis last-wins, cross-layer conflict, cross-axis orthogonality, observer-mode degradation, §8 edge cases 1–15, doctrine ban-list, purity scan, determinism, backward-compat). **10452 tests / 415 suites passing** (10393 → 10452, +59 tests, +1 suite). Typecheck + lint clean. No schema, no migration, no Edge Function, no `.env*` touched. No QOL-036 / QOL-037 / EV-003 / COMP-001 / QOL-038 / QOL-040 / QOL-039 source file modified beyond JSDoc-only annotations on `compositionLayer.ts`. See `docs/designs/QOL-036.1.md`. -->
+<!-- Latest implementer card: QOL-040.3 (deep-link node pre-activation via Stage 6.4 entry-hint extension; pure routing refinement, no migration, no Edge Function). Adds an optional `entryHintForArgumentId?: string` field on `GalleryEntryHint`. `App.tsx`'s `handleOpenNotificationDeepLink` now calls a new pure helper `buildDeepLinkEntryHint(link)` and `setEntryHint(...)` BEFORE `selectDebate(target, side)`; the helper carries the notification's `activeArgumentId` into the room shell with `verbPhrase=''` (no micro-moment banner on the notification path) and `activate='latest'` (safe fallback when the id is no longer in the loaded slice). `ArgumentGameSurface.tsx`'s `initialActiveId` useMemo now delegates to a new pure-TS deriver `deriveInitialActiveMessageId(sorted, latestId, entryHint)` in `argumentGameSurfaceModel.ts` — the deriver honours the new field FIRST when set and the id is present in `sorted`, otherwise falls through to the existing `activate` policy (root / first_open_challenge / latest). Soft-deleted / wrong-room / RLS-hidden cases all fall through naturally via the loader's `status === 'posted'` + `debate_id` predicates and row-level RLS; no duplicate visibility check is required. Dev-only `console.warn` (no PII; opaque ids) surfaces the rare fallback case in the React consumer; the pure deriver is silent. **+27 new tests** across 2 new + 1 modified suite: `__tests__/notificationDeepLinkPreActivation.test.ts` (NEW, +18 tests covering hint present/absent/missing-id, empty slice, all GAL-002 fallback paths, source-file safety, doctrine ban-list), `__tests__/notificationDeepLinkRouting.test.ts` (NEW, +7 tests covering `buildDeepLinkEntryHint` with id / null / empty-string, source-file safety, doctrine ban-list), `__tests__/galleryEntryHintModel.test.ts` (MODIFIED, +2 tests asserting the field type-checks both with and without a value and that `deriveGalleryEntryHint` never sets it). **10479 tests / 417 suites passing** (10452 → 10479, +27 tests, +2 suites). Typecheck + lint clean. No schema, no Edge Function, no migration, no operator step. No QOL-036 / QOL-036.1 / QOL-038 / QOL-039 / QOL-040 source file modified (App.tsx is the only integration point — touched only inside the QOL-040 callback to thread the new field; the notifications module is untouched). See `docs/designs/QOL-040.3.md`. -->
+
+## QOL-040.3 — Deep-link node pre-activation via Stage 6.4 entry-hint extension (Epic Interaction)
+
+**Status:** Build complete (awaiting Review). Issue #271, branch
+`feat/QOL-040.3-deep-link-node-pre-activation-via-stage-6.4`.
+
+**Doctrine highlights:**
+
+- Pure routing refinement. The hint mechanism does not produce a verdict
+  and does not consult heat, popularity, or engagement signals. Doctrine
+  §1–§3 satisfied by construction.
+- No AI moderator call. The new code paths in `App.tsx`,
+  `ArgumentGameSurface.tsx`, and the two new pure-TS helpers
+  (`buildDeepLinkEntryHint`, `deriveInitialActiveMessageId`) import no
+  AI client. Doctrine §4 + §7 satisfied.
+- The rules engine is untouched. Doctrine §5 satisfied.
+- No new secret, no new env var. Doctrine §6 satisfied.
+- No migration, no Edge Function, no RLS change. Soft-delete invariant
+  honoured (the loader's `status === 'posted'` filter is the gate; the
+  hint extension respects it). Doctrine §8 satisfied.
+- No new user-facing copy. The notification-path hint sets
+  `verbPhrase: ''`, which the room shell uses to suppress the
+  micro-moment banner. Doctrine §9 satisfied.
+- v1 scope guards: no voting, no realtime editing, no OAuth, no public
+  API, no push notifications, no search. The card refines routing
+  inside QOL-040's already-shipped notification list. Doctrine §10
+  satisfied.
+
+**Three-layer visibility composition (confirmed natural — no new check):**
+
+1. `room_notifications` SELECT RLS restricts to `recipient_id =
+   auth.uid()`. The user only sees notifications addressed to them.
+2. `useDebates()` loads only RLS-visible debates. `debates.find((d) =>
+   d.id === link.debateId)` returns `undefined` for any room the user
+   cannot see → `if (!target) return;` no-ops the callback.
+3. `useArgumentRoomMessages` pulls only `status === 'posted'` rows for
+   the debate. Soft-deleted / wrong-room / RLS-hidden arguments never
+   reach `sorted`. One `sorted.find(...)` returning `undefined` covers
+   every inaccessible case → fallback to `latestId`.
+
+**Files added:**
+
+- `src/features/debates/deepLinkEntryHint.ts` (~60 lines): pure-TS
+  helper `buildDeepLinkEntryHint(link)` that builds the optional
+  `GalleryEntryHint` from a `NotificationDeepLink`. Returns null when
+  the link has no `activeArgumentId` (so the App.tsx caller passes null
+  to `setEntryHint` and the room shell picks `latestId` as today). Zero
+  React / Supabase / network / AI imports.
+- `__tests__/notificationDeepLinkPreActivation.test.ts` (~250 lines,
+  18 tests): room-consumer behaviour — hint present + valid id, hint
+  absent, hint references missing id (soft-deleted / wrong-room /
+  RLS-hidden), empty slice, all existing GAL-002 fallback paths (root /
+  first_open_challenge / latest), source-file safety, doctrine
+  ban-list scan.
+- `__tests__/notificationDeepLinkRouting.test.ts` (~120 lines, 7 tests):
+  App.tsx hand-off — `buildDeepLinkEntryHint` with id / null /
+  empty-string, source-file safety, doctrine ban-list scan.
+
+**Files modified:**
+
+- `src/features/debates/conversationGalleryModel.ts`: appended optional
+  `entryHintForArgumentId?: string` to the `GalleryEntryHint` interface
+  with a JSDoc comment naming QOL-040.3 as the source. No change to
+  `deriveGalleryEntryHint` — the gallery deriver never sets this field.
+- `App.tsx`: extended `handleOpenNotificationDeepLink` to call
+  `buildDeepLinkEntryHint(link)` + `setEntryHint(...)` BEFORE
+  `selectDebate(target, side)`. The reserved-field comment block is
+  replaced by a §17-resolved comment naming QOL-040.3. Imports the new
+  helper. Notifications module untouched.
+- `src/features/arguments/argumentGameSurfaceModel.ts`: appended pure
+  deriver `deriveInitialActiveMessageId(sorted, latestId, entryHint)`
+  inside a bracketed `// ── QOL-040.3 — Deep-link node pre-activation
+  deriver` / `// ── End QOL-040.3 region` block. Type-only import of
+  `GalleryEntryHint` (erased at compile time → no runtime cycle).
+- `src/features/arguments/ArgumentGameSurface.tsx`: `initialActiveId`
+  useMemo now delegates to the pure deriver. The dev-only
+  `console.warn` for the rare fallback case (no PII; opaque ids only)
+  lives in the React consumer; the pure deriver remains silent.
+- `__tests__/galleryEntryHintModel.test.ts`: appended 2 tests covering
+  the new optional field's type acceptance and the gallery deriver's
+  no-set invariant.
+
+**No changes to:**
+- `src/features/notifications/*` (QOL-040 surface — frozen).
+- `src/features/invites/*` (QOL-038 surface — frozen).
+- `src/features/debates/roomVisibilityModel.ts` (QOL-039 — frozen).
+- `supabase/functions/room-notifications/*` (QOL-040 Edge Function —
+  frozen).
+- `supabase/functions/submit-argument/*` (frozen).
+- Any `.tsx` notification component, any other test, any migration, any
+  Edge Function, any RLS, any `.env*`, any storage.
+
+**Test delta:** 10452 → 10479 (+27 tests, +2 suites). Typecheck + lint
+clean. No regressions.
+
+**Operator follow-up:** none. Pure code change. No migration, no Edge
+Function deploy, no Supabase write, no env change.
+
+**Not in scope for this card** (see design §12):
+
+- Realtime notification delivery (still polls on focus).
+- Notification preferences (QOL-040.1, deferred).
+- Native deep-link path (Expo Linking integration is a follow-up).
+- Self-notification on the same-room case (the room does not re-focus
+  on the hinted move when the user is already inside it; documented
+  gap, deferred per design §8 case 8).
+- `selectionStatus` enrichment (the existing `'entry_hint'` value
+  covers the unmet-hint case adequately; no new union value).
+
+---
 
 ## QOL-036.1 — Composition-layer integration for payment-evidence pill state (Epic Evidence)
 
