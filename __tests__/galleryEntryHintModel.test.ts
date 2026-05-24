@@ -624,3 +624,64 @@ describe('GAL-002 hint shape totality', () => {
     }
   });
 });
+
+// ── 11. QOL-040.3 — entryHintForArgumentId additive field ────
+
+describe('QOL-040.3 entryHintForArgumentId additive field', () => {
+  it('the GalleryEntryHint interface accepts the optional field', () => {
+    // TypeScript compile-time check: a hint with the field set must
+    // satisfy the interface. The variable is consumed below to keep
+    // no-unused-vars happy without changing semantics.
+    const withField: GalleryEntryHint = {
+      activate: 'latest',
+      code: 'watch_first',
+      verbPhrase: '',
+      helperLine: '',
+      presetKey: null,
+      dockAction: null,
+      entryHintForArgumentId: 'a-7',
+    };
+    expect(withField.entryHintForArgumentId).toBe('a-7');
+    // The field is optional; a hint without it remains valid.
+    const withoutField: GalleryEntryHint = {
+      activate: 'latest',
+      code: 'watch_first',
+      verbPhrase: '',
+      helperLine: '',
+      presetKey: null,
+      dockAction: null,
+    };
+    expect(withoutField.entryHintForArgumentId).toBeUndefined();
+  });
+
+  it('deriveGalleryEntryHint never sets entryHintForArgumentId', () => {
+    // Every lifecycle / bucket / entryOpportunity combination must
+    // produce a hint with `entryHintForArgumentId === undefined`. The
+    // gallery deriver is not a producer of this field; only the
+    // notification deep-link path (`buildDeepLinkEntryHint`) sets it.
+    const lifecycleProbes: Array<PointLifecycleState | null | undefined> = [
+      ...ALL_POINT_LIFECYCLE_STATES, null, undefined,
+    ];
+    const openStatuses: ConversationGalleryCard['openStatus'][] = ['open', 'draft', 'locked', 'archived'];
+    const entryOpps: Array<EntryOpportunity | null | undefined> = ['easy_first_move', 'mid_thread_join', 'deep_existing_clash', null, undefined];
+    for (const lc of lifecycleProbes) {
+      for (const bucket of ALL_BUCKETS) {
+        for (const status of openStatuses) {
+          for (const eo of entryOpps) {
+            for (const hnr of [true, false]) {
+              const hint = deriveGalleryEntryHint(baseCard({
+                rootClusterLifecycleState: lc,
+                bucket,
+                openStatus: status,
+                entryOpportunity: eo,
+                hasNoRebuttal: hnr,
+                moveCount: hnr ? 1 : 5,
+              }));
+              expect(hint.entryHintForArgumentId).toBeUndefined();
+            }
+          }
+        }
+      }
+    }
+  });
+});
