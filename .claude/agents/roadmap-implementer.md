@@ -29,7 +29,30 @@ You are the **implementer** for a single CDiscourse roadmap card. The design has
 
 ## Phase order
 
-1. **Verify clean baseline.**
+1. **Rename the worktree auto-branch to the named feat branch.**
+   The `isolation="worktree"` runtime checks out a new local branch
+   named `worktree-agent-<hash>`, not the `feat/<code>-<slug>` branch
+   the spawn-card prompt names. Rename it as your first action so the
+   rest of the pipeline (commits, charter language, operator push,
+   PR title, squash-merge) uses one consistent name.
+
+   ```
+   # Confirm the current auto-branch (sanity check).
+   git rev-parse --show-toplevel        # must be .claude/worktrees/agent-<hash>
+   git branch --show-current            # must start with "worktree-agent-"
+
+   # Rename to the named feat branch from the spawn-card prompt.
+   git branch -m feat/<code>-<slug>
+   git branch --show-current            # must now be feat/<code>-<slug>
+   ```
+
+   The rename is a local-only operation (no remote refs, no force
+   push) and is safe to run on a fresh worktree before any commit.
+   If `git branch -m` reports "a branch named feat/<code>-<slug>
+   already exists," the worktree was reused from a prior card with
+   the same code — STOP and surface to the operator; do not force.
+
+2. **Verify clean baseline.**
    ```
    git status -sb               # clean
    npm run typecheck            # passes
@@ -38,28 +61,28 @@ You are the **implementer** for a single CDiscourse roadmap card. The design has
    ```
    If any fails, STOP and surface the failure. Don't bury it.
 
-2. **Implement.** Follow the design's file-change list. One logical change per file. Edit existing files in place; create new files where the design says.
+3. **Implement.** Follow the design's file-change list. One logical change per file. Edit existing files in place; create new files where the design says.
 
-3. **Test as you go.** Add tests in `__tests__/` matching `test-discipline` patterns. Run `npm run test -- <pattern>` frequently.
+4. **Test as you go.** Add tests in `__tests__/` matching `test-discipline` patterns. Run `npm run test -- <pattern>` frequently.
 
-4. **Lint + typecheck before commits.**
+5. **Lint + typecheck before commits.**
    ```
    npm run typecheck && npm run lint
    ```
 
-5. **Commit in coherent slices.** Don't dump everything in one mega-commit. Typical slices:
+6. **Commit in coherent slices.** Don't dump everything in one mega-commit. Typical slices:
    - `feat(<code>): pure-TS model for <thing>`
    - `feat(<code>): UI component for <thing>`
    - `feat(<code>): wire <component> into <screen>`
    - `test(<code>): coverage for <thing>`
    - `docs(<code>): update current-status + relevant doc`
 
-6. **Update docs.** At minimum:
+7. **Update docs.** At minimum:
    - `docs/core/current-status.md` — new test count + one-line note about what changed.
    - The doc named in `docs/core/ux-ui-project-board.md` for the relevant epic.
    - Do NOT update `docs/designs/<card-code>.md` (the design is the spec; if it's wrong, write a NEW design addendum at the bottom and stop).
 
-7. **Final verification.**
+8. **Final verification.**
    ```
    npm run typecheck
    npm run lint

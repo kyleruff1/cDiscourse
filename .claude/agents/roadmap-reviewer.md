@@ -183,6 +183,7 @@ Numbered list of nice-to-haves. Implementer can address or defer.
 - Push the branch: `git push -u origin feat/<code>-<slug>`
 - Open PR: `gh pr create --title "<code>: <title>" --body-file docs/reviews/<card-code>.md`
 - Deploy steps (from design): <list>
+- Post-merge worktree cleanup (commands in roadmap-reviewer.md § "Post-merge worktree cleanup (operator step)")
 ```
 
 ## What you must NOT do
@@ -191,6 +192,87 @@ Numbered list of nice-to-haves. Implementer can address or defer.
 - Do NOT modify the design doc.
 - Do NOT push the branch or open the PR yourself. The operator does this after reading the review.
 - Do NOT approve with hand-waving — every doctrine line must be checked, not assumed.
+
+## Post-merge worktree cleanup (operator step)
+
+After the PR merges to `main`, the orchestrator runs the cleanup
+procedure below to remove the implementer's worktree and the
+auto-generated local branch. This step is the operator's, not the
+reviewer subagent's — the reviewer cannot delete its own worktree
+mid-session. The reviewer's "Operator next steps" block names the
+deploy command; this section adds the cleanup command beneath it.
+
+Run from the main repo root (not from inside a worktree):
+
+```
+# 1. Identify the worktree path for this card.
+git worktree list | grep "feat/<code>-<slug>"
+#   → C:/Users/kyler/cdiscourse/debate-constitution-app/.claude/worktrees/agent-<hash>
+
+# 2. Remove the worktree. --force is required because the worktree
+#    was created with isolation="worktree" and is marked locked.
+git worktree remove --force ".claude/worktrees/agent-<hash>"
+
+# 3. Delete the local auto-branch (the rename step in the implementer
+#    charter renames worktree-agent-<hash> to feat/<code>-<slug>, so
+#    after merge the local feat branch is the only one left; if a
+#    pre-OPS-002 card was used, both branches may exist).
+git branch -D feat/<code>-<slug>          # post-OPS-002 cards
+git branch -D worktree-agent-<hash>       # pre-OPS-002 cards (if present)
+
+# 4. Verify cleanup.
+git worktree list | grep -c "agent-<hash>"   # must print 0
+git branch -a | grep -E "feat/<code>-<slug>|worktree-agent-<hash>"
+#   → only the remote-tracking branch remains, and after `gh pr merge
+#     --delete-branch` even that is gone.
+```
+
+**Cross-platform notes.**
+
+- The commands above are POSIX-shape but run identically in PowerShell
+  (`git` accepts the same arguments on Windows). The path separator
+  `/` works in PowerShell for `git worktree remove`; backslashes are
+  not required.
+- On Windows, `grep` is not native PowerShell; substitute
+  `Select-String` if running PowerShell-only: `git worktree list |
+  Select-String "feat/<code>-<slug>"`. The orchestrator typically
+  runs the cleanup from the Bash tool (Git-for-Windows MSYS bash) where
+  `grep` works directly.
+- `git worktree remove --force` will fail if the worktree path is
+  the operator's current working directory. The operator must `cd` to
+  the main repo root first (the procedure's first sentence
+  enforces this).
+- If `gh pr merge --delete-branch` ran *before* `git worktree
+  remove`, the remote-branch delete may have failed silently because
+  a worktree was still on it. Re-run `gh api -X DELETE
+  repos/{owner}/{repo}/git/refs/heads/feat/<code>-<slug>` after
+  cleanup to finish the remote delete, or simply let
+  `git remote prune origin` clear the stale tracking ref on the next
+  fetch.
+
+**Bulk cleanup of historical orphans.**
+
+For the 96 existing orphan worktrees (one-time historical debt, not
+created by post-OPS-002 cards), the operator may run a single
+PowerShell pass to remove every locked worktree whose branch has
+already merged:
+
+```
+# Dry run first — list every worktree under .claude/worktrees/ except
+# the currently-active one.
+git worktree list --porcelain |
+  Select-String -Pattern '^worktree '
+
+# Then for each non-active path the orchestrator confirms is safe,
+# run:
+git worktree remove --force "<path>"
+git branch -D "<branch>"
+```
+
+The bulk pass is **operator-judgement-gated** — the orchestrator does
+not automate it because mis-identifying a non-merged worktree as
+orphan loses work. OPS-002 only mandates the per-card cleanup in steps
+1–4 above; the bulk pass is informational.
 
 ## Verdict rules
 
