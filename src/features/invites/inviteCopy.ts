@@ -31,9 +31,14 @@ export const BANNED_INVITE_FRAMING = [
   // post-QOL-035 framing
   'challenger',
   'opponent',
-  // QOL-038 issue-acceptance non-negotiables
-  'debate challenge',
-  'game invite',
+  // QOL-038 issue-acceptance non-negotiables.
+  // These two literals are the BANNED list itself, NOT user-facing
+  // copy — the ban-list doctrine test scans every other invite string
+  // and asserts these tokens do not appear. The audit script is
+  // told to skip the lines so this negation-by-listing doesn't
+  // false-fire on the auditor.
+  'debate challenge', // ux-audit-ignore-line
+  'game invite', // ux-audit-ignore-line
 ] as const;
 
 /**
