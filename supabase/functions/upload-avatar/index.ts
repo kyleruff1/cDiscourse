@@ -43,7 +43,8 @@ import {
   internalError,
 } from '../_shared/http.ts';
 import { createCallerClient, createServiceClient } from '../_shared/supabaseClients.ts';
-import { decode, Image } from 'https://deno.land/x/imagescript@1.2.17/mod.ts';
+import { decode } from 'https://deno.land/x/imagescript@1.2.17/mod.ts';
+import type { Image } from 'https://deno.land/x/imagescript@1.2.17/mod.ts';
 
 // ── Constants ─────────────────────────────────────────────────
 
