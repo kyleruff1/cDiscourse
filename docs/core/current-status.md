@@ -1,5 +1,86 @@
 # CDiscourse — Current Status
-<!-- Latest implementer card: RECON-001 (post-Interaction-epic roadmap reconciliation; documentation-only). The Interaction epic for Release 6.7 is complete — QOL-038 (#207, PR #264), QOL-040 (#209, PR #266), QOL-039 (#208, PR #268) all shipped on 2026-05-24. Supporting work: OPS-001 (#260, PR #262, reviewer template strengthened for migration-bearing cards), QOL-041 + QOL-041.1 + QOL-041.2 (#210/#256/#258, PRs #255/#257/#259, concession gradient + fix-forward + in-place migration recovery), QOL-035 (PR #253, terminology scrub), MCP-CAT-001 (effective via PR #252, catalog v1), COMP-001 (#244, PR #251, composition layer). Verified test baseline at QOL-039 merge: 10393 tests / 414 suites passing (the full-suite run at RECON-001 implementer time shows 10392 passing + 1 perf-sensitive flake in `__tests__/moveMetadataLedger.test.ts:1210` — re-runs of that suite alone are green; not a behaviour regression). Typecheck + lint clean. RECON-001 is doc-only and does not change source code, tests, migrations, or Edge Functions. Two new follow-up issues filed: #270 QOL-036.1 (composition-layer integration for payment-evidence pill state), #271 QOL-040.3 (deep-link node pre-activation via Stage 6.4 entry-hint extension). Three indefinite deferrals documented (QOL-040.1, QOL-040.2, COMP-001.1). See `docs/roadmap/2026-05-24-post-interaction-epic-reconciliation.md`. -->
+<!-- Latest implementer card: QOL-036.1 (composition-layer integration for payment-evidence pill state; pure-TS consumer model, no migration, no Edge Function). New file `src/features/evidence/paymentEvidencePillState.ts` exports `derivePaymentEvidencePillState`, `PaymentEvidencePillState`, `PaymentEvidencePillProvenance`, the frozen `MUTATION_TO_PILL_STATE` four-row table, and `PILL_STATE_CONFLICT_RULE`. The deriver merges COMP-001 mutations (`evidence_applicability_disputed`, `corroborating_document_attached`, `evidence_debt_opened`, `evidence_debt_resolved`) with layer-1 derivations (QOL-037 `deriveApplicabilityStatus` over `EvidenceResponseRecord[]`, EV-003 `EvidenceDebt[]` walk) per the §5 mapping: applicability + obligation are orthogonal axes; within-axis last-wins by `sourceMoveId.createdAt`; cross-layer last-wins with layer-1 ties (and a lifecycle-advancement guard so `accepted_by_both` is never regressed to `supplied`). Consumer surface uses `useSemanticReferee.getMutationsForMove(artifactArgumentId)` — no hook change. Caller pre-filters: `mutationsTargetingArtifactParent` (targets-the-parent) + `corroboratingMutations` (corroborator's ancestor chain reaches the parent). The deriver authors NO user-facing copy — `applicabilityChip` passes through `summarizeApplicabilityChip`; `debtChipStatus` is the EV-003 enum the renderer maps to its chip. JSDoc-only annotations added above the four COMP-001 rule branches in `compositionLayer.ts` pointing back to QOL-036.1 as the consumer (no logic change). Pill visibility = artifact visibility (existing RLS). No `pointStanding/` import — anti-amplification preserved. No new chip, no new enum value, no new `.tsx`. **+59 new tests** in `__tests__/paymentEvidencePillState.test.ts` (mapping coverage, conflict-rule constant, four happy paths, layer-1-only regression, layer-1+layer-2 corroboration, within-axis last-wins, cross-layer conflict, cross-axis orthogonality, observer-mode degradation, §8 edge cases 1–15, doctrine ban-list, purity scan, determinism, backward-compat). **10452 tests / 415 suites passing** (10393 → 10452, +59 tests, +1 suite). Typecheck + lint clean. No schema, no migration, no Edge Function, no `.env*` touched. No QOL-036 / QOL-037 / EV-003 / COMP-001 / QOL-038 / QOL-040 / QOL-039 source file modified beyond JSDoc-only annotations on `compositionLayer.ts`. See `docs/designs/QOL-036.1.md`. -->
+
+## QOL-036.1 — Composition-layer integration for payment-evidence pill state (Epic Evidence)
+
+**Status:** Build complete (awaiting Review). Issue #270, branch
+`feat/QOL-036.1-composition-layer-integration-for-paymen`.
+
+**Doctrine highlights:**
+
+- A pill chip flip is a STRUCTURAL indicator, never a standing reward.
+  The deriver imports nothing from `pointStanding/`; emits no
+  `PointStandingDelta`. Anti-amplification preserved.
+- The deriver authors zero user-facing strings. All copy passes through
+  unchanged from QOL-037's `summarizeApplicabilityChip` and EV-003's
+  chip-rendering surface. No new chip, no new enum value.
+- Pill visibility = artifact visibility. The deriver runs on the client
+  over data the client already fetched via existing RLS; no new
+  visibility surface, no new RLS rule.
+- Observer-mode is backward-compatible by construction: empty mutation
+  arrays → layer-1-only derivation, byte-identical to pre-QOL-036.1.
+- Cross-layer conflict resolution: last-wins by `sourceMoveId.createdAt`;
+  ties go to layer-1 (user-action signal is more deliberate); when
+  chronology is unknown, layer-1 wins as a safe default. A more-advanced
+  layer-1 obligation lifecycle (`accepted_by_both`) is NEVER regressed by
+  a layer-2 `evidence_debt_resolved` mutation that would downgrade it.
+- The four mutations map to TWO orthogonal axes (applicability +
+  obligation). Cross-axis stacking is additive — both chips can render
+  together on a single payment artifact.
+
+**Files added:**
+
+- `src/features/evidence/paymentEvidencePillState.ts` (~530 lines):
+  pure-TS deriver `derivePaymentEvidencePillState`, the
+  `PaymentEvidencePillState` + `PaymentEvidencePillProvenance` types,
+  the frozen `MUTATION_TO_PILL_STATE` four-row mapping, and the frozen
+  `PILL_STATE_CONFLICT_RULE` constant. Zero React / Supabase / network
+  / `pointStanding/` / AI imports.
+- `__tests__/paymentEvidencePillState.test.ts` (~830 lines, 59 tests):
+  mapping-table coverage, conflict-rule constant, four happy paths
+  (the §5 mappings), layer-1-only regression, layer-1+layer-2
+  corroboration, within-axis last-wins (debt resolved-later / earlier /
+  tie-break, applicability disputed-later), cross-layer conflict
+  (layer-2 newer / no map / exact tie), cross-axis orthogonality
+  (dispute + debt-opened, corroboration + debt-resolved), observer-mode
+  degradation, §8 edge cases 1–15, doctrine ban-list (word-boundary
+  match, non-comment source scan, enum-value scan, provenance scan),
+  purity (no React / Supabase / Edge / pointStanding / AI / Date.now /
+  console / service-role / Authorization), determinism (same input →
+  deeply-equal output; argument-order independence).
+
+**Files modified:**
+
+- `src/features/evidence/index.ts`: appended QOL-036.1 type + value
+  re-exports for the new module under a clearly commented block.
+- `src/features/semanticReferee/compositionLayer.ts`: JSDoc-only
+  annotations above each of the four COMP-001 rule branches (R-EV-01,
+  R-EV-02, R-EV-APP-01, R-CAT-Corroborating) pointing back to QOL-036.1
+  as the consumer. **No logic change.** 112/112 composition tests still
+  passing.
+
+**No changes to:**
+- `src/features/evidence/evidenceModel.ts` (QOL-036 surface — frozen).
+- `src/features/evidence/evidenceApplicabilityModel.ts` (QOL-037 — frozen).
+- `src/features/evidence/evidenceDebtModel.ts` (EV-003 — frozen).
+- `src/features/semanticReferee/compositionTypes.ts` (COMP-001 — frozen).
+- `src/features/arguments/useSemanticReferee.ts` (COMP-001 hook — frozen).
+- Any `.tsx` component, any other test, any migration, any Edge Function,
+  any RLS, any `.env*`, any storage.
+
+**Test delta:** 10393 → 10452 (+59 tests, +1 suite). Typecheck + lint
+clean. No regressions.
+
+**Operator follow-up:** none. Pure code change. No migration, no Edge
+Function deploy, no Supabase write, no env change.
+
+**Not in scope for this card:** the room render layer's wiring of
+`derivePaymentEvidencePillState` into `ArgumentGameSurface.tsx` is a
+separate small card (or organic follow-up) once the deriver lands.
+QOL-036.1 ships the pure model; consumers wire later (same pattern as
+QOL-036 + the QOL-030 box wiring).
+
+---
 
 ## QOL-039 — Public ↔ Private Room Visibility Transition Rules (Epic Interaction)
 

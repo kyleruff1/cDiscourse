@@ -194,3 +194,16 @@ export type {
   RespondToEvidenceViewerRole,
   EvidenceResponseDraft,
 } from './RespondToEvidenceForm';
+
+// QOL-036.1 — Payment-evidence pill state derivation (composition-layer consumer).
+export type {
+  PaymentEvidencePillState,
+  PaymentEvidencePillProvenance,
+  DerivePaymentEvidencePillStateInput,
+} from './paymentEvidencePillState';
+
+export {
+  MUTATION_TO_PILL_STATE,
+  PILL_STATE_CONFLICT_RULE,
+  derivePaymentEvidencePillState,
+} from './paymentEvidencePillState';

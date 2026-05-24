@@ -499,6 +499,10 @@ export function composeVisualState(
   // ── 4.2 Evidence + source-chain rules ────────────────────────────
 
   // R-EV-01 — Evidence requested (debt opened)
+  // Consumer: QOL-036.1 — `derivePaymentEvidencePillState` maps the
+  // resulting `evidence_debt_opened` mutation onto the payment-evidence
+  // pill's obligation axis (`EvidenceDebtStatus = 'requested'`). See
+  // `docs/designs/QOL-036.1.md` §5.1.
   if (sig.get('asks_for_evidence').value === 1) {
     mutations.push(
       buildMutation({
@@ -517,6 +521,10 @@ export function composeVisualState(
   }
 
   // R-EV-02 — Evidence supplied (debt resolved)
+  // Consumer: QOL-036.1 — `derivePaymentEvidencePillState` maps the
+  // resulting `evidence_debt_resolved` mutation onto the payment-evidence
+  // pill's obligation axis (`EvidenceDebtStatus = 'supplied'`). See
+  // `docs/designs/QOL-036.1.md` §5.1.
   if (sig.get('provides_evidence').value === 1 && sig.get('evidence_supports_claim').value === 1) {
     const match = findOpenEvidenceDebtForResolution(state, moveMeta, ancestors);
     if (match) {
@@ -956,6 +964,10 @@ export function composeVisualState(
   // move). Per-move chips fire for the supporting context signals.
   // Reference: band-space-rent m3 (35-id mode) — see
   // docs/designs/COMP-001-worked-examples.md §"m3 — A's evidence applicability challenge".
+  // Consumer: QOL-036.1 — `derivePaymentEvidencePillState` maps the
+  // resulting `evidence_applicability_disputed` mutation onto the payment-
+  // evidence pill's applicability axis (`ApplicabilityStatus =
+  // 'applicability_disputed'`). See `docs/designs/QOL-036.1.md` §5.1.
   if (
     classifierInCatalog('disputes_evidence_applicability') &&
     sig.get('disputes_evidence_applicability' as SemanticClassifierId).value === 1
@@ -1033,6 +1045,12 @@ export function composeVisualState(
   // Reference: band-space-rent m6 / m8 (35-id mode) — see
   // docs/designs/COMP-001-worked-examples.md §"m6 — B's group-chat evidence supply"
   // and §"m8 — B's evidence-backed rebuttal on the sub-axis".
+  // Consumer: QOL-036.1 — `derivePaymentEvidencePillState` maps the
+  // resulting `corroborating_document_attached` mutation (when its source
+  // move's ancestor chain reaches the artifact's parent — caller-filtered)
+  // onto the payment-evidence pill's applicability axis
+  // (`ApplicabilityStatus = 'applicability_supported'`). See
+  // `docs/designs/QOL-036.1.md` §5.1.
   if (
     classifierInCatalog('supplies_corroborating_document') &&
     sig.get('supplies_corroborating_document' as SemanticClassifierId).value === 1
