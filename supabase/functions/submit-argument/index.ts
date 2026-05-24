@@ -598,6 +598,159 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (flags) insertedFlags = flags;
   }
 
+  // ── QOL-040 — notification side-effect (best-effort) ─────────
+  //
+  // Classify the just-inserted argument into one of the four
+  // argument-derived trigger types (new_response,
+  // concession_challenged, source_requested, evidence_supplied)
+  // and insert one row per recipient into public.room_notifications.
+  //
+  // Doctrine:
+  //   - This is a SIDE EFFECT. Failures here are swallowed; the
+  //     argument post has already succeeded and the user must
+  //     never be blocked on a notification.
+  //   - The author NEVER self-notifies.
+  //   - Recipients are computed from the room's current
+  //     debate_participants — primaries only (the four
+  //     argument-derived triggers all address primaries or the
+  //     specific author of a challenged concession). The
+  //     concession-challenged author resolver looks up the
+  //     parent's author when the trigger is concession_challenged.
+  try {
+    // Pure classifier inputs (kept inline since this file cannot
+    // import from src/ — the model under src/ is the canonical
+    // source and the inline logic must mirror it precisely).
+    const argType = String(data.argument_type || '').toLowerCase();
+    const parentArgType = parentArg
+      ? String(parentArg.argumentType || '').toLowerCase()
+      : null;
+    const hasConcessionAcceptances =
+      Array.isArray(data.concession_acceptances) && data.concession_acceptances.length > 0;
+    // A "disagree" gradient is any acceptance level not equal to 'agree'.
+    const hasDisagreeGradient =
+      hasConcessionAcceptances &&
+      (data.concession_acceptances || []).some((a) => a.acceptance_level !== 'agree');
+    const opensEvidenceDebt =
+      argType === 'clarification_request' &&
+      Boolean(
+        data.selected_tag_codes &&
+          (data.selected_tag_codes.includes('ask_source') ||
+            data.selected_tag_codes.includes('ask_quote') ||
+            data.selected_tag_codes.includes('needs_receipts')),
+      );
+    const resolvesEvidenceDebt =
+      argType === 'evidence' ||
+      Boolean(data.evidence_response) ||
+      Boolean(data.attached_evidence && data.attached_evidence.length > 0 && argType !== 'thesis');
+
+    let trigger:
+      | 'new_response'
+      | 'concession_challenged'
+      | 'source_requested'
+      | 'evidence_supplied'
+      | null = null;
+    if (resolvesEvidenceDebt) {
+      trigger = 'evidence_supplied';
+    } else if (hasDisagreeGradient) {
+      trigger = 'concession_challenged';
+    } else if (opensEvidenceDebt) {
+      trigger = 'source_requested';
+    } else if (
+      argType === 'rebuttal' ||
+      argType === 'counter_rebuttal' ||
+      argType === 'clarification_request' ||
+      argType === 'synthesis'
+    ) {
+      trigger = 'new_response';
+    }
+
+    if (trigger !== null) {
+      // Resolve recipients.
+      const recipients: string[] = [];
+      if (trigger === 'concession_challenged') {
+        // The author of the challenged concession is the author
+        // of the conceded-to node. The QOL-041 acceptance row
+        // already carries `concession_item_id`; we look up the
+        // conceded_to_argument_id on each item to find its
+        // author. The author NEVER self-notifies, so we strip
+        // the caller.
+        if (hasConcessionAcceptances) {
+          const itemIds = (data.concession_acceptances || []).map((a) => a.concession_item_id);
+          const { data: items } = await serviceClient
+            .from('concession_items')
+            .select('id, author_id')
+            .in('id', itemIds);
+          const authorIds = new Set<string>();
+          for (const it of items || []) {
+            const aid = (it as { author_id?: string }).author_id;
+            if (aid && aid !== user.id) authorIds.add(aid);
+          }
+          for (const id of authorIds) recipients.push(id);
+        }
+      } else if (trigger === 'evidence_supplied') {
+        // The recipient is the user who asked for the source.
+        // For now, the design treats all primaries (except the
+        // author) as the recipient set — the dedicated
+        // `source_requester_id` is a §17 enrichment that
+        // requires tying an evidence-supplied move to a specific
+        // source_requested move. For v1 we deliver to all
+        // primaries; the in-app surface shows "Evidence was
+        // supplied" to anyone who would care.
+        const { data: parts } = await serviceClient
+          .from('debate_participants')
+          .select('user_id, side')
+          .eq('debate_id', data.debate_id);
+        for (const p of parts || []) {
+          const uid = (p as { user_id?: string; side?: string }).user_id;
+          const side = (p as { user_id?: string; side?: string }).side;
+          if (uid && uid !== user.id && (side === 'affirmative' || side === 'negative')) {
+            recipients.push(uid);
+          }
+        }
+      } else {
+        // new_response + source_requested → every primary except author.
+        const { data: parts } = await serviceClient
+          .from('debate_participants')
+          .select('user_id, side')
+          .eq('debate_id', data.debate_id);
+        for (const p of parts || []) {
+          const uid = (p as { user_id?: string; side?: string }).user_id;
+          const side = (p as { user_id?: string; side?: string }).side;
+          if (uid && uid !== user.id && (side === 'affirmative' || side === 'negative')) {
+            recipients.push(uid);
+          }
+        }
+      }
+
+      if (recipients.length > 0) {
+        const roomTitle = (debate.title || '').slice(0, 200);
+        const notificationRows = recipients.map((rid) => ({
+          recipient_id: rid,
+          debate_id: data.debate_id,
+          argument_id: insertedArg.id,
+          type: trigger as string,
+          room_title: roomTitle,
+          meta: {},
+        }));
+        await serviceClient
+          .from('room_notifications')
+          .insert(notificationRows);
+      }
+    }
+    // Suppress unused-binding lint for the never-referenced types.
+    void parentArgType;
+  } catch (notifyErr) {
+    // The argument post has succeeded. A notification failure must
+    // never roll back the post. Log once at error level WITHOUT
+    // including the body, the Authorization header, or any
+    // recipient identifier.
+    // eslint-disable-next-line no-console
+    console.error('submit_argument_notification_failed', {
+      argumentIdShort: typeof insertedArg.id === 'string' ? insertedArg.id.slice(0, 8) : '(unknown)',
+      message: notifyErr instanceof Error ? notifyErr.message.slice(0, 120) : 'unknown',
+    });
+  }
+
   // ── Return 201 ────────────────────────────────────────────────
   return created({
     argument: insertedArg,

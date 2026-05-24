@@ -1,5 +1,124 @@
 # CDiscourse — Current Status
-<!-- Latest implementer card: QOL-038 (Invite → signup/auth → argument-room return path — Epic Interaction). Three pure-TS models (inviteModel, inviteDeepLink, pendingInviteIntent) + 1 migration + 1 new Edge Function (manage-room-invite, 5 actions) + 1 client API + 1 hook + 2 UI components (InvitePanel rewrite + InviteRedeemGate including §17 archived-room state) + App.tsx wiring (deep-link capture, redeem-gate orchestration, accept-on-first-signed-in trigger). Full suite is 9976 tests / 383 suites (all passing, +219 from QOL-041 baseline). Typecheck + lint + ux:terminology:audit all clean. -->
+<!-- Latest implementer card: QOL-040 (Invite & response notification lifecycle — Epic Interaction). One pure-TS model (notificationModel) + 1 migration + 1 new Edge Function (room-notifications) + submit-argument side-effect insert + 1 client API + 1 hook + 3 UI components (NotificationListScreen, NotificationRow, NotificationBadge) + App.tsx wiring (badge on Arguments tab, gallery toolbar "Notifications" trigger, in-tab sub-screen). Email scaffold for the `invite` trigger ONLY (E1, off by default behind INVITE_EMAIL_ENABLED; mirrors request-argument-deletion's Resend pattern verbatim; new InviteEmailStatus union matches QOL-038's existing contract). User preferences DEFERRED (E3/E7.2 — notificationsOptInStub stays unchanged; useNotifications always polls); eleventh trigger invite_expired_notice DEFERRED (E2.3/E7.3). No QOL-038 file modifications (E7.4). Full suite is 10163 tests / 400 suites (all passing, +187 from QOL-038 baseline). Typecheck + lint clean. -->
+
+## QOL-040 — Invite & response notification lifecycle (Epic Interaction)
+
+**Status:** Build complete, awaiting Review — adds the in-app
+notification lifecycle for an argument room. Ten triggers cover
+invite / new_response / concession_challenged / source_requested /
+evidence_supplied / chime_in_posted / room_made_private /
+chime_in_rejected / argument_settled / invite_accepted_by_invitee.
+The eleventh trigger (`invite_expired_notice`) is intentionally
+deferred per operator decision 2026-05-24 (E7.3).
+
+**Doctrine highlights:**
+
+- No verdict / truth / popularity language in any notification
+  string (in-app + email body both pass the ban-list scan).
+- The actor display name is gated by `meta.actorNameVisible` —
+  set false → copy says "Someone" (design §9 rule 3).
+- `chime_in_rejected` copy describes the move's fit to the room,
+  NEVER the person. No "rejected you", no rejecter name, no
+  count framed as a verdict (design §9 rule 5 + Scenario 1
+  Step 14).
+- `argument_settled` says "settled", never "case closed" or any
+  outcome verdict.
+- No notification carries argument body text — only the room
+  title snapshot, plus a tiny `meta` JSONB for neutral nouns.
+- RLS: SELECT own / UPDATE own (read_at-only via API wrapper) /
+  NO INSERT or DELETE policy — inserts are service-role-only
+  inside `submit-argument` and `room-notifications` Edge
+  Functions.
+- Email scaffold (E1) is OFF by default in every environment.
+  Returns `'not_configured'` until the operator flips
+  `INVITE_EMAIL_ENABLED=true` + `RESEND_API_KEY` +
+  `INVITE_EMAIL_FROM` as Edge Function secrets. Mirrors
+  `request-argument-deletion`'s Resend pattern verbatim. No
+  unsubscribe link in v1 (E1.2a — deferred along with
+  preferences).
+- `InviteEmailStatus = 'sent' | 'not_configured' | 'queued'`
+  matches QOL-038's existing `CreateRoomInviteResponse.notification`
+  union exactly — no new value, no QOL-038 client-code change.
+- A notification-insert failure in `submit-argument` is
+  swallowed (try/catch) — a notification can NEVER block the
+  argument post.
+
+**Files added:**
+- `supabase/migrations/20260524000014_qol_040_room_notifications.sql`
+  (~170 lines): table + 2 RLS policies (SELECT own / UPDATE
+  own). pgcrypto dependency documented in header per OPS-001
+  §4 Class 4. Fully-qualified column references in policies
+  per defensive discipline. Idempotency partial unique index
+  on (recipient_id, type, argument_id) for argument-derived
+  triggers.
+- `supabase/functions/room-notifications/index.ts` (~600 lines):
+  JWT-verified Edge Function for the six non-argument-derived
+  triggers. Email scaffold (`maybeSendInviteEmail`) gated on
+  INVITE_EMAIL_ENABLED.
+- `src/features/notifications/notificationModel.ts` (~310 lines):
+  pure-TS classifier + recipient resolver + copy builder +
+  deep-link resolver. Zero React / Supabase / network imports.
+- `src/features/notifications/notificationsApi.ts` (~120 lines):
+  SELECT + read_at UPDATE wrappers only (no inserts; insert is
+  Edge-Function-only).
+- `src/features/notifications/NotificationListScreen.tsx`
+  (~210 lines): loading / empty / error / populated states,
+  "Mark all read" affordance, non-navigable confirmation card
+  for revoked-access rows.
+- `src/features/notifications/NotificationRow.tsx` (~180 lines):
+  ≥44-px tap target, accessibilityRole="button" +
+  accessibilityState (unread/read), glyph-driven type icon
+  (shape carries meaning before color).
+- `src/features/notifications/NotificationBadge.tsx` (~60 lines):
+  unread count badge, hides at zero, caps at "9+".
+- `src/features/notifications/useNotifications.ts` (~110 lines):
+  load + mark-read hook. Always polls (no preference branch —
+  per E3.2 deferral).
+- `src/features/notifications/notificationCopy.ts` (~40 lines):
+  screen chrome (header / empty / error / mark-all-read).
+
+**Files modified:**
+- `supabase/functions/submit-argument/index.ts`: +~80 lines for
+  the notification side-effect insert. Wrapped in try/catch;
+  uses service-role only; classifies trigger inline mirroring
+  notificationModel.classifyArgumentTrigger precedence
+  (evidence > concession > source > new_response).
+- `supabase/config.toml`: registers
+  `[functions.room-notifications] verify_jwt = true`.
+- `src/features/preferences/userPreferencesModel.ts`: JSDoc-only
+  addition to `notificationsOptInStub` documenting the
+  preferences deferral (E3.2). Field shape, default, copy
+  unchanged.
+- `App.tsx`: mounts `NotificationBadge` on the Arguments tab
+  label; adds a "Notifications" trigger in the gallery toolbar;
+  renders `NotificationListScreen` as an in-tab sub-screen when
+  open; routes a tapped notification to the target debate via
+  `selectDebate` (the active-node deep-link is a §17 follow-up;
+  the existing Stage 6.4 entry-hint mechanism does not yet
+  take an explicit argument id).
+
+**Test count:** 9976 → 10163 (+187 new tests). Suites: 383 →
+400 (+17). Typecheck + lint clean.
+
+**Operator follow-up to ship live notifications:**
+1. `npx supabase db push --linked` — apply the new migration.
+2. `npx supabase functions deploy room-notifications --linked`
+   — deploy the new Edge Function.
+3. `npx supabase functions deploy submit-argument --linked` —
+   re-deploy submit-argument (it gained the notification
+   side-effect block).
+4. Optional (email channel, off by default):
+   `npx supabase secrets set INVITE_EMAIL_ENABLED=true --linked`
+   `npx supabase secrets set RESEND_API_KEY=<key> --linked`
+   `npx supabase secrets set INVITE_EMAIL_FROM='no-reply@<domain>' --linked`
+   Only flip after deliverability setup (SPF, DKIM, bounce
+   handling) is complete — unsubscribe is part of that
+   operator-infrastructure work, NOT QOL-040.
+
+See `docs/designs/QOL-040.md` (original + E1-E7 enrichment +
+E7 operator decisions) and `docs/designs/QOL-040-verification.md`.
+
+---
 
 ## QOL-038 — Invite → signup/auth → argument-room return path (Epic Interaction)
 
