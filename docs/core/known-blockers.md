@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-24 (Stage 6.4 / OPS-002)_
+_Last updated: 2026-05-24 (Stage 6.4 / OPS-003)_
 
 ---
 
@@ -146,6 +146,132 @@ process bugs that ship product correctly but accumulate operational
 friction; they fix the process, not the product. Future OPS cards
 follow the same shape (a single design doc, a verbatim lesson block,
 a minimal-footprint implementer diff, and a verification table in the
+reviewer doc that confirms the lesson is recorded).
+
+### ✅ Worktree Cleanup Procedure Hardened — Lock Force, Long Paths, Filesystem Orphans, Branch Refs (OPS-003)
+
+**Incident.** The 2026-05-24 cleanup session — the first real-world
+execution of OPS-002's "Post-merge worktree cleanup (operator step)"
+procedure against the 96 orphan worktrees that accumulated before
+OPS-002 shipped — surfaced four distinct procedural gaps that the
+OPS-002 text did not address. Session outcome was a success: 96
+git-registered worktrees removed (73 cat-3 merged + 16 cat-4 abandoned
++ 7 cat-5 detached-HEAD), 8 filesystem orphans removed (5 unregistered
+`agent-*` directories at ~289 MB each + 3 zero-byte session directories),
+218 local branches deleted in one bulk pass, 8.93 GB of disk space
+recovered (48.56 GB → 57.49 GB free), and typecheck + lint + spawn-card
+regression test all green post-cleanup. But each of the four gaps
+required an in-session workaround that OPS-002 did not document; the
+next operator running cleanup would have rediscovered and re-solved
+each one.
+
+**Root cause.** OPS-002 designed the procedure from the per-card model:
+one card ships, the operator removes one worktree and one branch. The
+2026-05-24 session was the first invocation against accumulated
+historical debt (96 worktrees, 218 branches, 8 filesystem orphans), and
+the per-card model did not generalise:
+
+1. **EC-1: `--force` insufficient for agent-locked worktrees.** OPS-002
+   step 2 used `git worktree remove --force` (single force). Git
+   distinguishes "locked" from "in-use" and emits `use 'remove -f -f'
+   to override or unlock first` when given only single force against
+   an agent-locked worktree. The Claude `isolation="worktree"` runtime
+   marks every worktree as locked, so 96/96 worktrees failed step 2 on
+   the first attempt. The fix is mechanical (`--force` → `-f -f`).
+
+2. **EC-2: Windows MAX_PATH (260 chars) blocks deep `node_modules`
+   removal.** After EC-1 was fixed, 14/96 worktrees still failed with
+   `error: failed to delete '<path>': Filename too long`. Nested
+   `node_modules/jest/.../node_modules/...` paths exceed Win32
+   MAX_PATH and `git worktree remove` uses the standard file API. The
+   fix is the UNC long-path prefix from PowerShell:
+   `Remove-Item -Path "\\?\<absolute-path>" -Recurse -Force` followed
+   by `git worktree prune`. Linux and macOS operators do not hit this.
+
+3. **EC-3: Filesystem orphans exist outside git's admin state.** After
+   all 96 git-registered worktrees were removed and `git worktree
+   list` showed only main, `Get-ChildItem .claude/worktrees/` still
+   listed 8 directories that git's admin state never knew about
+   (either past-session worktrees that were never `git worktree add`-ed
+   or worktrees that were pruned while leaving their directory
+   behind). The OPS-002 per-card iteration over `git worktree list`
+   misses these by construction. The fix is a `Compare-Object` sweep
+   between filesystem and git's list, with per-orphan operator
+   decision (default: remove, since by definition no git association
+   exists to preserve).
+
+4. **EC-4: Local branch refs accumulate independently of worktree
+   removal.** After all worktrees were removed, `git branch --list
+   'feat/*' 'worktree-agent-*' 'review*' 'claude/*' 'ev005-expand'`
+   returned 218 branches with no associated worktree and no associated
+   remote (squash-merge `--delete-branch` had cleared remotes during
+   each card's merge). OPS-002's per-card step 3 deletes the current
+   card's branch only; historical accumulation from pre-OPS-002
+   sessions (where per-card deletion was never run) and auto-naming
+   patterns from past conventions survive until explicitly cleared.
+   The fix is a periodic pattern-based bulk pass (`git branch -D`)
+   that is idempotent, safe (local refs only), and runnable
+   independently of any worktree removal.
+
+**Resolution (OPS-003, #277).** The
+`.claude/agents/roadmap-reviewer.md` section "Post-merge worktree
+cleanup (operator step)" is rewritten in place to address all four
+gaps. The section title and framing ("operator step, not reviewer
+subagent's") are preserved per OPS-002; only the body content
+changes. The per-card block uses `-f -f` (EC-1 fix); a new
+**Windows long-path workaround** subsection covers EC-2 with the
+trigger condition `Filename too long`; two new top-level
+subsections **"Filesystem orphan sweep"** and **"Periodic
+branch-ref cleanup"** cover EC-3 and EC-4. The existing
+bulk-cleanup-of-historical-orphans block is preserved and updated
+to use `-f -f`. The
+`<!-- OPS-003: EC-N handler -->` HTML comment markers placed above
+each new handler block provide the regression test's contract
+surface (§4). No production code, no migration, no Edge Function,
+no `spawn-card.ps1` / `spawn-card.sh` edit, no
+`.claude/agents/roadmap-implementer.md` edit, no
+`.claude/agents/roadmap-designer.md` edit. OPS-002's
+implementer-charter rename step is preserved unchanged.
+
+**Lesson for future sessions.** Three rules:
+
+- **Rule 1 (force-flag granularity).** When a command uses `--force`
+  to override one condition (e.g. "in-use"), the same command may
+  require a stronger force-flag combination (e.g. `-f -f`) to override
+  a *different* condition (e.g. "locked"). Read the error message
+  carefully: git names the override required. The OPS-002 procedure
+  was correct for the in-use case but incomplete for the locked case;
+  OPS-003 captures both.
+
+- **Rule 2 (cross-platform path limits).** Windows MAX_PATH (260
+  chars) is a real production constraint on a procedure that walks a
+  deep dependency tree. Procedures that work on Linux/macOS may fail
+  on Windows with no warning until the deepest path is touched. When
+  documenting a cleanup procedure, include the platform-specific
+  long-path workaround as a named subsection with the trigger error
+  string. The fix is the `\\?\` UNC prefix on Windows; macOS/Linux
+  procedures don't need it.
+
+- **Rule 3 (admin-state vs filesystem-state divergence).** Procedures
+  that iterate over a tool's admin state (e.g. `git worktree list`)
+  miss state that exists outside that admin state (filesystem
+  orphans). When the admin state and filesystem state are *expected*
+  to be coupled (the tool creates both in lockstep), any divergence
+  is by construction an orphan that the per-iteration procedure
+  cannot detect. The fix is a separate `Compare-Object` sweep that
+  enumerates both and surfaces the diff. The same pattern applies to
+  branch refs: `git worktree remove` clears worktree admin state but
+  leaves branch refs intact, and the per-card deletion catches one
+  branch at a time — historical accumulation requires a separate
+  pattern-based bulk pass.
+
+The OPS-001 reviewer-template lesson, the OPS-002 alignment lesson,
+and the OPS-003 cleanup-hardening lesson together form the
+foundation of the OPS-* series: OPS cards capture process bugs that
+ship product correctly but accumulate operational friction; they fix
+the process, not the product. Future OPS cards continue to follow
+the same shape (single design doc, verbatim lesson block,
+minimal-footprint implementer diff, verification table in the
 reviewer doc that confirms the lesson is recorded).
 
 ---

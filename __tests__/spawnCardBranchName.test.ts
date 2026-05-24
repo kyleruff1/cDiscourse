@@ -2,9 +2,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 /**
- * OPS-002 — Spawn-card branch-naming regression suite.
+ * OPS-002 / OPS-003 — Spawn-card + cleanup procedure regression suite.
  *
- * Two groups:
+ * Three groups:
  *   1. Slug parity — mirrors `.claude/scripts/spawn-card.ps1` lines 73–76
  *      in TypeScript. Pins the current branch-name shape so a future
  *      script edit (deliberate or accidental) cannot silently drift the
@@ -14,6 +14,14 @@ import * as path from 'node:path';
  *      rename step is present, well-formed, and ordered before the
  *      "Verify clean baseline" step. Guards against a future edit that
  *      removes or demotes the rename instruction.
+ *   3. Cleanup procedure contract (OPS-003) — file scan over
+ *      `.claude/agents/roadmap-reviewer.md` asserting that all four
+ *      EC-N handlers added by OPS-003 are present, ordered, and carry
+ *      the canonical signal phrase for each gap. The HTML comment
+ *      markers `<!-- OPS-003: EC-N handler -->` are the stable contract
+ *      surface; single-token signal phrases (`-f -f`, `\\?\`,
+ *      `Compare-Object`, `git branch --list`) guard against wording
+ *      drift while still catching deletion of a handler block.
  *
  * Test-only helper; intentionally NOT in `src/` (no production runtime
  * uses it). The PS1 script remains the single source of truth for the
@@ -124,5 +132,73 @@ describe('OPS-002 spawn-card branch name — Group 2: implementer charter rename
     expect(renameIndex).toBeGreaterThan(-1);
     expect(baselineIndex).toBeGreaterThan(-1);
     expect(renameIndex).toBeLessThan(baselineIndex);
+  });
+});
+
+describe('OPS-003 worktree cleanup procedure — charter contract (file scan)', () => {
+  const reviewerCharterPath = path.join(
+    REPO_ROOT,
+    '.claude',
+    'agents',
+    'roadmap-reviewer.md',
+  );
+
+  const charter = fs.readFileSync(reviewerCharterPath, 'utf8');
+
+  it('contains the EC-1 (double-force) handler marker and signal phrase', () => {
+    expect(charter).toContain('<!-- OPS-003: EC-1 handler -->');
+    // Signal phrase: the EC-1 fix is `-f -f` (double force). The
+    // single-token `-f -f` substring is stable across wording changes
+    // and proves the per-card step 2 command uses double-force.
+    expect(charter).toContain('git worktree remove -f -f');
+  });
+
+  it('contains the EC-2 (Windows long-path) handler marker and signal phrase', () => {
+    expect(charter).toContain('<!-- OPS-003: EC-2 handler -->');
+    // Signal phrases: the EC-2 fix is the `\\?\` UNC prefix used with
+    // PowerShell `Remove-Item`; the trigger condition is the literal
+    // `Filename too long` substring from git's error output. All three
+    // tokens are stable and platform-specific.
+    expect(charter).toContain('\\\\?\\');
+    expect(charter).toContain('Remove-Item');
+    expect(charter).toContain('Filename too long');
+  });
+
+  it('contains the EC-3 (filesystem orphan sweep) handler marker and signal phrase', () => {
+    expect(charter).toContain('<!-- OPS-003: EC-3 handler -->');
+    // Signal phrases: the EC-3 fix is a `Compare-Object` sweep that
+    // diffs the filesystem listing against git's worktree list to
+    // surface filesystem orphans (directories that exist on disk but
+    // are not in git's admin state).
+    expect(charter).toContain('Compare-Object');
+    expect(charter).toContain('filesystem orphan');
+  });
+
+  it('contains the EC-4 (periodic branch-ref cleanup) handler marker and signal phrase', () => {
+    expect(charter).toContain('<!-- OPS-003: EC-4 handler -->');
+    // Signal phrases: the EC-4 fix is a pattern-based bulk
+    // `git branch -D` pass driven by `git branch --list <patterns>`;
+    // the patterns list is the stable signal. Two of the four
+    // observed patterns are asserted to confirm the list shape.
+    expect(charter).toContain('git branch --list');
+    expect(charter).toContain("'feat/*'");
+    expect(charter).toContain("'worktree-agent-*'");
+  });
+
+  it('orders all four EC handler markers in EC-1, EC-2, EC-3, EC-4 sequence', () => {
+    // String-index comparison guards against a future edit that
+    // re-orders the handlers. The intended order is the natural
+    // execution order: blocking errors first (EC-1 lock-force, EC-2
+    // long-path) before accumulation sweeps (EC-3 filesystem orphan,
+    // EC-4 branch refs).
+    const ec1 = charter.indexOf('<!-- OPS-003: EC-1 handler -->');
+    const ec2 = charter.indexOf('<!-- OPS-003: EC-2 handler -->');
+    const ec3 = charter.indexOf('<!-- OPS-003: EC-3 handler -->');
+    const ec4 = charter.indexOf('<!-- OPS-003: EC-4 handler -->');
+
+    expect(ec1).toBeGreaterThan(-1);
+    expect(ec2).toBeGreaterThan(ec1);
+    expect(ec3).toBeGreaterThan(ec2);
+    expect(ec4).toBeGreaterThan(ec3);
   });
 });
