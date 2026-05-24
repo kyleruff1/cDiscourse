@@ -204,14 +204,22 @@ deploy command; this section adds the cleanup command beneath it.
 
 Run from the main repo root (not from inside a worktree):
 
+<!-- OPS-003: EC-1 handler -->
+
 ```
 # 1. Identify the worktree path for this card.
 git worktree list | grep "feat/<code>-<slug>"
 #   → C:/Users/kyler/cdiscourse/debate-constitution-app/.claude/worktrees/agent-<hash>
 
-# 2. Remove the worktree. --force is required because the worktree
-#    was created with isolation="worktree" and is marked locked.
-git worktree remove --force ".claude/worktrees/agent-<hash>"
+# 2. Remove the worktree. Double force (-f -f) is required because the
+#    worktree was created with isolation="worktree" and is marked
+#    locked by the Claude agent. Single --force is INSUFFICIENT for an
+#    explicit lock — git distinguishes "locked" from "in-use" and
+#    emits "use 'remove -f -f' to override or unlock first" when given
+#    only single force against an agent-locked worktree. The
+#    OPS-002-era single-force command failed on 96/96 worktrees during
+#    the 2026-05-24 cleanup session; the double-force form succeeds.
+git worktree remove -f -f ".claude/worktrees/agent-<hash>"
 
 # 3. Delete the local auto-branch (the rename step in the implementer
 #    charter renames worktree-agent-<hash> to feat/<code>-<slug>, so
@@ -238,7 +246,7 @@ git branch -a | grep -E "feat/<code>-<slug>|worktree-agent-<hash>"
   Select-String "feat/<code>-<slug>"`. The orchestrator typically
   runs the cleanup from the Bash tool (Git-for-Windows MSYS bash) where
   `grep` works directly.
-- `git worktree remove --force` will fail if the worktree path is
+- `git worktree remove -f -f` will fail if the worktree path is
   the operator's current working directory. The operator must `cd` to
   the main repo root first (the procedure's first sentence
   enforces this).
@@ -250,29 +258,158 @@ git branch -a | grep -E "feat/<code>-<slug>|worktree-agent-<hash>"
   `git remote prune origin` clear the stale tracking ref on the next
   fetch.
 
-**Bulk cleanup of historical orphans.**
+<!-- OPS-003: EC-2 handler -->
 
-For the 96 existing orphan worktrees (one-time historical debt, not
-created by post-OPS-002 cards), the operator may run a single
-PowerShell pass to remove every locked worktree whose branch has
-already merged:
+**Windows: long-path workaround when `git worktree remove` reports
+"Filename too long".**
 
+On Windows, each worktree contains a full copy of `node_modules/`, and
+nested dependency paths (e.g.
+`node_modules/jest/.../node_modules/...`) can exceed the Win32
+MAX_PATH limit (260 chars). When `git worktree remove -f -f` returns
+exit 128 with `error: failed to delete '<path>': Filename too long`,
+use the UNC long-path prefix from PowerShell:
+
+```powershell
+# Use the \\?\ UNC prefix; this tells Win32 to bypass MAX_PATH
+# validation (supports paths up to ~32k chars). The path must be
+# absolute.
+Remove-Item -Path "\\?\C:\Users\kyler\cdiscourse\debate-constitution-app\.claude\worktrees\agent-<hash>" -Recurse -Force
+
+# Then clean up git's administrative state for the now-missing
+# directory. This is the equivalent of the second half of
+# `git worktree remove` minus the file deletion.
+git worktree prune
 ```
+
+Linux and macOS operators do not encounter MAX_PATH and can ignore
+this subsection. The trigger condition is the literal substring
+`Filename too long` in the `git worktree remove` error output.
+
+<!-- OPS-003: EC-3 handler -->
+
+**Filesystem orphan sweep (run after the per-card block, and
+periodically).**
+
+`git worktree list` enumerates only git-registered worktrees.
+Directories that exist under `.claude/worktrees/` but were never
+registered (or whose admin state was pruned without the directory
+being removed) are invisible to the per-card block above. They
+accumulate as filesystem orphans. To detect and remove them:
+
+```powershell
+# 1. List filesystem entries under .claude/worktrees/ (excluding the
+#    main worktree's own directory if it lives there — by convention
+#    the main checkout is at the repo root, not under .claude/).
+$fsDirs = Get-ChildItem -Path ".claude/worktrees/" -Directory | Select-Object -ExpandProperty Name
+
+# 2. List git-registered worktree paths.
+$gitDirs = git worktree list --porcelain |
+  Select-String -Pattern '^worktree ' |
+  ForEach-Object { ($_ -split ' ', 2)[1] } |
+  Where-Object { $_ -like '*\.claude\worktrees\*' -or $_ -like '*/.claude/worktrees/*' } |
+  ForEach-Object { Split-Path $_ -Leaf }
+
+# 3. Compare. Anything in $fsDirs but not in $gitDirs is a filesystem
+#    orphan.
+$orphans = Compare-Object -ReferenceObject $fsDirs -DifferenceObject $gitDirs |
+  Where-Object { $_.SideIndicator -eq '<=' } |
+  Select-Object -ExpandProperty InputObject
+
+$orphans   # operator reviews this list
+```
+
+For each orphan, the operator decides per-orphan whether to remove
+(default: yes, since by definition the orphan has no git association
+to preserve). Removal uses the same UNC long-path method as EC-2,
+since the orphan typically contains the same deep `node_modules/`
+structure:
+
+```powershell
+foreach ($orphan in $orphans) {
+  $absPath = (Resolve-Path ".claude/worktrees/$orphan").Path
+  Remove-Item -Path "\\?\$absPath" -Recurse -Force
+}
+# No `git worktree prune` needed — git's admin state never knew about
+# these directories in the first place.
+```
+
+The 2026-05-24 cleanup session found 8 filesystem orphans after all
+96 git-registered worktrees were removed (5 unregistered `agent-*`
+directories at ~289 MB each + 3 zero-byte session-name directories
+totalling ~1.45 GB). This step is idempotent and safe to re-run.
+
+<!-- OPS-003: EC-4 handler -->
+
+**Periodic branch-ref cleanup (run independently of any worktree
+removal).**
+
+`git worktree remove` clears worktree admin state but leaves the
+local branch ref intact. The per-card branch deletion in step 3 of
+the per-card block above handles the current card's branch only;
+historical accumulation from pre-OPS-002 sessions (where per-card
+deletion was never run) and auto-naming patterns from past
+conventions (e.g. `worktree-agent-*`, `review*`, `claude/*`) survive
+until explicitly cleared. To bulk-delete these orphan refs:
+
+```powershell
+# Patterns observed in the 2026-05-24 cleanup session. The list is
+# additive — append new patterns as past conventions surface; do not
+# remove existing patterns without confirming no historical branches
+# match them.
+$patterns = @('feat/*', 'worktree-agent-*', 'review*', 'claude/*', 'ev005-expand')
+
+# Collect candidates. Each branch is local-only (no remote impact
+# because squash-merge --delete-branch cleared remotes during merge).
+$branches = git branch --list @patterns |
+  ForEach-Object { $_.Trim().TrimStart('*').Trim() } |
+  Where-Object { $_ -ne '' -and $_ -ne (git branch --show-current) }
+
+$branches.Count   # report count for operator review
+
+# Bulk force-delete. Capital -D (force) is required because some
+# branches may have unmerged-into-main commits from abandoned cards;
+# upstream-merged-state is already verified by the OPS-002 per-card
+# block, and pre-OPS-002 branches are typically abandoned-or-merged
+# with no value in preserving the ref.
+foreach ($branch in $branches) {
+  git branch -D $branch
+}
+```
+
+This step is idempotent (re-running it after all orphan refs are
+deleted simply reports zero branches) and safe (no remote impact;
+local refs only). The 2026-05-24 cleanup session deleted 218 orphan
+refs in a single pass. Recommended cadence: run after every 10–20
+cards merge, or whenever `git branch --list <patterns> | wc -l`
+exceeds 50.
+
+**Bulk cleanup of historical orphans (one-time, post-OPS-003).**
+
+For any remaining historical-debt worktrees that pre-date OPS-003
+(none are expected after the 2026-05-24 cleanup), the operator may
+run a single PowerShell pass combining EC-1's double force, EC-2's
+long-path workaround, and EC-3's filesystem sweep:
+
+```powershell
 # Dry run first — list every worktree under .claude/worktrees/ except
 # the currently-active one.
 git worktree list --porcelain |
   Select-String -Pattern '^worktree '
 
 # Then for each non-active path the orchestrator confirms is safe,
-# run:
-git worktree remove --force "<path>"
+# attempt git removal first (catches the admin state); if that fails
+# with "Filename too long", fall back to the UNC + Remove-Item
+# method from EC-2.
+git worktree remove -f -f "<path>"
 git branch -D "<branch>"
 ```
 
-The bulk pass is **operator-judgement-gated** — the orchestrator does
-not automate it because mis-identifying a non-merged worktree as
-orphan loses work. OPS-002 only mandates the per-card cleanup in steps
-1–4 above; the bulk pass is informational.
+The bulk pass remains **operator-judgement-gated** — the orchestrator
+does not automate it because mis-identifying a non-merged worktree as
+orphan loses work. OPS-003 mandates the per-card cleanup in steps
+1–4 above plus the EC-2/EC-3/EC-4 handlers; the bulk pass is
+informational.
 
 ## Verdict rules
 
