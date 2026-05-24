@@ -1,9 +1,9 @@
 # CDiscourse — Current Status
-<!-- Latest implementer card: QOL-039 (Public ↔ Private Room Visibility Transition Rules — Epic Interaction). 1 migration (debates.visibility + one-way trigger + 2 SECURITY DEFINER helpers + 4 RLS policy replacements + room_visibility_changes audit table) + 1 new Edge Function (record-visibility-transition) + 1 pure-TS model (roomVisibilityModel) + 1 new UI component (MakePrivateConfirmation) + threading through types/debatesApi/gameCopy/conversationGalleryModel/CreateDebateForm/DebateDetailHeader/config.toml. OD-1 creator-only UI gate; DB+RLS keep creator-or-mod as defense-in-depth. OD-2 audit table is counts + chime-in argument IDs (never individual dropped-observer user IDs). OD-3 Edge Function path (atomic UPDATE + audit INSERT + notification dispatch). No QOL-038 / QOL-040 file modifications (E4). Full suite is 10393 tests / 414 suites (all passing, +230 from QOL-040 baseline). Typecheck + lint clean. -->
+<!-- Latest implementer card: RECON-001 (post-Interaction-epic roadmap reconciliation; documentation-only). The Interaction epic for Release 6.7 is complete — QOL-038 (#207, PR #264), QOL-040 (#209, PR #266), QOL-039 (#208, PR #268) all shipped on 2026-05-24. Supporting work: OPS-001 (#260, PR #262, reviewer template strengthened for migration-bearing cards), QOL-041 + QOL-041.1 + QOL-041.2 (#210/#256/#258, PRs #255/#257/#259, concession gradient + fix-forward + in-place migration recovery), QOL-035 (PR #253, terminology scrub), MCP-CAT-001 (effective via PR #252, catalog v1), COMP-001 (#244, PR #251, composition layer). Verified test baseline at QOL-039 merge: 10393 tests / 414 suites passing (the full-suite run at RECON-001 implementer time shows 10392 passing + 1 perf-sensitive flake in `__tests__/moveMetadataLedger.test.ts:1210` — re-runs of that suite alone are green; not a behaviour regression). Typecheck + lint clean. RECON-001 is doc-only and does not change source code, tests, migrations, or Edge Functions. Two new follow-up issues filed: #270 QOL-036.1 (composition-layer integration for payment-evidence pill state), #271 QOL-040.3 (deep-link node pre-activation via Stage 6.4 entry-hint extension). Three indefinite deferrals documented (QOL-040.1, QOL-040.2, COMP-001.1). See `docs/roadmap/2026-05-24-post-interaction-epic-reconciliation.md`. -->
 
 ## QOL-039 — Public ↔ Private Room Visibility Transition Rules (Epic Interaction)
 
-**Status:** Build complete, awaiting Review — adds the room visibility
+**Status:** Shipped — PR #268 merged 2026-05-24 (squash `9e60310`). Adds the room visibility
 field, the one-way `public → private` transition, the creator-only UI
 gate (OD-1), the counts-only audit table (OD-2), and the
 `record-visibility-transition` Edge Function (OD-3) that atomically
@@ -375,6 +375,74 @@ baseline of 9757 / 372). Typecheck + lint + ux:terminology:audit
 all clean.
 
 ---
+
+## OPS-001 — Reviewer template strengthening for migration-bearing cards (Operations · process)
+
+**Status:** Shipped — PR #262 merged 2026-05-24 (squash `2d91b5a`). Documentation-only update to `.claude/agents/roadmap-reviewer.md` adding a "Migration-bearing card verification (mandatory)" section that codifies the four-class verification template surfaced by the QOL-041 migration deploy chain.
+
+**Doctrine highlights:**
+- Reviewer template now requires either (a) `npx supabase db reset --linked=false` (when Docker is available) or (b) heightened textual review against four named issue classes.
+- The four classes: (1) Ambiguous column references in RLS policy bodies (QOL-041 motivating example), (2) Column type mismatches, (3) Implicit ordering dependencies, (4) Function / trigger / extension dependencies.
+- The template is process-only — no production code, no migrations, no Edge Function changes.
+- Doctrine ban-list applies to the policy text: zero verdict tokens in additions.
+
+**Files added:** none.
+
+**Files modified:**
+- `.claude/agents/roadmap-reviewer.md` (~80 lines added): new mandatory section + four-class checklist.
+- `CLAUDE.md`: one-line mention of the new template under "Supabase Conventions" + cross-reference.
+- `docs/core/agent-charters.md`: cross-reference under "Common preflight".
+- `docs/core/agent-workflow.md`: per-cell update to the agents-table reviewer-row Output cell.
+- `docs/core/known-blockers.md`: new "QOL-041 Migration Deploy Chain — Reviewer Template Strengthened (OPS-001)" entry preserving the QOL-041 lesson (Incident / Recovery / Template update paragraphs).
+
+**Test count:** unchanged (process card; 9757 baseline preserved).
+
+**Operator follow-up:** none — process change effective on merge. No `db push`, no `functions deploy`, no env var, no migration.
+
+See `docs/designs/OPS-001.md` and `docs/reviews/OPS-001.md`.
+
+## QOL-041.2 — In-place migration recovery for QOL-041 (doctrine-scoped exception · Epic 12 — Rules UX)
+
+**Status:** Shipped — PR #259 merged 2026-05-23 (squash `6fcfdbf`). Doctrine-scoped exception to the "never edit an applied migration" rule: rewrites the QOL-041 migration `20260522000012_qol_041_concession_acceptance.sql` in-place to fix the five `debate_id` column-ambiguity references at source, then deletes the QOL-041.1 fix-forward migration (which is no longer needed).
+
+**Doctrine highlights:**
+- Doctrine-scoped exception is explicitly tracked in `docs/core/known-blockers.md` "QOL-041 Migration Deploy Chain" entry. Factual basis at design time: `npx supabase migration list --linked` at 2026-05-23T22:54Z showed the Remote column for `20260522000012` empty (the original migration had never applied to the remote). Reviewer re-verified at review time the Remote column was still empty — no race condition.
+- The exception is one-time and explicitly does NOT modify the standard doctrine ("future migration-bearing cards continue to follow the standard never-edit-applied doctrine" — verbatim in the recovery banner).
+- OPS-001 (PR #262) codified the lesson learnt into the roadmap-reviewer template so future migration-bearing cards catch the column-ambiguity issue at review time, not at deploy time.
+
+**Files modified:**
+- `supabase/migrations/20260522000012_qol_041_concession_acceptance.sql`: prepended 30-line recovery comment banner (lines 1–29) + five qualifier replacements inside policy WITH-CHECK subqueries (bare `debate_id` → `concession_items.debate_id` / `concession_acceptances.debate_id` / `move_reactions.debate_id`). Per-policy authz logic preserved byte-for-byte except qualifier disambiguation.
+
+**Files deleted:**
+- `supabase/migrations/20260523000001_qol_041_1_fix_concession_acceptances_policies.sql`: the QOL-041.1 fix-forward (129 lines), no longer needed.
+
+**Test count:** unchanged (migration-only; 9757 baseline preserved).
+
+**Operator follow-up to ship live:** For dev — `npx supabase db reset --linked=false` re-applies migrations cleanly. For any environment that already applied QOL-041 + QOL-041.1 ad-hoc, manual drop + recreate of the four policies is the one-time recovery path documented in `docs/designs/QOL-041.2.md`.
+
+See `docs/designs/QOL-041.2.md` and `docs/reviews/QOL-041.2.md`.
+
+## QOL-041.1 — Fix-forward migration: qualify ambiguous debate_id in QOL-041 RLS policies (Epic 12 — Rules UX · Migration recovery)
+
+**Status:** Shipped — PR #257 merged 2026-05-23 (squash `df0a61d`). Fix-forward migration that resolves the `debate_id` column-reference ambiguity in the QOL-041 INSERT policy bodies (subquery joined `concession_items` / `concession_acceptances` / `move_reactions` with `arguments`, all of which expose `debate_id`).
+
+**Doctrine highlights:**
+- Migration-only fix; no model / API change.
+- Fix-forward (new migration that supersedes the ambiguous policies) rather than in-place edit — preserves the discipline that applied migrations are never edited.
+- Later superseded by QOL-041.2 in-place recovery (doctrine-scoped exception, factual basis: original migration had never been applied to the remote — see QOL-041.2 entry above).
+- Policy authorization semantics preserved verbatim — only column-reference disambiguation changed.
+
+**Files added:**
+- `supabase/migrations/20260523000001_qol_041_1_fix_concession_acceptances_policies.sql` (~129 lines): drops the three affected INSERT policies (`ci_insert_author`, `ca_insert_receiver`, `mr_insert_reactor`) and re-creates them with explicit table-qualified `debate_id` references.
+
+**Files modified:**
+- `docs/core/current-status.md`: 15-line operator-facing addendum naming the root cause, the doctrine rule applied, and the operator follow-up.
+
+**Test count:** unchanged (migration-only; 9757 baseline preserved).
+
+**Operator follow-up to ship live:** `npx supabase db push --linked` to apply the new migration. (Note: superseded by QOL-041.2 — once QOL-041.2 ships, this migration is removed from the tree and only the rewritten QOL-041 migration applies.)
+
+See `docs/designs/QOL-041.1.md` and `docs/reviews/QOL-041.1.md`.
 
 ## QOL-041 — Concession list + acceptance gradient + fist-bump reaction (Epic 12 — Rules UX)
 
@@ -778,6 +846,51 @@ Issue #204.
 - **What it ships — modified files:** `docs/core/roadmap-semantic-referee-modularity.md` (§3 row for MCP-MOD-002 now links the inventory). `docs/core/current-status.md` (this entry).
 - **+4 tests / +1 suite.** Full suite **9101 tests / 333 suites — 9100 passing**. The one red suite (`diagnosticInspectPackage.test.ts`) is a **pre-existing failure unrelated to this card** — same flake documented in MCP-018's status note (safety scanner flags an `x_handle`-shaped string inside a gitignored diagnostics artifact). Typecheck + lint clean. The parity test uses the existing `__tests__/_helpers/semanticRefereeDeno.ts` bridge to read `CLASSIFIER_QUESTION_TEXT` and `ALL_SEMANTIC_CLASSIFIER_IDS` directly from the Deno source files.
 - **No operator follow-up** — pure documentation + a source-scan test. No `db push`, no `functions deploy`, no env var, no migration, no dependency install, no `.env` change.
+
+## MCP-MOD-001 — Documentation reorganization (foundational docs → docs/core/) (Epic 12 — Rules UX · Movement A)
+
+**Status:** Shipped — PR #242 merged 2026-05-22 (squash `2cbdf8b`). Pure documentation reorganization that relocates 12 foundational docs into `docs/core/` so subsequent MCP-MOD-002..008 cards can reference a single canonical location.
+
+**Doctrine highlights:**
+- Documentation-only — no production code, no migrations, no Edge Functions.
+- Uses `git mv` to preserve file history (every move shows `R100` — 100% similarity).
+- Updates every cross-reference in `CLAUDE.md`, `.claude/agents/`, `.claude/skills/`, `.claude/scripts/`, `scripts/diagnostics/`, `scripts/github/`, and 100+ `docs/` Markdown files.
+
+**Files added:**
+- `__tests__/foundationalDocsCorePathExistence.test.ts` (~55 lines): asserts the 12 new `docs/core/*.md` paths exist and the 12 old top-level paths no longer exist.
+
+**Files moved:** 12 files relocated to `docs/core/` via `git mv` (11 plain renames + 1 directory-renamed `roadmap-semantic-referee-modularity.md` from `docs/roadmap-expansions/2026-05-22-…-roadmap.md`).
+
+**Files modified:** `CLAUDE.md`, `.claude/agents/*.md`, `.claude/skills/**/*.md`, `.claude/scripts/spawn-card.{ps1,sh}`, `.claude/scripts/create-roadmap-issues.ps1`, `scripts/diagnostics/buildDiagnosticInspectPackage.js`, `scripts/github/uxBoardCards.json`, `scripts/github/agentIssueRunner.js`, plus 100+ Markdown cross-reference updates across `docs/`.
+
+**Test count:** +24 tests (12 existence + 11 absence + 1 meta-roadmap absence). Suite count baseline 9073 → 9097.
+
+**Operator follow-up:** none — paths effective on merge. No `db push`, no `functions deploy`, no env var, no migration.
+
+See `docs/designs/MCP-MOD-001.md` and `docs/reviews/MCP-MOD-001.md`.
+
+## SMOKE-FIX-002 — Tighten seed prompt: enumerate routeSuggestion + frictionSuggestion values + worked example (Epic 12 — Rules UX)
+
+**Status:** Shipped — PR #241 merged 2026-05-22 (squash `5648a9c`). Targeted remediation on top of SMOKE-FIX-001's diagnostic-log addition: rewrites the semantic-referee seed prompt to enumerate the 7 `routeSuggestion` enum values and 8 `frictionSuggestion` enum values inline and ship a one-shot worked example with ban-list-clean concrete values. After Supabase auto-redeploys on merge, the smoke-test re-run is the acceptance check.
+
+**Doctrine highlights:**
+- Bumps `SEED_PROMPT_VERSION` to `mcp-semantic-referee-prompt-v1` per the version-bump-on-wording-change invariant.
+- Worked example contains zero verdict / truth / popularity tokens (ban-list-clean — every field is structural: `classifierId: responds_to_parent`, `confidence: high`, `reasonCode: parent_continuity_engaged`, `routeSuggestion: mainline`, `frictionSuggestion: none`).
+- No production code path changed beyond the seed prompt module — the validators, redactor, and provider plumbing are untouched.
+
+**Files added:**
+- `__tests__/semanticRefereeSeedPromptEnumCoverage.test.ts` (~5 tests): source-scan test verifying every `ALL_ROUTE_SUGGESTIONS` and `ALL_FRICTION_SUGGESTIONS` enum value appears in the user-message instruction; the worked example contains the required schema fields with valid values; `SEED_PROMPT_VERSION === 'mcp-semantic-referee-prompt-v1'` and v0 is absent.
+
+**Files modified:**
+- `supabase/functions/_shared/semanticReferee/seedPrompt.ts`: enumerated `routeSuggestion` + `frictionSuggestion` values inline; added worked example; bumped `SEED_PROMPT_VERSION` from v0 to v1.
+- `__tests__/semanticAnthropicCore.test.ts`: one-line literal update from v0 to v1 to keep the suite green (implementer note correction documented in design §13).
+- `docs/core/current-status.md`: footnote.
+
+**Test count:** +5 tests / +1 suite. Suite baseline 9068 → 9073.
+
+**Operator follow-up:** none required for deploy — Supabase auto-redeploys the Edge Function on merge per the Supabase GitHub integration. Smoke-test re-run (`node scripts/bot-fixtures/runMcpSmokeTest.js`) is the acceptance check; packets must carry `promptVersion === 'mcp-semantic-referee-prompt-v1'`.
+
+See `docs/designs/SMOKE-FIX-002.md` and `docs/reviews/SMOKE-FIX-002.md`.
 
 ## SMOKE-FIX-001 — actorRole schema widening + Anthropic validation_failed diagnostic log (Epic 12 — Rules UX)
 
