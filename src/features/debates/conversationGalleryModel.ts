@@ -195,6 +195,17 @@ export interface GalleryEntryHint {
   helperLine: string;
   presetKey: QuickActionLabel | null;
   dockAction: TimelineNodeActionDockActionCode | null;
+  /**
+   * QOL-040.3 — Optional override. When set, the room shell uses this
+   * id as the initial active message instead of the deriver's
+   * `activate` policy, IF the id is present in the loaded message
+   * slice. Falls through to the `activate` policy when absent or
+   * inaccessible (soft-deleted, wrong-room, RLS-hidden). Set only by
+   * notification deep-link hand-offs (see `buildDeepLinkEntryHint`);
+   * the gallery deriver (`deriveGalleryEntryHint`) never sets this
+   * field.
+   */
+  entryHintForArgumentId?: string;
 }
 
 /**
