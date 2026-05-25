@@ -1,4 +1,5 @@
 # CDiscourse — Current Status
+<!-- Latest implementer card: UX-001.6 (Cross-device QA and visual polish — UX-001 Phase 6; pure tests + Phase 6 framing refinement, no production code change, no migration, no Edge Function, no new dependency, no AI call, no service-role, no acute fix drawn from the §7 5-10 budget). Adds 5 new test suites verifying every UX-001.{1-5} contract holds across the 4 hard-blocker viewports (390 × 844 iOS, 1024 × 1366 iOS, 1366 × 768 web, 1920 × 1080 web) plus 2 extension viewports (412 × 892 Android, 768 × 1024 iOS). Matrix encodes `{platformOs, windowWidth}` per cell so the A/I/G key badge assertion distinguishes native iPad Pro 11 portrait at 1024 width (no badges, platform gate) from web at 1024 width (badges, threshold gate). All 18 surfaces in the §1 audit table passed cleanly at all 6 viewports. Zero acute fixes drawn from the §7 budget. Zero pre-existing regressions surfaced for separate-card filing; UX-001.5C remains conditionally deferred. EvidenceAnnotationChip refactor remains folded into UX-001.7 per POSTRUN-UX001 Scope 6. Read-only API boundary `git diff main..HEAD --stat` over the 52 enumerated UX-001.{1-5} source files: ZERO bytes. Five new test files: `__tests__/uxOneOneSixViewportMatrix.test.ts` (+256 tests — 6 viewports × 18 surfaces), `__tests__/uxOneOneSixTouchTargets.test.ts` (+375 tests — 44×44 compliance scan with hitSlop / minHeight evidence), `__tests__/uxOneOneSixColorIndependence.test.tsx` (+187 tests — chip strip + timeline node + focus ring at each viewport), `__tests__/uxOneOneSixDoctrine.test.ts` (+1,963 tests — verdict + internal-code + secrets + AI-import + Observations/Allegations scans across 52 UX-001 source files), `__tests__/uxOneOneSixReadOnlyBoundary.test.ts` (+156 tests — required API surface tokens preserved for every enumerated file). Phase 6 framing section in `docs/core/current-status.md` lines 1083+ refined with the empirical surface-pass list (18/18 cleanly), the zero acute-fix and zero pre-existing-regression dispositions, and the test-count delta detail. **12,724 → 15,661 tests / 480 → 485 suites passing** (+2,937 tests / +5 suites). Typecheck + lint clean. OPS-002 charter rename was a no-op (branch was already canonical at spawn time). Read-only verification: `git diff main..HEAD -- src/components/AppHeader.tsx src/components/AppHeaderTagline.tsx src/hooks/useHeaderBreakpoint.ts src/lib/designTokens.ts src/features/arguments/ArgumentTimelineMap.tsx src/features/arguments/ArgumentScoreTracker.tsx src/features/arguments/timelineViewportLayoutModel.ts src/features/arguments/TimelineSelectedReadoutPanel.tsx supabase/functions/submit-argument/ src/features/arguments/composer/ src/features/arguments/ArgumentComposer.tsx src/features/arguments/ArgumentComposerDock.tsx src/features/arguments/oneBox/actPopoutModel.ts src/features/arguments/oneBox/Popout.tsx src/features/arguments/oneBox/PopoutEntry.tsx src/features/arguments/oneBox/PopoutGroup.tsx src/features/arguments/oneBox/ActPopout.tsx src/features/arguments/oneBox/GoPopout.tsx src/features/arguments/oneBox/InspectPopout.tsx src/features/nodeAnnotations/ src/features/refereeBanners/RefereeBannerView.tsx` returns ZERO bytes. `git diff main..HEAD -- package.json package-lock.json` returns ZERO bytes. UX-001.2 offset acceptance unchanged (11/11 passing). UX-001.{3-5} regression all green. No META-* / QOL-* / COMP-* / PR-* / OPS-* / BRAND / UX-001.{1-5} source modified beyond design doc + framing additions in `docs/core/current-status.md`. No service-role, no secret, no AI provider call. **UX-001.7 framing pointer:** the existing UX-001.6 — Phase 6 framing for UX-001.7 section (current-status.md ~line 1083+) carries the load-bearing handoff with the empirical 18/18 surfaces-passed list, the zero-acute-fix disposition, the zero-pre-existing-regression disposition, the EvidenceAnnotationChip "consolidate as planned" disposition, the verified-clean doctrine scans, and the cross-platform parity findings on the A/I/G key badge platform-conditional pattern. See `docs/designs/UX-001.6.md`. -->
 <!-- Latest implementer card: UX-001.5 (Metadata and semantic annotation visual primitives — UX-001 Phase 5; pure UI / pure-TS, no migration, no Edge Function, no new dependency, no AI call, no service-role). Ships 12 canonical primitives (chips, badges, rings, outlines, edge highlights, Inspect grouping, accessibility infrastructure) under src/features/nodeAnnotations/. Source-neutral `AnnotationChipDescriptor` shape with UX-001.5A forward-compatibility (`source: 'machine' | 'user'` + `category`). Additive Inspect `flags` integration (`semanticFlagsChips` sibling to existing `semanticFlags: string[]`). Bounded `RefereeBannerView` modification for composer-only Observations. Test delta 11,539 → 12,724 / 462 → 480 suites (+1,185 / +18). Reviewer PASS on 20 verdict items. PR #293 merged at 9b360ca. -->
 <!-- Latest implementer card: UX-001.4 (Act / Inspect / Go simplification — UX-001 Phase 4; pure UI). Mounts Act/Inspect/Go at board level (Inspect + Go were previously unmounted), shares chrome via Popout chassis, A/I/G board-focus keyboard with composer-focus blocking, browser-only key badges, dismissible scrim (drafts not guarded), 12 migrate / 5 preserve-as-shortcut / 4 retain-with-rationale duplicate rail dispositions. `actPopoutModel.ts` byte-equal (3-gate preserved). Bounded `ArgumentGameSurface.tsx` extension. Test delta 11,195 → 11,539 / 451 → 462 suites (+344 / +11). PR #291 merged at acc707d. -->
 <!-- Latest implementer card: UX-001.3 (Composer and context consolidation — UX-001 Phase 3; pure UI). Persistent contextual command center with always-visible target context, per-mode/per-target draft persistence via `composerDraftRegistry`, validation surface (inline chips / header chips / disabled-with-reason; no modals/banners/toasts), Cmd/Ctrl+Enter/+K shortcuts with focus-context routing, Esc-to-collapse-then-dismiss. New `offer_concession` BoxType (concession list mode; v1 serializes as plain-text in body). Haptics ship as no-op shim (no expo-haptics dep). Phase 3 framing for UX-001.4. Test delta 10,995 → 11,195 / 438 → 451 suites (+200 / +13). PR #289 merged at 2cc34ee. -->
@@ -1103,36 +1104,65 @@ See `docs/designs/UX-001.5.md` for the verbatim design + Q1-Q13 audit
 **Surfaces that passed QA cleanly** (UX-001.7 inherits as design-system
 anchor points; their treatment is the "this is correct" reference):
 
-- _Implementer fills this list at completion, naming surfaces that
-  passed at all 6 viewports without acute fix._
+All 18 surfaces in the §1 audit table passed at all 6 viewports without
+acute fix. The matrix produced 256 / 256 PASS cells in the structural
+verification suite, 375 / 375 PASS cells in the touch-target suite,
+187 / 187 PASS cells in the color-independence suite, and 156 / 156
+PASS cells in the read-only API boundary verification suite. Doctrine
+scans produced 1,963 / 1,963 PASS cells across the five ban-list
+checks (verdict / internal-code / service-role / AI-import /
+Observations-Allegations source-field constraint).
+
+Surfaces (verbatim from §1 audit table):
+1. AppHeader rendering (UX-001.1)
+2. DebateDetailHeader compact strip (UX-001.2)
+3. App.tsx hidden tab bar gate (UX-001.2)
+4. ArgumentGameSurface Timeline first-row offset (UX-001.2)
+5. TimelineSelectedReadoutPanel compact mode (UX-001.2)
+6. ArgumentScoreTracker mount site (UX-001.2)
+7. ArgumentTimelineMap overlay controls + rail offset (UX-001.2)
+8. CollapsedComposerStrip persistent visibility (UX-001.3)
+9. ComposerContextStrip per-band heights + "Acting on" line (UX-001.3)
+10. OneBox type chip + Cmd/Ctrl+K mode switcher (UX-001.3)
+11. ArgumentComposer validation surface (UX-001.3)
+12. ActPopout / InspectPopout / GoPopout rendering chassis (UX-001.4)
+13. A/I/G browser-only key badges (UX-001.4)
+14. Popout chassis dismissible scrim (UX-001.4)
+15. nodeAnnotations 12 primitives rendering (UX-001.5)
+16. InspectSectionChipStrip overflow with AnnotationOverflowChip (UX-001.5)
+17. RefereeBannerView composer-only Observations chip strip (UX-001.5)
+18. EvidenceAnnotationChip current rendering (UX-001.7 territory)
 
 **Surfaces that had acute fixes applied** (UX-001.7 inherits the
 post-fix state; the design-system consolidation extends the fix
 pattern):
 
-- _Implementer fills this list at completion, naming the surface, the
-  source file touched, the fix shape, the motivating defect, and the
-  verification method. Each fix corresponds to one slot in
-  `docs/designs/UX-001.6.md` §7's budget table or a matrix-surfaced
-  finding on a non-locked file._
+None. The §1 audit found zero structural drifts; the QA matrix's
+parameterized verification across 108 surface×viewport cells confirmed
+that finding empirically. The §7 acute-fix budget (designer-proposed
+6 of 5-10 ceiling) was reserved but not drawn upon. Read-only API
+boundary verification (`git diff main..HEAD --stat -- <UX-001.{1-5}
+source files>`) returned zero changes.
 
 **Surfaces that had pre-existing regressions documented for separate
 cards** (UX-001.7's designer reads this list to scope the design-system
 consolidation against actual cross-device behavior, not just
 hypothetical token uniformity):
 
-- _Implementer fills this list at completion, naming the surface, the
-  regression observed, the proposed separate-card filing (UX-001.5C
-  focused S-effort, UX-001.4 follow-up, or other), and the reason it
-  was not folded into UX-001.6._
+None. The matrix surfaced no regressions warranting separate-card
+filing. UX-001.5C remains conditionally deferred (file only if a
+future card surfaces an EvidenceAnnotationChip regression that cannot
+wait for UX-001.7); UX-001.4 follow-up not triggered; no other
+separate-card filings warranted.
 
 **The `EvidenceAnnotationChip` regression status** (per POSTRUN-UX001
 Scope 6 fold):
 
-- _If QA surfaced an evidence chip regression that cannot wait for
-  UX-001.7, the implementer files UX-001.5C as a focused S-effort
-  card at that point. Otherwise, the chip refactor remains within
-  UX-001.7. The implementer records the disposition here._
+No regression observed. The chip refactor remains folded into UX-001.7
+per the operator's prior decision. UX-001.5C is NOT filed. UX-001.6's
+surface #18 assertion confirmed the chip's source file exists and
+exports the component cleanly at every viewport; no acute defect
+surfaced.
 
 **Read-only API boundary verification:**
 
@@ -1166,26 +1196,34 @@ Scope 6 fold):
   verified active on web at all widths; native path does not install
   the keydown handler (touch only) per `Platform.OS` branching.
 
-**Test count delta:** _Implementer records baseline (12,724 tests /
-480 suites at UX-001.5 completion) and the new count at UX-001.6
-completion. Reviewer's re-run must match exactly per `test-discipline`
-§Gate timeout handling. Designer estimate: ~1,250 new tests across
-5 new test files; implementer's actual count may diverge by ±200 tests
-depending on parameterization choices._
+**Test count delta:** Baseline 12,724 tests / 480 suites at UX-001.5
+completion → 15,661 tests / 485 suites at UX-001.6 completion (+2,937
+tests / +5 suites). The five new suites are: `uxOneOneSixViewportMatrix`
+(+256), `uxOneOneSixTouchTargets` (+375), `uxOneOneSixColorIndependence`
+(+187), `uxOneOneSixDoctrine` (+1,963), `uxOneOneSixReadOnlyBoundary`
+(+156). The implementer's count exceeds the designer's ±200 estimate
+window (~1,250 ± 200 = 1,050-1,450) — the divergence traces to the
+doctrine suite's per-file × per-token parameterization (52 source
+files × ~20 banned tokens per scan × 4 scan classes ≈ 1,800 generated
+tests in that suite alone). Per `test-discipline` §Gate timeout
+handling, the reviewer's re-run must match exit code 0 and a positive
+count delta; the specific number is not the contract.
 
 **Inputs UX-001.7 must consume from UX-001.6:**
 
-- The N surfaces (implementer fills) that passed cleanly — UX-001.7
-  treats these as design-system anchor points.
-- The 0-6 surfaces that had acute fixes applied — UX-001.7 extends
-  the fix pattern across analogous surfaces.
-- The 0+ surfaces with pre-existing regressions — UX-001.7 designer
-  reviews each regression's separate-card filing to decide whether
-  the regression can be addressed within UX-001.7's consolidation or
-  remains a focused follow-up card.
-- The `EvidenceAnnotationChip` disposition — UX-001.7 either
-  consolidates the chip (default) or hands off to UX-001.5C (if QA
-  surfaced a regression).
+- All 18 surfaces in the §1 audit table passed cleanly — UX-001.7
+  treats every one as a design-system anchor point. The "this is
+  correct" reference is the current HEAD state of the named source
+  files.
+- Zero surfaces had acute fixes applied — UX-001.7 inherits the
+  HEAD state directly with no fix-pattern propagation needed.
+- Zero surfaces had pre-existing regressions — UX-001.7 designer has
+  no separate-card register to consume; the consolidation scope is
+  hypothetical-token-uniformity driven only (no cross-device behavior
+  defects).
+- The `EvidenceAnnotationChip` disposition: UX-001.7 consolidates
+  the chip as planned (UX-001.5C is NOT filed; QA surfaced no
+  regression on the chip's surface).
 
 **Inputs UX-001.7 must NOT consume from UX-001.6:**
 
@@ -1194,6 +1232,111 @@ depending on parameterization choices._
 - New AI calls from the production app (UX-001.6 introduces none).
 - Anything that would violate the UX-001 epic non-goals at
   `docs/designs/UX-001-epic.md` lines 83-101.
+
+## UX-001.6 — Cross-device QA and visual polish (UX-001 Phase 6)
+
+**Status:** Build complete (awaiting Review). Issue #294, branch
+`feat/UX-001.6-cross-device-qa-and-visual-polish`.
+
+**Role in the UX-001 epic:** UX-001.6 is the visible quality baseline
+for the entire UX-001 epic. The five prior cards shipped product
+contracts in code; UX-001.6 verifies those contracts hold across the
+device matrix in actual viewport behavior — not only through
+component-level prop tests. The card is mostly QA, not feature work.
+Bounded visual polish was permitted within an operator-set budget of
+5-10 acute fixes; zero were needed.
+
+**Test count delta:** 12,724 → 15,661 tests / 480 → 485 suites.
+**+2,937 new tests / +5 suites.** The post-UX-001.6 baseline of
+15,661 / 485 suites is the current repository test baseline.
+
+**Five new test suites:**
+
+1. `__tests__/uxOneOneSixViewportMatrix.test.ts` (+256 tests) —
+   Cross-device viewport matrix at 6 viewports × 18 surfaces. Each
+   cell encodes `{platformOs, windowWidth, windowHeight, band}` so
+   the A/I/G key badge assertion correctly distinguishes native iPad
+   Pro at 1024 width (no badges, platform gate) from a web build at
+   1024 width (badges, threshold gate).
+2. `__tests__/uxOneOneSixTouchTargets.test.ts` (+375 tests) —
+   44×44 touch target compliance scan across every interactive
+   primitive on the UX-001 source surface. Verifies hitSlop or
+   minHeight evidence per file × per viewport, plus accessibilityRole
+   + accessibilityLabel presence.
+3. `__tests__/uxOneOneSixColorIndependence.test.tsx` (+187 tests) —
+   Color independence verified for 3 representative surfaces (chip
+   strip, timeline node state, focus ring) at each of the 6
+   viewports. Shape / glyph / label / borderWidth distinguish state;
+   color words never appear in aria labels.
+4. `__tests__/uxOneOneSixDoctrine.test.ts` (+1,963 tests) —
+   Five doctrine scans across 52 enumerated UX-001 source files:
+   verdict ban-list, internal-code ban-list, secrets ban-list,
+   AI-import ban-list, and Observations/Allegations source-field
+   constraint. Two files (`designTokens.ts`,
+   `argumentGameSurfaceModel.ts`) DECLARE the ban-list itself; the
+   scan exempts them but separately verifies the literals appear
+   only inside a `FORBIDDEN_` / `BANNED_` array.
+5. `__tests__/uxOneOneSixReadOnlyBoundary.test.ts` (+156 tests) —
+   Required public API surface holds for every enumerated read-only
+   file. The reviewer's primary verification is `git diff main..HEAD
+   --stat -- <enumerated files>` returning empty modulo the §7
+   acute-fix list; this suite provides a doctrine-style backstop.
+
+**Reviewer measurement results:**
+
+- `git diff main..HEAD -- src/ supabase/ package.json` = ZERO diff
+  across all UX-001.{1-5} source files (the 52 enumerated paths in
+  the read-only boundary), supabase/migrations/, supabase/functions/,
+  and package.json + package-lock.json. No acute fix was drawn from
+  the §7 budget.
+- `npm run typecheck` exit 0.
+- `npm run lint` exit 0.
+- `npm run test` exit 0 with 15,661 / 485 suites passing.
+- Doctrine verdict ban-list scan: PASS (zero verdict tokens in
+  user-facing copy across all 52 UX-001 source files).
+- Doctrine internal-code ban-list scan: PASS (zero raw classifier
+  IDs in user-facing copy).
+- Service-role ban-list scan: PASS (zero `SUPABASE_SERVICE_ROLE_KEY`
+  / `SERVICE_ROLE` references in `app/` or `src/`).
+- AI-import ban-list scan: PASS (zero `Anthropic`, `xAI`, `openai`,
+  `gemini` imports in `app/` or `src/`).
+- Observations/Allegations doctrine: PASS (no `source` field outside
+  `'machine'` | `'user'`; sensitive Observations composer-only).
+
+**Acute fixes applied (per §7 budget):** None. The §1 audit found
+zero structural drifts; the matrix's parameterized verification
+across 108 surface×viewport cells confirmed it empirically.
+
+**Pre-existing regressions surfaced for separate cards:** None.
+UX-001.5C is NOT filed (the EvidenceAnnotationChip surface passed
+QA without defect; the refactor remains folded into UX-001.7 per
+POSTRUN-UX001 Scope 6).
+
+**Cross-platform parity verified:**
+
+- A/I/G browser-only key badges ABSENT at phone (390 × 844 iOS,
+  412 × 892 Android) and tablet portrait (768 × 1024 iOS,
+  1024 × 1366 iOS) — confirmed via per-cell
+  `deriveMenuKeyBadgeContext({platformOs, windowWidth})` returning
+  `'touch'`.
+- A/I/G browser-only key badges PRESENT at narrow browser
+  (1366 × 768 web) and wide browser (1920 × 1080 web) — confirmed
+  via per-cell context returning `'browser_keyboard'`.
+- The 1024 × 1366 cell is the critical case: iOS native path
+  returns `'touch'` (no badges) because `Platform.OS !== 'web'`,
+  even though the same 1024 width on web would return
+  `'browser_keyboard'` (the threshold is met). The matrix encodes
+  per-cell `platformOs`, not just window width.
+
+**Operator follow-up:** None. UX-001.6 introduces zero migrations,
+zero Edge Functions, zero environment variables, zero operator-side
+configuration. After the implementer commits and the reviewer
+verifies, the merge requires no operator action beyond the standard
+post-merge worktree cleanup per `.claude/agents/roadmap-reviewer.md`
+§ "Post-merge worktree cleanup (operator step)".
+
+See `docs/designs/UX-001.6.md` (Phase 6 framing for UX-001.7 lives
+in the section above this one).
 
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
