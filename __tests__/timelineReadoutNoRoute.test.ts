@@ -148,8 +148,11 @@ describe('IX-004 — selection callbacks in ArgumentGameSurface route through lo
   });
 
   it('the TimelineSelectedReadoutPanel render site passes a single read-only viewModel prop', () => {
-    // The panel is read-only — no onAction / onPress / onSelect callbacks
-    // are threaded into it from the surface.
-    expect(surface).toMatch(/<TimelineSelectedReadoutPanel viewModel=\{timelineReadoutViewModel\} \/>/);
+    // UX-001.2 — the panel relocated from above the Timeline to below it
+    // and gained an optional `compact` prop. It remains read-only — no
+    // onAction / onPress / onSelect callbacks are threaded into it.
+    expect(surface).toMatch(
+      /<TimelineSelectedReadoutPanel viewModel=\{timelineReadoutViewModel\} compact \/>/,
+    );
   });
 });

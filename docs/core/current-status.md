@@ -1,4 +1,5 @@
 # CDiscourse — Current Status
+<!-- Latest implementer card: UX-001.2 (Timeline-first viewport repair and room-active chrome consolidation — UX-001 Phase 2; pure UI/layout card, no migration, no Edge Function, no new dependency, no Anthropic / xAI / X API call, no service-role). Implements the brief's chrome-nullification directive: AppHeader (UX-001.1 64/96/120) plus one compact room/context strip (DebateDetailHeader rewrite, 48/56/64 cap per band) is the entire pre-Timeline chrome; the Timeline becomes the first substantive in-room object beneath. Mechanics: (a) `App.tsx` gains a single `roomActive` boolean derived from `activeTab === 'arguments' && hasDebate && Boolean(currentDebate) && !notificationsOpen`; the global tab bar wraps in `{!roomActive ? (...) : null}` so it is hidden in room-active view and restored on room exit. (b) The App.tsx roomToolbar (ROOM_COPY label + stack/timeline/tree/tracks chips + invite trigger + ~45 px row) is dissolved entirely; its actions migrate into DebateDetailHeader's compact strip (Timeline/Cards segmented toggle) and the strip's overflow inline panel (invite, make-private, dev chips, GAME-004 seat strip). (c) `DebateDetailHeader.tsx` is rewritten end-to-end as a band-aware compact strip with seven left-to-right slots: Leave button, Title (single line, ellipsizeMode="tail", flex:1), Status chip (tablet/wide), Side chip (tablet/wide), Private badge (when applicable), Timeline/Cards toggle, Overflow `⋯` trigger. Per-band sizing — phone `paddingVertical: 4`, `minHeight: 36`, total 45 ≤ 48; tablet `paddingVertical: 6`, `minHeight: 38`, total 51 ≤ 56; wide `paddingVertical: 8`, `minHeight: 42`, total 59 ≤ 64. Every Pressable carries `accessibilityRole="button"` + `accessibilityLabel` + `accessibilityState` and reaches a 44×44 hit target via `hitSlop`. The make-private modal mount + `transitionRoomToPrivate` write path + `canTransitionToPrivate({ callerIsModeratorOrAdmin: false })` OD-1 gate + private-badge shape-not-color contract are preserved verbatim; the GAME-004 seat strip moves into the overflow panel. (d) `ArgumentGameSurface.tsx` removes its 84-px `styles.header` block (title + statusRow + modeChip + latestStatus); the title is now owned by the compact strip; the mode chip is owned by the strip's Timeline/Cards toggle; the `surface-mode-toggle` testID is gone. The microMoment banner repositioned out of the header so it sits between the strip and the Timeline body; it gains a `microMomentDismissed: boolean` state initialized `false` that flips to `true` on the first meaningful Timeline interaction (handleActivate / handlePrev / handleNext / handleToggleMode / onJumpLatest / onJumpToRoot / onOpenDetails). A `useEffect` keyed on `entryHint?.verbPhrase` resets the flag so a fresh deep-link re-shows the banner. The banner's visual treatment (paddingVertical 6, `#1e1b4b` background, fontSize 12 verb / 11 helper), copy, accessibility label composition, and triggering logic are unchanged from QOL-040.3 — only the persistence model is updated. (e) `<TimelineSelectedReadoutPanel viewModel={…} compact />` moves from above the Timeline to BELOW it; a new optional `compact?: boolean` prop renders a 5-line summary (kindLabel, body excerpt with `numberOfLines={1}` + `ellipsizeMode="tail"`, parentHint, reply-count + branch hint meta line, "Acting on:" line) with a `Show full details ▾` Pressable expand trigger; expanded state renders the existing `<ArgumentReplySidecar viewModel={viewModel.sidecar} />` capped at `Math.max(160, Math.round(viewportHeight * 0.3))`. The IX-004 `accessibilityLiveRegion="polite"` host + `announceForAccessibility` selection effect + stale-banner path + `accessibilityPanelLabel` are preserved verbatim in both compact and back-compat (no-prop) modes. The panel's `marginTop: 8` replaces the old `marginBottom: 8` so the gap sits above the panel. (f) `<ArgumentScoreTracker trends={…} />` moves from above the Timeline to BELOW the readout panel; component itself is unchanged — only its mount site moves inside ArgumentGameSurface's timeline branch. (g) `ArgumentTimelineMap.tsx` restructures the in-frame `controlsRow` (~45 px above-rail row) into an `absolute`-positioned `overlayControls` block at `top: 4, right: 4, zIndex: 10` with `rgba(2,6,23,0.85)` background, `paddingHorizontal: 6, paddingVertical: 4, borderRadius: 8`; the same five Pressables (Prev / Next / Latest / Back-to-root / Cards-toggle) keep their testIDs (`timeline-prev`, `timeline-next`, `timeline-jump-latest`, `timeline-jump-root`, `timeline-toggle-mode`) and accessibility labels, with glyph-only visuals (`‹`, `›`, `⏭`, `↑`, `↺`) and `hitSlop: { top: 8, bottom: 8, left: 4, right: 4 }` to keep a 44×44 effective hit target. (h) The legacy inline `top: 120 + TIMELINE_NODE_SIZE / 2 - 1` rail literal is replaced by `top: railTopOffset + TIMELINE_NODE_SIZE / 2 - 1` where `railTopOffset = BAND_RAIL_OFFSET[band]` and `BAND_RAIL_OFFSET` is a NEW pure-TS module `src/features/arguments/timelineViewportLayoutModel.ts` exporting `Record<Band, number>` `{ phone: 0, tablet: 0, wide: 0 }` plus `BAND_RAIL_OFFSET_MAX = { phone: 12, tablet: 12, wide: 16 }` (brief envelope). Bands above the rail are now repositioned via `top: Math.max(0, railTopOffset + TIMELINE_NODE_SIZE / 2 - 14)` with `pointerEvents: 'none'` + `opacity: 0.6` so they overlay the rail's y-range with no vertical chrome claim. (i) Q10 per-band offset arithmetic to first substantive Timeline row (rail top edge = `headerHeight + stripHeight + railTopOffset + (TIMELINE_NODE_SIZE/2 - 1 - 2)`): phone 64 + 45 + 0 + 19 = **128 ≤ 128** ✓; tablet 96 + 51 + 0 + 19 = **166 ≤ 168** ✓; wide 120 + 59 + 0 + 19 = **198 ≤ 200** ✓; desktop 120 + 59 + 0 + 19 = **198 ≤ 200** ✓. Three viewports pass the brief's hard cap; the wide cap has 2 px slack. The microMoment is exempt from the cap per the operator's transient-overlay decision; its ~30 px occurs only when present and dismisses on first meaningful Timeline interaction. **+169 new tests across 8 new suites:** `__tests__/uxOneOneTwoChromeLayerRemovals.test.ts` (24 tests — source-scan that the 11 superseded placements are nullified: App.tsx roomToolbar style + JSX gone, surface header gone, controlsRow restructured to overlayControls, internal rail offset uses BAND_RAIL_OFFSET not 120, score tracker + readout panel mount-sites below the Timeline), `__tests__/uxOneOneTwoHiddenTabBar.test.ts` (12 tests — single roomActive boolean, `{!roomActive ? (…) : null}` tab bar wrapper, app-tab-bar testID, structural ordering, Account/Admin/getVisibleTabs/handleLeaveRoom/notificationsOpen interaction preserved), `__tests__/uxOneOneTwoCompactStripHeight.test.tsx` (16 tests — per-band sizing arithmetic 45/51/59 vs caps 48/56/64, source-scan that the bandSizing literals + useHeaderBreakpoint + content-allowlist testIDs + accessibilityState{selected/expanded} are present), `__tests__/uxOneOneTwoOffsetAcceptance.test.ts` (8 tests — sumOffsetForBand = headerHeight + stripHeight + railTopOffset + RAIL_TOP_ADJUST(19) ≤ HARD_CAP[band] for phone/tablet/wide, BAND_RAIL_OFFSET inside envelope, UX-001.1 header heights pinned), `__tests__/uxOneOneTwoReadoutCompactMode.test.tsx` (14 tests — compact prop exists, 5-line summary testIDs, expand trigger accessibilityRole/Label/State, expanded ScrollView maxHeight cap = max(160, viewportHeight*0.3), IX-004 contract preserved in both modes, back-compat sidecar still renders without the prop, panel.marginTop replaces marginBottom), `__tests__/uxOneOneTwoAppSafeguard.test.ts` (29 tests — AppRoot mounts unchanged, MainAppShell core mounts unchanged, no new dependency added, no Modal import in any UX-001.2 file, no AI provider import, no router primitives), `__tests__/uxOneOneTwoDoctrine.test.ts` (38 tests — verdict ban-list inside string literals across all UX-001.2 files, internal-code leak guard for 9 codes, no SERVICE_ROLE / ANTHROPIC_API_KEY / XAI_API_KEY / X_BEARER_TOKEN / OPENAI_API_KEY / GEMINI_API_KEY reference, no AI provider import, no `console.log` call), `__tests__/uxOneOneTwoMicroMomentDismiss.test.ts` (18 tests — operator override: microMomentDismissed state declared once, render gate extends to `entryHint?.verbPhrase && !microMomentDismissed`, dismiss in handleActivate/handlePrev/handleNext/handleToggleMode/onJumpLatest/onJumpToRoot/onOpenDetails, useEffect keyed on entryHint?.verbPhrase resets to false, no setTimeout/Animated auto-dismiss, no scroll-handler dismiss, visual treatment + copy + testID + accessibilityLabel composition unchanged). 4 existing tests adapted (no regressions): `DebateDetailHeader.visibility.test.tsx` 44×44 assertion switches from `minHeight:44` literal count to `hitSlop={{ … }}` count (compact strip uses hitSlop because visual minHeight is < 44 to fit the brief's cap); `inRoomNoRoute.test.ts` Cards/Timeline toggle assertion follows the toggle into DebateDetailHeader; `timelineReadoutNoRoute.test.ts` mount-site regex adds the `compact` prop; `timelineSelectedReadoutNav.test.ts` inverts the above-Timeline ordering check to below-Timeline. **10826 → 10995 tests / 430 → 438 suites passing.** Typecheck + lint clean. **Read-only API boundaries verified clean:** zero diff across `src/features/account/`, `src/features/auth/`, `src/features/concessions/`, `src/features/invites/`, `src/features/notifications/`, `src/features/metadata/`, `src/features/evidence/`, `supabase/migrations/`, `supabase/functions/`, `src/components/AppHeader.tsx`, `src/components/AppHeaderTagline.tsx`, `src/hooks/useHeaderBreakpoint.ts`, `src/lib/designTokens.ts`. **App.tsx safeguard diff bound verified:** the only changes are (a) one `roomActive` boolean, (b) one conditional wrapper around the tabBar JSX, (c) removal of the roomToolbar JSX block + its 8 style entries, (d) 5 new prop wirings on DebateDetailHeader, (e) cleanup of three now-unused imports (ScrollView, VIEW_MODE_COPY, INVITE_PANEL_COPY) — zero changes to AppRoot, AppHeader mount, AuthScreen path, AccountScreen mount, AdminScreen mount, SessionDebugPanel mount, getVisibleTabs, useRoomContract, useNotifications, handleOpenNotificationDeepLink, handleSignOut, handleStartArgument, handleReply, ArgumentComposerDock, ArgumentTreeScreen mount, or any app-wide state. **QOL-040.3 contract update:** the microMoment banner's persistence model is updated by UX-001.2 from "persistent until entryHint changes" to "dismiss on first meaningful Timeline interaction". The visual treatment, copy, accessibility behavior (label composition, testID), and triggering logic (renders when `entryHint?.verbPhrase` is set on deep-link entry) are unchanged. No operator follow-up. The "UX-001.2 — Phase 2 framing for UX-001.3" section below carries the load-bearing handoff (compact strip content + height contract, hidden tab bar gate variable, compact readout placement, score tracker rule, internal rail offset values, Timeline/Cards toggle consolidation, read-only file references). See `docs/designs/UX-001.2.md`. -->
 <!-- Latest implementer card: UX-001.1 (Brand and app shell correction — UX-001 Phase 1; pure UI shell card, no migration, no Edge Function, no new dependency). Extends BRAND with a 3-band breakpoint contract (`phone` 0-599 / `tablet` 600-1279 / `wide` 1280+ via new `BRAND.breakpoints`), band-aware logo + header heights (`BRAND.logoHeightByBand` = 44/80/96, `BRAND.headerHeightByBand` = 64/96/120 — tightens the legacy wide 152 to 120 per the epic's "no buried board" non-negotiable, adds intermediate 96 for tablet), and a minimum typography baseline (`BRAND.typography` with `wordmarkFallback` per band, `tagline` per variant, `header` per band for UX-001.4's reserved right-slot label sizes). `useHeaderBreakpoint.ts` extended with a new `Band` exported type, new `resolveBand(width)` pure helper, and a new `band: Band` field on `HeaderBreakpoint`; the legacy `isWide` boolean is preserved as a back-compat alias with the new semantic `band !== 'phone'` (720dp falls in the new tablet band, so isWide=true at 720dp still holds). `AppHeader.tsx` reads `band` and derives the tagline variant + inner layout from it (phone -> stacked; tablet/wide -> inline); wordmark fallback style now reads its per-band fontSize / lineHeight / fontWeight / letterSpacing from `BRAND.typography.wordmarkFallback[band]`; new internal `getHomePressableMinWidth(band)` returns 120 / 200 / 240 so the brand+nav group is visibly larger on tablet+wide. `AppHeaderTagline.tsx` reads typography from `BRAND.typography.tagline.inline` / `.stacked` (values mirror the prior inline literals — behaviour preserved verbatim). All 6 Stage 1 + Stage 2 testIDs (`app-header`, `app-header-home`, `app-header-logo-image`, `app-header-logo-fallback`, `app-header-right-slot`, `app-header-divider`) preserved verbatim. Public prop surface (`onHomePress`, `rightSlot`, `logoSource`, `variant`, `style`) unchanged. Legacy BRAND aliases (`logoHeightPxWide=110`, `headerHeightPxWide=152`, `headerWideBreakpointPx=720`) preserved for back-compat — UX-001.7 may deprecate. BRAND-002's SURFACE_TOKENS (14 keys) + CONTROL (3 keys) byte-identical (no surface token added; mental-model mapping documented in `designTokens.ts` as a JSDoc block: primary -> `BRAND.surface.app.bg`, secondary -> `BRAND.surface.appElevated.bg`, tertiary -> `SURFACE_TOKENS.overlay`). **+92 new tests across 3 new suites:** `__tests__/uxOneOneBreakpointBands.test.ts` (39 tests — Q1 + Q3 + Q5 verdicts; band shape, contiguity, resolveBand at 14 canonical widths, isWide back-compat, height token values, monotonic growth, padding budget), `__tests__/uxOneOneTypographyBaseline.test.ts` (25 tests — Q8 + Q2 verdicts; typography shape, numeric invariants, source-scan that AppHeader/AppHeaderTagline now read tokens not inline literals, doctrine ban-list, Q2 mental-model SURFACE_TOKENS + CONTROL pins), `__tests__/uxOneOneAppHeaderDensity.test.ts` (28 tests — Q4 + Q6 + Q1 verdicts; testID preservation, public-surface preservation, band-aware source references, per-band minWidth 120/200/240 literals, no animation/router/icon-lib imports, hitSlop >= 8, BRAND tokens for color, no heavy shadow, Band type + resolveBand helper exports, BRAND.breakpoints / logoHeightByBand / headerHeightByBand references). Existing 160 tests across `appHeader.test.ts`, `appHeaderTagline.test.tsx`, `useHeaderBreakpoint.test.ts`, `darkSurfaceTokens.test.ts` all preserved — 7 line edits across 5 assertions in `useHeaderBreakpoint.test.ts` switch from `BRAND.headerHeightPxWide` (152) / `logoHeightPxWide` (110) expectations to the new `BRAND.headerHeightByBand.tablet|wide` (96/120) / `logoHeightByBand.tablet|wide` (80/96) expectations at widths 720, 1024, 719, and 0 — the intentional semantic shift the design encodes; an implementer note appended to `docs/designs/UX-001.1.md` clarifies the §14 "byte-identical preservation" claim. **10734 → 10826 tests / 427 → 430 suites passing.** Typecheck + lint clean. OPS-002/003 spawn-card regression 13/13 and PR-004 deprecateAvatarMigration 18/18 both still green. **Branch name validation (5th end-to-end test since OPS-004):** the OPS-002 rename step succeeded clean on `worktree-agent-a9e300605a6625bf3` → `feat/UX-001.1-brand-and-app-shell-correction-ux-001-phas` (no stale-worktree claim encountered; the OPS-004 workaround sequence was not needed). No migration, no Edge Function, no new dependency, no operator step. No META-* / QOL-* / COMP-* / PR-* / OPS-* / BRAND source modified outside the four files this card owns (`src/lib/designTokens.ts` additive extension, `src/hooks/useHeaderBreakpoint.ts` additive extension, `src/components/AppHeader.tsx` in-place modification per Q6 verdict, `src/components/AppHeaderTagline.tsx` in-place modification per Q6 verdict; plus the 7-line existing-test update + new Implementer note appended to design doc). No service-role, no secret, no AI provider call. **UX-001.2 framing pointer:** the "UX-001.1 — Phase 1 framing for UX-001.2" section below carries the load-bearing handoff (breakpoint contract, header heights, logo heights, surface hierarchy, density contract, typography baseline, file references). See `docs/designs/UX-001.1.md`. -->
 <!-- Latest implementer card: OPS-004 (pipeline operational hygiene sweep — DROP COLUMN ordering sub-check, storage COMMENT ownership sub-check, stale-worktree recovery sequence, spawn-card colon-vs-dash regex fix; pure operations card, no production code, no migration, no Edge Function, no skill edit). Consolidates four operational signals accumulated between OPS-003 ship and OPS-004 design: (1) PR-004 SQLSTATE 2BP01 DROP COLUMN before DROP POLICY ordering, (2) PR-003 SQLSTATE 42501 storage schema COMMENT ownership, (3) PR-004 stale-worktree-branch-claim discovered empirically during the rename step, (4) OPS-002 §7 deferred colon-vs-dash spawn-card regex. **`.claude/agents/roadmap-reviewer.md`** Class 3 cell gains marker (e) requiring `DROP COLUMN`/`DROP TABLE` ordering reviewers grep the migration set for the dropped object name and verify no `CREATE POLICY/INDEX/VIEW/TRIGGER/FUNCTION` reference precedes the DROP; PR-004 cited as worked example. Class 4 cell gains marker (f) naming the `COMMENT ON … ON storage.*` privilege boundary with three ranked resolution options (preferred: omit; alternative: privilege-tolerant `DO` block; not-available: run as `supabase_storage_admin`); PR-003 cited as worked example. Both additions are inside existing cells; no new rows, no class renumbering. **`.claude/agents/roadmap-implementer.md`** rename step's trailing "STOP and surface" placeholder replaced with the documented post-PR-004 recovery sequence (`git worktree list | grep` → `git -C <other-worktree> status -sb` → `git switch --ignore-other-worktrees feat/<code>-<slug>` + `git branch -d worktree-agent-<hash>` cleanup); STOP escape hatch preserved for unsafe cases. **`.claude/scripts/spawn-card.ps1`** + **`.claude/scripts/spawn-card.sh`** single-character-class regex change: `-` → `[-:]` inside each script's existing strip regex (`^$Code\s*[-:]\s*` in PS1; `^${CODE}[[:space:]]*[-:][[:space:]]*` in bash). Net delta: +1 char per script. Future colon-titled cards no longer produce doubled-prefix slugs (`feat/OPS-002-ops-002-…`); dash-separated titles remain handled because `[-:]` matches dash as a subset of its character class. **`docs/core/known-blockers.md`** consolidated OPS-004 entry inserted between the existing OPS-002 stale-worktree entry and the `## ACTIVE BLOCKERS` heading; cites the three motivating incident entries by section title; `_Last updated:_` bumped to `2026-05-24 (Stage 6.4 / OPS-004)`. **+3 new tests / +0 suites**: `__tests__/spawnCardBranchName.test.ts` Group 1 Test 3 expectation updated (now asserts the corrected non-duplicated slug; the design's `-bra` trailing fragment was an arithmetic miscount — actual 40-char truncation is `card-` reducing to `card` after `TrimEnd('-')`; an implementer note at the bottom of `docs/designs/OPS-004.md` records the correction); helper at line 33 mirrors the corrected PS1 regex (`'^' + code + '\\s*[-:]\\s*'`); new top-level describe block "OPS-004 charter extensions — contract (file scan)" adds three file-scan tests asserting the reviewer-charter Class 3 marker (signal phrases: "every `DROP COLUMN` or `DROP TABLE`" + "SQLSTATE 2BP01"), the Class 4 marker (signal phrases: "ON storage.*" + "SQLSTATE 42501"), and the implementer-charter rename-step recovery (`--ignore-other-worktrees` with string-index ordering check). **10731 → 10734 tests / 427 → 427 suites passing.** Typecheck + lint clean. Zero production code touched (no `src/`, no `app/`, no `supabase/migrations/`, no `supabase/functions/`, no `.claude/skills/`). No designer-charter edit (`.claude/agents/roadmap-designer.md` byte-identical). No QOL-* / META-* / COMP-* / PR-* / OPS-001/002/003 source modified beyond the two named extensions (OPS-001 reviewer template Class 3 + Class 4 cells; OPS-002 implementer charter rename step trailing prose). No service-role, no secret, no AI provider call. **Branch name validation (5th end-to-end test):** the OPS-002 rename step's stale-worktree case arose on this card (canonical branch held by designer's locked worktree `agent-acdaa777082fc0c99`); the documented `git switch --ignore-other-worktrees feat/OPS-004-pipeline-operational-hygiene-sweep-drop` + `git branch -d worktree-agent-ad80b5a274b4a5da3` sequence cleanly resolved it — the very sequence OPS-004 codifies into the charter. See `docs/designs/OPS-004.md`. -->
 <!-- Latest implementer card: PR-004 (Contact information update + avatar pivot to initials — Profile epic closer). Reverses 4 of PR-003's 6 Profile-epic patterns (Q2 image picker, Q3 upload Edge Function, Q4 storage policies, Q5 moderation scaffolding) while preserving Q1 (screen extension) and Q6 (optimistic UI). New SQL migration `20260525000017_pr_004_deprecate_avatar_pipeline.sql` (~145 lines) drops the storage SELECT policy on `profile-avatars`, drops the four `profiles.avatar_*` columns (with their CHECK constraint), drops the narrowed UPDATE policy from migration 16, and restores the byte-equal original UPDATE policy from migration 02. OPS-001 four-class header walks each class inline. The storage bucket itself persists empty (storage_admin ownership boundary — the same boundary that motivated the 2026-05-24 PR-003 `COMMENT ON POLICY` lesson). Migration honours that lesson: NO `COMMENT ON POLICY ... ON storage.*` statement appears in the file. New `src/features/account/InitialsAvatar.tsx` is the moved-and-aliased home for PR-001's `GeneratedAvatar` (now the canonical user-identity glyph); the original `src/features/preferences/GeneratedAvatar.tsx` becomes a back-compat re-export shim so existing PR-001 tests + `PreferencesPopout` import stay byte-identical. New `InitialsAvatar` named export alias is the identity-facing import for new consumer code. New `src/features/account/contactApi.ts` (~165 lines) wraps `supabase.auth.updateUser({ email })` — the FIRST use of that SDK method in the codebase — with pure helpers (`validateEmail` RFC-shape check, `messageForContactError` plain-language map), short-circuits (same-as-current case-insensitive, invalid shape, no session), and Supabase error mapping (`already registered`/`already in use` → `email_already_used`; `rate limit` → `rate_limited`; `failed to fetch` → `network_error`). The wrapper never touches `public.profiles` (no `profiles.email` column exists; `auth.users.email` is the source of truth). New `src/features/account/ContactInfoSection.tsx` (~430 lines) mounts inside `AccountScreen`'s existing card with three rows: InitialsAvatar header row, display-name edit row (replaces the prior inline edit), and email row with verification-pending state. The OLD email stays visible until Supabase auth fires `onAuthStateChange` post-verify; explicit "Cancel pending change" affordance clears local UI only. All Pressables expose 44px hit targets + role + label + state; inline errors use `accessibilityLiveRegion="polite"`. **DELETIONS (~1,156 source lines + ~1,930 test lines):** `src/features/account/avatarApi.ts` (354 lines), `src/features/account/AvatarUploadSection.tsx` (391 lines), `supabase/functions/upload-avatar/index.ts` (411 lines, whole dir), and 5 PR-003 test files (`avatarApi.test.ts` 39 tests, `avatarDoctrine.test.ts` 17 tests, `avatarUploadSection.test.tsx` 56 tests, `avatarUploadValidation.test.ts` 24 tests, `uploadAvatarEdgeFunction.test.ts` 59 tests). `[functions.upload-avatar]` block removed from `supabase/config.toml`. `expo-image-picker@~17.0.11` removed from `package.json` (sole consumer was the deleted AvatarUploadSection). `AccountScreen.tsx` rewritten to delegate display-name + email + avatar to ContactInfoSection (User ID / Role / ADMIN? rows stay as administrative info). `accountApi.fetchOwnProfile` SELECT narrowed to `id, display_name, role, created_at`; `AvatarModerationStatus` type + the four avatar fields removed from `UserProfile`. **+105 new tests across 5 new suites:** `__tests__/deprecateAvatarMigration.test.ts` (15 tests — OPS-001 four-class header coverage, storage lesson acknowledgement, no forbidden COMMENT/DROP/role-escalation statements, statement ordering enforcement, IF EXISTS guards, idempotent restore, byte-equal restored policy body vs migration 02), `__tests__/initialsAvatar.test.ts` (22 tests — Q5 edge cases for CJK/RTL/emoji/whitespace/very long/null/1-char/3+ word names, back-compat alias verification, palette membership, defensive WCAG-AA luminance guard ≥4.5:1 vs #f8fafc), `__tests__/contactApi.test.ts` (31 tests — Q2 validateEmail edges including >254 RFC 5321 cap, plain-language coverage for every error code, Supabase-mocked paths for every mapping + short-circuit, source-scan doctrine), `__tests__/contactInfoSection.test.tsx` (37 tests — Q1 testID conventions with `contact-*` prefix on 13 elements, accessibility 44px + role + label + state + liveRegion, control surface scope, AccountScreen wiring, doctrine), `__tests__/contactDoctrine.test.ts` (37 tests — cross-file verdict ban-list, internal-code leak guard, buildProfileUpdatePayload allowlist preservation [`display_name` only — no email/role/id/avatar], accountApi avatar-column narrowing, no service-role / AI import in any PR-004 source). **10839 → 10731 tests / 427 → 427 suites passing** (5 added, 5 removed; net -108 tests is doctrine-compliant per test-discipline "unless a card explicitly removes tests with a documented reason"). Typecheck + lint clean. OPS-002/003 spawn-card regression 13/13. **Operator follow-up:** `npx supabase db push --linked` (apply migration 17) + `npx supabase functions delete upload-avatar --linked` (remove deployed Edge Function; the filesystem source is already gone). Optional Phase 3 dashboard cleanup: delete the empty `profile-avatars` bucket via the Supabase dashboard (storage_admin ownership; not deletable from a migration). `npm install` is automatic after the `expo-image-picker` uninstall took effect locally. No new env var. No service-role in client (static source scan asserts this on all 5 PR-004 source files). No AI provider call. No META-001 / META-1A / META-1B / QOL-036* / QOL-038 / QOL-039 / QOL-040* / QOL-041 / COMP-001 / OPS-001/002/003 source modified. See `docs/designs/PR-004.md`. -->
@@ -139,7 +140,195 @@ to the new header heights; normal-zoom browser testing matrix.
 The Phase 1 outputs above unblock UX-001.2 fully. UX-001.2's designer
 should not need to re-decide breakpoints, header heights, or surface
 hierarchy. See `docs/designs/UX-001.1.md` §19 for the verbatim
-contract.
+contract. UX-001.2's Phase 2 framing is the next handoff; see the
+section below.
+
+## UX-001.2 — Timeline-first viewport repair and room-active chrome consolidation (UX-001 Phase 2)
+
+**Status:** Build complete (awaiting Review). Issue #286, branch
+`feat/UX-001.2-timeline-first-viewport-repair-and-room-active`.
+
+**Role in the UX-001 epic:** UX-001.2 is the visible credibility repair
+for the whole UX-001 epic. UX-001.1 made the brand shell professional;
+UX-001.2 determines whether the product's primary interaction surface
+actually feels usable. The Timeline is now the first substantive in-room
+object beneath the UX-001.1 AppHeader plus one compact room/context
+strip. The Phase 2 framing section below carries the load-bearing
+handoff for UX-001.3's designer.
+
+### UX-001.2 — Phase 2 framing for UX-001.3 (binding handoff)
+
+> The seven patterns below are the load-bearing output of UX-001.2.
+> UX-001.3's designer reads this section as primary input. Every value
+> is a committed contract; UX-001.3 may consume but not re-decide.
+
+**1. Compact room/context strip — content + height contract**
+
+| Band | Max height | Composition | Hit target |
+|---|---|---|---|
+| `phone` | 48 px | `paddingVertical: 4` × 2 + content min-height 36 + borderBottom 1 = 45 | 44×44 via `hitSlop` |
+| `tablet` | 56 px | `paddingVertical: 6` × 2 + content min-height 38 + borderBottom 1 = 51 | 44×44 via `hitSlop` |
+| `wide` | 64 px | `paddingVertical: 8` × 2 + content min-height 42 + borderBottom 1 = 59 | 44×44 via `hitSlop` |
+
+Source: `src/features/debates/DebateDetailHeader.tsx`. Reads
+`useHeaderBreakpoint().band`.
+
+Allowed content (one row, left to right):
+- Room-exit / Back glyph + label (`Leave argument`)
+- Title (one line, `numberOfLines={1}`, `ellipsizeMode="tail"`, `flex: 1`)
+- Status chip (tablet/wide only)
+- Side chip (tablet/wide only)
+- Private-room badge (when applicable)
+- Timeline/Cards segmented toggle (single source of truth)
+- Overflow trigger `⋯` (opens inline panel for invite, make-private,
+  dev chips, GAME-004 seat strip)
+
+Disallowed content: full sidecar, composer fields, action dock, score
+tracker, resolution preview, multiple rows. UX-001.3 must NOT add
+content to the strip that violates the cap.
+
+**2. Hidden tab bar pattern (gate variable + conditional render)**
+
+Source: `App.tsx` MainAppShell. The gate variable is:
+
+```tsx
+const roomActive =
+  activeTab === 'arguments' && hasDebate && Boolean(currentDebate) && !notificationsOpen;
+```
+
+The conditional render is:
+
+```tsx
+{!roomActive ? (
+  <View style={styles.tabBar} testID="app-tab-bar">{/* tabs */}</View>
+) : null}
+```
+
+The room-exit affordance lives in the compact strip's first slot
+(Pressable with `accessibilityLabel="Leave argument"`). On
+`handleLeaveRoom()`, `deselectDebate()` clears `selectedDebateId`,
+`roomActive` flips to false, tabBar restores. UX-001.3 must NOT
+introduce a new room-active surface that hides the strip.
+
+**3. Selected-message readout — compact placement below the Timeline**
+
+| Band | Placement | Compact height (approx) | Compact content (5 items max) |
+|---|---|---|---|
+| `phone` | Below Timeline (collapses to 1 line when composer dock opens — UX-001.3 scope) | 68 px | kindLabel, body excerpt, parentHint, reply-count + branch hint, "Acting on:" line |
+| `tablet` | Below Timeline | 76 px | same as phone |
+| `wide` | Below Timeline (side-adjacent is UX-001.4 scope) | 88 px | same as phone |
+
+Expanded state: triggered by user tap of `Show full details ▾`;
+renders `<ArgumentReplySidecar>` (6 sections) capped at
+`Math.max(160, Math.round(viewportHeight * 0.3))`. The IX-004
+`accessibilityLiveRegion="polite"` host + `announceForAccessibility`
+selection effect are preserved verbatim.
+
+Source: `src/features/arguments/TimelineSelectedReadoutPanel.tsx`
+(gains `compact?: boolean` prop). Selection change resets the expand
+state (via `useEffect` keyed on `selectedMessageId`).
+
+UX-001.3 must NOT change the readout's placement.
+
+**4. ArgumentScoreTracker repositioning rule**
+
+The tracker renders BELOW the Timeline (mount-site in
+`ArgumentGameSurface.tsx`, after `<TimelineSelectedReadoutPanel compact />`).
+The component itself is unchanged. No side-by-side wide-screen layout
+in v1 — that's UX-001.4 / UX-001.5 scope.
+
+UX-001.3 must NOT introduce composer chrome that displaces the score
+tracker. The tracker's position below the Timeline is stable.
+
+**5. Timeline container scroll + internal rail offset**
+
+Source: `src/features/arguments/ArgumentTimelineMap.tsx` + new
+`src/features/arguments/timelineViewportLayoutModel.ts`.
+
+The Timeline's outer container does NOT scroll vertically as a
+document; horizontal scroll inside the Timeline frame is preserved.
+
+Internal rail offset (the `top` value applied to the rail line):
+
+```ts
+BAND_RAIL_OFFSET = { phone: 0, tablet: 0, wide: 0 };
+BAND_RAIL_OFFSET_MAX = { phone: 12, tablet: 12, wide: 16 };
+```
+
+The bands above the rail are repositioned to overlay the rail's
+y-range (`top: Math.max(0, railTopOffset + TIMELINE_NODE_SIZE / 2 - 14)`)
+with `pointerEvents: 'none'` and `opacity: 0.6`. No 120 px vertical
+claim. UX-001.3 must NOT add chrome inside the Timeline frame above
+the rail.
+
+**6. Timeline/Cards toggle consolidation (single source of truth)**
+
+The toggle lives at ONE strip-level mount: inside the compact strip
+(`DebateDetailHeader.tsx`, passed via `viewMode` + `onSetViewMode`
+props from `App.tsx`). One in-Timeline overlay toggle
+(`timeline-toggle-mode` testID) is preserved INSIDE the Timeline
+frame's overlay controls for keyboard/mouse parity — it shares the
+same `onToggleMode` callback. No third instance.
+
+Deleted instances: `ArgumentGameSurface.header`'s `modeChip` (gone
+with the entire header block); the App.tsx roomToolbar's stack/timeline
+Pressables (gone with the dissolved row).
+
+UX-001.3 must NOT add a fourth toggle. If UX-001.3's composer needs a
+"Switch to Cards while composing" path, it delegates to the existing
+`setViewMode` callback.
+
+**7. Read-only file references UX-001.3 may consume**
+
+| Pattern | File | Note |
+|---|---|---|
+| Compact strip + Timeline/Cards toggle source | `src/features/debates/DebateDetailHeader.tsx` | Reads; do not modify the strip layout. UX-001.3 may add new strip prop wiring only with operator approval. |
+| Hidden tab bar gate | `App.tsx` `roomActive` boolean | Reads; UX-001.3's composer dock visibility may consume `roomActive`. |
+| Compact readout component | `src/features/arguments/TimelineSelectedReadoutPanel.tsx` | Reads; UX-001.3 does not modify; the composer-on-phone collapse-to-1-line is a separate render path the composer dock owns. |
+| Score tracker mount-site | `src/features/arguments/ArgumentGameSurface.tsx` body | Reads; do not move the tracker. |
+| Internal rail offset | `src/features/arguments/timelineViewportLayoutModel.ts` `BAND_RAIL_OFFSET` | Reads; do not extend. UX-001.7 may codify into the broader design system. |
+| Band resolver | `src/hooks/useHeaderBreakpoint.ts` | Reads; UX-001.1 owns. |
+| AppHeader heights | `BRAND.headerHeightByBand` | Reads; UX-001.1 owns. |
+
+UX-001.3 owns: composer transformation across action types, per-type
+draft buffers, mode-switch draft persistence, mobile bottom-sheet
+behavior, target context display IN THE COMPOSER (not in the strip or
+readout — those are UX-001.2's surfaces).
+
+**QOL-040.3 contract update (UX-001.2 supersedes the persistence model):**
+
+QOL-040.3's microMoment banner was originally "persistent until
+`entryHint` changes". UX-001.2 updates this to **"dismiss on first
+meaningful Timeline interaction"**. Meaningful interactions include
+node tap (`handleActivate`), Prev/Next (`handlePrev`/`handleNext`),
+Latest/Back-to-root inline closures, the Timeline/Cards toggle
+(`handleToggleMode`), and `onOpenDetails`. The dismiss flag does NOT
+trigger on the initial render, on a banner re-render, on a scroll
+inside the Timeline that does not change selection, or on a change to
+`entryHint` itself (a new deep-link's `verbPhrase` resets the flag so
+the banner re-shows). The banner's visual treatment (paddingVertical 6,
+`#1e1b4b` background, fontSize 12 verb / 11 helper), copy, accessibility
+behavior (label composition, `argument-micro-moment` testID), and
+triggering logic (renders when `entryHint?.verbPhrase` is set on
+deep-link entry) are unchanged from QOL-040.3. UX-001.3 inherits this
+contract — composer surfaces should treat the banner as transient and
+must not re-introduce a persistent variant.
+
+**Deferred questions for UX-001.3 / later cards:**
+
+- Default room entry mode (Stack vs Timeline) — deferred per the
+  brief.
+- Side-adjacent score tracker on wide stress viewport (2560×1440) —
+  deferred to UX-001.4/5.
+- Side-adjacent selected-readout on wide stress viewport — deferred to
+  UX-001.4 (Inspect).
+- microMoment scroll-out behavior on long Timelines — deferred to
+  operator decision; UX-001.2 ships the dismiss-on-interaction
+  semantics.
+
+UX-001.3's launch prompt should consume this section as primary input.
+See `docs/designs/UX-001.2.md` for the verbatim design + Q1-Q12
+audit + Q10 offset arithmetic.
 
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
