@@ -70,3 +70,30 @@ export {
   type SemanticRefereeComposerAdapterInput,
   type SemanticRefereeNodeMountAdapterInput,
 } from './nodeLabelSourceAdapters';
+
+// ── Pure-TS exports — priority model ────────────────────────────
+export {
+  PRIORITY_BY_SOURCE,
+  comparePriorityThenAlphabetical,
+  resolveSourceForDuplicateText,
+} from './nodeLabelPriorityModel';
+
+// ── Pure-TS exports — presentation model ────────────────────────
+export {
+  combinePerNodeMarks,
+  dedupePerNodeMarks,
+  enforceInspectGroupedView,
+  enforceSelectedContextDisplayCap,
+  enforceTimelineNodeDisplayCap,
+  filterMarksBySurface,
+  isDispositionEligible,
+  type InspectGroupedView,
+  type SelectedContextDisplayResult,
+  type TimelineDisplayResult,
+} from './nodeLabelPresentationModel';
+
+// ── Pure-TS exports — descriptor adapter ────────────────────────
+export {
+  toAnnotationChipDescriptor,
+  toAnnotationChipDescriptors,
+} from './nodeLabelDescriptorAdapter';
