@@ -53,6 +53,16 @@ import {
 } from './boxModel';
 import { actEntryToQuickAction, type ActEntryId, type ActViewerRole } from './actPopoutModel';
 import { ActPopout } from './ActPopout';
+// UX-001.3 — per-target × per-mode draft persistence. OneBox is the
+// host that wires draft parking + restoration on mode switch.
+import { useComposerDraftRegistry } from '../composer/useComposerDraftRegistry';
+import { deriveTargetKey } from '../composer/composerDraftRegistry';
+import { useAppSession } from '../../session/useAppSession';
+// UX-001.3 — the always-visible compact target display at the top of
+// the dock body. Replaces the OneBox header's tiny `targetHint` and
+// the legacy ArgumentComposer "Replying to" parent block (the legacy
+// block stays for now; the strip subsumes its semantics).
+import { ComposerContextStrip } from '../composer/ComposerContextStrip';
 
 // ── Plain-language box-type vocabulary ─────────────────────────
 
@@ -138,6 +148,13 @@ export interface OneBoxProps {
   onBeforeSubmit?: () => boolean;
   /** RULE-004 — one-shot "Post anyway" trigger, threaded to the composer. */
   postSignal?: number;
+  /**
+   * UX-001.3 — read-only `activeMessageId` from `ArgumentGameSurface`.
+   * Powers the `ComposerContextStrip`'s divergence cue when the
+   * Timeline's selected node differs from the composer's bound
+   * parent. Additive optional; omitted = no cue surface.
+   */
+  activeMessageId?: string | null;
 }
 
 /**
@@ -159,6 +176,7 @@ export function OneBox({
   reduceMotionOverride,
   onBeforeSubmit,
   postSignal,
+  activeMessageId,
 }: OneBoxProps) {
   // The box state machine. The initial type is `respond` when there is a
   // reply target, `root_claim` otherwise — the box opens already typed
@@ -181,6 +199,23 @@ export function OneBox({
   // Act popout visibility — local UI state.
   const [actPopoutVisible, setActPopoutVisible] = useState(false);
 
+  // UX-001.3 — Per-target × per-mode draft registry. The OneBox parks
+  // the active composer body into the registry before re-typing the box
+  // so switching Reply → Add Evidence → Reply restores the Reply body.
+  // The registry is reset whenever `debate.id` changes (cross-room
+  // navigation zeroes drafts per the brief's intra-session rule).
+  const draftRegistry = useComposerDraftRegistry(debate.id);
+  const { state: appSession } = useAppSession();
+  // The current target key — root-claim sentinel when no parent, else
+  // the parent argument id.
+  const currentTargetKey = useMemo(
+    () => deriveTargetKey(parentArgument?.id ?? null),
+    [parentArgument?.id],
+  );
+
+  // UX-001.3 — Compact target strip expanded state. Default collapsed.
+  const [contextStripExpanded, setContextStripExpanded] = useState(false);
+
   const schema = useMemo(
     () => renderSchema(boxState.type, boxState.target),
     [boxState.type, boxState.target],
@@ -199,23 +234,67 @@ export function OneBox({
    * Handle a `box_opening` flash-menu entry — re-type the box and seed the
    * composer. QOL-031's `ActPopout` dispatches the entry by kind and only
    * calls this for a box-opening entry (it carries a non-null `BoxType`).
+   *
+   * UX-001.3 wiring: BEFORE re-typing the box, snapshot the CURRENT
+   * (targetKey, oldBoxType) draft body from session into the registry
+   * so it survives the switch. AFTER re-typing, read the destination
+   * (targetKey, newBoxType) draft from the registry; when non-empty,
+   * seed the composer via `initialPatch.body` so the parked body is
+   * restored. Brief §"mode-switching contract": "switching from Reply
+   * to Add Evidence preserves the Reply draft; switching back restores
+   * it."
    */
   const handleSelectBoxType = useCallback(
     (entryId: ActEntryId, opensBoxType: BoxType) => {
-      // Re-type the box (non-destructive — boxModel parks the buffers).
+      // 1. Park the active composer body under (currentTargetKey, prevBoxType).
+      //    The session's activeDraft carries the body the user has typed.
+      //    Park even an empty body — that keeps the buffer consistent.
+      const prevBoxType = boxState.type;
+      const session = appSession.snapshot.activeDraft;
+      if (session && session.debateId === debate.id) {
+        draftRegistry.writeDraft(currentTargetKey, prevBoxType, {
+          body: session.body ?? '',
+          listItems: Object.freeze([]),
+          fields: Object.freeze({}),
+        });
+      }
+
+      // 2. Re-type the box (non-destructive — boxModel parks the buffers).
       setBoxState((prev) => switchBoxType(prev, opensBoxType));
-      // Seed the composer via the shipped quickActionPresets machinery.
+
+      // 3. Compute the destination's seeded patch. Start from the
+      //    quickActionPresets-derived patch (existing path); if the
+      //    registry has a parked body for the destination mode, OVERRIDE
+      //    the patch body so the user's previous draft is restored.
       const quickAction = actEntryToQuickAction(entryId);
-      const patch =
+      const basePatch =
         quickAction === null
           ? null
           : quickActionToPreset(
               quickAction as QuickActionLabel,
               parentArgument?.argumentType ?? null,
             );
-      setTypePatch(patch);
+      const parked = draftRegistry.readDraft(currentTargetKey, opensBoxType);
+      let nextPatch: MoveDraftPatch | null = basePatch;
+      if (parked && parked.body && parked.body.length > 0) {
+        nextPatch = { ...(basePatch ?? {}), body: parked.body };
+      } else if (parked && parked.body === '' && basePatch?.body === undefined) {
+        // The destination mode has been parked with an EMPTY body and
+        // the preset does not seed a body either. We want the composer
+        // to display an empty body (not retain whatever the previous
+        // mode left in session). Send an explicit empty-body patch.
+        nextPatch = { ...(basePatch ?? {}), body: '' };
+      }
+      setTypePatch(nextPatch);
     },
-    [parentArgument],
+    [
+      boxState.type,
+      appSession.snapshot.activeDraft,
+      debate.id,
+      draftRegistry,
+      currentTargetKey,
+      parentArgument,
+    ],
   );
 
   /**
@@ -273,6 +352,18 @@ export function OneBox({
           </Text>
         )}
       </View>
+
+      {/* UX-001.3 — Always-visible compact target strip. Replaces the
+          OneBox header's tiny `targetHint` semantically: this is the
+          single source of "what is this composer acting on?" content. */}
+      <ComposerContextStrip
+        boxType={boxState.type}
+        parentArgument={parentArgument}
+        resolution={debate.resolution ?? null}
+        activeMessageId={activeMessageId ?? null}
+        expanded={contextStripExpanded}
+        onToggleExpanded={() => setContextStripExpanded((v) => !v)}
+      />
 
       {/* ── Schema-kind notice — previews which schema renders ──
           The v1 body is the free-body composer for every type; this line

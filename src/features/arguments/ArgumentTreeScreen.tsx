@@ -70,9 +70,24 @@ interface Props {
    * surface (replaces App.tsx's separate bottom actionBar).
    */
   startArgumentAction?: { label: string; onPress: () => void } | null;
+  /**
+   * UX-001.3 — fires when the Timeline's active message changes. The
+   * caller (App.tsx) passes this id to the composer dock so its
+   * ComposerContextStrip can render a divergence cue when the
+   * Timeline's selected node differs from the composer's bound parent.
+   * Additive optional.
+   */
+  onActiveMessageChange?: (activeMessageId: string | null) => void;
+  /**
+   * UX-001.3 — fires when the user taps the persistent collapsed
+   * composer strip below the score tracker. The caller opens the
+   * composer dock in response. Additive optional; when omitted the
+   * strip is not rendered.
+   */
+  onComposerExpand?: () => void;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand }: Props) {
   const {
     cache,
     viewport,
@@ -131,6 +146,8 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         density={density}
         reduceMotionOverride={reduceMotionOverride}
         startArgumentAction={startArgumentAction}
+        onActiveMessageChange={onActiveMessageChange}
+        onComposerExpand={onComposerExpand}
       />
     );
   }
@@ -272,9 +289,13 @@ interface FullRoomGameSurfaceMountProps {
   reduceMotionOverride?: boolean;
   /** SC-005 — "Start an argument" CTA folded into the side action rail. */
   startArgumentAction?: { label: string; onPress: () => void } | null;
+  /** UX-001.3 — Timeline active-id read-out (one-way). */
+  onActiveMessageChange?: (activeMessageId: string | null) => void;
+  /** UX-001.3 — caller opens the composer dock when the strip is tapped. */
+  onComposerExpand?: () => void;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -479,6 +500,9 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         density={density}
         reduceMotionOverride={reduceMotionOverride}
         startArgumentAction={startArgumentAction}
+        onActiveMessageChange={onActiveMessageChange}
+        onComposerExpand={onComposerExpand}
+        composerResolution={debate.resolution ?? null}
         // MCP-019 — banner / override slice for the move just posted.
         // Both are null when the semantic layer is off (the v1 default).
         refereeBanner={refereeMoveState?.banner ?? null}

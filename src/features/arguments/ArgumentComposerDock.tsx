@@ -128,6 +128,14 @@ interface ArgumentComposerDockProps {
    * cap + cooldown math. Derived in-memory; defaults to none.
    */
   pacingRecentMoves?: readonly PacingMoveRecord[];
+  /**
+   * UX-001.3 — read-only `activeMessageId` from `ArgumentGameSurface`.
+   * Threaded straight through to `OneBox` so its
+   * `ComposerContextStrip` can render a divergence cue when the
+   * Timeline's selected node differs from the composer's bound parent.
+   * Additive optional; omitted = no divergence cue surface.
+   */
+  activeMessageId?: string | null;
 }
 
 /** Slide travel distance (logical px) for the open animation. */
@@ -148,6 +156,7 @@ export function ArgumentComposerDock({
   reduceMotionOverride,
   pacingRule,
   pacingRecentMoves,
+  activeMessageId,
 }: ArgumentComposerDockProps) {
   const { width } = useWindowDimensions();
   const variant = resolveDockLayoutVariant(width);
@@ -540,6 +549,7 @@ export function ArgumentComposerDock({
               reduceMotionOverride={effectiveReducedMotion}
               onBeforeSubmit={handleBeforeSubmit}
               postSignal={postSignal}
+              activeMessageId={activeMessageId ?? null}
             />
 
             {/* RULE-004 — pause-before-send review sheet. A nested overlay

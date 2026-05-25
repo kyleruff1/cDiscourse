@@ -344,6 +344,13 @@ function MainAppShell({
   const [tab, setTab] = useState<ArgumentRoomTab>('arguments');
   const [replyTarget, setReplyTarget] = useState<{ id: string; argument: ArgumentRow } | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  // UX-001.3 — read-only Timeline active message id, surfaced from
+  // ArgumentGameSurface via `onActiveMessageChange`. Passed to the
+  // composer dock so its ComposerContextStrip can render a divergence
+  // cue when the user has selected a different node than the composer
+  // is bound to. Single source of truth stays in ArgumentGameSurface;
+  // we just mirror it for the dock.
+  const [timelineActiveMessageId, setTimelineActiveMessageId] = useState<string | null>(null);
   // TL-001 — Timeline is the default landing mode. Cards remains a toggle.
   // Active-message state is shared across modes, so switching preserves the
   // currently active node.
@@ -449,6 +456,13 @@ function MainAppShell({
 
   const handleStartArgument = () => {
     setReplyTarget(null);
+    setComposerOpen(true);
+  };
+
+  // UX-001.3 — tap on the persistent collapsed composer strip. Opens
+  // the dock against the currently-active Timeline message (if any),
+  // else against the room root.
+  const handleComposerExpand = () => {
     setComposerOpen(true);
   };
 
@@ -678,6 +692,11 @@ function MainAppShell({
                 label: ROOM_COPY.startArgument,
                 onPress: handleStartArgument,
               }}
+              // UX-001.3 — mirror the Timeline's active id into App state
+              // so the dock can show a divergence cue; render the
+              // persistent collapsed composer strip via onComposerExpand.
+              onActiveMessageChange={setTimelineActiveMessageId}
+              onComposerExpand={handleComposerExpand}
             />
 
             {/* COMPOSER-002 — in-room composer dock. Overlays the room
@@ -695,6 +714,8 @@ function MainAppShell({
               onClose={handleComposerClose}
               initialPatch={composerPreset}
               reduceMotionOverride={preferences.effectiveReduceMotion}
+              // UX-001.3 — read-only Timeline active id for divergence cue.
+              activeMessageId={timelineActiveMessageId}
             />
           </View>
         )}

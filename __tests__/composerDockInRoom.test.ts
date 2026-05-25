@@ -128,11 +128,22 @@ describe('COMPOSER-002 / QOL-030 — the dock hosts the OneBox in dock mode', ()
 // ── 4. State-preservation mechanism is "do not unmount", not state-lifting ──
 
 describe('COMPOSER-002 — state preservation is achieved by keeping the room mounted', () => {
-  it('App.tsx does not lift activeMessageId into MainAppShell (out of scope)', () => {
-    // The card explicitly relies on "do not unmount the room", NOT on
-    // hoisting the active-node state. A `setActiveMessageId` in App.tsx
-    // would mean a state-lifting refactor crept in.
-    expect(APP_SRC).not.toMatch(/activeMessageId/);
+  it('App.tsx does not own activeMessageId state (no setter; UX-001.3 only MIRRORS it)', () => {
+    // COMPOSER-002 doctrine: the room stays mounted; App.tsx does NOT
+    // own the active-node state. UX-001.3 introduces a one-way READ
+    // (timelineActiveMessageId) so the composer dock can show a
+    // divergence cue — App.tsx receives an id via onActiveMessageChange
+    // but never WRITES the canonical state in ArgumentGameSurface.
+    //
+    // The state-lifting-refactor guard is preserved by asserting that
+    // App.tsx never calls a setter on the canonical activeMessageId.
+    // The mirror state lives under a different name (timelineActiveMessageId).
+    expect(APP_SRC).not.toMatch(/setActiveMessageId/);
+    // Mirror state is allowed; canonical state name is not.
+    // Specifically: App.tsx must NOT define a `useState<…>('activeMessageId')`
+    // hook or any other writer that would compete with
+    // ArgumentGameSurface's single source of truth.
+    expect(APP_SRC).not.toMatch(/useState[\s\S]{0,80}activeMessageId/);
   });
 
   it('ArgumentTreeScreen still receives entryHint so the micro-moment survives', () => {

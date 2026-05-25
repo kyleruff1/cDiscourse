@@ -190,11 +190,12 @@ describe('QOL-030 one-box copy — doctrine ban-list scan', () => {
     expect([...schemaKindNotices().keys()].sort()).toEqual([...ALL_SCHEMA_KINDS].sort());
   });
 
-  it('collects every produced label — all 4 surfaces, ~44 strings', () => {
-    // 13 box types + 4 schema notices + 6 groups + 21×2 entry strings = 65.
-    // UX-001.3 bumped box types to 13; the new `offer_concession` ActEntry
-    // arrives in commit 3 and adds 2 more strings (label + a11y).
-    expect(PRODUCED.length).toBe(13 + 4 + 6 + 21 * 2);
+  it('collects every produced label — all 4 surfaces, ~46 strings', () => {
+    // 13 box types + 4 schema notices + 6 groups + 22×2 entry strings = 67.
+    // UX-001.3 added the `offer_concession` BoxType (commit 1) AND the
+    // matching ActEntry (commit 3 — label + a11y label adds 2 strings),
+    // bringing the entry count from 21 to 22.
+    expect(PRODUCED.length).toBe(13 + 4 + 6 + 22 * 2);
   });
 
   it('no produced label contains a forbidden verdict / amplification token', () => {
