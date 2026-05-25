@@ -1080,6 +1080,121 @@ See `docs/designs/UX-001.5.md` for the verbatim design + Q1-Q13 audit
 - Refactor `EvidenceAnnotationChip` (UX-001.7 territory per
   POSTRUN-UX001 Scope 6 fold) unless QA surfaces a regression
 
+### UX-001.6 — Phase 6 framing for UX-001.7 (binding handoff)
+
+> Per `docs/designs/UX-001.6.md` §8. UX-001.6 verified UX-001.{1-5}
+> contracts hold in actual viewport behavior across the 4 hard-blocker
+> viewports plus 2 extension viewports. The findings below inform
+> UX-001.7's visual design system consolidation scope. The structural
+> skeleton is set at design-doc commit; the implementer fills the
+> surface-specific lists at completion.
+
+**The QA matrix verdicts:**
+
+- **Viewport matrix coverage report:** 6 viewports × 18 surfaces = 108
+  cells verified.
+  - Hard-blocker viewports: 390 × 844 phone (native iOS / Android),
+    1024 × 1366 tablet portrait (native iOS), 1366 × 768 narrow
+    browser (web), 1920 × 1080 wide browser (web).
+  - Extension viewports: 412 × 892 phone large Android (native),
+    768 × 1024 tablet portrait iPad-class (native).
+  - Per-cell verdict format: pass / fail / finding.
+
+**Surfaces that passed QA cleanly** (UX-001.7 inherits as design-system
+anchor points; their treatment is the "this is correct" reference):
+
+- _Implementer fills this list at completion, naming surfaces that
+  passed at all 6 viewports without acute fix._
+
+**Surfaces that had acute fixes applied** (UX-001.7 inherits the
+post-fix state; the design-system consolidation extends the fix
+pattern):
+
+- _Implementer fills this list at completion, naming the surface, the
+  source file touched, the fix shape, the motivating defect, and the
+  verification method. Each fix corresponds to one slot in
+  `docs/designs/UX-001.6.md` §7's budget table or a matrix-surfaced
+  finding on a non-locked file._
+
+**Surfaces that had pre-existing regressions documented for separate
+cards** (UX-001.7's designer reads this list to scope the design-system
+consolidation against actual cross-device behavior, not just
+hypothetical token uniformity):
+
+- _Implementer fills this list at completion, naming the surface, the
+  regression observed, the proposed separate-card filing (UX-001.5C
+  focused S-effort, UX-001.4 follow-up, or other), and the reason it
+  was not folded into UX-001.6._
+
+**The `EvidenceAnnotationChip` regression status** (per POSTRUN-UX001
+Scope 6 fold):
+
+- _If QA surfaced an evidence chip regression that cannot wait for
+  UX-001.7, the implementer files UX-001.5C as a focused S-effort
+  card at that point. Otherwise, the chip refactor remains within
+  UX-001.7. The implementer records the disposition here._
+
+**Read-only API boundary verification:**
+
+- `git diff main..HEAD --stat -- <UX-001.{1-5} source files>` returns
+  zero changes modulo the explicit acute-fix list above. Verified by
+  `__tests__/uxOneOneSixReadOnlyBoundary.test.ts`.
+
+**Doctrine scans:**
+
+- Verdict ban-list scan: pass (zero verdict tokens in user-facing copy
+  across all UX-001 source files).
+- Internal-code ban-list scan: pass (zero raw classifier IDs in
+  user-facing copy; all routed through `gameCopy.toPlainLanguage`).
+- Service-role ban-list scan: pass (zero `SUPABASE_SERVICE_ROLE_KEY`
+  / `service_role` references in `app/` and `src/`).
+- AI-import ban-list scan: pass (zero `Anthropic`, `xAI`, `openai`,
+  `gemini` imports in `app/` and `src/`).
+- Observations / Allegations doctrine: pass (no `source` field outside
+  `'machine'` | `'user'`; sensitive Observations composer-only).
+
+**Cross-platform parity findings:**
+
+- Browser-only key badges (A / I / G) verified ABSENT at phone
+  (390 × 844, 412 × 892) and tablet portrait (768 × 1024,
+  1024 × 1366) widths interpreted as native
+  (`Platform.OS === 'ios' | 'android'`).
+- Browser-only key badges verified PRESENT at narrow browser
+  (1366 × 768) and wide browser (1920 × 1080) widths interpreted as
+  web (`Platform.OS === 'web'`).
+- Composer keyboard shortcuts (Cmd / Ctrl + Enter, Cmd / Ctrl + K)
+  verified active on web at all widths; native path does not install
+  the keydown handler (touch only) per `Platform.OS` branching.
+
+**Test count delta:** _Implementer records baseline (12,724 tests /
+480 suites at UX-001.5 completion) and the new count at UX-001.6
+completion. Reviewer's re-run must match exactly per `test-discipline`
+§Gate timeout handling. Designer estimate: ~1,250 new tests across
+5 new test files; implementer's actual count may diverge by ±200 tests
+depending on parameterization choices._
+
+**Inputs UX-001.7 must consume from UX-001.6:**
+
+- The N surfaces (implementer fills) that passed cleanly — UX-001.7
+  treats these as design-system anchor points.
+- The 0-6 surfaces that had acute fixes applied — UX-001.7 extends
+  the fix pattern across analogous surfaces.
+- The 0+ surfaces with pre-existing regressions — UX-001.7 designer
+  reviews each regression's separate-card filing to decide whether
+  the regression can be addressed within UX-001.7's consolidation or
+  remains a focused follow-up card.
+- The `EvidenceAnnotationChip` disposition — UX-001.7 either
+  consolidates the chip (default) or hands off to UX-001.5C (if QA
+  surfaced a regression).
+
+**Inputs UX-001.7 must NOT consume from UX-001.6:**
+
+- New product features (UX-001.6 ships none).
+- New backend write paths (UX-001.6 introduces none).
+- New AI calls from the production app (UX-001.6 introduces none).
+- Anything that would violate the UX-001 epic non-goals at
+  `docs/designs/UX-001-epic.md` lines 83-101.
+
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
 **Status:** Build complete (awaiting Review). Issue #25, branch
