@@ -82,6 +82,12 @@ import {
 // for a room with the semantic layer off (the v1 default).
 import { RefereeBannerView } from '../refereeBanners/RefereeBannerView';
 import type { BannerSelectionResult } from '../refereeBanners/types';
+// UX-001.3 — The persistent collapsed-composer strip mounted below the
+// score tracker. Renders only when the parent supplies `onComposerExpand`
+// so older callers that omit the prop see the surface unchanged.
+import { CollapsedComposerStrip } from './composer/CollapsedComposerStrip';
+import type { BoxType } from './oneBox/boxModel';
+import type { ArgumentRow } from './types';
 import {
   SemanticOverrideChoiceSheet,
   type SemanticOverrideChoice,
@@ -190,6 +196,28 @@ interface Props {
    * callback never moves score and never writes a flag.
    */
   onConfirmOverride?: (choice: SemanticOverrideChoice) => void;
+  /**
+   * UX-001.3 — fires when the Timeline's `activeMessageId` changes. The
+   * composer reads this id (one-way) so its `ComposerContextStrip` can
+   * show a divergence cue when the user has selected a different node
+   * than the composer is currently bound to. Additive optional; omitted
+   * = no callback, no behavior change.
+   */
+  onActiveMessageChange?: (activeMessageId: string | null) => void;
+  /**
+   * UX-001.3 — fires when the user taps the persistent
+   * `CollapsedComposerStrip` below the score tracker. The parent
+   * (App.tsx) opens the composer dock in response. Additive optional;
+   * omitted = the strip is NOT rendered (the surface is unchanged for
+   * older callers).
+   */
+  onComposerExpand?: () => void;
+  /**
+   * UX-001.3 — additional context for the `CollapsedComposerStrip`'s
+   * label. The strip can use this to render the room's resolution in
+   * the root_claim default case. Additive optional.
+   */
+  composerResolution?: string | null;
 }
 
 export function ArgumentGameSurface({
@@ -218,6 +246,9 @@ export function ArgumentGameSurface({
   refereeBanner,
   overridePrompt,
   onConfirmOverride,
+  onActiveMessageChange,
+  onComposerExpand,
+  composerResolution,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const sorted = useMemo(() => sortMessagesChronologically(messages || []), [messages]);
@@ -314,6 +345,18 @@ export function ArgumentGameSurface({
   useEffect(() => {
     setMicroMomentDismissed(false);
   }, [entryHint?.verbPhrase]);
+
+  // UX-001.3 — One-way notification of activeMessageId changes. The
+  // composer reads the id via this callback so its ComposerContextStrip
+  // can surface a divergence cue when the user has selected a different
+  // node on the Timeline than the composer is bound to. We do NOT
+  // mutate `activeMessageId` from the composer — this is read-only
+  // wiring. Effect is no-op when the prop is absent.
+  useEffect(() => {
+    if (onActiveMessageChange) {
+      onActiveMessageChange(activeMessageId);
+    }
+  }, [activeMessageId, onActiveMessageChange]);
 
   const chronologicalIds = useMemo(() => sorted.map((m) => m.id), [sorted]);
   const parentLookup = useCallback((parentId: string) => {
@@ -443,6 +486,40 @@ export function ArgumentGameSurface({
     }),
     [timelineMap, lifecycleMap, artifactsByMessageIdMap, manualTagsByMessageId],
   );
+
+  // UX-001.3 — Derive the CollapsedComposerStrip's preview target. The
+  // strip names the next compose action's parent so the user always
+  // sees what they would be acting on, even with the dock closed.
+  // When the Timeline has an active node, default to `'respond'` mode;
+  // otherwise (no active node) default to `'root_claim'` mode.
+  const composerStripBoxType: BoxType = activeMessageId ? 'respond' : 'root_claim';
+  const composerStripParent: ArgumentRow | null = useMemo(() => {
+    if (!activeMessageId) return null;
+    const msg = sorted.find((m) => m.id === activeMessageId);
+    if (!msg) return null;
+    // Build a minimal ArgumentRow stand-in from the in-memory message.
+    // The strip only reads id / body / argumentType for its label —
+    // the unused fields are filled with safe defaults.
+    return {
+      id: msg.id,
+      debateId: msg.debateId,
+      parentId: msg.parentId,
+      authorId: msg.authorId ?? '',
+      argumentType: (msg.argumentType as ArgumentRow['argumentType']) ?? 'claim',
+      side: (msg.side as ArgumentRow['side']) ?? 'neutral',
+      body: msg.body,
+      depth: 0,
+      status: 'posted',
+      targetExcerpt: null,
+      disagreementAxis: null,
+      railPayload: {},
+      clientValidation: {},
+      serverValidation: {},
+      clientSubmissionId: null,
+      createdAt: msg.createdAt,
+      updatedAt: msg.updatedAt ?? msg.createdAt,
+    };
+  }, [activeMessageId, sorted]);
 
   // META-1B — Screen-reader announcement when persisted manual-tag state
   // changes (a participant in this room or another tab applied / removed
@@ -868,6 +945,21 @@ export function ArgumentGameSurface({
                 (was above). The component itself is unchanged — only
                 its mount site moves. */}
             <ArgumentScoreTracker trends={participantTrends} />
+            {/* UX-001.3 — Persistent collapsed-composer strip. Sits
+                below the score tracker so the user always sees what
+                the next compose action would act on. Mounts only when
+                the parent supplies `onComposerExpand` (room-active
+                only). The strip's height (56 / 64 / 72 px per band)
+                lives BELOW the Timeline and contributes ZERO to the
+                first-row offset — UX-001.2's caps are unaffected. */}
+            {onComposerExpand ? (
+              <CollapsedComposerStrip
+                boxType={composerStripBoxType}
+                parentArgument={composerStripParent}
+                resolution={composerResolution ?? null}
+                onExpand={onComposerExpand}
+              />
+            ) : null}
           </>
         )}
       </View>
