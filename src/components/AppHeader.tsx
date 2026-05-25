@@ -1,17 +1,28 @@
 /**
- * BRAND-001 — Global CivilDiscourse app header.
+ * BRAND-001 / UX-001.1 — Global CivilDiscourse app header.
  *
  * Stage 1 (PR #55 / commit abba2e8): persistent top-of-page chrome
  * with the cream-on-black logo on the left and an optional right
  * slot. Tapping the logo dispatches a state-only deselect.
  *
- * Stage 2 (this card): the logo grows to a 110px height at wide
- * viewports (≥ 720dp) inside a 152px header, with the tagline
+ * Stage 2 (PR #55 / commit aa50630): the logo grew to 110px at wide
+ * viewports (>= 720dp) inside a 152px header, with the tagline
  * "Just get to the bottom of it" rendered next to / under the logo
- * via `AppHeaderTagline`. Narrow viewports keep the Stage 1 64px
- * header. A 1px cream-hairline divider replaces the Stage 1 solid
- * `appElevated` border so the header looks consciously designed
- * instead of "a logo nailed to the top".
+ * via `AppHeaderTagline`. Narrow viewports kept the Stage 1 64px
+ * header. A 1px cream-hairline divider replaced the Stage 1 solid
+ * `appElevated` border.
+ *
+ * UX-001.1 (this card): logo + header heights are now band-aware
+ * (phone 44/64, tablet 80/96, wide 96/120) per the new
+ * 3-band breakpoint. The wide header is tightened from 152 -> 120 to
+ * satisfy the epic's "header height does not bury the active board"
+ * non-negotiable; tablet gains an intermediate 96px header. The
+ * wordmark fallback now reads its `fontSize` / `lineHeight` /
+ * `fontWeight` / `letterSpacing` from `BRAND.typography.wordmarkFallback`
+ * per band (replacing the prior inline `fontSize: 18` / `fontSize: 28`
+ * literals). The home pressable gains a per-band `minWidth`
+ * (120 / 200 / 240) so the brand+nav group is visibly larger on
+ * tablet+wide.
  *
  * Stays state-only — no router, no navigation. Preserves the TL-003
  * no-route invariant.
@@ -19,12 +30,14 @@
  * The logo is a regular `Image` source — no `react-native-svg`. If the
  * PNG asset is missing for any reason, the header falls back to a
  * text-only `CivilDiscourse` cream wordmark so the rest of the app
- * still renders. The fallback honors the wide breakpoint via a larger
- * font size.
+ * still renders. The fallback honors the breakpoint band via the
+ * `BRAND.typography.wordmarkFallback[band]` size.
  */
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { TextStyle } from 'react-native';
 import { BRAND } from '../lib/designTokens';
+import type { Band } from '../hooks/useHeaderBreakpoint';
 import { useHeaderBreakpoint } from '../hooks/useHeaderBreakpoint';
 import { AppHeaderTagline, APP_HEADER_TAGLINE_TEXT } from './AppHeaderTagline';
 
@@ -49,14 +62,37 @@ const DEFAULT_LOGO = require('../../assets/branding/civic-discourse-logo.png');
 // of it, button" exactly once.
 const HOME_ACCESSIBILITY_LABEL = `CivilDiscourse, ${APP_HEADER_TAGLINE_TEXT}`;
 
+/**
+ * UX-001.1 — Per-band `minWidth` for the home pressable. Makes the
+ * brand+nav group visibly larger on tablet+wide. All three values
+ * meet the 44dp horizontal hit-target bar with the 8dp left+right
+ * hitSlop (120+16, 200+16, 240+16 all >= 44).
+ */
+function getHomePressableMinWidth(band: Band): number {
+  switch (band) {
+    case 'phone':
+      return 120;
+    case 'tablet':
+      return 200;
+    case 'wide':
+      return 240;
+  }
+}
+
 export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
   const source = logoSource ?? DEFAULT_LOGO;
-  const { isWide, logoHeightPx, headerHeightPx } = useHeaderBreakpoint();
-  const taglineVariant = isWide ? 'inline' : 'stacked';
+  const { band, logoHeightPx, headerHeightPx } = useHeaderBreakpoint();
+  // UX-001.1 — `inline` on tablet + wide; `stacked` on phone. Functionally
+  // equivalent to the prior `isWide ? 'inline' : 'stacked'` because the
+  // new `isWide` semantic is also `band !== 'phone'`, but reading
+  // `band` directly makes the intent explicit.
+  const taglineVariant = band === 'phone' ? 'stacked' : 'inline';
   // The home pressable wraps both the logo + tagline so the accessible
   // group reads as a single button. Inner alignment changes by
-  // breakpoint — row for wide, column for stacked.
-  const homeInnerStyle = isWide ? styles.homeInnerInline : styles.homeInnerStacked;
+  // breakpoint — row for tablet+wide, column for phone.
+  const homeInnerStyle = band === 'phone' ? styles.homeInnerStacked : styles.homeInnerInline;
+  const homePressableStyle = [styles.homePressable, { minWidth: getHomePressableMinWidth(band) }];
+  const wordmarkFallbackStyle: TextStyle = BRAND.typography.wordmarkFallback[band];
 
   return (
     <View
@@ -71,11 +107,13 @@ export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
         accessibilityLabel={HOME_ACCESSIBILITY_LABEL}
         accessibilityHint="Returns to the conversation gallery"
         testID="app-header-home"
-        // BRAND-001 Stage 2: hitSlop preserves a ≥ 44×44 effective
-        // touch target even at the narrow 44px logo height (44 + 8 + 8
-        // = 60 vertical, 120 + 8 + 8 = 136 horizontal min-width).
+        // BRAND-001 Stage 2 / UX-001.1: hitSlop preserves a >= 44 x 44
+        // effective touch target across all bands. Phone: 44+8+8=60 vertical,
+        // 120+8+8=136 horizontal. Tablet: 80+8+8=96 vertical,
+        // 200+8+8=216 horizontal. Wide: 96+8+8=112 vertical,
+        // 240+8+8=256 horizontal.
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={styles.homePressable}
+        style={homePressableStyle}
       >
         <View style={homeInnerStyle}>
           {source ? (
@@ -89,10 +127,7 @@ export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
             />
           ) : (
             <Text
-              style={[
-                styles.wordmarkFallback,
-                isWide ? styles.wordmarkFallbackWide : styles.wordmarkFallbackNarrow,
-              ]}
+              style={[styles.wordmarkFallback, wordmarkFallbackStyle]}
               testID="app-header-logo-fallback"
             >
               CivilDiscourse
@@ -131,7 +166,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   homePressable: {
-    minWidth: 120,
+    // UX-001.1 — `minWidth` now flows in inline per band via
+    // getHomePressableMinWidth(band); the StyleSheet entry keeps the
+    // shared center-axis justification.
     justifyContent: 'center',
   },
   homeInnerInline: {
@@ -142,16 +179,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
   },
+  // UX-001.1 — color only; per-band fontSize / lineHeight / fontWeight /
+  // letterSpacing now come from BRAND.typography.wordmarkFallback[band].
   wordmarkFallback: {
     color: BRAND.text.primary,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  wordmarkFallbackNarrow: {
-    fontSize: 18,
-  },
-  wordmarkFallbackWide: {
-    fontSize: 28,
   },
   rightSlot: {
     flexDirection: 'row',
