@@ -1338,6 +1338,260 @@ post-merge worktree cleanup per `.claude/agents/roadmap-reviewer.md`
 See `docs/designs/UX-001.6.md` (Phase 6 framing for UX-001.7 lives
 in the section above this one).
 
+## UX-001.7 — Phase 7 framing + final UX-001 design-system handoff
+
+**Status:** Design draft (Stage 2 HALT before implementer spawn).
+Issue [#296](https://github.com/kyleruff1/cDiscourse/issues/296),
+branch `feat/UX-001.7-visual-design-system-consolidation`. Design
+document at `docs/designs/UX-001.7.md`.
+
+**Role in the UX-001 epic:** UX-001.7 is the **epic closer**.
+UX-001.1 through UX-001.6 shipped the brand shell, Timeline-first
+layout, contextual composer, Act/Inspect/Go menu model, annotation
+primitives, and cross-device QA baseline. UX-001.7 standardizes what
+already shipped into a durable visual design system that future cards
+(UX-001.5A, UX-001.5B, and any post-epic work) consume verbatim rather
+than re-deriving tokens, primitives, or patterns from individual prior
+cards.
+
+**Test count delta:** baseline 15,661 tests / 485 suites; expected
+delta ~200-350 tests via the 9 new test files under
+`__tests__/uxOneOneSeven*.test.{ts,tsx}`. Implementer fills the final
+numbers at ship time.
+
+### UX-001.7 — Phase 7 framing for future cards (binding handoff)
+
+> The seven outputs below are the load-bearing post-UX-001.7 design
+> language. UX-001.5A, UX-001.5B, and any post-epic card reads this
+> section as primary input. Every value is a committed contract;
+> future cards may consume but not re-decide.
+
+**1. Canonical visual tokens (final, post-UX-001.7)**
+
+| Token export | Scope | Source |
+|---|---|---|
+| `SPACING` | scale: xs/s/m/l/xl | `src/lib/designTokens.ts` (unchanged from UX-001.{1-6}) |
+| `RADIUS` | corner radius scale: sm/md/lg/pill | `src/lib/designTokens.ts` (unchanged) |
+| `STATUS` | app state colors: info/warning/danger/success/neutral | `src/lib/designTokens.ts` (unchanged) |
+| `SURFACE` | three-level surface elevation | `src/lib/designTokens.ts` (unchanged) |
+| `RAIL` | side action rail states | `src/lib/designTokens.ts` (unchanged) |
+| `ARGUMENT` | argument-kind color families | `src/lib/designTokens.ts` (unchanged) |
+| `BRAND` | CivilDiscourse brand + breakpoints + per-band heights + shell typography | `src/lib/designTokens.ts` (unchanged) |
+| `GLOW` | timeline node glow tokens | `src/lib/designTokens.ts` (unchanged) |
+| `RECEIPT_MARK` | evidence receipt mark | `src/lib/designTokens.ts` (unchanged) |
+| `SURFACE_TOKENS` | app-wide dark surface scale + focus ring color | `src/lib/designTokens.ts` (unchanged) |
+| `CONTROL` | button intent tokens | `src/lib/designTokens.ts` (unchanged) |
+| `TOUCH_TARGET` | **NEW UX-001.7** — `minSizePx`/`hitSlopAll`/`hitSlopCompact` | `src/lib/designTokens.ts` (additive) |
+| `FOCUS_RING` | **NEW UX-001.7** — `widthPx`/`offsetPx`/`color` dimensional preset | `src/lib/designTokens.ts` (additive) |
+| `BORDER_WIDTH` | **NEW UX-001.7** — sm/md/lg scale | `src/lib/designTokens.ts` (additive) |
+| `TYPOGRAPHY` | **NEW UX-001.7** — app-wide typography scale (10 groups: roomStrip, timelineNode, selectedContext, composer, popoutHeading, popoutBody, chipLabel, badgeLabel, keyboardHint, inspectDetail) | `src/lib/designTokens.ts` (additive) |
+| `SPACING_PRESETS` | **NEW UX-001.7** — composite spacing presets (8 keys: screenInset, surfaceGap, compactRowGap, chipGap, nodeInternalPadding, popoutInternalPadding, composerPadding, touchTargetMin) | `src/lib/designTokens.ts` (additive) |
+
+Total new token additions: ~25 (well below the intent brief's 50-token ceiling).
+
+**2. Canonical component primitives (final, post-UX-001.7)**
+
+The 12 primitives in `src/features/nodeAnnotations/` remain the
+canonical set. UX-001.7 adds NO new primitives. Two primitives gain
+internal token tightening (no public API change):
+
+- `AnnotationFocusRing.tsx` — internal `borderWidth: 2` literal becomes
+  `FOCUS_RING.widthPx`.
+- `AnnotationOutline.tsx` — same pattern.
+
+The refactored `EvidenceAnnotationChip.tsx` (per UX-001.7 Workstream 4
+preferred path) now consumes `AnnotationChip` and `AnnotationChipStrip`
+primitives; the chip's public prop surface (`EvidenceAnnotationChipProps`,
+`EvidenceAnnotationStreamProps`) is preserved verbatim.
+
+**3. Surface-to-token mappings (high-level)**
+
+| Surface | New token consumption |
+|---|---|
+| `ArgumentSideActionRail.tsx` | `TOUCH_TARGET.minSizePx`, `TYPOGRAPHY.chipLabel` |
+| `DebateDetailHeader.tsx` | `TOUCH_TARGET.minSizePx`/`hitSlopAll`, `TYPOGRAPHY.roomStrip`, `SPACING_PRESETS.compactRowGap` |
+| `ArgumentTimelineMap.tsx` | `TOUCH_TARGET.hitSlopCompact`, `TYPOGRAPHY.timelineNode`, `BORDER_WIDTH.md` |
+| `TimelineSelectedReadoutPanel.tsx` | `TYPOGRAPHY.selectedContext`, `SPACING_PRESETS.compactRowGap` |
+| `ArgumentComposer.tsx` | `TYPOGRAPHY.composer`, `SPACING_PRESETS.composerPadding` |
+| `ComposerContextStrip.tsx` | `TOUCH_TARGET.hitSlopAll`, `TYPOGRAPHY.composer` |
+| `OneBox.tsx` | `TOUCH_TARGET.minSizePx`, `TYPOGRAPHY.composer` |
+| `Popout.tsx` | `TOUCH_TARGET.hitSlopAll`, `TYPOGRAPHY.popoutHeading`, `SPACING_PRESETS.popoutInternalPadding` |
+| `PopoutEntry.tsx` | `TOUCH_TARGET.minSizePx`, `TYPOGRAPHY.popoutBody` |
+| `InspectPopout.tsx` | `TOUCH_TARGET.minSizePx`/`hitSlopAll`, `TYPOGRAPHY.inspectDetail` |
+| `AnnotationChip.tsx` | `TOUCH_TARGET.hitSlopAll` (existing literal becomes token) |
+| `AnnotationFocusRing.tsx` | `FOCUS_RING.widthPx` (internal tightening) |
+| `AnnotationOutline.tsx` | `FOCUS_RING.widthPx` (internal tightening) |
+| `EvidenceAnnotationChip.tsx` | (consumes nodeAnnotations primitives + `TOUCH_TARGET.hitSlopAll`) |
+
+**4. Read-only boundaries for future cards (post-UX-001.7)**
+
+All files enumerated in `docs/designs/UX-001.7.md` §12.B are read-only
+for future cards by default. Future cards may modify these files only
+with explicit bounded-extension authority (per the UX-001.{2,4,5}
+precedent of bounded extension lists).
+
+**5. Known intentional divergences**
+
+- Per-band sizing tokens (`ANNOTATION_CHIP_HEIGHT_BY_BAND` etc.) live
+  in `src/features/nodeAnnotations/annotationKindTokens.ts`, NOT in
+  `designTokens.ts`, because they are primitive-scoped per UX-001.5
+  §"no replacement of existing surface tokens".
+- `BRAND.typography` ships SHELL-ONLY (wordmark, tagline, header right
+  slot). UX-001.7's `TYPOGRAPHY` is the app-wide scale that extends
+  shell typography. Both coexist; future cards should consume the
+  group that matches their scope.
+- `compactRowGap` and `chipGap` both resolve to `SPACING.xs` (= 4).
+  They are intentionally separate tokens because they describe
+  different consumer intents; future tuning may diverge.
+
+**6. UX-001.5A consumption notes**
+
+UX-001.5A's `NodeLabelKind` (`'machine_observation' | 'user_allegation'`)
+maps to `AnnotationChipDescriptor.source` via:
+`source = kind === 'machine_observation' ? 'machine' : 'user'`. UX-001.5A's
+`MachineObservationSource | UserAllegationSource` enums fit
+`AnnotationChipDescriptor.category` (string, forward-compatible).
+
+The future "Machine observation: Source gap" chip:
+`{ kind: 'semantic', iconHint: 'info', source: 'machine', category: 'semantic_referee', label: 'Source gap' }`.
+
+The future "User allegation: Needs source" chip:
+`{ kind: 'flag', iconHint: 'warn', source: 'user', category: 'manual_tag', label: 'Needs source' }`.
+
+Both render via `AnnotationChip` with token-derived colors; shape
+(chip pill) + glyph (iconHint) + label carry the full meaning without
+color reliance.
+
+**7. EvidenceAnnotationChip disposition**
+
+**Refactor-shipped.** Per UX-001.7 Workstream 4 preferred path
+(`docs/designs/UX-001.7.md` §5.D), `EvidenceAnnotationChip.tsx` now
+consumes `AnnotationChip` + `AnnotationChipStrip` primitives. EV-005-
+specific affordances (status chip header, add-trigger, observer
+notice, synthesis-prompt) preserved verbatim. Public prop surface
+unchanged. Sole production consumer `SourceChainPopover.tsx` untouched.
+UX-001.5C is NOT filed.
+
+**8. Cross-device QA baseline (preserved from UX-001.6)**
+
+The 4 hard-blocker viewports (390×844 iPhone, 1024×1366 iPad Pro
+portrait, 1366×768 narrow browser, 1920×1080 wide browser) + 2
+extension viewports (412×892 large Android, 768×1024 iPad portrait)
+remain the canonical QA matrix. UX-001.7 adds NO new viewports.
+UX-001.6's 5 test suites (uxOneOneSixViewportMatrix,
+uxOneOneSixTouchTargets, uxOneOneSixColorIndependence,
+uxOneOneSixDoctrine, uxOneOneSixReadOnlyBoundary) remain green with
+ZERO modification (asserted by `uxOneOneSevenUxOneOneSixDiff.test.ts`).
+
+**9. Final UX-001 completion status**
+
+UX-001.1 through UX-001.7 ship-complete. UX-001 epic is substantively
+finished per the epic-level acceptance criteria from
+`docs/designs/UX-001-epic.md` lines 113-163 (see the epic completion
+note below for per-criterion verification).
+
+**Inputs future cards must NOT consume from UX-001.7:**
+- New product features (UX-001.7 ships none).
+- New backend write paths (UX-001.7 introduces none).
+- New AI calls from the production app (UX-001.7 introduces none).
+- Anything that would violate the UX-001 epic non-goals at
+  `docs/designs/UX-001-epic.md` lines 83-101.
+
+See `docs/designs/UX-001.7.md` for the verbatim design + §1-§18 + the
+brief ledger.
+
+## UX-001 — Epic completion note (UX-001.1 through UX-001.7 shipped)
+
+**Status:** Substantively complete. The seven primary cards (UX-001.1
+through UX-001.7) ship a brand-forward, simplified UX/UI consolidation
+that transforms CDiscourse's surface from a collection of isolated
+features into a coherent product. UX-001.5A is the next adjacent
+follow-through (operator-gated by a pre-launch source-access audit);
+UX-001.5B is contingent on UX-001.5A's findings.
+
+### Per-card recap
+
+| Card | Title | PR | Merge SHA | Test count delta |
+|---|---|---|---|---|
+| UX-001.1 | Brand and app shell correction | #285 | (filled at merge) | 10,734 → 10,826 (+92 tests, +3 suites) |
+| UX-001.2 | Timeline-first viewport repair + room-active chrome consolidation | #287 | `3ccdc6f` | 10,826 → 10,995 (+169 tests, +8 suites) |
+| UX-001.3 | Composer and context consolidation | #289 | `2cc34ee` | 10,995 → 11,195 (+200 tests, +13 suites) |
+| UX-001.4 | Act / Inspect / Go simplification | #291 | `acc707d` | 11,195 → 11,539 (+344 tests, +11 suites) |
+| UX-001.5 | Metadata and semantic annotation visual primitives | #293 | `9b360ca` | 11,539 → 12,724 (+1,185 tests, +18 suites) |
+| UX-001.6 | Cross-device QA and visual polish | #295 | `a50f411` | 12,724 → 15,661 (+2,937 tests, +5 suites) |
+| UX-001.7 | Visual design system consolidation (epic closer) | #296 | (filled at merge) | 15,661 → ~(15,661 + ~250) (filled at merge) |
+
+### UX-001.5A status
+
+**Next adjacent follow-through.** Deferred pending pre-launch source-
+access audit per UX-001.5 framing (current-status.md ~line 1014-1024).
+UX-001.7 has made the design system ready (`AnnotationChipDescriptor`
+has the `source: 'machine'|'user'` + `category: string` forward-compat
+slots; `InspectGroupHeader` ships ready for Observations/Allegations
+dividers; the consolidated tokens accommodate label chips without
+color reliance per UX-001.7 §7.B). The audit launch is operator-gated.
+
+### UX-001.5B status
+
+**Contingent.** Filed only if UX-001.5A's pre-launch source-access
+audit determines that raw classifier binaries are not accessible
+per-node in client state without backend work. Per UX-001-epic.md
+L41-43.
+
+### Per-acceptance-criterion verification (UX-001-epic.md L115-163)
+
+| Criterion | Status | Rationale / evidence |
+|---|---|---|
+| L119 — App has a professional, coherent global visual identity | PASS | UX-001.1 brand shell + UX-001.7 token consolidation produce one design language. |
+| L121 — Logo is visibly larger and meaningfully featured | PASS | `BRAND.logoHeightByBand` 44/80/96 per band. |
+| L123 — Header looks intentional, not incidental | PASS | `BRAND.headerHeightByBand` 64/96/120. |
+| L125 — Timeline is visible as a primary element | PASS | UX-001.2 offset caps 128/168/200/200 verified at all 6 viewports. |
+| L127 — Browser users do not need to zoom out | PASS | Wide offset cap 198 ≤ 200 px on 1920×1080. |
+| L129 — Selected-node readout provides context without burying the board | PASS | UX-001.2 compact mode + below-Timeline placement. |
+| L131 — Composer clearly shows what the user is replying to or acting on | PASS | UX-001.3 ComposerContextStrip with `deriveComposerActingOnLabel`. |
+| L133 — Composer remains in-room | PASS | UX-001.3 CollapsedComposerStrip persistent; bottom-sheet / side panel on expand. |
+| L135 — Composer can transform based on action type while preserving drafts | PASS | UX-001.3 `composerDraftRegistry` per `(targetKey, boxType)`. |
+| L137 — Timeline and Cards/Stack are quickly flippable | PASS | UX-001.2 strip-level toggle, single source of truth. |
+| L139 — Touch devices expose actions through docks, sheets, and popouts | PASS | UX-001.4 `menuPresentationModel` per-band variants. |
+| L141 — Browser users have reliable keyboard navigation and shortcuts | PASS | UX-001.3 Cmd/Ctrl+Enter/+K; UX-001.4 A/I/G; IX-003 timeline arrows. |
+| L143 — Act, Inspect, and Go are the primary menu model | PASS | UX-001.4 mounts all three at board level. |
+| L145 — Metadata, tags, lifecycle states, and semantic flags are visually attached to relevant objects | PASS (scaffolding) | UX-001.5 ships the 12 primitives; UX-001.5A is the live-mount consumer. Design-system readiness PASS; live Timeline node badges DEFERRED-TO-UX-001.5A. |
+| L147 — Passive flags do not look like primary actions | PASS | UX-001.5 passive annotations use `accessibilityRole="text"`, no `onPress`. |
+| L149 — No existing core functionality is deprecated | PASS | UX-001.7 read-only file list confirmed by `git diff main..HEAD` returning zero bytes for read-only paths. |
+| L151 — No new backend write path is introduced | PASS | UX-001.7 introduces zero migrations, zero Edge Functions. |
+| L153 — No direct insert into arguments is introduced | PASS | UX-001.7 introduces zero direct inserts. |
+| L155 — No service-role usage is introduced in the client | PASS | UX-001.7 introduces zero service-role usage; verified by doctrine scan. |
+| L157 — No raw internal codes appear in normal user UI | PASS | UX-001.7 doctrine scan stays green; all codes route through `gameCopy.toPlainLanguage`. |
+| L159 — No UI copy implies truth, winner, loser, correctness, proof, or verdict | PASS | UX-001.7 doctrine ban-list scan stays green. |
+| L161 — App feels usable on Android phone, iPhone, iPad, tablet, and web browser | PASS | UX-001.6 cross-device QA verified 6 viewports clean. |
+| L163 — Product feels like one canonical system rather than a collection of separate feature cards | PASS | UX-001.7 consolidation delivers the canonical design language; future cards consume tokens, not literals. |
+
+**Every criterion PASS or PASS-with-DEFERRED-live-mount-to-UX-001.5A.**
+The L145 criterion's design-system readiness is PASS; the live mount
+of Timeline node label badges is UX-001.5A scope per the UX-001.5
+framing. UX-001.5A is operator-gated, not blocked.
+
+### Epic ship statement
+
+UX-001 is substantively complete. The seven primary cards delivered:
+
+- A professional brand-forward app shell (UX-001.1)
+- A Timeline-first viewport that does not bury the board (UX-001.2)
+- A persistent, contextual composer with draft preservation (UX-001.3)
+- A coherent three-menu interaction model (UX-001.4)
+- A consolidated visual annotation primitive system (UX-001.5)
+- An empirically verified cross-device QA baseline (UX-001.6)
+- A canonical design language future cards consume (UX-001.7)
+
+The product now feels like one system instead of a collection of
+separate feature cards. The next adjacent work is UX-001.5A
+(Machine Observations + User Allegations), which is operator-gated
+by a pre-launch source-access audit. UX-001.5B is contingent on that
+audit's findings. Both are post-epic follow-throughs, not part of the
+UX-001 epic closure.
+
+See `docs/designs/UX-001.7.md` for the verbatim Phase 7 design.
+
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
 **Status:** Build complete (awaiting Review). Issue #25, branch
