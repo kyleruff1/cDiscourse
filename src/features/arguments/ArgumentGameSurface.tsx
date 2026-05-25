@@ -126,6 +126,21 @@ import {
 import { resolveBoardMenuKeyEffect } from './boardMenuKeyboardModel';
 import { buildTimelineMiniMapModel } from './timelineMiniMapModel';
 import type { ArgumentType as ConstitutionArgumentType } from '../../domain/constitution/types';
+// UX-001.5A — Node labels (Machine Observations + User Allegations).
+// Both components are UI-only consumers of the pure-TS source adapters;
+// neither component owns state, calls Supabase, or runs an AI provider.
+// NodeLabelStrip mounts under the Timeline as a sibling of the score
+// tracker and selected-readout panel; NodeLabelInspectGroups mounts
+// adjacent to the InspectPopout as a sibling overlay visible only when
+// Inspect is open (per design §10.3 alternative path — zero
+// modification to InspectPopout.tsx or inspectContentBuilder.ts).
+import {
+  NodeLabelInspectGroups,
+  NodeLabelStrip,
+  adaptSemanticRefereeSourceComposer,
+  toAnnotationChipDescriptors,
+} from '../nodeLabels';
+import type { AnnotationChipDescriptor } from '../nodeAnnotations';
 
 interface Props {
   debate: {
@@ -550,6 +565,28 @@ export function ArgumentGameSurface({
     }),
     [timelineMap, lifecycleMap, artifactsByMessageIdMap, manualTagsByMessageId],
   );
+
+  // UX-001.5A — Composer-only observation chips for RefereeBannerView.
+  // The referee state does NOT (currently) expose a dedicated
+  // composerOnlyCodes slot — see design §14 Risk 1. The adapter
+  // gracefully degrades to [] when no codes are present, which makes
+  // RefereeBannerView render exactly as before. When upstream wires a
+  // codes feed, the adapter automatically converts each composer_only
+  // entry into a properly-prefixed Observation chip.
+  const uxOneOneFiveAComposerObservationChips = useMemo<
+    ReadonlyArray<AnnotationChipDescriptor>
+  >(() => {
+    if (!refereeBanner || !activeMessageId) return [];
+    // refereeBanner.composerOnlyCodes is reserved for a future upstream
+    // wire (per design §14 Risk 1). Until then the adapter input is
+    // composerOnlyCodes: [] → empty descriptor list → banner unchanged.
+    const composerOnlyCodes: ReadonlyArray<string> = [];
+    const marks = adaptSemanticRefereeSourceComposer({
+      composerOnlyCodes,
+      moveId: activeMessageId,
+    });
+    return toAnnotationChipDescriptors(marks);
+  }, [refereeBanner, activeMessageId]);
 
   // UX-001.3 — Derive the CollapsedComposerStrip's preview target. The
   // strip names the next compose action's parent so the user always
@@ -1337,6 +1374,30 @@ export function ArgumentGameSurface({
                 (was above). The component itself is unchanged — only
                 its mount site moves. */}
             <ArgumentScoreTracker trends={participantTrends} />
+            {/* UX-001.5A — Node label strip for the active node. 1+1+
+                overflow. Renders nothing when no node is active or
+                when no labels apply at the timeline_node surface.
+                Sibling of the score tracker — ZERO modification to
+                ArgumentTimelineMap.tsx. The strip's height (≤ 32 px
+                in compact mode) is well within UX-001.2's
+                below-Timeline chrome budget. */}
+            {activeMessageId && activeViewModel ? (
+              <NodeLabelStrip
+                messageId={activeMessageId}
+                manualTagEntries={manualTagsByMessageId.get(activeMessageId) ?? []}
+                autoMetadataCodes={
+                  metadataLedger.byMessage
+                    .get(activeMessageId)
+                    ?.autoDerivedMetadata.map((entry) => entry.code) ?? []
+                }
+                clusterState={
+                  lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? 'open'
+                }
+                messageContribution={
+                  lifecycleMap.byMessage.get(activeMessageId)?.messageContribution ?? null
+                }
+              />
+            ) : null}
             {/* UX-001.3 — Persistent collapsed-composer strip. Sits
                 below the score tracker so the user always sees what
                 the next compose action would act on. Mounts only when
@@ -1362,7 +1423,11 @@ export function ArgumentGameSurface({
           The banner is a non-blocking strip; the override sheet is inline
           (never a Modal, never a route push) — TL-003 / SC-003 doctrine. */}
       {refereeBanner ? (
-        <RefereeBannerView result={refereeBanner} reduceMotionOverride={reduceMotionOverride} />
+        <RefereeBannerView
+          result={refereeBanner}
+          reduceMotionOverride={reduceMotionOverride}
+          observationChips={uxOneOneFiveAComposerObservationChips}
+        />
       ) : null}
       {overridePrompt && overridePrompt.shouldOffer ? (
         <SemanticOverrideChoiceSheet
@@ -1538,6 +1603,30 @@ export function ArgumentGameSurface({
         panelWidthOverride={inspectPresentation.width}
         testID="board-inspect-popout"
       />
+      {/* UX-001.5A — Inspect grouped-view sibling overlay. Per design
+          §10.3 ALTERNATIVE path: rendered alongside the Inspect popout
+          when both Inspect is visible AND there is an active selected
+          message. Zero modification to InspectPopout.tsx or
+          inspectContentBuilder.ts. The component returns null when both
+          groups are empty, so the overlay is invisible in those cases. */}
+      {inspectVisible && activeMessageId ? (
+        <NodeLabelInspectGroups
+          messageId={activeMessageId}
+          manualTagEntries={manualTagsByMessageId.get(activeMessageId) ?? []}
+          autoMetadataCodes={
+            metadataLedger.byMessage
+              .get(activeMessageId)
+              ?.autoDerivedMetadata.map((entry) => entry.code) ?? []
+          }
+          clusterState={
+            lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? 'open'
+          }
+          messageContribution={
+            lifecycleMap.byMessage.get(activeMessageId)?.messageContribution ?? null
+          }
+          testID="ux001-5a-inspect-groups-overlay"
+        />
+      ) : null}
 
       {/* UX-001.4 — Go popout mount. Previously unmounted in
           production. The leave-room entry routes through the existing

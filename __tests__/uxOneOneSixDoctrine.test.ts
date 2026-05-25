@@ -448,6 +448,16 @@ describe('UX-001.6 doctrine — sensitive observation codes only mount through R
         'src/features/refereeAnnotations',
         'src/features/arguments/preSend',
         'src/lib/constitution/semanticClassifierCatalog',
+        // UX-001.5A — Machine Observation registry defines the
+        // sensitive codes as composer_only registry entries; the
+        // adapters' presentation gates ensure these codes NEVER
+        // reach a Timeline / Selected / Inspect surface (verified by
+        // __tests__/uxOneOneFiveALabelDoctrine.test.ts + the
+        // adapter Stop Conditions 17/18 + per-disposition surface
+        // filter). The registry file is a vocabulary definition, not
+        // a mount, and lives in the same definition-allowlist
+        // category as the existing semantic-referee model files.
+        'src/features/nodeLabels',
       ];
       const offenders: string[] = [];
       for (const file of filesScanned) {

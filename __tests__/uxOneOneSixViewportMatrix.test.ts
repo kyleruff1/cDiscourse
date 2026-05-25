@@ -645,6 +645,17 @@ describe('UX-001.6 matrix — Surface 17: RefereeBannerView composer-only Observ
       'src/features/arguments/composer',
       'src/features/arguments/ArgumentComposer',
       'src/features/arguments/ArgumentComposerDock',
+      // UX-001.5A — ArgumentGameSurface owns the canonical MCP-019
+      // referee-banner mount site (composer-scoped per UX-001.3 Phase
+      // 3 framing). The UX-001.5A design §10.1 wires the composer-
+      // only Observation chips through the existing optional
+      // `observationChips` prop on RefereeBannerView; the codes used
+      // are exclusively composer_only registry entries (verified by
+      // __tests__/uxOneOneFiveALabelDoctrine.test.ts). The board-
+      // level scope rule still applies: no NON-banner board mount
+      // passes the prop, and no board-level component beyond the
+      // banner consumes it.
+      'src/features/arguments/ArgumentGameSurface',
     ];
     const filesScanned: string[] = [];
     walkDir(path.resolve(ROOT, 'src'), filesScanned, ['.ts', '.tsx']);
