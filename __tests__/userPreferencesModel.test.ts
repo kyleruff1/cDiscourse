@@ -46,11 +46,9 @@ import { userPreferencesKey } from '../src/features/session/sessionKeys';
 import {
   resolveNodeGapPx,
 } from '../src/features/arguments/timelineNodeVisualModel';
-import {
-  deriveAvatarColor,
-  deriveAvatarInitials,
-  hashAvatarSeed,
-} from '../src/features/preferences/GeneratedAvatar';
+// PR-004 — GeneratedAvatar helpers (hashAvatarSeed / deriveAvatarInitials /
+// deriveAvatarColor) moved to __tests__/initialsAvatar.test.ts when the
+// component was relocated to src/features/account/InitialsAvatar.tsx.
 
 const FULL: UserPreferences = {
   schemaVersion: 1,
@@ -373,23 +371,6 @@ describe('preferencesCopy', () => {
   });
 });
 
-// ── GeneratedAvatar pure helpers ────────────────────────────────
-
-describe('GeneratedAvatar helpers', () => {
-  it('hashAvatarSeed is deterministic and non-negative', () => {
-    expect(hashAvatarSeed('abc')).toBe(hashAvatarSeed('abc'));
-    expect(hashAvatarSeed('abc')).toBeGreaterThanOrEqual(0);
-  });
-
-  it('deriveAvatarInitials returns up to two uppercase initials', () => {
-    expect(deriveAvatarInitials('Ada Lovelace')).toBe('AL');
-    expect(deriveAvatarInitials('cher')).toBe('CH');
-    expect(deriveAvatarInitials('  ')).toBe('?');
-    expect(deriveAvatarInitials(null)).toBe('?');
-  });
-
-  it('deriveAvatarColor is deterministic for the same seed', () => {
-    expect(deriveAvatarColor('user-1')).toBe(deriveAvatarColor('user-1'));
-    expect(deriveAvatarColor('user-1')).toMatch(/^#[0-9a-f]{6}$/i);
-  });
-});
+// PR-004 — GeneratedAvatar helpers describe block moved to
+// __tests__/initialsAvatar.test.ts (the component lives at
+// src/features/account/InitialsAvatar.tsx after the PR-004 pivot).
