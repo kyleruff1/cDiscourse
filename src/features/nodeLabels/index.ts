@@ -50,3 +50,23 @@ export {
   getUserAllegationByRawKey,
   isKnownUserAllegationRawKey,
 } from './userAllegationRegistry';
+
+// ── Pure-TS exports — source adapters ───────────────────────────
+export {
+  adaptAllSourcesForNode,
+  adaptAutoMetadataSource,
+  adaptCompositionMutationSource,
+  adaptLifecycleSource,
+  adaptManualTagSource,
+  adaptRawClassifierBinarySource,
+  adaptSemanticRefereeSourceComposer,
+  adaptSemanticRefereeSourceNodeMount,
+  type AutoMetadataAdapterInput,
+  type CompositionMutationAdapterInput,
+  type LifecycleAdapterInput,
+  type ManualTagAdapterInput,
+  type PerNodeMarkInput,
+  type RawClassifierBinaryAdapterInput,
+  type SemanticRefereeComposerAdapterInput,
+  type SemanticRefereeNodeMountAdapterInput,
+} from './nodeLabelSourceAdapters';
