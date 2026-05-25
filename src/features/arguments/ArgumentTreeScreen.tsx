@@ -85,9 +85,16 @@ interface Props {
    * strip is not rendered.
    */
   onComposerExpand?: () => void;
+  /**
+   * UX-001.4 — fires when the user picks the Go popout's
+   * `Leave argument` entry. The caller wires the existing
+   * `handleLeaveRoom` path. NOT a new room-exit path. Additive
+   * optional; when omitted, the Go entry renders disabled-with-reason.
+   */
+  onLeaveRoom?: () => void;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom }: Props) {
   const {
     cache,
     viewport,
@@ -148,6 +155,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         startArgumentAction={startArgumentAction}
         onActiveMessageChange={onActiveMessageChange}
         onComposerExpand={onComposerExpand}
+        onLeaveRoom={onLeaveRoom}
       />
     );
   }
@@ -293,9 +301,11 @@ interface FullRoomGameSurfaceMountProps {
   onActiveMessageChange?: (activeMessageId: string | null) => void;
   /** UX-001.3 — caller opens the composer dock when the strip is tapped. */
   onComposerExpand?: () => void;
+  /** UX-001.4 — Go popout Leave-room callback (App.tsx::handleLeaveRoom). */
+  onLeaveRoom?: () => void;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -503,6 +513,7 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         onActiveMessageChange={onActiveMessageChange}
         onComposerExpand={onComposerExpand}
         composerResolution={debate.resolution ?? null}
+        onLeaveRoom={onLeaveRoom}
         // MCP-019 — banner / override slice for the move just posted.
         // Both are null when the semantic layer is off (the v1 default).
         refereeBanner={refereeMoveState?.banner ?? null}

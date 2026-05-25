@@ -9,7 +9,8 @@
  * Editing message bodies is not exposed.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useHeaderBreakpoint } from '../../hooks/useHeaderBreakpoint';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
@@ -93,6 +94,38 @@ import {
   type SemanticOverrideChoice,
 } from './SemanticOverrideChoiceSheet';
 import type { SemanticOverridePrompt } from '../semanticOverride/types';
+// UX-001.4 — board-level Act / Inspect / Go menu mounts. The three
+// menus share the QOL-030 Popout chassis; UX-001.4 wires them at the
+// surface level (above both Stack and Timeline) so the same A/I/G
+// shortcut + trigger contract covers both views. Inspect + Go were
+// previously unmounted in production; Act has an additional in-composer
+// mount (OneBox.tsx) for Cmd+K mode-switching that is preserved
+// verbatim.
+import { ActPopout } from './oneBox/ActPopout';
+import { InspectPopout } from './oneBox/InspectPopout';
+import { GoPopout } from './oneBox/GoPopout';
+import type {
+  ActEntryId,
+  ActTargetKind,
+  ActViewerRole,
+} from './oneBox/actPopoutModel';
+import { actEntryToQuickAction } from './oneBox/actPopoutModel';
+import type { GoJumpTarget, GoLens } from './oneBox/goPopoutModel';
+import { quickActionToPreset, type QuickActionLabel } from './quickActionPresets';
+import { deriveComposerActingOnLabel } from './composer/composerActingOnModel';
+import { useConstitution } from './useConstitution';
+import { buildInspectContent } from './oneBox/inspectContentBuilder';
+import {
+  resolveMenuPresentation,
+  type MenuBand,
+} from './oneBox/menuPresentationModel';
+import {
+  deriveMenuKeyBadgeContext,
+  resolveKeyBadgeVisibility,
+} from './oneBox/menuKeyBadgeModel';
+import { resolveBoardMenuKeyEffect } from './boardMenuKeyboardModel';
+import { buildTimelineMiniMapModel } from './timelineMiniMapModel';
+import type { ArgumentType as ConstitutionArgumentType } from '../../domain/constitution/types';
 
 interface Props {
   debate: {
@@ -218,6 +251,14 @@ interface Props {
    * the root_claim default case. Additive optional.
    */
   composerResolution?: string | null;
+  /**
+   * UX-001.4 — fires when the user picks the Go popout's new
+   * `Leave argument` entry. The caller (App.tsx) wires the existing
+   * `handleLeaveRoom` path (deselectDebate + cleanup); this is NOT a
+   * new room-exit path. Additive optional; the Go entry renders
+   * disabled-with-reason when omitted (back-compat for older callers).
+   */
+  onLeaveRoom?: () => void;
 }
 
 export function ArgumentGameSurface({
@@ -249,8 +290,19 @@ export function ArgumentGameSurface({
   onActiveMessageChange,
   onComposerExpand,
   composerResolution,
+  onLeaveRoom,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // UX-001.4 — band drives the per-menu presentation variant via
+  // `menuPresentationModel.resolveMenuPresentation`. UX-001.1's
+  // useHeaderBreakpoint is the single source of truth for the band.
+  const { band: headerBand } = useHeaderBreakpoint();
+  const menuBand: MenuBand = headerBand;
+  // UX-001.4 — constitution rules thread into the board-level Act mount
+  // (Act's 3-gate engine filter requires them). Pulled once at the
+  // surface level so both the in-composer and the board-level mounts
+  // consume identical rules (single source of truth).
+  const constitution = useConstitution();
   const sorted = useMemo(() => sortMessagesChronologically(messages || []), [messages]);
   const latestId = useMemo(() => latestIdHint ?? getLatestMessageId(sorted), [sorted, latestIdHint]);
   const [mode, setMode] = useState<ArgumentSurfaceMode>(initialMode || 'stack');
@@ -311,6 +363,18 @@ export function ArgumentGameSurface({
   // Timeline that does not change selection. The render condition extends
   // to `{entryHint?.verbPhrase && !microMomentDismissed ? ... : null}`.
   const [microMomentDismissed, setMicroMomentDismissed] = useState(false);
+  // UX-001.4 — board-level Act / Inspect / Go menu visibility state.
+  // The three are mutually exclusive (the keyboard handler closes any
+  // currently-open menu before opening another; the chassis Modal stack
+  // also handles the case visually).
+  const [boardActVisible, setBoardActVisible] = useState(false);
+  const [inspectVisible, setInspectVisible] = useState(false);
+  const [goVisible, setGoVisible] = useState(false);
+  // UX-001.4 — Go popout's current Lens. Local state because the lens
+  // is a render-mode preference owned by the surface, not threaded
+  // through from App.tsx (a Lens dims rendering — it does NOT mutate
+  // any timeline data).
+  const [goLens, setGoLens] = useState<GoLens>('none');
   // Resolved viewer role: explicit prop, else infer from participant side.
   const resolvedViewerRole: RailViewerRole = viewerRole
     ?? (participantSide && participantSide !== 'observer' && participantSide !== 'moderator' ? 'participant' : 'observer');
@@ -622,6 +686,146 @@ export function ArgumentGameSurface({
     [sidecarViewModel, timelineMap, activeMessageId, selectionStatus],
   );
 
+  // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
+  //
+  // The three mounts below consume already-resident client state. None
+  // adds a backend call, none introduces a new write path, and none
+  // touches the engine / role / stage gates inside `actPopoutModel`.
+  // UX-001.4 is presentation + wiring only.
+
+  // The active node's lifecycle stage drives Act's stage promotion and
+  // Inspect's emphasized-section pull. `null` when no node is selected
+  // or LIFE-001 has no entry for the cluster.
+  const activeClusterId = useMemo(() => {
+    if (!activeMessageId) return null;
+    const node = timelineMap.nodes.find((n) => n.messageId === activeMessageId);
+    return node?.branchRootMessageId ?? activeMessageId;
+  }, [activeMessageId, timelineMap]);
+  const activeStage = useMemo(() => {
+    if (!activeClusterId) return null;
+    return lifecycleMap.byCluster.get(activeClusterId)?.state ?? null;
+  }, [activeClusterId, lifecycleMap]);
+
+  // The active node's parent argument type — Act's hard engine gate
+  // keys off it. `null` for a root-claim context (no parent) and when
+  // no node is selected (Act on the room itself).
+  const activeParentType = useMemo<ConstitutionArgumentType | null>(() => {
+    if (!activeMessageId) return null;
+    const node = timelineMap.nodes.find((n) => n.messageId === activeMessageId);
+    if (!node) return null;
+    const parentMsg = node.parentId
+      ? sorted.find((m) => m.id === node.parentId)
+      : null;
+    return (parentMsg?.argumentType ?? null) as ConstitutionArgumentType | null;
+  }, [activeMessageId, timelineMap, sorted]);
+
+  // Board-level Act mount: target kind + role classification. `actor`
+  // is the canonical view-model field — `self` means own bubble.
+  const boardActTargetKind: ActTargetKind = activeMessageId ? 'node' : 'room';
+  const boardActRole: ActViewerRole = useMemo(() => {
+    if (resolvedViewerRole === 'observer') return 'observer';
+    if (activeViewModel?.actor === 'self') return 'own_bubble';
+    return 'participant_other';
+  }, [resolvedViewerRole, activeViewModel?.actor]);
+
+  // "Acting on" label for the board-level Act mount. The composer's
+  // `composerActingOnModel.deriveComposerActingOnLabel` is the same
+  // helper UX-001.3's `ComposerContextStrip` consumes; reusing it
+  // keeps Act's header and the composer's compact strip synchronized.
+  // `null` when no node is selected.
+  const boardActActingOnLabel = useMemo<string | null>(() => {
+    if (!activeMessageId) return null;
+    const msg = sorted.find((m) => m.id === activeMessageId);
+    if (!msg) return null;
+    const bodyExcerpt = msg.body ? msg.body.slice(0, 80) : null;
+    const parentTypeLabel = msg.argumentType ? msg.argumentType : null;
+    const label = deriveComposerActingOnLabel({
+      activeMessageId,
+      parentArgumentId: activeMessageId,
+      boxType: 'respond',
+      parentBodyExcerpt: bodyExcerpt,
+      parentTypeLabel,
+    });
+    return label.mainLabel;
+  }, [activeMessageId, sorted]);
+
+  // Inspect content — composed from the sidecar view-model the surface
+  // already builds. Pure-TS builder; no backend.
+  const inspectContent = useMemo(() => {
+    return buildInspectContent({ sidecarViewModel });
+  }, [sidecarViewModel]);
+
+  // Inspect's prev / next traversal — wraps the existing chronological
+  // navigation. `null` at the ends (no wrap, per IX-003).
+  const inspectHasPrev = useMemo(
+    () => Boolean(getPreviousMessageId(chronologicalIds, activeMessageId)),
+    [chronologicalIds, activeMessageId],
+  );
+  const inspectHasNext = useMemo(
+    () => Boolean(getNextMessageId(chronologicalIds, activeMessageId)),
+    [chronologicalIds, activeMessageId],
+  );
+
+  // Go's mini-map model — built once per timelineMap change. Empty
+  // collapse state (every branch expanded) matches the existing
+  // behavior; BR-001 wiring is a separate follow-up.
+  const goMiniMap = useMemo(
+    () => buildTimelineMiniMapModel({ timelineMap }),
+    [timelineMap],
+  );
+  // Full-coverage viewport window — the board-level Go mount does not
+  // (yet) thread per-scroll viewport state through; a full-coverage
+  // window keeps the mini-map's region indicator faithful for now.
+  const goViewportWindow = useMemo(
+    () => ({ xStartFraction: 0, xEndFraction: 1, coversAll: true }),
+    [],
+  );
+
+  // ── UX-001.4 — Menu presentation per band ──
+  const actPresentation = useMemo(
+    () => resolveMenuPresentation({
+      band: menuBand,
+      menu: 'act',
+      windowWidth,
+      windowHeight,
+    }),
+    [menuBand, windowWidth, windowHeight],
+  );
+  const inspectPresentation = useMemo(
+    () => resolveMenuPresentation({
+      band: menuBand,
+      menu: 'inspect',
+      windowWidth,
+      windowHeight,
+    }),
+    [menuBand, windowWidth, windowHeight],
+  );
+  const goPresentation = useMemo(
+    () => resolveMenuPresentation({
+      band: menuBand,
+      menu: 'go',
+      windowWidth,
+      windowHeight,
+    }),
+    [menuBand, windowWidth, windowHeight],
+  );
+
+  // ── UX-001.4 — Key-badge context (browser keyboard vs touch) ──
+  const keyBadgeContext = useMemo(
+    () => deriveMenuKeyBadgeContext({
+      platformOs: Platform.OS as 'web' | 'ios' | 'android' | 'windows' | 'macos',
+      windowWidth,
+    }),
+    [windowWidth],
+  );
+  const showKeyBadges = useMemo(
+    () => resolveKeyBadgeVisibility({
+      context: keyBadgeContext,
+      reduceMotion: reduceMotionOverride === true,
+    }),
+    [keyBadgeContext, reduceMotionOverride],
+  );
+
   const handleToggleMode = useCallback(() => {
     setMode((m) => toggleSurfaceMode(m));
     // UX-001.2 — Toggling Timeline / Cards is a meaningful interaction.
@@ -793,6 +997,194 @@ export function ArgumentGameSurface({
   const handleRailExpandedChange = useCallback((expanded: boolean) => {
     if (expanded) setSelectedDockTarget(null);
   }, []);
+
+  // ── UX-001.4 — Board menu callbacks ──
+  //
+  // The board-level Act mount routes box-opening entries through the
+  // existing composer + draft-registry path (reuses UX-001.3's
+  // quickActionPresets + actEntryToQuickAction). Direct entries route
+  // through the existing `handleAction` callback the rail / dock
+  // already use. Role-change entries route through `onJoinSide` or
+  // stay no-op for `watch` / `chime_in` (the surface is
+  // observer-by-default; explicit join is the only state change).
+  // None of these introduces a new write path.
+
+  const handleBoardActSelectBoxType = useCallback(
+    (entryId: ActEntryId) => {
+      // box-opening entries map to a QuickActionLabel via the existing
+      // pure helper; the host (App.tsx) consumes the preset via its
+      // composer-preset state. For `reply` / `offer_concession` /
+      // `respond_to_concession` the helper returns null — the composer
+      // opens with no forced preset.
+      const quickAction = actEntryToQuickAction(entryId);
+      const preset =
+        quickAction !== null
+          ? quickActionToPreset(quickAction as QuickActionLabel, activeParentType)
+          : null;
+      // Route through handleAction so the existing composer flow
+      // (replyTarget + composer mode + draft registry) picks up the
+      // preset. `reply` is the canonical control name the room shell
+      // already uses to mean "open the composer for this message".
+      if (activeMessageId) {
+        handleAction('reply', activeMessageId, preset);
+      } else {
+        // No active node: target the room itself. The existing
+        // composer flow handles this via composerPreset.
+        handleAction('reply', '', preset);
+      }
+      setBoardActVisible(false);
+    },
+    [activeMessageId, activeParentType, handleAction],
+  );
+
+  const handleBoardActDirectAction = useCallback(
+    (entryId: ActEntryId) => {
+      // Direct entries route through the existing handleAction path
+      // the rail / dock already wire. `flag` / `view_qualifiers` /
+      // `request_deletion` are the canonical bubble controls; the
+      // other direct entries (`make_private`) are room-scoped and not
+      // wired through this surface (DebateDetailHeader owns them).
+      if (entryId === 'flag' && activeMessageId) {
+        handleAction('flag', activeMessageId);
+      } else if (entryId === 'view_qualifiers' && activeMessageId) {
+        handleAction('view_qualifiers', activeMessageId);
+      } else if (entryId === 'request_deletion' && activeMessageId) {
+        handleAction('request_deletion', activeMessageId);
+      }
+      // `make_private` is owned by DebateDetailHeader. The Act
+      // popout's role gate already filters this entry on the room
+      // target; if it surfaces on a node it's a no-op.
+      setBoardActVisible(false);
+    },
+    [activeMessageId, handleAction],
+  );
+
+  const handleBoardActRoleChange = useCallback(
+    (entryId: ActEntryId) => {
+      // Role-change entries route through onJoinSide (the existing
+      // App.tsx wiring) for join_for / join_against; watch / chime_in
+      // remain no-ops in this surface (the user is already an
+      // observer; chime-in is a public-room seat operation owned by
+      // GAME-005). The menu stays open so the host can re-open Act
+      // after the seat change (design §3.6).
+      if (entryId === 'join_for') {
+        onJoinSide?.('affirmative');
+      } else if (entryId === 'join_against') {
+        onJoinSide?.('negative');
+      }
+      // Close after dispatch — the host can re-open via the trigger.
+      setBoardActVisible(false);
+    },
+    [onJoinSide],
+  );
+
+  // Inspect → Act handoff. Closes Inspect (the chassis handles that
+  // via its own onClose call after onHandoffToAct returns) and opens
+  // Act on the SAME selected node. The actEntryId is surfaced via the
+  // popout's accessibility label; v1 does not scroll/focus the specific
+  // entry inside Act (deferred per design §4.4).
+  const handleInspectHandoffToAct = useCallback(
+    (_entryId: ActEntryId) => {
+      setInspectVisible(false);
+      setBoardActVisible(true);
+    },
+    [],
+  );
+
+  // Go's view / density / lens callbacks. View toggle ↔ mode (Cards /
+  // Timeline). Density is owned upstream (PR-001) — Go's density
+  // entries are present but currently no-ops (the host already
+  // controls density via the props). Lens is local to the surface.
+  const handleGoJump = useCallback(
+    (target: GoJumpTarget) => {
+      if (target === 'root' && timelineMap.rootMessageId) {
+        setActiveMessageId(timelineMap.rootMessageId);
+        setSelectionStatus('explicit');
+        setMicroMomentDismissed(true);
+      } else if (target === 'latest' && latestId) {
+        setActiveMessageId(latestId);
+        setSelectionStatus('explicit');
+        setMicroMomentDismissed(true);
+      }
+      // hot_zone / branch_list / leave_room — leave_room is handled
+      // by the GoPopout directly via the onLeaveRoom prop; hot_zone /
+      // branch_list are advisory in v1 (no host wiring yet).
+      setGoVisible(false);
+    },
+    [latestId, timelineMap.rootMessageId],
+  );
+
+  // ── UX-001.4 — A / I / G keyboard handler (web only) ──
+  //
+  // Pure-TS resolver decides the effect; the host dispatches. The
+  // composerFocused check is read indirectly via the keyboard
+  // resolver's input — `useComposerFocusContext` lives on the
+  // composer side, so this surface uses a simpler signal: the
+  // composer is "focused" when an open menu is NOT the cause and a
+  // text input has focus. Since this surface doesn't host the
+  // composer, the conservative default is to treat the board as
+  // focused when the surface itself is mounted; the composer's own
+  // shortcut handler already returns 'none' when it isn't focused, so
+  // the only collision is a TextInput inside the surface (none in v1).
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof document === 'undefined' || !document.addEventListener) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // The composer's focus context lives in ArgumentComposerDock.
+      // This handler runs at the surface level; we approximate
+      // composerFocused by checking if the focused element is a
+      // text input / contenteditable (the composer's TextInput is
+      // the only such element rendered while the room is mounted).
+      const activeEl = document.activeElement as HTMLElement | null;
+      const composerFocused =
+        !!activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.isContentEditable === true);
+      const hasOpenMenu = boardActVisible || inspectVisible || goVisible;
+      const effect = resolveBoardMenuKeyEffect({
+        key: event.key,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        composerFocused,
+        hasOpenMenu,
+      });
+      switch (effect.type) {
+        case 'open_act':
+          event.preventDefault();
+          // Menu mutual exclusion — close other menus first.
+          setInspectVisible(false);
+          setGoVisible(false);
+          setBoardActVisible(true);
+          return;
+        case 'open_inspect':
+          event.preventDefault();
+          setBoardActVisible(false);
+          setGoVisible(false);
+          setInspectVisible(true);
+          return;
+        case 'open_go':
+          event.preventDefault();
+          setBoardActVisible(false);
+          setInspectVisible(false);
+          setGoVisible(true);
+          return;
+        case 'close_open_menu':
+          event.preventDefault();
+          setBoardActVisible(false);
+          setInspectVisible(false);
+          setGoVisible(false);
+          return;
+        case 'none':
+        default:
+          return;
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [boardActVisible, inspectVisible, goVisible]);
 
   // META-1A — Persisted manual-tag write path. These route through the
   // apply-manual-tag Edge Function (the single write path; never a direct
@@ -1004,6 +1396,180 @@ export function ArgumentGameSurface({
         startArgumentAction={startArgumentAction}
       />
 
+      {/* UX-001.4 — Board-level Act / Inspect / Go trigger row. Sits
+          between the Timeline body and the side-action rail. A small,
+          unobtrusive row of three buttons; on browser viewports it
+          shows the A / I / G key badges. On native / touch viewports
+          the badges are hidden but the buttons remain tappable. The
+          three buttons share the same accessibility pattern (button
+          role + descriptive label + a11y state). */}
+      <View style={styles.menuTriggerRow} testID="board-menu-trigger-row">
+        <Pressable
+          onPress={() => {
+            setInspectVisible(false);
+            setGoVisible(false);
+            setBoardActVisible((v) => !v);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            showKeyBadges
+              ? 'Open Act menu. Keyboard shortcut: A.'
+              : 'Open Act menu'
+          }
+          accessibilityState={{ expanded: boardActVisible }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.menuTriggerButton}
+          testID="board-menu-trigger-act"
+        >
+          <Text style={styles.menuTriggerLabel}>Act</Text>
+          {showKeyBadges ? (
+            <View style={styles.menuTriggerBadge}>
+              <Text
+                style={styles.menuTriggerBadgeText}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              >
+                A
+              </Text>
+            </View>
+          ) : null}
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            setBoardActVisible(false);
+            setGoVisible(false);
+            setInspectVisible((v) => !v);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            showKeyBadges
+              ? 'Open Inspect menu. Keyboard shortcut: I.'
+              : 'Open Inspect menu'
+          }
+          accessibilityState={{ expanded: inspectVisible }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.menuTriggerButton}
+          testID="board-menu-trigger-inspect"
+        >
+          <Text style={styles.menuTriggerLabel}>Inspect</Text>
+          {showKeyBadges ? (
+            <View style={styles.menuTriggerBadge}>
+              <Text
+                style={styles.menuTriggerBadgeText}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              >
+                I
+              </Text>
+            </View>
+          ) : null}
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            setBoardActVisible(false);
+            setInspectVisible(false);
+            setGoVisible((v) => !v);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            showKeyBadges
+              ? 'Open Go menu. Keyboard shortcut: G.'
+              : 'Open Go menu'
+          }
+          accessibilityState={{ expanded: goVisible }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.menuTriggerButton}
+          testID="board-menu-trigger-go"
+        >
+          <Text style={styles.menuTriggerLabel}>Go</Text>
+          {showKeyBadges ? (
+            <View style={styles.menuTriggerBadge}>
+              <Text
+                style={styles.menuTriggerBadgeText}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              >
+                G
+              </Text>
+            </View>
+          ) : null}
+        </Pressable>
+      </View>
+
+      {/* UX-001.4 — Board-level Act popout mount. Coexists with the
+          in-composer mount (OneBox.tsx) — that's the Cmd+K type
+          switcher path UX-001.3 owns. The 3-gate model
+          (buildActPopout) is untouched; this mount just renders the
+          existing model output on a different trigger surface. */}
+      <ActPopout
+        visible={boardActVisible}
+        onClose={() => setBoardActVisible(false)}
+        targetKind={boardActTargetKind}
+        role={boardActRole}
+        stage={activeStage}
+        parentType={activeParentType}
+        rules={constitution.activeRules}
+        onSelectBoxType={handleBoardActSelectBoxType}
+        onDirectAction={handleBoardActDirectAction}
+        onRoleChange={handleBoardActRoleChange}
+        reduceMotionOverride={reduceMotionOverride}
+        actingOnLabel={boardActActingOnLabel}
+        maxHeightOverride={actPresentation.maxHeight}
+        panelWidthOverride={actPresentation.width}
+        testID="board-act-popout"
+      />
+
+      {/* UX-001.4 — Inspect popout mount. Previously unmounted in
+          production (component + tests existed but no mount site).
+          STRICTLY READ-ONLY — no Supabase, no fetch, no router. The §5
+          hand-off chip closes Inspect and opens Act on the same node. */}
+      <InspectPopout
+        visible={inspectVisible}
+        onClose={() => setInspectVisible(false)}
+        stage={activeStage}
+        content={inspectContent}
+        onHandoffToAct={handleInspectHandoffToAct}
+        onPrev={inspectHasPrev ? handlePrev : undefined}
+        onNext={inspectHasNext ? handleNext : undefined}
+        hasPrev={inspectHasPrev}
+        hasNext={inspectHasNext}
+        reduceMotionOverride={reduceMotionOverride}
+        maxHeightOverride={inspectPresentation.maxHeight}
+        panelWidthOverride={inspectPresentation.width}
+        testID="board-inspect-popout"
+      />
+
+      {/* UX-001.4 — Go popout mount. Previously unmounted in
+          production. The leave-room entry routes through the existing
+          onLeaveRoom callback (App.tsx::handleLeaveRoom path) — NOT a
+          new room-exit path. Jump-to-root / Jump-to-latest reuse the
+          existing setActiveMessageId path; view / density / lens are
+          presentation toggles only (no write). */}
+      <GoPopout
+        visible={goVisible}
+        onClose={() => setGoVisible(false)}
+        miniMap={goMiniMap}
+        viewportWindow={goViewportWindow}
+        view={mode === 'timeline' ? 'timeline' : 'cards'}
+        density={density ?? 'normal'}
+        lens={goLens}
+        onJump={handleGoJump}
+        onMiniMapJump={() => { /* board-level Go does not (yet) thread mini-map jumps */ }}
+        onSelectView={(view) => {
+          if (view === 'timeline') setMode('timeline');
+          else setMode('stack');
+          setGoVisible(false);
+          setMicroMomentDismissed(true);
+        }}
+        onSelectDensity={() => { /* density is owned upstream (PR-001) */ }}
+        onSelectLens={(lens) => setGoLens(lens)}
+        onLeaveRoom={onLeaveRoom}
+        reduceMotionOverride={reduceMotionOverride}
+        maxHeightOverride={goPresentation.maxHeight}
+        panelWidthOverride={goPresentation.width}
+        testID="board-go-popout"
+      />
+
       {deletionTarget && (
         <DeletionRequestSheet
           visible
@@ -1027,6 +1593,55 @@ const styles = StyleSheet.create({
   // selected-readout panel's "what this move says" line.
   body: { flex: 1, paddingHorizontal: 8, paddingBottom: 8 },
   microMoment: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1e1b4b', borderBottomWidth: 1, borderBottomColor: '#312e81' },
+  // UX-001.4 — small horizontal row of Act / Inspect / Go triggers.
+  // Sits between the Timeline body and the side action rail. Each
+  // button is 44px+ tall (visual + hitSlop) and groups label + optional
+  // key badge inline. The row uses the same #0b1220 surface as the
+  // rail so they read as a single bottom-anchored chrome stack.
+  menuTriggerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+    backgroundColor: '#0b1220',
+    borderTopWidth: 1,
+    borderTopColor: '#1f2937',
+  },
+  menuTriggerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minHeight: 32,
+    backgroundColor: '#1f2937',
+    borderRadius: 8,
+  },
+  menuTriggerLabel: {
+    color: '#f8fafc',
+    fontSize: 13,
+    fontWeight: '700' as const,
+  },
+  menuTriggerBadge: {
+    minWidth: 18,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#475569',
+    backgroundColor: '#0b1220',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuTriggerBadgeText: {
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '700' as const,
+    fontFamily: 'monospace',
+  },
   microMomentText: { color: '#a5b4fc', fontSize: 12, fontWeight: '700' as const },
   microMomentHelper: { color: '#94a3b8', fontSize: 11, fontWeight: '400' as const, marginTop: 2 },
 });
