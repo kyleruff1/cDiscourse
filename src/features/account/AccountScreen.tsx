@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +9,8 @@ import {
 } from 'react-native';
 import { useAppSession } from '../session/useAppSession';
 import { useAccountProfile } from './useAccountProfile';
-import { fetchCurrentAuthUser, formatProfileRole } from './accountApi';
+import { formatProfileRole } from './accountApi';
+import { ContactInfoSection } from './ContactInfoSection';
 import { SUPABASE_CONFIGURED } from '../../lib/supabase';
 import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
@@ -25,38 +25,6 @@ export function AccountScreen({ onSignOut, signOutLoading }: Props) {
 
   const { profile, loading, error, saving, saveError, updateDisplayName } =
     useAccountProfile(userId);
-
-  const [email, setEmail] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState(false);
-  const [draftName, setDraftName] = useState('');
-  const [savedNotice, setSavedNotice] = useState(false);
-
-  useEffect(() => {
-    void fetchCurrentAuthUser().then((u) => {
-      if (u) setEmail(u.email);
-    });
-  }, []);
-
-  const handleEditStart = () => {
-    setDraftName(profile?.displayName ?? '');
-    setEditingName(true);
-    setSavedNotice(false);
-  };
-
-  const handleSave = async () => {
-    if (!draftName.trim()) return;
-    const ok = await updateDisplayName(draftName);
-    if (ok) {
-      setEditingName(false);
-      setSavedNotice(true);
-      setTimeout(() => setSavedNotice(false), 2000);
-    }
-  };
-
-  const handleCancel = () => {
-    setEditingName(false);
-    setSavedNotice(false);
-  };
 
   if (!SUPABASE_CONFIGURED) {
     return (
@@ -86,65 +54,16 @@ export function AccountScreen({ onSignOut, signOutLoading }: Props) {
       {profile && (
         <>
           <View style={styles.card}>
+            <ContactInfoSection
+              userId={userId}
+              displayName={profile.displayName}
+              saving={saving}
+              saveError={saveError}
+              onSaveDisplayName={updateDisplayName}
+            />
             <Row label="User ID" value={`…${userId?.slice(-8) ?? '—'}`} />
-            <Row label="Email" value={email ?? 'Loading…'} />
             <Row label="Role" value={formatProfileRole(profile.role)} />
             <Row label="ADMIN?" value={profile.role === 'admin' ? 'true' : 'false'} />
-
-            <View style={styles.nameRow}>
-              <Text style={styles.rowLabel}>Display name</Text>
-              {editingName ? (
-                <View style={styles.nameEdit}>
-                  <TextInput
-                    value={draftName}
-                    onChangeText={setDraftName}
-                    style={styles.nameInput}
-                    autoFocus
-                    autoCapitalize="words"
-                    maxLength={60}
-                    accessibilityLabel="Display name"
-                  />
-                  <View style={styles.nameActions}>
-                    <Pressable
-                      onPress={handleSave}
-                      disabled={saving || !draftName.trim()}
-                      style={[styles.saveBtn, (saving || !draftName.trim()) && styles.saveBtnDisabled]}
-                      accessibilityRole="button"
-                      accessibilityLabel="Save display name"
-                    >
-                      <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save'}</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={handleCancel}
-                      style={styles.cancelBtn}
-                      accessibilityRole="button"
-                      accessibilityLabel="Cancel edit"
-                    >
-                      <Text style={styles.cancelBtnText}>Cancel</Text>
-                    </Pressable>
-                  </View>
-                  {saveError && <Text style={styles.saveError}>{saveError}</Text>}
-                </View>
-              ) : (
-                <View style={styles.nameDisplay}>
-                  <Text style={styles.rowValue}>
-                    {profile.displayName ?? <Text style={styles.placeholder}>Not set</Text>}
-                  </Text>
-                  <Pressable
-                    onPress={handleEditStart}
-                    style={styles.editBtn}
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit display name"
-                  >
-                    <Text style={styles.editBtnText}>Edit</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-
-            {savedNotice && (
-              <Text style={styles.savedNotice}>Display name saved.</Text>
-            )}
           </View>
 
           <View style={styles.noteCard}>
@@ -202,44 +121,6 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 13, color: SURFACE_TOKENS.textSecondary, fontWeight: '500' },
   rowValue: { fontSize: 13, color: SURFACE_TOKENS.textPrimary, fontWeight: '600', maxWidth: '65%', textAlign: 'right' },
-  placeholder: { color: SURFACE_TOKENS.textMuted, fontStyle: 'italic' },
-  nameRow: { paddingVertical: 4 },
-  nameDisplay: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  nameEdit: { marginTop: 8, gap: 8 },
-  nameInput: {
-    borderWidth: 1,
-    borderColor: SURFACE_TOKENS.inputBorder,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: SURFACE_TOKENS.textPrimary,
-    backgroundColor: SURFACE_TOKENS.inputBg,
-  },
-  nameActions: { flexDirection: 'row', gap: 8 },
-  saveBtn: {
-    flex: 1,
-    backgroundColor: CONTROL.primary.bg,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  saveBtnDisabled: { backgroundColor: CONTROL.primary.disabledBg },
-  saveBtnText: { color: CONTROL.primary.fg, fontSize: 14, fontWeight: '600' },
-  cancelBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: SURFACE_TOKENS.inputBorder,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: SURFACE_TOKENS.elevated,
-  },
-  cancelBtnText: { color: SURFACE_TOKENS.textSecondary, fontSize: 14, fontWeight: '600' },
-  saveError: { fontSize: 12, color: STATUS.danger.fg, marginTop: 4 },
-  savedNotice: { fontSize: 12, color: STATUS.success.fg, textAlign: 'center', marginTop: 4 },
-  editBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: SURFACE_TOKENS.raised },
-  editBtnText: { fontSize: 13, color: CONTROL.primary.bg, fontWeight: '600' },
   noteCard: {
     backgroundColor: STATUS.success.bg,
     borderRadius: 10,
