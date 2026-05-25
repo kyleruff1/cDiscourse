@@ -106,6 +106,18 @@ export interface InspectPopoutProps {
   hasNext?: boolean;
   /** PR-001 effective reduce-motion — threaded into the chassis. */
   reduceMotionOverride?: boolean;
+  /**
+   * UX-001.4 — chassis-level maxHeight override (logical px). Threaded
+   * straight to the `Popout` chassis. Optional; the chassis default
+   * ('72%') applies when omitted.
+   */
+  maxHeightOverride?: number;
+  /**
+   * UX-001.4 — chassis-level fixed-width override (logical px). For
+   * tablet landscape / wide variants where the menu is `panel_side` or
+   * `panel_anchored`. Threaded straight to the chassis.
+   */
+  panelWidthOverride?: number | null;
   /** testID passthrough for the popout root. */
   testID?: string;
 }
@@ -213,6 +225,8 @@ export function InspectPopout({
   hasPrev,
   hasNext,
   reduceMotionOverride,
+  maxHeightOverride,
+  panelWidthOverride,
   testID,
 }: InspectPopoutProps) {
   // The fixed section set — `buildInspectPopout` resolves every section's
@@ -335,6 +349,8 @@ export function InspectPopout({
       title="Inspect"
       onClose={onClose}
       reduceMotionOverride={reduceMotionOverride}
+      maxHeightOverride={maxHeightOverride}
+      panelWidthOverride={panelWidthOverride}
       testID={testID ?? 'one-box-inspect-popout'}
     >
       {/* ── The settled banner — shown only for an archived / resolved

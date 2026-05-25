@@ -63,6 +63,23 @@ export interface PopoutProps {
    * Mirrors `ArgumentComposerDock.reduceMotionOverride`.
    */
   reduceMotionOverride?: boolean;
+  /**
+   * UX-001.4 — optional maxHeight override for the panel (logical px).
+   * When supplied, replaces the chassis default of `'72%'` so the host
+   * can apply per-band caps (UX-001.4 design §3.2 / §4.2 / §5.3 via
+   * `menuPresentationModel.resolveMenuPresentation`). When omitted, the
+   * chassis stays at its prior `'72%'` cap — additive change, no
+   * behavior regression for existing callers (Inspect / Go shipped tests
+   * never set this).
+   */
+  maxHeightOverride?: number;
+  /**
+   * UX-001.4 — optional fixed panel width (logical px) for side /
+   * anchored panel variants. When omitted, the panel stretches to the
+   * Modal width as before (sheet behavior). When supplied, the panel
+   * caps at this width and anchors right (side / anchored variants).
+   */
+  panelWidthOverride?: number | null;
   /** testID passthrough for the popout root. */
   testID?: string;
 }
@@ -82,6 +99,8 @@ export function Popout({
   children,
   anchor = 'bottom',
   reduceMotionOverride,
+  maxHeightOverride,
+  panelWidthOverride,
   testID,
 }: PopoutProps) {
   // ── reduce-motion read (mirrors ArgumentComposerDock) ──
@@ -205,7 +224,20 @@ export function Popout({
         />
 
         <Animated.View
-          style={[styles.panel, panelAnimatedStyle]}
+          // UX-001.4 — when the host supplies maxHeightOverride / panelWidthOverride
+          // (per-band cap from menuPresentationModel.resolveMenuPresentation),
+          // apply them as inline style overrides to the chassis panel. The
+          // default chassis cap ('72%' maxHeight) is preserved when overrides
+          // are absent so existing callers (Inspect / Go shipped tests) see
+          // byte-identical behavior.
+          style={[
+            styles.panel,
+            typeof maxHeightOverride === 'number' ? { maxHeight: maxHeightOverride } : null,
+            typeof panelWidthOverride === 'number'
+              ? { maxWidth: panelWidthOverride, width: panelWidthOverride, alignSelf: 'flex-end' as const }
+              : null,
+            panelAnimatedStyle,
+          ]}
           accessibilityViewIsModal
           accessibilityLabel={title}
           testID="one-box-popout-panel"

@@ -178,12 +178,24 @@ describe('QOL-033 goPopoutModel — jump targets', () => {
     expect(goEntryToJumpTarget('lens_unresolved')).toBeNull();
   });
 
-  it('exposes all four jump targets', () => {
-    expect([...ALL_GO_JUMP_TARGETS]).toEqual(['root', 'latest', 'hot_zone', 'branch_list']);
+  it('exposes all five jump targets (UX-001.4 added leave_room)', () => {
+    expect([...ALL_GO_JUMP_TARGETS]).toEqual([
+      'root',
+      'latest',
+      'hot_zone',
+      'branch_list',
+      'leave_room',
+    ]);
   });
 
   it('a jump entry is never marked active — a jump is one-shot, not a mode', () => {
-    for (const id of ['jump_root', 'jump_latest', 'jump_hot_zone', 'jump_branch_list'] as const) {
+    for (const id of [
+      'jump_root',
+      'jump_latest',
+      'jump_hot_zone',
+      'jump_branch_list',
+      'jump_leave_room',
+    ] as const) {
       expect(findEntry(goInput(), id)?.isActive).toBe(false);
     }
   });
