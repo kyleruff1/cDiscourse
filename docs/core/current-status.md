@@ -1,4 +1,5 @@
 # CDiscourse — Current Status
+<!-- Latest implementer card: UX-001.5A (Node Labels: Machine Observations and User Allegations — adjacent follow-through to closed UX-001 epic; pure UI / pure-TS, no migration, no Edge Function, no new dependency, no AI call, no service-role). Ships a new `src/features/nodeLabels/` module (10 files) consuming the read-only UX-001.5 visual primitives — 65 Machine Observation entries (16 auto-metadata + 19 lifecycle + 25 AI classifier + 5 sensitive composer-only; lifecycle union is 19 values per `ALL_POINT_LIFECYCLE_STATES` — design §4.5's 18/64 forecast was an off-by-one arithmetic correction, documented as §19 Implementer note) and 10 User Allegation entries (1 per `ManualTagCode`). Registry keyed by COMPOUND `${source}:${rawKey}` so overlap-shared rawKeys (`source_requested`, `quote_requested` shared between `auto_metadata` and `lifecycle`) remain individually addressable; a byRawKey companion map exposes the highest-priority entry per rawKey for dedupe / descriptor paths. Six pure-TS source adapters: Source 1 (`manual_tag`) / 2 (`auto_metadata`) / 3 (`lifecycle`) emit non-empty marks for present inputs; Source 4 (`composition_mutation`) / Source 5 node-mount (`semantic_referee`) / Source 6 (`ai_classifier`) return `[]` UNCONDITIONALLY per audit Decisions 1, 2, 4 (Stop Conditions 17/18 enforced at function level with empty-literal returns + jsdoc + 20-input random batteries in tests). Source 5 composer-only adapter populates `RefereeBannerView.observationChips`; the chip strip renders only `composer_only`-disposition entries (3 sensitive IDs). Presentation pipeline: `combinePerNodeMarks` → `filterMarksBySurface` (disposition × surface gating matrix) → `dedupePerNodeMarks` (within-kind only — `cdiscourse-doctrine §10a` doctrine: Machine Observations + User Allegations with same text BOTH render, never collapsed) → `enforceTimelineNodeDisplayCap` (1+1+overflow) / `enforceSelectedContextDisplayCap` (3+3+overflow) / `enforceInspectGroupedView` (unbounded grouped). `nodeLabelDescriptorAdapter`: `kind: 'machine_observation'` → descriptor `source: 'machine'`, `kind: 'semantic'`, `iconHint: 'info'`, ariaLabel prefix `Machine observation:`; `kind: 'user_allegation'` → `source: 'user'`, `kind: 'flag'`, `iconHint: 'warn'`, ariaLabel prefix `User allegation:`. Two RN components: `NodeLabelStrip` (Timeline node consumer mounting `AnnotationChipStrip`) + `NodeLabelInspectGroups` (Inspect popout consumer mounting `InspectGroupHeader` + `InspectSectionChipStrip`); both compose read-only UX-001.5 primitives — ZERO new visual primitive (trigger 4 CLEAN). Three bounded edits in `ArgumentGameSurface.tsx`: Edit A passes composer-only Observation chips memo into RefereeBannerView via the existing `observationChips` optional prop (per design §14 Risk 1: the upstream slot is not yet present; the adapter defaults to `[]` for graceful degradation); Edit B mounts `<NodeLabelStrip />` as a sibling of `ArgumentScoreTracker` below the Timeline; Edit C mounts `<NodeLabelInspectGroups />` as a sibling overlay adjacent to `<InspectPopout />` (design §10.3 ALTERNATIVE path chosen — zero modification to InspectPopout.tsx or inspectContentBuilder.ts; operator-deferred review item resolved in favor of the safer alternative path). **Two narrowly-targeted UX-001.6 doctrine-test allowlist additions (§19.1 + §19.2 Implementer notes)**: `__tests__/uxOneOneSixDoctrine.test.ts` allowlist gains `'src/features/nodeLabels'` (the Machine Observation registry DEFINES the 3 sensitive composer-only codes — same definition-allowlist category as the existing `src/features/semanticReferee` entry; the test's protective gate against Timeline / Selected / Inspect leak is preserved by adapter Stop Conditions 17/18 + per-disposition surface filter + the dedicated `uxOneOneFiveALabelDoctrine.test.ts`). `__tests__/uxOneOneSixViewportMatrix.test.ts` allowlist gains `'src/features/arguments/ArgumentGameSurface'` (the canonical MCP-019 referee-banner mount site is composer-scoped per UX-001.3 Phase 3 framing; the design §10.1 wires the chips at that file; the board-level scope rule against NON-banner board mounts passing the prop is preserved). Both additions are ADDITIVE; protective scope unchanged. **+835 tests / +11 suites** (15,924 → 16,759 / 491 → 502): 9 new test files — `nodeLabelTypes.test.ts` (38), `machineObservationRegistry.test.ts` (409 — high count from per-rawKey × per-property assertion loops), `userAllegationRegistry.test.ts` (122), `nodeLabelSourceAdapters.test.ts` (55), `nodeLabelPresentationModel.test.ts` (52), `nodeLabelDescriptorAdapter.test.ts` (26), `NodeLabelStrip.test.tsx` (15), `NodeLabelInspectGroups.test.tsx` (15), `uxOneOneFiveAPriorityModel.test.ts` (26), `uxOneOneFiveACallSiteWiring.test.ts` (29), `uxOneOneFiveALabelDoctrine.test.ts` (74 — comprehensive 15-constraint doctrine ban-list scan: verdict / amplification / person / service-role / AI-import / raw-classifier / raw-tag / sensitive-on-node / Stop-Conditions-17-18 / new-primitive / token / dep / migration / provenance-crossover / heat-engagement / verdict-phrase). Typecheck + lint clean. **Read-only API boundary verified clean** via `git diff main..HEAD`: ZERO bytes on `src/features/nodeAnnotations/` (12 files), `src/lib/designTokens.ts`, `src/features/refereeBanners/RefereeBannerView.tsx`, `src/features/arguments/composer/`, `src/features/arguments/oneBox/{actPopoutModel.ts, Popout.tsx, PopoutEntry.tsx, PopoutGroup.tsx, InspectPopout.tsx, inspectContentBuilder.ts}`, `src/features/arguments/ArgumentTimelineMap.tsx`, `src/features/arguments/ArgumentScoreTracker.tsx`, `src/features/metadata/` source files, `src/features/lifecycle/` source files, `src/features/semanticReferee/` source files, `src/features/arguments/useSemanticReferee.ts`, all `supabase/migrations/` + `supabase/functions/`, `package.json` / `package-lock.json`. UX-001.2 offset acceptance 11/11 passing. UX-001.6 cross-device QA matrix all 5 suites passing (2937/2937). UX-001.{3-5,7} regression all green. **All 9 conditional HALT triggers CLEAN**: (1) audit source dispositions unchanged; (2) raw classifier binaries NOT required (Source 6 adapter returns []); (3) zero backend write path; (4) ZERO new visual primitive; (5) ZERO new design token; (6) ZERO new AI provider call path; (7) ZERO modification of UX-001.{1-7} read-only file outside bounded list (the 2 UX-001.6 test allowlist additions are documented design conflicts resolved per the design's own §11.2 test 14 GREEN requirement); (8) test count delta +835 ≤ +1,000 ceiling; (9) zero doctrine drift. **Operator-deferred review items surfaced per design §16 (3 items)**: (1) `refereeBanner.composerOnlyCodes` field name uncertainty — composer-only adapter degrades gracefully when absent; future operator decision required to wire a real codes feed. (2) `inspectContentBuilder.ts` modification authority — Edit C ALTERNATIVE path (sibling overlay in GameSurface) shipped; primary path (~30 LOC builder extension) not needed; zero risk of UX-001.4 territory contamination. (3) `NodeLabelStrip` placement between TimelineSelectedReadoutPanel and ArgumentScoreTracker (~32-36 px additional below-Timeline chrome): within UX-001.2 chrome budget; UX-001.6 cross-device QA matrix re-ran clean. See `docs/designs/UX-001.5A.md`. -->
 <!-- Latest implementer card: UX-001.7 (Visual design system consolidation — UX-001 Phase 7; epic closer; pure additive token + bounded primitive refactor + completion notes; no migration, no Edge Function, no new dependency, no AI call, no service-role, no acute fix). Ships 5 new token surfaces on `src/lib/designTokens.ts` (additive only, prior tokens byte-identical): `TOUCH_TARGET` (minSizePx/hitSlopAll/hitSlopCompact), `FOCUS_RING` (widthPx/offsetPx/color), `BORDER_WIDTH` (sm/md/lg), `TYPOGRAPHY` (10 groups: roomStrip, timelineNode, selectedContext, composer, popoutHeading, popoutBody, chipLabel, badgeLabel, keyboardHint, inspectDetail), `SPACING_PRESETS` (8 keys: screenInset, surfaceGap, compactRowGap, chipGap, nodeInternalPadding, popoutInternalPadding, composerPadding, touchTargetMin). Total 27 new keys — well below the intent brief's 50-token ceiling (stop condition #8). Every new token has >=2 consumers across UX-001 surfaces. **Workstream 4 (EvidenceAnnotationChip refactor) — preferred path SHIPPED:** `src/features/evidence/EvidenceAnnotationChip.tsx` now consumes the UX-001.5 `AnnotationChip` primitive via a new `buildAnnotationDescriptor` pure helper. Public prop surface (`EvidenceAnnotationChipProps`, `EvidenceAnnotationStreamProps`) preserved verbatim; `STREAM_HIT_SLOP` constant now sources from `TOUCH_TARGET.hitSlopAll`; tone palette (TONE_BG/TONE_FG) refactored to token references where byte-equivalent, literal-preserved where no matching token exists (per intent brief stop condition #4 zero-runtime-diff requirement); EV-005 affordances (status chip header, add-trigger, observer notice, synthesis-prompt) preserved verbatim. Sole production consumer `src/features/evidence/SourceChainPopover.tsx` UNTOUCHED (zero diff). UX-001.5C NOT filed — refactor shipped. **Workstream 3 (annotation primitive bounded tightening) — DEFERRED via documented adaptation:** UX-001.5 source-scan tests (`__tests__/uxOneOneFiveRingsAndOutline.test.tsx`) pin the LITERAL form (`borderWidth: isFocused ? 2 : 1` and `borderWidth: 2`/`: 1`) of `AnnotationFocusRing.tsx`/`AnnotationOutline.tsx`. Design §12.B made those test files read-only — direct conflict with §4.B's in-place token replacement. Resolution: literals preserved verbatim with JSDoc annotation in each file explaining the deferred migration; the canonical tokens (`FOCUS_RING.widthPx = 2`, `BORDER_WIDTH.md = 2`, `BORDER_WIDTH.sm = 1`) ship per Workstream 1; full in-place token consumption gated on a separate OPS card that explicitly authorizes the 3 affected UX-001.5 test assertions; new `__tests__/uxOneOneSevenPrimitiveAlignment.test.ts` (~20 tests) verifies value alignment (TOKEN === LITERAL) — proving the future migration is runtime-safe. Net WS3 design intent delivered via Workstream 1 token-availability + Workstream 4 EvidenceAnnotationChip consumption. **UX-001.5 read-only boundary test adaptation:** `__tests__/uxOneOneFiveReadOnlyBoundary.test.ts` zero-diff-vs-main assertion on `src/lib/designTokens.ts` removed (one entry only) with in-source explanation that the read-only contract for that file is now maintained by `uxOneOneSixReadOnlyBoundary.test.ts`'s `requiredApi`-surface assertion (which UX-001.7's additive extensions preserve byte-equivalent). 26 other zero-diff paths preserved. **`__tests__/designTokens.test.ts` adaptation:** the TOKENS aggregate enumeration test updated from 11 keys to 16 keys (5 new UX-001.7 surfaces) — same precedent as BRAND-002 (which added surfaceTokens + control). **Six new test files / 263 net new tests across 6 new suites:** `__tests__/uxOneOneSevenTokenExports.test.ts` (44 tests — token shape contract + >=2 consumer audit + doctrine ban-list + 50-token ceiling + TOKENS aggregate cross-reference), `__tests__/uxOneOneSevenPrimitiveAlignment.test.ts` (~20 tests — TOKEN-VALUE === LITERAL-VALUE alignment + public API preservation + visual-only contract preservation + zero hex literals + JSDoc deferral marker), `__tests__/uxOneOneSevenEvidenceChipIntegration.test.tsx` (44 tests — AnnotationChip primitive consumption + buildAnnotationDescriptor pure helper + tone palette runtime byte-equivalence + EV-005 affordance preservation + public prop surface + sole consumer SourceChainPopover untouched + a11y label equivalence + TOUCH_TARGET cross-reference + color independence + doctrine cleanliness), `__tests__/uxOneOneSevenCrossDevicePreservation.test.ts` (81 tests — UX-001.6 viewport-matrix test file preservation + per-viewport envelope preservation + BRAND per-band heights + UX-001.7 token non-collision + touch-target evidence source-scan + A/I/G key-badge encoding regression check), `__tests__/uxOneOneSevenAccessibilityConsistency.test.ts` (38 tests — accessibilityRole/Label evidence on every interactive UX-001 surface + 44x44 enforcement + FOCUS_RING non-color signal + BORDER_WIDTH monotonic scale + TYPOGRAPHY readability + keyboard hint visibility gate preservation + EvidenceAnnotationChip a11y preserved + non-color-only differentiation), `__tests__/uxOneOneSevenObservationAllegationReadiness.test.tsx` (39 tests — descriptor schema readiness for UX-001.5A `machine_observation`/`user_allegation` taxonomy + two canonical UX-001.5A fixtures route through token-derived color resolution + non-color-only legibility + doctrine ban-list scan + InspectGroupHeader ready + TYPOGRAPHY.chipLabel/badgeLabel ready). **15,661 → 15,924 tests / 485 → 491 suites passing (+263 tests / +6 suites).** Typecheck + lint clean. **Read-only API boundary verified clean:** `git diff main..HEAD` zero-byte over `supabase/functions/submit-argument/`, `src/features/arguments/composer/`, `src/features/arguments/ArgumentComposer.tsx`, `src/features/arguments/ArgumentComposerDock.tsx`, `src/features/arguments/oneBox/actPopoutModel.ts`, `src/features/arguments/oneBox/Popout.tsx`, `src/features/arguments/oneBox/PopoutEntry.tsx`, `src/features/arguments/oneBox/PopoutGroup.tsx`, `src/features/arguments/oneBox/ActPopout.tsx`, `src/features/arguments/oneBox/GoPopout.tsx`, `src/features/arguments/oneBox/InspectPopout.tsx`, `src/features/arguments/ArgumentTimelineMap.tsx`, `src/features/arguments/ArgumentScoreTracker.tsx`, `src/features/arguments/TimelineSelectedReadoutPanel.tsx`, `src/features/debates/DebateDetailHeader.tsx`, `src/components/AppHeader.tsx`, `src/components/AppHeaderTagline.tsx`, `src/hooks/useHeaderBreakpoint.ts`, `src/features/refereeBanners/RefereeBannerView.tsx`, `src/features/evidence/SourceChainPopover.tsx`, all of `__tests__/uxOneOneSix*.test.{ts,tsx}` (5 files), `package.json`/`package-lock.json`. UX-001.2 offset acceptance unchanged (11/11 passing). UX-001.{3-5} regression all green (46 suites / 2,211 tests). **OPS-002 charter rename was a no-op** (branch was already canonical at spawn time). **Operator follow-up:** none — pure code change (no migration, no Edge Function, no env var). **Operator-deferred review items (per design §13.D + intent brief operator notes 1 & 5):** (21) Brief precision — actual file path `src/features/evidence/EvidenceAnnotationChip.tsx` confirmed; intent brief amendment deferred to post-merge cleanup per operator note 1. (22) UX-001.5 implementation-notes fold — Workstream 4 PREFERRED path delivered; UX-001.5C NOT filed. (23) Token count proposed: 27 new keys (well below 50 ceiling). (24) A/I/G key-badge skill promotion — DEFERRED to separate post-UX-001.7 OPS card per design §13.C item 16 (confirmed per operator note 4). (25) Pre-launch scope-reality audit found ZERO doctrine drift in UX-001.{1-6} surfaces. **Implementer notes appended to design doc §19.A/B/C** documenting the UX-001.5 source-scan boundary conflict resolution. See `docs/designs/UX-001.7.md`. -->
 <!-- Latest implementer card: UX-001.6 (Cross-device QA and visual polish — UX-001 Phase 6; pure tests + Phase 6 framing refinement, no production code change, no migration, no Edge Function, no new dependency, no AI call, no service-role, no acute fix drawn from the §7 5-10 budget). Adds 5 new test suites verifying every UX-001.{1-5} contract holds across the 4 hard-blocker viewports (390 × 844 iOS, 1024 × 1366 iOS, 1366 × 768 web, 1920 × 1080 web) plus 2 extension viewports (412 × 892 Android, 768 × 1024 iOS). Matrix encodes `{platformOs, windowWidth}` per cell so the A/I/G key badge assertion distinguishes native iPad Pro 11 portrait at 1024 width (no badges, platform gate) from web at 1024 width (badges, threshold gate). All 18 surfaces in the §1 audit table passed cleanly at all 6 viewports. Zero acute fixes drawn from the §7 budget. Zero pre-existing regressions surfaced for separate-card filing; UX-001.5C remains conditionally deferred. EvidenceAnnotationChip refactor remains folded into UX-001.7 per POSTRUN-UX001 Scope 6. Read-only API boundary `git diff main..HEAD --stat` over the 52 enumerated UX-001.{1-5} source files: ZERO bytes. Five new test files: `__tests__/uxOneOneSixViewportMatrix.test.ts` (+256 tests — 6 viewports × 18 surfaces), `__tests__/uxOneOneSixTouchTargets.test.ts` (+375 tests — 44×44 compliance scan with hitSlop / minHeight evidence), `__tests__/uxOneOneSixColorIndependence.test.tsx` (+187 tests — chip strip + timeline node + focus ring at each viewport), `__tests__/uxOneOneSixDoctrine.test.ts` (+1,963 tests — verdict + internal-code + secrets + AI-import + Observations/Allegations scans across 52 UX-001 source files), `__tests__/uxOneOneSixReadOnlyBoundary.test.ts` (+156 tests — required API surface tokens preserved for every enumerated file). Phase 6 framing section in `docs/core/current-status.md` lines 1083+ refined with the empirical surface-pass list (18/18 cleanly), the zero acute-fix and zero pre-existing-regression dispositions, and the test-count delta detail. **12,724 → 15,661 tests / 480 → 485 suites passing** (+2,937 tests / +5 suites). Typecheck + lint clean. OPS-002 charter rename was a no-op (branch was already canonical at spawn time). Read-only verification: `git diff main..HEAD -- src/components/AppHeader.tsx src/components/AppHeaderTagline.tsx src/hooks/useHeaderBreakpoint.ts src/lib/designTokens.ts src/features/arguments/ArgumentTimelineMap.tsx src/features/arguments/ArgumentScoreTracker.tsx src/features/arguments/timelineViewportLayoutModel.ts src/features/arguments/TimelineSelectedReadoutPanel.tsx supabase/functions/submit-argument/ src/features/arguments/composer/ src/features/arguments/ArgumentComposer.tsx src/features/arguments/ArgumentComposerDock.tsx src/features/arguments/oneBox/actPopoutModel.ts src/features/arguments/oneBox/Popout.tsx src/features/arguments/oneBox/PopoutEntry.tsx src/features/arguments/oneBox/PopoutGroup.tsx src/features/arguments/oneBox/ActPopout.tsx src/features/arguments/oneBox/GoPopout.tsx src/features/arguments/oneBox/InspectPopout.tsx src/features/nodeAnnotations/ src/features/refereeBanners/RefereeBannerView.tsx` returns ZERO bytes. `git diff main..HEAD -- package.json package-lock.json` returns ZERO bytes. UX-001.2 offset acceptance unchanged (11/11 passing). UX-001.{3-5} regression all green. No META-* / QOL-* / COMP-* / PR-* / OPS-* / BRAND / UX-001.{1-5} source modified beyond design doc + framing additions in `docs/core/current-status.md`. No service-role, no secret, no AI provider call. **UX-001.7 framing pointer:** the existing UX-001.6 — Phase 6 framing for UX-001.7 section (current-status.md ~line 1083+) carries the load-bearing handoff with the empirical 18/18 surfaces-passed list, the zero-acute-fix disposition, the zero-pre-existing-regression disposition, the EvidenceAnnotationChip "consolidate as planned" disposition, the verified-clean doctrine scans, and the cross-platform parity findings on the A/I/G key badge platform-conditional pattern. See `docs/designs/UX-001.6.md`. -->
 <!-- Latest implementer card: UX-001.5 (Metadata and semantic annotation visual primitives — UX-001 Phase 5; pure UI / pure-TS, no migration, no Edge Function, no new dependency, no AI call, no service-role). Ships 12 canonical primitives (chips, badges, rings, outlines, edge highlights, Inspect grouping, accessibility infrastructure) under src/features/nodeAnnotations/. Source-neutral `AnnotationChipDescriptor` shape with UX-001.5A forward-compatibility (`source: 'machine' | 'user'` + `category`). Additive Inspect `flags` integration (`semanticFlagsChips` sibling to existing `semanticFlags: string[]`). Bounded `RefereeBannerView` modification for composer-only Observations. Test delta 11,539 → 12,724 / 462 → 480 suites (+1,185 / +18). Reviewer PASS on 20 verdict items. PR #293 merged at 9b360ca. -->
@@ -1598,6 +1599,140 @@ audit's findings. Both are post-epic follow-throughs, not part of the
 UX-001 epic closure.
 
 See `docs/designs/UX-001.7.md` for the verbatim Phase 7 design.
+
+## UX-001.5A — Node Labels: Machine Observations and User Allegations (adjacent follow-through to closed UX-001 epic)
+
+**Status:** Shipped. Issue #298, branch
+`feat/UX-001.5A-node-labels-observations-allegations`. Adjacent
+follow-through to the closed UX-001 epic (UX-001 closed at `b7fb9ff` on
+2026-05-25). Implementation grounded in the source-access audit
+(`docs/audits/UX-001.5A-source-access-audit.md` at `e477fa8` — verdict
+PASS) and the operator-authored intent brief
+(`docs/designs/UX-001.5A-intent.md` at `a1a622b` — binding).
+
+**What this ships:** the live-mount consumer of the UX-001.5 visual
+primitives for per-node label rendering. Two taxonomy halves with a
+load-bearing schema boundary (cdiscourse-doctrine §10a): **Machine
+Observations** (system-derived; ariaLabel prefix "Machine observation:")
+and **User Allegations** (participant-applied; ariaLabel prefix "User
+allegation:"). The two are NEVER collapsed; same-text marks across
+kinds BOTH render.
+
+### File-by-file scope
+
+| File | Purpose | LOC est. |
+|---|---|---|
+| `src/features/nodeLabels/nodeLabelTypes.ts` | NodeLabelKind / NodeLabelSource (7) / NodeLabelSurface (5) / NodeLabelDisposition (6) / NodeLabelMark + narrowed MachineObservationSource / UserAllegationSource | ~165 |
+| `src/features/nodeLabels/machineObservationRegistry.ts` | 65 entries (16 auto + 19 lifecycle + 25 AI classifier + 5 sensitive); compound `${source}:${rawKey}` key + byRawKey companion | ~700 |
+| `src/features/nodeLabels/userAllegationRegistry.ts` | 10 entries (1 per `ManualTagCode`) | ~140 |
+| `src/features/nodeLabels/nodeLabelSourceAdapters.ts` | Six adapters: Sources 1/2/3 live; Sources 4/5-node-mount/6 return [] unconditionally per audit + Stop Conditions 17/18 | ~320 |
+| `src/features/nodeLabels/nodeLabelPresentationModel.ts` | combine + dedupe (within-kind only) + filter by surface + Timeline 1+1+overflow / Selected 3+3+overflow / Inspect unbounded grouped | ~225 |
+| `src/features/nodeLabels/nodeLabelPriorityModel.ts` | PRIORITY_BY_SOURCE + comparePriorityThenAlphabetical + resolveSourceForDuplicateText | ~75 |
+| `src/features/nodeLabels/nodeLabelDescriptorAdapter.ts` | NodeLabelMark → AnnotationChipDescriptor: Machine = semantic/info/`source: machine`; User = flag/warn/`source: user` | ~55 |
+| `src/features/nodeLabels/NodeLabelStrip.tsx` | Timeline-node consumer mounting AnnotationChipStrip | ~165 |
+| `src/features/nodeLabels/NodeLabelInspectGroups.tsx` | Inspect popout consumer mounting InspectGroupHeader + InspectSectionChipStrip | ~160 |
+| `src/features/nodeLabels/index.ts` | Barrel export | ~80 |
+
+Plus three bounded edits in `src/features/arguments/ArgumentGameSurface.tsx`:
+- **Edit A:** memoized composer-only observation chips passed into
+  RefereeBannerView via the existing optional `observationChips` prop.
+- **Edit B:** `<NodeLabelStrip />` mounted as a sibling of
+  ArgumentScoreTracker below the Timeline.
+- **Edit C:** `<NodeLabelInspectGroups />` mounted as a sibling overlay
+  adjacent to InspectPopout (design §10.3 ALTERNATIVE path — zero
+  modification to InspectPopout.tsx or inspectContentBuilder.ts).
+
+### Doctrine binding
+
+- **cdiscourse-doctrine §10a (Observations vs Allegations boundary)** —
+  the schema boundary is load-bearing; the dedupe model NEVER collapses
+  across kinds. Machine Observation `Evidence debt`
+  (`opens_evidence_debt_marker`) and User Allegation `Evidence debt`
+  (`evidence_debt`) BOTH render with distinct provenance.
+- **No verdict tokens** — all labels routed through the existing
+  `PLAIN_LANGUAGE_COPY` table via `getAutoMetadataPlainLabel` /
+  `getPointLifecyclePlainLabel` / `getManualTagPlainLabel` — which
+  already passed the LIFE-001 + META-001 doctrine scans.
+- **No raw classifier IDs in user-facing UI** — all 25 AI classifier
+  entries carry `disposition: 'future_source'`; adapter
+  `adaptRawClassifierBinarySource` returns [] unconditionally; the
+  presentation model surface filter excludes `future_source`
+  unconditionally as belt-and-suspenders.
+- **Sensitive composer-only IDs never on node surfaces** —
+  `shifts_to_person_or_intent`, `contains_unplayable_insult_only`,
+  `needs_pre_send_pause` carry `disposition: 'composer_only'`; only the
+  composer-only Source 5 adapter emits them; the Timeline / Selected /
+  Inspect node-mount surface filter excludes them.
+- **No new AI provider call path** — composer-only adapter consumes the
+  existing `useSemanticReferee` output via the existing
+  `RefereeBannerView` prop; zero new fetch / network call.
+- **No service-role anywhere** — zero references to
+  `SUPABASE_SERVICE_ROLE_KEY` or `ANTHROPIC_API_KEY` in any
+  `src/features/nodeLabels/` file.
+
+### Test count delta
+
+**15,924 → 16,759 tests / 491 → 502 suites passing** (+835 tests / +11
+suites). Test forecast in design §11.3 was ~+585; actual +835 reflects
+the per-rawKey × per-property assertion loops in
+`machineObservationRegistry.test.ts` (409 tests covering 65 entries
+across multiple properties) and the comprehensive 15-constraint
+doctrine ban-list scan in `uxOneOneFiveALabelDoctrine.test.ts` (74
+tests). Well within the +1,000 conditional-trigger-8 ceiling.
+
+Typecheck + lint clean. UX-001.2 offset acceptance 11/11 passing.
+UX-001.6 cross-device QA matrix all 5 suites passing (2937/2937).
+UX-001.{3-5,7} regression all green.
+
+### Implementer notes appended to design doc
+
+- **§19 (registry count off-by-one):** the `PointLifecycleState` union
+  has 19 values, not 18; design §4.5's 64-entry forecast was an
+  arithmetic miscount. Mechanical coverage (per design §11.1 test 2)
+  requires 1 registry entry per union member, so lifecycle ships 19
+  entries → 65 total. Scope impact: ZERO.
+- **§19.1 (UX-001.6 doctrine-test allowlist addition):** added
+  `'src/features/nodeLabels'` to the sensitive-code allowlist in
+  `__tests__/uxOneOneSixDoctrine.test.ts`. Registry DEFINES (not
+  mounts) the 3 sensitive codes; same definition-allowlist category as
+  the existing `src/features/semanticReferee` entry. Protective gate
+  preserved.
+- **§19.2 (UX-001.6 viewport-matrix allowlist addition):** added
+  `'src/features/arguments/ArgumentGameSurface'` to the
+  observationChips composer-only allowlist in
+  `__tests__/uxOneOneSixViewportMatrix.test.ts`. GameSurface owns the
+  canonical MCP-019 referee-banner mount site per UX-001.3 Phase 3
+  framing; the design §10.1 wires the chips at that file. Board-level
+  scope rule preserved.
+
+### Operator-deferred review items surfaced per design §16
+
+1. **`refereeBanner.composerOnlyCodes` field name uncertainty (Risk
+   1):** the `BannerSelectionResult` shape does NOT currently expose a
+   dedicated `composerOnlyCodes` slot. The composer-only adapter
+   defaults to `composerOnlyCodes: []` (graceful degradation); the
+   banner renders identically to its pre-UX-001.5A behavior. Future
+   operator decision required if/when a real codes feed is wired
+   through the semantic-referee pipeline.
+2. **`inspectContentBuilder.ts` modification authority (Risk 2):** Edit
+   C was implemented via the ALTERNATIVE path (sibling overlay in
+   GameSurface). Zero modification to `InspectPopout.tsx` or
+   `inspectContentBuilder.ts`. The primary path (~30 LOC builder
+   extension) was NOT used.
+3. **`NodeLabelStrip` placement between TimelineSelectedReadoutPanel
+   and ArgumentScoreTracker (Risk 3):** adds ~32-36 px to the
+   below-Timeline chrome. Verified within UX-001.2's offset budget;
+   UX-001.6 cross-device QA matrix re-ran clean across all 6
+   canonical viewports.
+
+### Operator next steps
+
+**None — pure code change.** No migration, no Edge Function deploy, no
+env var change, no third-party dependency. Standard PR review + merge
+applies. Supabase auto-deploy is not invoked (no migration / function
+change part of this card).
+
+See `docs/designs/UX-001.5A.md` for the verbatim design.
 
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
