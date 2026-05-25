@@ -842,6 +842,173 @@ designed approach mounts the menu trigger row inside the surface
 See `docs/designs/UX-001.4.md` for the verbatim design + Q1-Q13 audit
 + §17 file scope.
 
+## UX-001.5 — Metadata and Semantic Annotation Visual Primitives (UX-001 Phase 5)
+
+**Status:** Build complete (awaiting Review). Issue #292, branch
+`feat/UX-001.5-metadata-and-semantic-annotation-visual-primitives`.
+
+**Role in the UX-001 epic:** UX-001.5 ships the canonical visual annotation
+primitives — chips, badges, rings, outlines, edge highlights, Inspect
+chip strips, group headers, plus pure-TS accessibility infrastructure —
+that consolidate ad-hoc annotation rendering into one coherent visual
+language. UX-001.5A's Machine Observations / User Allegations layer
+consumes these primitives.
+
+### UX-001.5 — Phase 5 framing for UX-001.5A (binding handoff)
+
+> The seven patterns below are the load-bearing output of UX-001.5.
+> UX-001.5A's designer reads this section as primary input. Every value
+> is a committed contract; UX-001.5A may consume but not re-decide.
+
+**1. The canonical primitive set (names, files, render contracts)**
+
+Twelve primitives in `src/features/nodeAnnotations/`:
+
+| Primitive | File | Purpose |
+|---|---|---|
+| AnnotationChip | AnnotationChip.tsx | Base pill chip |
+| AnnotationChipStrip | AnnotationChipStrip.tsx | Horizontal chip container with overflow |
+| AnnotationOverflowChip | AnnotationOverflowChip.tsx | +N indicator |
+| AnnotationBadge | AnnotationBadge.tsx | Small dot/pill state badge |
+| AnnotationBadgeCluster | AnnotationBadgeCluster.tsx | Multi-badge anchor |
+| AnnotationFocusRing | AnnotationFocusRing.tsx | Focus state ring |
+| AnnotationOutline | AnnotationOutline.tsx | Selected/active/dimmed outline |
+| AnnotationEdgeHighlight | AnnotationEdgeHighlight.tsx | Parent-child edge emphasis |
+| InspectSectionChipStrip | InspectSectionChipStrip.tsx | Chip strip inside Inspect sections |
+| InspectGroupHeader | InspectGroupHeader.tsx | Group divider with optional count |
+| AnnotationAriaLabel | annotationAriaLabel.ts | Pure-TS screen-reader label builder |
+| AnnotationFocusBoundary | annotationFocusBoundary.ts + wrapper | Pure-TS keyboard focus boundary |
+
+**2. The `AnnotationChipDescriptor` shape (with UX-001.5A extension fields)**
+
+`src/features/nodeAnnotations/annotationChipDescriptor.ts`:
+
+```ts
+export interface AnnotationChipDescriptor {
+  id: string;
+  label: string;
+  kind?: 'state' | 'context' | 'lifecycle' | 'evidence' | 'flag' | 'semantic';
+  iconHint?: 'info' | 'warn' | 'check' | 'time' | 'evidence' | 'flag' | 'cluster';
+  tooltip?: string;
+  ariaLabel?: string;
+  // UX-001.5A forward-compatibility:
+  source?: 'machine' | 'user';
+  category?: string;
+}
+```
+
+UX-001.5A maps its `NodeLabelKind` → descriptor `source` via:
+`source = kind === 'machine_observation' ? 'machine' : 'user'`. UX-001.5A's
+`MachineObservationSource | UserAllegationSource` enums fit `category`
+(string, forward-compatible).
+
+**3. The Inspect `flags` section integration pattern**
+
+`InspectSectionContent` carries two additive optional fields:
+- `semanticFlags?: ReadonlyArray<string>` (legacy; back-compat)
+- `semanticFlagsChips?: ReadonlyArray<AnnotationChipDescriptor>` (UX-001.5)
+
+`InspectSection` (model output) carries:
+- `body: string` (existing; unchanged)
+- `bodyChips?: ReadonlyArray<AnnotationChipDescriptor>` (UX-001.5)
+
+`buildInspectContent` emits BOTH (legacy + chips) for the §6 flags section.
+`InspectPopout` renders chips via `InspectSectionChipStrip` when
+`bodyChips` is non-empty; falls back to `body` text otherwise.
+
+UX-001.5A extends `AnnotationChipDescriptor` with `source` + `category`;
+the descriptor flow is unchanged. UX-001.5A may add `InspectGroupHeader`
+inside the §6 body to group `source === 'machine'` chips (Observations)
+above `source === 'user'` chips (Allegations).
+
+**4. The composer chip pattern reference**
+
+UX-001.3's `ComposerValidationPanel.ValidationActionChip` is the
+established composer chip pattern. UX-001.5's `AnnotationChip` is
+visually consistent (pill radius, role, hitSlop, label cap). UX-001.5A
+may add composer-only Observations using `AnnotationChip` directly
+without changing the composer's existing chip rendering.
+
+**5. The semantic referee banner integration**
+
+`RefereeBannerView` (composer-only) accepts an optional `observationChips?: ReadonlyArray<AnnotationChipDescriptor>`. When present, it renders
+an `AnnotationChipStrip` beneath the headline+helper. UX-001.5A maps
+semantic referee outputs to descriptors with `source: 'machine'` and
+`category: 'semantic_referee'`.
+
+**6. The verdict-clean color and token rules**
+
+- Primitive colors come from `annotationKindTokens.resolveChipColors(kind, iconHint)` — token-derived only; no hex literals in primitive code.
+- Kind → token map: `state → raised`, `context → STATUS.neutral`,
+  `lifecycle → elevated`, `evidence → ARGUMENT.evidence`, `flag → elevated + STATUS.warning border`, `semantic → elevated`.
+- No green-correct / red-wrong traffic light.
+- Color is supplementary; shape, glyph, and label carry meaning.
+- UX-001.5A MUST keep this discipline.
+
+**7. The accessibility infrastructure**
+
+- `buildAnnotationAriaLabel(descriptor)` composes screen-reader strings:
+  `"${kindWord(d.kind)}: ${d.label}.${d.tooltip ? ` ${d.tooltip}.` : ''}"`.
+- `resolveFocusBoundaryKeyEffect(key, modifiers)` is the pure-TS keyboard
+  focus model (Arrow / Home / End / Escape).
+- 44×44 tap targets on every interactive primitive via `hitSlop`.
+- UX-001.5A reuses both — particularly the focus boundary, since
+  Observations / Allegations group navigation uses the same pattern.
+
+**Read-only file references UX-001.5A may consume**
+
+| Pattern | File | Note |
+|---|---|---|
+| Primitive directory | `src/features/nodeAnnotations/` | Reads; UX-001.5A may add the source-aware adapters in `src/features/nodeLabels/` per the roadmap. |
+| Descriptor shape | `src/features/nodeAnnotations/annotationChipDescriptor.ts` | Reads; UX-001.5A consumes; extension via `source` + `category` is already accepted. |
+| Inspect chip strip | `src/features/nodeAnnotations/InspectSectionChipStrip.tsx` | Reads; UX-001.5A may pass categorized descriptors. |
+| Inspect group header | `src/features/nodeAnnotations/InspectGroupHeader.tsx` | Reads; UX-001.5A's primary consumer (Observations / Allegations dividers). |
+| Inspect model additive fields | `src/features/arguments/oneBox/inspectPopoutModel.ts` `InspectSectionContent.semanticFlagsChips`, `InspectSection.bodyChips` | Reads; UX-001.5A populates with source-aware descriptors. |
+| Builder additive emit | `src/features/arguments/oneBox/inspectContentBuilder.ts` | Reads; UX-001.5A may extend the §6 emit with source attribution from the metadata ledger's `userAppliedTags` vs `autoDerivedMetadata` separation. |
+| Composer banner extension | `src/features/refereeBanners/RefereeBannerView.tsx` `observationChips` prop | Reads; UX-001.5A populates with `category: 'semantic_referee'`. |
+
+UX-001.5 owns: visual annotation primitives, descriptor contract, Inspect
+`flags` integration, composer banner extension, accessibility infrastructure.
+
+UX-001.5A owns: source-aware presentation (Observations vs Allegations),
+node-label registry, presentation model, source adapters.
+
+### UX-001.5 — Implementation notes
+
+- **All 12 primitives shipped** in `src/features/nodeAnnotations/` per
+  the canonical set. Pure-TS sub-modules:
+  `annotationChipDescriptor.ts`, `annotationKindTokens.ts`,
+  `annotationAriaLabel.ts`, `annotationFocusBoundary.ts`,
+  `inspectSectionChipDescriptors.ts`. RN components:
+  AnnotationChip / AnnotationChipStrip / AnnotationOverflowChip /
+  AnnotationBadge / AnnotationBadgeCluster / AnnotationFocusRing /
+  AnnotationOutline / AnnotationEdgeHighlight /
+  AnnotationFocusBoundary (RN wrapper) / InspectSectionChipStrip /
+  InspectGroupHeader.
+- **Inspect integration is additive**. The `InspectSectionContent.semanticFlags: string[]`
+  field STAYS valid; the new `semanticFlagsChips: AnnotationChipDescriptor[]`
+  field is a sibling. `InspectSection.bodyChips` is a new optional
+  field. Existing tests stay 100% green (320 inspect tests +
+  166 UX-001.4 tests + 11 UX-001.2 tests verified).
+- **EvidenceAnnotationChip refactor deferred to UX-001.5C**. The
+  EV-005 EvidenceAnnotationChip / EvidenceAnnotationStream are
+  marked-for-follow-up per design §7 (L-effort scope). UX-001.5
+  ships the primitives + Inspect integration as a complete unit.
+- **Source enum normalization documented**. UX-001.5A's
+  `'machine_observation'` / `'user_allegation'` strings map to
+  UX-001.5's `'machine'` / `'user'` via UX-001.5A's adapter.
+- **Token-only color sourcing enforced**. Zero hex literals in any
+  primitive source file (verified by `uxOneOneFiveDoctrine.test.ts`).
+- **No live Timeline node badge mounts in v1**. The badge primitive
+  ships ready (follows the `receiptMark` overlay precedent at
+  `ArgumentTimelineMap.tsx:1264-1278`); UX-001.5A or a follow-up
+  wires the actual badge mounts.
+- **InspectGroupHeader ships ready but not yet rendered**. UX-001.5A
+  is the first expected consumer (Observations / Allegations dividers).
+
+See `docs/designs/UX-001.5.md` for the verbatim design + Q1-Q13 audit
++ §17 file scope.
+
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
 **Status:** Build complete (awaiting Review). Issue #25, branch

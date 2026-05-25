@@ -28,6 +28,7 @@
  */
 
 import type { SidecarViewModel } from '../argumentReplySidecarModel';
+import { toAnnotationChipDescriptors } from '../../nodeAnnotations/inspectSectionChipDescriptors';
 import type { InspectSectionContent } from './inspectPopoutModel';
 
 /** Builder input — every field optional / nullable. */
@@ -136,10 +137,20 @@ export function buildInspectContent(
       case 'semantic_flags': {
         // §6 — chip labels become the semanticFlags array; Inspect's
         // §6 body joins them with " · ". An empty list → omit.
+        //
+        // UX-001.5 — additionally emit `semanticFlagsChips` so the §6
+        // body can render as an `InspectSectionChipStrip` instead of a
+        // joined string. Both fields are emitted during transition;
+        // the chip-strip render is the primary path, the joined-string
+        // body remains the screen-reader + legacy fallback.
         if (section.totalCount > 0 && section.chips.length > 0) {
           out.semanticFlags = section.chips
             .map((chip) => chip.label)
             .filter((label) => label && label.trim().length > 0);
+          const descriptors = toAnnotationChipDescriptors(section.chips);
+          if (descriptors.length > 0) {
+            out.semanticFlagsChips = descriptors;
+          }
         }
         break;
       }
