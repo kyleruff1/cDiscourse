@@ -12,6 +12,18 @@
  *   - 2px border carries a non-color geometric signal (focus survives a
  *     grayscale render).
  *   - All colors token-derived; no hex literals in this file.
+ *
+ * UX-001.7 note: The literal `2 / 1` border widths in this file are
+ * intentionally preserved verbatim. UX-001.7 ships
+ * `FOCUS_RING.widthPx = 2` and `BORDER_WIDTH.sm = 1` as canonical
+ * tokens that mirror these values (so future consumers reach for the
+ * tokens), but in-place token consumption inside this primitive is
+ * deferred — the UX-001.5 source-scan tests in
+ * `__tests__/uxOneOneFiveRingsAndOutline.test.tsx` pin the literal
+ * expression `borderWidth: isFocused ? 2 : 1`. Migration would
+ * require updating those UX-001.5 read-only tests, which is outside
+ * UX-001.7's authorized scope. The token alignment is documented in
+ * `__tests__/uxOneOneSevenPrimitiveAlignment.test.ts`.
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
