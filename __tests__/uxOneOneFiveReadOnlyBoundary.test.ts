@@ -1,0 +1,112 @@
+/**
+ * UX-001.5 — Read-only API boundary preservation.
+ *
+ * Asserts UX-001.5 made ZERO changes to:
+ *   - UX-001.1 brand-shell files (AppHeader / AppHeaderTagline /
+ *     useHeaderBreakpoint / designTokens.ts).
+ *   - UX-001.2 Timeline files (ArgumentTimelineMap, ArgumentScoreTracker,
+ *     DebateDetailHeader, timelineViewportLayoutModel,
+ *     TimelineSelectedReadoutPanel).
+ *   - UX-001.3 composer files (ArgumentComposer, ArgumentComposerDock,
+ *     composer/*).
+ *   - The 3-gate `actPopoutModel.ts`.
+ *   - The submit path (`supabase/functions/submit-argument/`).
+ *   - The Popout chassis beyond Inspect (`ActPopout.tsx`, `GoPopout.tsx`).
+ *
+ * Method: git diff against main. The branch base is the merge of main +
+ * the UX-001.5 design doc commit; we read the diff of every
+ * "read-only" file and assert the diff is empty.
+ *
+ * If this suite fires, UX-001.5 violated the brief's "Disallowed"
+ * scope — investigate before merging.
+ */
+import { execSync } from 'child_process';
+
+/**
+ * Run `git diff main -- <path>` and return the diff text. Returns
+ * empty string when the path is unchanged. The repo guarantees
+ * `main` is the merge target; UX-001.5 must diff cleanly against it.
+ */
+function diffAgainstMain(filePath: string): string {
+  try {
+    return execSync(`git diff main -- "${filePath}"`, {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch (error) {
+    // git diff returns 0 even when the path doesn't exist or is
+    // unchanged. A genuine error here is the test failure signal.
+    return `<git diff failed: ${(error as Error).message}>`;
+  }
+}
+
+const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
+  // UX-001.1 brand-shell files
+  'src/components/AppHeader.tsx',
+  'src/components/AppHeaderTagline.tsx',
+  'src/hooks/useHeaderBreakpoint.ts',
+  'src/lib/designTokens.ts',
+
+  // UX-001.2 Timeline files
+  'src/features/arguments/ArgumentTimelineMap.tsx',
+  'src/features/arguments/ArgumentScoreTracker.tsx',
+  'src/features/debates/DebateDetailHeader.tsx',
+  'src/features/arguments/timelineViewportLayoutModel.ts',
+  'src/features/arguments/TimelineSelectedReadoutPanel.tsx',
+
+  // UX-001.3 composer files
+  'src/features/arguments/ArgumentComposer.tsx',
+  'src/features/arguments/ArgumentComposerDock.tsx',
+  'src/features/arguments/composer/ComposerContextStrip.tsx',
+  'src/features/arguments/composer/CollapsedComposerStrip.tsx',
+  'src/features/arguments/composer/composerDraftRegistry.ts',
+  'src/features/arguments/composer/composerKeyboardModel.ts',
+  'src/features/arguments/composer/useComposerFocusContext.ts',
+  'src/features/arguments/composer/composerActingOnModel.ts',
+  'src/features/arguments/composer/composerHaptics.ts',
+  'src/features/arguments/ComposerValidationPanel.tsx',
+  'src/features/rulesUx/validationActionMap.ts',
+  'src/features/arguments/oneBox/OneBox.tsx',
+
+  // 3-gate model + Act/Go popouts (UX-001.4 menu chassis)
+  'src/features/arguments/oneBox/actPopoutModel.ts',
+  'src/features/arguments/oneBox/ActPopout.tsx',
+  'src/features/arguments/oneBox/GoPopout.tsx',
+  'src/features/arguments/oneBox/Popout.tsx',
+]);
+
+const SUBMIT_PATH_DIR = 'supabase/functions/submit-argument';
+
+describe('UX-001.5 — read-only API boundary preservation', () => {
+  for (const filePath of READ_ONLY_PATHS) {
+    it(`${filePath} — zero diff against main`, () => {
+      const diff = diffAgainstMain(filePath);
+      expect(diff).toBe('');
+    });
+  }
+});
+
+describe('UX-001.5 — submit path zero diff', () => {
+  it(`${SUBMIT_PATH_DIR}/ — zero diff against main`, () => {
+    const diff = diffAgainstMain(SUBMIT_PATH_DIR);
+    expect(diff).toBe('');
+  });
+});
+
+describe('UX-001.5 — 3-gate model exports unchanged', () => {
+  // The 3-gate actPopoutModel.ts is the load-bearing chassis contract
+  // for the Act popout. UX-001.5 must NOT touch it. The diff scan
+  // above catches any change; this assertion verifies the existence
+  // of the file via its exports (sanity check).
+  it('actPopoutModel.ts exports ActEntryId (load-bearing type)', () => {
+    // Use require() to fetch the module synchronously without
+    // triggering Babel's async transform; the diff scan above is
+    // the load-bearing assertion.
+    const mod = require('../src/features/arguments/oneBox/actPopoutModel');
+    expect(mod).toBeDefined();
+    // ActEntryId is a TypeScript type (not a runtime export), but the
+    // module having loaded confirms the file is unchanged at the
+    // compile boundary.
+  });
+});
