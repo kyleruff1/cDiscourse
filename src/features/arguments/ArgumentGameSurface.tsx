@@ -9,7 +9,7 @@
  * Editing message bodies is not exposed.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
@@ -24,7 +24,6 @@ import {
   buildArgumentBubbleViewModels,
   buildArgumentTimelineMap,
   deriveInitialActiveMessageId,
-  getDisplayTitle,
   getLatestMessageId,
   getNextMessageId,
   getPreviousMessageId,
@@ -38,7 +37,6 @@ import { computeParticipantTrends } from './argumentScoreModel';
 import type { TimelineDensityMode } from './timelineNodeVisualModel';
 import { ArgumentScoreTracker } from './ArgumentScoreTracker';
 import { ArgumentSideActionRail, railActionToBubbleControl } from './ArgumentSideActionRail';
-import { VIEW_MODE_COPY } from './viewModeCopy';
 import type { RailActionCode, RailViewerRole } from './ArgumentSideActionRail';
 import type { ArgumentTag, ArgumentFlag } from './types';
 import type { ParticipantSide } from '../debates/types';
@@ -272,6 +270,16 @@ export function ArgumentGameSurface({
   // selection, no dock. Mutually exclusive with the SC-002 popover; opening
   // the popover dismisses the dock and vice versa.
   const [selectedDockTarget, setSelectedDockTarget] = useState<TimelineNodeActionDockTarget | null>(null);
+  // UX-001.2 — microMoment dismissed on first meaningful Timeline interaction.
+  // The banner is transient: it shows on deep-link entry (driven by
+  // `entryHint.verbPhrase`) and disappears the moment the user activates a
+  // node, presses Prev / Next / Latest / Back-to-root, or toggles Timeline /
+  // Cards. The dismiss flag DOES NOT trigger on initial render, on a
+  // microMoment re-render, on a change to `entryHint` itself (a new
+  // deep-link should re-show the banner), or on a scroll inside the
+  // Timeline that does not change selection. The render condition extends
+  // to `{entryHint?.verbPhrase && !microMomentDismissed ? ... : null}`.
+  const [microMomentDismissed, setMicroMomentDismissed] = useState(false);
   // Resolved viewer role: explicit prop, else infer from participant side.
   const resolvedViewerRole: RailViewerRole = viewerRole
     ?? (participantSide && participantSide !== 'observer' && participantSide !== 'moderator' ? 'participant' : 'observer');
@@ -297,6 +305,15 @@ export function ArgumentGameSurface({
   useEffect(() => {
     if (initialMode) setMode(initialMode);
   }, [initialMode]);
+
+  // UX-001.2 — A new entryHint resets the microMoment so a fresh deep-link
+  // re-shows the banner. Keyed on `entryHint?.verbPhrase` so an entryHint
+  // whose verb phrase did not change (e.g. an identity-stable object with
+  // a new helperLine but the same verb) still re-shows; a state-only
+  // change to the room (new messages, a tag, etc.) does NOT reset.
+  useEffect(() => {
+    setMicroMomentDismissed(false);
+  }, [entryHint?.verbPhrase]);
 
   const chronologicalIds = useMemo(() => sorted.map((m) => m.id), [sorted]);
   const parentLookup = useCallback((parentId: string) => {
@@ -530,6 +547,8 @@ export function ArgumentGameSurface({
 
   const handleToggleMode = useCallback(() => {
     setMode((m) => toggleSurfaceMode(m));
+    // UX-001.2 — Toggling Timeline / Cards is a meaningful interaction.
+    setMicroMomentDismissed(true);
   }, []);
 
   // IX-004 — every explicit selection mutation (tap, Prev, Next, Latest,
@@ -537,15 +556,19 @@ export function ArgumentGameSurface({
   // lingering 'stale_fallback' banner is cleared the moment the user
   // moves on. Only the auto-snap on a vanished message stays
   // 'stale_fallback'.
+  // UX-001.2 — Every explicit selection move also dismisses the
+  // microMoment banner (transient on first meaningful interaction).
   const handleActivate = useCallback((id: string) => {
     setActiveMessageId(id);
     setSelectionStatus('explicit');
+    setMicroMomentDismissed(true);
   }, []);
   const handlePrev = useCallback(() => {
     const prev = getPreviousMessageId(chronologicalIds, activeMessageId);
     if (prev) {
       setActiveMessageId(prev);
       setSelectionStatus('explicit');
+      setMicroMomentDismissed(true);
     }
   }, [chronologicalIds, activeMessageId]);
   const handleNext = useCallback(() => {
@@ -553,6 +576,7 @@ export function ArgumentGameSurface({
     if (next) {
       setActiveMessageId(next);
       setSelectionStatus('explicit');
+      setMicroMomentDismissed(true);
     }
   }, [chronologicalIds, activeMessageId]);
 
@@ -731,39 +755,18 @@ export function ArgumentGameSurface({
   void handleApplyManualTag;
   void handleRemoveManualTag;
 
-  const rootBody = debate.rootBody || (sorted.length > 0 ? sorted[0].body : null);
-  const displayTitle = getDisplayTitle({ debateTitle: debate.title, rootBody });
-
-  const latestKindLabel = activeViewModel?.kindLabel || 'message';
-  const latestActor = activeViewModel?.actor || 'unknown';
-  const latestRelative = activeViewModel?.relativeLabel || '';
-
   return (
     <View style={styles.container} accessibilityLabel="argument-game-surface" testID="argument-game-surface">
-      <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={2} accessibilityLabel="argument-display-title">
-          {displayTitle}
-        </Text>
-        <View style={styles.statusRow}>
-          <Text style={styles.statusLabel}>Mode</Text>
-          <Pressable
-            onPress={handleToggleMode}
-            style={[styles.modeChip, mode === 'stack' && styles.modeChipActive]}
-            accessibilityRole="button"
-            accessibilityLabel={`Switch surface mode. Currently ${mode}.`}
-            testID="surface-mode-toggle"
-          >
-            <Text style={styles.modeChipText}>{mode === 'stack' ? VIEW_MODE_COPY.cards.label : VIEW_MODE_COPY.timeline.label}</Text>
-          </Pressable>
-          <Text style={styles.latestStatus} numberOfLines={1} accessibilityLabel="argument-latest-status">
-            Latest: {latestKindLabel}
-            {latestRelative ? ` · ${latestRelative}` : ''}
-            {latestActor === 'self' ? ' · you' : ''}
-          </Text>
-        </View>
-      </View>
-
-      {entryHint?.verbPhrase ? (
+      {/* UX-001.2 — microMoment banner. Repositioned out of the old
+          ArgumentGameSurface.header (which was deleted) so it now sits
+          directly under the AppHeader + compact strip. The banner is
+          transient: it dismisses on the first meaningful Timeline
+          interaction (handleActivate / handlePrev / handleNext /
+          handleToggleMode / onJumpLatest / onJumpToRoot). The visual
+          treatment, copy, accessibility behavior, and triggering logic
+          are unchanged from QOL-040.3 — only the persistence model is
+          updated. A new entryHint re-shows the banner. */}
+      {entryHint?.verbPhrase && !microMomentDismissed ? (
         <View
           style={styles.microMoment}
           testID="argument-micro-moment"
@@ -804,13 +807,11 @@ export function ArgumentGameSurface({
           </>
         ) : (
           <>
-            <ArgumentScoreTracker trends={participantTrends} />
-            {/* IX-004 — the selected-message readout is now a prominent,
-                persistent panel ABOVE the timeline map (not the
-                subordinate sidecar that used to render below it). It
-                refreshes on every selection change and is the loud
-                in-surface confirmation of which message is selected. */}
-            <TimelineSelectedReadoutPanel viewModel={timelineReadoutViewModel} />
+            {/* UX-001.2 — Timeline is the first substantive board object
+                under the AppHeader + compact strip. Score tracker and
+                selected-readout move BELOW the Timeline so the rail
+                appears within the brief's hard cap (200 px wide / 168 px
+                tablet / 128 px phone). */}
             <ArgumentTimelineMap
               map={timelineMap}
               onActivate={handleActivate}
@@ -820,19 +821,30 @@ export function ArgumentGameSurface({
                 if (latestId) {
                   setActiveMessageId(latestId);
                   setSelectionStatus('explicit');
+                  // UX-001.2 — meaningful Timeline interaction; dismiss
+                  // the microMoment banner.
+                  setMicroMomentDismissed(true);
                 }
               }}
               onJumpToRoot={() => {
                 if (timelineMap.rootMessageId) {
                   setActiveMessageId(timelineMap.rootMessageId);
                   setSelectionStatus('explicit');
+                  // UX-001.2 — meaningful Timeline interaction; dismiss
+                  // the microMoment banner.
+                  setMicroMomentDismissed(true);
                 }
               }}
               onToggleMode={handleToggleMode}
               activeViewModel={activeViewModel}
               totalCount={timelineMap.nodes.length}
               onAction={handleAction}
-              onOpenDetails={(id) => { setActiveMessageId(id); setSelectionStatus('explicit'); setMode('stack'); }}
+              onOpenDetails={(id) => {
+                setActiveMessageId(id);
+                setSelectionStatus('explicit');
+                setMode('stack');
+                setMicroMomentDismissed(true);
+              }}
               artifactsByMessageId={artifactsByMessageId}
               evidenceContractFor={evidenceContractFor}
               evidenceDebtSummaryFor={evidenceDebtSummaryFor}
@@ -845,6 +857,17 @@ export function ArgumentGameSurface({
               onOpenCardsDetail={handleOpenCardsDetail}
               reduceMotionOverride={reduceMotionOverride}
             />
+            {/* UX-001.2 — Compact selected-message readout below the
+                Timeline. IX-004's accessibilityLiveRegion + selection
+                announcement + stale-banner behavior are preserved
+                verbatim inside the panel; the `compact` prop renders
+                the 5-line summary plus an expand trigger that opens the
+                6-section sidecar inline. */}
+            <TimelineSelectedReadoutPanel viewModel={timelineReadoutViewModel} compact />
+            {/* UX-001.2 — Score tracker repositioned below the Timeline
+                (was above). The component itself is unchanged — only
+                its mount site moves. */}
+            <ArgumentScoreTracker trends={participantTrends} />
           </>
         )}
       </View>
@@ -904,14 +927,12 @@ export function ArgumentGameSurface({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#020617' },
-  header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#1f2937', backgroundColor: '#0b1220' },
-  title: { color: '#f8fafc', fontSize: 17, fontWeight: '700' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' },
-  statusLabel: { color: '#64748b', fontSize: 10, textTransform: 'uppercase', fontWeight: '700' },
-  modeChip: { backgroundColor: '#1f2937', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, minHeight: 28 },
-  modeChipActive: { backgroundColor: '#312e81' },
-  modeChipText: { color: '#e2e8f0', fontWeight: '700', fontSize: 12 },
-  latestStatus: { color: '#94a3b8', fontSize: 11, flex: 1 },
+  // UX-001.2 — the old `header`, `title`, `statusRow`, `statusLabel`,
+  // `modeChip`, `modeChipActive`, `modeChipText`, `latestStatus` style
+  // entries were removed when the ArgumentGameSurface.header block was
+  // deleted. The title + mode toggle moved to the compact strip in
+  // DebateDetailHeader; the "Latest: …" line is subsumed by the
+  // selected-readout panel's "what this move says" line.
   body: { flex: 1, paddingHorizontal: 8, paddingBottom: 8 },
   microMoment: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1e1b4b', borderBottomWidth: 1, borderBottomColor: '#312e81' },
   microMomentText: { color: '#a5b4fc', fontSize: 12, fontWeight: '700' as const },
