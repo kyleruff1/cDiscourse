@@ -607,6 +607,241 @@ UX-001.4's launch prompt should consume this section as primary
 input. See `docs/designs/UX-001.3.md` for the verbatim design +
 Q1-Q12 audit + §16 file scope.
 
+## UX-001.4 — Act / Inspect / Go simplification (UX-001 Phase 4)
+
+**Status:** Build complete (awaiting Review). Issue #290, branch
+`feat/UX-001.4-act-inspect-go-simplification`.
+
+**Role in the UX-001 epic:** UX-001.4 consolidates the three in-room
+interaction menus — Act, Inspect, Go — into one coherent three-menu
+model. UX-001.1 made the brand shell professional; UX-001.2 made the
+Timeline the primary board; UX-001.3 made the composer feel like one
+persistent contextual surface; UX-001.4 makes the action / inspection /
+navigation surfaces a single uniform system. The Phase 4 framing
+section below carries the load-bearing handoff for UX-001.5's designer
+(Metadata and semantic annotation pass).
+
+### UX-001.4 — Phase 4 framing for UX-001.5 (binding handoff)
+
+> The seven patterns below are the load-bearing output of UX-001.4.
+> UX-001.5's designer reads this section as primary input. Every value
+> is a committed contract; UX-001.5 may consume but not re-decide.
+
+**1. The three-menu interaction model (Act / Inspect / Go contracts)**
+
+Each menu answers exactly one user question. Act ("what can I do here?")
+opens the composer in the relevant mode OR fires a direct action OR
+changes the viewer's role. Inspect ("what am I looking at?") shows
+read-only expanded context for the selected node. Go ("where do I want
+to be?") provides navigation including leave-room. The three menus share
+chrome (the Popout chassis), share dismiss behavior (Esc, scrim tap,
+trigger re-tap, hardware back), and share keyboard convention (A/I/G open,
+Esc closes).
+
+**2. The Inspect surface contract (MOST CRITICAL for UX-001.5)**
+
+UX-001.5 builds the visual annotation primitives that Inspect renders.
+The contract that UX-001.4 establishes:
+
+- Inspect's content shape is `InspectSectionContent` from
+  `src/features/arguments/oneBox/inspectPopoutModel.ts`. The 7 fixed
+  sections are: `says`, `matters`, `unresolved`, `sits`, `next_move`,
+  `flags`, `evidence_detail`. Plus the optional `linked_prior_argument`
+  section when a viewer is authorized.
+
+- The host builds `InspectSectionContent` via the new pure-TS
+  `buildInspectContent` helper in
+  `src/features/arguments/oneBox/inspectContentBuilder.ts`. The helper
+  consumes already-resident client state (sidecar view-model, branch
+  position). It does NOT add a backend dependency.
+
+- The `flags` section receives plain-language strings via
+  `gameCopy.toPlainLanguage`. UX-001.5's annotation primitives
+  (Observations / Allegations chips) plug into the section's body
+  rendering — replacing `INSPECT_SECTION_TITLE.flags = 'Semantic flags'`
+  with a richer chip surface, while preserving the read-only semantics.
+
+- UX-001.5A (Node Labels: Machine Observations and User Allegations)
+  evolves Inspect's `flags` section into a categorized chip surface.
+  UX-001.4 leaves the section interface stable so UX-001.5A can extend
+  it additively.
+
+- Inspect mounts in `ArgumentGameSurface.tsx` (new in UX-001.4). The
+  mount carries: visibility state, content (built by `buildInspectContent`),
+  hand-off callback (closes Inspect + opens Act on the same selection),
+  prev/next traversal callbacks (chronological prev / next node).
+
+- Inspect is STRICTLY READ-ONLY. The only "mutation" is the §5 hand-off
+  chip closing Inspect and opening Act. No Supabase calls, no composer
+  mounting from inside Inspect. Asserted by
+  `__tests__/inspectPopoutMountSite.test.ts` forbidden-imports scan.
+
+**3. The duplicate rail removal disposition**
+
+The pre-launch audit (UX-001.4 design §1 Table B) dispositioned every
+entry in `ArgumentSideActionRail` and `TimelineNodeActionDock`:
+- `migrate-to-Act`: entry removed from rail/dock; Act has the equivalent
+- `preserve-as-shortcut`: rail/dock keeps the entry; direct dispatch
+  retained for high-frequency actions (reply / disagree / watch / join)
+- `retain-with-rationale`: high-frequency / non-Constitution actions
+  retained inline with comment annotation (`share`, `mark_moved_on`,
+  `mark_ignored`, `expand_branch`)
+
+Post-migration, `ArgumentSideActionRail` retains:
+- observer: `watch` (shortcut), `join_aff` (shortcut), `join_neg`
+  (shortcut), `share` (retain)
+- participant_other: `reply` (shortcut), `disagree` (shortcut)
+- own_bubble: empty action set; collapsed label becomes "Open Act"
+
+`TimelineNodeActionDock` surfaces only these via the new
+`DOCK_SURVIVING_ACTION_CODES` filter:
+- `reply` (shortcut), `challenge` (shortcut), `mark_moved_on` (retain),
+  `mark_ignored` (retain), `open_cards_detail` (board view toggle),
+  `expand_branch` (retain)
+
+UX-001.5 must NOT reintroduce a removed entry without operator approval.
+The primary-selection pipeline inside `timelineNodeActionDockModel`
+remains UNCHANGED (lifecycle / metadata / source-chain tables still
+choose a primary based on the full vocabulary); migrated primaries are
+substituted via `substituteMigratedPrimary()` for the dock surface
+only — `primarySuggestion.rationaleCode` still carries the original
+choice for downstream telemetry.
+
+**4. The board-focus keyboard shortcut allocation**
+
+| Key | Effect | Constraint |
+|---|---|---|
+| `A` | Open Act | Board focused; no modifier; not when menu open |
+| `I` | Open Inspect | Same |
+| `G` | Open Go | Same |
+| `Esc` | Close open menu | Menu must be open; otherwise Timeline nav Esc |
+| `Cmd/Ctrl+Enter` | Submit composer | Composer focused (UX-001.3) |
+| `Cmd/Ctrl+K` | Open mode switcher | Composer focused (UX-001.3) |
+| Arrow / Home / End | Timeline nav | Board focused; no menu open (IX-003) |
+
+UX-001.5 must NOT introduce a single-letter shortcut on board focus that
+collides with A/I/G.
+
+The pure-TS handler is `boardMenuKeyboardModel.resolveBoardMenuKeyEffect`
+in `src/features/arguments/boardMenuKeyboardModel.ts`. It returns an
+effect union; the host (`ArgumentGameSurface.tsx`) dispatches via a
+web-only `document.addEventListener('keydown', ...)`. The composer
+focus is approximated by checking `document.activeElement` is a text
+input / contenteditable element. Native (iOS / Android) renders the
+triggers but does not install the keydown handler — touch only.
+
+**5. The disabled-with-reason copy pattern**
+
+Disabled entries render with:
+- Dimmed via `opacity: 0.55` (chassis `PopoutEntry`)
+- A one-line reason below the row (chassis `PopoutEntry`)
+- `accessibilityLabel` suffix `(unavailable: <reason>)` (chassis)
+
+The reason copy is authored in plain English by the host. If the source
+is an internal code, the host translates via `gameCopy.toPlainLanguage`
+BEFORE passing to the entry. The chassis renders verbatim.
+
+UX-001.5's label affordances (Observations / Allegations chips when
+unavailable) reuse the same pattern: dim + one-line reason + a11y
+suffix; copy via `gameCopy.toPlainLanguage`.
+
+**6. The bottom-sheet / popout shared chrome pattern**
+
+The chassis `Popout` (`src/features/arguments/oneBox/Popout.tsx`)
+provides: Modal mount, scrim (dismissible — chosen over inert),
+flash animation, Esc, hardware back, focus trap. UX-001.4's new
+`menuPresentationModel.resolveMenuPresentation` returns per-band
+variant + max dimensions (phone / tablet portrait = sheet_bottom; tablet
+landscape (≥ 1024dp) = side or anchored; wide = anchored). The host
+applies the output as `maxHeightOverride` + `panelWidthOverride` props
+on the chassis.
+
+UX-001.5 reuses the chassis without modification. If UX-001.5 introduces
+a new popout (e.g., a per-node annotation editor), it stands on the
+same chassis. Swipe-down-to-dismiss is DEFERRED (no PanResponder added;
+no `react-native-gesture-handler` dep) — the chassis's existing dismiss
+paths (Esc, scrim tap, trigger re-tap, hardware back) cover v1.
+
+**7. The key-badge pattern**
+
+Browser viewport (Platform.OS === 'web' AND windowWidth >= 1024) shows
+small monospace key badges (`A` / `I` / `G`) next to the menu triggers
+in the surface-level board menu row. Phone / tablet portrait does not
+show badges. The pure-TS resolver is
+`menuKeyBadgeModel.resolveKeyBadgeVisibility`.
+
+Badge accessibility: the badge `<Text>` is hidden from screen readers
+(`accessibilityElementsHidden` + `importantForAccessibility="no"`);
+the trigger's `accessibilityLabel` includes the shortcut info
+("Open Act menu. Keyboard shortcut: A.").
+
+UX-001.5's interactive labels (Observations / Allegations chips that
+trigger an annotation editor) may need keyboard affordances. If so,
+reuse the same badge model + the same accessibility pattern.
+
+**Read-only file references UX-001.5 may consume**
+
+| Pattern | File | Note |
+|---|---|---|
+| Popout chassis | `src/features/arguments/oneBox/Popout.tsx` | Reads; UX-001.5 may stand new popouts on it but not modify the chassis itself. |
+| Inspect content builder | `src/features/arguments/oneBox/inspectContentBuilder.ts` | Reads; UX-001.5A extends `flags` section content with annotation chips. |
+| Board menu keyboard model | `src/features/arguments/boardMenuKeyboardModel.ts` | Reads; UX-001.5 must NOT add A/I/G collisions. |
+| Key badge model | `src/features/arguments/oneBox/menuKeyBadgeModel.ts` | Reads; UX-001.5 may reuse for new label triggers. |
+| Menu presentation model | `src/features/arguments/oneBox/menuPresentationModel.ts` | Reads; UX-001.5 reuses for any new popout's per-band sizing. |
+| Inspect section types | `src/features/arguments/oneBox/inspectPopoutModel.ts` `InspectSectionContent` | Reads; UX-001.5A extends `semanticFlags` field. |
+| Dock surviving codes | `src/features/arguments/timelineNodeActionDockModel.ts` `DOCK_SURVIVING_ACTION_CODES` | Reads; UX-001.5 must NOT add a new code without operator approval. |
+| Substitution policy | `src/features/arguments/timelineNodeActionDockModel.ts` `substituteMigratedPrimary` | Reads; the mapping (adversarial → challenge; resolve/structure → reply; flag → open_cards_detail) is committed. |
+| Disposition lock | `__tests__/duplicateRailRemovalDisposition.test.ts` | Reads; lock against accidental reintroduction of migrated entries. |
+
+UX-001.5 owns: metadata + semantic annotation primitives (Observations
+vs Allegations chips), passive state indicators, consistent visual
+treatments (rings, badges, chips, outlines), no raw internal codes,
+no verdict copy.
+
+**Deferred questions for UX-001.5 / later cards:**
+
+- Swipe-down dismiss on phone bottom sheets (deferred per UX-001.4 §9.3;
+  PanResponder / `react-native-gesture-handler` dep policy unresolved).
+- In-room search (deferred — codebase has no per-room search
+  infrastructure; v1 scope guard "No argument search" still applies).
+- Entry-focus inside Act when arriving from Inspect hand-off (deferred;
+  v1 just opens Act; user finds the named entry visually).
+- Per-mode key badges inside Act (e.g., "R" for Reply) — deferred to
+  UX-001.5 / UX-001.6 if user research surfaces it.
+- Strip-level trigger placement inside `DebateDetailHeader.tsx`
+  (deferred — UX-001.4 mounted the trigger row INSIDE the surface to
+  avoid touching the strip; UX-001.5 may revisit if research surfaces
+  the strip location as preferable).
+- Inspect rendering when classifier outputs are heavy / lazy-load
+  (deferred; v1 sections cap rendering at the chassis ScrollView).
+
+**Test count delta:** 10,995 → 11,373 tests / 438 → 459 suites. +378
+new tests across 4 new pure-TS modules (boardMenuKeyboardModel,
+menuPresentationModel, menuKeyBadgeModel, inspectContentBuilder) + 3
+mount-site source-scan suites (boardActPopoutMountSite,
+inspectPopoutMountSite, goPopoutMountSite) + disposition lock
+(duplicateRailRemovalDisposition). 8 existing suites updated to reflect
+the rail / dock contract changes. Typecheck + lint clean. UX-001.2
+offset acceptance + UX-001.3 composer regression both pass unchanged.
+
+**Read-only API boundaries verified clean:** zero diff across UX-001.1
+shell files (AppHeader, AppHeaderTagline, useHeaderBreakpoint,
+designTokens), UX-001.2 timeline body / offset / readout files
+(ArgumentTimelineMap, ArgumentScoreTracker, timelineViewportLayoutModel,
+TimelineSelectedReadoutPanel), UX-001.3 composer directory
+(composer/*, ArgumentComposer), and the submit path
+(supabase/functions/submit-argument/). Engine / role / stage gates in
+`actPopoutModel.ts` byte-equal — Act's 3-gate model is the canonical
+filter unchanged by UX-001.4. The bounded extension to
+`ArgumentGameSurface.tsx` carries the three menu mounts + state +
+keyboard handler + leave-room prop pass-through; the cleaner-than-
+designed approach mounts the menu trigger row inside the surface
+(between Timeline body and side action rail) instead of inside
+`DebateDetailHeader.tsx`'s overflow panel — the strip stays byte-equal.
+
+See `docs/designs/UX-001.4.md` for the verbatim design + Q1-Q13 audit
++ §17 file scope.
+
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
 **Status:** Build complete (awaiting Review). Issue #25, branch
