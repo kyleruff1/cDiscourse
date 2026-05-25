@@ -183,6 +183,148 @@ export const BRAND = {
    * verdict / popularity vocabulary.
    */
   taglineText: 'Just get to the bottom of it' as const,
+
+  // ── UX-001.1 — Phase 1 brand + app shell correction ──────────────
+  //
+  // Mental model — surface hierarchy mapping (Q2 verdict).
+  //   The BRAND module ships a 2-level shell scale (surface.app +
+  //   surface.appElevated). BRAND-002 (PR #138) ships a separate
+  //   14-key dark surface scale in SURFACE_TOKENS for non-room
+  //   screens. UX-001.1 maps the epic's "primary / secondary /
+  //   tertiary" mental model onto the shipped tokens WITHOUT adding
+  //   any new surface token:
+  //     primary   → BRAND.surface.app.bg          (`#08060F`)
+  //     secondary → BRAND.surface.appElevated.bg  (`#13101D`)
+  //     tertiary  → SURFACE_TOKENS.overlay        (`#0f172a`)
+  //   This mapping is documented here so UX-001.2-001.7 implementers
+  //   have a single contract for shell vs non-room-screen surfaces.
+
+  /**
+   * UX-001.1 — 3-state breakpoint contract (Q1 verdict).
+   *
+   * `phone`   :   0 - 599  dp  (compact mobile + small Android)
+   * `tablet`  : 600 - 1279 dp  (tablet portrait + tablet landscape + small desktop)
+   * `wide`    : 1280+      dp  (laptop + desktop + wide desktop)
+   *
+   * The "phone" upper bound is 599 (not 720 or 768) because Material
+   * Design 3 + iOS HIG both treat >= 600dp as "tablet class" for
+   * typography + density. A 5.4-inch iPhone in portrait is 390dp; a
+   * Galaxy Fold inner is 584dp. 599dp covers all common phones.
+   *
+   * The "wide" lower bound is 1280 (not 1024 or 1440) because 1280 is
+   * the de-facto laptop minimum (MacBook Air, most 13" laptops). 1024
+   * would push iPad landscape into "wide" with desktop-tuned density,
+   * which is wrong; 1440 would leave 13" MacBooks stuck on "tablet".
+   *
+   * The legacy `headerWideBreakpointPx: 720` is PRESERVED for
+   * back-compat (it still drives the existing `isWide` boolean). New
+   * code should read these three new constants. The new `isWide`
+   * semantic is `band !== 'phone'` (true for tablet AND wide); since
+   * 720dp falls in the tablet band, every existing assertion on
+   * `isWide` at 720dp continues to pass.
+   */
+  breakpoints: {
+    phone:  { minPx: 0,    maxPx: 599  },
+    tablet: { minPx: 600,  maxPx: 1279 },
+    wide:   { minPx: 1280, maxPx: Number.POSITIVE_INFINITY },
+  } as const,
+
+  /**
+   * UX-001.1 — Logo height per band (Q3 verdict).
+   *
+   * Phone   : 44 px (preserved from Stage 1)
+   * Tablet  : 80 px (NEW; sized to fit the 96 px tablet header with 8+8 padding)
+   * Wide    : 96 px (NEW; sized to fit the 120 px wide header with 12+12 padding)
+   *
+   * The single PNG at `assets/branding/civic-discourse-logo.png`
+   * scales to all three heights via `resizeMode="contain"`. No asset
+   * variants needed.
+   *
+   * The legacy `logoHeightPxWide: 110` constant is PRESERVED as a
+   * back-compat alias (existing tests pin it). New code consumes
+   * `logoHeightByBand`. The reduction from "wide = 110" to "wide = 96"
+   * is a joint reconciliation with the wide-header tightening from
+   * 152 to 120 — see the §9 math in `docs/designs/UX-001.1.md`.
+   */
+  logoHeightByBand: {
+    phone:  44 as const,
+    tablet: 80 as const,
+    wide:   96 as const,
+  },
+
+  /**
+   * UX-001.1 — Header outer height per band (Q5 verdict).
+   *
+   * Phone   :  64 px (preserved from Stage 1)
+   * Tablet  :  96 px (NEW; tighter than the legacy 152 wide;
+   *                    fits the 80 px logo with 8+8 padding)
+   * Wide    : 120 px (TIGHTENED from 152 px;
+   *                    fits the 96 px logo with 12+12 padding)
+   *
+   * Rationale for tightening 152 -> 120 on wide:
+   *   - Epic non-negotiable: "header height does not bury the active
+   *     board on any tested viewport".
+   *   - 152 px on a 900 px-tall laptop browser is 16.9 % - too much.
+   *   - 120 px on the same viewport is 13.3 % - comfortable.
+   *   - 96 px logo at 120 px header = 24 px combined padding (12+12).
+   *
+   * Rationale for adding 96 on tablet:
+   *   - 768 dp iPad portrait at 152 px header = 14.8 % viewport;
+   *     at 96 px = 9.4 %. The tighter header keeps the timeline
+   *     above the fold.
+   *   - 80 px logo at 96 px header = 16 px combined padding (8+8).
+   */
+  headerHeightByBand: {
+    phone:  64  as const,
+    tablet: 96  as const,
+    wide:   120 as const,
+  },
+
+  /**
+   * UX-001.1 — Typography baseline (Q8 verdict).
+   *
+   * Three sub-objects only. UX-001.7 extends this into a full type
+   * scale (display / heading / body / caption etc.) covering the rest
+   * of the app. Phase 1 scope is intentionally tight - the smallest
+   * viable surface that unblocks UX-001.4's Act/Inspect/Go right-slot
+   * triggers without forcing UX-001.2/3/4 implementers to inline
+   * typography decisions ad-hoc.
+   *
+   * Tokens:
+   *   - `wordmarkFallback` - per-band sizes for the text-only fallback
+   *     when the PNG asset fails to load.
+   *   - `tagline`           - per-variant sizes for the
+   *     AppHeaderTagline component (replaces the prior inline
+   *     `fontSize: 18` / `fontSize: 14` literals).
+   *   - `header`            - per-band sizes for the right-slot label
+   *     (reserved for UX-001.4's Act/Inspect/Go triggers; phone is
+   *     icon-only via `fontSize: 0`).
+   *
+   * All values are platform-neutral dp/px. `lineHeight` is included
+   * because RN text layout uses it for vertical alignment.
+   *
+   * Token keys are structural English (band names: phone/tablet/wide;
+   * variant names: inline/stacked). No verdict / popularity / truth
+   * vocabulary leaks into key names or values (asserted by ban-list
+   * tests in `__tests__/uxOneOneTypographyBaseline.test.ts`).
+   */
+  typography: {
+    wordmarkFallback: {
+      phone:  { fontSize: 18, lineHeight: 22, fontWeight: '800' as const, letterSpacing: 0.6 },
+      tablet: { fontSize: 28, lineHeight: 34, fontWeight: '800' as const, letterSpacing: 0.6 },
+      wide:   { fontSize: 34, lineHeight: 40, fontWeight: '800' as const, letterSpacing: 0.6 },
+    },
+    tagline: {
+      inline:  { fontSize: 18, lineHeight: 24, letterSpacing: 0.2, fontWeight: '400' as const },
+      stacked: { fontSize: 14, lineHeight: 18, letterSpacing: 0.2, fontWeight: '400' as const },
+    },
+    header: {
+      // Right-slot label sizes (e.g. icon label on tablet+, hidden on phone).
+      phone:  { fontSize: 0,  lineHeight: 0,  fontWeight: '500' as const }, // icon-only on phone
+      tablet: { fontSize: 12, lineHeight: 16, fontWeight: '500' as const },
+      wide:   { fontSize: 13, lineHeight: 18, fontWeight: '500' as const },
+    },
+  } as const,
 } as const;
 
 // ── VG-004 — Timeline node glow / halo tokens ───────────────────
