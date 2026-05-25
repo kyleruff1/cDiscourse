@@ -3,7 +3,6 @@ import React, { useState, useRef } from 'react';
 import {
   Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -33,9 +32,10 @@ import { fetchCurrentAuthUser } from './src/features/account/accountApi';
 import { AdminScreen } from './src/features/admin';
 import { InvitePanel } from './src/features/invites/InvitePanel';
 // QOL-038 — invite surfaces. The InviteRedeemGate runs above MainAppShell
-// when a deep-linked invite is in flight. The toolbar accessibility
-// label comes from INVITE_PANEL_COPY (post-QOL-035 framing).
-import { INVITE_PANEL_COPY } from './src/features/invites/inviteCopy';
+// when a deep-linked invite is in flight. UX-001.2 — the invite toolbar
+// chip moved into DebateDetailHeader's overflow panel; the inline panel
+// mount in MainAppShell is unchanged and is still toggled via
+// `inviteOpen` state.
 import { InviteRedeemGate } from './src/features/invites/InviteRedeemGate';
 import {
   parseInviteDeepLink,
@@ -50,7 +50,9 @@ import type { MoveDraftPatch } from './src/features/arguments/conversationMoves'
 import { TAB_LABELS, getVisibleTabs } from './src/features/arguments/roomNavigation';
 import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
 import { ROOM_COPY } from './src/features/arguments/gameCopy';
-import { DEFAULT_VIEW_MODE, VIEW_MODE_COPY } from './src/features/arguments/viewModeCopy';
+// UX-001.2 — VIEW_MODE_COPY is consumed inside DebateDetailHeader's compact
+// strip; App.tsx no longer renders the toggle so only the default is needed.
+import { DEFAULT_VIEW_MODE } from './src/features/arguments/viewModeCopy';
 import { DevEnvironmentBanner } from './src/features/devEnvironment';
 import { AppHeader } from './src/components/AppHeader';
 import { BRAND } from './src/lib/designTokens';
@@ -432,6 +434,14 @@ function MainAppShell({
 
   const activeTab = tabs.includes(tab) ? tab : 'arguments';
 
+  // UX-001.2 — Hide the global tab bar when a room is active. The strip in
+  // DebateDetailHeader carries the room-exit affordance (Leave argument) so the
+  // user can return to the gallery without the tab bar. When notifications is
+  // open the room is not rendered, so `roomActive` is false there and the tab
+  // bar remains visible (the QOL-040 flow is preserved).
+  const roomActive =
+    activeTab === 'arguments' && hasDebate && Boolean(currentDebate) && !notificationsOpen;
+
   const handleSignOut = async () => {
     await signOut();
     dispatch({ type: 'SIGNED_OUT' });
@@ -490,31 +500,35 @@ function MainAppShell({
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
 
-      {/* Top tab bar */}
-      <View style={styles.tabBar}>
-        {tabs.map((t) => (
-          <Pressable
-            key={t}
-            style={[styles.tab, activeTab === t && styles.tabActive]}
-            onPress={() => { setTab(t); }}
-            accessibilityRole="tab"
-            accessibilityLabel={TAB_LABELS[t]}
-          >
-            <View style={styles.tabContent}>
-              <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
-                {TAB_LABELS[t]}
-              </Text>
-              {/* QOL-040 — unread-notification badge on the Arguments
-                  tab only. Renders nothing when count === 0. */}
-              {t === 'arguments' ? (
-                <View style={styles.tabBadgeSlot}>
-                  <NotificationBadge unreadCount={notifications.unreadCount} />
-                </View>
-              ) : null}
-            </View>
-          </Pressable>
-        ))}
-      </View>
+      {/* Top tab bar. UX-001.2 — hidden when a room is active so the Timeline
+          becomes the first substantive in-room object beneath the AppHeader
+          plus one compact room/context strip. Restored on room exit. */}
+      {!roomActive ? (
+        <View style={styles.tabBar} testID="app-tab-bar">
+          {tabs.map((t) => (
+            <Pressable
+              key={t}
+              style={[styles.tab, activeTab === t && styles.tabActive]}
+              onPress={() => { setTab(t); }}
+              accessibilityRole="tab"
+              accessibilityLabel={TAB_LABELS[t]}
+            >
+              <View style={styles.tabContent}>
+                <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
+                  {TAB_LABELS[t]}
+                </Text>
+                {/* QOL-040 — unread-notification badge on the Arguments
+                    tab only. Renders nothing when count === 0. */}
+                {t === 'arguments' ? (
+                  <View style={styles.tabBadgeSlot}>
+                    <NotificationBadge unreadCount={notifications.unreadCount} />
+                  </View>
+                ) : null}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <View style={styles.body}>
         {/* QOL-040 — notification list screen. Renders as a routed
@@ -596,91 +610,25 @@ function MainAppShell({
             sub-screen is open. */}
         {activeTab === 'arguments' && hasDebate && currentDebate && !notificationsOpen && (
           <View style={styles.debateRoom}>
-            {/* Room header */}
+            {/* UX-001.2 — compact room/context strip. Replaces the old
+                two-row DebateDetailHeader + roomToolbar with a single-row
+                strip that meets 48/56/64 per band. Carries the Timeline /
+                Cards toggle, Leave control, status / side / private
+                badges, and an overflow trigger for invite + make-private
+                + dev chips + GAME-004 seat strip. */}
             <DebateDetailHeader
               debate={currentDebate}
               participantSide={participantSide}
               onLeave={handleLeaveRoom}
               roomContract={roomContract.viewModel ?? undefined}
+              currentUserId={state.snapshot.userId}
+              viewMode={viewMode}
+              onSetViewMode={setViewMode}
+              onToggleInvite={() => setInviteOpen((v) => !v)}
+              inviteOpen={inviteOpen}
+              onSetDevTreeMode={__DEV__ ? () => setViewMode('tree') : undefined}
+              onSetDevTracksMode={__DEV__ ? () => setViewMode('tracks') : undefined}
             />
-
-            {/* Gamified room toolbar */}
-            <View style={styles.roomToolbar}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.roomToolbarInner}
-              >
-                <Text style={styles.roomLabel}>{ROOM_COPY.title}</Text>
-                <View style={styles.toolbarSep} />
-                {/* View toggle — Timeline (primary) + Cards (deeper inspection). */}
-                <Pressable
-                  style={[styles.toolbarChip, viewMode === 'stack' && styles.toolbarChipActive]}
-                  onPress={() => setViewMode('stack')}
-                  accessibilityRole="button"
-                  accessibilityLabel={VIEW_MODE_COPY.cards.accessibilityLabel}
-                  accessibilityHint={VIEW_MODE_COPY.cards.accessibilityHint}
-                  testID="room-toolbar-stack"
-                >
-                  <Text style={[styles.toolbarChipText, viewMode === 'stack' && styles.toolbarChipTextActive]}>
-                    {VIEW_MODE_COPY.cards.label}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.toolbarChip, viewMode === 'timeline' && styles.toolbarChipActive]}
-                  onPress={() => setViewMode('timeline')}
-                  accessibilityRole="button"
-                  accessibilityLabel={VIEW_MODE_COPY.timeline.accessibilityLabel}
-                  accessibilityHint={VIEW_MODE_COPY.timeline.accessibilityHint}
-                  testID="room-toolbar-timeline"
-                >
-                  <Text style={[styles.toolbarChipText, viewMode === 'timeline' && styles.toolbarChipTextActive]}>
-                    {VIEW_MODE_COPY.timeline.label}
-                  </Text>
-                </Pressable>
-                {__DEV__ && (
-                  <>
-                    <Pressable
-                      style={[styles.toolbarChip, viewMode === 'tree' && styles.toolbarChipActive]}
-                      onPress={() => setViewMode('tree')}
-                      accessibilityRole="button"
-                      accessibilityLabel="Tree view (dev)"
-                      testID="room-toolbar-tree-dev"
-                    >
-                      <Text style={[styles.toolbarChipText, viewMode === 'tree' && styles.toolbarChipTextActive]}>
-                        Thread (dev)
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.toolbarChip, viewMode === 'tracks' && styles.toolbarChipActive]}
-                      onPress={() => setViewMode('tracks')}
-                      accessibilityRole="button"
-                      accessibilityLabel="Tracks lane view (dev)"
-                      testID="room-toolbar-tracks-dev"
-                    >
-                      <Text style={[styles.toolbarChipText, viewMode === 'tracks' && styles.toolbarChipTextActive]}>
-                        Tracks (dev)
-                      </Text>
-                    </Pressable>
-                  </>
-                )}
-                <View style={styles.toolbarSep} />
-                {/* Invite — QOL-038 + QOL-035 framing scrub. The
-                    accessibility label drops "challenger" in favour of
-                    the post-QOL-035 framing sourced from
-                    INVITE_PANEL_COPY.toolbarChipAccessibility. */}
-                <Pressable
-                  style={styles.toolbarChip}
-                  onPress={() => setInviteOpen((v) => !v)}
-                  accessibilityRole="button"
-                  accessibilityLabel={INVITE_PANEL_COPY.toolbarChipAccessibility}
-                >
-                  <Text style={styles.toolbarChipText}>
-                    {inviteOpen ? 'Close invite' : INVITE_PANEL_COPY.toolbarChipLabel}
-                  </Text>
-                </Pressable>
-              </ScrollView>
-            </View>
 
             {/* Invite panel (inline, collapsible) — QOL-038 rewrite.
                 The panel uses useRoomInvites for the real Edge Function
@@ -820,50 +768,12 @@ const styles = StyleSheet.create({
   body: { flex: 1, backgroundColor: BRAND.surface.app.bg },
   debateRoom: { flex: 1, backgroundColor: BRAND.surface.app.bg },
 
-  // Room toolbar (thread/tracks toggle + invite)
-  roomToolbar: {
-    backgroundColor: BRAND.surface.appElevated.bg,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1f1c2c',
-  },
-  roomToolbarInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 6,
-  },
-  roomLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: BRAND.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  toolbarSep: {
-    width: 1,
-    height: 16,
-    backgroundColor: '#2a2538',
-    marginHorizontal: 2,
-  },
-  toolbarChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    backgroundColor: '#1f1c2c',
-  },
-  toolbarChipActive: {
-    backgroundColor: '#312e81',
-  },
-  toolbarChipText: {
-    fontSize: 12,
-    color: BRAND.text.muted,
-    fontWeight: '500',
-  },
-  toolbarChipTextActive: {
-    color: BRAND.text.primary,
-    fontWeight: '700',
-  },
+  // UX-001.2 — the previous `roomToolbar` / `roomToolbarInner` / `roomLabel`
+  // / `toolbarSep` / `toolbarChip` / `toolbarChipActive` / `toolbarChipText`
+  // / `toolbarChipTextActive` styles were removed when the separate toolbar
+  // row dissolved into the compact DebateDetailHeader strip. The Timeline /
+  // Cards toggle, invite trigger, and dev chips now live in the strip's
+  // single row + overflow panel.
 
   // Invite panel
   invitePanelWrapper: {
