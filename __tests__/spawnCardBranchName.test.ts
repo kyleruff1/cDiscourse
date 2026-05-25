@@ -31,8 +31,8 @@ import * as path from 'node:path';
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 function computeSpawnCardBranchName(code: string, issueTitle: string): string {
-  // 1. Strip "<Code><whitespace>-<whitespace>" prefix.
-  const stripped = issueTitle.replace(new RegExp('^' + code + '\\s*-\\s*'), '');
+  // 1. Strip "<Code><whitespace>[-:]<whitespace>" prefix.
+  const stripped = issueTitle.replace(new RegExp('^' + code + '\\s*[-:]\\s*'), '');
   // 2. Replace non-alphanumeric runs with single dash.
   const dashed = stripped.replace(/[^a-zA-Z0-9]+/g, '-');
   // 3. Trim leading/trailing dashes, lowercase.
@@ -64,23 +64,32 @@ describe('OPS-002 spawn-card branch name — Group 1: slug parity', () => {
     ).toBe('feat/QOL-040.3-deep-link-node-pre-activation-via-stage');
   });
 
-  it('pins the colon-separator double-prefix behaviour for OPS-002 (modern titles)', () => {
+  it('strips the colon separator for OPS-004-corrected behaviour (modern titles)', () => {
     // Modern GitHub issue titles in this repo use a colon
     // ("OPS-002: title") instead of the legacy dash ("OPS-002 - title").
-    // The PS1 strip regex `^$Code\s*-\s*` expects a dash, so the strip
-    // is a no-op for colon-separated titles and the code prefix is
-    // duplicated in the resulting slug. This is cosmetic, not broken:
-    // the branch still encodes the code uniquely. The test pins the
-    // CURRENT behaviour so a future "fix" to the strip regex
-    // (potentially landing as OPS-003) is a conscious test update, not
-    // a silent behavioural drift that breaks the four previously
-    // shipped cards' branch names.
+    // OPS-004 corrected the PS1 strip regex from `^$Code\s*-\s*` to
+    // `^$Code\s*[-:]\s*` so the strip is no longer a no-op for
+    // colon-separated titles. The code prefix is now stripped cleanly
+    // and the resulting slug starts with the title body (not a
+    // duplicated code prefix). Pre-OPS-004 the slug was
+    // `feat/OPS-002-ops-002-pipeline-operational-hygiene-spa`; post-OPS-004
+    // it is the corrected `feat/OPS-002-pipeline-operational-hygiene-spawn-card`.
+    // (The OPS-004 design §5.1 worked example named `-bra` as the trailing
+    // fragment after truncation; the actual character count at position 40
+    // is `card-` and TrimEnd('-') strips the trailing dash, so the final
+    // slug ends at `card`. The design's arithmetic miscount is recorded in
+    // the implementer note at the bottom of docs/designs/OPS-004.md; the
+    // test expectation here mirrors the actual computed output of the
+    // corrected regex.)
+    // The four pre-OPS-004 shipped cards' branch names remain immutable
+    // in PR history; this test asserts the corrected behaviour for all
+    // future spawn-card invocations.
     expect(
       computeSpawnCardBranchName(
         'OPS-002',
         'OPS-002: Pipeline operational hygiene (spawn-card branch naming + worktree cleanup)',
       ),
-    ).toBe('feat/OPS-002-ops-002-pipeline-operational-hygiene-spa');
+    ).toBe('feat/OPS-002-pipeline-operational-hygiene-spawn-card');
   });
 
   it('produces feat/<code>- for an empty title (pins empty-input behaviour)', () => {
@@ -200,5 +209,61 @@ describe('OPS-003 worktree cleanup procedure — charter contract (file scan)', 
     expect(ec2).toBeGreaterThan(ec1);
     expect(ec3).toBeGreaterThan(ec2);
     expect(ec4).toBeGreaterThan(ec3);
+  });
+});
+
+describe('OPS-004 charter extensions — contract (file scan)', () => {
+  const reviewerCharterPath = path.join(
+    REPO_ROOT,
+    '.claude',
+    'agents',
+    'roadmap-reviewer.md',
+  );
+  const implementerCharterPath = path.join(
+    REPO_ROOT,
+    '.claude',
+    'agents',
+    'roadmap-implementer.md',
+  );
+
+  const reviewerCharter = fs.readFileSync(reviewerCharterPath, 'utf8');
+  const implementerCharter = fs.readFileSync(implementerCharterPath, 'utf8');
+
+  it('reviewer charter Class 3 cell contains the OPS-004 DROP COLUMN ordering sub-check', () => {
+    // Signal phrase: the unique substring "every `DROP COLUMN` or `DROP TABLE`"
+    // from §1.2 of the OPS-004 design. Stable across wording polish
+    // and proves the Class 3 sub-check (e) is present.
+    expect(reviewerCharter).toContain('every `DROP COLUMN` or `DROP TABLE`');
+    // Cross-reference to the PR-004 worked example anchors the sub-check
+    // to its motivating incident.
+    expect(reviewerCharter).toContain('SQLSTATE 2BP01');
+  });
+
+  it('reviewer charter Class 4 cell contains the OPS-004 storage COMMENT ownership sub-check', () => {
+    // Signal phrase: the unique substring "ON storage.*" appears only
+    // in the OPS-004 sub-check (f); pre-OPS-004 the four-class table
+    // did not mention the storage schema by name.
+    expect(reviewerCharter).toContain('ON storage.*');
+    // Cross-reference to the PR-003 worked example anchors the sub-check
+    // to its motivating incident.
+    expect(reviewerCharter).toContain('SQLSTATE 42501');
+  });
+
+  it('implementer charter rename step contains the OPS-004 stale-worktree recovery sequence', () => {
+    // Signal phrase: the `--ignore-other-worktrees` override is the
+    // canonical recovery command added by OPS-004. Pre-OPS-004 the
+    // rename step ended with the bare "STOP and surface" placeholder.
+    expect(implementerCharter).toContain('--ignore-other-worktrees');
+    // The recovery sequence must be inside the existing rename step
+    // (after the rename heading, before the "Verify clean baseline"
+    // heading). String-index comparison enforces ordering.
+    const renameIndex = implementerCharter.indexOf(
+      '**Rename the worktree auto-branch to the named feat branch.**',
+    );
+    const recoveryIndex = implementerCharter.indexOf('--ignore-other-worktrees');
+    const baselineIndex = implementerCharter.indexOf('**Verify clean baseline.**');
+    expect(renameIndex).toBeGreaterThan(-1);
+    expect(recoveryIndex).toBeGreaterThan(renameIndex);
+    expect(baselineIndex).toBeGreaterThan(recoveryIndex);
   });
 });

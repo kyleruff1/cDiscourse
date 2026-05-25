@@ -48,9 +48,44 @@ You are the **implementer** for a single CDiscourse roadmap card. The design has
 
    The rename is a local-only operation (no remote refs, no force
    push) and is safe to run on a fresh worktree before any commit.
-   If `git branch -m` reports "a branch named feat/<code>-<slug>
-   already exists," the worktree was reused from a prior card with
-   the same code — STOP and surface to the operator; do not force.
+
+   If `git branch -m` reports `fatal: a branch named
+   'feat/<code>-<slug>' already exists`, the canonical branch is held
+   somewhere else in the local repo. **Do not force.** Recover with the
+   sequence below; this is the post-PR-004 documented path:
+
+   ```
+   # 1. Identify which worktree holds the canonical branch.
+   git worktree list | grep "feat/<code>-<slug>"
+   #   → expect 1 result; the path is a sibling worktree under
+   #     .claude/worktrees/agent-<other-hash>
+
+   # 2. Inspect the holder. If it is a designer's post-design worktree
+   #    (no uncommitted work; HEAD is the design commit), the canonical
+   #    branch is safe to claim. If it is an active session, STOP and
+   #    surface to the operator.
+   git -C ".claude/worktrees/agent-<other-hash>" status -sb
+   git -C ".claude/worktrees/agent-<other-hash>" log -1 --format="%h %s"
+
+   # 3. When the holder is a clean designer worktree, switch this
+   #    worktree onto the canonical branch and clean up the auto-branch.
+   #    --ignore-other-worktrees is the documented git override for the
+   #    "already used by worktree at" guard rail.
+   git switch --ignore-other-worktrees feat/<code>-<slug>
+   git branch -d worktree-agent-<hash>     # the original auto-branch
+   git branch --show-current               # must now be feat/<code>-<slug>
+   ```
+
+   When the holder is NOT a clean designer worktree (uncommitted work,
+   active session, or HEAD diverged from the design commit), STOP and
+   surface to the operator. Do not force the override; loss-of-work
+   risk is real when the holder has uncommitted changes the
+   `--ignore-other-worktrees` override would silently abandon.
+
+   The PR-004 incident (`docs/core/known-blockers.md` § "OPS-002
+   Stale-Worktree-Branch-Claim (2026-05-25)") is the motivating
+   example; OPS-004 codifies the recovery sequence so future
+   implementers do not re-discover it.
 
 2. **Verify clean baseline.**
    ```
