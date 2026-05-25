@@ -77,6 +77,12 @@ import {
 } from '../modes';
 import type { PacingRule, PacingMoveRecord } from '../modes';
 import { SURFACE_TOKENS } from '../../lib/designTokens';
+// UX-001.3 — composer keyboard shortcut routing. The dock owns the
+// document-level keydown listener; the pure model decides what to do
+// based on the event + the focus context.
+import { resolveComposerKeyEffect } from './composer/composerKeyboardModel';
+import { useComposerFocusContext } from './composer/useComposerFocusContext';
+import { triggerHaptic } from './composer/composerHaptics';
 
 /** Width (logical px) at or above which the dock is a right-side panel. */
 export const DOCK_SIDE_BREAKPOINT = 720;
@@ -128,6 +134,14 @@ interface ArgumentComposerDockProps {
    * cap + cooldown math. Derived in-memory; defaults to none.
    */
   pacingRecentMoves?: readonly PacingMoveRecord[];
+  /**
+   * UX-001.3 — read-only `activeMessageId` from `ArgumentGameSurface`.
+   * Threaded straight through to `OneBox` so its
+   * `ComposerContextStrip` can render a divergence cue when the
+   * Timeline's selected node differs from the composer's bound parent.
+   * Additive optional; omitted = no divergence cue surface.
+   */
+  activeMessageId?: string | null;
 }
 
 /** Slide travel distance (logical px) for the open animation. */
@@ -148,6 +162,7 @@ export function ArgumentComposerDock({
   reduceMotionOverride,
   pacingRule,
   pacingRecentMoves,
+  activeMessageId,
 }: ArgumentComposerDockProps) {
   const { width } = useWindowDimensions();
   const variant = resolveDockLayoutVariant(width);
@@ -253,24 +268,71 @@ export function ArgumentComposerDock({
     return () => clearInterval(id);
   }, [visible, pacingHasCountdown]);
 
-  // ── web Escape close ──
+  // ── UX-001.3 — web keyboard shortcut routing ──
+  // The dock owns a single document-level keydown listener that
+  // consults `resolveComposerKeyEffect` (focus-context gated) and
+  // dispatches to:
+  //  - submit          → increment postSignal (composer posts via the
+  //                       existing RULE-004 one-shot bypass mechanism)
+  //  - open_mode_switcher → increment openModeSwitcherSignal (OneBox
+  //                          opens its ActPopout)
+  //  - close           → Esc collapses → dismisses (operator-accepted
+  //                       UX-001.3 behavior shift; the dock owns this
+  //                       semantics: v1 calls onClose because the
+  //                       collapsed strip lives in the underlying
+  //                       ArgumentGameSurface, so dismissing the dock
+  //                       returns the user to the collapsed strip)
+  //
+  // Focus-context: the `useComposerFocusContext` hook tracks whether
+  // `document.activeElement` is inside the registered composer
+  // container. When the user is focused on the Timeline (or anywhere
+  // outside the dock), the pure model returns `'none'` and the
+  // Timeline's existing arrow-key handler runs uncontested.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const { composerFocused, registerContainer } = useComposerFocusContext(visible);
+  const [openModeSwitcherSignal, setOpenModeSwitcherSignal] = useState(0);
+
   useEffect(() => {
     if (!visible) return;
     if (Platform.OS !== 'web') return;
     if (typeof document === 'undefined' || !document.addEventListener) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCloseRef.current();
+      const effect = resolveComposerKeyEffect({
+        key: event.key,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        composerFocused,
+      });
+      switch (effect.type) {
+        case 'submit':
+          event.preventDefault();
+          triggerHaptic('success');
+          setPostSignal((n) => n + 1);
+          return;
+        case 'open_mode_switcher':
+          event.preventDefault();
+          triggerHaptic('light');
+          setOpenModeSwitcherSignal((n) => n + 1);
+          return;
+        case 'close':
+          event.preventDefault();
+          // Esc collapses the dock to the persistent strip. The
+          // strip lives in ArgumentGameSurface and stays visible; a
+          // second Esc press on a re-opened dock dismisses again.
+          onCloseRef.current();
+          return;
+        case 'none':
+        default:
+          return;
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [visible]);
+  }, [visible, composerFocused]);
 
   const handleCancel = useCallback(() => {
     onClose();
@@ -527,7 +589,14 @@ export function ArgumentComposerDock({
               `submit-argument` post path. RULE-004 threads the
               pause-before-send gate (`onBeforeSubmit`) and the one-shot
               "Post anyway" trigger (`postSignal`) straight through. */}
-          <View style={styles.composerBody}>
+          <View
+            style={styles.composerBody}
+            // UX-001.3 — register this container with the focus
+            // context hook so the composer's keyboard shortcuts only
+            // fire when focus is inside this subtree. On native, the
+            // ref-callback is a no-op (the hook short-circuits).
+            ref={(el) => registerContainer(el as unknown as HTMLElement | null)}
+          >
             <OneBox
               debate={debate}
               selectedParentId={selectedParentId}
@@ -540,6 +609,8 @@ export function ArgumentComposerDock({
               reduceMotionOverride={effectiveReducedMotion}
               onBeforeSubmit={handleBeforeSubmit}
               postSignal={postSignal}
+              activeMessageId={activeMessageId ?? null}
+              openModeSwitcherSignal={openModeSwitcherSignal}
             />
 
             {/* RULE-004 — pause-before-send review sheet. A nested overlay

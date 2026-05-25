@@ -110,14 +110,19 @@ describe('COMPOSER-002 — close paths use Modal.onRequestClose + Esc, never a r
     expect(DOCK_SRC).toMatch(/addEventListener\('keydown'/);
     expect(DOCK_SRC).toMatch(/removeEventListener\('keydown'/);
     // The Escape branch calls onClose (via the stable ref) and preventDefault.
-    expect(DOCK_SRC).toMatch(/event\.key === 'Escape'/);
+    // UX-001.3 routes the Escape key through `resolveComposerKeyEffect`,
+    // which returns `{ type: 'close' }` for Escape regardless of focus
+    // context. The dock's switch dispatches that to onCloseRef.current().
     expect(DOCK_SRC).toMatch(/event\.preventDefault\(\)/);
+    expect(DOCK_SRC).toMatch(/case\s*'close'[\s\S]*?onCloseRef\.current\(\)/);
   });
 
   it('the keydown effect depends on `visible` (listener removed when the dock closes)', () => {
     // The effect cleanup + the `[visible]` dependency together guarantee
     // the listener is gone when the dock is not open — no leaked Esc.
-    expect(DOCK_SRC).toMatch(/\}, \[visible\]\);/);
+    // UX-001.3 extended the dep array to include `composerFocused` so
+    // the listener re-binds when focus enters/leaves the dock subtree.
+    expect(DOCK_SRC).toMatch(/\}, \[visible,\s*composerFocused\]\);/);
   });
 
   it('both close paths funnel into the single onClose prop', () => {

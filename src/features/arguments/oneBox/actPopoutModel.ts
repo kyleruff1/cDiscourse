@@ -116,6 +116,9 @@ export type ActEntryId =
   | 'confirm'
   | 'synthesize'
   | 'respond_to_concession'
+  // UX-001.3 — Author-side standalone Concession list entry (the brief's
+  // 13th canonical mode). Routes to the new `offer_concession` box.
+  | 'offer_concession'
   // Structure group.
   | 'branch_tangent'
   // Direct group (no box).
@@ -282,6 +285,20 @@ const ACT_ENTRY_DEFINITIONS: Readonly<Record<ActEntryId, ActEntryDefinition>> = 
     // (the engine gate is node-parent scoped).
     argumentType: null,
   }),
+  // UX-001.3 — Author-side standalone Concession list entry. Routes to
+  // the new `offer_concession` box. Produces a `concession` typed move
+  // when the box submits — the engine gate accepts `concession` as a
+  // valid child for the parent types the existing `concede` ActEntry
+  // already covers.
+  offer_concession: Object.freeze({
+    id: 'offer_concession',
+    kind: 'box_opening',
+    group: 'resolve',
+    label: 'Offer concessions',
+    accessibilityLabel: 'Offer a list of concessions to this point',
+    opensBoxType: 'offer_concession',
+    argumentType: 'concession',
+  }),
   // ── Structure group ──
   branch_tangent: Object.freeze({
     id: 'branch_tangent',
@@ -394,6 +411,7 @@ const CANDIDATES_BY_TARGET_KIND: Readonly<Record<ActTargetKind, ReadonlyArray<Ac
       'ask_quote',
       'narrow',
       'concede',
+      'offer_concession',
       'confirm',
       'synthesize',
       'branch_tangent',
@@ -797,6 +815,10 @@ export function actEntryToQuickAction(entryId: ActEntryId): string | null {
     // `respond_to_concession` — QOL-041 owns the forced-list schema; the
     // box opens with no forced type until that card lands.
     case 'respond_to_concession':
+    // UX-001.3 — `offer_concession` opens the new author-side forced-list
+    // schema. The OneBox host wires the row list into the composer; no
+    // shipped quick-action preset is needed.
+    case 'offer_concession':
     // Direct / role-change entries — no box opens.
     case 'make_private':
     case 'flag':

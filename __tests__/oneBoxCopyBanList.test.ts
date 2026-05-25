@@ -182,16 +182,20 @@ describe('QOL-030 one-box copy — doctrine ban-list scan', () => {
     for (const t of BANNED) expect(t).toBe(t.toLowerCase());
   });
 
-  it('source-scans all 12 box-type labels + all 4 schema-kind notices', () => {
+  it('source-scans all 13 box-type labels + all 4 schema-kind notices', () => {
     // The two source-scans found a complete record — every BoxType /
     // SchemaKind key is accounted for. Guards the regex against drift.
+    // UX-001.3 introduced `offer_concession` as the 13th box type.
     expect([...boxTypeLabels().keys()].sort()).toEqual([...ALL_BOX_TYPES].sort());
     expect([...schemaKindNotices().keys()].sort()).toEqual([...ALL_SCHEMA_KINDS].sort());
   });
 
-  it('collects every produced label — all 4 surfaces, ~43 strings', () => {
-    // 12 box types + 4 schema notices + 6 groups + 21×2 entry strings = 64.
-    expect(PRODUCED.length).toBe(12 + 4 + 6 + 21 * 2);
+  it('collects every produced label — all 4 surfaces, ~46 strings', () => {
+    // 13 box types + 4 schema notices + 6 groups + 22×2 entry strings = 67.
+    // UX-001.3 added the `offer_concession` BoxType (commit 1) AND the
+    // matching ActEntry (commit 3 — label + a11y label adds 2 strings),
+    // bringing the entry count from 21 to 22.
+    expect(PRODUCED.length).toBe(13 + 4 + 6 + 22 * 2);
   });
 
   it('no produced label contains a forbidden verdict / amplification token', () => {
