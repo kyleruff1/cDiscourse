@@ -11,7 +11,6 @@ import {
 import { useAppSession } from '../session/useAppSession';
 import { useAccountProfile } from './useAccountProfile';
 import { fetchCurrentAuthUser, formatProfileRole } from './accountApi';
-import { AvatarUploadSection } from './AvatarUploadSection';
 import { SUPABASE_CONFIGURED } from '../../lib/supabase';
 import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
@@ -24,7 +23,7 @@ export function AccountScreen({ onSignOut, signOutLoading }: Props) {
   const { state } = useAppSession();
   const userId = state.snapshot.userId;
 
-  const { profile, loading, error, saving, saveError, updateDisplayName, refresh } =
+  const { profile, loading, error, saving, saveError, updateDisplayName } =
     useAccountProfile(userId);
 
   const [email, setEmail] = useState<string | null>(null);
@@ -87,13 +86,6 @@ export function AccountScreen({ onSignOut, signOutLoading }: Props) {
       {profile && (
         <>
           <View style={styles.card}>
-            <AvatarUploadSection
-              userId={userId}
-              displayName={profile.displayName}
-              avatarPath={profile.avatarPath}
-              avatarUpdatedAt={profile.avatarUpdatedAt}
-              onChanged={refresh}
-            />
             <Row label="User ID" value={`…${userId?.slice(-8) ?? '—'}`} />
             <Row label="Email" value={email ?? 'Loading…'} />
             <Row label="Role" value={formatProfileRole(profile.role)} />
