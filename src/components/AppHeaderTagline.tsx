@@ -1,11 +1,19 @@
 /**
- * BRAND-001 Stage 2 — header tagline.
+ * BRAND-001 Stage 2 / UX-001.1 — header tagline.
  *
  * Renders the BRAND fixture string ("Just get to the bottom of it") in
  * a serif italic so it reads as supporting voice next to the cream
  * wordmark. Lives in its own file so the AppHeader source-scan test
  * stays focused on `AppHeader.tsx` and this component can be tested in
  * isolation.
+ *
+ * UX-001.1 update: per-variant typography (fontSize / lineHeight /
+ * letterSpacing / fontWeight) now reads from
+ * `BRAND.typography.tagline.inline` / `.stacked` instead of inline
+ * literals. Behaviour is preserved verbatim — the BRAND token values
+ * mirror the prior inline literals exactly. Visual padding remains
+ * declared inline (paddingLeft / paddingTop) because it is a layout
+ * concern, not a typography concern.
  *
  * Doctrine + invariants:
  * - Pure presentational. No router, no navigation, no Supabase.
@@ -77,17 +85,26 @@ const styles = StyleSheet.create({
     color: BRAND.text.taglineFg,
     fontFamily: SERIF_FONT_FAMILY,
     fontStyle: 'italic',
-    fontWeight: '400',
-    letterSpacing: 0.2,
+    // UX-001.1 — fontWeight + letterSpacing flow in from
+    // BRAND.typography.tagline.<variant> via the variant style entries
+    // below. The base style declares only the color + family + italic
+    // (the cross-variant invariants).
   },
+  // UX-001.1 — per-variant typography reads from BRAND.typography.tagline
+  // so the contract is owned by designTokens, not inlined here. Padding
+  // (left/top) is a layout concern and stays inline.
   inline: {
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: BRAND.typography.tagline.inline.fontSize,
+    lineHeight: BRAND.typography.tagline.inline.lineHeight,
+    letterSpacing: BRAND.typography.tagline.inline.letterSpacing,
+    fontWeight: BRAND.typography.tagline.inline.fontWeight,
     paddingLeft: 12,
   },
   stacked: {
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: BRAND.typography.tagline.stacked.fontSize,
+    lineHeight: BRAND.typography.tagline.stacked.lineHeight,
+    letterSpacing: BRAND.typography.tagline.stacked.letterSpacing,
+    fontWeight: BRAND.typography.tagline.stacked.fontWeight,
     paddingTop: 2,
   },
 });
