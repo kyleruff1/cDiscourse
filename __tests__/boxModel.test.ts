@@ -49,9 +49,9 @@ function draftWithBody(body: string): Draft {
 // ── 1. Vocabulary completeness ─────────────────────────────────
 
 describe('QOL-030 boxModel — vocabulary', () => {
-  it('exposes 12 box types', () => {
-    expect(ALL_BOX_TYPES).toHaveLength(12);
-    expect(new Set(ALL_BOX_TYPES).size).toBe(12);
+  it('exposes 13 box types (12 from QOL-030 + offer_concession from UX-001.3)', () => {
+    expect(ALL_BOX_TYPES).toHaveLength(13);
+    expect(new Set(ALL_BOX_TYPES).size).toBe(13);
   });
 
   it('exposes 6 target kinds', () => {

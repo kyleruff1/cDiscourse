@@ -75,6 +75,8 @@ export const BOX_TYPE_LABEL: Readonly<Record<BoxType, string>> = Object.freeze({
   confirm: 'Confirm',
   synthesize: 'Synthesize',
   branch_tangent: 'Open a side issue',
+  // UX-001.3 — the brief's "Concession list" canonical mode.
+  offer_concession: 'Offer concessions',
 });
 
 /**

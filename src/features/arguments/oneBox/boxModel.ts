@@ -50,7 +50,14 @@ export type BoxType =
   | 'narrow'
   | 'confirm'
   | 'synthesize'
-  | 'branch_tangent';
+  | 'branch_tangent'
+  // UX-001.3 — the brief's "Concession list" canonical mode. Schema:
+  // forced_list, sections ['concession_list']. Mirrors the receiver-side
+  // `respond_to_concession` shape but author-side. v1 serializes the
+  // list into the existing `body` field as plain text (one item per
+  // line); a later card may introduce a dedicated `concession_items`
+  // column. See docs/designs/UX-001.3.md §2 row 13.
+  | 'offer_concession';
 
 /** Frozen array of every box type. Tests + the chassis iterate this. */
 export const ALL_BOX_TYPES: ReadonlyArray<BoxType> = Object.freeze([
@@ -66,6 +73,8 @@ export const ALL_BOX_TYPES: ReadonlyArray<BoxType> = Object.freeze([
   'confirm',
   'synthesize',
   'branch_tangent',
+  // UX-001.3 — new for the standalone Concession list mode. See above.
+  'offer_concession',
 ]);
 
 // ── Box target vocabulary (design §6.1) ────────────────────────
@@ -413,6 +422,17 @@ const SCHEMA_BY_TYPE: Readonly<Record<BoxType, Omit<RenderSchema, 'type'>>> = Ob
     kind: 'free_body',
     sections: Object.freeze<SchemaSection[]>(['side_branch', 'body']),
     hasFreeBody: true,
+    configuresRoom: false,
+  }),
+  // UX-001.3 — Standalone "Concession list" mode. Mirrors the
+  // receiver-side `respond_to_concession` schema shape (forced list,
+  // no single body) but is author-side. v1 serializes the list into
+  // the existing `body` field as plain text (one item per line) at
+  // submit time — no schema change.
+  offer_concession: Object.freeze({
+    kind: 'forced_list',
+    sections: Object.freeze<SchemaSection[]>(['concession_list']),
+    hasFreeBody: false,
     configuresRoom: false,
   }),
 });
