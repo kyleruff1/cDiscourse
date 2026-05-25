@@ -78,6 +78,12 @@ import {
   type TimelineNodeVisualStyle,
 } from './timelineNodeVisualModel';
 import { GLOW, RECEIPT_MARK } from '../../lib/designTokens';
+// UX-001.2 — Band-aware internal top offset for the Timeline rail.
+// Replaces the legacy `top: 120` literal that gave the above-rail bands
+// vertical space. Bands now overlay the rail's y-range with
+// `pointerEvents: 'none'` so the offset reduces to a minimal token.
+import { useHeaderBreakpoint } from '../../hooks/useHeaderBreakpoint';
+import { BAND_RAIL_OFFSET } from './timelineViewportLayoutModel';
 // IX-002 — timeline mini-map overview. The mini-map is a deterministic
 // PROJECTION of the already-built `map` + the existing `collapseState`;
 // it is internal chrome (no new prop crosses the component boundary).
@@ -459,6 +465,11 @@ export function ArgumentTimelineMap({
 }: Props) {
   const scrollRef = useRef<ScrollView | null>(null);
   const [popoverMessageId, setPopoverMessageId] = useState<string | null>(null);
+  // UX-001.2 — Band-aware internal rail offset. Replaces the legacy
+  // `top: 120` literal. The bands now overlay the rail's y-range with
+  // `pointerEvents: 'none'`, freeing this offset.
+  const { band } = useHeaderBreakpoint();
+  const railTopOffset = BAND_RAIL_OFFSET[band];
 
   // VG-002 — virtualized rail. Track scrollX + measured viewport width so
   // `visibleSegmentSlice` can return only the segments whose x-range
@@ -965,16 +976,27 @@ export function ArgumentTimelineMap({
       // native these props are simply not passed. No new dependency.
       {...(Platform.OS === 'web' ? { onKeyDown: handleKeyDown, tabIndex: 0 } : {})}
     >
-      <View style={styles.controlsRow}>
+      {/* UX-001.2 — Timeline controls moved from an above-rail row into an
+          absolute overlay anchored top-right inside the timeline frame.
+          The overlay sits above the rail with `zIndex: 10` and a slightly
+          translucent background so the rail behind reads through; the
+          overlay does NOT displace vertical space, freeing the offset
+          budget for the brief's hard cap. testIDs and accessibility
+          labels are preserved verbatim — Prev / Next / Latest / Back-to-
+          root / Cards-toggle still resolve through the same callbacks.
+          The IX-003 keyboard handler remains attached to the root frame
+          below; the overlay is one tab-stop cluster after the rail. */}
+      <View style={styles.overlayControls} testID="timeline-controls-overlay">
         <Pressable
           style={[styles.controlChip, isAtFirst && styles.controlChipDisabled]}
           onPress={onPrev}
           accessibilityRole="button"
           accessibilityLabel="Previous message"
           accessibilityState={{ disabled: isAtFirst }}
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           testID="timeline-prev"
         >
-          <Text style={styles.controlChipText}>‹ Prev</Text>
+          <Text style={styles.controlChipText}>‹</Text>
         </Pressable>
         <Pressable
           style={[styles.controlChip, isAtLatest && styles.controlChipDisabled]}
@@ -982,18 +1004,20 @@ export function ArgumentTimelineMap({
           accessibilityRole="button"
           accessibilityLabel="Next message"
           accessibilityState={{ disabled: isAtLatest }}
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           testID="timeline-next"
         >
-          <Text style={styles.controlChipText}>Next ›</Text>
+          <Text style={styles.controlChipText}>›</Text>
         </Pressable>
         <Pressable
           style={[styles.controlChip, styles.controlChipPrimary]}
           onPress={handleJumpLatest}
           accessibilityRole="button"
           accessibilityLabel="Jump to latest message"
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
           testID="timeline-jump-latest"
         >
-          <Text style={styles.controlChipText}>Latest ⏭</Text>
+          <Text style={styles.controlChipText}>⏭</Text>
         </Pressable>
         {showBackToRoot ? (
           <Pressable
@@ -1001,9 +1025,10 @@ export function ArgumentTimelineMap({
             onPress={onJumpToRoot}
             accessibilityRole="button"
             accessibilityLabel="Back to opening claim"
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             testID="timeline-jump-root"
           >
-            <Text style={styles.controlChipText}>↑ Back to root</Text>
+            <Text style={styles.controlChipText}>↑</Text>
           </Pressable>
         ) : null}
         {onToggleMode ? (
@@ -1012,9 +1037,10 @@ export function ArgumentTimelineMap({
             onPress={onToggleMode}
             accessibilityRole="button"
             accessibilityLabel="Switch to cards mode"
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
             testID="timeline-toggle-mode"
           >
-            <Text style={styles.controlChipText}>Cards ↺</Text>
+            <Text style={styles.controlChipText}>↺</Text>
           </Pressable>
         ) : null}
       </View>
@@ -1099,29 +1125,40 @@ export function ArgumentTimelineMap({
         scrollEventThrottle={SCROLL_FRAME_MS}
       >
         <View style={{ width: map.scrollWidth, height: map.height }}>
-          {/* Center rail */}
-          <View style={[styles.rail, { width: map.scrollWidth - 32, top: 120 + TIMELINE_NODE_SIZE / 2 - 1 }]} />
+          {/* Center rail. UX-001.2 — `top` is band-aware via
+              `BAND_RAIL_OFFSET` (replaces the legacy `120` literal). The
+              bands above the rail used to claim ~120 px of vertical space;
+              they now overlay the rail's y-range with `pointerEvents: 'none'`
+              so the offset reduces to a token close to zero per band. */}
+          <View style={[styles.rail, { width: map.scrollWidth - 32, top: railTopOffset + TIMELINE_NODE_SIZE / 2 - 1 }]} />
 
-          {/* Bands */}
-          {map.bands.map((band) => (
+          {/* Bands. UX-001.2 — the bands sit overlaid on the rail's y-level
+              with `pointerEvents: 'none'` + reduced opacity so they read as
+              background context rather than foreground chrome. Their `top`
+              is centered around the rail centerline (rail centerline minus
+              ~14 px so the label sits at the same vertical band as the
+              node ordinals). */}
+          {map.bands.map((bandSpan) => (
             <View
-              key={band.bandId}
-              testID={`timeline-band-${band.bandId}`}
+              key={bandSpan.bandId}
+              testID={`timeline-band-${bandSpan.bandId}`}
+              pointerEvents="none"
               style={{
                 position: 'absolute',
-                left: band.xStart,
-                top: 8,
-                width: Math.max(60, band.xEnd - band.xStart + TIMELINE_NODE_SIZE),
+                left: bandSpan.xStart,
+                top: Math.max(0, railTopOffset + TIMELINE_NODE_SIZE / 2 - 14),
+                width: Math.max(60, bandSpan.xEnd - bandSpan.xStart + TIMELINE_NODE_SIZE),
                 paddingHorizontal: 8,
                 paddingVertical: 2,
                 borderRadius: 6,
                 backgroundColor: '#1e293b',
                 borderWidth: 1,
                 borderColor: '#334155',
+                opacity: 0.6,
               }}
             >
               <Text style={styles.bandLabel} numberOfLines={1}>
-                {band.label} · {band.messageCount}
+                {bandSpan.label} · {bandSpan.messageCount}
               </Text>
             </View>
           ))}
@@ -1307,7 +1344,23 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', gap: 2, marginTop: 4, maxWidth: TIMELINE_NODE_SIZE + 36 },
   chip: { paddingHorizontal: 4, paddingVertical: 1, borderRadius: 6 },
   chipText: { color: '#0b1220', fontWeight: '700', fontSize: 8 },
-  controlsRow: { flexDirection: 'row', gap: 6, padding: 8, alignItems: 'center', backgroundColor: '#0b1220', borderBottomWidth: 1, borderBottomColor: '#1f2937' },
+  // UX-001.2 — Timeline controls overlay. The previous `controlsRow` was a
+  // top-of-frame row that consumed ~45 px of vertical chrome. The overlay
+  // is anchored top-right inside the timeline frame, semi-transparent so
+  // the rail behind reads through, and sits above the rail via zIndex
+  // without displacing the rail's y-position.
+  overlayControls: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    flexDirection: 'row',
+    gap: 4,
+    zIndex: 10,
+    backgroundColor: 'rgba(2,6,23,0.85)',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
   controlChip: { backgroundColor: '#1f2937', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, minHeight: 28 },
   // IX-003 — dimmed Prev/Next chip when the active node is at an end.
   // Paired with `accessibilityState={{ disabled }}` so the disabled
