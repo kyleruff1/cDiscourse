@@ -109,7 +109,7 @@ echo "  -> OK"
 
 # Compute slug for the branch name.
 SLUG=$(echo "$ISSUE_TITLE" \
-  | sed -E "s/^${CODE}[[:space:]]*-[[:space:]]*//" \
+  | sed -E "s/^${CODE}[[:space:]]*[-:][[:space:]]*//" \
   | tr '[:upper:]' '[:lower:]' \
   | sed -E 's/[^a-z0-9]+/-/g' \
   | sed -E 's/^-+|-+$//g' \

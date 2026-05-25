@@ -71,7 +71,7 @@ Write-Output "Setting Phase = $Phase ..."
 Write-Output "  -> OK"
 
 # 4. Compute slug for the branch name (used by the agent prompt)
-$slug = ($issue.title -replace "^$Code\s*-\s*", '' -replace "[^a-zA-Z0-9]+", '-' -replace '^-+|-+$', '').ToLower()
+$slug = ($issue.title -replace "^$Code\s*[-:]\s*", '' -replace "[^a-zA-Z0-9]+", '-' -replace '^-+|-+$', '').ToLower()
 if ($slug.Length -gt 40) { $slug = $slug.Substring(0, 40).TrimEnd('-') }
 $branchName = "feat/$Code-$slug"
 
