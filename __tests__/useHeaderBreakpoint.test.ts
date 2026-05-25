@@ -81,24 +81,35 @@ describe('BRAND-001 Stage 2 — BRAND token additions', () => {
 
 describe('BRAND-001 Stage 2 — resolveHeaderBreakpoint', () => {
   it('returns isWide=true exactly at the breakpoint (720dp)', () => {
+    // UX-001.1 — 720dp falls in the new tablet band (600..1279). The
+    // legacy `isWide=true` semantic is preserved (tablet !== phone)
+    // but `logoHeightPx` / `headerHeightPx` now resolve from the
+    // band-aware maps. See UX-001.1 design doc "Implementer note".
     const r = resolveHeaderBreakpoint(BRAND.headerWideBreakpointPx);
     expect(r.isWide).toBe(true);
-    expect(r.logoHeightPx).toBe(BRAND.logoHeightPxWide);
-    expect(r.headerHeightPx).toBe(BRAND.headerHeightPxWide);
+    expect(r.logoHeightPx).toBe(BRAND.logoHeightByBand.tablet);
+    expect(r.headerHeightPx).toBe(BRAND.headerHeightByBand.tablet);
   });
 
   it('returns isWide=true above the breakpoint (1024dp)', () => {
+    // UX-001.1 — 1024dp (iPad landscape) is in the tablet band
+    // (600..1279); per Q1 verdict it deliberately does NOT jump to
+    // wide. `isWide=true` preserved (tablet !== phone).
     const r = resolveHeaderBreakpoint(1024);
     expect(r.isWide).toBe(true);
-    expect(r.logoHeightPx).toBe(BRAND.logoHeightPxWide);
-    expect(r.headerHeightPx).toBe(BRAND.headerHeightPxWide);
+    expect(r.logoHeightPx).toBe(BRAND.logoHeightByBand.tablet);
+    expect(r.headerHeightPx).toBe(BRAND.headerHeightByBand.tablet);
   });
 
-  it('returns isWide=false just below the breakpoint (719dp)', () => {
+  it('returns isWide=true just below the legacy 720dp breakpoint (719dp, now tablet band)', () => {
+    // UX-001.1 — 719dp falls in the new tablet band (Q1 phone upper
+    // bound is 599, not 719). The legacy 720dp boundary is preserved
+    // as a constant but is no longer the band boundary. `isWide`
+    // semantic preserved: tablet !== phone → true.
     const r = resolveHeaderBreakpoint(BRAND.headerWideBreakpointPx - 1);
-    expect(r.isWide).toBe(false);
-    expect(r.logoHeightPx).toBe(BRAND.logoHeightPx);
-    expect(r.headerHeightPx).toBe(BRAND.headerHeightPx);
+    expect(r.isWide).toBe(true);
+    expect(r.logoHeightPx).toBe(BRAND.logoHeightByBand.tablet);
+    expect(r.headerHeightPx).toBe(BRAND.headerHeightByBand.tablet);
   });
 
   it('returns isWide=false for a typical iPhone portrait width (390dp)', () => {
@@ -114,9 +125,12 @@ describe('BRAND-001 Stage 2 — resolveHeaderBreakpoint', () => {
   });
 
   it('treats width=0 (SSR / static-export pre-hydration) as wide', () => {
+    // UX-001.1 — width=0 still resolves to the wide band so the first
+    // paint shows the polished layout. The band's height is now 120
+    // (per UX-001.1 §19); legacy 152 is preserved as a constant only.
     const r = resolveHeaderBreakpoint(0);
     expect(r.isWide).toBe(true);
-    expect(r.headerHeightPx).toBe(BRAND.headerHeightPxWide);
+    expect(r.headerHeightPx).toBe(BRAND.headerHeightByBand.wide);
   });
 
   it('treats negative width as wide (defensive, never crashes)', () => {
