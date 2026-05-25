@@ -42,3 +42,11 @@ export {
   lookupMachineObservation,
   makeMachineObservationKey,
 } from './machineObservationRegistry';
+
+// ── Pure-TS exports — User Allegation registry ──────────────────
+export {
+  ALL_USER_ALLEGATION_RAW_KEYS,
+  USER_ALLEGATION_REGISTRY,
+  getUserAllegationByRawKey,
+  isKnownUserAllegationRawKey,
+} from './userAllegationRegistry';
