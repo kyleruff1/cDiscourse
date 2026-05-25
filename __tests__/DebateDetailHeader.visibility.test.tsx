@@ -57,10 +57,23 @@ describe('DebateDetailHeader — accessibility-targets compliance', () => {
     expect(HEADER_SRC).toContain('accessibilityHint');
   });
 
-  it('the action and the leave button meet the 44px tap target', () => {
-    // Two Pressables; both have minHeight: 44.
-    const minHeights = HEADER_SRC.match(/minHeight:\s*44/g) || [];
-    expect(minHeights.length).toBeGreaterThanOrEqual(2);
+  it('the strip Pressables meet the 44x44 hit target via hitSlop', () => {
+    // UX-001.2 — the compact strip caps visual height at 48/56/64 per band
+    // (per the brief), so visual `minHeight` is smaller than 44. Every
+    // Pressable extends to a 44x44 effective tap target via hitSlop.
+    // accessibility-targets §1 ("44x44 logical pixels on every Pressable")
+    // is satisfied by visual + hitSlop combined. Count the literal
+    // `hitSlop` token occurrences as a proxy for Pressable hit-target
+    // coverage (≥ 5 expected: leave button, toggle ×2, overflow trigger,
+    // overflow rows).
+    // Count JSX hitSlop prop occurrences (`hitSlop={{ ... }}`); ignore
+    // documentation comments referencing the word.
+    const hitSlopCount = (HEADER_SRC.match(/hitSlop=\{\{/g) || []).length;
+    expect(hitSlopCount).toBeGreaterThanOrEqual(5);
+    // The "Leave argument" Pressable is present (accessibility-targets
+    // requires the room-exit affordance to remain reachable with the tab
+    // bar hidden in room-active view).
+    expect(HEADER_SRC).toMatch(/Leave argument/);
   });
 });
 

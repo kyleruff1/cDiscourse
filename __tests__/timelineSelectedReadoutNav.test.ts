@@ -216,11 +216,16 @@ describe('IX-004 — ArgumentGameSurface nav callbacks set selectionStatus expli
     );
   });
 
-  it('the readout panel is rendered above ArgumentTimelineMap in the timeline branch', () => {
+  it('UX-001.2 — the readout panel is rendered BELOW ArgumentTimelineMap in the timeline branch', () => {
+    // IX-004 originally placed the panel above the Timeline; UX-001.2
+    // relocates it below so the Timeline becomes the first substantive
+    // in-room object beneath the AppHeader + compact strip. The IX-004
+    // contract (model, selection source of truth, a11y live region) is
+    // preserved verbatim — only the mount-site flips.
     const panelIdx = GAME_SURFACE_SRC.indexOf('<TimelineSelectedReadoutPanel');
     const mapIdx = GAME_SURFACE_SRC.indexOf('<ArgumentTimelineMap');
     expect(panelIdx).toBeGreaterThan(-1);
     expect(mapIdx).toBeGreaterThan(-1);
-    expect(panelIdx).toBeLessThan(mapIdx);
+    expect(panelIdx).toBeGreaterThan(mapIdx);
   });
 });

@@ -53,6 +53,10 @@ describe('TL-003 — no routing primitive in the in-room view', () => {
     'src/features/arguments/ArgumentBubbleActions.tsx',
     'src/features/arguments/ArgumentSideActionRail.tsx',
     'src/features/arguments/ArgumentComposer.tsx',
+    // UX-001.2 — the compact strip is now an in-room surface (replaces the
+    // App.tsx roomToolbar's Timeline/Cards toggle); held to the same
+    // no-routing invariant.
+    'src/features/debates/DebateDetailHeader.tsx',
   ];
 
   it.each(inRoomFiles)('%s imports no navigation library', (rel) => {
@@ -102,31 +106,38 @@ describe('TL-003 — no routing library is installed as a runtime dependency', (
 
 describe('TL-003 — Cards/Timeline toggle is state-based', () => {
   const appTsx = read('App.tsx');
+  const debateHeader = read('src/features/debates/DebateDetailHeader.tsx');
 
-  it('App.tsx exposes Cards and Timeline as Pressables that call setViewMode', () => {
-    // The Cards chip:
-    expect(appTsx).toMatch(/onPress=\{\(\) => setViewMode\('stack'\)\}/);
-    // The Timeline chip:
-    expect(appTsx).toMatch(/onPress=\{\(\) => setViewMode\('timeline'\)\}/);
+  it('UX-001.2 — App.tsx threads setViewMode into DebateDetailHeader as a prop', () => {
+    // UX-001.2 — the Timeline/Cards toggle moved out of the App.tsx
+    // roomToolbar into the compact strip inside DebateDetailHeader. App.tsx
+    // still owns the setViewMode state setter and threads it via
+    // `onSetViewMode`; the toggle Pressables themselves live in the strip.
+    expect(appTsx).toMatch(/onSetViewMode=\{setViewMode\}/);
+    // The strip exposes Cards and Timeline as Pressables that call the
+    // forwarded callback. Source-scan asserts both.
+    expect(debateHeader).toMatch(/onPress=\{\(\) => onSetViewMode\?\.\('stack'\)\}/);
+    expect(debateHeader).toMatch(/onPress=\{\(\) => onSetViewMode\?\.\('timeline'\)\}/);
   });
 
   it('setViewMode is called nowhere alongside a navigation primitive', () => {
-    // Each occurrence of setViewMode must NOT be in a block that also
-    // contains a routing call. Cheap heuristic: scan ±200 chars around
-    // every match.
-    const matches: number[] = [];
-    const re = /setViewMode\s*\(/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(appTsx))) {
-      matches.push(m.index);
-    }
-    for (const idx of matches) {
-      const window = appTsx.slice(Math.max(0, idx - 200), idx + 200);
-      for (const routeRe of ROUTING_CALL_PATTERNS) {
-        expect(window).not.toMatch(routeRe);
+    // Each occurrence of setViewMode (across App.tsx + DebateDetailHeader)
+    // must NOT be in a block that also contains a routing call. Cheap
+    // heuristic: scan ±200 chars around every match.
+    for (const src of [appTsx, debateHeader]) {
+      const matches: number[] = [];
+      const re = /setViewMode\s*\(|onSetViewMode\s*[?]?\.\s*\(/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src))) {
+        matches.push(m.index);
+      }
+      for (const idx of matches) {
+        const window = src.slice(Math.max(0, idx - 200), idx + 200);
+        for (const routeRe of ROUTING_CALL_PATTERNS) {
+          expect(window).not.toMatch(routeRe);
+        }
       }
     }
-    expect(matches.length).toBeGreaterThan(0);
   });
 });
 
