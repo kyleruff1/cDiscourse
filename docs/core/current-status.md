@@ -1042,6 +1042,13 @@ See `docs/designs/UX-001.5.md` for the verbatim design + Q1-Q13 audit
 - The additive `semanticFlagsChips` field on `InspectSectionContent`
   (the existing `semanticFlags: string[]` field stays byte-identical;
   both fields coexist)
+  (POSTRUN-UX001-cleanup validation: the additive sibling pattern is
+  the correct implementation choice. The UX-001.5 brief language
+  "shape from string[] to descriptor[]" was loose phrasing; the
+  additive pattern preserves back-compat, satisfies the interface-
+  stable requirement for UX-001.5A, and does not force coordinated
+  updates across consumers of the existing semanticFlags field.
+  UX-001.5A and UX-001.7 inherit this validated pattern.)
 - The `RefereeBannerView` bounded modification (composer-only
   Observations integration; UX-001.6's QA matrix MUST include this
   surface)
