@@ -113,6 +113,44 @@ Touch-first and keyboard-first divergence is acceptable when documented. The sam
 
 When a card's design specifies cross-device QA, the design doc must enumerate which of these viewports the implementation has been verified against, with notes on any per-viewport adaptations.
 
+### Keyboard shortcut badge visibility — `{platformOs, windowWidth}` encoding (UX-001.6 / UX-001.7 lesson, promoted by OPS-005)
+
+Keyboard shortcut badges (e.g., A / I / G triggers on menu chrome, Cmd/Ctrl shortcuts in composer headers) are browser/web affordances by default. They should NOT render as primary phone or tablet UI unless a hardware-keyboard context is explicitly designed and detected.
+
+**The decision must consider Platform.OS AND viewport width, not width alone.** A 1024px-wide iPad Pro in portrait has the same window width as a 1024px-wide narrow browser window, but only the browser has a keyboard guaranteed.
+
+Canonical encoding (the actual production rule lives at `src/features/arguments/oneBox/menuKeyBadgeModel.ts:57-77`; UX-001.6's `__tests__/uxOneOneSixViewportMatrix.test.ts` pins it across the 6-viewport matrix):
+
+```typescript
+type MenuKeyBadgeContext = 'browser_keyboard' | 'touch' | 'unknown';
+
+const BROWSER_KEYBOARD_WIDTH_THRESHOLD = 1024;
+
+function deriveMenuKeyBadgeContext(input: {
+  platformOs: 'web' | 'ios' | 'android' | 'windows' | 'macos';
+  windowWidth: number;
+}): MenuKeyBadgeContext {
+  if (!Number.isFinite(input.windowWidth) || input.windowWidth <= 0) {
+    return 'unknown';
+  }
+  if (input.platformOs !== 'web') return 'touch';
+  if (input.windowWidth >= BROWSER_KEYBOARD_WIDTH_THRESHOLD) return 'browser_keyboard';
+  return 'touch';
+}
+
+// Key badges render ONLY when context === 'browser_keyboard'.
+```
+
+Rationale:
+- Native platforms (`ios` / `android` / `macos` / `windows`) suppress badges regardless of window width because the typical surface is touch-first.
+- Web at widths ≥1024 is the keyboard-first context where badges aid discoverability without crowding mobile-sized chrome.
+- The 1024 threshold matches the iPad Pro landscape boundary; web at <1024 is assumed to be narrow-browser contexts where the keyboard hint is correct semantically but visual real estate is too tight.
+- The `unknown` context (zero / negative / non-finite width) suppresses badges as a fail-safe — the cell is treated as touch until the width resolves.
+
+Cross-device QA verification (per UX-001.6 viewport matrix): badges PRESENT at 1366×768 web + 1920×1080 web; ABSENT at 390×844 iOS + 412×892 Android + 768×1024 iOS + 1024×1366 iOS native. The matrix encodes each cell as `{platformOs, windowWidth}` not just width — so the same 1024 width returns different contexts depending on platform.
+
+New cards that introduce keyboard shortcuts MUST route badge rendering through this encoding (either consume `deriveMenuKeyBadgeContext` directly or add equivalent platform-aware gating). Do NOT use width-only thresholds.
+
 ## When in doubt
 
 Read the corresponding existing component before designing. If your design would force the existing component into a major rewrite, surface it in the design doc and stop — that's a separate refactor card.

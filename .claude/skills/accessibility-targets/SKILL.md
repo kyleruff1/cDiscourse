@@ -102,8 +102,8 @@ When a node transitions state (new active, new strength band, new debt), use `Ac
 
 Keyboard shortcut hints (key badges like `A`, `I`, `G` on menu triggers) MUST NOT appear as primary UI on phone or tablet. The pattern:
 
-- Key badges render only when `Platform.OS === 'web'` AND the viewport is wide enough that a keyboard is plausible (typically `Dimensions.get('window').width >= 768`).
-- On phone (≤599dp) and tablet (600-1279dp), the key badge component renders `null` even if the keyboard shortcut is still wired (some hybrid devices have keyboards, but the visual hint is wrong as a primary mobile cue).
+- Key badges render only when `Platform.OS === 'web'` AND `windowWidth >= 1024` (the iPad Pro landscape boundary; corrected per OPS-005 from an earlier draft that used 768). The canonical encoding lives in `expo-rn-patterns` skill §"Keyboard shortcut badge visibility — `{platformOs, windowWidth}` encoding" and in production at `src/features/arguments/oneBox/menuKeyBadgeModel.ts:57-77`.
+- On phone, tablet, and all native platforms (`ios` / `android` / `macos` / `windows`), the key badge component renders `null` regardless of width even if the keyboard shortcut is still wired (some hybrid devices have keyboards, but the visual hint is wrong as a primary mobile cue).
 - The keyboard shortcut itself remains active on the web build regardless of viewport — only the visual badge is platform-conditional.
 
 Compact controls (chips, badges, key hints) must also pass three accessibility checks during cross-device QA:
