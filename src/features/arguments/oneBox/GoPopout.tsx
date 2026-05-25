@@ -106,6 +106,28 @@ export interface GoPopoutProps {
   onSelectLens: (lens: GoLens) => void;
   /** PR-001 effective reduce-motion — threaded into the chassis + mini-map. */
   reduceMotionOverride?: boolean;
+  /**
+   * UX-001.4 — fired when the user picks the new `Leave argument`
+   * entry (the `jump_leave_room` Jump-group entry added by UX-001.4).
+   * The host calls the existing `App.tsx::handleLeaveRoom` path; this
+   * is NOT a new room-exit path. When omitted, the entry is rendered
+   * disabled with a "Not available" reason. Optional → existing callers
+   * (Inspect / Go shipped tests) see the same behavior they did before
+   * the leave_room entry was added.
+   */
+  onLeaveRoom?: () => void;
+  /**
+   * UX-001.4 — chassis-level maxHeight override (logical px). Threaded
+   * straight to the `Popout` chassis. Optional; the chassis default
+   * ('72%') applies when omitted.
+   */
+  maxHeightOverride?: number;
+  /**
+   * UX-001.4 — chassis-level fixed-width override (logical px). For
+   * tablet landscape / wide variants where the menu is `panel_side` or
+   * `panel_anchored`. Threaded straight to the chassis.
+   */
+  panelWidthOverride?: number | null;
   /** testID passthrough for the popout root. */
   testID?: string;
 }
@@ -145,13 +167,25 @@ export function GoPopout({
   onSelectDensity,
   onSelectLens,
   reduceMotionOverride,
+  onLeaveRoom,
+  maxHeightOverride,
+  panelWidthOverride,
   testID,
 }: GoPopoutProps) {
   // The four control groups — `buildGoPopout` resolves each entry's active
   // + disabled state against the current view / density / lens / mini-map.
+  // UX-001.4 — `leaveRoomEnabled` flips to true when the host wires the
+  // `onLeaveRoom` callback so the new `jump_leave_room` entry renders
+  // enabled (disabled-with-reason otherwise).
   const goGroups = useMemo(
-    () => buildGoPopout({ miniMap, view, density, lens }),
-    [miniMap, view, density, lens],
+    () => buildGoPopout({
+      miniMap,
+      view,
+      density,
+      lens,
+      leaveRoomEnabled: typeof onLeaveRoom === 'function',
+    }),
+    [miniMap, view, density, lens, onLeaveRoom],
   );
 
   /**
@@ -165,6 +199,16 @@ export function GoPopout({
         case 'jump': {
           const target = goEntryToJumpTarget(entryId);
           if (target !== null) {
+            // UX-001.4 — `leave_room` calls the existing
+            // `App.tsx::handleLeaveRoom` path via `onLeaveRoom`. This
+            // is NOT a new room-exit path; it reuses the same callback
+            // UX-001.2's strip-leave uses. The Modal closes naturally
+            // when `roomActive` flips to false.
+            if (target === 'leave_room') {
+              if (onLeaveRoom) onLeaveRoom();
+              onClose();
+              return;
+            }
             onJump(target);
             // A jump is a one-shot navigation — dismiss on selection
             // (design §3.1 "dismisses on … selection"). `branch_list`
@@ -199,7 +243,7 @@ export function GoPopout({
         }
       }
     },
-    [lens, onClose, onJump, onSelectDensity, onSelectLens, onSelectView],
+    [lens, onClose, onJump, onLeaveRoom, onSelectDensity, onSelectLens, onSelectView],
   );
 
   // Map the model groups onto the chassis `PopoutGroup` shape.
@@ -239,6 +283,8 @@ export function GoPopout({
       title="Go"
       onClose={onClose}
       reduceMotionOverride={reduceMotionOverride}
+      maxHeightOverride={maxHeightOverride}
+      panelWidthOverride={panelWidthOverride}
       testID={testID ?? 'one-box-go-popout'}
     >
       {/* ── The four control groups — Jump · View · Density · Lens. ── */}

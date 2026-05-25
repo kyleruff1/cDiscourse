@@ -21,13 +21,12 @@ const SELF_ACTIONS = getRailActions('participant', 'self');
 
 // ── 1. Ordering ─────────────────────────────────────────────────
 
-describe('SC-005 buildExpandedDockViewModel — section ordering', () => {
-  it('participant-other sections follow RAIL_ACTION_CATEGORIES order', () => {
+describe('UX-001.4 buildExpandedDockViewModel — section ordering', () => {
+  it('participant-other sections: only reply remains after UX-001.4 migration', () => {
     const vm = buildExpandedDockViewModel(PARTICIPANT_OTHER_ACTIONS, 'participant', 'other');
     const cats = vm.sections.map((s) => s.category);
-    // Expected: reply → evidence → branch → review_flag (the empty
-    // watch_observe / join_side / share are skipped).
-    expect(cats).toEqual(['reply', 'evidence', 'branch', 'review_flag']);
+    // UX-001.4 — evidence, branch, review_flag categories migrated to Act.
+    expect(cats).toEqual(['reply']);
     // And each index strictly increases against the canonical order.
     const indices = cats.map((c) => RAIL_ACTION_CATEGORIES.indexOf(c));
     for (let i = 1; i < indices.length; i++) {
@@ -35,37 +34,37 @@ describe('SC-005 buildExpandedDockViewModel — section ordering', () => {
     }
   });
 
-  it('observer sections follow RAIL_ACTION_CATEGORIES order', () => {
+  it('observer sections: watch_observe / join_side / share (UX-001.4 migrated evidence)', () => {
     const vm = buildExpandedDockViewModel(OBSERVER_ACTIONS, 'observer', 'other');
     const cats = vm.sections.map((s) => s.category);
-    expect(cats).toEqual(['watch_observe', 'join_side', 'evidence', 'share']);
+    expect(cats).toEqual(['watch_observe', 'join_side', 'share']);
   });
 });
 
 // ── 2. showCategoryHeaders rule ─────────────────────────────────
 
-describe('SC-005 buildExpandedDockViewModel — showCategoryHeaders', () => {
-  it('is true for the participant-other set (4 non-empty sections)', () => {
+describe('UX-001.4 buildExpandedDockViewModel — showCategoryHeaders', () => {
+  it('is false for the participant-other set (only 1 section after migration)', () => {
     const vm = buildExpandedDockViewModel(PARTICIPANT_OTHER_ACTIONS, 'participant', 'other');
-    expect(vm.sections.length).toBeGreaterThanOrEqual(2);
-    expect(vm.showCategoryHeaders).toBe(true);
+    // After UX-001.4 migration, participant-other has only 1 non-empty
+    // section (reply); showCategoryHeaders flips to false because the
+    // single-section render reads more cleanly without a header.
+    expect(vm.sections.length).toBe(1);
+    expect(vm.showCategoryHeaders).toBe(false);
   });
 
-  it('is true for the observer set (4 non-empty sections)', () => {
-    // Lock the actual section count from groupRailActionsByCategory so a
-    // future taxonomy change cannot silently flip this.
+  it('is true for the observer set (3 non-empty sections after UX-001.4 migration)', () => {
     const sectionCount = groupRailActionsByCategory(OBSERVER_ACTIONS).length;
-    expect(sectionCount).toBe(4);
+    expect(sectionCount).toBe(3);
     const vm = buildExpandedDockViewModel(OBSERVER_ACTIONS, 'observer', 'other');
     expect(vm.showCategoryHeaders).toBe(true);
   });
 
-  it('is false for the own-bubble set (collapses to a single review_flag section)', () => {
+  it('is false for the own-bubble set (empty after UX-001.4 migration)', () => {
     const sectionCount = groupRailActionsByCategory(SELF_ACTIONS).length;
-    expect(sectionCount).toBe(1);
+    expect(sectionCount).toBe(0);
     const vm = buildExpandedDockViewModel(SELF_ACTIONS, 'participant', 'self');
-    expect(vm.sections).toHaveLength(1);
-    expect(vm.sections[0].category).toBe('review_flag');
+    expect(vm.sections).toHaveLength(0);
     expect(vm.showCategoryHeaders).toBe(false);
   });
 

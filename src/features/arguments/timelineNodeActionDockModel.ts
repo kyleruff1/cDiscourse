@@ -362,6 +362,19 @@ const SOURCE_CHAIN_ACTION_TABLE: Readonly<Record<
  * Default secondary order — roadmap §8 with `reply`, `flag`, and
  * `open_cards_detail` appended at the end. The chosen primary is removed
  * before ordering.
+ *
+ * UX-001.4 — Codes migrated to Act (ask_source, ask_quote, clarify,
+ * add_evidence, narrow, concede, confirm, branch, synthesize, flag)
+ * remain in this ordering list because the internal lifecycle /
+ * metadata / source-chain tables reference them. The dock's final
+ * action surface filters them out via `DOCK_SURVIVING_ACTION_CODES`
+ * (below) so the user only sees the surviving codes:
+ *   - reply, challenge (preserve-as-shortcut)
+ *   - mark_moved_on, mark_ignored (META-001 manual tag application)
+ *   - open_cards_detail (board view toggle)
+ *   - expand_branch (BR-001 collapsed-stub toggle)
+ * Migrated codes now live in Act; the user opens Act on a node to
+ * access them.
  */
 const DEFAULT_SECONDARY_ORDER: ReadonlyArray<TimelineNodeActionDockActionCode> = Object.freeze([
   'challenge',
@@ -380,6 +393,75 @@ const DEFAULT_SECONDARY_ORDER: ReadonlyArray<TimelineNodeActionDockActionCode> =
   'flag',
   'open_cards_detail',
 ]);
+
+/**
+ * UX-001.4 — The set of action codes the timeline node action dock
+ * still SURFACES after the Act consolidation. Codes outside this set
+ * are migrated to Act and filtered from the dock's final action list.
+ *
+ * Surviving codes (per UX-001.4 design §1 Table B.4):
+ *   - reply / challenge — high-frequency preserve-as-shortcut
+ *   - mark_moved_on / mark_ignored — META-001 manual tag application
+ *     (not Constitution moves; META-001 owns them)
+ *   - open_cards_detail — board view toggle (not a move)
+ *   - expand_branch — BR-001 collapsed-stub toggle (not a move)
+ *
+ * The pure-TS pickPrimaryAction lifecycle tables still reference the
+ * full vocabulary (so primary selection logic stays correct); after
+ * primary selection, the dock model substitutes a surviving code for
+ * any migrated primary and filters the final action list.
+ */
+export const DOCK_SURVIVING_ACTION_CODES: ReadonlySet<TimelineNodeActionDockActionCode> =
+  new Set<TimelineNodeActionDockActionCode>([
+    'reply',
+    'challenge',
+    'mark_moved_on',
+    'mark_ignored',
+    'open_cards_detail',
+    'expand_branch',
+  ]);
+
+/**
+ * UX-001.4 — Substitute a surviving primary action when the lifecycle
+ * /  metadata / evidence pipeline picked a migrated-to-Act code as the
+ * primary. The substitution preserves the dock's "always have a
+ * primary" contract while keeping the migrated affordance reachable
+ * via Act. Mapping is chosen to minimize regression:
+ *   - challenge stays as the dock primary for adversarial replies
+ *   - reply stays for ordinary continuation
+ *   - open_cards_detail surfaces detailed review when a substitute is
+ *     not clearly chosen
+ *
+ * The original primary code (the migrated code) is still surfaced via
+ * `primarySuggestion.rationaleCode` so downstream telemetry can see
+ * which Act entry the dock would have suggested.
+ */
+export function substituteMigratedPrimary(
+  primary: TimelineNodeActionDockActionCode,
+): TimelineNodeActionDockActionCode {
+  if (DOCK_SURVIVING_ACTION_CODES.has(primary)) return primary;
+  // Adversarial Act entries → challenge survives.
+  if (primary === 'ask_source' || primary === 'ask_quote' || primary === 'clarify') {
+    return 'challenge';
+  }
+  // Resolution / structure Act entries → reply survives.
+  if (
+    primary === 'narrow' ||
+    primary === 'concede' ||
+    primary === 'confirm' ||
+    primary === 'synthesize' ||
+    primary === 'branch' ||
+    primary === 'add_evidence'
+  ) {
+    return 'reply';
+  }
+  // Governance Act entries (flag) → open the cards-detail surface so
+  // the user can see context before opening Act.
+  if (primary === 'flag') {
+    return 'open_cards_detail';
+  }
+  return 'reply';
+}
 
 /** SC-004 UI vocabulary — action labels. ≤ 24 chars each. Plain English. */
 const ACTION_LABELS: Readonly<Record<TimelineNodeActionDockActionCode, string>> = Object.freeze({
@@ -982,18 +1064,34 @@ export function buildTimelineNodeActionDockModel(
 
   const primary = pickPrimaryAction(input.target, resolved, input.actor);
 
-  // Compose action list: primary first, secondaries in roadmap §8 order
-  // minus primary.
-  const secondaries = reorderSecondaries(primary.action, resolved.clusterMetadata);
+  // UX-001.4 — Substitute a surviving primary code when the lifecycle /
+  // metadata / evidence pipeline picked a migrated-to-Act code. The
+  // original primary is preserved in `primarySuggestion.rationaleCode`
+  // (downstream telemetry / AN-003 diagnostics still see the choice);
+  // the substitution only affects what the dock SURFACES. Migrated
+  // codes now live in Act — the user opens Act on the node to access
+  // them.
+  const surfacedPrimary = substituteMigratedPrimary(primary.action);
+
+  // Compose action list: surfaced primary first, secondaries in roadmap
+  // §8 order minus the surfaced primary.
+  const secondaries = reorderSecondaries(surfacedPrimary, resolved.clusterMetadata);
   // The primary's actor-rule rationale is overridden by the upstream
   // decision rationale (lifecycle / tag / evidence / target / actor).
-  const ordered: TimelineNodeActionDockActionCode[] = [primary.action, ...secondaries];
+  const ordered: TimelineNodeActionDockActionCode[] = [surfacedPrimary, ...secondaries];
 
   // For collapsed_stub: keep only expand_branch + open_cards_detail in
   // the action list; the rest are disabled regardless.
   // For detached node: keep only open_cards_detail enabled.
 
-  const actions: TimelineNodeActionDockAction[] = ordered.map((code, idx) => {
+  // UX-001.4 — filter to the surviving action set. Migrated codes
+  // (ask_source / ask_quote / clarify / add_evidence / narrow / concede
+  // / confirm / branch / synthesize / flag) are surfaced via Act now,
+  // not the dock. The filter runs AFTER ordering so the surviving
+  // codes keep their relative order.
+  const surfaced = ordered.filter((code) => DOCK_SURVIVING_ACTION_CODES.has(code));
+
+  const actions: TimelineNodeActionDockAction[] = surfaced.map((code, idx) => {
     const actorGate = actorRule(input.actor, code);
     const targetGate = gateActionForTarget(code, input.target, resolved);
     const gate = combineGates(actorGate, targetGate);

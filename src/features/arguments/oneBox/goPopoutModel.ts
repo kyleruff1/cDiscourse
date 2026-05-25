@@ -112,6 +112,10 @@ export const ALL_GO_ENTRY_KINDS: ReadonlyArray<GoEntryKind> = Object.freeze([
 /**
  * A stable identifier for every Go-popout entry. The jump ids name a jump
  * target; the view / density / lens ids name a render-mode option.
+ *
+ * UX-001.4 — `jump_leave_room` added. Routes through the existing
+ * `App.tsx::handleLeaveRoom` path via `GoPopoutProps.onLeaveRoom`. NOT
+ * a new room-exit path.
  */
 export type GoEntryId =
   // Jump group (design §3.2 row 1).
@@ -119,6 +123,9 @@ export type GoEntryId =
   | 'jump_latest'
   | 'jump_hot_zone'
   | 'jump_branch_list'
+  // UX-001.4 — Leave-room jump entry. Always present; disabled when the
+  // host omits the `onLeaveRoom` callback.
+  | 'jump_leave_room'
   // View group (design §3.2 row 2).
   | 'view_timeline'
   | 'view_cards'
@@ -139,8 +146,12 @@ export type GoEntryId =
  * or the Branch-list entry which opens a sub-picker rather than jumping to
  * one node). The host pans the board; there is NO route transition (design
  * §3.2).
+ *
+ * UX-001.4 — `leave_room` added. Calls `App.tsx::handleLeaveRoom` via
+ * the host wiring; it is the SAME path UX-001.2's strip-leave uses,
+ * NOT a new path.
  */
-export type GoJumpTarget = 'root' | 'latest' | 'hot_zone' | 'branch_list';
+export type GoJumpTarget = 'root' | 'latest' | 'hot_zone' | 'branch_list' | 'leave_room';
 
 /** Frozen list of every jump target. */
 export const ALL_GO_JUMP_TARGETS: ReadonlyArray<GoJumpTarget> = Object.freeze([
@@ -148,6 +159,7 @@ export const ALL_GO_JUMP_TARGETS: ReadonlyArray<GoJumpTarget> = Object.freeze([
   'latest',
   'hot_zone',
   'branch_list',
+  'leave_room',
 ]);
 
 // ── Density ↔ entry mapping ────────────────────────────────────
@@ -201,6 +213,9 @@ export function goEntryToJumpTarget(entryId: GoEntryId): GoJumpTarget | null {
       return 'hot_zone';
     case 'jump_branch_list':
       return 'branch_list';
+    case 'jump_leave_room':
+      // UX-001.4 — Leave-room jump entry.
+      return 'leave_room';
     default:
       return null;
   }
@@ -343,6 +358,17 @@ const GO_ENTRY_DEFINITIONS: Readonly<Record<GoEntryId, GoEntryDefinition>> = Obj
     accessibilityLabel: 'Open the list of side branches to jump to',
     keyBadge: 'B',
   }),
+  // UX-001.4 — Leave-room entry. Calls the existing handleLeaveRoom
+  // path via the host. Plain English; matches the strip's "Leave"
+  // label so muscle memory carries.
+  jump_leave_room: Object.freeze({
+    id: 'jump_leave_room',
+    kind: 'jump',
+    group: 'jump',
+    label: 'Leave argument',
+    accessibilityLabel: 'Leave this argument and return to the conversation list',
+    keyBadge: 'X',
+  }),
   // ── View group ──
   view_timeline: Object.freeze({
     id: 'view_timeline',
@@ -434,6 +460,8 @@ export const GO_DISABLED_REASON = Object.freeze({
   noHotZone: 'No hot zone yet — activity is spread out.',
   /** The entry's option is already the active one. */
   alreadyActive: 'Already selected.',
+  /** UX-001.4 — Leave-room callback not wired by the host. */
+  leaveRoomUnavailable: 'Leaving is not available here.',
 });
 
 // ── Lens helper copy ───────────────────────────────────────────
@@ -510,6 +538,14 @@ export interface BuildGoPopoutInput {
   density: GalleryDensityMode;
   /** The currently-active Go focus lens. */
   lens: GoLens;
+  /**
+   * UX-001.4 — true when the host has supplied an `onLeaveRoom` callback
+   * (the existing `App.tsx::handleLeaveRoom` path). When false, the
+   * `jump_leave_room` entry renders disabled with `leaveRoomUnavailable`.
+   * Optional → defaults to `false` for existing callers that did not
+   * supply leave-room wiring.
+   */
+  leaveRoomEnabled?: boolean;
 }
 
 // ── Hot-zone / branch availability ─────────────────────────────
@@ -578,6 +614,17 @@ function resolveEntryState(
           isActive: false,
           isDisabled: !enabled,
           disabledReason: enabled ? null : GO_DISABLED_REASON.noHotZone,
+        };
+      }
+      if (id === 'jump_leave_room') {
+        // UX-001.4 — disabled when the host has not wired the
+        // handleLeaveRoom callback (back-compat for callers that don't
+        // supply leave-room). Plain-language reason; no internal code.
+        const enabled = input.leaveRoomEnabled === true;
+        return {
+          isActive: false,
+          isDisabled: !enabled,
+          disabledReason: enabled ? null : GO_DISABLED_REASON.leaveRoomUnavailable,
         };
       }
       // Root / Latest — disabled only on a truly empty timeline (no node

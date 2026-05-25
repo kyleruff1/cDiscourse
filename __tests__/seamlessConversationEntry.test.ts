@@ -133,18 +133,18 @@ describe('GALLERY_SECTIONS catalogue', () => {
 // Rail action sets
 // ──────────────────────────────────────────────────────────────
 
-describe('getRailActions', () => {
-  it('observer set exposes Watch / Join For / Join Against / Ask source / Open timeline / Share', () => {
+describe('getRailActions (UX-001.4 — Act consolidation)', () => {
+  it('observer set exposes Watch / Join For / Join Against / Share (UX-001.4: ask_source + open_timeline migrated to Act / Go)', () => {
     const codes = getRailActions('observer', 'other').map((a) => a.code);
-    expect(codes).toEqual(['watch', 'join_aff', 'join_neg', 'ask_source', 'open_timeline', 'share']);
+    expect(codes).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
   });
-  it('participant on OTHER bubble exposes Reply / Disagree / Ask source / Ask quote / Split / Flag / Qualifiers', () => {
+  it('participant on OTHER bubble exposes Reply + Disagree (UX-001.4: ask_source / ask_quote / split_branch / flag / qualifiers migrated to Act)', () => {
     const codes = getRailActions('participant', 'other').map((a) => a.code);
-    expect(codes).toEqual(['reply', 'disagree', 'ask_source', 'ask_quote', 'split_branch', 'flag', 'qualifiers']);
+    expect(codes).toEqual(['reply', 'disagree']);
   });
-  it('participant on OWN bubble exposes only Qualifiers + Request deletion (no edit, no disagree, no flag, no score)', () => {
+  it('participant on OWN bubble exposes nothing (UX-001.4: qualifiers + request_deletion migrated to Act)', () => {
     const codes = getRailActions('participant', 'self').map((a) => a.code);
-    expect(codes).toEqual(['qualifiers', 'request_deletion']);
+    expect(codes).toEqual([]);
     expect(codes).not.toContain('reply');
     expect(codes).not.toContain('disagree');
     expect(codes).not.toContain('flag');

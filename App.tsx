@@ -697,6 +697,9 @@ function MainAppShell({
               // persistent collapsed composer strip via onComposerExpand.
               onActiveMessageChange={setTimelineActiveMessageId}
               onComposerExpand={handleComposerExpand}
+              // UX-001.4 — Go popout's "Leave argument" entry calls the
+              // existing handleLeaveRoom path (not a new room-exit path).
+              onLeaveRoom={handleLeaveRoom}
             />
 
             {/* COMPOSER-002 — in-room composer dock. Overlays the room

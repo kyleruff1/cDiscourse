@@ -319,7 +319,7 @@ describe('SC-004 buildTimelineNodeActionDockModel — happy path', () => {
     expect(model.clusterHeader.lifecycleLabel).toBe('Open for response');
   });
 
-  it('actions list contains every public action code (15 codes; expand_branch may also appear when disabled)', () => {
+  it('UX-001.4 — actions list contains only the surviving codes (reply / challenge / mark_moved_on / mark_ignored / open_cards_detail)', () => {
     const root = fakeNode({ messageId: 'r', isRoot: true, branchRootMessageId: 'r' });
     const input = makeInput({
       target: { kind: 'node', messageId: 'r' },
@@ -329,11 +329,14 @@ describe('SC-004 buildTimelineNodeActionDockModel — happy path', () => {
     });
     const model = buildTimelineNodeActionDockModel(input);
     const codes = new Set(model.actions.map((a) => a.action));
+    // UX-001.4 — only the surviving codes (DOCK_SURVIVING_ACTION_CODES) are surfaced.
     expect(codes.has('reply')).toBe(true);
     expect(codes.has('challenge')).toBe(true);
-    expect(codes.has('flag')).toBe(true);
     expect(codes.has('open_cards_detail')).toBe(true);
-    expect(codes.has('synthesize')).toBe(true);
+    // Migrated codes live in Act now — the dock no longer surfaces them.
+    for (const migrated of ['flag', 'synthesize', 'ask_source', 'ask_quote', 'clarify', 'add_evidence', 'narrow', 'concede', 'confirm', 'branch']) {
+      expect(codes.has(migrated as TimelineNodeActionDockActionCode)).toBe(false);
+    }
   });
 
   it('cluster header reads cluster lifecycle, NOT move-level metadata', () => {
@@ -365,36 +368,39 @@ describe('SC-004 actor-role matrix', () => {
     }));
   }
 
-  it('self disables reply / challenge / ask_source / ask_quote with own_bubble', () => {
+  it('UX-001.4 — self surface: reply / challenge disabled with own_bubble (the surviving codes; ask_source / ask_quote migrated to Act)', () => {
     const m = build('self');
-    const get = (a: TimelineNodeActionDockActionCode) => m.actions.find((x) => x.action === a)!;
-    expect(get('reply').isDisabled).toBe(true);
-    expect(get('reply').disabledReason).toBe('own_bubble');
-    expect(get('challenge').isDisabled).toBe(true);
-    expect(get('challenge').disabledReason).toBe('own_bubble');
-    expect(get('ask_source').isDisabled).toBe(true);
-    expect(get('ask_source').disabledReason).toBe('own_bubble');
-    expect(get('ask_quote').isDisabled).toBe(true);
-    expect(get('ask_quote').disabledReason).toBe('own_bubble');
+    const get = (a: TimelineNodeActionDockActionCode) => m.actions.find((x) => x.action === a);
+    // Surviving codes: still surfaced with the same own-bubble gating.
+    expect(get('reply')?.isDisabled).toBe(true);
+    expect(get('reply')?.disabledReason).toBe('own_bubble');
+    expect(get('challenge')?.isDisabled).toBe(true);
+    expect(get('challenge')?.disabledReason).toBe('own_bubble');
+    // Migrated codes — no longer in the dock surface. The user opens
+    // Act on the node (where the 3-gate role filter applies).
+    expect(get('ask_source')).toBeUndefined();
+    expect(get('ask_quote')).toBeUndefined();
   });
 
-  it('self enables narrow / concede / synthesize (own-bubble eligibility)', () => {
+  it('UX-001.4 — self surface: narrow / concede / synthesize no longer rendered in dock (Act is canonical home)', () => {
     const m = build('self');
-    const get = (a: TimelineNodeActionDockActionCode) => m.actions.find((x) => x.action === a)!;
-    expect(get('narrow').isDisabled).toBe(false);
-    expect(get('concede').isDisabled).toBe(false);
-    // synthesize on a node target is gated by cluster_action_on_node, NOT own_bubble.
-    expect(get('synthesize').disabledReason).toBe('cluster_action_on_node');
+    const get = (a: TimelineNodeActionDockActionCode) => m.actions.find((x) => x.action === a);
+    // Resolve-group entries migrated to Act per Table B.4. The user
+    // opens Act → Resolve to access narrow / concede / synthesize.
+    expect(get('narrow')).toBeUndefined();
+    expect(get('concede')).toBeUndefined();
+    expect(get('synthesize')).toBeUndefined();
   });
 
-  it('observer disables most participant actions with observer_must_join, but allows ask_source + flag + open_cards_detail', () => {
+  it('UX-001.4 — observer surface: reply disabled with observer_must_join; open_cards_detail enabled; ask_source / flag migrated to Act', () => {
     const m = build('observer');
-    const get = (a: TimelineNodeActionDockActionCode) => m.actions.find((x) => x.action === a)!;
-    expect(get('reply').isDisabled).toBe(true);
-    expect(get('reply').disabledReason).toBe('observer_must_join');
-    expect(get('ask_source').isDisabled).toBe(false);
-    expect(get('flag').isDisabled).toBe(false);
-    expect(get('open_cards_detail').isDisabled).toBe(false);
+    const get = (a: TimelineNodeActionDockActionCode) => m.actions.find((x) => x.action === a);
+    expect(get('reply')?.isDisabled).toBe(true);
+    expect(get('reply')?.disabledReason).toBe('observer_must_join');
+    expect(get('open_cards_detail')?.isDisabled).toBe(false);
+    // Migrated to Act — observer opens Act → Evidence to ask source.
+    expect(get('ask_source')).toBeUndefined();
+    expect(get('flag')).toBeUndefined();
   });
 
   it('observer primary is open_cards_detail (does not jump to a posting action)', () => {
@@ -523,7 +529,7 @@ describe('SC-004 metadata interaction', () => {
     { code: 'ready_for_synthesis', action: 'synthesize' },
   ];
 
-  it.each(TAG_EXPECTATIONS)('manual tag $code on selected node promotes primary to $action', ({ code, action }) => {
+  it.each(TAG_EXPECTATIONS)('UX-001.4 — manual tag $code on selected node still drives primarySuggestion.action = $action (internal selection unchanged; surfaced primary may be substituted)', ({ code, action }) => {
     const linkage = makeMoveLinkage({
       messageId: 'r',
       userAppliedTags: [makeManualTagEntry(code)],
@@ -535,14 +541,12 @@ describe('SC-004 metadata interaction', () => {
       lifecycleClusters: [{ clusterId: 'r', state: 'open', messageIds: ['r'] }],
       moveLinks: [linkage],
     }));
-    // For synthesize, the dock disables the action on node targets (cluster_action_on_node).
-    if (action === 'synthesize') {
-      expect(m.primarySuggestion.action).toBe('synthesize');
-      const synth = m.actions.find((a) => a.action === 'synthesize')!;
-      expect(synth.disabledReason).toBe('cluster_action_on_node');
-    } else {
-      expect(m.primarySuggestion.action).toBe(action);
-    }
+    // UX-001.4 — primarySuggestion preserves the original lifecycle /
+    // tag selection (downstream telemetry / AN-003 still sees the
+    // chosen code). The surfaced action list substitutes migrated
+    // codes for the next survivor — that's tested separately in the
+    // surface-coverage suites.
+    expect(m.primarySuggestion.action).toBe(action);
   });
 
   it('manual tag beats lifecycle default (intent > default)', () => {
@@ -578,7 +582,7 @@ describe('SC-004 metadata interaction', () => {
     expect(m.clusterHeader.manualTagSummary).toContain('Needs source');
   });
 
-  it('auto metadata `synthesis_candidate` promotes synthesize to secondary head (cluster target)', () => {
+  it('UX-001.4 — synthesis_candidate cluster meta keeps lifecycle primary (synthesize migrated to Act; dock surfaces reply)', () => {
     const meta = makeClusterMetadata({
       clusterId: 'r',
       lifecycleState: 'open',
@@ -591,14 +595,15 @@ describe('SC-004 metadata interaction', () => {
       lifecycleClusters: [{ clusterId: 'r', state: 'open', messageIds: ['r'] }],
       clusterMetas: [meta],
     }));
-    // Primary stays as lifecycle default (open → reply); synthesize moves
-    // forward in the secondaries.
+    // UX-001.4 — primary lifecycle pick is reply (open → reply); since
+    // reply is a surviving code, the dock surfaces it as-is.
     expect(m.primarySuggestion.action).toBe('reply');
-    const secondaries = m.actions.slice(1).map((a) => a.action);
-    expect(secondaries.indexOf('synthesize')).toBeLessThan(secondaries.indexOf('flag'));
+    // The dock surface no longer includes synthesize (migrated to Act).
+    const codes = new Set(m.actions.map((a) => a.action));
+    expect(codes.has('synthesize')).toBe(false);
   });
 
-  it('auto metadata `repeated_axis_pressure` promotes narrow + branch ahead of others', () => {
+  it('UX-001.4 — repeated_axis_pressure no longer promotes narrow / branch into the dock surface (both migrated to Act)', () => {
     const meta = makeClusterMetadata({
       clusterId: 'r',
       lifecycleState: 'open',
@@ -611,9 +616,14 @@ describe('SC-004 metadata interaction', () => {
       lifecycleClusters: [{ clusterId: 'r', state: 'open', messageIds: ['r'] }],
       clusterMetas: [meta],
     }));
-    const secondaries = m.actions.slice(1).map((a) => a.action);
-    expect(secondaries.indexOf('narrow')).toBeLessThan(secondaries.indexOf('clarify'));
-    expect(secondaries.indexOf('branch')).toBeLessThan(secondaries.indexOf('flag'));
+    // UX-001.4 — narrow, branch, clarify, flag all migrated to Act.
+    // The dock surface no longer carries them; the user opens Act on
+    // the node to access narrow / clarify / branch / flag.
+    const codes = new Set(m.actions.map((a) => a.action));
+    expect(codes.has('narrow')).toBe(false);
+    expect(codes.has('branch')).toBe(false);
+    expect(codes.has('clarify')).toBe(false);
+    expect(codes.has('flag')).toBe(false);
   });
 
   it('auto metadata never overrides primary (cluster lifecycle wins)', () => {
@@ -713,7 +723,7 @@ describe('SC-004 evidence / source-chain mapping', () => {
     expect(m.primarySuggestion.action).toBe('open_cards_detail');
   });
 
-  it('source_attached auto code disables ask_source with evidence_already_attached', () => {
+  it('UX-001.4 — source_attached auto code no longer surfaces ask_source (migrated to Act; evidence-attached gating lives in Act\'s 3-gate model)', () => {
     const linkage = makeMoveLinkage({
       messageId: 'r',
       autoDerivedMetadata: [makeAutoEntry('source_attached')],
@@ -725,12 +735,10 @@ describe('SC-004 evidence / source-chain mapping', () => {
       lifecycleClusters: [{ clusterId: 'r', state: 'sourced', messageIds: ['r'] }],
       moveLinks: [linkage],
     }));
-    const askSrc = m.actions.find((a) => a.action === 'ask_source')!;
-    expect(askSrc.isDisabled).toBe(true);
-    expect(askSrc.disabledReason).toBe('evidence_already_attached');
+    expect(m.actions.find((a) => a.action === 'ask_source')).toBeUndefined();
   });
 
-  it('quote_attached auto code disables ask_quote with quote_already_attached', () => {
+  it('UX-001.4 — quote_attached auto code no longer surfaces ask_quote (migrated to Act)', () => {
     const linkage = makeMoveLinkage({
       messageId: 'r',
       autoDerivedMetadata: [makeAutoEntry('quote_attached')],
@@ -742,9 +750,7 @@ describe('SC-004 evidence / source-chain mapping', () => {
       lifecycleClusters: [{ clusterId: 'r', state: 'open', messageIds: ['r'] }],
       moveLinks: [linkage],
     }));
-    const askQ = m.actions.find((a) => a.action === 'ask_quote')!;
-    expect(askQ.isDisabled).toBe(true);
-    expect(askQ.disabledReason).toBe('quote_already_attached');
+    expect(m.actions.find((a) => a.action === 'ask_quote')).toBeUndefined();
   });
 });
 
@@ -753,31 +759,25 @@ describe('SC-004 evidence / source-chain mapping', () => {
 describe('SC-004 branch / cluster selection', () => {
   const root = fakeNode({ messageId: 'r', isRoot: true, branchRootMessageId: 'r' });
 
-  it('node target — synthesize is disabled with cluster_action_on_node', () => {
+  it('UX-001.4 — synthesize migrated to Act (no longer surfaced on node target; the user opens Act → Resolve to synthesize)', () => {
     const m = buildTimelineNodeActionDockModel(makeInput({
       target: { kind: 'node', messageId: 'r' },
       actor: 'other',
       nodes: [root],
       lifecycleClusters: [{ clusterId: 'r', state: 'open', messageIds: ['r'] }],
     }));
-    const synth = m.actions.find((a) => a.action === 'synthesize')!;
-    expect(synth.isDisabled).toBe(true);
-    expect(synth.disabledReason).toBe('cluster_action_on_node');
+    expect(m.actions.find((a) => a.action === 'synthesize')).toBeUndefined();
   });
 
-  it('cluster target — ask_source / ask_quote are disabled with node_action_on_cluster', () => {
+  it('UX-001.4 — ask_source / ask_quote migrated to Act (no longer surfaced on cluster target either; Act\'s 3-gate model decides eligibility)', () => {
     const m = buildTimelineNodeActionDockModel(makeInput({
       target: { kind: 'cluster', branchRootMessageId: 'r' },
       actor: 'other',
       nodes: [root],
       lifecycleClusters: [{ clusterId: 'r', state: 'open', messageIds: ['r'] }],
     }));
-    const askSrc = m.actions.find((a) => a.action === 'ask_source')!;
-    expect(askSrc.isDisabled).toBe(true);
-    expect(askSrc.disabledReason).toBe('node_action_on_cluster');
-    const askQ = m.actions.find((a) => a.action === 'ask_quote')!;
-    expect(askQ.isDisabled).toBe(true);
-    expect(askQ.disabledReason).toBe('node_action_on_cluster');
+    expect(m.actions.find((a) => a.action === 'ask_source')).toBeUndefined();
+    expect(m.actions.find((a) => a.action === 'ask_quote')).toBeUndefined();
   });
 
   it('collapsed_stub target — primary is expand_branch', () => {

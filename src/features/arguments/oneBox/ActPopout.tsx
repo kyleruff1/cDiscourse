@@ -233,6 +233,27 @@ export interface ActPopoutProps {
   onRoleChange: (entryId: ActEntryId) => void;
   /** PR-001 effective reduce-motion — threaded into the chassis. */
   reduceMotionOverride?: boolean;
+  /**
+   * UX-001.4 — the "Acting on:" header line shown above the first
+   * group. Plain English, derived by the host from
+   * `composerActingOnModel.deriveComposerActingOnLabel`. When `null` /
+   * absent (e.g. `targetKind === 'room'`, no node selected) no header
+   * row renders — preserves the existing behavior for callers that do
+   * not supply the prop. The header is `<Text>` (not interactive).
+   */
+  actingOnLabel?: string | null;
+  /**
+   * UX-001.4 — chassis-level maxHeight override (logical px). Threaded
+   * straight to the `Popout` chassis. Optional; when omitted, the
+   * chassis default ('72%') applies.
+   */
+  maxHeightOverride?: number;
+  /**
+   * UX-001.4 — chassis-level fixed-width override (logical px). For
+   * tablet landscape / wide variants where the menu is `panel_anchored`
+   * or `panel_side`. Threaded straight to the `Popout` chassis.
+   */
+  panelWidthOverride?: number | null;
   /** testID passthrough for the popout root. */
   testID?: string;
 }
@@ -258,6 +279,9 @@ export function ActPopout({
   onDirectAction,
   onRoleChange,
   reduceMotionOverride,
+  actingOnLabel,
+  maxHeightOverride,
+  panelWidthOverride,
   testID,
 }: ActPopoutProps) {
   // The 3-gate flash-menu content. QOL-031 CONSUMES `buildActPopout` — it
@@ -364,8 +388,19 @@ export function ActPopout({
       title="Act"
       onClose={onClose}
       reduceMotionOverride={reduceMotionOverride}
+      maxHeightOverride={maxHeightOverride}
+      panelWidthOverride={panelWidthOverride}
       testID={testID ?? 'one-box-act-popout'}
     >
+      {/* UX-001.4 — "Acting on:" header line. Renders only when the
+          host supplies the label. Plain English, derived from
+          composerActingOnModel.deriveComposerActingOnLabel so the Act
+          menu and the composer's compact target strip never drift. */}
+      {actingOnLabel ? (
+        <Text style={styles.actingOnHeader} testID="act-popout-acting-on">
+          Acting on: {actingOnLabel}
+        </Text>
+      ) : null}
       {popoutGroups.length === 0 ? (
         // The design §8 edge case — the engine + role gates left zero
         // entries (a locked / archived node, an observer with no rights).
@@ -394,5 +429,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: SURFACE_TOKENS.textSecondary,
     padding: SPACING.l,
+  },
+  // UX-001.4 — "Acting on:" header line above the first entry group.
+  // Plain text, non-interactive, hidden from the entry list's focus
+  // traversal. Subtle visual treatment (small caps, secondary color) so
+  // it doesn't compete with the entry rows.
+  actingOnHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: SURFACE_TOKENS.textSecondary,
+    paddingHorizontal: SPACING.m,
+    paddingTop: SPACING.s,
+    paddingBottom: SPACING.xs,
+    letterSpacing: 0.4,
   },
 });

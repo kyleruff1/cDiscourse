@@ -88,15 +88,18 @@ describe('SC-005 deriveDockContext', () => {
 
 // ── 3. buildCollapsedDockLabel — the four primary strings ────────
 
-describe('SC-005 buildCollapsedDockLabel', () => {
+describe('UX-001.4 buildCollapsedDockLabel (post-Act-consolidation)', () => {
   const expected: Record<DockContext, string> = {
     observer_no_node: 'Watch',
     observer_node: 'Actions on this point',
-    participant_own: 'On your message',
+    // UX-001.4 — own-bubble action set is empty after migration; the
+    // collapsed label now points at the Act menu where qualifiers +
+    // request_deletion live.
+    participant_own: 'Open Act',
     participant_other: 'Reply',
   };
 
-  it('returns the four collapsed primary strings per the issue scope', () => {
+  it('returns the four collapsed primary strings (UX-001.4 updated participant_own → "Open Act")', () => {
     for (const ctx of Object.keys(expected) as DockContext[]) {
       expect(buildCollapsedDockLabel(ctx).primary).toBe(expected[ctx]);
     }

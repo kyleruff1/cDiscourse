@@ -62,24 +62,30 @@ describe('SC-001 every rail action has a category', () => {
   });
 });
 
-// ── Stage 6.4 contract still holds ───────────────────────────────
+// ── UX-001.4 contract — Act consolidation (B.1/B.2/B.3 migration) ─
 
-describe('SC-001 Stage 6.4 contract — action codes per viewer/actor', () => {
-  it('observer set: watch / join_aff / join_neg / ask_source / open_timeline / share', () => {
+describe('UX-001.4 contract — action codes per viewer/actor (post-Act-consolidation)', () => {
+  it('observer set: watch / join_aff / join_neg / share (ask_source / open_timeline migrated)', () => {
     const codes = getRailActions('observer', 'other').map((a) => a.code);
-    expect(codes).toEqual(['watch', 'join_aff', 'join_neg', 'ask_source', 'open_timeline', 'share']);
+    expect(codes).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
+    // Migrated codes — no longer rendered (open Act on a node to access them).
+    expect(codes).not.toContain('ask_source');
+    expect(codes).not.toContain('open_timeline');
   });
 
-  it('participant on other-bubble: reply / disagree / ask_source / ask_quote / split_branch / flag / qualifiers', () => {
+  it('participant on other-bubble: reply / disagree (ask_source / ask_quote / split_branch / flag / qualifiers migrated to Act)', () => {
     const codes = getRailActions('participant', 'other').map((a) => a.code);
-    expect(codes).toEqual(['reply', 'disagree', 'ask_source', 'ask_quote', 'split_branch', 'flag', 'qualifiers']);
+    expect(codes).toEqual(['reply', 'disagree']);
+    for (const migrated of ['ask_source', 'ask_quote', 'split_branch', 'flag', 'qualifiers']) {
+      expect(codes).not.toContain(migrated);
+    }
   });
 
-  it('participant on OWN bubble: only qualifiers + request_deletion (no edit/disagree/flag/score)', () => {
+  it('participant on OWN bubble: empty (qualifiers + request_deletion migrated to Act)', () => {
     const codes = getRailActions('participant', 'self').map((a) => a.code);
-    expect(codes).toEqual(['qualifiers', 'request_deletion']);
-    for (const forbidden of ['reply', 'disagree', 'flag', 'ask_source', 'ask_quote', 'split_branch']) {
-      expect(codes).not.toContain(forbidden);
+    expect(codes).toEqual([]);
+    for (const migrated of ['qualifiers', 'request_deletion', 'reply', 'disagree', 'flag', 'ask_source', 'ask_quote', 'split_branch']) {
+      expect(codes).not.toContain(migrated);
     }
   });
 });
@@ -102,25 +108,29 @@ describe('SC-001 groupRailActionsByCategory', () => {
     }
   });
 
-  it('observer set covers at least 4 of the 7 categories (watch_observe, join_side, evidence, share)', () => {
+  it('observer set covers watch_observe / join_side / share (UX-001.4: evidence migrated to Act)', () => {
     const groups = groupRailActionsByCategory(getRailActions('observer', 'other'));
     const cats = new Set(groups.map((g) => g.category));
-    for (const required of ['watch_observe', 'join_side', 'evidence', 'share'] as const) {
+    for (const required of ['watch_observe', 'join_side', 'share'] as const) {
       expect(cats).toContain(required);
     }
+    // UX-001.4 — evidence category is now empty for observers (ask_source migrated to Act).
+    expect(cats.has('evidence')).toBe(false);
   });
 
-  it('participant-on-other covers reply / evidence / branch / review_flag', () => {
+  it('participant-on-other covers reply only (UX-001.4: evidence / branch / review_flag migrated to Act)', () => {
     const groups = groupRailActionsByCategory(getRailActions('participant', 'other'));
     const cats = new Set(groups.map((g) => g.category));
-    for (const required of ['reply', 'evidence', 'branch', 'review_flag'] as const) {
-      expect(cats).toContain(required);
-    }
+    expect(cats).toContain('reply');
+    // UX-001.4 — these category sections now live in Act.
+    expect(cats.has('evidence')).toBe(false);
+    expect(cats.has('branch')).toBe(false);
+    expect(cats.has('review_flag')).toBe(false);
   });
 
-  it('participant-on-self collapses to review_flag only (own bubble safety)', () => {
+  it('participant-on-self collapses to zero groups (UX-001.4: own-bubble action set is empty)', () => {
     const groups = groupRailActionsByCategory(getRailActions('participant', 'self'));
-    expect(groups.map((g) => g.category)).toEqual(['review_flag']);
+    expect(groups.map((g) => g.category)).toEqual([]);
   });
 
   it('skips empty groups', () => {
