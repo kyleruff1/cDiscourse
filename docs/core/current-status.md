@@ -1602,13 +1602,7 @@ See `docs/designs/UX-001.7.md` for the verbatim Phase 7 design.
 
 ## UX-001.5A — Node Labels: Machine Observations and User Allegations (adjacent follow-through to closed UX-001 epic)
 
-**Status:** Shipped. Issue #298, branch
-`feat/UX-001.5A-node-labels-observations-allegations`. Adjacent
-follow-through to the closed UX-001 epic (UX-001 closed at `b7fb9ff` on
-2026-05-25). Implementation grounded in the source-access audit
-(`docs/audits/UX-001.5A-source-access-audit.md` at `e477fa8` — verdict
-PASS) and the operator-authored intent brief
-(`docs/designs/UX-001.5A-intent.md` at `a1a622b` — binding).
+**Status:** Shipped. Issue #298 CLOSED, PR #299 merged at `154ca3f`. Adjacent follow-through to the closed UX-001 epic (UX-001 closed at `b7fb9ff` on 2026-05-25). Implementation grounded in the source-access audit (`docs/audits/UX-001.5A-source-access-audit.md` at `e477fa8` — verdict PASS) and the operator-authored intent brief (`docs/designs/UX-001.5A-intent.md` at `a1a622b` — binding).
 
 **What this ships:** the live-mount consumer of the UX-001.5 visual
 primitives for per-node label rendering. Two taxonomy halves with a
@@ -1731,6 +1725,27 @@ UX-001.{3-5,7} regression all green.
 env var change, no third-party dependency. Standard PR review + merge
 applies. Supabase auto-deploy is not invoked (no migration / function
 change part of this card).
+
+### Byte-equal precedent note (POST-UX001.5A clarification)
+
+The UX-001.5A intent brief said UX-001.6 test files "must remain
+byte-equal." The implementer added authorized allowlist entries under
+design §19.1/§19.2 (+21 lines total to 2 UX-001.6 test files —
+`__tests__/uxOneOneSixDoctrine.test.ts` +10 lines adding
+`'src/features/nodeLabels'` to the same definition-allowlist category
+as the existing `'src/features/semanticReferee'` entry; and
+`__tests__/uxOneOneSixViewportMatrix.test.ts` +11 lines adding
+`'src/features/arguments/ArgumentGameSurface'` to the canonical
+referee-banner mount-site allowlist). The reviewer evaluated as
+ACCEPTABLE (UX-001.5A review §I) — pure additive entries, no existing
+assertions weakened, all 5 UX-001.6 suites still PASS (2937/2937).
+
+For future intent briefs, "byte-equal" should be read as "zero diff"
+by default; if a design doc authorizes specific additive entries under
+a documented rationale, the reviewer evaluates per-case. The pattern
+is legitimate but should be the exception, not the default. Card
+authors should prefer creating new test files over extending read-only
+ones whenever feasible.
 
 See `docs/designs/UX-001.5A.md` for the verbatim design.
 
