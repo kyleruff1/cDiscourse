@@ -330,6 +330,283 @@ UX-001.3's launch prompt should consume this section as primary input.
 See `docs/designs/UX-001.2.md` for the verbatim design + Q1-Q12
 audit + Q10 offset arithmetic.
 
+## UX-001.3 — Composer and Context Consolidation (UX-001 Phase 3)
+
+**Status:** Build complete (awaiting Review). Issue #288, branch
+`feat/UX-001.3-composer-and-context-consolidation`.
+
+**Role in the UX-001 epic:** UX-001.3 consolidates the composer into one
+persistent, contextual command center across all 14 canonical modes
+(13 BoxTypes + 2 header-chip variants of `respond`). UX-001.1 made
+the brand shell professional; UX-001.2 made the Timeline the primary
+board; UX-001.3 makes the action surface coherent. The Phase 3
+framing section below carries the load-bearing handoff for UX-001.4's
+designer (Act / Inspect / Go simplification).
+
+### UX-001.3 — Phase 3 framing for UX-001.4 (binding handoff)
+
+> The eight patterns below are the load-bearing output of UX-001.3.
+> UX-001.4's designer reads this section as primary input. Every value
+> is a committed contract; UX-001.4 may consume but not re-decide.
+
+**1. The composer's mode list (canonical for the epic)**
+
+13 BoxTypes (one new in UX-001.3: `offer_concession`) + 2 header-chip
+variants of `respond` (`Reply` and `Challenge`). The brief's 14
+"canonical modes" reduce to 13 BoxTypes + 2 presentational variants of
+`respond` — `Reply` and `Challenge` share the same composite body and
+the same draft buffer (a user who starts a Reply and decides it is
+actually a Challenge does not lose their body).
+
+| # | Brief mode | BoxType (or variant) |
+|---|---|---|
+| 1 | Root claim | `root_claim` |
+| 2 | Standard response | `respond` (Reply variant) |
+| 3 | Challenge / rebuttal | `respond` (Challenge variant) |
+| 4 | Branch / tangent | `branch_tangent` |
+| 5 | Synthesize | `synthesize` |
+| 6 | Evidence submission | `add_evidence` |
+| 7 | Respond to evidence | `respond_to_evidence` |
+| 8 | Ask source | `ask_source` |
+| 9 | Ask quote | `ask_quote` |
+| 10 | Clarify | `clarify` |
+| 11 | Narrow | `narrow` |
+| 12 | Confirm | `confirm` |
+| 13 | Concession list | `offer_concession` (NEW) |
+| 14 | Respond to concession | `respond_to_concession` |
+
+**2. Mode-switcher placement and interaction pattern**
+
+The OneBox header type chip (`src/features/arguments/oneBox/OneBox.tsx`)
+is the single mode switcher. Tap → `ActPopout` flash menu opens →
+user selects → `handleSelectBoxType` re-types the box. The chip is
+44×44 minHeight + role="button" + accessibilityLabel "Move type:
+{label}. Change move type." Keyboard shortcut Cmd/Ctrl+K opens the
+mode switcher when composer is focused (one-shot
+`openModeSwitcherSignal` counter on OneBox).
+
+UX-001.4 reads: the Act popout's contents + grouping
+(`Respond · Evidence · Resolve · Structure · Direct · Role`) is
+UX-001.4's primary re-organization concern. The OneBox header chip is
+the trigger; the popout's interior is UX-001.4 scope.
+
+**3. Target display contract (heights, content, expand triggers)**
+
+`src/features/arguments/composer/ComposerContextStrip.tsx` mounts at
+the TOP of the OneBox body, always visible. Per-band height:
+
+| Band | Compact height | Pad V | Content min-height |
+|---|---|---|---|
+| phone | 56 px | 6 | 42 |
+| tablet | 64 px | 8 | 46 |
+| wide | 72 px | 10 | 50 |
+
+(Per-band layout constants live as `COMPOSER_STRIP_HEIGHT_BY_BAND` /
+`COMPOSER_STRIP_PADDING_V_BY_BAND` /
+`COMPOSER_STRIP_CONTENT_MIN_HEIGHT_BY_BAND` exports on
+`ComposerContextStrip.tsx` so future cards do NOT redefine them.)
+
+Per-mode compact content is built by the pure-TS
+`deriveComposerActingOnLabel` helper in
+`src/features/arguments/composer/composerActingOnModel.ts`.
+
+Expanded state: tap `Show full target ▾` Pressable → renders a
+read-only preview (parent body excerpt for replies; room resolution
+for root_claim) inside a `maxHeight = max(160, viewportHeight * 0.25)`
+cap. The legacy "Advanced anchor quote" disclosure inside
+`ArgumentComposer.tsx` is the editable target-excerpt path; the
+strip's expanded form is informational only (avoids a state-lifting
+refactor across the OneBox/ArgumentComposer boundary).
+
+**4. Composer position and height per breakpoint (collapsed and
+expanded)**
+
+The composer has THREE states: dismissed, collapsed, expanded.
+
+| State | Phone | Tablet/Wide |
+|---|---|---|
+| Dismissed | not rendered | not rendered |
+| Collapsed | 56 px persistent strip below score tracker | 64-72 px strip below score tracker |
+| Expanded | bottom sheet (`resolveDockLayoutVariant` 'sheet') | side panel 420 px ('side') |
+
+The collapsed strip
+(`src/features/arguments/composer/CollapsedComposerStrip.tsx`) is the
+NEW persistent surface introduced in UX-001.3. It mounts BELOW
+`ArgumentScoreTracker` in `ArgumentGameSurface.tsx` (Timeline mode
+only) when the parent supplies `onComposerExpand`. The strip carries
+the same per-band heights as the in-dock strip (visual rhythm carries
+across collapse/expand transitions). Tapping the strip invokes
+`onComposerExpand`, which App.tsx wires to `setComposerOpen(true)`.
+
+The collapsed strip lives BELOW the Timeline and contributes ZERO to
+the first-row offset — UX-001.2's offset caps (128 / 168 / 200) are
+unaffected (verified in `__tests__/composerViewportMatrix.test.ts`
+across all four required viewports: 390×844, 1024×1366, 1366×768,
+1920×1080).
+
+UX-001.4 reads: Act/Inspect/Go menus may be invoked from the collapsed
+strip (Act opens the popout; Inspect opens an expanded readout-like
+overlay; Go is the keyboard-friendly node navigator). UX-001.4 must
+preserve the collapsed strip's persistent visibility.
+
+**5. Validation surface pattern**
+
+Three locations, in precedence order:
+1. **Composer header chip** — UX-001.3 v1 keeps the existing
+   `ComposerValidationPanel` status chip ("Ready" / "Advisory" /
+   "Structural issue"). Lifting it to the OneBox header is deferred
+   to UX-001.5A.
+2. **Inline field validation** — messages adjacent to the relevant
+   field. The existing `ArgumentComposer.tsx` placeholder + required
+   marker on the evidence URL field is the v1 form of this.
+3. **Composer-only Observations** — advisory chips above the Post
+   button via `ComposerValidationPanel` + the existing
+   `RefereeBannerView` for semantic-referee observations.
+
+NEVER full-screen modals, banner notifications outside the composer,
+or verdict copy. UX-001.5A consolidates the full Observations vs
+Allegations registry; UX-001.3 uses the existing semantic referee
+surface (`refereeBanner`/`overridePrompt` props on
+`ArgumentGameSurface`).
+
+A doctrine ban-list test
+(`__tests__/composerValidationPlacement.test.ts`) word-boundary-scans
+every UX-001.3 source file's string literals against the verdict
+ban-list (winner / loser / liar / dishonest / manipulative / extremist
+/ propagandist + multi-word phrases like "bad faith" / "proof of" /
+"this is wrong" / "this is false" / "this is invalid"). Zero matches
+required.
+
+**6. Keyboard shortcut allocations**
+
+- **Cmd/Ctrl + Enter**: submit (composer-focused only)
+- **Cmd/Ctrl + K**: open mode switcher (composer-focused only)
+- **Tab / Shift+Tab**: field navigation (DOM-native)
+- **Esc**: close expanded state. Operator-accepted UX-001.3 behavior
+  shift: Esc collapses the dock to the persistent strip; the strip
+  lives in `ArgumentGameSurface` and stays visible. A second Esc
+  press on a re-opened dock dismisses again.
+
+Focus-context routing via
+`src/features/arguments/composer/useComposerFocusContext.ts` ensures
+composer shortcuts do NOT fire when board (Timeline) is focused;
+Timeline's existing arrow / Home / End / Enter / Space / Esc
+shortcuts continue to fire when the Timeline `<View>` is focused. On
+native the hook short-circuits to `active` (Cmd+Enter on hardware
+keyboard is web-only in practice).
+
+Pure-TS resolver: `composerKeyboardModel.resolveComposerKeyEffect`.
+Effect dispatch lives in `ArgumentComposerDock.tsx`'s document-level
+keydown listener:
+  - `submit` → `setPostSignal((n) => n + 1)` (composer's existing
+    one-shot post bypass)
+  - `open_mode_switcher` → `setOpenModeSwitcherSignal((n) => n + 1)`
+    (threaded to OneBox; OneBox opens the ActPopout on the signal
+    change)
+  - `close` → `onCloseRef.current()`
+
+**7. Touch ergonomics pattern**
+
+- 44×44 minimum on every interactive composer element (visual or
+  hitSlop). The compact + collapsed strips both exceed 44 by visual
+  minHeight; the expand affordance uses `hitSlop={14}` to reach 44+.
+- Phone: bottom sheet via the existing `Modal` dock; swipe-down-to-
+  dismiss + tap-outside-to-dismiss remain deferred per the existing
+  dock pattern (Cancel + Esc + hardware back are the deliberate
+  close paths; UX-001.3's Esc-to-collapse is the new behavior).
+- Tablet/wide: side panel; Esc collapses to the strip.
+- Haptics: NOT implemented in v1 (no `expo-haptics` dep added).
+  `src/features/arguments/composer/composerHaptics.ts` provides a
+  no-op `triggerHaptic(kind)` helper for a future card to wire. The
+  dock already calls it on submit / mode-switcher-open so the wiring
+  is in place.
+
+**8. "Acting on" coordination with the selected-message readout**
+
+The composer's `ComposerContextStrip` consumes `activeMessageId`
+(read-only) from `ArgumentGameSurface` via:
+  - `ArgumentGameSurface`: new optional `onActiveMessageChange?`
+    prop, fired whenever the canonical `activeMessageId` changes.
+    `ArgumentGameSurface` remains the SINGLE SOURCE OF TRUTH; App.tsx
+    only mirrors the id for the dock.
+  - `App.tsx`: new `timelineActiveMessageId` state holds the mirror.
+    `App.tsx` never writes the canonical `activeMessageId` (this
+    invariant is now an explicit guard in
+    `__tests__/composerDockInRoom.test.ts`).
+  - `ArgumentComposerDock` → `OneBox`: new optional
+    `activeMessageId?` prop threads the mirrored id to the strip.
+
+The composer's `parentArgument.id` is the source of truth for what
+the composer POSTS against. When `activeMessageId !== parentArgument.id`,
+the strip displays a small `divergenceCue` ("A different move is
+selected on the Timeline.") — composer-only, never in the readout
+panel.
+
+UX-001.2's `TimelineSelectedReadoutPanel` is unchanged. The composer
+reads its inputs (`activeMessageId`), never its outputs (the
+`actingOnShortLabel`).
+
+UX-001.4 reads: Inspect's "what am I looking at?" detail surfaces
+the expanded selected-node detail; the composer's compact target
+display shows the same target in a one-line form. UX-001.4 may share
+the `deriveComposerActingOnLabel` helper for Inspect's own
+compact-display case.
+
+**Per-target × per-mode draft persistence (the load-bearing brief
+contract)**
+
+The brief's mode-switching rule — "switching from Reply to Add
+Evidence preserves the Reply draft; switching back restores it" — is
+satisfied via the new
+`src/features/arguments/composer/composerDraftRegistry.ts` (pure TS)
++ `useComposerDraftRegistry.ts` (React wrapper). The OneBox host
+parks the active composer body into the registry under
+`(targetKey, prevBoxType)` BEFORE re-typing the box, then reads the
+destination `(targetKey, newBoxType)` buffer and seeds the composer
+via `initialPatch.body`. The registry is intra-room only (reset on
+`debate.id` change); cross-app-session persistence is deferred per
+brief.
+
+**Read-only file references UX-001.4 may consume**
+
+| Pattern | File | Note |
+|---|---|---|
+| Mode chip trigger | `src/features/arguments/oneBox/OneBox.tsx` `typeChip` Pressable | Reads; UX-001.4 owns Act popout interior. |
+| Context strip | `src/features/arguments/composer/ComposerContextStrip.tsx` | Reads; UX-001.4 may extend per-mode content. |
+| Collapsed-state strip | `src/features/arguments/composer/CollapsedComposerStrip.tsx` | Reads; UX-001.4 may wire Act trigger here. |
+| Draft registry | `src/features/arguments/composer/composerDraftRegistry.ts` | Reads; UX-001.4 must NOT introduce a parallel draft system. |
+| Keyboard model | `src/features/arguments/composer/composerKeyboardModel.ts` | Reads; UX-001.4 may extend with Go-menu shortcut. |
+| Focus-context hook | `src/features/arguments/composer/useComposerFocusContext.ts` | Reads; UX-001.4 may extend with multi-panel focus regions. |
+| Acting-on derivation | `src/features/arguments/composer/composerActingOnModel.ts` | Reads; UX-001.4 Inspect may share. |
+| Haptics shim | `src/features/arguments/composer/composerHaptics.ts` | Reads; the call sites are wired — UX-001.4 (or a later card) may swap the no-op for the real implementation. |
+| ActEntry table | `src/features/arguments/oneBox/actPopoutModel.ts` | Reads; UX-001.4 may add/re-group entries. |
+| OfferConcession schema | `src/features/arguments/oneBox/schemas/OfferConcessionSchema.tsx` | Reads; v1 serializes the row list into the existing `body` field at submit time (no schema change). |
+
+UX-001.3 owns: the composer's collapsed state, draft registry,
+context strip, validation surface, keyboard model, focus-context
+routing, acting-on coordination. UX-001.4 owns: Act / Inspect / Go
+menu model, duplicate rail removal, key badges for browser, bottom
+sheets for touch.
+
+**Deferred questions for UX-001.4 / later cards:**
+
+- Haptic feedback (deferred: no `expo-haptics` dep added; shim in
+  place at every call site).
+- Cross-app-session draft persistence (deferred per brief).
+- Concession-items dedicated column (deferred: v1 serializes into
+  the `body` field as plain text via
+  `serializeOfferConcessionRows`).
+- Per-mode validation copy registry (UX-001.5A scope).
+- Tablet-portrait bottom-sheet variant (deferred: side panel is the
+  tablet/wide pattern).
+- Swipe-down-to-dismiss + tap-outside-to-dismiss on phone (deferred
+  to preserve the existing inert-scrim "no accidental draft loss"
+  contract; Esc-to-collapse covers the new dismiss path).
+
+UX-001.4's launch prompt should consume this section as primary
+input. See `docs/designs/UX-001.3.md` for the verbatim design +
+Q1-Q12 audit + §16 file scope.
+
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
 **Status:** Build complete (awaiting Review). Issue #25, branch
