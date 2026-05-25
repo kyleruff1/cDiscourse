@@ -46,6 +46,8 @@ Contingent prerequisite card. Filed only if UX-001.5A's pre-launch source-access
 
 **UX-001.7 — Professional visual design system consolidation (M effort).** Section 10 of the proposal. Unified visual tokens for surfaces, typography, spacing, focus rings, touch targets, density modes. Standardizes the design language across everything the prior cards touched.
 
+UX-001.7's scope includes the `EvidenceAnnotationChip` refactor surfaced during UX-001.5 (originally tracked as the documented UX-001.5C follow-up). The chip is consolidated to use the visual primitives shipped by UX-001.5 (`AnnotationChip`, `AnnotationChipStrip`, `AnnotationBadge`, `AnnotationFocusRing`) rather than its current bespoke implementation. If UX-001.6's cross-device QA surfaces an evidence chip regression that cannot wait for UX-001.7, the chip refactor is filed as a separate UX-001.5C card at that point; otherwise, the work happens within UX-001.7. This fold decision is recorded by POSTRUN-UX001 Scope 6.
+
 Total epic card count (revised): seven primary cards (UX-001.1 through UX-001.7) plus one conditional adjacent card (UX-001.5A) plus one contingent prerequisite card (UX-001.5B). Most likely total: eight to nine cards depending on UX-001.5A's audit findings.
 
 ## Non-negotiables (across all UX-001 cards)
