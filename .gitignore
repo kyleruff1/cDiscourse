@@ -67,6 +67,13 @@ data/engagement-intelligence/local/
 # Claude Code local backup snapshots of agent/skill/script bundles
 .claude/*.zip
 
+# Local docs / branding archives (operator-created snapshots; local-only).
+# Surfaced by POSTRUN-UX001 audit as the "5 uncommitted changes" warning
+# emitter on PR creation. The branding zip is a 50KB asset (May 23); docs.zip
+# is a 3.4MB operator-created docs snapshot (May 25). Neither belongs in git.
+/docs.zip
+assets/branding/*.zip
+
 # typescript
 *.tsbuildinfo
 
