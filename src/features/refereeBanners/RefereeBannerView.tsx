@@ -24,6 +24,9 @@ import React, { useEffect } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import type { ViewStyle, TextStyle } from 'react-native';
 import type { BannerSelectionResult, RefereeBannerTone, RefereeBannerToneGlyph } from './types';
+import { AnnotationChipStrip } from '../nodeAnnotations/AnnotationChipStrip';
+import type { AnnotationChipDescriptor } from '../nodeAnnotations/annotationChipDescriptor';
+import type { AnnotationBand } from '../nodeAnnotations/annotationKindTokens';
 
 /**
  * Non-color tone glyph — a SHAPE, never color-only. `star` celebrates, `arrow`
@@ -76,6 +79,26 @@ interface Props {
    * accepted for parity with the surface and for an explicit no-motion test).
    */
   reduceMotionOverride?: boolean;
+  /**
+   * UX-001.5 — Optional composer-only Observation chips. When set AND
+   * non-empty, the banner renders an `AnnotationChipStrip` beneath the
+   * helper line. The headline + helper are unchanged.
+   *
+   * Composer-only context preserved: the banner mounts only inside the
+   * composer surface per UX-001.3 Phase 3 framing. UX-001.5A will
+   * populate these chips with `category: 'semantic_referee'` once its
+   * presentation model lands.
+   *
+   * Optional + additive — current call sites pass `undefined` and the
+   * banner renders identically to its pre-UX-001.5 behavior.
+   */
+  observationChips?: ReadonlyArray<AnnotationChipDescriptor>;
+  /**
+   * UX-001.5 — Resolved band for the optional observation chip strip.
+   * Defaults to `'tablet'` when omitted; only meaningful when
+   * `observationChips` is also supplied.
+   */
+  band?: AnnotationBand;
 }
 
 /**
@@ -85,7 +108,12 @@ interface Props {
  * `AccessibilityInfo.announceForAccessibility` so a screen-reader user is told
  * the suggestion without it stealing focus.
  */
-export function RefereeBannerView({ result, reduceMotionOverride }: Props) {
+export function RefereeBannerView({
+  result,
+  reduceMotionOverride,
+  observationChips,
+  band,
+}: Props) {
   const banner = result?.banner ?? null;
   const announce = banner?.accessibilityLabel ?? '';
 
@@ -105,6 +133,12 @@ export function RefereeBannerView({ result, reduceMotionOverride }: Props) {
     return null;
   }
 
+  // UX-001.5 — render the observation chip strip beneath the helper line
+  // when the composer supplies chips. Optional + additive: undefined input
+  // produces identical render to pre-UX-001.5 behavior.
+  const hasObservationChips =
+    Array.isArray(observationChips) && observationChips.length > 0;
+
   return (
     <View
       style={buildRefereeBannerContainerStyle(banner.tone)}
@@ -123,6 +157,16 @@ export function RefereeBannerView({ result, reduceMotionOverride }: Props) {
           <Text style={styles.helperLine} numberOfLines={2} testID="referee-banner-helper">
             {banner.helperLine}
           </Text>
+        ) : null}
+        {hasObservationChips ? (
+          <View style={styles.observationChipsRow}>
+            <AnnotationChipStrip
+              descriptors={observationChips as ReadonlyArray<AnnotationChipDescriptor>}
+              band={band}
+              sectionId="next_move"
+              testID="referee-banner-observation-chips"
+            />
+          </View>
         ) : null}
       </View>
     </View>
@@ -146,4 +190,5 @@ const styles = StyleSheet.create({
   textColumn: { flex: 1 },
   headline: { color: '#e2e8f0', fontSize: 12, fontWeight: '700' as const },
   helperLine: { color: '#94a3b8', fontSize: 11, fontWeight: '400' as const, marginTop: 2 },
+  observationChipsRow: { marginTop: 6 },
 });
