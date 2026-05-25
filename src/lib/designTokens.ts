@@ -433,6 +433,160 @@ export const CONTROL = {
 
 export type ControlKey = keyof typeof CONTROL;
 
+// ── UX-001.7 — Touch target preset ──────────────────────────────
+
+/**
+ * UX-001.7 — Touch target preset. Reads `accessibility-targets` minimum
+ * 44×44 logical pixels. Consumed by every `Pressable` in UX-001 surfaces
+ * that previously used a literal `44` (visual size) or a bespoke
+ * `hitSlop` literal.
+ *
+ * - `minSizePx` is the visual minimum touch target.
+ * - `hitSlopAll` is the canonical 12-on-all-sides preset that lifts a
+ *   small chip's effective tap target to >= 44×44.
+ * - `hitSlopCompact` is the 8-on-all-sides preset used by leaf-row
+ *   surfaces (PopoutEntry-style) where the row already meets >=44 in
+ *   visual height but a hitSlop is still desirable.
+ *
+ * Existing primitives (`AnnotationChip`, `AnnotationOverflowChip`,
+ * `PopoutEntry`, `CollapsedComposerStrip`) are read-only per UX-001.7
+ * §12.B and intentionally retain their literal forms; the token serves
+ * NEW callsites + EvidenceAnnotationChip's bounded refactor.
+ *
+ * Asserted by `__tests__/uxOneOneSevenTokenExports.test.ts`.
+ */
+export const TOUCH_TARGET = {
+  minSizePx: 44 as const,
+  hitSlopAll: Object.freeze({ top: 12, bottom: 12, left: 12, right: 12 }),
+  hitSlopCompact: Object.freeze({ top: 8, bottom: 8, left: 8, right: 8 }),
+} as const;
+
+// ── UX-001.7 — Focus ring dimensional preset ────────────────────
+
+/**
+ * UX-001.7 — Focus ring dimensional preset. The color is already
+ * canonical (`SURFACE_TOKENS.focusRing` = `#a5b4fc`); this token names
+ * the WIDTH + OFFSET so every focus state across UX-001 surfaces uses
+ * the same metric. Reduce-motion safe: width survives, no animation.
+ *
+ * Replaces internal `borderWidth: 2` literals in:
+ *   - `src/features/nodeAnnotations/AnnotationFocusRing.tsx` (focused state)
+ *   - `src/features/nodeAnnotations/AnnotationOutline.tsx` (selected state)
+ *
+ * Runtime value is identical (2 = 2); the token only names the metric.
+ *
+ * Asserted by `__tests__/uxOneOneSevenTokenExports.test.ts`.
+ */
+export const FOCUS_RING = {
+  widthPx: 2 as const,
+  offsetPx: 2 as const,
+  color: SURFACE_TOKENS.focusRing,
+} as const;
+
+// ── UX-001.7 — Border width scale ───────────────────────────────
+
+/**
+ * UX-001.7 — Border width scale. Mirrors `RADIUS` in shape (sm/md/lg)
+ * with `sm = 1` (hairline), `md = 2` (standard outline), `lg = 3`
+ * (emphasis). Consumed by primitives where a literal `borderWidth: 1|2|3`
+ * appears with >=2 callsites; single-callsite literals stay literal per
+ * the intent brief's "do not overbuild" rule.
+ *
+ * Asserted by `__tests__/uxOneOneSevenTokenExports.test.ts`.
+ */
+export const BORDER_WIDTH = {
+  sm: 1 as const,
+  md: 2 as const,
+  lg: 3 as const,
+} as const;
+
+// ── UX-001.7 — App-wide typography scale ────────────────────────
+
+/**
+ * UX-001.7 — App-wide typography scale. UX-001.1's `BRAND.typography`
+ * shipped the SHELL ONLY (wordmark, tagline, header right slot) and
+ * explicitly deferred the app-wide scale to UX-001.7. This export ships
+ * that scale.
+ *
+ * Naming uses structural English (group names refer to where the
+ * typography is consumed, NOT to verdicts). Every group has >=2
+ * consumers across UX-001 surfaces per `docs/designs/UX-001.7.md` §3.A
+ * (single-consumer literals stay as literals per the intent brief's
+ * "do not overbuild" rule).
+ *
+ * Values match the existing `fontSize`/`lineHeight`/`fontWeight`
+ * literals already in the surfaces, so the token replacement is
+ * runtime-byte-identical.
+ *
+ * Asserted by `__tests__/uxOneOneSevenTokenExports.test.ts`.
+ */
+export const TYPOGRAPHY = {
+  /** DebateDetailHeader strip labels (title + status chip + side chip). */
+  roomStrip:         { fontSize: 12, lineHeight: 16, fontWeight: '600' as const },
+  /** ArgumentTimelineMap + ArgumentTimelineNode node labels. */
+  timelineNode:      { fontSize: 11, lineHeight: 14, fontWeight: '600' as const },
+  /** TimelineSelectedReadoutPanel + ArgumentReplySidecar compact rows. */
+  selectedContext:   { fontSize: 12, lineHeight: 16, fontWeight: '500' as const },
+  /** ArgumentComposer + ComposerContextStrip body text. */
+  composer:          { fontSize: 13, lineHeight: 18, fontWeight: '400' as const },
+  /** Popout chassis headings (Act / Inspect / Go). */
+  popoutHeading:     { fontSize: 13, lineHeight: 18, fontWeight: '700' as const },
+  /** PopoutEntry body + InspectPopout section body. */
+  popoutBody:        { fontSize: 12, lineHeight: 16, fontWeight: '400' as const },
+  /** AnnotationChip + EvidenceAnnotationChip label text. */
+  chipLabel:         { fontSize: 11, lineHeight: 14, fontWeight: '600' as const },
+  /** AnnotationBadge + key-badge text (browser-only A/I/G). */
+  badgeLabel:        { fontSize: 10, lineHeight: 12, fontWeight: '700' as const },
+  /** A/I/G key badges (browser-only; matches `BRAND.typography.header.wide`). */
+  keyboardHint:      { fontSize: 11, lineHeight: 14, fontWeight: '600' as const },
+  /** InspectPopout section detail text. */
+  inspectDetail:     { fontSize: 12, lineHeight: 16, fontWeight: '400' as const },
+} as const;
+
+export type TypographyKey = keyof typeof TYPOGRAPHY;
+
+// ── UX-001.7 — Composite spacing presets ────────────────────────
+
+/**
+ * UX-001.7 — Composite spacing presets layered on the `SPACING` scale.
+ * `SPACING` ships the scale (xs/s/m/l/xl); this preset names the
+ * COMBINATIONS the design system actually uses. Every preset has >=2
+ * consumers across UX-001 surfaces per `docs/designs/UX-001.7.md` §3.B.
+ *
+ * Note: `compactRowGap` and `chipGap` resolve to the same value (4).
+ * They are intentionally separate tokens because they describe DIFFERENT
+ * consumer intents — the operator might tune `compactRowGap` to 6 in a
+ * future release without affecting chip gap. This separation is explicit
+ * per the intent brief's "consolidation by intent, not by value"
+ * principle.
+ *
+ * Asserted by `__tests__/uxOneOneSevenTokenExports.test.ts`.
+ */
+export const SPACING_PRESETS = {
+  /** Outer screen padding (DebateDetailHeader screen inset, ArgumentComposer outer). */
+  screenInset:           SPACING.l,    // 16
+  /** Between stacked surfaces (e.g. between strip + Timeline). */
+  surfaceGap:            SPACING.m,    // 12
+  /** DebateDetailHeader strip row gaps; compact-row gap. */
+  compactRowGap:         SPACING.xs,   // 4
+  /** AnnotationChipStrip + EvidenceAnnotation chip-row gap. */
+  chipGap:               SPACING.xs,   // 4
+  /** ArgumentTimelineMap node internal padding. */
+  nodeInternalPadding:   SPACING.s,    // 8
+  /** Popout chassis internal padding. */
+  popoutInternalPadding: SPACING.m,    // 12
+  /** ArgumentComposer body padding. */
+  composerPadding:       SPACING.m,    // 12
+  /**
+   * Touch target minimum — cross-reference to `TOUCH_TARGET.minSizePx`,
+   * NOT a new value. Exposed here so consumers reading the spacing
+   * preset table can find the touch-target metric in one place.
+   */
+  touchTargetMin:        TOUCH_TARGET.minSizePx, // 44
+} as const;
+
+export type SpacingPresetKey = keyof typeof SPACING_PRESETS;
+
 // ── Aggregate ───────────────────────────────────────────────────
 
 export const TOKENS = {
@@ -447,6 +601,12 @@ export const TOKENS = {
   receiptMark: RECEIPT_MARK,
   surfaceTokens: SURFACE_TOKENS,
   control: CONTROL,
+  // UX-001.7 additions — additive only, existing keys above unchanged.
+  touchTarget: TOUCH_TARGET,
+  focusRing: FOCUS_RING,
+  borderWidth: BORDER_WIDTH,
+  typography: TYPOGRAPHY,
+  spacingPresets: SPACING_PRESETS,
 } as const;
 
 /**

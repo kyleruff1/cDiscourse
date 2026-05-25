@@ -46,7 +46,15 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   'src/components/AppHeader.tsx',
   'src/components/AppHeaderTagline.tsx',
   'src/hooks/useHeaderBreakpoint.ts',
-  'src/lib/designTokens.ts',
+  // NOTE: `src/lib/designTokens.ts` was removed from the zero-diff
+  // boundary by UX-001.7. UX-001.7's design doc §12.A explicitly
+  // authorizes additive token extensions to designTokens.ts (the
+  // Workstream 1 deliverable). The read-only contract for that file
+  // is now maintained by `uxOneOneSixReadOnlyBoundary.test.ts`'s
+  // `requiredApi`-surface assertion (which UX-001.7's additive
+  // extensions preserve) plus the UX-001.7 design-doc-authorized
+  // additive-only extension policy. See
+  // `docs/designs/UX-001.7.md` §19.B for the resolution rationale.
 
   // UX-001.2 Timeline files
   'src/features/arguments/ArgumentTimelineMap.tsx',

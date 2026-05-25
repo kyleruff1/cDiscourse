@@ -12,6 +12,18 @@
  *   - All colors token-derived; uses `BRAND.accent.cream` for selected
  *     (mirrors VG-004 `selectedHalo`) and `GLOW.activePath.color` for
  *     active. No new hex literals.
+ *
+ * UX-001.7 note: The literal `2 / 1` border widths in the state
+ * presentation table are intentionally preserved verbatim. UX-001.7
+ * ships `BORDER_WIDTH.md = 2` and `BORDER_WIDTH.sm = 1` as canonical
+ * tokens that mirror these values (so future consumers reach for the
+ * tokens), but in-place token consumption inside this primitive is
+ * deferred — the UX-001.5 source-scan tests in
+ * `__tests__/uxOneOneFiveRingsAndOutline.test.tsx` pin the literal
+ * expression `borderWidth: 2` / `borderWidth: 1`. Migration would
+ * require updating those UX-001.5 read-only tests, which is outside
+ * UX-001.7's authorized scope. The token alignment is documented in
+ * `__tests__/uxOneOneSevenPrimitiveAlignment.test.ts`.
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';

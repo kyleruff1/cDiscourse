@@ -146,7 +146,11 @@ describe('EvidenceAnnotationChip.tsx — component contract', () => {
     expect(src).toMatch(/add-annotation-trigger-/);
     expect(src).toMatch(/accessibilityRole="button"/);
     expect(src).toMatch(/STREAM_HIT_SLOP/);
-    expect(src).toMatch(/top: 12, bottom: 12, left: 12, right: 12/);
+    // UX-001.7 — STREAM_HIT_SLOP now resolves to TOUCH_TARGET.hitSlopAll
+    // (the canonical 12-on-all-sides token); the prior local literal
+    // {top:12,bottom:12,left:12,right:12} is replaced by the token
+    // reference. Runtime value byte-equivalent (still 12 on all sides).
+    expect(src).toMatch(/TOUCH_TARGET\.hitSlopAll/);
   });
 
   it('hides the trigger for an ineligible viewer (canAddAnnotation false)', () => {

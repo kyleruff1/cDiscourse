@@ -12,16 +12,42 @@
  *   - No state, no network, no Supabase. Props are fully controlled by the
  *     parent (TimelineNodePopover owns sheet + submit state).
  *
+ * UX-001.7 refactor (Workstream 4, preferred path):
+ *   - The bespoke chip body is replaced by the UX-001.5
+ *     `AnnotationChip` primitive. Tone (`neutral`/`info`/`attention`/`muted`)
+ *     maps to `AnnotationChipDescriptor.iconHint`:
+ *       attention → 'warn' (border shade STATUS.warning)
+ *       info      → 'info' (border shade unchanged; glyph carries the cue)
+ *       neutral/muted → undefined (no glyph; label-only)
+ *   - Depth `↳` indicator preserved via the descriptor's `label` prefix
+ *     (caller-side prepend) — no new primitive feature.
+ *   - The EV-005-specific affordances (status chip header, add-trigger,
+ *     observer notice, synthesis-prompt) are PRESERVED VERBATIM as the
+ *     compound EV-005 shell — the primitives are not general-purpose for
+ *     those patterns.
+ *   - `STREAM_HIT_SLOP` constant replaced by the canonical
+ *     `TOUCH_TARGET.hitSlopAll` token; runtime value byte-identical.
+ *   - Public prop surface (`EvidenceAnnotationChipProps`,
+ *     `EvidenceAnnotationStreamProps`) preserved verbatim. Sole
+ *     production consumer `SourceChainPopover.tsx` untouched.
+ *
  * Accessibility:
- *   - Chips are `accessibilityRole="text"` (not pressable in v1).
+ *   - Chips are `accessibilityRole="text"` (not pressable in v1) — the
+ *     primitive `AnnotationChip` honors this when no `onPress` is passed.
  *   - The status-chip header carries the count + status label.
  *   - The "Add an annotation" trigger + the synthesis-prompt row are
- *     `Pressable` with `accessibilityRole="button"` and a ≥44×44 hit target.
+ *     `Pressable` with `accessibilityRole="button"` and a >=44x44 hit
+ *     target via `TOUCH_TARGET.hitSlopAll`.
  *   - Observer mode renders the trigger / prompt disabled with the EV-002
  *     "Join a side to ..." helper.
  */
 import React, { type ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { STATUS, SURFACE_TOKENS, TOUCH_TARGET } from '../../lib/designTokens';
+// STATUS is referenced via STATUS.neutral.bg / STATUS.neutral.fg (the
+// muted-tone palette resolves to existing app tokens by byte equality).
+import { AnnotationChip } from '../nodeAnnotations/AnnotationChip';
+import type { AnnotationChipDescriptor } from '../nodeAnnotations/annotationChipDescriptor';
 import {
   getEvidenceAnnotationHelper,
   getEvidenceAnnotationLabel,
@@ -69,20 +95,67 @@ export function buildAnnotationStatusChipAccessibilityLabel(
   return `Evidence annotations: ${summary.statusLabel}. ${countFragment}. ${summary.statusHelper}`;
 }
 
-// ── Tone → color tokens ───────────────────────────────────────
+/**
+ * UX-001.7 Workstream 4 — build the `AnnotationChipDescriptor` for one
+ * `EvidenceAnnotation`. Pure helper. Maps:
+ *   - id: stable `annotation.id`
+ *   - label: depth-prefixed plain-language label (`↳ ` for depth 1)
+ *   - kind: `'evidence'` (uses the existing `ARGUMENT.evidence` family)
+ *   - iconHint: undefined (depth carrier is the prefix glyph; the chip
+ *     stays label-only to preserve prior visual behavior)
+ *   - ariaLabel: explicit screen-reader override from
+ *     `buildAnnotationChipAccessibilityLabel` so the existing tests still
+ *     verify the same a11y label string.
+ *
+ * Pure. Deterministic. No allocation beyond the returned object.
+ */
+export function buildAnnotationDescriptor(
+  annotation: EvidenceAnnotation,
+): AnnotationChipDescriptor {
+  const baseLabel = buildAnnotationChipLabel(annotation);
+  const label = annotation.depth === 1 ? `↳ ${baseLabel}` : baseLabel;
+  return {
+    id: annotation.id,
+    label,
+    kind: 'evidence',
+    ariaLabel: buildAnnotationChipAccessibilityLabel(annotation),
+  };
+}
+
+// ── Tone → color palette (runtime byte-equivalent) ────────────
+//
+// Status-chip header tone palette. Per UX-001.7 Workstream 4
+// "zero-runtime-diff" requirement, EVERY value here is byte-identical
+// to the pre-refactor literal. Where the prior color exactly matched
+// a shared token, the token reference replaces the literal (annotated
+// as `=== '#xxxxxx'`); where the prior literal did NOT match a shared
+// token, the literal is preserved verbatim.
+//
+// Audit:
+//   neutral   '#1e293b' === SURFACE_TOKENS.border       → token
+//   neutral   '#e2e8f0' === SURFACE_TOKENS.textPrimary  → token
+//   info      '#0c4a6e' → NO matching token (kept literal)
+//   info      '#bae6fd' → NO matching token (kept literal)
+//   attention '#7c2d12' → NO matching token (STATUS.warning.bg is
+//             '#78350f' — different shade; kept literal to preserve
+//             byte-identical runtime color)
+//   attention '#fed7aa' → NO matching token (STATUS.warning.fg is
+//             '#fde68a' — different shade; kept literal)
+//   muted     '#1f2937' === STATUS.neutral.bg           → token
+//   muted     '#cbd5e1' === STATUS.neutral.fg           → token
 
 const TONE_BG: Record<EvidenceAnnotationSummary['tone'], string> = {
-  neutral: '#1e293b',
+  neutral: SURFACE_TOKENS.border,
   info: '#0c4a6e',
   attention: '#7c2d12',
-  muted: '#1f2937',
+  muted: STATUS.neutral.bg,
 };
 
 const TONE_FG: Record<EvidenceAnnotationSummary['tone'], string> = {
-  neutral: '#e2e8f0',
+  neutral: SURFACE_TOKENS.textPrimary,
   info: '#bae6fd',
   attention: '#fed7aa',
-  muted: '#cbd5e1',
+  muted: STATUS.neutral.fg,
 };
 
 // ── EvidenceAnnotationChip ────────────────────────────────────
@@ -92,25 +165,25 @@ export interface EvidenceAnnotationChipProps {
   testIDSuffix?: string;
 }
 
-/** One chip for one EvidenceAnnotation. Read-only (not pressable in v1). */
+/**
+ * One chip for one EvidenceAnnotation. Read-only (not pressable in v1).
+ *
+ * UX-001.7 — Now renders via the `AnnotationChip` primitive instead of
+ * a bespoke `<View><Text>`. Public prop surface unchanged; runtime
+ * behavior (a11y role + label + depth indicator) preserved.
+ */
 export function EvidenceAnnotationChip({
   annotation,
   testIDSuffix,
 }: EvidenceAnnotationChipProps): ReactElement {
-  const label = buildAnnotationChipLabel(annotation);
-  const accessibilityLabel = buildAnnotationChipAccessibilityLabel(annotation);
+  const descriptor = buildAnnotationDescriptor(annotation);
   const testID = `evidence-annotation-chip${testIDSuffix ? `-${testIDSuffix}` : ''}`;
   return (
-    <View
-      accessibilityRole="text"
-      accessibilityLabel={accessibilityLabel}
-      style={[styles.chip, annotation.depth === 1 && styles.chipNested]}
+    <AnnotationChip
+      descriptor={descriptor}
+      style={annotation.depth === 1 ? styles.chipNested : undefined}
       testID={testID}
-    >
-      <Text style={styles.chipText} numberOfLines={2}>
-        {annotation.depth === 1 ? `↳ ${label}` : label}
-      </Text>
-    </View>
+    />
   );
 }
 
@@ -135,8 +208,12 @@ export interface EvidenceAnnotationStreamProps {
 
 const ADD_ANNOTATION_TRIGGER_LABEL = 'Add an annotation';
 
-/** A ≥44×44 hit target for the small Pressables. */
-const STREAM_HIT_SLOP = Object.freeze({ top: 12, bottom: 12, left: 12, right: 12 });
+/**
+ * A >=44x44 hit target for the small Pressables — UX-001.7 canonical
+ * touch-target token. Byte-equivalent to the prior local
+ * `{ top: 12, bottom: 12, left: 12, right: 12 }` literal.
+ */
+const STREAM_HIT_SLOP = TOUCH_TARGET.hitSlopAll;
 
 /**
  * Read-only vertical list of annotation chips + the derived status-chip
@@ -175,7 +252,7 @@ export function EvidenceAnnotationStream({
         </Text>
       </View>
 
-      {/* The annotation chips. */}
+      {/* The annotation chips — now AnnotationChip primitive instances. */}
       {annotations.length > 0 ? (
         <View style={styles.chipList} testID={`evidence-annotation-chips-${messageId}`}>
           {annotations.map((a, i) => (
@@ -263,16 +340,11 @@ const styles = StyleSheet.create({
   statusLabel: { fontSize: 12, fontWeight: '700' },
   statusHelper: { fontSize: 11, lineHeight: 14 },
   chipList: { gap: 4 },
-  chip: {
-    backgroundColor: '#0f172a',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-  },
-  chipNested: { marginLeft: 14, backgroundColor: '#111c30' },
-  chipText: { color: '#cbd5e1', fontSize: 11, fontWeight: '600' },
+  // UX-001.7 — The bespoke `chip` + `chipText` styles are removed; the
+  // chip body is now rendered by the AnnotationChip primitive. The
+  // depth-1 nesting indent is preserved here via the `chipNested`
+  // wrapper style applied through the AnnotationChip `style` prop.
+  chipNested: { marginLeft: 14 },
   addTrigger: {
     backgroundColor: '#0c4a6e',
     borderRadius: 999,
