@@ -259,6 +259,41 @@ describe('ComposerContextStrip — expanded host', () => {
       : host.props.style) as { maxHeight: number };
     expect(flat2.maxHeight).toBe(270);
   });
+
+  it('shows the parent body excerpt when expanded with a parent', () => {
+    const { getByTestId } = render(
+      <ComposerContextStrip
+        boxType="respond"
+        parentArgument={parent}
+        expanded={true}
+        onToggleExpanded={() => {}}
+        bandOverride="phone"
+        viewportHeightOverride={844}
+      />,
+    );
+    const excerpt = getByTestId('composer-context-strip-expanded-excerpt');
+    expect(excerpt.props.children).toBe(parent.body);
+    const label = getByTestId('composer-context-strip-expanded-label');
+    expect(label.props.children).toBe('Full target');
+  });
+
+  it('shows the room resolution when expanded with no parent (root_claim)', () => {
+    const { getByTestId } = render(
+      <ComposerContextStrip
+        boxType="root_claim"
+        parentArgument={null}
+        resolution="The room resolution."
+        expanded={true}
+        onToggleExpanded={() => {}}
+        bandOverride="phone"
+        viewportHeightOverride={844}
+      />,
+    );
+    const excerpt = getByTestId('composer-context-strip-expanded-excerpt');
+    expect(excerpt.props.children).toBe('The room resolution.');
+    const label = getByTestId('composer-context-strip-expanded-label');
+    expect(label.props.children).toBe('Room resolution');
+  });
 });
 
 describe('ComposerContextStrip — root_claim mode', () => {

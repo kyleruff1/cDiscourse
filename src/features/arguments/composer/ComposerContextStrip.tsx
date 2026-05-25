@@ -33,7 +33,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import type { BoxType } from '../oneBox/boxModel';
-import type { ArgumentRow, ArgumentType } from '../types';
+import type { ArgumentRow } from '../types';
 import { SPACING, RADIUS, SURFACE_TOKENS } from '../../../lib/designTokens';
 import { useHeaderBreakpoint } from '../../../hooks/useHeaderBreakpoint';
 import type { Band } from '../../../hooks/useHeaderBreakpoint';
@@ -41,7 +41,6 @@ import {
   deriveComposerActingOnLabel,
   type ComposerActingOnInput,
 } from './composerActingOnModel';
-import { ComposerTargetPanel } from '../ComposerTargetPanel';
 
 const PARENT_EXCERPT_LENGTH = 80;
 const PARENT_EXCERPT_SHORT_LENGTH = 60;
@@ -143,20 +142,10 @@ export interface ComposerContextStripProps {
   } | null;
   /** Read-only Timeline-selection coordination. Drives the divergence cue. */
   activeMessageId?: string | null;
-  /** Whether the expanded ComposerTargetPanel is currently visible. */
+  /** Whether the expanded preview is currently visible. */
   expanded: boolean;
-  /** Toggle the expanded state (the strip + the parent share this state). */
+  /** Toggle the expanded state. */
   onToggleExpanded: () => void;
-  /**
-   * The composer's currently-selected argument type. Threaded into the
-   * expanded `ComposerTargetPanel` so its per-type guidance line works.
-   * Optional; null when no type is selected.
-   */
-  selectedArgumentType?: ArgumentType | null;
-  /** The composer's targetExcerpt draft field, threaded into the expanded panel. */
-  targetExcerpt?: string;
-  /** Update the targetExcerpt draft field. Called by the expanded panel. */
-  onChangeTargetExcerpt?: (text: string) => void;
   /** Optional band override (tests). Defaults to the resolved breakpoint. */
   bandOverride?: Band;
   /** Optional viewport height override (tests). */
@@ -177,9 +166,6 @@ export function ComposerContextStrip({
   activeMessageId,
   expanded,
   onToggleExpanded,
-  selectedArgumentType,
-  targetExcerpt,
-  onChangeTargetExcerpt,
   bandOverride,
   viewportHeightOverride,
 }: ComposerContextStripProps) {
@@ -312,15 +298,39 @@ export function ComposerContextStrip({
           ]}
           testID="composer-context-strip-expanded"
         >
-          <ComposerTargetPanel
-            parentArgument={parentArgument}
-            selectedArgumentType={selectedArgumentType ?? null}
-            targetExcerpt={targetExcerpt ?? ''}
-            onChangeTargetExcerpt={
-              onChangeTargetExcerpt ?? (() => {})
-            }
-            onClear={undefined}
-          />
+          {parentArgument ? (
+            <View style={styles.expandedReadout}>
+              <Text
+                style={styles.expandedLabel}
+                testID="composer-context-strip-expanded-label"
+              >
+                Full target
+              </Text>
+              <Text
+                style={styles.expandedExcerpt}
+                numberOfLines={6}
+                testID="composer-context-strip-expanded-excerpt"
+              >
+                {parentArgument.body}
+              </Text>
+            </View>
+          ) : resolution ? (
+            <View style={styles.expandedReadout}>
+              <Text
+                style={styles.expandedLabel}
+                testID="composer-context-strip-expanded-label"
+              >
+                Room resolution
+              </Text>
+              <Text
+                style={styles.expandedExcerpt}
+                numberOfLines={6}
+                testID="composer-context-strip-expanded-excerpt"
+              >
+                {resolution}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -377,5 +387,25 @@ const styles = StyleSheet.create({
   },
   expandedHost: {
     marginTop: SPACING.s,
+  },
+  expandedReadout: {
+    backgroundColor: SURFACE_TOKENS.base,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: SURFACE_TOKENS.border,
+    padding: SPACING.s,
+    gap: 4,
+  },
+  expandedLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: SURFACE_TOKENS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  expandedExcerpt: {
+    fontSize: 13,
+    color: SURFACE_TOKENS.textPrimary,
+    lineHeight: 18,
   },
 });

@@ -33,7 +33,7 @@
  *  - The box posts only through `submit-argument`; no service-role, no
  *    direct insert.
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArgumentComposer } from '../ArgumentComposer';
 import type { MoveDraftPatch } from '../conversationMoves';
@@ -155,6 +155,14 @@ export interface OneBoxProps {
    * parent. Additive optional; omitted = no cue surface.
    */
   activeMessageId?: string | null;
+  /**
+   * UX-001.3 — one-shot "open the mode switcher" trigger. The dock
+   * increments this counter when the user presses Cmd/Ctrl+K with
+   * the composer focused; the OneBox opens the ActPopout in response.
+   * Mirrors the postSignal pattern. Additive optional; `0` / omitted
+   * means no programmatic open.
+   */
+  openModeSwitcherSignal?: number;
 }
 
 /**
@@ -177,6 +185,7 @@ export function OneBox({
   onBeforeSubmit,
   postSignal,
   activeMessageId,
+  openModeSwitcherSignal,
 }: OneBoxProps) {
   // The box state machine. The initial type is `respond` when there is a
   // reply target, `root_claim` otherwise — the box opens already typed
@@ -321,6 +330,18 @@ export function OneBox({
 
   const openActPopout = useCallback(() => setActPopoutVisible(true), []);
   const closeActPopout = useCallback(() => setActPopoutVisible(false), []);
+
+  // UX-001.3 — One-shot "open the mode switcher" trigger. The dock
+  // increments `openModeSwitcherSignal` when the user presses
+  // Cmd/Ctrl+K with the composer focused. We open the ActPopout
+  // exactly once per signal change.
+  const lastOpenModeSwitcherSignalRef = useRef<number>(openModeSwitcherSignal ?? 0);
+  useEffect(() => {
+    const signal = openModeSwitcherSignal ?? 0;
+    if (signal === 0 || signal === lastOpenModeSwitcherSignalRef.current) return;
+    lastOpenModeSwitcherSignalRef.current = signal;
+    setActPopoutVisible(true);
+  }, [openModeSwitcherSignal]);
 
   return (
     <View style={styles.box} testID="one-box">
