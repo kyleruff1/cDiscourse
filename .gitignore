@@ -74,6 +74,17 @@ data/engagement-intelligence/local/
 /docs.zip
 assets/branding/*.zip
 
+# Bot-fixture dry-run regeneration noise (POST-UX001-noise-resolution).
+# These files are deterministic regenerations of tracked 2026-05-23 versions
+# (byte-identical: 20979 bytes for ai-driven-bot-corpus-dry, 6163 bytes for
+# engagement-epidemiology-synthetic). The operator's selective-commit pattern
+# (2026-05-17 through 2026-05-23 are tracked) is preserved via the override:
+# to commit a specific dry-run as regression evidence, use `git add -f
+# docs/testing-runs/<date>-<kind>.md`. Tracked versions are unaffected by
+# gitignore; only new regenerations are silenced.
+docs/testing-runs/*-ai-driven-bot-corpus-dry.md
+docs/testing-runs/*-engagement-epidemiology-synthetic.md
+
 # typescript
 *.tsbuildinfo
 
