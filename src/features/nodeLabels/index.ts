@@ -97,3 +97,15 @@ export {
   toAnnotationChipDescriptor,
   toAnnotationChipDescriptors,
 } from './nodeLabelDescriptorAdapter';
+
+// ── RN component exports ────────────────────────────────────────
+export {
+  NodeLabelStrip,
+  computeNodeLabelStripDescriptors,
+  type NodeLabelStripProps,
+} from './NodeLabelStrip';
+export {
+  NodeLabelInspectGroups,
+  computeNodeLabelInspectGroups,
+  type NodeLabelInspectGroupsProps,
+} from './NodeLabelInspectGroups';
