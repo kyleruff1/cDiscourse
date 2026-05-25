@@ -30,3 +30,15 @@ export {
   type NodeLabelSurface,
   type UserAllegationSource,
 } from './nodeLabelTypes';
+
+// ── Pure-TS exports — Machine Observation registry ──────────────
+export {
+  ALL_MACHINE_OBSERVATION_KEYS,
+  ALL_MACHINE_OBSERVATION_RAW_KEYS,
+  MACHINE_OBSERVATION_BY_RAW_KEY,
+  MACHINE_OBSERVATION_REGISTRY,
+  getMachineObservationByRawKey,
+  isKnownMachineObservationRawKey,
+  lookupMachineObservation,
+  makeMachineObservationKey,
+} from './machineObservationRegistry';
