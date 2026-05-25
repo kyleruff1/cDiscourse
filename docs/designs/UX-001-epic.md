@@ -34,11 +34,19 @@ UX-001 ships as seven coordinated cards. Each card is its own pipeline session w
 
 **UX-001.5 — Metadata and semantic annotation pass (M effort).** Phase 5 of the proposal. Object-attached flags and tags, passive state indicators, consistent visual treatments (rings, badges, chips, outlines), no raw internal codes leaking, no verdict copy.
 
+**UX-001.5A — Node Labels: Machine Observations and User Allegations (M effort, conditional).**
+
+Planned adjacent card after UX-001.5. UX-001.5 creates the visual annotation primitives; UX-001.5A creates the source-aware label presentation system. Machine-created labels render as Observations. User-created labels render as Allegations. The card consumes currently available client-side sources first: persisted manual tags for Allegations, deterministic metadata/lifecycle/composition mutations for Observations, and raw classifier binaries only if the pre-launch source-access audit confirms they are available without backend work. Missing raw classifier sources become a follow-up backend/persistence card (UX-001.5B) rather than expanding UX-001.5A by default. Semantic referee outputs are Machine Observations with `source: "semantic_referee"`; no third top-level label kind. Full roadmap at docs/roadmap/UX-001.5A-node-labeling-observations-allegations.md.
+
+**UX-001.5B — Persist or expose machine observation sources for node labels (conditional, S-or-M effort).**
+
+Contingent prerequisite card. Filed only if UX-001.5A's pre-launch source-access audit determines that raw classifier binaries are not accessible per-node in client state without backend work. The card's scope is to make the inaccessible sources available; the UI rendering remains UX-001.5A's scope. If the audit finds all needed sources are already accessible, UX-001.5B is not filed.
+
 **UX-001.6 — Cross-device QA and visual polish (M effort).** Phase 6 of the proposal. Test matrix across Android phone, iPhone, iPad, standard tablet, desktop browser, laptop browser, narrow window, wide window. Final visual polish pass.
 
 **UX-001.7 — Professional visual design system consolidation (M effort).** Section 10 of the proposal. Unified visual tokens for surfaces, typography, spacing, focus rings, touch targets, density modes. Standardizes the design language across everything the prior cards touched.
 
-Total: approximately three M-effort cards plus two L-effort cards plus two M-effort cards across the epic. Roughly 10-15 sessions of pipeline work depending on conditional gates between cards.
+Total epic card count (revised): seven primary cards (UX-001.1 through UX-001.7) plus one conditional adjacent card (UX-001.5A) plus one contingent prerequisite card (UX-001.5B). Most likely total: eight to nine cards depending on UX-001.5A's audit findings.
 
 ## Non-negotiables (across all UX-001 cards)
 
