@@ -441,8 +441,8 @@ function collectGoStrings(): { where: string; value: string }[] {
 const GO_PRODUCED = collectGoStrings();
 
 describe('QOL-033 Go popout copy — doctrine ban-list scan', () => {
-  it('collects every Go-popout string — 4 groups + 12×2 entries + 4 reasons', () => {
-    expect(GO_PRODUCED.length).toBe(4 + 12 * 2 + 4);
+  it('collects every Go-popout string — 4 groups + 13×2 entries + 5 reasons (UX-001.4 added jump_leave_room + leaveRoomUnavailable)', () => {
+    expect(GO_PRODUCED.length).toBe(4 + 13 * 2 + 5);
   });
 
   it('no Go-popout label contains a forbidden verdict / amplification token', () => {

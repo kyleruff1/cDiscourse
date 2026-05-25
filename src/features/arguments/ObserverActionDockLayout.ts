@@ -156,10 +156,14 @@ export function buildCollapsedDockLabel(context: DockContext): CollapsedDockLabe
         accessibilityHint: 'Opens actions for the selected point.',
       };
     case 'participant_own':
+      // UX-001.4 — After B.3 migration the own-bubble action set is
+      // empty (qualifiers + request_deletion both migrated to Act). The
+      // collapsed label points the user at the Act menu where those
+      // affordances now live. Plain English; no verdict tokens.
       return {
-        primary: 'On your message',
-        accessibilityLabel: 'On your message',
-        accessibilityHint: 'Opens actions for your own message.',
+        primary: 'Open Act',
+        accessibilityLabel: 'Open Act menu for your own message',
+        accessibilityHint: 'Opens the Act menu where qualifiers and request deletion live.',
       };
     case 'participant_other':
       return {

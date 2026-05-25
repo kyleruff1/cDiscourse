@@ -23,10 +23,10 @@ const ALL_BUBBLE_ACTORS: RailBubbleActor[] = ['self', 'other', 'bot', 'admin', '
 
 // ── 1. Observer set ─────────────────────────────────────────────
 
-describe('SC-005 matrix — observer action set', () => {
-  it('observer set is the six Stage 6.4 codes for EVERY bubbleActor', () => {
+describe('UX-001.4 matrix — observer action set (post-Act-consolidation)', () => {
+  it('observer set is the four post-UX-001.4 codes for EVERY bubbleActor (ask_source / open_timeline migrated)', () => {
     const expected: RailActionCode[] = [
-      'watch', 'join_aff', 'join_neg', 'ask_source', 'open_timeline', 'share',
+      'watch', 'join_aff', 'join_neg', 'share',
     ];
     for (const actor of ALL_BUBBLE_ACTORS) {
       const codes = getRailActions('observer', actor).map((a) => a.code);
@@ -35,8 +35,6 @@ describe('SC-005 matrix — observer action set', () => {
   });
 
   it('the observer-node dock still resolves to the observer action set (label changes, set does not)', () => {
-    // Stage 6.4 gives observers no per-bubble tactical actions; selecting a
-    // node only changes the collapsed LABEL, never the action set.
     expect(deriveDockContext('observer', 'other', false)).toBe('observer_no_node');
     expect(deriveDockContext('observer', 'other', true)).toBe('observer_node');
     const noNodeSet = getRailActions('observer', 'other').map((a) => a.code);
@@ -47,45 +45,40 @@ describe('SC-005 matrix — observer action set', () => {
 
 // ── 2. Own-bubble set (doctrine-critical) ───────────────────────
 
-describe('SC-005 matrix — own-bubble action set', () => {
-  it('own-bubble set is exactly [qualifiers, request_deletion]', () => {
+describe('UX-001.4 matrix — own-bubble action set (post-Act-consolidation)', () => {
+  it('own-bubble set is empty (qualifiers + request_deletion migrated to Act)', () => {
     const codes = getRailActions('participant', 'self').map((a) => a.code);
-    expect(codes).toEqual(['qualifiers', 'request_deletion']);
+    expect(codes).toEqual([]);
   });
 
-  it('own-bubble set contains NO reply / disagree / flag / source / quote / branch / join / score code', () => {
+  it('own-bubble set contains NO reply / disagree / flag / source / quote / branch / join / qualifiers / request_deletion code', () => {
     const codes = getRailActions('participant', 'self').map((a) => a.code);
     for (const forbidden of [
       'reply', 'disagree', 'flag', 'ask_source', 'ask_quote',
       'split_branch', 'join_aff', 'join_neg', 'watch', 'open_timeline', 'share',
+      'qualifiers', 'request_deletion',
     ]) {
       expect(codes).not.toContain(forbidden);
     }
   });
 
-  it('own-bubble dock view model has no body-edit affordance and a single flat section', () => {
+  it('own-bubble dock view model has zero sections (collapsed label points to Act)', () => {
     const vm = buildExpandedDockViewModel(
       getRailActions('participant', 'self'),
       'participant',
       'self',
     );
-    expect(vm.sections).toHaveLength(1);
+    expect(vm.sections).toHaveLength(0);
     expect(vm.showCategoryHeaders).toBe(false);
-    const labels = vm.sections.flatMap((s) => s.actions.map((a) => a.label.toLowerCase()));
-    for (const banned of ['edit', 'reply', 'disagree', 'flag']) {
-      expect(labels.some((l) => l.includes(banned))).toBe(false);
-    }
   });
 });
 
 // ── 3. Participant-other set ────────────────────────────────────
 
-describe('SC-005 matrix — participant-other action set', () => {
-  it('participant-other set is the seven Stage 6.4 codes', () => {
+describe('UX-001.4 matrix — participant-other action set (post-Act-consolidation)', () => {
+  it('participant-other set is reply + disagree (5 codes migrated to Act)', () => {
     const codes = getRailActions('participant', 'other').map((a) => a.code);
-    expect(codes).toEqual([
-      'reply', 'disagree', 'ask_source', 'ask_quote', 'split_branch', 'flag', 'qualifiers',
-    ]);
+    expect(codes).toEqual(['reply', 'disagree']);
   });
 
   it('participant-other set is identical for bot / admin / unknown bubble actors', () => {

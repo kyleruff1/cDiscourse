@@ -47,22 +47,38 @@ import type { ParticipantSide } from '../debates/types';
 export type RailViewerRole = 'observer' | 'participant';
 export type RailBubbleActor = 'self' | 'other' | 'bot' | 'admin' | 'unknown';
 
+// UX-001.4 — RailActionCode union. The migrate-to-Act entries
+// (ask_source, ask_quote, split_branch, flag, qualifiers,
+// request_deletion, open_timeline) are no longer rendered by the rail;
+// the entries were dispositioned per UX-001.4 design §1 Table B. The
+// codes remain in the union for back-compat with the railActionToBubbleControl
+// mapper (kept so existing callers / tests that still reference the
+// codes do not break); the rail's OBSERVER_ACTIONS / PARTICIPANT_OTHER_ACTIONS
+// / SELF_ACTIONS arrays no longer include them. Act is the canonical
+// surface for migrated entries.
 export type RailActionCode =
-  // Observer set
+  // Observer set — preserve-as-shortcut (watch / join) + retain (share)
   | 'watch'
   | 'join_aff'
   | 'join_neg'
+  // UX-001.4: ask_source migrated to Act (still in union for
+  // railActionToBubbleControl back-compat).
   | 'ask_source'
+  // UX-001.4: open_timeline migrated to Go's view_timeline entry.
   | 'open_timeline'
   | 'share'
-  // Participant set (other bubble)
+  // Participant set (other bubble) — preserve-as-shortcut for reply / disagree
   | 'reply'
   | 'disagree'
+  // UX-001.4: ask_quote migrated to Act (still in union for back-compat).
   | 'ask_quote'
+  // UX-001.4: split_branch migrated to Act (branch_tangent entry).
   | 'split_branch'
+  // UX-001.4: flag migrated to Act (direct group).
   | 'flag'
+  // UX-001.4: qualifiers migrated to Act (view_qualifiers direct entry).
   | 'qualifiers'
-  // Self bubble
+  // UX-001.4: request_deletion migrated to Act (direct group).
   | 'request_deletion';
 
 /**
@@ -108,29 +124,47 @@ interface RailAction {
   tone?: 'primary' | 'warning' | 'critical' | 'neutral';
 }
 
+// UX-001.4 — Migrate-to-Act entries removed per design §1 Table B (B.1/B.2/B.3).
+// The remaining entries are either:
+//   - preserve-as-shortcut: high-frequency single-tap actions (watch /
+//     join_aff / join_neg for observers; reply / disagree for
+//     participants on other bubbles) that would lose value with an Act
+//     roundtrip.
+//   - retain-with-rationale: out-of-band actions that aren't moves
+//     (share — opens a native/browser share sheet; not a Constitution move).
+//
+// Migrated codes still exist in the RailActionCode union for back-compat
+// with railActionToBubbleControl; they simply don't render in the rail.
+// Act is the canonical home — open Act on a node to access Ask source /
+// Ask quote / Split branch / Flag / Qualifiers / Request deletion.
 const OBSERVER_ACTIONS: RailAction[] = [
   { code: 'watch', label: 'Watch', helper: OBSERVER_COPY.watchHelp, category: 'watch_observe', tone: 'neutral' },
   { code: 'join_aff', label: OBSERVER_COPY.joinAffShort, helper: OBSERVER_COPY.joinHelp + ' Argue For.', category: 'join_side', tone: 'primary' },
   { code: 'join_neg', label: OBSERVER_COPY.joinNegShort, helper: OBSERVER_COPY.joinHelp + ' Argue Against.', category: 'join_side', tone: 'primary' },
-  { code: 'ask_source', label: 'Ask source', helper: OBSERVER_COPY.askSourceHelp, category: 'evidence', tone: 'primary' },
-  { code: 'open_timeline', label: 'Open timeline', helper: OBSERVER_COPY.openTimelineHelp, category: 'watch_observe', tone: 'neutral' },
+  // UX-001.4: 'share' retained inline (NOT migrated to Act) because
+  // sharing is an out-of-band action (browser/native), not a debate
+  // move. Adding an Act roundtrip would add friction without
+  // consolidation benefit.
   { code: 'share', label: 'Share', helper: OBSERVER_COPY.shareHelp, category: 'share', tone: 'neutral' },
 ];
 
 const PARTICIPANT_OTHER_ACTIONS: RailAction[] = [
+  // UX-001.4 — reply / disagree retained as preserve-as-shortcut. These
+  // two are the highest-frequency actions in the entire app; the rail
+  // continues to dispatch them directly to the composer (no Act
+  // roundtrip), matching the existing behavior. The same composer mode
+  // opens whether the user picks reply via the rail OR via Act → Respond.
   { code: 'reply', label: 'Reply', helper: OBSERVER_COPY.replyHelp, category: 'reply', tone: 'primary' },
   { code: 'disagree', label: 'Disagree', helper: OBSERVER_COPY.disagreeHelp, category: 'reply', tone: 'warning' },
-  { code: 'ask_source', label: 'Ask source', helper: OBSERVER_COPY.askSourceHelp, category: 'evidence', tone: 'primary' },
-  { code: 'ask_quote', label: 'Ask quote', helper: OBSERVER_COPY.askQuoteHelp, category: 'evidence', tone: 'primary' },
-  { code: 'split_branch', label: 'Split branch', helper: OBSERVER_COPY.splitBranchHelp, category: 'branch', tone: 'neutral' },
-  { code: 'flag', label: 'Flag', helper: OBSERVER_COPY.flagHelp, category: 'review_flag', tone: 'critical' },
-  { code: 'qualifiers', label: 'Qualifiers', helper: OBSERVER_COPY.qualifiersHelp, category: 'review_flag', tone: 'neutral' },
 ];
 
-const SELF_ACTIONS: RailAction[] = [
-  { code: 'qualifiers', label: 'Qualifiers', helper: OBSERVER_COPY.qualifiersHelp, category: 'review_flag', tone: 'neutral' },
-  { code: 'request_deletion', label: 'Request deletion', helper: OBSERVER_COPY.requestDeletionHelp, category: 'review_flag', tone: 'critical' },
-];
+// UX-001.4 — Self (own bubble) action set is empty after B.3 migration
+// (qualifiers + request_deletion both migrated to Act). The rail's
+// `participant_own` context now renders the collapsed "Open Act ▾"
+// label (see ObserverActionDockLayout.buildCollapsedDockLabel). The
+// empty array means the expanded dock shows no rows; the user opens
+// Act to view qualifiers or request deletion.
+const SELF_ACTIONS: RailAction[] = [];
 
 export type RailActionWithCategory = RailAction;
 
