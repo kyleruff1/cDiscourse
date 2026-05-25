@@ -16,8 +16,7 @@
 
 ## UX-001.1 — Brand and app shell correction (UX-001 Phase 1)
 
-**Status:** Build complete (awaiting Review). Issue #284, branch
-`feat/UX-001.1-brand-and-app-shell-correction-ux-001-phas`.
+**Status:** Shipped. Issue #284 CLOSED, PR #285 merged at `dba5484`.
 
 **Role in the UX-001 epic:** UX-001.1 is the **opener** of the seven-card
 UX/UI Consolidation Wave (UX-001.1 through UX-001.7). Phase 1 ships
@@ -150,8 +149,7 @@ section below.
 
 ## UX-001.2 — Timeline-first viewport repair and room-active chrome consolidation (UX-001 Phase 2)
 
-**Status:** Build complete (awaiting Review). Issue #286, branch
-`feat/UX-001.2-timeline-first-viewport-repair-and-room-active`.
+**Status:** Shipped. Issue #286 CLOSED, PR #287 merged at `3ccdc6f`.
 
 **Role in the UX-001 epic:** UX-001.2 is the visible credibility repair
 for the whole UX-001 epic. UX-001.1 made the brand shell professional;
@@ -337,8 +335,7 @@ audit + Q10 offset arithmetic.
 
 ## UX-001.3 — Composer and Context Consolidation (UX-001 Phase 3)
 
-**Status:** Build complete (awaiting Review). Issue #288, branch
-`feat/UX-001.3-composer-and-context-consolidation`.
+**Status:** Shipped. Issue #288 CLOSED, PR #289 merged at `2cc34ee`.
 
 **Role in the UX-001 epic:** UX-001.3 consolidates the composer into one
 persistent, contextual command center across all 14 canonical modes
@@ -617,8 +614,7 @@ Q1-Q12 audit + §16 file scope.
 
 ## UX-001.4 — Act / Inspect / Go simplification (UX-001 Phase 4)
 
-**Status:** Build complete (awaiting Review). Issue #290, branch
-`feat/UX-001.4-act-inspect-go-simplification`.
+**Status:** Shipped. Issue #290 CLOSED, PR #291 merged at `acc707d`.
 
 **Role in the UX-001 epic:** UX-001.4 consolidates the three in-room
 interaction menus — Act, Inspect, Go — into one coherent three-menu
@@ -852,8 +848,7 @@ See `docs/designs/UX-001.4.md` for the verbatim design + Q1-Q13 audit
 
 ## UX-001.5 — Metadata and Semantic Annotation Visual Primitives (UX-001 Phase 5)
 
-**Status:** Build complete (awaiting Review). Issue #292, branch
-`feat/UX-001.5-metadata-and-semantic-annotation-visual-primitives`.
+**Status:** Shipped. Issue #292 CLOSED, PR #293 merged at `9b360ca`.
 
 **Role in the UX-001 epic:** UX-001.5 ships the canonical visual annotation
 primitives — chips, badges, rings, outlines, edge highlights, Inspect
@@ -1151,19 +1146,22 @@ consolidation against actual cross-device behavior, not just
 hypothetical token uniformity):
 
 None. The matrix surfaced no regressions warranting separate-card
-filing. UX-001.5C remains conditionally deferred (file only if a
-future card surfaces an EvidenceAnnotationChip regression that cannot
-wait for UX-001.7); UX-001.4 follow-up not triggered; no other
-separate-card filings warranted.
+filing. UX-001.5C is closed as unnecessary; EvidenceAnnotationChip
+refactor shipped inside UX-001.7 (PR #297, merge `b7fb9ff`) via the
+Workstream 4 preferred path. No standalone UX-001.5C card remains
+unless a future regression appears. UX-001.4 follow-up not triggered;
+no other separate-card filings warranted.
 
 **The `EvidenceAnnotationChip` regression status** (per POSTRUN-UX001
-Scope 6 fold):
+Scope 6 fold, resolved by UX-001.7 Workstream 4):
 
-No regression observed. The chip refactor remains folded into UX-001.7
-per the operator's prior decision. UX-001.5C is NOT filed. UX-001.6's
-surface #18 assertion confirmed the chip's source file exists and
-exports the component cleanly at every viewport; no acute defect
-surfaced.
+No regression observed at UX-001.6 cross-device QA. UX-001.7 then
+shipped the refactor via the Workstream 4 preferred path
+(PR #297, merge `b7fb9ff`); UX-001.5C is closed as unnecessary.
+UX-001.6's surface #18 assertion had confirmed the chip's source file
+exists and exports the component cleanly at every viewport with no
+acute defect — the green QA was the precondition for UX-001.7's
+in-scope refactor.
 
 **Read-only API boundary verification:**
 
@@ -1236,8 +1234,7 @@ count delta; the specific number is not the contract.
 
 ## UX-001.6 — Cross-device QA and visual polish (UX-001 Phase 6)
 
-**Status:** Build complete (awaiting Review). Issue #294, branch
-`feat/UX-001.6-cross-device-qa-and-visual-polish`.
+**Status:** Shipped. Issue #294 CLOSED, PR #295 merged at `a50f411`.
 
 **Role in the UX-001 epic:** UX-001.6 is the visible quality baseline
 for the entire UX-001 epic. The five prior cards shipped product
@@ -1341,11 +1338,7 @@ in the section above this one).
 
 ## UX-001.7 — Phase 7 framing + final UX-001 design-system handoff
 
-**Status:** Build complete (awaiting Review). Issue
-[#296](https://github.com/kyleruff1/cDiscourse/issues/296), branch
-`feat/UX-001.7-visual-design-system-consolidation`. Design document at
-`docs/designs/UX-001.7.md` (binding spec; operator-approved
-2026-05-25 per the launch prompt's 5 operator notes).
+**Status:** Shipped. Issue [#296](https://github.com/kyleruff1/cDiscourse/issues/296) CLOSED, PR #297 merged at `b7fb9ff`. Design document at `docs/designs/UX-001.7.md` (binding spec; operator-approved 2026-05-25 per the launch prompt's 5 operator notes).
 
 **Role in the UX-001 epic:** UX-001.7 is the **epic closer**.
 UX-001.1 through UX-001.6 shipped the brand shell, Timeline-first
@@ -1527,13 +1520,13 @@ UX-001.5B is contingent on UX-001.5A's findings.
 
 | Card | Title | PR | Merge SHA | Test count delta |
 |---|---|---|---|---|
-| UX-001.1 | Brand and app shell correction | #285 | (filled at merge) | 10,734 → 10,826 (+92 tests, +3 suites) |
+| UX-001.1 | Brand and app shell correction | #285 | `dba5484` | 10,734 → 10,826 (+92 tests, +3 suites) |
 | UX-001.2 | Timeline-first viewport repair + room-active chrome consolidation | #287 | `3ccdc6f` | 10,826 → 10,995 (+169 tests, +8 suites) |
 | UX-001.3 | Composer and context consolidation | #289 | `2cc34ee` | 10,995 → 11,195 (+200 tests, +13 suites) |
 | UX-001.4 | Act / Inspect / Go simplification | #291 | `acc707d` | 11,195 → 11,539 (+344 tests, +11 suites) |
 | UX-001.5 | Metadata and semantic annotation visual primitives | #293 | `9b360ca` | 11,539 → 12,724 (+1,185 tests, +18 suites) |
 | UX-001.6 | Cross-device QA and visual polish | #295 | `a50f411` | 12,724 → 15,661 (+2,937 tests, +5 suites) |
-| UX-001.7 | Visual design system consolidation (epic closer) | #296 | (filled at merge) | **15,661 → 15,924 (+263 tests, +6 suites)** |
+| UX-001.7 | Visual design system consolidation (epic closer) | #297 | `b7fb9ff` | **15,661 → 15,924 (+263 tests, +6 suites)** |
 
 ### UX-001.5A status
 
