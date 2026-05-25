@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-24 (Stage 6.4 / OPS-004)_
+_Last updated: 2026-05-25 (Stage 6.4 / PR-004 test alignment cleanup)_
 
 ---
 
@@ -376,6 +376,21 @@ it earlier in the same migration or in any prior migration whose
 object would be affected." Same testing path as the PR-003 storage
 schema lesson: `npx supabase db reset --linked=false` (Docker) OR
 Supabase MCP `apply_migration` dry-run on a branch DB.
+
+**2026-05-25 follow-up:** `__tests__/deprecateAvatarMigration.test.ts`
+assertion at line 82 was updated post-OPS-004 to match the
+migration's post-hotfix DROP order. The test was originally written
+against the pre-hotfix order (`columnDropIdx < narrowedDropIdx`) and
+failed silently in `npm test` until OPS-004 surfaced the orphan debt
+in its post-merge verification. The fix flipped the assertion to
+`narrowedDropIdx < columnDropIdx` to match the shipped migration
+(narrowed policy dropped BEFORE columns it references); the test's
+logic is unchanged. Direct-to-main commit per the PR-003 and PR-004
+recovery precedents; no separate pipeline card because the scope is
+bounded to one test assertion plus this documentation footnote.
+Full `npm test` now exits 0 cleanly (10734/10734, 427/427 suites).
+The OPS-001 Class 3 strengthening from OPS-004 prevents the same
+class of test-vs-migration drift from recurring on future cards.
 
 ### ✅ OPS-002 Stale-Worktree-Branch-Claim (2026-05-25)
 

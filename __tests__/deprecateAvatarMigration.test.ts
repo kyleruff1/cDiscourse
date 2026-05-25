@@ -74,12 +74,21 @@ describe('PR-004 — deprecation migration source-scan', () => {
     expect(storageDropIdx).toBeLessThan(columnDropIdx);
   });
 
-  it('statement order: column drops appear BEFORE narrowed UPDATE drop', () => {
+  // 2026-05-25 recovery: assertion updated to match the migration's
+  // post-hotfix DROP order. The PR-004 hotfix (commit 0756d2f) swapped
+  // DROP POLICY narrowed and ALTER TABLE DROP COLUMN to satisfy
+  // Postgres's dependency tracking (the narrowed policy's WITH CHECK
+  // clause referenced the columns being dropped — SQLSTATE 2BP01 at
+  // apply time). This test was originally written against the pre-hotfix
+  // order; the assertion now matches the shipped order. See
+  // docs/core/known-blockers.md "PR-004 DROP COLUMN Before DROP POLICY"
+  // entry for the full lesson.
+  it('statement order: narrowed UPDATE drop appears BEFORE column drops (post-hotfix)', () => {
     const columnDropIdx = SQL.indexOf('DROP COLUMN IF EXISTS avatar_path');
     const narrowedDropIdx = SQL.indexOf('DROP POLICY IF EXISTS "profiles: users update own — narrow"');
     expect(columnDropIdx).toBeGreaterThan(-1);
     expect(narrowedDropIdx).toBeGreaterThan(-1);
-    expect(columnDropIdx).toBeLessThan(narrowedDropIdx);
+    expect(narrowedDropIdx).toBeLessThan(columnDropIdx);
   });
 
   it('statement order: narrowed UPDATE drop appears BEFORE restored UPDATE create', () => {
