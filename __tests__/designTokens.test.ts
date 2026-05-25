@@ -58,19 +58,24 @@ describe('VG-003 token structure', () => {
     expect(Object.keys(ARGUMENT).sort()).toEqual(['branch', 'challenge', 'claim', 'clarify', 'concede', 'evidence']);
   });
 
-  it('TOKENS aggregate contains all eleven categories (surfaceTokens / control added in BRAND-002)', () => {
+  it('TOKENS aggregate contains all sixteen categories (UX-001.7 added touchTarget / focusRing / borderWidth / typography / spacingPresets)', () => {
     expect(Object.keys(TOKENS).sort()).toEqual([
       'argument',
+      'borderWidth',     // UX-001.7
       'brand',
       'control',
+      'focusRing',       // UX-001.7
       'glow',
       'radius',
       'rail',
       'receiptMark',
       'spacing',
+      'spacingPresets',  // UX-001.7
       'status',
       'surface',
       'surfaceTokens',
+      'touchTarget',     // UX-001.7
+      'typography',      // UX-001.7
     ]);
   });
 });
