@@ -1,4 +1,16 @@
 -- ============================================================
+-- 2026-05-25 RECOVERY: swapped step 2 (DROP COLUMN) and step 3
+-- (DROP POLICY) so the narrowed policy is dropped BEFORE the columns
+-- it references. The original order produced SQLSTATE 2BP01 at apply
+-- time. OPS-001 Class 3 (statement order dependency) gap that the
+-- textual review missed because it didn't trace cross-statement
+-- column-reference dependencies. Pattern for the OPS-004 candidacy:
+-- "any DROP COLUMN should be preceded by DROP of every policy or
+-- index that references the column." See known-blockers.md for the
+-- companion entry.
+-- ============================================================
+--
+-- ============================================================
 -- Migration: 20260525000017_pr_004_deprecate_avatar_pipeline
 -- Description: PR-004 — deprecate PR-003's avatar pipeline. Drop the
 --   storage SELECT policy on profile-avatars (the bucket itself
@@ -112,7 +124,20 @@
 -- the SELECT policy is removed so no caller can list its contents.
 DROP POLICY IF EXISTS "profile-avatars: anyone can read" ON storage.objects;
 
--- ── 2. Drop the four avatar columns ──────────────────────────
+-- ── 2. Drop the narrowed UPDATE policy ───────────────────────
+-- 2026-05-25 RECOVERY: the original migration listed this as step 3
+-- (after the DROP COLUMN). That order produced
+-- `SQLSTATE 2BP01 cannot drop column avatar_path of table profiles
+-- because other objects depend on it (policy "profiles: users update
+-- own — narrow" depends on column avatar_path)` at apply time
+-- because the narrowed policy's WITH CHECK clause references the
+-- four avatar columns. The narrowed policy must be dropped BEFORE
+-- the columns it references. OPS-001 Class 3 (statement order
+-- dependency) gap that the heightened textual review missed because
+-- it didn't trace the cross-statement column-reference graph.
+DROP POLICY IF EXISTS "profiles: users update own — narrow" ON public.profiles;
+
+-- ── 3. Drop the four avatar columns ──────────────────────────
 -- The CHECK constraint on avatar_moderation_status is dropped
 -- automatically when the column is dropped. The IF EXISTS is safety
 -- in case a future fresh-database apply executes this migration
@@ -123,9 +148,6 @@ ALTER TABLE public.profiles
   DROP COLUMN IF EXISTS avatar_thumb_path,
   DROP COLUMN IF EXISTS avatar_updated_at,
   DROP COLUMN IF EXISTS avatar_moderation_status;
-
--- ── 3. Drop the narrowed UPDATE policy ───────────────────────
-DROP POLICY IF EXISTS "profiles: users update own — narrow" ON public.profiles;
 
 -- ── 4. Restore the original UPDATE policy ────────────────────
 -- This is a byte-for-byte restoration of the original policy from

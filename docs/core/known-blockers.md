@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-24 (Stage 6.4 / PR-003 deploy recovery)_
+_Last updated: 2026-05-25 (Stage 6.4 / PR-004 deploy recovery)_
 
 ---
 
@@ -331,6 +331,97 @@ review cannot see. This pattern is a Class 4 gap (function/extension
 dependencies) in the OPS-001 four-class checklist that the textual
 review does not flag because the SQL is syntactically valid; only
 the live apply surfaces the privilege boundary.
+
+### ✅ PR-004 DROP COLUMN Before DROP POLICY Order Dependency (2026-05-25)
+
+**Problem:** PR-004's migration
+`20260525000017_pr_004_deprecate_avatar_pipeline.sql` failed at apply
+time on statement 1 (`ALTER TABLE public.profiles DROP COLUMN avatar_path,
+...`) with `SQLSTATE 2BP01 cannot drop column avatar_path of table
+profiles because other objects depend on it (policy "profiles: users
+update own — narrow" depends on column avatar_path)`. The original
+migration ordered DROP COLUMN before DROP POLICY; the narrowed UPDATE
+policy from migration 16 referenced the four avatar columns in its
+WITH CHECK clause, blocking the column drop. Migration transaction
+rolled back cleanly; remote DB was in post-PR-003 state.
+
+**Root cause:** OPS-001 Class 3 (statement ordering dependency) gap.
+The reviewer's heightened textual review did not trace the
+cross-statement column-reference graph between the policy body and
+the column drops, so the wrong ordering passed review. The
+`profiles: users update own — narrow` policy created in migration
+16 explicitly named all four avatar columns in its `WITH CHECK`
+freeze clause; dropping the columns before dropping the policy
+violates Postgres's dependency tracking.
+
+**Resolution:** Edited migration 17 in place (rolled-back
+transaction makes this doctrine-compliant — distinct from QOL-041.2's
+in-place exception which applies only to migrations that DID
+partially apply). Swapped steps 2 and 3 so the narrowed policy is
+dropped BEFORE the columns it references. Added inline `-- 2026-05-25
+RECOVERY` block at the swap site + recovery header at file top.
+Re-pushed migration successfully; deleted `upload-avatar` Edge
+Function; ran `npm install` to pick up `expo-image-picker` removal;
+smoke verification 16/16 passing.
+
+**Lesson for future migrations:** Any `DROP COLUMN` must be preceded
+by `DROP` of every policy, index, view, trigger, or function that
+references the column. The dependency graph is invisible to textual
+review unless the reviewer manually traces it. The OPS-001 Class 3
+checklist should be strengthened to include: "for every `DROP COLUMN`
+or `DROP TABLE` statement, grep the entire migration set for the
+column or table name and verify no `CREATE POLICY`, `CREATE INDEX`,
+`CREATE VIEW`, `CREATE TRIGGER`, or `CREATE FUNCTION` body references
+it earlier in the same migration or in any prior migration whose
+object would be affected." Same testing path as the PR-003 storage
+schema lesson: `npx supabase db reset --linked=false` (Docker) OR
+Supabase MCP `apply_migration` dry-run on a branch DB.
+
+### ✅ OPS-002 Stale-Worktree-Branch-Claim (2026-05-25)
+
+**Problem:** PR-004's implementer subagent ran the OPS-002 charter
+rename step (`git branch -m feat/PR-004-contact-information-update`)
+which failed with `fatal: a branch named '...' already exists`. The
+canonical branch was held by the prior designer worktree
+(`agent-a75a7f3256dd3a767`). Even `git checkout feat/PR-004-...`
+failed with `fatal: '...' is already used by worktree at ...`. The
+implementer recovered via `git switch --ignore-other-worktrees
+feat/PR-004-contact-information-update` + branch cleanup, but the
+recovery is undocumented in the OPS-002 charter.
+
+**Root cause:** The OPS-002 charter assumes the canonical branch
+name is free when the implementer arrives. In practice, the
+designer's prior worktree (created by `isolation="worktree"` during
+the designer phase) holds the canonical branch reservation. When the
+operator pushes the designer branch via the refspec workaround
+(`worktree-agent-<hash>:feat/<code>-<slug>`) the remote tracking
+ref takes the canonical name, and the implementer's subsequent
+`git branch -m` collides.
+
+**Resolution:** The workaround `git switch
+--ignore-other-worktrees <name>` (followed by cleanup of the
+implementer's own auto-generated branch via `git branch -d`)
+unblocks the implementer when the canonical branch is held by a
+clean prior worktree. The override is safe when the prior worktree
+has no uncommitted work (which is typical post-designer).
+
+**Lesson for future implementers (candidate OPS-004 fix):** The
+OPS-002 charter rename step should be extended to handle the
+stale-worktree-claim case explicitly. The recommended sequence:
+1. `git branch --show-current` — capture the auto-branch name.
+2. Try `git branch -m feat/<code>-<slug>` — succeeds if canonical is free.
+3. On failure with "branch already exists":
+   - Run `git worktree list` to identify which worktree holds it.
+   - If that worktree is the designer's (post-design), apply
+     `git switch --ignore-other-worktrees feat/<code>-<slug>`.
+   - Delete the original auto-branch with `git branch -d
+     worktree-agent-<hash>`.
+4. Proceed with the baseline check.
+
+The OPS-004 hypothetical card (now accumulating three signals:
+spawn-card colon-vs-dash, storage schema COMMENT ownership, this
+stale-worktree-claim) could fold all three into a single operational
+hygiene sweep when the operator decides to file it.
 
 ---
 
