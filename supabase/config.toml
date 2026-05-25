@@ -427,16 +427,12 @@ verify_jwt = true
 [functions.record-visibility-transition]
 verify_jwt = true
 
-# PR-003 — upload-avatar. Three actions: upload (decode + resize + EXIF
-# strip + store + update profile via service-role), remove (delete both
-# storage objects + null profile columns), read_url_for_user (resolve
-# another user's avatar public URLs honouring the moderation_status
-# gate). Every action requires a signed-in caller; the service-role
-# client is used only for storage writes and the profiles UPDATE (the
-# narrowed UPDATE policy from migration 16 refuses client-JWT writes to
-# the four avatar columns).
-[functions.upload-avatar]
-verify_jwt = true
+# PR-004 — [functions.upload-avatar] block removed. The avatar upload
+# pipeline (PR-003) was deprecated when the operator pivoted to the
+# InitialsAvatar identity glyph. The source under
+# supabase/functions/upload-avatar/ is deleted; the operator removes the
+# deployed function via `npx supabase functions delete upload-avatar
+# --linked`. See docs/designs/PR-004.md and migration 17.
 
 [edge_runtime]
 enabled = true

@@ -1,6 +1,5 @@
 import { supabase, SUPABASE_CONFIGURED } from '../../lib/supabase';
 import type {
-  AvatarModerationStatus,
   UserProfile,
   ProfileUpdatePayload,
   ProfileResult,
@@ -55,9 +54,7 @@ export async function fetchOwnProfile(userId: string): Promise<ProfileResult<Use
 
   const { data, error } = await supabase
     .from('profiles')
-    .select(
-      'id, display_name, role, created_at, avatar_path, avatar_thumb_path, avatar_updated_at, avatar_moderation_status',
-    )
+    .select('id, display_name, role, created_at')
     .eq('id', userId)
     .single();
 
@@ -69,10 +66,6 @@ export async function fetchOwnProfile(userId: string): Promise<ProfileResult<Use
     return { ok: false, error: 'network_error', message: error.message };
   }
 
-  const moderationStatusRaw = data.avatar_moderation_status as string | null | undefined;
-  const moderationStatus: AvatarModerationStatus =
-    moderationStatusRaw === 'removed' ? 'removed' : 'allowed';
-
   return {
     ok: true,
     data: {
@@ -80,10 +73,6 @@ export async function fetchOwnProfile(userId: string): Promise<ProfileResult<Use
       displayName: data.display_name as string | null,
       role: data.role as ProfileRole,
       createdAt: data.created_at as string,
-      avatarPath: (data.avatar_path as string | null) ?? null,
-      avatarThumbPath: (data.avatar_thumb_path as string | null) ?? null,
-      avatarUpdatedAt: (data.avatar_updated_at as string | null) ?? null,
-      avatarModerationStatus: moderationStatus,
     },
   };
 }
