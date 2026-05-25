@@ -87,6 +87,32 @@ const radius = Platform.select({ web: 8, default: 6 });
 
 For web-only enhancements (keyboard nav, larger viewports), guard with `Platform.OS === 'web'` and provide a graceful native default. The native path must still be a complete experience.
 
+## Cross-device QA viewport conventions (POSTRUN-UX001 / UX-001.6 prep)
+
+Cross-device QA distinguishes six device contexts. Component-level tests verify props and rendering; cross-device QA verifies actual viewport behavior. React Native Web layout MUST be validated against actual viewport assumptions, not only via component tests.
+
+The four hard-blocker viewports for the UX-001 epic (and the default cross-device QA matrix going forward):
+
+| Viewport | Label | Context |
+|---|---|---|
+| 390 × 844 | Phone (iPhone-class) | Touch-first; no keyboard hints |
+| 1024 × 1366 | Tablet portrait (iPad Pro 11-class) | Touch-first; optional keyboard |
+| 1366 × 768 | Narrow browser (small laptop / desktop window) | Keyboard-first; key badges render |
+| 1920 × 1080 | Wide browser (desktop) | Keyboard-first; key badges render |
+
+The four extension viewports for broader coverage (use when QA matrix calls for it):
+
+| Viewport | Label | Context |
+|---|---|---|
+| 360 × 800 | Phone (small Android) | Touch-first; tightest layout budget |
+| 412 × 892 | Phone (large Android) | Touch-first |
+| 768 × 1024 | Tablet portrait (iPad-class) | Touch-first |
+| 2560 × 1440 | Wide browser (4K-class desktop) | Keyboard-first; verify nothing scales oddly |
+
+Touch-first and keyboard-first divergence is acceptable when documented. The same screen can render different chrome (e.g., key badges on browser, not on phone) as long as the no-color-only and 44×44 rules apply to both paths.
+
+When a card's design specifies cross-device QA, the design doc must enumerate which of these viewports the implementation has been verified against, with notes on any per-viewport adaptations.
+
 ## When in doubt
 
 Read the corresponding existing component before designing. If your design would force the existing component into a major rewrite, surface it in the design doc and stop — that's a separate refactor card.

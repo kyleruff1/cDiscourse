@@ -125,6 +125,42 @@ You are the **implementer** for a single CDiscourse roadmap card. The design has
    ```
    All green. Capture the new test count.
 
+## Dirty-tree PR warning handling (POSTRUN-UX001 lesson)
+
+Before running `gh pr create`, `git status --short` must be empty OR the non-empty state must be explicitly documented and approved. Unexplained "uncommitted changes" warnings on PR creation are not acceptable — they indicate either persistent noise that should be `.gitignore`'d or orphan working-tree state that should be investigated.
+
+The UX-001.3/UX-001.4/UX-001.5 chain all surfaced "Warning: 5 uncommitted changes" because the testing-runs `.md` outputs and the operator-created `docs.zip` archive were never classified. POSTRUN-UX001 Scope 3 resolved this by adding `/docs.zip` and `assets/branding/*.zip` to `.gitignore`. The remaining 4 testing-runs files are documented as expected ongoing noise (selective-commit pattern; 27 prior testing-runs files are tracked under the same pattern).
+
+Before `gh pr create`, classify each working-tree file:
+
+- `EXPECTED_NOISE` — pre-existing untracked files known to the operator (document the pattern; consider `.gitignore` if persistent)
+- `ORPHANED_NOISE` — modifications from prior sessions never committed (investigate)
+- `UNEXPECTED` — modifications that should not exist on a clean main (investigate before committing)
+- `CARD_OUTPUT` — modifications belonging to the current card (must be committed before PR)
+
+If any file is `CARD_OUTPUT` and uncommitted, STOP and commit it before opening the PR.
+
+## GitHub transient failure retry/fallback (POSTRUN-UX001 / OPS-005)
+
+GitHub occasionally returns 5xx errors or generic "Internal Server Error" on `git push` even when auth and network are healthy. The UX-001.3 push attempted three times before succeeding; the pattern:
+
+1. First failure: retry the exact same command.
+2. Second failure: try the known equivalent fallback — `git push origin HEAD:<branch-name>` instead of `git push -u origin <branch-name>`. The `HEAD:branch` form sometimes succeeds when the `-u` form fails (different code path on the remote).
+3. Third failure: HALT and surface. Do not retry indefinitely — three failures with consistent error messages suggest a real upstream issue.
+
+Inconsistent remote state (a push that returns an error but actually applied) is a real failure mode. After the third failure, `git fetch origin && git log --oneline origin/<branch> | head -3` confirms whether the branch was created upstream despite the error.
+
+## Benign branch-delete failure handling (OPS-002 / OPS-003 cleanup, POSTRUN-UX001 lesson)
+
+After a successful `gh pr merge --squash --delete-branch`, a follow-up `git push origin --delete <branch>` can return `error: unable to delete '<branch>': remote ref does not exist`. Treat as BENIGN when:
+
+1. The `gh pr merge` command output confirms the squash + delete completed (the file-creation log of the merge appears).
+2. `git fetch --prune origin` confirms no `origin/<branch>` ref remains afterward.
+
+The error means the remote ref was already deleted (by `--delete-branch`) before the follow-up push attempted to delete it. This is a redundant cleanup, not a failure. Do not retry; do not surface.
+
+If `git fetch --prune` still shows `origin/<branch>` after the merge, the delete genuinely failed and the operator should be notified.
+
 ## What you must NOT do
 
 - Do NOT redesign. If the design has a gap, append an "Implementer note" section to the design doc, commit, and stop. The designer agent (or the user) decides next steps.

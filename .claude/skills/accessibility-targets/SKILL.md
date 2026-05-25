@@ -98,6 +98,22 @@ When a node transitions state (new active, new strength band, new debt), use `Ac
 - Use `accessibilityErrorMessage` (RN 0.74+) for validation errors. If not available, render the error inline with `accessibilityLiveRegion="polite"`.
 - For multi-step forms, announce step transitions with `announceForAccessibility`.
 
+## Keyboard hints — platform-conditional pattern (POSTRUN-UX001 / UX-001.4)
+
+Keyboard shortcut hints (key badges like `A`, `I`, `G` on menu triggers) MUST NOT appear as primary UI on phone or tablet. The pattern:
+
+- Key badges render only when `Platform.OS === 'web'` AND the viewport is wide enough that a keyboard is plausible (typically `Dimensions.get('window').width >= 768`).
+- On phone (≤599dp) and tablet (600-1279dp), the key badge component renders `null` even if the keyboard shortcut is still wired (some hybrid devices have keyboards, but the visual hint is wrong as a primary mobile cue).
+- The keyboard shortcut itself remains active on the web build regardless of viewport — only the visual badge is platform-conditional.
+
+Compact controls (chips, badges, key hints) must also pass three accessibility checks during cross-device QA:
+
+1. **Focus visibility** — when keyboard-focused on web, the control has a visible focus ring distinct from its hover or active state.
+2. **Touch target size** — at every supported viewport the control meets 44×44 logical pixels, via visual size or `hitSlop`.
+3. **Screen-reader name** — the control's `accessibilityLabel` reads naturally without including the keyboard shortcut (the badge is visual-only; screen readers get the action name).
+
+Cross-device QA matrices (e.g., UX-001.6) MUST check all three for every new compact interactive element.
+
 ## Testing checklist before claiming a card done
 
 ```

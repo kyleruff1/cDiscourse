@@ -85,6 +85,18 @@ Production app (everything under `app/` and `src/` outside `scripts/bot-fixtures
 - Map every code through `gameCopy.toPlainLanguage`. Unknown codes are suppressed, not echoed.
 - This is enforced by tests — adding a new code without updating the mapping is a test failure.
 
+## 10a. Observations vs Allegations (node label doctrine)
+
+Captured from POSTRUN-UX001 + UX-001.5A roadmap. This is the schema, display, accessibility, and doctrine boundary for node labels.
+
+- **Machine-generated labels are Observations.** They originate from system code (auto metadata, lifecycle state, composition mutations, classifier outputs, semantic referee) — never from a person.
+- **User-generated labels are Allegations.** They originate from a human user applying a tag.
+- Do NOT collapse the two into generic "tags". The distinction is doctrinally load-bearing — it lets the UI render machine signals without implying a person made the claim.
+- No raw classifier IDs in user-facing UI (`introduces_new_issue`, `quote_anchors_parent`, etc.). Map every code through the registry; unknown codes are suppressed, not echoed.
+- No Observation or Allegation may imply truth, proof, correctness, victory, defeat, dishonesty, or user intent. The rules from §1-§3 above apply equally to labels.
+- The schema boundary is `source: 'machine' | 'user'` on the descriptor (`AnnotationChipDescriptor` from `src/features/nodeAnnotations/`). The roadmap-level form is `'machine_observation' | 'user_allegation'`; an adapter bridges.
+- Sensitive Observations (`shifts_to_person_or_intent`, `contains_unplayable_insult_only`, `needs_pre_send_pause`) render composer-only — never on the target's node — because surfacing them publicly reads as accusation.
+
 ## 10. v1 scope guards — DO NOT BUILD
 
 - No voting or scoring system that produces a winner.

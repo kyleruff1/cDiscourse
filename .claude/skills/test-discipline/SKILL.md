@@ -109,6 +109,20 @@ it('maps every internal code to plain language', () => {
 - "I'll skip these tests because they're flaky" → Diagnose the flake first. Skipped tests are debt.
 - "100% coverage on a new model isn't realistic" → It is for pure-TS models. The engine has it. Match the bar.
 
+## Gate timeout handling (POSTRUN-UX001 lesson)
+
+A gate is GREEN only when the command's exit code is captured as `0`. Tool-wrapper timeouts (2-minute or 3-minute Bash defaults) are not gate failures, but they are ALSO not gate successes — they are INDETERMINATE.
+
+When a gate truncates or hits a tool-wrapper timeout:
+
+1. Re-run with an explicit `; echo "EXIT: $?"` suffix so the exit code is captured even if output is truncated.
+2. If the gate genuinely needs more wall time (full `npm test` on a large suite), raise the per-command timeout (5-10 minutes for the full suite; the Bash tool supports up to 10 minutes).
+3. If the gate cannot finish within 10 minutes, narrow the command scope to specific test files and aggregate the results.
+
+Partial tailed output is not sufficient for gate verification. "Tests appear to pass per the last 30 lines" is not a green gate — the exit code is the contract.
+
+When citing test counts in a PR or completion report, the count MUST come from a captured `Test Suites: X passed, X total / Tests: Y passed, Y total` line with the explicit exit code. Implementer summary claims should be cross-checked against the reviewer's re-run.
+
 ## How to verify before claiming done
 
 ```powershell
