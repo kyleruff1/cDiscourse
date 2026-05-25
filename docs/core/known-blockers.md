@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-25 (Stage 6.4 / PR-004 deploy recovery)_
+_Last updated: 2026-05-24 (Stage 6.4 / OPS-004)_
 
 ---
 
@@ -422,6 +422,115 @@ The OPS-004 hypothetical card (now accumulating three signals:
 spawn-card colon-vs-dash, storage schema COMMENT ownership, this
 stale-worktree-claim) could fold all three into a single operational
 hygiene sweep when the operator decides to file it.
+
+### ✅ OPS-004 Pipeline Operational Hygiene Sweep (2026-05-25)
+
+**Problem.** Four operational signals accumulated between the OPS-003 ship
+date (2026-05-24) and the OPS-004 design date (2026-05-25):
+
+1. **PR-004 DROP COLUMN ordering** (this file §
+   "PR-004 DROP COLUMN Before DROP POLICY Order Dependency (2026-05-25)").
+   Migration 17's `ALTER TABLE public.profiles DROP COLUMN avatar_path,
+   …` failed at apply time on `SQLSTATE 2BP01 cannot drop column …
+   because other objects depend on it (policy depends on column …)`.
+   The OPS-001 reviewer template's Class 3 ordering checks covered
+   `CREATE` order but not `DROP` order; the textual review missed
+   the cross-statement column-reference graph.
+2. **PR-003 storage schema COMMENT ownership** (this file §
+   "PR-003 Storage Schema Comment Ownership (2026-05-24)"). Migration
+   16's `COMMENT ON POLICY … ON storage.objects` failed at apply
+   time on `SQLSTATE 42501 must be owner of relation objects`. The
+   OPS-001 Class 4 function/extension dependency checks did not name
+   the storage-schema ownership boundary; the textual review missed
+   that the SQL was syntactically valid but ran under the wrong role.
+3. **OPS-002 stale-worktree-branch-claim** (this file §
+   "OPS-002 Stale-Worktree-Branch-Claim (2026-05-25)"). PR-004's
+   implementer subagent ran the OPS-002 rename step and got
+   `fatal: a branch named '…' already exists` because the canonical
+   branch was held by the designer's prior worktree. The OPS-002
+   charter's "STOP and surface" placeholder did not name the safe
+   recovery path (`git switch --ignore-other-worktrees` + auto-branch
+   cleanup), so the implementer had to re-discover it.
+4. **OPS-002 §7 colon-vs-dash spawn-card regex** (deferred from
+   OPS-002 as cosmetic). The PowerShell and bash spawn-card scripts'
+   strip regex assumed a dash separator between the issue code and
+   the title; modern colon-separated titles produced
+   doubled-prefix slugs (`feat/OPS-002-ops-002-…` instead of
+   `feat/OPS-002-…`). OPS-002 §7 pinned the current behaviour in the
+   regression test and flagged the issue as out of scope; the fix
+   accumulated into OPS-004.
+
+**Root cause.** All four signals share the same shape: operational
+boundaries that surface only at execution time, not at textual review
+time. Postgres surfaces signals 1 and 2 only on `db push`; git
+surfaces signal 3 only on the second worktree-claim attempt; the
+spawn-card regex surfaces signal 4 only on the resulting slug. The
+OPS-001 textual review and the OPS-002 rename charter are
+structurally incapable of catching these classes of gap because the
+gap only exists at the tool boundary the textual review cannot
+exercise. The pattern is the OPS-* series' core insight: textual
+review is necessary but not sufficient; some gaps require tooling
+enforcement.
+
+**Resolution (OPS-004, #282).** Four coordinated strengthening
+deliverables, all in the process layer (no production code touched):
+
+1. **OPS-001 Class 3 sub-check (e) for DROP COLUMN ordering.** The
+   reviewer template's four-class table at
+   `.claude/agents/roadmap-reviewer.md` Class 3 cell gains a new
+   marker `(e)` requiring reviewers to grep the entire migration set
+   for the column or table name and verify no `CREATE POLICY`,
+   `CREATE INDEX`, `CREATE VIEW`, `CREATE TRIGGER`, or
+   `CREATE FUNCTION` body references the dropped object earlier in
+   the same migration or in any prior migration whose object would
+   be affected. PR-004's exact failure mode is cited as the worked
+   example.
+2. **OPS-001 Class 4 sub-check (f) for storage schema COMMENT
+   ownership.** The Class 4 cell gains a new marker `(f)` naming the
+   `COMMENT ON … ON storage.*` privilege boundary with three ranked
+   resolution options (preferred: omit; alternative: privilege-tolerant
+   DO block; not-available: run as `supabase_storage_admin`). PR-003's
+   exact failure mode is cited as the worked example.
+3. **OPS-002 charter rename step extension (lines 49–53).** The
+   "STOP and surface" placeholder is replaced with the documented
+   recovery sequence: `git worktree list | grep` to identify the
+   holder, `git -C <other-worktree> status -sb` to inspect for clean
+   state, then `git switch --ignore-other-worktrees feat/<code>-<slug>`
+   plus `git branch -d worktree-agent-<hash>` cleanup. The STOP escape
+   hatch is preserved for every case the sequence does not cover
+   (uncommitted work, active session, divergent HEAD).
+4. **spawn-card regex correction.** A single-character-class change
+   in each spawn-card script — `-` → `[-:]` inside the existing
+   strip regex (`^$Code\s*[-:]\s*` in PS1; `^${CODE}[[:space:]]*[-:][[:space:]]*` in
+   bash). The regex now matches both legacy dash and modern colon
+   separators. The four pre-OPS-004 shipped cards' branch names
+   remain immutable in PR history.
+
+**Meta-lesson for future sessions.** Operational signals that recur or
+accumulate warrant tooling enforcement beyond textual documentation.
+The OPS-001 textual review catches the classes it names; the classes
+it does not name (DROP ordering, storage COMMENT ownership) require
+either an additional textual sub-check (OPS-004's path) or a live
+apply gate (Docker-when-available, per OPS-001 §2.3). The OPS-002
+charter language is a starting contract; recovery paths discovered
+empirically (the PR-004 stale-worktree-claim) need to be folded
+back into the charter as named sequences, not left as
+"STOP and surface" defaults. The spawn-card regex bug ran for at
+least four shipped cards before OPS-004 absorbed it; future cosmetic
+gaps deferred from one OPS card should be filed as their own
+follow-up issue (per OPS-002 §7's documented option) rather than
+remaining in a designer's note. Future OPS cards continue to follow
+the same shape (single design doc, verbatim lesson block,
+minimal-footprint implementer diff, verification table in the
+reviewer doc that confirms the lesson is recorded).
+
+The PR-003 entry (this file § "PR-003 Storage Schema Comment Ownership
+(2026-05-24)"), the PR-004 entry (this file § "PR-004 DROP COLUMN
+Before DROP POLICY Order Dependency (2026-05-25)"), and the OPS-002
+stale-worktree-claim entry (this file § "OPS-002
+Stale-Worktree-Branch-Claim (2026-05-25)") remain as the historical
+record of each individual incident; OPS-004 is the consolidated
+strengthening response that closes all four gaps with one card.
 
 ---
 
