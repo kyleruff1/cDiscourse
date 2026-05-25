@@ -56,6 +56,8 @@ import {
   type InspectSectionContent,
 } from './inspectPopoutModel';
 import type { PointLifecycleState } from '../../lifecycle';
+import { InspectSectionChipStrip } from '../../nodeAnnotations/InspectSectionChipStrip';
+import type { AnnotationBand } from '../../nodeAnnotations/annotationKindTokens';
 
 // ── Props ──────────────────────────────────────────────────────
 
@@ -118,6 +120,13 @@ export interface InspectPopoutProps {
    * `panel_anchored`. Threaded straight to the chassis.
    */
   panelWidthOverride?: number | null;
+  /**
+   * UX-001.5 — Resolved band for any chip strips mounted inside
+   * Inspect sections (currently only §6 flags when
+   * `content.semanticFlagsChips` is supplied). Defaults to `'tablet'`
+   * when omitted so existing callers keep working unchanged.
+   */
+  band?: AnnotationBand;
   /** testID passthrough for the popout root. */
   testID?: string;
 }
@@ -135,6 +144,11 @@ interface InspectSectionRowProps {
    * `null` for every other section.
    */
   handoffChip: React.ReactNode;
+  /**
+   * UX-001.5 — Band for any chip strip mounted inside the section body
+   * (currently only §6 flags). Defaults to `'tablet'` when omitted.
+   */
+  band?: AnnotationBand;
 }
 
 /**
@@ -148,11 +162,19 @@ function InspectSectionRow({
   isExpanded,
   onToggle,
   handoffChip,
+  band,
 }: InspectSectionRowProps) {
   // A text caret carries the open / closed state without relying on color.
   const caret = isExpanded ? '▾' : '▸';
   // The emphasised section gets a leading marker (text + weight, not color).
   const marker = section.isEmphasized ? '◀ ' : '';
+  // UX-001.5 — render via chip strip when the §6 flags section has
+  // descriptors; fall back to plain-text body otherwise. The body
+  // string remains authoritative for the screen-reader fallback path.
+  const renderChipStrip =
+    section.id === 'flags' &&
+    Array.isArray(section.bodyChips) &&
+    section.bodyChips.length > 0;
 
   return (
     <View
@@ -196,7 +218,16 @@ function InspectSectionRow({
           a collapsed section is never removed from the list. */}
       {isExpanded ? (
         <View style={styles.sectionBody} testID={`inspect-popout-section-body-${section.id}`}>
-          <Text style={styles.sectionBodyText}>{section.body}</Text>
+          {renderChipStrip && section.bodyChips ? (
+            <InspectSectionChipStrip
+              sectionId="flags"
+              descriptors={section.bodyChips}
+              band={band}
+              testID={`inspect-popout-section-chips-${section.id}`}
+            />
+          ) : (
+            <Text style={styles.sectionBodyText}>{section.body}</Text>
+          )}
           {/* The §5 section additionally renders the single hand-off chip. */}
           {handoffChip}
         </View>
@@ -227,6 +258,7 @@ export function InspectPopout({
   reduceMotionOverride,
   maxHeightOverride,
   panelWidthOverride,
+  band,
   testID,
 }: InspectPopoutProps) {
   // The fixed section set — `buildInspectPopout` resolves every section's
@@ -371,6 +403,7 @@ export function InspectPopout({
           isExpanded={isSectionExpanded(section.id)}
           onToggle={() => toggleSection(section.id)}
           handoffChip={section.id === 'next_move' ? handoffChip : null}
+          band={band}
         />
       ))}
 

@@ -43,6 +43,7 @@
  */
 
 import type { PointLifecycleState } from '../../lifecycle';
+import type { AnnotationChipDescriptor } from '../../nodeAnnotations/annotationChipDescriptor';
 import type { ActEntryId } from './actPopoutModel';
 
 // ── Section vocabulary ─────────────────────────────────────────
@@ -327,6 +328,17 @@ export interface InspectSection {
    */
   body: string;
   /**
+   * UX-001.5 — Optional chip descriptors for sections that render via
+   * `InspectSectionChipStrip`. When set AND non-empty, the component
+   * renders chips instead of the `body` text. The `body` string is
+   * still resolved + present (for the screen-reader fallback path and
+   * for the legacy `semanticFlags` string consumer).
+   *
+   * v1: populated only for the §6 `flags` section. UX-001.5A may
+   * populate additional sections without further model changes.
+   */
+  bodyChips?: ReadonlyArray<AnnotationChipDescriptor>;
+  /**
    * True for the SINGLE §3.3 stage-emphasised section. The component pulls
    * it to the top and expands it by default; every other section renders
    * collapsed. Emphasis is re-order only — never removal (design §3.3).
@@ -415,8 +427,25 @@ export interface InspectSectionContent {
   unresolved?: string;
   /** §4 — mainline / branch / tangent position (BR-001/004). */
   sits?: string;
-  /** §6 — RULE-001/003 plain-language semantic-flag lines. */
+  /**
+   * §6 — RULE-001/003 plain-language semantic-flag lines.
+   *
+   * @deprecated UX-001.5 — prefer `semanticFlagsChips` (additive,
+   * forward-compatible with UX-001.5A). When `semanticFlagsChips` is
+   * provided AND non-empty, the §6 body renders as a chip strip via
+   * `InspectSectionChipStrip`; the `semanticFlags` string array stays
+   * authoritative for the `body` string fallback (and for legacy
+   * consumers built before UX-001.5).
+   */
   semanticFlags?: ReadonlyArray<string>;
+  /**
+   * §6 — UX-001.5 — annotation chip descriptors for the semantic flags
+   * section. Additive; when present AND non-empty, `InspectPopout`
+   * renders the §6 body via `InspectSectionChipStrip`. Forward-
+   * compatible with UX-001.5A — descriptors may carry `source` +
+   * `category` once UX-001.5A wires its presentation model.
+   */
+  semanticFlagsChips?: ReadonlyArray<AnnotationChipDescriptor>;
   /** §E — the EV-001 evidence object rendered to plain language. */
   evidenceDetail?: string;
 }
@@ -579,11 +608,22 @@ export function buildInspectPopout(input: BuildInspectPopoutInput): InspectPopou
   const byId = new Map<InspectSectionId, InspectSection>();
   for (const id of INSPECT_SECTION_ORDER) {
     const isEmphasized = id === emphasizedId;
+    // UX-001.5 — §6 flags carries optional chip descriptors when the
+    // host supplies `semanticFlagsChips`. Additive: when omitted,
+    // the section renders identically to its pre-UX-001.5 behavior
+    // (the `body` string is still resolved from `semanticFlags`).
+    const bodyChips =
+      id === 'flags' &&
+      Array.isArray(input.content.semanticFlagsChips) &&
+      input.content.semanticFlagsChips.length > 0
+        ? Object.freeze([...input.content.semanticFlagsChips])
+        : undefined;
     byId.set(id, {
       id,
       title: INSPECT_SECTION_TITLE[id],
       accessibilityLabel: INSPECT_SECTION_ACCESSIBILITY_LABEL[id],
       body: resolveSectionBody(id, input.content, handoff),
+      ...(bodyChips ? { bodyChips } : {}),
       isEmphasized,
       isExpandedByDefault: isEmphasized,
     });
