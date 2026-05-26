@@ -1,0 +1,28 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-node-mainline-001",
+    "parentNodeId": null,
+    "currentText": "[fixture] I agree with the parent's claim that streetlights reduce nighttime accidents.",
+    "parentText": null,
+    "threadContextExcerpt": "[fixture] Cities should install more streetlights.",
+    "requestedFamilies": ["family_evidence"],
+    "requestedRawKeys": ["evidence_present", "quote_present"],
+    "definitions": {
+      "evidence_present": {
+        "rawKey": "evidence_present",
+        "displayLabel": "Evidence present",
+        "structuralQuestion": "Does this move include any cited evidence?",
+        "family": "family_evidence"
+      },
+      "quote_present": {
+        "rawKey": "quote_present",
+        "displayLabel": "Quote present",
+        "structuralQuestion": "Does this move quote the parent or a third source?",
+        "family": "family_evidence"
+      }
+    },
+    "timeoutMs": 12000
+  }
+}

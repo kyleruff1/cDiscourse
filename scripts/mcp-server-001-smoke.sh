@@ -1,0 +1,299 @@
+#!/usr/bin/env bash
+# MCP-SERVER-001 — local smoke script.
+#
+# Verifies the deployed (or locally-running) MCP server against the 9 checks
+# documented in `docs/designs/MCP-SERVER-001.md` §19.3.
+#
+# Usage:
+#   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
+#
+# Arguments:
+#   --base-url    Server URL. e.g. http://localhost:8080 or
+#                 https://<deployed>.deno.dev
+#   --token       Bearer token matching the server's MCP_SERVER_BEARER_TOKEN.
+#   --verbose     Optional. Print per-check diagnostics.
+#
+# Exit codes:
+#   0 — all 9 checks passed
+#   1 — at least one check failed; the script prints which.
+#   2 — invalid arguments
+#
+# Doctrine:
+#   - The script NEVER prints the bearer-token argument value verbatim — only
+#     a redacted "[REDACTED]" placeholder on diagnostic output.
+#   - The script does NOT need an Anthropic API key. The
+#     `classify_semantic_move` check works against the server's fixture
+#     provider when `MCP_SERVER_USE_FIXTURE_PROVIDER=true`. Real Anthropic
+#     calls happen ONLY in production.
+
+set -u
+set -o pipefail
+
+BASE_URL=""
+TOKEN=""
+VERBOSE=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --base-url)
+      BASE_URL="$2"
+      shift 2
+      ;;
+    --token)
+      TOKEN="$2"
+      shift 2
+      ;;
+    --verbose)
+      VERBOSE=1
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      echo "Usage: $0 --base-url <url> --token <bearer> [--verbose]" >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "$BASE_URL" ]]; then
+  echo "Missing required --base-url" >&2
+  exit 2
+fi
+if [[ -z "$TOKEN" ]]; then
+  echo "Missing required --token" >&2
+  exit 2
+fi
+
+FAILS=0
+PASSES=0
+
+note() {
+  if [[ "$VERBOSE" == "1" ]]; then
+    echo "  $1"
+  fi
+}
+
+pass() {
+  echo "PASS [$1]"
+  PASSES=$((PASSES + 1))
+}
+
+fail() {
+  echo "FAIL [$1] $2"
+  FAILS=$((FAILS + 1))
+}
+
+http_request() {
+  # http_request <method> <path> <expected_status> [auth_token_or_empty] [body_or_empty]
+  local method="$1"
+  local path="$2"
+  local expected="$3"
+  local auth="${4:-}"
+  local body="${5:-}"
+
+  local response_file
+  response_file="$(mktemp)"
+  local status_file
+  status_file="$(mktemp)"
+  local headers_file
+  headers_file="$(mktemp)"
+
+  if [[ -n "$auth" ]]; then
+    if [[ -n "$body" ]]; then
+      curl --silent --show-error --output "$response_file" --dump-header "$headers_file" \
+        --write-out '%{http_code}' \
+        -H "Authorization: Bearer $auth" \
+        -H "Content-Type: application/json" \
+        --request "$method" \
+        --data "$body" \
+        "$BASE_URL$path" > "$status_file" 2>&1 || true
+    else
+      curl --silent --show-error --output "$response_file" --dump-header "$headers_file" \
+        --write-out '%{http_code}' \
+        -H "Authorization: Bearer $auth" \
+        --request "$method" \
+        "$BASE_URL$path" > "$status_file" 2>&1 || true
+    fi
+  else
+    if [[ -n "$body" ]]; then
+      curl --silent --show-error --output "$response_file" --dump-header "$headers_file" \
+        --write-out '%{http_code}' \
+        -H "Content-Type: application/json" \
+        --request "$method" \
+        --data "$body" \
+        "$BASE_URL$path" > "$status_file" 2>&1 || true
+    else
+      curl --silent --show-error --output "$response_file" --dump-header "$headers_file" \
+        --write-out '%{http_code}' \
+        --request "$method" \
+        "$BASE_URL$path" > "$status_file" 2>&1 || true
+    fi
+  fi
+
+  local status
+  status="$(cat "$status_file" | tr -d '\r\n')"
+  local response_body
+  response_body="$(cat "$response_file")"
+
+  rm -f "$response_file" "$status_file" "$headers_file"
+
+  if [[ -n "$expected" && "$status" != "$expected" ]]; then
+    echo "STATUS_MISMATCH expected=$expected actual=$status body=$response_body"
+    return 1
+  fi
+  echo "$response_body"
+  return 0
+}
+
+contains() {
+  # contains <haystack> <needle> — returns 0 if needle in haystack.
+  case "$1" in
+    *"$2"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+echo "MCP-SERVER-001 smoke against: $BASE_URL"
+echo "Token: [REDACTED]"
+echo
+
+# ── Check 1: GET /health (unauthenticated) ──────────────────────────
+CHECK_NAME="1-health"
+note "GET $BASE_URL/health (no auth)"
+HEALTH_RESPONSE="$(http_request GET /health 200 '' '')"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$HEALTH_RESPONSE"
+else
+  if contains "$HEALTH_RESPONSE" '"status":"ok"' \
+     && contains "$HEALTH_RESPONSE" '"supportedTools"' \
+     && contains "$HEALTH_RESPONSE" 'classify_semantic_move' \
+     && contains "$HEALTH_RESPONSE" 'classify_argument_boolean_observations' \
+     && contains "$HEALTH_RESPONSE" '"credentialsConfigured":true'; then
+    pass "$CHECK_NAME"
+  else
+    fail "$CHECK_NAME" "Missing expected health field. Got: $HEALTH_RESPONSE"
+  fi
+fi
+
+# ── Check 2: POST /mcp/adapter-compat without Authorization ──────────
+CHECK_NAME="2-compat-no-auth"
+note "POST $BASE_URL/mcp/adapter-compat (no auth)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 401 '' '{"tool":"classify_semantic_move","input":{}}')"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" 'unauthorized'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected unauthorized envelope. Got: $RESPONSE"
+fi
+
+# ── Check 3: POST /mcp/adapter-compat with WRONG Authorization ───────
+CHECK_NAME="3-compat-bad-token"
+note "POST $BASE_URL/mcp/adapter-compat (wrong token)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 401 'wrong-token-xyz' '{"tool":"classify_semantic_move","input":{}}')"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" 'unauthorized'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected unauthorized envelope. Got: $RESPONSE"
+fi
+
+# ── Check 4: POST /mcp/adapter-compat with VALID bearer + semantic move ──
+CHECK_NAME="4-compat-semantic-move"
+COMPAT_REQUEST='{"tool":"classify_semantic_move","input":{"moveBodyRedacted":"[fixture] sample","parentBodyRedacted":"[fixture] parent","roomContext":{"side":"affirmative","actorRole":"primary_opponent"},"requestedClassifiers":["responds_to_parent"],"contentHash":"fixture-content-hash-mainline","roomId":"fixture-room-mainline"}}'
+note "POST $BASE_URL/mcp/adapter-compat (valid)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$COMPAT_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"result"' \
+     && contains "$RESPONSE" '"binaries"' \
+     && contains "$RESPONSE" '"routeSuggestion"' \
+     && contains "$RESPONSE" '"scoreHints"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected SemanticRefereePacket structural subset. Got: $RESPONSE"
+fi
+
+# ── Check 5: POST /mcp/adapter-compat with VALID bearer + boolean (scaffold) ──
+CHECK_NAME="5-compat-boolean-scaffold"
+BOOLEAN_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node","currentText":"[fixture] body","threadContextExcerpt":"[fixture] thread","requestedFamilies":["family_evidence"],"requestedRawKeys":["evidence_present"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean scaffolded)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"isError":true' \
+     && contains "$RESPONSE" '"reason":"not_implemented"' \
+     && contains "$RESPONSE" 'MCP-SERVER-002'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected scaffolded error envelope. Got: $RESPONSE"
+fi
+
+# ── Check 6: POST /mcp with VALID bearer + initialize ──────────────
+CHECK_NAME="6-mcp-initialize"
+INITIALIZE_BODY='{"jsonrpc":"2.0","id":"smoke-init-1","method":"initialize","params":{}}'
+note "POST $BASE_URL/mcp (initialize)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$INITIALIZE_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"protocolVersion":"2025-11-25"' \
+     && contains "$RESPONSE" 'cdiscourse-mcp-server'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected initialize result with protocol version. Got: $RESPONSE"
+fi
+
+# ── Check 7: POST /mcp with VALID bearer + tools/list ──────────────
+CHECK_NAME="7-mcp-tools-list"
+TOOLS_LIST_BODY='{"jsonrpc":"2.0","id":"smoke-list-1","method":"tools/list","params":{}}'
+note "POST $BASE_URL/mcp (tools/list)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$TOOLS_LIST_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" 'classify_semantic_move' \
+     && contains "$RESPONSE" 'classify_argument_boolean_observations'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected both tool names in tools/list. Got: $RESPONSE"
+fi
+
+# ── Check 8: POST /mcp tools/call classify_semantic_move ─────────
+CHECK_NAME="8-mcp-tools-call-semantic"
+SEMANTIC_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-1","method":"tools/call","params":{"name":"classify_semantic_move","arguments":{"moveBodyRedacted":"[fixture] sample","parentBodyRedacted":"[fixture] parent","roomContext":{"side":"affirmative","actorRole":"primary_opponent"},"requestedClassifiers":["responds_to_parent"],"contentHash":"fixture-content-hash-mainline","roomId":"fixture-room-mainline"}}}'
+note "POST $BASE_URL/mcp (tools/call classify_semantic_move)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$SEMANTIC_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"structuredContent"' \
+     && contains "$RESPONSE" '"content"' \
+     && contains "$RESPONSE" '"binaries"' \
+     && contains "$RESPONSE" '"isError":false'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected structured tool result. Got: $RESPONSE"
+fi
+
+# ── Check 9: POST /mcp tools/call classify_argument_boolean_observations ──
+CHECK_NAME="9-mcp-tools-call-boolean-scaffold"
+BOOLEAN_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-2","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node","currentText":"[fixture] body","threadContextExcerpt":"[fixture] thread","requestedFamilies":["family_evidence"],"requestedRawKeys":["evidence_present"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"isError":true' \
+     && contains "$RESPONSE" '"reason":"not_implemented"' \
+     && contains "$RESPONSE" 'MCP-SERVER-002'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected scaffolded error envelope. Got: $RESPONSE"
+fi
+
+echo
+echo "MCP-SERVER-001 smoke: $PASSES PASSES, $FAILS FAILS"
+if [[ "$FAILS" -gt 0 ]]; then
+  echo "EXIT: 1"
+  exit 1
+fi
+echo "EXIT: 0"
+exit 0
