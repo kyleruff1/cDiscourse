@@ -10,7 +10,7 @@ module.exports = [
     // `artifacts/**` holds gitignored throwaway build output — including the
     // AN-003 §5 `tsc` emit dir (`artifacts/diagnostics/tree-playability-build/`).
     // ESLint must never lint generated build artifacts.
-    ignores: ['node_modules/**', '.expo/**', 'dist/**', 'web-build/**', 'artifacts/**', '*.config.js'],
+    ignores: ['node_modules/**', '.expo/**', 'dist/**', 'web-build/**', 'artifacts/**', 'mcp-server/**', '*.config.js'],
   },
   {
     files: ['**/*.{ts,tsx}'],
