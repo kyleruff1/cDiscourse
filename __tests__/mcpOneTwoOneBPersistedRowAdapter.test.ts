@@ -142,7 +142,8 @@ describe('MCP-021B — adapter: silent drops', () => {
   });
 
   it('malformed row (missing rawKey) is dropped silently', () => {
-    const { rawKey: _r, ...rest } = makeRow();
+    const rest: Record<string, unknown> = { ...makeRow() };
+    delete rest.rawKey;
     expect(
       mapPersistedObservationRowsToNodeLabelMarks([rest], TIMELINE_OPTIONS),
     ).toEqual([]);

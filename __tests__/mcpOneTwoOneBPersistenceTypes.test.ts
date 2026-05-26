@@ -135,7 +135,8 @@ describe('MCP-021B — isWellFormedResultRow', () => {
   });
 
   it('rejects when id is missing', () => {
-    const { id: _id, ...rest } = VALID_RESULT;
+    const rest: Record<string, unknown> = { ...VALID_RESULT };
+    delete rest.id;
     expect(isWellFormedResultRow(rest)).toBe(false);
   });
 
@@ -144,27 +145,32 @@ describe('MCP-021B — isWellFormedResultRow', () => {
   });
 
   it('rejects when runId is missing', () => {
-    const { runId: _runId, ...rest } = VALID_RESULT;
+    const rest: Record<string, unknown> = { ...VALID_RESULT };
+    delete rest.runId;
     expect(isWellFormedResultRow(rest)).toBe(false);
   });
 
   it('rejects when debateId is missing', () => {
-    const { debateId: _d, ...rest } = VALID_RESULT;
+    const rest: Record<string, unknown> = { ...VALID_RESULT };
+    delete rest.debateId;
     expect(isWellFormedResultRow(rest)).toBe(false);
   });
 
   it('rejects when argumentId is missing', () => {
-    const { argumentId: _a, ...rest } = VALID_RESULT;
+    const rest: Record<string, unknown> = { ...VALID_RESULT };
+    delete rest.argumentId;
     expect(isWellFormedResultRow(rest)).toBe(false);
   });
 
   it('rejects when schemaVersion is missing', () => {
-    const { schemaVersion: _s, ...rest } = VALID_RESULT;
+    const rest: Record<string, unknown> = { ...VALID_RESULT };
+    delete rest.schemaVersion;
     expect(isWellFormedResultRow(rest)).toBe(false);
   });
 
   it('rejects when rawKey is missing', () => {
-    const { rawKey: _r, ...rest } = VALID_RESULT;
+    const rest: Record<string, unknown> = { ...VALID_RESULT };
+    delete rest.rawKey;
     expect(isWellFormedResultRow(rest)).toBe(false);
   });
 
@@ -188,7 +194,8 @@ describe('MCP-021B — isWellFormedResultRow', () => {
   });
 
   it('rejects when createdAt is missing', () => {
-    const { createdAt: _c, ...rest } = VALID_RESULT;
+    const rest: Record<string, unknown> = { ...VALID_RESULT };
+    delete rest.createdAt;
     expect(isWellFormedResultRow(rest)).toBe(false);
   });
 });
