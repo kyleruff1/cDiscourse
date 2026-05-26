@@ -18,10 +18,14 @@
 
 // ── Pure-TS exports — types ─────────────────────────────────────
 export {
+  ALL_MACHINE_OBSERVATION_FAMILIES,
   ALL_NODE_LABEL_DISPOSITIONS,
   ALL_NODE_LABEL_KINDS,
   ALL_NODE_LABEL_SOURCES,
   ALL_NODE_LABEL_SURFACES,
+  type MachineObservationConfidenceEligibility,
+  type MachineObservationDefinition,
+  type MachineObservationFamily,
   type MachineObservationSource,
   type NodeLabelDisposition,
   type NodeLabelKind,
@@ -42,6 +46,43 @@ export {
   lookupMachineObservation,
   makeMachineObservationKey,
 } from './machineObservationRegistry';
+
+// ── MCP-021A exports — parallel definitions registry ─────────────
+export {
+  ALL_MACHINE_OBSERVATION_DEFINITION_KEYS,
+  ALL_MACHINE_OBSERVATION_DEFINITION_RAW_KEYS,
+  MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY,
+  MACHINE_OBSERVATION_DEFINITIONS_REGISTRY,
+  getDefinitionsForFamily,
+  lookupMachineObservationDefinition,
+  lookupMachineObservationDefinitionByCompoundKey,
+} from './machineObservationDefinitions';
+
+// ── MCP-021A exports — boolean observation schema ────────────────
+export {
+  MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+  buildMcpBooleanObservationRequest,
+  mcpResponseToNodeLabelMarks,
+  parseMcpBooleanObservationResponse,
+  sanitizeMcpBooleanObservationResponse,
+  type BuildRequestInput,
+  type McpBooleanObservationParseFailureReason,
+  type McpBooleanObservationParseResult,
+  type McpBooleanObservationRequest,
+  type McpBooleanObservationResponse,
+  type McpBooleanObservationSchemaVersion,
+  type SanitizeOptions,
+} from './mcpBooleanObservationSchema';
+
+// ── MCP-021A exports — thread-topology auto-metadata stubs ───────
+export {
+  deriveAllThreadTopologyAutoMetadata,
+  deriveMergesThread,
+  deriveReferencesAncestorNode,
+  deriveReferencesSiblingNode,
+  deriveSplitsThread,
+  type ThreadTopologyAutoMetadataInput,
+} from './threadTopologyAutoMetadata';
 
 // ── Pure-TS exports — User Allegation registry ──────────────────
 export {

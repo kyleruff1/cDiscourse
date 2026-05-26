@@ -1,4 +1,5 @@
 # CDiscourse — Current Status
+<!-- Latest implementer card: MCP-021A (Maximal Boolean Machine Observation Taxonomy — first of MCP-021A → 021B → 021C three-card sequence; pure-TS taxonomy + schema + tests; no runtime behavior change; no migration; no Edge Function; no new dependency; no AI call; no service-role; no display-cap change). Expands the Machine Observation registry from 65 to 172 entries (+107 NEW) across 10 families: A parent_relation (16), B disagreement_axis (14; umbrella + Inspect-only subtypes per Decision 4), C misunderstanding_repair (17), D evidence_source_chain (27), E argument_scheme (16; all Walton schemes), F critical_question (14; all paired with Family E), G resolution_progress (30; largest family — note Family G has 21 retroactive entries not 20 per design §3.7 self-correction, hence 172 total instead of forecast 171), H claim_clarity (12), I thread_topology (21; Decision 7 source split: 4 auto_metadata + 3 ai_classifier), J sensitive_composer (5 UNCHANGED per Trigger 10). Parallel-registry implementation choice (design §4 option b): NodeLabelMark stays byte-equal; NEW `MachineObservationDefinition` interface carrying 8 verbose fields lives in `src/features/nodeLabels/machineObservationDefinitions.ts` + 10 per-family files under `machineObservationDefinitions/familyA..familyJ.ts`. Every entry — 172/172 — carries: `family`, `booleanQuestion`, `positiveDefinition`, `negativeDefinition`, `positiveExamples` (≥1), `negativeExamples` (≥1), `falsePositiveGuards` (≥1), `doctrineNotes` (≥1), `confidenceEligibility` (3 per-surface thresholds). New file `src/features/nodeLabels/mcpBooleanObservationSchema.ts` — pure-TS MCP wire contract: `McpBooleanObservationRequest`, `McpBooleanObservationResponse` (refinement 1: confidence REQUIRED), schema version constant `'mcp-021.machine-observations.boolean.v1'`, 4 validators (`parseMcpBooleanObservationResponse` handling 7 failure modes incl. flag_count_too_high at 20; `sanitizeMcpBooleanObservationResponse` drops unknown rawKeys silently + applies per-surface confidence floor + truncates evidenceSpan to 240 chars; `buildMcpBooleanObservationRequest`; `mcpResponseToNodeLabelMarks` bridge). New file `src/features/nodeLabels/threadTopologyAutoMetadata.ts` — Decision 7 NEW no-op stub derivers (`deriveSplitsThread`, `deriveMergesThread`, `deriveReferencesSiblingNode`, `deriveReferencesAncestorNode`, `deriveAllThreadTopologyAutoMetadata`) — all return [] unconditionally; real implementation is MCP-021C territory. Decision 5 collapses honored: brief `disagreement_evidence_applicability` → existing #49 `disputes_evidence_applicability`; brief `requests_clarification_present` → existing #38; brief `narrow_concession_present` → existing #45; brief `source_chain_gap` → existing #43; brief `source_requested`/`quote_requested` → existing #5/#6 + #22/#23; brief `branch_recommended` → existing #34; brief `changes_subject` → existing #36 `introduces_new_issue`. NO aliases added. Trigger 10 DROPs honored: 6 candidates dropped (`repeats_prior_point` doctrine-risk; 5 Family J extras `hostile_generalization_present`/`identity_group_reference_present`/`sarcasm_or_mockery_present`/`excessive_heat_present`/`moderation_boundary_near` — all flagged for sequel-audit consideration outside MCP-021A scope). 8 new test files (test categories per design §8): `mcpOneTwoOneAFamilyContracts.test.ts` (14 — family type contracts), `mcpBooleanObservationSchema.test.ts` (36 — MCP schema parse/sanitize/build/bridge), `mcpOneTwoOneAThreadTopologyStubs.test.ts` (12 — no-op stub verification), `mcpOneTwoOneARegistrySize.test.ts` (33 — registry count + family assignment + Decision 7 source split + Family J cap), `mcpOneTwoOneADefinitionCompleteness.test.ts` (10 — Trigger 12 all 8 verbose fields), `mcpOneTwoOneANoDuplicateAliases.test.ts` (10 — Decision 5 collapses + Trigger 10 DROPs), `mcpOneTwoOneASurfacePolicy.test.ts` (11 — Decision 4 Family B umbrella + subtype split; Family E/F all inspect; Family J never Timeline), `mcpOneTwoOneADisplayCapPreservation.test.ts` (4 — synthetic 150-positive stress test; UX-001.5A caps unchanged), `mcpOneTwoOneALabelDoctrine.test.ts` (10 — verdict-token ban + Family E never-fallacy + Family F never-unwarranted), `mcpOneTwoOneASourceSixInvariance.test.ts` (10 — Trigger 1 BINDING: adaptRawClassifierBinarySource returns [] for all inputs including simulated MCP-021C payloads). Aggregate-test approach per design §8.9 implementer choice (per-entry expansion would have ballooned test count beyond +1,000 ceiling). **16,759 → 16,909 tests / 502 → 512 suites passing (+150 tests / +10 suites).** Typecheck + lint clean. **Read-only API boundary verified clean**: zero diff on `src/features/nodeLabels/nodeLabelSourceAdapters.ts` (Source 6 byte-equal), `src/features/nodeLabels/userAllegationRegistry.ts`, `src/features/nodeLabels/nodeLabelPresentationModel.ts`, `src/features/nodeLabels/nodeLabelPriorityModel.ts`, `src/features/nodeLabels/NodeLabelStrip.tsx`, `src/features/nodeLabels/NodeLabelInspectGroups.tsx`, all `__tests__/uxOneOneSix*.test.{ts,tsx}` (5 files preserved), all UX-001.{1-7} read-only files outside bounded list (visual primitives, design tokens, RefereeBannerView, composer, oneBox, Timeline, score tracker, useSemanticReferee), all `supabase/migrations/` + `supabase/functions/`, `package.json`/`package-lock.json`. UX-001.5A regression suite intact (550 tests across 5 suites). UX-001.6 cross-device QA matrix all 5 suites passing. UX-001.2 offset acceptance unchanged. **All 15 conditional HALT triggers CLEAN**: (1) Source 6 byte-equal preserved; (2) display caps unchanged; (3) no backend write path; (4) zero new visual primitive; (5) zero new design token; (6) zero new AI provider call; (7) zero UX-001.{1-7}/UX-001.5A read-only file modification outside bounded list; (8) test count +150 ≤ +1,000 ceiling; (9) zero doctrine drift (verdict-token ban-list scan clean across 172 entries); (10) zero Family G constructiveness candidates beyond existing 5 sensitive (Family J unchanged); (11) registry count 172 ≤ 200; (12) every entry has all 8 verbose fields; (13) context window clean; (14) zero blocking interpretive judgments; (15) baseline 65 verified at §1.2. Plus implementer-specific stops 16-20 clean: (16) Source 6 byte-equal verified; (17) display cap tests pass; (18) UX-001.6 matrix passes; (19) UX-001.5A regression passes; (20) working tree contains only 4 expected operator-territory testing-runs files (pre-existing). **Operator-deferred review items surfaced per design §12.7**: (1) per-entry vs aggregate test structure — implementer chose AGGREGATE for label doctrine (~10 tests vs ~860 per-entry) per §8.9 to stay under Trigger 8 ceiling; (2) final registry count 172 (Family G has 21 retroactive entries per design §3.7 self-correction); (3) Decision 7 borderline call — 4 Family I auto_metadata keys shipped per Decision 7's "deterministically derivable → auto" rule; operator may revisit at MCP-021C; (4) optional trim to ~165 not exercised; (5) header comment in `machineObservationRegistry.ts` lines 4-5 still says "64 entries — 16 auto + 18 lifecycle + 25 AI classifier + 5 sensitive composer-only" — NOT updated by MCP-021A (would touch the read-only boundary file beyond the bounded extension list; the parallel-registry choice keeps this comment unchanged); (6) sequel-audit for constructiveness Family per Trigger 10 DROPs; (7) `source-access-audit` skill promotion (per OPS-006-style follow-up); (8) `nodeLabels/index.ts` header could note MCP-021A's new exports (NOT touched; comment unchanged). **Operator follow-up**: NONE — pure-TS code change. MCP-021B persistence layer + MCP-021C live MCP execution are contingent follow-ups whose scope is NOT designed here. See `docs/designs/MCP-021A.md`. -->
 <!-- Latest implementer card: UX-001.5A (Node Labels: Machine Observations and User Allegations — adjacent follow-through to closed UX-001 epic; pure UI / pure-TS, no migration, no Edge Function, no new dependency, no AI call, no service-role). Ships a new `src/features/nodeLabels/` module (10 files) consuming the read-only UX-001.5 visual primitives — 65 Machine Observation entries (16 auto-metadata + 19 lifecycle + 25 AI classifier + 5 sensitive composer-only; lifecycle union is 19 values per `ALL_POINT_LIFECYCLE_STATES` — design §4.5's 18/64 forecast was an off-by-one arithmetic correction, documented as §19 Implementer note) and 10 User Allegation entries (1 per `ManualTagCode`). Registry keyed by COMPOUND `${source}:${rawKey}` so overlap-shared rawKeys (`source_requested`, `quote_requested` shared between `auto_metadata` and `lifecycle`) remain individually addressable; a byRawKey companion map exposes the highest-priority entry per rawKey for dedupe / descriptor paths. Six pure-TS source adapters: Source 1 (`manual_tag`) / 2 (`auto_metadata`) / 3 (`lifecycle`) emit non-empty marks for present inputs; Source 4 (`composition_mutation`) / Source 5 node-mount (`semantic_referee`) / Source 6 (`ai_classifier`) return `[]` UNCONDITIONALLY per audit Decisions 1, 2, 4 (Stop Conditions 17/18 enforced at function level with empty-literal returns + jsdoc + 20-input random batteries in tests). Source 5 composer-only adapter populates `RefereeBannerView.observationChips`; the chip strip renders only `composer_only`-disposition entries (3 sensitive IDs). Presentation pipeline: `combinePerNodeMarks` → `filterMarksBySurface` (disposition × surface gating matrix) → `dedupePerNodeMarks` (within-kind only — `cdiscourse-doctrine §10a` doctrine: Machine Observations + User Allegations with same text BOTH render, never collapsed) → `enforceTimelineNodeDisplayCap` (1+1+overflow) / `enforceSelectedContextDisplayCap` (3+3+overflow) / `enforceInspectGroupedView` (unbounded grouped). `nodeLabelDescriptorAdapter`: `kind: 'machine_observation'` → descriptor `source: 'machine'`, `kind: 'semantic'`, `iconHint: 'info'`, ariaLabel prefix `Machine observation:`; `kind: 'user_allegation'` → `source: 'user'`, `kind: 'flag'`, `iconHint: 'warn'`, ariaLabel prefix `User allegation:`. Two RN components: `NodeLabelStrip` (Timeline node consumer mounting `AnnotationChipStrip`) + `NodeLabelInspectGroups` (Inspect popout consumer mounting `InspectGroupHeader` + `InspectSectionChipStrip`); both compose read-only UX-001.5 primitives — ZERO new visual primitive (trigger 4 CLEAN). Three bounded edits in `ArgumentGameSurface.tsx`: Edit A passes composer-only Observation chips memo into RefereeBannerView via the existing `observationChips` optional prop (per design §14 Risk 1: the upstream slot is not yet present; the adapter defaults to `[]` for graceful degradation); Edit B mounts `<NodeLabelStrip />` as a sibling of `ArgumentScoreTracker` below the Timeline; Edit C mounts `<NodeLabelInspectGroups />` as a sibling overlay adjacent to `<InspectPopout />` (design §10.3 ALTERNATIVE path chosen — zero modification to InspectPopout.tsx or inspectContentBuilder.ts; operator-deferred review item resolved in favor of the safer alternative path). **Two narrowly-targeted UX-001.6 doctrine-test allowlist additions (§19.1 + §19.2 Implementer notes)**: `__tests__/uxOneOneSixDoctrine.test.ts` allowlist gains `'src/features/nodeLabels'` (the Machine Observation registry DEFINES the 3 sensitive composer-only codes — same definition-allowlist category as the existing `src/features/semanticReferee` entry; the test's protective gate against Timeline / Selected / Inspect leak is preserved by adapter Stop Conditions 17/18 + per-disposition surface filter + the dedicated `uxOneOneFiveALabelDoctrine.test.ts`). `__tests__/uxOneOneSixViewportMatrix.test.ts` allowlist gains `'src/features/arguments/ArgumentGameSurface'` (the canonical MCP-019 referee-banner mount site is composer-scoped per UX-001.3 Phase 3 framing; the design §10.1 wires the chips at that file; the board-level scope rule against NON-banner board mounts passing the prop is preserved). Both additions are ADDITIVE; protective scope unchanged. **+835 tests / +11 suites** (15,924 → 16,759 / 491 → 502): 9 new test files — `nodeLabelTypes.test.ts` (38), `machineObservationRegistry.test.ts` (409 — high count from per-rawKey × per-property assertion loops), `userAllegationRegistry.test.ts` (122), `nodeLabelSourceAdapters.test.ts` (55), `nodeLabelPresentationModel.test.ts` (52), `nodeLabelDescriptorAdapter.test.ts` (26), `NodeLabelStrip.test.tsx` (15), `NodeLabelInspectGroups.test.tsx` (15), `uxOneOneFiveAPriorityModel.test.ts` (26), `uxOneOneFiveACallSiteWiring.test.ts` (29), `uxOneOneFiveALabelDoctrine.test.ts` (74 — comprehensive 15-constraint doctrine ban-list scan: verdict / amplification / person / service-role / AI-import / raw-classifier / raw-tag / sensitive-on-node / Stop-Conditions-17-18 / new-primitive / token / dep / migration / provenance-crossover / heat-engagement / verdict-phrase). Typecheck + lint clean. **Read-only API boundary verified clean** via `git diff main..HEAD`: ZERO bytes on `src/features/nodeAnnotations/` (12 files), `src/lib/designTokens.ts`, `src/features/refereeBanners/RefereeBannerView.tsx`, `src/features/arguments/composer/`, `src/features/arguments/oneBox/{actPopoutModel.ts, Popout.tsx, PopoutEntry.tsx, PopoutGroup.tsx, InspectPopout.tsx, inspectContentBuilder.ts}`, `src/features/arguments/ArgumentTimelineMap.tsx`, `src/features/arguments/ArgumentScoreTracker.tsx`, `src/features/metadata/` source files, `src/features/lifecycle/` source files, `src/features/semanticReferee/` source files, `src/features/arguments/useSemanticReferee.ts`, all `supabase/migrations/` + `supabase/functions/`, `package.json` / `package-lock.json`. UX-001.2 offset acceptance 11/11 passing. UX-001.6 cross-device QA matrix all 5 suites passing (2937/2937). UX-001.{3-5,7} regression all green. **All 9 conditional HALT triggers CLEAN**: (1) audit source dispositions unchanged; (2) raw classifier binaries NOT required (Source 6 adapter returns []); (3) zero backend write path; (4) ZERO new visual primitive; (5) ZERO new design token; (6) ZERO new AI provider call path; (7) ZERO modification of UX-001.{1-7} read-only file outside bounded list (the 2 UX-001.6 test allowlist additions are documented design conflicts resolved per the design's own §11.2 test 14 GREEN requirement); (8) test count delta +835 ≤ +1,000 ceiling; (9) zero doctrine drift. **Operator-deferred review items surfaced per design §16 (3 items)**: (1) `refereeBanner.composerOnlyCodes` field name uncertainty — composer-only adapter degrades gracefully when absent; future operator decision required to wire a real codes feed. (2) `inspectContentBuilder.ts` modification authority — Edit C ALTERNATIVE path (sibling overlay in GameSurface) shipped; primary path (~30 LOC builder extension) not needed; zero risk of UX-001.4 territory contamination. (3) `NodeLabelStrip` placement between TimelineSelectedReadoutPanel and ArgumentScoreTracker (~32-36 px additional below-Timeline chrome): within UX-001.2 chrome budget; UX-001.6 cross-device QA matrix re-ran clean. See `docs/designs/UX-001.5A.md`. -->
 <!-- Latest implementer card: UX-001.7 (Visual design system consolidation — UX-001 Phase 7; epic closer; pure additive token + bounded primitive refactor + completion notes; no migration, no Edge Function, no new dependency, no AI call, no service-role, no acute fix). Ships 5 new token surfaces on `src/lib/designTokens.ts` (additive only, prior tokens byte-identical): `TOUCH_TARGET` (minSizePx/hitSlopAll/hitSlopCompact), `FOCUS_RING` (widthPx/offsetPx/color), `BORDER_WIDTH` (sm/md/lg), `TYPOGRAPHY` (10 groups: roomStrip, timelineNode, selectedContext, composer, popoutHeading, popoutBody, chipLabel, badgeLabel, keyboardHint, inspectDetail), `SPACING_PRESETS` (8 keys: screenInset, surfaceGap, compactRowGap, chipGap, nodeInternalPadding, popoutInternalPadding, composerPadding, touchTargetMin). Total 27 new keys — well below the intent brief's 50-token ceiling (stop condition #8). Every new token has >=2 consumers across UX-001 surfaces. **Workstream 4 (EvidenceAnnotationChip refactor) — preferred path SHIPPED:** `src/features/evidence/EvidenceAnnotationChip.tsx` now consumes the UX-001.5 `AnnotationChip` primitive via a new `buildAnnotationDescriptor` pure helper. Public prop surface (`EvidenceAnnotationChipProps`, `EvidenceAnnotationStreamProps`) preserved verbatim; `STREAM_HIT_SLOP` constant now sources from `TOUCH_TARGET.hitSlopAll`; tone palette (TONE_BG/TONE_FG) refactored to token references where byte-equivalent, literal-preserved where no matching token exists (per intent brief stop condition #4 zero-runtime-diff requirement); EV-005 affordances (status chip header, add-trigger, observer notice, synthesis-prompt) preserved verbatim. Sole production consumer `src/features/evidence/SourceChainPopover.tsx` UNTOUCHED (zero diff). UX-001.5C NOT filed — refactor shipped. **Workstream 3 (annotation primitive bounded tightening) — DEFERRED via documented adaptation:** UX-001.5 source-scan tests (`__tests__/uxOneOneFiveRingsAndOutline.test.tsx`) pin the LITERAL form (`borderWidth: isFocused ? 2 : 1` and `borderWidth: 2`/`: 1`) of `AnnotationFocusRing.tsx`/`AnnotationOutline.tsx`. Design §12.B made those test files read-only — direct conflict with §4.B's in-place token replacement. Resolution: literals preserved verbatim with JSDoc annotation in each file explaining the deferred migration; the canonical tokens (`FOCUS_RING.widthPx = 2`, `BORDER_WIDTH.md = 2`, `BORDER_WIDTH.sm = 1`) ship per Workstream 1; full in-place token consumption gated on a separate OPS card that explicitly authorizes the 3 affected UX-001.5 test assertions; new `__tests__/uxOneOneSevenPrimitiveAlignment.test.ts` (~20 tests) verifies value alignment (TOKEN === LITERAL) — proving the future migration is runtime-safe. Net WS3 design intent delivered via Workstream 1 token-availability + Workstream 4 EvidenceAnnotationChip consumption. **UX-001.5 read-only boundary test adaptation:** `__tests__/uxOneOneFiveReadOnlyBoundary.test.ts` zero-diff-vs-main assertion on `src/lib/designTokens.ts` removed (one entry only) with in-source explanation that the read-only contract for that file is now maintained by `uxOneOneSixReadOnlyBoundary.test.ts`'s `requiredApi`-surface assertion (which UX-001.7's additive extensions preserve byte-equivalent). 26 other zero-diff paths preserved. **`__tests__/designTokens.test.ts` adaptation:** the TOKENS aggregate enumeration test updated from 11 keys to 16 keys (5 new UX-001.7 surfaces) — same precedent as BRAND-002 (which added surfaceTokens + control). **Six new test files / 263 net new tests across 6 new suites:** `__tests__/uxOneOneSevenTokenExports.test.ts` (44 tests — token shape contract + >=2 consumer audit + doctrine ban-list + 50-token ceiling + TOKENS aggregate cross-reference), `__tests__/uxOneOneSevenPrimitiveAlignment.test.ts` (~20 tests — TOKEN-VALUE === LITERAL-VALUE alignment + public API preservation + visual-only contract preservation + zero hex literals + JSDoc deferral marker), `__tests__/uxOneOneSevenEvidenceChipIntegration.test.tsx` (44 tests — AnnotationChip primitive consumption + buildAnnotationDescriptor pure helper + tone palette runtime byte-equivalence + EV-005 affordance preservation + public prop surface + sole consumer SourceChainPopover untouched + a11y label equivalence + TOUCH_TARGET cross-reference + color independence + doctrine cleanliness), `__tests__/uxOneOneSevenCrossDevicePreservation.test.ts` (81 tests — UX-001.6 viewport-matrix test file preservation + per-viewport envelope preservation + BRAND per-band heights + UX-001.7 token non-collision + touch-target evidence source-scan + A/I/G key-badge encoding regression check), `__tests__/uxOneOneSevenAccessibilityConsistency.test.ts` (38 tests — accessibilityRole/Label evidence on every interactive UX-001 surface + 44x44 enforcement + FOCUS_RING non-color signal + BORDER_WIDTH monotonic scale + TYPOGRAPHY readability + keyboard hint visibility gate preservation + EvidenceAnnotationChip a11y preserved + non-color-only differentiation), `__tests__/uxOneOneSevenObservationAllegationReadiness.test.tsx` (39 tests — descriptor schema readiness for UX-001.5A `machine_observation`/`user_allegation` taxonomy + two canonical UX-001.5A fixtures route through token-derived color resolution + non-color-only legibility + doctrine ban-list scan + InspectGroupHeader ready + TYPOGRAPHY.chipLabel/badgeLabel ready). **15,661 → 15,924 tests / 485 → 491 suites passing (+263 tests / +6 suites).** Typecheck + lint clean. **Read-only API boundary verified clean:** `git diff main..HEAD` zero-byte over `supabase/functions/submit-argument/`, `src/features/arguments/composer/`, `src/features/arguments/ArgumentComposer.tsx`, `src/features/arguments/ArgumentComposerDock.tsx`, `src/features/arguments/oneBox/actPopoutModel.ts`, `src/features/arguments/oneBox/Popout.tsx`, `src/features/arguments/oneBox/PopoutEntry.tsx`, `src/features/arguments/oneBox/PopoutGroup.tsx`, `src/features/arguments/oneBox/ActPopout.tsx`, `src/features/arguments/oneBox/GoPopout.tsx`, `src/features/arguments/oneBox/InspectPopout.tsx`, `src/features/arguments/ArgumentTimelineMap.tsx`, `src/features/arguments/ArgumentScoreTracker.tsx`, `src/features/arguments/TimelineSelectedReadoutPanel.tsx`, `src/features/debates/DebateDetailHeader.tsx`, `src/components/AppHeader.tsx`, `src/components/AppHeaderTagline.tsx`, `src/hooks/useHeaderBreakpoint.ts`, `src/features/refereeBanners/RefereeBannerView.tsx`, `src/features/evidence/SourceChainPopover.tsx`, all of `__tests__/uxOneOneSix*.test.{ts,tsx}` (5 files), `package.json`/`package-lock.json`. UX-001.2 offset acceptance unchanged (11/11 passing). UX-001.{3-5} regression all green (46 suites / 2,211 tests). **OPS-002 charter rename was a no-op** (branch was already canonical at spawn time). **Operator follow-up:** none — pure code change (no migration, no Edge Function, no env var). **Operator-deferred review items (per design §13.D + intent brief operator notes 1 & 5):** (21) Brief precision — actual file path `src/features/evidence/EvidenceAnnotationChip.tsx` confirmed; intent brief amendment deferred to post-merge cleanup per operator note 1. (22) UX-001.5 implementation-notes fold — Workstream 4 PREFERRED path delivered; UX-001.5C NOT filed. (23) Token count proposed: 27 new keys (well below 50 ceiling). (24) A/I/G key-badge skill promotion — DEFERRED to separate post-UX-001.7 OPS card per design §13.C item 16 (confirmed per operator note 4). (25) Pre-launch scope-reality audit found ZERO doctrine drift in UX-001.{1-6} surfaces. **Implementer notes appended to design doc §19.A/B/C** documenting the UX-001.5 source-scan boundary conflict resolution. See `docs/designs/UX-001.7.md`. -->
 <!-- Latest implementer card: UX-001.6 (Cross-device QA and visual polish — UX-001 Phase 6; pure tests + Phase 6 framing refinement, no production code change, no migration, no Edge Function, no new dependency, no AI call, no service-role, no acute fix drawn from the §7 5-10 budget). Adds 5 new test suites verifying every UX-001.{1-5} contract holds across the 4 hard-blocker viewports (390 × 844 iOS, 1024 × 1366 iOS, 1366 × 768 web, 1920 × 1080 web) plus 2 extension viewports (412 × 892 Android, 768 × 1024 iOS). Matrix encodes `{platformOs, windowWidth}` per cell so the A/I/G key badge assertion distinguishes native iPad Pro 11 portrait at 1024 width (no badges, platform gate) from web at 1024 width (badges, threshold gate). All 18 surfaces in the §1 audit table passed cleanly at all 6 viewports. Zero acute fixes drawn from the §7 budget. Zero pre-existing regressions surfaced for separate-card filing; UX-001.5C remains conditionally deferred. EvidenceAnnotationChip refactor remains folded into UX-001.7 per POSTRUN-UX001 Scope 6. Read-only API boundary `git diff main..HEAD --stat` over the 52 enumerated UX-001.{1-5} source files: ZERO bytes. Five new test files: `__tests__/uxOneOneSixViewportMatrix.test.ts` (+256 tests — 6 viewports × 18 surfaces), `__tests__/uxOneOneSixTouchTargets.test.ts` (+375 tests — 44×44 compliance scan with hitSlop / minHeight evidence), `__tests__/uxOneOneSixColorIndependence.test.tsx` (+187 tests — chip strip + timeline node + focus ring at each viewport), `__tests__/uxOneOneSixDoctrine.test.ts` (+1,963 tests — verdict + internal-code + secrets + AI-import + Observations/Allegations scans across 52 UX-001 source files), `__tests__/uxOneOneSixReadOnlyBoundary.test.ts` (+156 tests — required API surface tokens preserved for every enumerated file). Phase 6 framing section in `docs/core/current-status.md` lines 1083+ refined with the empirical surface-pass list (18/18 cleanly), the zero acute-fix and zero pre-existing-regression dispositions, and the test-count delta detail. **12,724 → 15,661 tests / 480 → 485 suites passing** (+2,937 tests / +5 suites). Typecheck + lint clean. OPS-002 charter rename was a no-op (branch was already canonical at spawn time). Read-only verification: `git diff main..HEAD -- src/components/AppHeader.tsx src/components/AppHeaderTagline.tsx src/hooks/useHeaderBreakpoint.ts src/lib/designTokens.ts src/features/arguments/ArgumentTimelineMap.tsx src/features/arguments/ArgumentScoreTracker.tsx src/features/arguments/timelineViewportLayoutModel.ts src/features/arguments/TimelineSelectedReadoutPanel.tsx supabase/functions/submit-argument/ src/features/arguments/composer/ src/features/arguments/ArgumentComposer.tsx src/features/arguments/ArgumentComposerDock.tsx src/features/arguments/oneBox/actPopoutModel.ts src/features/arguments/oneBox/Popout.tsx src/features/arguments/oneBox/PopoutEntry.tsx src/features/arguments/oneBox/PopoutGroup.tsx src/features/arguments/oneBox/ActPopout.tsx src/features/arguments/oneBox/GoPopout.tsx src/features/arguments/oneBox/InspectPopout.tsx src/features/nodeAnnotations/ src/features/refereeBanners/RefereeBannerView.tsx` returns ZERO bytes. `git diff main..HEAD -- package.json package-lock.json` returns ZERO bytes. UX-001.2 offset acceptance unchanged (11/11 passing). UX-001.{3-5} regression all green. No META-* / QOL-* / COMP-* / PR-* / OPS-* / BRAND / UX-001.{1-5} source modified beyond design doc + framing additions in `docs/core/current-status.md`. No service-role, no secret, no AI provider call. **UX-001.7 framing pointer:** the existing UX-001.6 — Phase 6 framing for UX-001.7 section (current-status.md ~line 1083+) carries the load-bearing handoff with the empirical 18/18 surfaces-passed list, the zero-acute-fix disposition, the zero-pre-existing-regression disposition, the EvidenceAnnotationChip "consolidate as planned" disposition, the verified-clean doctrine scans, and the cross-platform parity findings on the A/I/G key badge platform-conditional pattern. See `docs/designs/UX-001.6.md`. -->
@@ -1748,6 +1749,179 @@ authors should prefer creating new test files over extending read-only
 ones whenever feasible.
 
 See `docs/designs/UX-001.5A.md` for the verbatim design.
+
+## MCP-021A — Maximal Boolean Machine Observation Taxonomy (first of MCP-021A → 021B → 021C three-card sequence)
+
+**Status:** Build complete (awaiting Review). Issue #300, branch
+`feat/MCP-021A-maximal-boolean-machine-observation-taxonomy`. 16
+commits ahead of main; 17 files added/modified; +150 tests / +10 suites.
+
+**Scope:** Pure-TS taxonomy + schema + tests. NO runtime behavior
+change. NO migration. NO Edge Function. NO new dependency. NO AI call.
+NO service-role. NO display-cap change. NO modification of
+`adaptRawClassifierBinarySource` (Source 6 returns `[]` unconditionally
+post-merge per Trigger 1 BINDING).
+
+**Registry expansion: 65 → 172 entries (+107 NEW) across 10 families**:
+- **A** parent_relation (16): 4 retroactive (auto/lifecycle/ai)
+  + 12 new (supports_parent, challenges_parent, refines_parent,
+  extends_parent, distinguishes_parent, reframes_parent,
+  questions_parent, summarizes_parent, acknowledges_parent,
+  corrects_parent_detail, contrasts_with_parent, answers_parent_question)
+- **B** disagreement_axis (14): 1 retroactive
+  (`disputes_evidence_applicability`) + 13 new
+  (`disagreement_present` Timeline-eligible umbrella per Decision 4 +
+  12 Inspect-only subtypes)
+- **C** misunderstanding_repair (17): 4 retroactive + 13 new
+  (Schegloff/Sacks repair pattern + Clark & Brennan grounding)
+- **D** evidence_source_chain (27): 15 retroactive + 12 new
+- **E** argument_scheme (16): 16 new Walton schemes; BINDING doctrine
+  NEVER frames any scheme as "fallacy"
+- **F** critical_question (14): 14 new; each paired with a Family E
+  scheme via doctrineNotes cross-reference; standard
+  falsePositiveGuards line on every entry rejecting verdict framing
+- **G** resolution_progress (30): 20 retroactive + 9 new — largest
+  family; carries the binding doctrine on concession-is-repair
+  (`concedes_broader_point` explicitly framed "NEVER as this side
+  lost")
+- **H** claim_clarity (12): 1 retroactive (`provides_temporal_constraint`)
+  + 11 new
+- **I** thread_topology (21): 14 retroactive + 7 new with **Decision 7
+  source split**: 4 DERIVABLE (auto_metadata: `splits_thread`,
+  `merges_thread`, `references_sibling_node`, `references_ancestor_node`)
+  + 3 NOT-DERIVABLE (ai_classifier: `returns_to_prior_issue`,
+  `references_external_context`, `compares_options`)
+- **J** sensitive_composer (5): UNCHANGED per Trigger 10 — 5 existing
+  sensitive entries get retroactive verbose-definition backfill;
+  brief Family J extras (`hostile_generalization_present`,
+  `identity_group_reference_present`, `sarcasm_or_mockery_present`,
+  `excessive_heat_present`, `moderation_boundary_near`) DROPPED for
+  sequel-audit consideration outside MCP-021A scope
+
+**Implementation choice (design §4 a/b)**: option **(b) PARALLEL
+registry**. `NodeLabelMark` shape unchanged (UX-001.5A consumers
+read byte-equal); NEW `MachineObservationDefinition` interface adds 8
+verbose fields (`family`, `booleanQuestion`, `positiveDefinition`,
+`negativeDefinition`, `positiveExamples`, `negativeExamples`,
+`falsePositiveGuards`, `doctrineNotes`, `confidenceEligibility`). Every
+172/172 entries carries all 8 fields (Trigger 12 CLEAN).
+
+**New files**:
+- `src/features/nodeLabels/machineObservationDefinitions.ts` (composite
+  registry + lookups + freeze contract)
+- `src/features/nodeLabels/machineObservationDefinitions/familyA..familyJ.ts`
+  (10 files, per-family populated definitions)
+- `src/features/nodeLabels/mcpBooleanObservationSchema.ts` (pure-TS
+  MCP wire contract: schema version constant
+  `'mcp-021.machine-observations.boolean.v1'`,
+  `McpBooleanObservationRequest`/`Response` interfaces with refinement
+  1 confidence-REQUIRED, 4 validators handling every documented
+  failure mode per intent brief §"Failure-mode contract")
+- `src/features/nodeLabels/threadTopologyAutoMetadata.ts` (Decision 7
+  no-op stubs for 4 auto_metadata derivers; all return `[]`
+  unconditionally; real implementation is MCP-021C territory)
+- 8 new test files under `__tests__/mcpOneTwoOneA*.test.ts` +
+  `mcpBooleanObservationSchema.test.ts`
+
+**Decision 5 collapses (no aliases added)**: brief
+`disagreement_evidence_applicability` → existing #49
+`disputes_evidence_applicability`; brief `requests_clarification_present`
+→ existing #38; brief `narrow_concession_present` → existing #45;
+brief `source_chain_gap` → existing #43 `creates_source_chain_gap`;
+brief `source_requested`/`quote_requested` → existing
+auto_metadata + lifecycle compound-key pair; brief `branch_recommended`
+→ existing #34; brief `changes_subject` → existing #36
+`introduces_new_issue`. Each collapse documented in target entry's
+`doctrineNotes`.
+
+**Trigger 10 DROPs**: 6 candidates dropped — `repeats_prior_point`
+(doctrine-risk: "repeats" reads as verdict on contribution) + 5 Family
+J extras (constructiveness-flavored, cultural-context judgment risk,
+heat-≠-truth doctrine boundary, AI-does-not-moderate boundary). All 6
+flagged in design §12.4 ledger for sequel-audit consideration.
+
+**Test discipline**: aggregate approach per design §8.9 implementer
+choice. The label doctrine ban-list scan iterates over all 172 entries
+in aggregate (offender collection pattern) rather than per-entry
+expansion that would have ballooned to ~860 tests. Final
+implementation: 8 new test files / 150 new tests / 10 new suites.
+
+**Read-only API boundary verified clean** via `git diff main..HEAD`:
+zero diff on `src/features/nodeLabels/nodeLabelSourceAdapters.ts`
+(Source 6 byte-equal preserved per Trigger 1), `userAllegationRegistry.ts`,
+`nodeLabelPresentationModel.ts`, `nodeLabelPriorityModel.ts`,
+`NodeLabelStrip.tsx`, `NodeLabelInspectGroups.tsx`, all UX-001.6
+matrix tests (5 files), all UX-001.{1-7}/UX-001.5A read-only files
+outside the bounded extension list, all `supabase/migrations/` +
+`supabase/functions/`, `package.json`/`package-lock.json`. UX-001.5A
+regression suite intact. UX-001.6 cross-device QA matrix all 5
+suites passing.
+
+**All 15 conditional HALT triggers + 5 implementer-specific stops
+(16-20) CLEAN**.
+
+**Doctrine self-check (binding lines preserved across 172 entries)**:
+- §1 score is gameplay analysis, never truth — verdict-token
+  ban-list scan clean across `label` / `shortLabel` / `description`
+  fields (no "winner", "loser", "liar", "fallacy", "bad faith", etc.)
+- §3 popularity is not evidence — Family J `uses_popularity_as_evidence`
+  + `uses_satire_as_evidence` retained verbatim as anchors
+- §4 AI moderator hard limits — Family J `moderation_boundary_near`
+  DROPPED to honor this boundary
+- §10a Observations vs Allegations — every entry remains
+  `kind: 'machine_observation'`; no entry collapses into allegations
+- point-standing-economy — concession is REPAIR (Family G entries
+  explicitly framed as recovery-positive; `concedes_broader_point` is
+  RELINQUISHMENT here, never "lost")
+- evidence-doctrine — Family D evidence-debt + chain-gap + chain-repair
+  entries cite doctrine; engagement credit and factual standing
+  remain separate scores
+
+**Operator-deferred review items surfaced per design §12.7** (8):
+1. **Per-entry vs aggregate test structure**: implementer chose
+   AGGREGATE per §8.9 to stay under Trigger 8 ceiling. Operator may
+   request per-entry expansion if higher granularity desired.
+2. **Final registry count 172** (not 171): Family G has 21
+   retroactive entries (5 auto + 7 lifecycle + 9 ai_classifier) per
+   design §3.7's self-correction, not 20. The count 172 is within
+   Trigger 11 ≤200 and within design §3.11's "171 OR 172" tolerance.
+3. **Decision 7 borderline call**: 4 Family I auto_metadata keys
+   (`splits_thread`, `merges_thread`, `references_sibling_node`,
+   `references_ancestor_node`) shipped per "deterministically
+   derivable → auto" rule. Operator may instead ship as
+   `ai_classifier` and revisit at MCP-021C — design §12.3 notes the
+   borderline.
+4. **Optional trim to ~165 entries**: NOT exercised. Design ships
+   107 NEW for a final 172 per default-ship rule.
+5. **Header comment in `machineObservationRegistry.ts`** (lines 4-5)
+   still reads "64 entries — 16 auto + 18 lifecycle + 25 AI
+   classifier + 5 sensitive composer-only". NOT updated by MCP-021A —
+   doing so would touch a read-only-boundary file beyond the
+   bounded extension list. The parallel-registry implementation
+   choice (option b) makes this comment a forward-compatibility
+   no-op: the comment describes the legacy `NodeLabelMark`-shaped
+   registry which is unchanged. Future cleanup card may reconcile.
+6. **Sequel-audit for constructiveness Family**: 5 Family J extras
+   dropped per Trigger 10 are flagged for separate audit card to
+   evaluate in doctrine-safe frame. Optional follow-up.
+7. **`source-access-audit` skill promotion** (per OPS-006-style
+   follow-up): the designer phase noted the skill is not registered.
+8. **`nodeLabels/index.ts` header comment** could note MCP-021A's
+   new exports. NOT touched; comment unchanged.
+
+**Operator follow-up**: NONE — pure-TS code change. No migration to
+deploy. No Edge Function. No new env var. No `npx supabase` command.
+No dependency install.
+
+**MCP-021B + MCP-021C status**: CONTINGENT follow-ups. NOT designed
+in MCP-021A scope.
+- MCP-021B = persistence layer (Supabase classifier-output table +
+  RLS + cross-actor visibility).
+- MCP-021C = live MCP execution (HTTP transport, retry/sanitization,
+  family-sharded batching, per-call timeout enforcement, real
+  threadTopology deriver implementations).
+
+See `docs/designs/MCP-021A.md` for the verbatim design.
 
 ## PR-003 — Avatar upload policy and storage (Epic Profile — opener)
 
