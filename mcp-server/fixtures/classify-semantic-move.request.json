@@ -1,0 +1,13 @@
+{
+  "moveBodyRedacted": "[fixture] I agree with the parent's claim that streetlights reduce nighttime accidents, and add that they specifically reduce pedestrian-vehicle accidents at intersections.",
+  "parentBodyRedacted": "[fixture] Cities should install more streetlights because they reduce nighttime accidents.",
+  "roomContext": {
+    "debateMode": "structured_dispute",
+    "side": "affirmative",
+    "actorRole": "primary_opponent"
+  },
+  "requestedClassifiers": ["responds_to_parent"],
+  "contentHash": "fixture-content-hash-mainline",
+  "roomId": "fixture-room-mainline",
+  "promptVersionHint": "mcp-semantic-referee-prompt-v2"
+}

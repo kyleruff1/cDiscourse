@@ -1,0 +1,21 @@
+{
+  "binaries": [
+    {
+      "classifierId": "responds_to_parent",
+      "value": 1,
+      "confidence": "high",
+      "reasonCode": "parent_continuity_direct_claim_response"
+    }
+  ],
+  "routeSuggestion": "mainline",
+  "frictionSuggestion": "none",
+  "scoreHints": {
+    "continuityCredit": 2,
+    "evidencePressure": 0,
+    "branchHygiene": 0,
+    "synthesisReadiness": 0,
+    "sourceChainDebt": 0,
+    "unresolvedRedirectRisk": 0
+  },
+  "modelVersion": "fixture-semantic-referee-v0"
+}
