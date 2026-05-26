@@ -5,6 +5,9 @@
  * description) NEVER contain verdict tokens, raw rawKey leaks, or
  * fallacy framing for Family E schemes.
  *
+ * Uses AGGREGATE iteration per design §8.9 implementer choice
+ * (~25 tests, not ~860 per-entry expansion).
+ *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 — never label as winner/loser/correct etc.
  *   - cdiscourse-doctrine §9 — internal codes never in user-facing strings.
@@ -30,9 +33,7 @@ const VERDICT_TOKENS = [
   'fallacious',
 ];
 
-// Tokens that should NEVER appear as a quality verdict, but may legitimately
-// appear in technical context. We check for usage patterns rather than raw
-// presence.
+// Quality-verdict phrases — patterns that frame as verdict.
 const QUALITY_VERDICT_PHRASES = [
   'argument is wrong',
   'argument is weak',
@@ -41,61 +42,87 @@ const QUALITY_VERDICT_PHRASES = [
   'this is true',
   'this is false',
   'this is correct',
-  'this is wrong',
 ];
 
-describe('MCP-021A — Label doctrine ban-list', () => {
-  for (const def of _INTERNAL_ALL_DEFINITIONS) {
-    describe(`entry "${def.rawKey}" (family ${def.family})`, () => {
-      it('label contains no verdict tokens', () => {
-        for (const banned of VERDICT_TOKENS) {
-          expect(def.label.toLowerCase()).not.toContain(banned);
+describe('MCP-021A — Label doctrine ban-list (aggregate)', () => {
+  it('no entry label contains any verdict token', () => {
+    const offenders: Array<{ rawKey: string; field: string; banned: string }> = [];
+    for (const def of _INTERNAL_ALL_DEFINITIONS) {
+      const label = def.label.toLowerCase();
+      for (const banned of VERDICT_TOKENS) {
+        if (label.includes(banned)) {
+          offenders.push({ rawKey: def.rawKey, field: 'label', banned });
         }
-      });
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 
-      it('shortLabel contains no verdict tokens', () => {
-        for (const banned of VERDICT_TOKENS) {
-          expect(def.shortLabel.toLowerCase()).not.toContain(banned);
+  it('no entry shortLabel contains any verdict token', () => {
+    const offenders: Array<{ rawKey: string; field: string; banned: string }> = [];
+    for (const def of _INTERNAL_ALL_DEFINITIONS) {
+      const sl = def.shortLabel.toLowerCase();
+      for (const banned of VERDICT_TOKENS) {
+        if (sl.includes(banned)) {
+          offenders.push({ rawKey: def.rawKey, field: 'shortLabel', banned });
         }
-      });
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 
-      it('description contains no verdict tokens', () => {
-        for (const banned of VERDICT_TOKENS) {
-          expect(def.description.toLowerCase()).not.toContain(banned);
+  it('no entry description contains any verdict token', () => {
+    const offenders: Array<{ rawKey: string; field: string; banned: string }> = [];
+    for (const def of _INTERNAL_ALL_DEFINITIONS) {
+      const d = def.description.toLowerCase();
+      for (const banned of VERDICT_TOKENS) {
+        if (d.includes(banned)) {
+          offenders.push({ rawKey: def.rawKey, field: 'description', banned });
         }
-      });
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 
-      it('user-facing fields contain no quality-verdict phrases', () => {
-        const combined = `${def.label} ${def.shortLabel} ${def.description}`.toLowerCase();
-        for (const phrase of QUALITY_VERDICT_PHRASES) {
-          expect(combined).not.toContain(phrase);
+  it('no entry user-facing fields contain quality-verdict phrases', () => {
+    const offenders: Array<{ rawKey: string; phrase: string }> = [];
+    for (const def of _INTERNAL_ALL_DEFINITIONS) {
+      const combined = `${def.label} ${def.shortLabel} ${def.description}`.toLowerCase();
+      for (const phrase of QUALITY_VERDICT_PHRASES) {
+        if (combined.includes(phrase)) {
+          offenders.push({ rawKey: def.rawKey, phrase });
         }
-      });
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 
-      it('user-facing fields do NOT leak obviously-internal rawKey patterns', () => {
-        // The rawKey is an internal code; should not leak into user-facing
-        // strings AS AN INTERNAL CODE. Single-word lifecycle rawKeys like
-        // "narrowed" / "clarified" / "open" are also plain English words
-        // that legitimately appear in label / description (their plain
-        // language IS the rawKey). We only flag obviously-internal patterns:
-        // snake_case rawKeys with underscores in the user-facing fields.
-        if (def.rawKey.includes('_')) {
-          expect(def.label.toLowerCase()).not.toContain(def.rawKey);
-          expect(def.shortLabel.toLowerCase()).not.toContain(def.rawKey);
-        }
-      });
-    });
-  }
+  it('no snake_case rawKey leaks into label or shortLabel verbatim', () => {
+    const offenders: Array<{ rawKey: string; field: string }> = [];
+    for (const def of _INTERNAL_ALL_DEFINITIONS) {
+      if (!def.rawKey.includes('_')) continue; // single-word rawKeys are plain English
+      if (def.label.toLowerCase().includes(def.rawKey)) {
+        offenders.push({ rawKey: def.rawKey, field: 'label' });
+      }
+      if (def.shortLabel.toLowerCase().includes(def.rawKey)) {
+        offenders.push({ rawKey: def.rawKey, field: 'shortLabel' });
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });
 
 describe('MCP-021A — Family E (argument_scheme) NEVER calls schemes fallacies', () => {
   it('no Family E entry contains "fallacy" or "fallacious" in user-facing fields', () => {
     const familyE = _INTERNAL_ALL_DEFINITIONS.filter((d) => d.family === 'argument_scheme');
+    const offenders: string[] = [];
     for (const def of familyE) {
       const combined = `${def.label} ${def.shortLabel} ${def.description}`.toLowerCase();
-      expect(combined).not.toContain('fallacy');
-      expect(combined).not.toContain('fallacious');
+      if (combined.includes('fallacy') || combined.includes('fallacious')) {
+        offenders.push(def.rawKey);
+      }
     }
+    expect(offenders).toEqual([]);
   });
 
   it('slippery_slope_reasoning_present specifically does not call itself a fallacy', () => {
@@ -114,12 +141,16 @@ describe('MCP-021A — Family F (critical_question) plain-language framing', () 
   it('no Family F entry uses "unwarranted" / "unsupported" / "weak" framing in label/shortLabel', () => {
     const familyF = _INTERNAL_ALL_DEFINITIONS.filter((d) => d.family === 'critical_question');
     const bannedFraming = ['unwarranted', 'unsupported', 'weak'];
+    const offenders: Array<{ rawKey: string; banned: string }> = [];
     for (const def of familyF) {
       const combined = `${def.label} ${def.shortLabel}`.toLowerCase();
       for (const banned of bannedFraming) {
-        expect(combined).not.toContain(banned);
+        if (combined.includes(banned)) {
+          offenders.push({ rawKey: def.rawKey, banned });
+        }
       }
     }
+    expect(offenders).toEqual([]);
   });
 });
 

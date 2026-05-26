@@ -444,7 +444,7 @@ export const FAMILY_A_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     ]),
     doctrineNotes: Object.freeze([
       "cdiscourse-doctrine §10a: reframing is structural; valuable when productive, but never a verdict that the parent's frame was 'wrong'.",
-      "point-standing-economy: a productive reframe can unstick a stalled dispute; mid-game reframes earn engagement credit.",
+      "point-standing-economy: a productive reframe can unstick a stalled dispute; reframes mid-discussion earn engagement credit.",
     ]),
     confidenceEligibility: NEW_FAMILY_A_ELIGIBILITY,
   }),
@@ -560,7 +560,7 @@ export const FAMILY_A_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     ]),
     falsePositiveGuards: Object.freeze([
       "Do NOT mark TRUE for moves with substantive content beyond acknowledgement.",
-      "Do NOT mark TRUE for moves that acknowledge sarcastically (those play differently in the game).",
+      "Do NOT mark TRUE for moves that acknowledge sarcastically (those play differently in the point-standing economy).",
     ]),
     doctrineNotes: Object.freeze([
       "cdiscourse-doctrine §10a: structural; acknowledgement is engagement without substance.",

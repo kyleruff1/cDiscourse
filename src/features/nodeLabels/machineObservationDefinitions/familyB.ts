@@ -322,7 +322,7 @@ export const FAMILY_B_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     ]),
     doctrineNotes: Object.freeze([
       'cdiscourse-doctrine §10a: value disagreement is a fundamental sub-axis; NEVER implies one set of values is "correct".',
-      'cdiscourse-doctrine §1: values play differently than facts in the point-standing economy; value disputes rarely resolve to a "winner".',
+      'cdiscourse-doctrine §1: values play differently than facts in the point-standing economy; value disputes rarely produce a one-sided resolution.',
     ]),
     confidenceEligibility: SUBTYPE_INSPECT_ELIGIBILITY,
   }),
@@ -561,7 +561,7 @@ export const FAMILY_B_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     ]),
     doctrineNotes: Object.freeze([
       'cdiscourse-doctrine §10a: remedy disputes are policy-level sub-axes; both sides may have evidence for different remedies.',
-      'point-standing-economy: remedy disputes resolve via empirical case studies or value-weighting; rarely produce a "winner".',
+      'point-standing-economy: remedy disputes resolve via empirical case studies or value-weighting; rarely produce a one-sided resolution.',
     ]),
     confidenceEligibility: SUBTYPE_INSPECT_ELIGIBILITY,
   }),
