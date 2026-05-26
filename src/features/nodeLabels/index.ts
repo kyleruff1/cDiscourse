@@ -18,10 +18,14 @@
 
 // ── Pure-TS exports — types ─────────────────────────────────────
 export {
+  ALL_MACHINE_OBSERVATION_FAMILIES,
   ALL_NODE_LABEL_DISPOSITIONS,
   ALL_NODE_LABEL_KINDS,
   ALL_NODE_LABEL_SOURCES,
   ALL_NODE_LABEL_SURFACES,
+  type MachineObservationConfidenceEligibility,
+  type MachineObservationDefinition,
+  type MachineObservationFamily,
   type MachineObservationSource,
   type NodeLabelDisposition,
   type NodeLabelKind,
