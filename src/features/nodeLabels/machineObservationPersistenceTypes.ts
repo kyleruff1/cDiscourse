@@ -24,10 +24,43 @@ export type MachineObservationRunStatus = 'success' | 'failed' | 'fallback';
 export type MachineObservationConfidence = 'low' | 'medium' | 'high';
 
 /**
+ * MCP-021C-EDGE — Run mode discriminator. Mirrors the migration's CHECK
+ * constraint on `argument_machine_observation_runs.run_mode`.
+ *
+ *   - `'production'` — runs invoked during normal classifier operation;
+ *     rows are eligible for Source 6 rendering via the persistence query.
+ *   - `'admin_validation'` — runs invoked by the operator EDGE-SMOKE flow
+ *     and future per-family validation cycles; rows are persisted for
+ *     operator audit but FILTERED OUT of production Source 6 rendering at
+ *     the persistence query layer (`fetchPersistedObservationsForArguments`
+ *     applies `runs.run_mode = 'production'`).
+ *
+ * Doctrine anchor (cdiscourse-doctrine §10a): the boundary is structural,
+ * not a judgment. Admin validation rows are full Machine Observations; the
+ * production UI simply does not surface them until the corresponding family
+ * is admitted to production via the FAMILY_REGISTRY enablement flag.
+ */
+export type MachineObservationRunMode = 'production' | 'admin_validation';
+
+/**
+ * Frozen array of every `MachineObservationRunMode` value. Exported for
+ * test enumeration; matches the migration's CHECK constraint exactly.
+ */
+export const ALL_MACHINE_OBSERVATION_RUN_MODES:
+  ReadonlyArray<MachineObservationRunMode> = Object.freeze([
+    'production',
+    'admin_validation',
+  ]);
+
+/**
  * MCP-021B — One row in `public.argument_machine_observation_runs`.
  *
  * Camel-case shape; the persistence query helper maps the snake_case
  * Supabase row into this shape.
+ *
+ * MCP-021C-EDGE additive change: the `runMode` field reflects the
+ * `run_mode` column added by migration `20260526000019_mcp_021c_edge_run_mode`.
+ * Default `'production'` backfills MCP-021B smoke-seed rows.
  */
 export interface MachineObservationRunRow {
   id: string;
@@ -46,6 +79,8 @@ export interface MachineObservationRunRow {
   completedAt: string | null;
   /** ISO-8601 timestamp. */
   createdAt: string;
+  /** MCP-021C-EDGE — discriminator for run purpose. */
+  runMode: MachineObservationRunMode;
 }
 
 /**
@@ -90,6 +125,16 @@ export function isMachineObservationRunStatus(
   value: unknown,
 ): value is MachineObservationRunStatus {
   return value === 'success' || value === 'failed' || value === 'fallback';
+}
+
+/**
+ * MCP-021C-EDGE — Pure type guard for the run mode enum. Mirrors the
+ * migration's CHECK constraint exactly.
+ */
+export function isMachineObservationRunMode(
+  value: unknown,
+): value is MachineObservationRunMode {
+  return value === 'production' || value === 'admin_validation';
 }
 
 /**
@@ -169,5 +214,8 @@ export function isWellFormedRunRow(
   if (!isNonEmptyString(row.startedAt)) return false;
   if (row.completedAt !== null && typeof row.completedAt !== 'string') return false;
   if (!isNonEmptyString(row.createdAt)) return false;
+  // MCP-021C-EDGE: runMode must be a valid enum value. Existing MCP-021B
+  // smoke-seed rows backfill to 'production' via the migration DEFAULT.
+  if (!isMachineObservationRunMode(row.runMode)) return false;
   return true;
 }
