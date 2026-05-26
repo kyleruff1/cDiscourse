@@ -14,6 +14,15 @@
  * Errors are returned as `{ ok: false, error }`; callers degrade
  * gracefully (the adapter returns `[]` downstream).
  *
+ * MCP-021C-EDGE bounded edit: the SELECT now INNER JOINs the runs table
+ * and filters `runs.run_mode = 'production'`. This is the design's §8
+ * "Source 6 filter requirement" implemented at the query layer
+ * (Decision 9 "preferred"). Admin-validation rows are persisted for
+ * operator audit but never reach Source 6 rendering. The MCP-021A
+ * Source 6 byte-equal-on-empty-input invariance is preserved (this
+ * function returns rows BEFORE they reach the adapter; the adapter's
+ * contract on empty input is unchanged).
+ *
  * Doctrine:
  *   - Read-only SELECT — the documented exception to the "Edge Function
  *     is the only write path" rule (same as `fetchPointTagsForArguments`).
@@ -22,6 +31,8 @@
  *   - No ORDER BY engagement / popularity / heat — rows are returned in
  *     RLS-permitted natural order; downstream presentation applies its
  *     own ordering rules (cdiscourse-doctrine §3).
+ *   - run_mode discriminates PURPOSE, never participant or content
+ *     judgment (cdiscourse-doctrine §1, §10a).
  */
 
 import { supabase, SUPABASE_CONFIGURED } from '../../lib/supabase';
@@ -45,10 +56,22 @@ interface RawPersistedRow {
   confidence: string;
   evidence_span: string | null;
   created_at: string;
+  /**
+   * MCP-021C-EDGE: PostgREST's `!inner` join hangs the joined runs row(s) on
+   * the result. We don't surface this to callers — `mapRawRow` drops it —
+   * but the field has to exist on the raw shape so the filter `.eq` works.
+   */
+  argument_machine_observation_runs?: unknown;
 }
 
+/**
+ * MCP-021C-EDGE bounded edit: `!inner` forces PostgREST to perform an
+ * INNER JOIN on the runs table so we can filter `runs.run_mode = 'production'`.
+ * Only the joined column we filter on is requested (`run_mode`) — that
+ * minimises the response payload while keeping the filter possible.
+ */
 const SELECT_COLUMNS =
-  'id,run_id,debate_id,argument_id,schema_version,raw_key,family,confidence,evidence_span,created_at';
+  'id,run_id,debate_id,argument_id,schema_version,raw_key,family,confidence,evidence_span,created_at,argument_machine_observation_runs!inner(run_mode)';
 
 function mapRawRow(raw: RawPersistedRow): MachineObservationResultRow {
   return {
@@ -64,6 +87,10 @@ function mapRawRow(raw: RawPersistedRow): MachineObservationResultRow {
     confidence: raw.confidence as MachineObservationConfidence,
     evidenceSpan: raw.evidence_span,
     createdAt: raw.created_at,
+    // The joined `argument_machine_observation_runs.run_mode` is used at
+    // the query layer for filtering only — it is NOT echoed onto the
+    // result row shape (the result row interface remains as MCP-021B
+    // defined it). This keeps downstream consumers byte-equal.
   };
 }
 
@@ -93,7 +120,11 @@ export async function fetchPersistedObservationsForArguments(
   const { data, error } = await supabase
     .from('argument_machine_observation_results')
     .select(SELECT_COLUMNS)
-    .in('argument_id', ids);
+    .in('argument_id', ids)
+    // MCP-021C-EDGE — filter to production-only runs at the query layer.
+    // Admin-validation rows are still persisted in the database (for
+    // operator audit) but never reach Source 6 rendering.
+    .eq('argument_machine_observation_runs.run_mode', 'production');
   if (error) return { ok: false, error: error.message };
   return {
     ok: true,

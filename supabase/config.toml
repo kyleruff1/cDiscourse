@@ -427,6 +427,16 @@ verify_jwt = true
 [functions.record-visibility-transition]
 verify_jwt = true
 
+# MCP-021C-EDGE — classify-argument-boolean-observations. Admin-gated for
+# BOTH production and admin_validation modes at this ship per Decision 7.
+# verify_jwt is true; requireAdmin(req) inside the function enforces the
+# admin role check. Calls the operator-hosted MCP server's
+# `classify_argument_boolean_observations` tool and writes per-argument
+# runs + positive observations into the MCP-021B persistence tables via
+# service-role.
+[functions.classify-argument-boolean-observations]
+verify_jwt = true
+
 # PR-004 — [functions.upload-avatar] block removed. The avatar upload
 # pipeline (PR-003) was deprecated when the operator pivoted to the
 # InitialsAvatar identity glyph. The source under

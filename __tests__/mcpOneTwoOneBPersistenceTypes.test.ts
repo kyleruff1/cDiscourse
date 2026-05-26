@@ -49,6 +49,9 @@ const VALID_RUN: MachineObservationRunRow = {
   startedAt: '2026-05-26T00:00:00.000Z',
   completedAt: '2026-05-26T00:00:01.000Z',
   createdAt: '2026-05-26T00:00:01.000Z',
+  // MCP-021C-EDGE: every well-formed run row now carries a runMode
+  // discriminator; the migration backfills existing rows to 'production'.
+  runMode: 'production',
 };
 
 describe('MCP-021B — isMachineObservationConfidence', () => {
