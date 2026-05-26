@@ -32,6 +32,7 @@ import type {
   ArgumentFlag,
   TopicSatisfactionCheck,
   PersistedPointTag,
+  MachineObservationResultRow,
 } from './types';
 import {
   mergeRealtimeEvent,
@@ -55,6 +56,11 @@ export interface ArgumentRoomMessagesResult {
   /** META-1A — Per-message persisted manual-tag rows (active only).
    *  META-1B keeps this map live by merging realtime events into it. */
   pointTagsByArgumentId: Record<string, PersistedPointTag[]>;
+  /** MCP-021B — Per-message persisted Machine Observation result rows
+   *  from `public.argument_machine_observation_results`. Empty when
+   *  MCP-021C has not yet run on the room, or when the caller is
+   *  unauthorized to read. Realtime channel deferred. */
+  persistedObservationsByArgumentId: Record<string, MachineObservationResultRow[]>;
   /** Whether the initial load is still pending. */
   loading: boolean;
   /** Last fetch error, if any. */
@@ -94,6 +100,9 @@ export function useArgumentRoomMessages(
   const [flagsByArgumentId, setFlags] = useState<Record<string, ArgumentFlag[]>>({});
   const [checksByArgumentId, setChecks] = useState<Record<string, TopicSatisfactionCheck[]>>({});
   const [pointTagsByArgumentId, setPointTags] = useState<Record<string, PersistedPointTag[]>>({});
+  const [persistedObservationsByArgumentId, setPersistedObservations] = useState<
+    Record<string, MachineObservationResultRow[]>
+  >({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadedAt, setLoadedAt] = useState<string | null>(null);
@@ -179,6 +188,7 @@ export function useArgumentRoomMessages(
         const flagMap: Record<string, ArgumentFlag[]> = {};
         const checkMap: Record<string, TopicSatisfactionCheck[]> = {};
         const pointTagMap: Record<string, PersistedPointTag[]> = {};
+        const persistedObsMap: Record<string, MachineObservationResultRow[]> = {};
         if (rel.ok) {
           for (const t of rel.data.tags) {
             (tagMap[t.argumentId] = tagMap[t.argumentId] || []).push(t);
@@ -192,12 +202,19 @@ export function useArgumentRoomMessages(
           for (const pt of rel.data.pointTags) {
             (pointTagMap[pt.argumentId] = pointTagMap[pt.argumentId] || []).push(pt);
           }
+          // MCP-021B — accumulate persisted observation rows by argumentId.
+          // Mirror the META-1A pointTags accumulator pattern.
+          for (const po of rel.data.persistedObservations) {
+            (persistedObsMap[po.argumentId] =
+              persistedObsMap[po.argumentId] || []).push(po);
+          }
         }
         setMessages(rows);
         setTags(tagMap);
         setFlags(flagMap);
         setChecks(checkMap);
         setPointTags(pointTagMap);
+        setPersistedObservations(persistedObsMap);
         // META-1B — record the latest argument id set so the realtime
         // reconcile callback can re-fetch tags for the right scope after
         // a (re)subscribe. Stored in a ref to avoid re-creating the
@@ -226,6 +243,7 @@ export function useArgumentRoomMessages(
     flagsByArgumentId,
     checksByArgumentId,
     pointTagsByArgumentId,
+    persistedObservationsByArgumentId,
     loading,
     error,
     latestId,

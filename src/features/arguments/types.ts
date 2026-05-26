@@ -1,6 +1,8 @@
 import type { PersistedPointTag } from '../metadata/pointTagsApi';
+import type { MachineObservationResultRow } from '../nodeLabels/machineObservationPersistenceTypes';
 
 export type { PersistedPointTag };
+export type { MachineObservationResultRow };
 
 export type ArgumentType =
   | 'thesis'
@@ -80,6 +82,13 @@ export interface ArgumentRelations {
    * (`removed_at is null`). Empty when META-1A is not yet deployed.
    */
   pointTags: PersistedPointTag[];
+  /**
+   * MCP-021B — Persisted Machine Observation result rows
+   * (`public.argument_machine_observation_results`). Empty when MCP-021C
+   * has not yet written rows for the room, or when the caller is
+   * unauthorized to read.
+   */
+  persistedObservations: MachineObservationResultRow[];
 }
 
 export interface ArgumentCache {

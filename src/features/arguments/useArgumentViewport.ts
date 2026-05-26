@@ -80,7 +80,7 @@ export function useArgumentViewport(debateId: string): UseArgumentViewportResult
     dispatch({
       type: 'ROOTS_LOADED',
       args: result.data,
-      relations: relResult.ok ? relResult.data : { tags: [], flags: [], checks: [], pointTags: [] },
+      relations: relResult.ok ? relResult.data : { tags: [], flags: [], checks: [], pointTags: [], persistedObservations: [] },
     });
     setLoading(false);
     inflightRef.current = false;
@@ -104,7 +104,7 @@ export function useArgumentViewport(debateId: string): UseArgumentViewportResult
           type: 'CHILDREN_LOADED',
           parentId: argumentId,
           args: result.data,
-          relations: relResult.ok ? relResult.data : { tags: [], flags: [], checks: [], pointTags: [] },
+          relations: relResult.ok ? relResult.data : { tags: [], flags: [], checks: [], pointTags: [], persistedObservations: [] },
         });
       })();
     },
@@ -130,7 +130,7 @@ export function useArgumentViewport(debateId: string): UseArgumentViewportResult
           focusedId: argumentId,
           pathArgs: [],
           childArgs,
-          relations: relResult?.ok ? relResult.data : { tags: [], flags: [], checks: [], pointTags: [] },
+          relations: relResult?.ok ? relResult.data : { tags: [], flags: [], checks: [], pointTags: [], persistedObservations: [] },
         });
       })();
     },

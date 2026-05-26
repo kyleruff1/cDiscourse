@@ -3,17 +3,30 @@
  *
  * Five layered concerns:
  *   - Type contracts (`nodeLabelTypes`)
- *   - Registries (`machineObservationRegistry`, `userAllegationRegistry`)
+ *   - Registries (`machineObservationRegistry`, `userAllegationRegistry`,
+ *     `machineObservationDefinitions`)
  *   - Source adapters (`nodeLabelSourceAdapters`)
  *   - Presentation model + priority (`nodeLabelPresentationModel`,
  *     `nodeLabelPriorityModel`)
  *   - Descriptor adapter (`nodeLabelDescriptorAdapter`)
  *
+ * MCP-021A — Adds the parallel `MachineObservationDefinition` registry,
+ * the `MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION` wire constant, and the
+ * thread-topology auto-metadata stubs.
+ *
+ * MCP-021B — Adds the persistence layer for Machine Observation
+ * classifier results:
+ *   - `machineObservationPersistenceTypes` — row interfaces + type guards
+ *   - `machineObservationPersistenceAdapter` — row → NodeLabelMark
+ *   - `machineObservationPersistenceQuery` — read-only Supabase SELECT
+ *
  * RN components:
  *   - `NodeLabelStrip` — Timeline-node consumer
  *   - `NodeLabelInspectGroups` — Inspect-popout consumer
  *
- * Pure-TS modules carry no React / Supabase / network imports.
+ * Pure-TS modules carry no React / Supabase / network imports. The one
+ * Supabase-touching module (`machineObservationPersistenceQuery`) uses
+ * the shared authed client and exports read-only helpers only.
  */
 
 // ── Pure-TS exports — types ─────────────────────────────────────
@@ -138,6 +151,28 @@ export {
   toAnnotationChipDescriptor,
   toAnnotationChipDescriptors,
 } from './nodeLabelDescriptorAdapter';
+
+// ── MCP-021B exports — persisted classifier-result persistence ───
+export {
+  isMachineObservationConfidence,
+  isMachineObservationFamily,
+  isMachineObservationRunStatus,
+  isWellFormedResultRow,
+  isWellFormedRunRow,
+  type MachineObservationConfidence,
+  type MachineObservationResultRow,
+  type MachineObservationRunRow,
+  type MachineObservationRunStatus,
+} from './machineObservationPersistenceTypes';
+export {
+  mapPersistedObservationRowsToNodeLabelMarks,
+  type MachineObservationPersistenceSurface,
+  type MapPersistedObservationOptions,
+} from './machineObservationPersistenceAdapter';
+export {
+  fetchPersistedObservationsForArguments,
+  type FetchPersistedObservationsResult,
+} from './machineObservationPersistenceQuery';
 
 // ── RN component exports ────────────────────────────────────────
 export {
