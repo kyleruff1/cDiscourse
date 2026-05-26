@@ -74,6 +74,16 @@ export {
   type SanitizeOptions,
 } from './mcpBooleanObservationSchema';
 
+// ── MCP-021A exports — thread-topology auto-metadata stubs ───────
+export {
+  deriveAllThreadTopologyAutoMetadata,
+  deriveMergesThread,
+  deriveReferencesAncestorNode,
+  deriveReferencesSiblingNode,
+  deriveSplitsThread,
+  type ThreadTopologyAutoMetadataInput,
+} from './threadTopologyAutoMetadata';
+
 // ── Pure-TS exports — User Allegation registry ──────────────────
 export {
   ALL_USER_ALLEGATION_RAW_KEYS,
