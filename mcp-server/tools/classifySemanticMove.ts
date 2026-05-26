@@ -1,19 +1,36 @@
 /**
  * MCP-SERVER-001 — `classify_semantic_move` tool.
  *
- * Commit 2 lands the metadata + a placeholder handler that returns a
- * documented "not_implemented" envelope. Commit 3 replaces the handler with
- * the real Anthropic-backed implementation: input validation, seed prompt
- * assembly, provider call, output-schema validation, doctrine ban-list scan,
- * and the dual-envelope (content[text] + structuredContent) result.
- *
  * Tool name pinned verbatim from the deployed adapter:
  *   `supabase/functions/_shared/semanticReferee/mcpAdapterCore.ts:38`
  *   (`MCP_CLASSIFY_TOOL_NAME = 'classify_semantic_move'`)
+ *
+ * Flow (per design §6.2):
+ *   1. Validate input against inputSchema (validateClassifyMoveInput)
+ *   2. Build Anthropic prompt (system + user; mirror of the canonical seed)
+ *   3. Call Anthropic Messages API (or load fixture when
+ *      MCP_SERVER_USE_FIXTURE_PROVIDER=true)
+ *   4. Parse and validate against the structural-subset outputSchema
+ *   5. Run doctrine ban-list scan across every string field
+ *   6. Return the dual-envelope tool result:
+ *        content: [{type: "text", text: JSON.stringify(packet)}]
+ *        structuredContent: packet
+ *        isError: false
+ *
+ * Errors at any step return an isError envelope with a typed reason —
+ * NEVER a partial or fake packet. The Edge Function adapter falls back to
+ * the deterministic layer when the server returns an error envelope.
  */
 import type { ToolInvocation, ToolCallResult } from '../lib/toolDispatch.ts';
 import type { ToolMetadata } from '../lib/toolRegistry.ts';
+import { isPlainObject } from '../lib/jsonRpc.ts';
 import { log } from '../lib/logging.ts';
+import {
+  validateClassifyMoveInput,
+  validateSemanticRefereePacket,
+} from '../lib/semanticRefereePacketSchema.ts';
+import { runAnthropicSemanticReferee } from '../lib/anthropic.ts';
+import { loadFixtureSemanticPacket } from '../lib/fixtureProvider.ts';
 
 export const CLASSIFY_SEMANTIC_MOVE_TOOL: ToolMetadata = {
   name: 'classify_semantic_move',
@@ -128,30 +145,88 @@ export const CLASSIFY_SEMANTIC_MOVE_TOOL: ToolMetadata = {
   },
 };
 
+function errorResult(
+  reason: string,
+  message: string,
+  extra: Record<string, unknown> = {},
+): ToolCallResult {
+  return {
+    content: [{ type: 'text' as const, text: message }],
+    structuredContent: { reason, ...extra },
+    isError: true,
+  };
+}
+
 /**
- * Commit 2 placeholder. Commit 3 replaces this with the full Anthropic-backed
- * implementation.
+ * Handle a `classify_semantic_move` invocation. Pure async function — no
+ * direct Deno.env reads here; provider selection happens inside `anthropic.ts`
+ * and `fixtureProvider.ts`.
  */
-export function handleClassifySemanticMove(
+export async function handleClassifySemanticMove(
   input: ToolInvocation,
 ): Promise<ToolCallResult> {
-  log('info', 'classify_semantic_move_placeholder', {
-    requestId: input.requestId,
-    tool: 'classify_semantic_move',
-    reason: 'commit_2_placeholder',
-    status: 'rejected',
-  });
-  return Promise.resolve({
-    content: [
-      {
-        type: 'text' as const,
-        text: 'classify_semantic_move handler is not yet wired (commit 2 placeholder).',
-      },
-    ],
-    structuredContent: {
-      reason: 'not_wired',
-      detail: 'Handler attaches in commit 3.',
-    },
-    isError: true,
-  });
+  const args = isPlainObject(input.rawArgs) ? input.rawArgs : null;
+  if (args === null) {
+    return errorResult(
+      'invalid_params',
+      'classify_semantic_move arguments must be a JSON object',
+    );
+  }
+  const validated = validateClassifyMoveInput(args);
+  if (!validated.ok) {
+    return errorResult('invalid_params', 'Input failed schema validation', {
+      path: validated.path,
+      detail: validated.detail,
+    });
+  }
+  const request = validated.value;
+
+  // Provider selection.
+  let providerResult:
+    | { ok: true; packet: Record<string, unknown> }
+    | { ok: false; reason: string; detail?: string };
+  if (Deno.env.get('MCP_SERVER_USE_FIXTURE_PROVIDER') === 'true') {
+    const fixture = await loadFixtureSemanticPacket();
+    if (fixture.ok) {
+      providerResult = { ok: true, packet: fixture.value };
+    } else {
+      providerResult = { ok: false, reason: fixture.reason };
+    }
+  } else {
+    const anthropic = await runAnthropicSemanticReferee(request, input.requestId);
+    if (anthropic.ok) {
+      providerResult = { ok: true, packet: anthropic.packet };
+    } else {
+      providerResult = { ok: false, reason: anthropic.reason, detail: anthropic.detail };
+    }
+  }
+
+  if (!providerResult.ok) {
+    return errorResult(
+      providerResult.reason,
+      `Semantic referee call failed: ${providerResult.reason}`,
+      providerResult.detail !== undefined ? { detail: providerResult.detail } : {},
+    );
+  }
+
+  // Output-schema + doctrine ban-list validation.
+  const packetCheck = validateSemanticRefereePacket(providerResult.packet);
+  if (!packetCheck.ok) {
+    log('warn', 'semantic_referee_packet_invalid', {
+      requestId: input.requestId,
+      tool: 'classify_semantic_move',
+      reason: 'validation_failed',
+      status: 'failure',
+    });
+    return errorResult('validation_failed', 'Model response failed packet schema', {
+      path: packetCheck.path,
+      detail: packetCheck.detail,
+    });
+  }
+
+  return {
+    content: [{ type: 'text' as const, text: JSON.stringify(packetCheck.value) }],
+    structuredContent: packetCheck.value,
+    isError: false,
+  };
 }
