@@ -9,10 +9,10 @@
  * shapes.
  *
  * Doctrine anchor (cdiscourse-doctrine §10a + §1):
- *   - Pure types only. The type guards never make claims about a person or
- *     assign a verdict to a claim. They only validate row shape.
+ *   - Pure types only. The type guards never resolve who is right and
+ *     never label a participant. They only validate row shape.
  *   - Persisted Machine Observations are structural facts about moves;
- *     never verdicts, never truth labels, never engagement signals.
+ *     never gameplay-resolving judgments, never engagement signals.
  *
  * Pure TS. No React. No Supabase. No network. JSON-serializable.
  */

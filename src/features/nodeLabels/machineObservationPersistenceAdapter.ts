@@ -19,8 +19,8 @@
  *     from the MCP-021A definition registry's plain-language fields).
  *   - cdiscourse-doctrine §10a — Observations remain Observations
  *     (`kind: 'machine_observation'`; never `user_allegation`).
- *   - cdiscourse-doctrine §1 — no verdict, no winner / loser / truth /
- *     correctness assertions in any field.
+ *   - cdiscourse-doctrine §1 — emitted marks describe gameplay structure;
+ *     never assert who is right and never label a participant.
  *
  * Pure JSON-serializable. No React / Supabase / network imports.
  */

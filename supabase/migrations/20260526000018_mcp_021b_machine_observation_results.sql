@@ -12,7 +12,8 @@
 --
 -- Doctrine encoded by this migration:
 --   - Persisted Machine Observations are STRUCTURAL FACTS about moves;
---     never verdicts, never truth labels. (cdiscourse-doctrine §1, §10a)
+--     never gameplay-resolving judgments, never participant labels.
+--     (cdiscourse-doctrine §1, §10a)
 --   - Engagement / popularity / heat are NEVER inputs. The schema has
 --     no view-count, retweet-count, follower-count, or engagement
 --     column. (cdiscourse-doctrine §3)
@@ -217,7 +218,7 @@ COMMENT ON TABLE public.argument_machine_observation_runs IS
   'MCP-021B: per-classifier-run audit row for Machine Observation classifier '
   'work on a single argument. Status enum records success / failed / fallback. '
   'Service-role WRITE only (MCP-021C); client SELECT only via RLS. '
-  'cdiscourse-doctrine §1, §10a: structural observation; never a verdict.';
+  'cdiscourse-doctrine §1, §10a: structural observation about gameplay; never a judgment of a participant.';
 
 COMMENT ON TABLE public.argument_machine_observation_results IS
   'MCP-021B: per-positive-observation row. Absence of a row for a (run, rawKey) '
