@@ -87,6 +87,7 @@ export const ALL_ACTOR_ROLES: readonly string[] = Object.freeze([
   'primary_opponent',
   'chime_in',
   'observer',
+  'moderator',
 ]);
 
 export const ALL_PARTICIPANT_SIDES: readonly string[] = Object.freeze([
@@ -133,7 +134,7 @@ export interface ClassifyMoveRoomContext {
   selectedAction?: string;
   selectedMoveType?: string;
   side?: 'affirmative' | 'negative' | 'observer' | 'moderator';
-  actorRole?: 'initiator' | 'primary_opponent' | 'chime_in' | 'observer';
+  actorRole?: 'initiator' | 'primary_opponent' | 'chime_in' | 'observer' | 'moderator';
 }
 
 export interface ClassifyMoveRequestValue {
@@ -238,7 +239,7 @@ export function validateClassifyMoveInput(
   }
   if (ctxRaw['actorRole'] !== undefined) {
     if (typeof ctxRaw['actorRole'] !== 'string' || !ALL_ACTOR_ROLES.includes(ctxRaw['actorRole'])) {
-      return { ok: false, path: 'roomContext.actorRole', detail: 'must be one of initiator|primary_opponent|chime_in|observer' };
+      return { ok: false, path: 'roomContext.actorRole', detail: 'must be one of initiator|primary_opponent|chime_in|observer|moderator' };
     }
     roomContext.actorRole = ctxRaw['actorRole'] as ClassifyMoveRoomContext['actorRole'];
   }
