@@ -1752,15 +1752,16 @@ See `docs/designs/UX-001.5A.md` for the verbatim design.
 
 ## MCP-021A — Maximal Boolean Machine Observation Taxonomy (first of MCP-021A → 021B → 021C three-card sequence)
 
-**Status:** Build complete (awaiting Review). Issue #300, branch
-`feat/MCP-021A-maximal-boolean-machine-observation-taxonomy`. 16
-commits ahead of main; 17 files added/modified; +150 tests / +10 suites.
-
-**Scope:** Pure-TS taxonomy + schema + tests. NO runtime behavior
-change. NO migration. NO Edge Function. NO new dependency. NO AI call.
-NO service-role. NO display-cap change. NO modification of
-`adaptRawClassifierBinarySource` (Source 6 returns `[]` unconditionally
-post-merge per Trigger 1 BINDING).
+**Card:** MCP-021A
+**Status:** Shipped. Issue #300 CLOSED at 2026-05-26T02:25:31Z. PR #301 squash-merged at `d6648b4`.
+**Branch:** `feat/MCP-021A-maximal-boolean-machine-observation-taxonomy` (merged, branch deleted)
+**Issue:** https://github.com/kyleruff1/cDiscourse/issues/300
+**Intent brief:** `docs/designs/MCP-021A-intent.md` (operator-authored at `b74ec9f`)
+**Audit grounding:** `docs/audits/MCP-020-semantic-boolean-observation-inventory.md` (commit `e1b4e52`)
+**Test delta:** 16,759 → 16,909 (+150) / 502 → 512 suites (+10)
+**Final registry:** 172 entries across 10 families (65 retroactive + 107 new)
+**Effort:** L (taxonomy + schema + verbose definitions + 8 test categories — completed)
+**Source 6 precondition:** PRESERVED by MCP-021A. `adaptRawClassifierBinarySource(...)` still returns `[]` unconditionally byte-equal post-merge. MCP-021B is the first card authorized to change Source 6 runtime behavior.
 
 **Registry expansion: 65 → 172 entries (+107 NEW) across 10 families**:
 - **A** parent_relation (16): 4 retroactive (auto/lifecycle/ai)

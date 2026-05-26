@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-25 (Stage 6.4 / PR-004 test alignment cleanup)_
+_Last updated: 2026-05-26 (Post-MCP-021A docs cleanup)_
 
 ---
 
