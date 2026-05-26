@@ -39,11 +39,11 @@ const COL = {
   status: 80,
   side: 64,
   type: 130,
-  debate: 280,
+  debate: 320,
   cat: 170,
   created: 170,
   updated: 170,
-  action: 80,
+  action: 120,
 };
 const TABLE_WIDTH =
   COL.status + COL.side + COL.type + COL.debate + COL.cat + COL.created + COL.updated + COL.action;
@@ -107,7 +107,19 @@ function PlainHeader({ label, width }: PlainHeaderProps) {
   );
 }
 
-export function AdminArgumentsTab() {
+export interface AdminArgumentsTabProps {
+  /**
+   * Optional callback fired when an admin clicks a row's "Open timeline"
+   * affordance. The host (App.tsx) is responsible for switching the active
+   * outer tab to Arguments, setting the room view mode to 'timeline', and
+   * pre-activating the argument via the entry-hint mechanism. When the
+   * callback is omitted the rows render without a click affordance (back
+   * compat for any test harness that mounts the tab in isolation).
+   */
+  onOpenArgumentTimeline?: (debateId: string, argumentId: string) => void;
+}
+
+export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabProps = {}) {
   const [rows, setRows] = useState<AdminArgumentRow[]>([]);
   const [flagsByArgId, setFlagsByArgId] = useState<Record<string, number>>({});
   const [state, setState] = useState<LoadState>('idle');
@@ -307,6 +319,24 @@ export function AdminArgumentsTab() {
                     <Text style={styles.metaTitle} numberOfLines={1}>
                       {r.debateTitle ?? `Room ${shortenId(r.debateId)}`}
                     </Text>
+                    <Text
+                      style={styles.roomIdMono}
+                      numberOfLines={1}
+                      selectable
+                      accessibilityLabel={`room-id-${r.debateId}`}
+                      testID={`admin-arguments-room-id-${r.id}`}
+                    >
+                      room: {r.debateId}
+                    </Text>
+                    <Text
+                      style={styles.argIdMono}
+                      numberOfLines={1}
+                      selectable
+                      accessibilityLabel={`argument-id-${r.id}`}
+                      testID={`admin-arguments-argument-id-${r.id}`}
+                    >
+                      arg: {r.id}
+                    </Text>
                     <Text style={styles.metaAuthor} numberOfLines={1}>
                       {r.authorDisplayName ?? shortenId(r.authorId)}
                     </Text>
@@ -349,7 +379,19 @@ export function AdminArgumentsTab() {
                     )}
                   </View>
                   <View style={[styles.cell, { width: COL.action }]}>
-                    <Text style={styles.actionId}>{shortenId(r.id, 8)}</Text>
+                    {onOpenArgumentTimeline ? (
+                      <Pressable
+                        style={styles.openTimelineBtn}
+                        onPress={() => onOpenArgumentTimeline(r.debateId, r.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open timeline for argument ${r.id} in room ${r.debateId}`}
+                        testID={`admin-arguments-open-timeline-${r.id}`}
+                      >
+                        <Text style={styles.openTimelineBtnText}>Open timeline</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={styles.actionId}>{shortenId(r.id, 8)}</Text>
+                    )}
                   </View>
                 </View>
               );
@@ -494,6 +536,30 @@ const styles = StyleSheet.create({
   timeRelative: { fontSize: 10, color: SURFACE_TOKENS.textSecondary },
   fallbackHint: { fontSize: 9, color: SURFACE_TOKENS.textMuted, fontStyle: 'italic', marginTop: 2 },
   actionId: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontFamily: 'monospace' as 'monospace' },
+  roomIdMono: {
+    fontSize: 10,
+    color: SURFACE_TOKENS.textSecondary,
+    fontFamily: 'monospace' as 'monospace',
+    marginTop: 2,
+  },
+  argIdMono: {
+    fontSize: 10,
+    color: SURFACE_TOKENS.textMuted,
+    fontFamily: 'monospace' as 'monospace',
+    marginTop: 1,
+  },
+  openTimelineBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: CONTROL.primary.bg,
+    alignSelf: 'flex-start',
+  },
+  openTimelineBtnText: {
+    color: CONTROL.primary.fg,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   nudge: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontStyle: 'italic', marginTop: 4 },
   footnote: {
     padding: 8,

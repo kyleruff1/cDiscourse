@@ -62,7 +62,7 @@ describe('UX-001.2 — Account and Admin remain reachable outside the room', () 
 
   it('AdminScreen mount path is preserved (admin role gate)', () => {
     expect(APP_SRC).toMatch(
-      /\{activeTab === 'admin' && currentProfile\?\.role === 'admin' && <AdminScreen \/>\}/,
+      /\{activeTab === 'admin' && currentProfile\?\.role === 'admin' && \(\s*<AdminScreen onOpenArgumentTimeline=\{handleOpenArgumentFromAdmin\}/,
     );
   });
 

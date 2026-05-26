@@ -23,7 +23,18 @@ const TABS: AdminTab[] = [
   'semantic_referee',
 ];
 
-export function AdminScreen() {
+export interface AdminScreenProps {
+  /**
+   * Optional callback fired when an admin clicks "Open timeline" inside
+   * the Arguments tab. Forwarded down to `AdminArgumentsTab`. The host
+   * (App.tsx) is responsible for switching the outer tab to Arguments,
+   * setting the room view mode to 'timeline', and pre-activating the
+   * argument via the entry-hint mechanism.
+   */
+  onOpenArgumentTimeline?: (debateId: string, argumentId: string) => void;
+}
+
+export function AdminScreen({ onOpenArgumentTimeline }: AdminScreenProps = {}) {
   const [tab, setTab] = useState<AdminTab>('users');
 
   return (
@@ -49,7 +60,9 @@ export function AdminScreen() {
         {tab === 'history' && <AdminHistoryTab />}
         {tab === 'blocks' && <AdminBlocksTab />}
         {tab === 'bot_users' && <AdminBotUsersTab />}
-        {tab === 'arguments' && <AdminArgumentsTab />}
+        {tab === 'arguments' && (
+          <AdminArgumentsTab onOpenArgumentTimeline={onOpenArgumentTimeline} />
+        )}
         {tab === 'metadata_events' && <AdminMetadataEventsTab />}
         {tab === 'semantic_referee' && <AdminSemanticRefereeTab />}
       </View>

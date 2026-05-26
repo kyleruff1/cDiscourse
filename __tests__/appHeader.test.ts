@@ -146,12 +146,13 @@ describe('BRAND-001 AppHeader is mounted in App.tsx at the AppRoot level', () =>
     expect(appTsx).not.toMatch(/backgroundColor:\s*['"]#f9fafb['"]/);
   });
 
-  it('AppHeader sits ABOVE the DevEnvironmentBanner in source order so it docks first', () => {
+  it('AppHeader is mounted and DevEnvironmentBanner is no longer mounted (banner ribbon removed per operator request)', () => {
     const headerIdx = appTsx.indexOf('<AppHeader');
     const bannerIdx = appTsx.indexOf('<DevEnvironmentBanner');
     expect(headerIdx).toBeGreaterThan(-1);
-    expect(bannerIdx).toBeGreaterThan(-1);
-    expect(headerIdx).toBeLessThan(bannerIdx);
+    // Banner mount was removed; the component file remains intact for
+    // future reinstatement, but App.tsx no longer renders it.
+    expect(bannerIdx).toBe(-1);
   });
 });
 

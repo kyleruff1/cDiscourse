@@ -187,13 +187,21 @@ describe('BRAND-001 Stage 2 — AppHeader source contract', () => {
     expect(src).toMatch(/from\s+['"]\.\/AppHeaderTagline['"]/);
   });
 
-  it('renders <AppHeaderTagline /> inside the header', () => {
-    expect(src).toMatch(/<AppHeaderTagline\b/);
+  it('renders an inline tagline Text inside the header with the BRAND tagline literal', () => {
+    // Operator request 2026-05-26: AppHeaderTagline is no longer mounted
+    // inside AppHeader. Instead an inline `<Text testID="app-header-tagline">`
+    // renders `...${APP_HEADER_TAGLINE_TEXT}` directly. AppHeaderTagline.tsx
+    // remains in the repo as a standalone component (tested in isolation
+    // by appHeaderTagline.test.tsx); AppHeader simply consumes the literal.
+    expect(src).toMatch(/testID="app-header-tagline"/);
+    expect(src).toMatch(/APP_HEADER_TAGLINE_TEXT/);
   });
 
-  it('passes both `inline` and `stacked` variants to AppHeaderTagline', () => {
-    expect(src).toMatch(/['"]inline['"]/);
-    expect(src).toMatch(/['"]stacked['"]/);
+  it('imports APP_HEADER_TAGLINE_TEXT from the AppHeaderTagline module', () => {
+    // Verifies the literal still flows from the canonical source rather
+    // than being freshly authored inside AppHeader.tsx.
+    expect(src).toMatch(/APP_HEADER_TAGLINE_TEXT/);
+    expect(src).toMatch(/from\s+['"]\.\/AppHeaderTagline['"]/);
   });
 
   it('references BRAND.accent.creamHairline (divider color)', () => {
@@ -281,12 +289,11 @@ describe('BRAND-001 Stage 2 — App.tsx Stage 1 invariants preserved', () => {
     expect(appTsx).toMatch(/backgroundColor:\s*BRAND\.surface\.app\.bg/);
   });
 
-  it('AppHeader still sits above DevEnvironmentBanner in source order', () => {
+  it('AppHeader is mounted and DevEnvironmentBanner is no longer mounted (banner ribbon removed per operator request)', () => {
     const headerIdx = appTsx.indexOf('<AppHeader');
     const bannerIdx = appTsx.indexOf('<DevEnvironmentBanner');
     expect(headerIdx).toBeGreaterThan(-1);
-    expect(bannerIdx).toBeGreaterThan(-1);
-    expect(headerIdx).toBeLessThan(bannerIdx);
+    expect(bannerIdx).toBe(-1);
   });
 });
 

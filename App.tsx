@@ -53,7 +53,10 @@ import { ROOM_COPY } from './src/features/arguments/gameCopy';
 // UX-001.2 — VIEW_MODE_COPY is consumed inside DebateDetailHeader's compact
 // strip; App.tsx no longer renders the toggle so only the default is needed.
 import { DEFAULT_VIEW_MODE } from './src/features/arguments/viewModeCopy';
-import { DevEnvironmentBanner } from './src/features/devEnvironment';
+// DevEnvironmentBanner mount removed — operator opted out of the persistent
+// "Unverified build · no build metadata" ribbon during Stage 6.4 smoke work.
+// The component itself (src/features/devEnvironment/DevEnvironmentBanner.tsx)
+// is intact for later reinstatement if a release surface needs it again.
 import { AppHeader } from './src/components/AppHeader';
 import { BRAND } from './src/lib/designTokens';
 // PR-001 — "My preferences" popout. The header gear opens a core Modal
@@ -275,13 +278,13 @@ function AppRoot() {
     </Pressable>
   ) : undefined;
 
-  // BRAND-001 — global dark backdrop. AppHeader docks above the dev
-  // banner so it persists on every screen. DevEnvironmentBanner renders
-  // null in production.
+  // BRAND-001 — global dark backdrop. AppHeader docks at the top of every
+  // screen. The DevEnvironmentBanner mount was removed (see import-block
+  // note above); the component file is unchanged and can be remounted
+  // when an operator wants the build-info ribbon back.
   return (
     <SafeAreaView style={styles.appRoot}>
       <AppHeader onHomePress={handleHomePress} rightSlot={preferencesTrigger} />
-      <DevEnvironmentBanner />
       <View style={styles.appRootContent}>{content}</View>
       {signedIn ? (
         <PreferencesPopout
@@ -396,6 +399,33 @@ function MainAppShell({
       if (!target) return;
       const side = target.myParticipantSide ?? 'observer';
       setEntryHint(buildDeepLinkEntryHint(link));
+      selectDebate(target, side);
+    },
+    [debates, selectDebate],
+  );
+
+  // Admin Arguments tab → open argument timeline. Mirrors the notification
+  // deep-link handler: switch outer tab to Arguments, set view mode to
+  // 'timeline', and pre-activate the specific argument via the entry-hint
+  // mechanism. When the admin clicks a row whose room isn't in the loaded
+  // `debates` slice (e.g. admin hasn't joined as observer yet), the handler
+  // is a no-op rather than navigating somewhere broken.
+  const handleOpenArgumentFromAdmin = React.useCallback(
+    (debateId: string, argumentId: string): void => {
+      const target = debates.find((d) => d.id === debateId);
+      if (!target) return;
+      const side = target.myParticipantSide ?? 'observer';
+      setEntryHint({
+        activate: 'latest',
+        code: 'watch_first',
+        verbPhrase: '',
+        helperLine: '',
+        presetKey: null,
+        dockAction: null,
+        entryHintForArgumentId: argumentId,
+      });
+      setViewMode('timeline');
+      setTab('arguments');
       selectDebate(target, side);
     },
     [debates, selectDebate],
@@ -727,7 +757,9 @@ function MainAppShell({
           <AccountScreen onSignOut={handleSignOut} signOutLoading={signOutLoading} />
         )}
 
-        {activeTab === 'admin' && currentProfile?.role === 'admin' && <AdminScreen />}
+        {activeTab === 'admin' && currentProfile?.role === 'admin' && (
+          <AdminScreen onOpenArgumentTimeline={handleOpenArgumentFromAdmin} />
+        )}
 
         {activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
       </View>
