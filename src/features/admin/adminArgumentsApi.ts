@@ -46,7 +46,6 @@ interface RawArgumentRow {
   argument_tags: { tag_code: string }[] | null;
   target_excerpt: string | null;
   server_validation: Record<string, unknown> | null;
-  is_deleted?: boolean;
   debates: { title: string | null } | { title: string | null }[] | null;
   profiles: { display_name: string | null } | { display_name: string | null }[] | null;
 }
@@ -97,7 +96,7 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
       [
         'id', 'debate_id', 'author_id', 'argument_type', 'side', 'body', 'status',
         'created_at', 'updated_at', 'disagreement_axis', 'argument_tags(tag_code)',
-        'target_excerpt', 'server_validation', 'is_deleted',
+        'target_excerpt', 'server_validation',
         'debates(title)', 'profiles(display_name)',
       ].join(','),
     )
@@ -105,7 +104,10 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
     .limit(limit);
   if (options.debateId) q = q.eq('debate_id', options.debateId);
   if (options.authorId) q = q.eq('author_id', options.authorId);
-  if (!options.includeDeleted) q = q.eq('is_deleted', false);
+  // Soft-delete sentinel lives on `arguments.status` (value 'deleted').
+  // There is no `is_deleted` column on the table — schema has only the
+  // status enum (draft/posted/deleted/...), per Stage 6.1.8.
+  if (!options.includeDeleted) q = q.neq('status', 'deleted');
 
   const { data, error } = await q;
   if (error) throw new Error(`loadAdminArguments failed: ${error.message}`);

@@ -63,7 +63,7 @@ describe('UX-001.2 — MainAppShell core mounts unchanged', () => {
 
   it('AdminScreen mount is preserved (admin role gate)', () => {
     expect(APP_SRC).toMatch(
-      /\{activeTab === 'admin' && currentProfile\?\.role === 'admin' && <AdminScreen \/>\}/,
+      /\{activeTab === 'admin' && currentProfile\?\.role === 'admin' && \(\s*<AdminScreen onOpenArgumentTimeline=\{handleOpenArgumentFromAdmin\}/,
     );
   });
 

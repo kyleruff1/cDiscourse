@@ -23,7 +23,7 @@ import {
   type RailActionWithCategory,
   type RailViewerRole,
   type RailBubbleActor,
-} from './ArgumentSideActionRail';
+} from './railActionCategories';
 
 /**
  * Which physical layout the dock takes for the current viewport.

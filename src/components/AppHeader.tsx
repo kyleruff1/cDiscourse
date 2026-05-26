@@ -34,12 +34,16 @@
  * `BRAND.typography.wordmarkFallback[band]` size.
  */
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TextStyle } from 'react-native';
 import { BRAND } from '../lib/designTokens';
 import type { Band } from '../hooks/useHeaderBreakpoint';
 import { useHeaderBreakpoint } from '../hooks/useHeaderBreakpoint';
-import { AppHeaderTagline, APP_HEADER_TAGLINE_TEXT } from './AppHeaderTagline';
+// Operator request 2026-05-26: the tagline is rendered inline in AppHeader
+// (under the prominent logo at 10 px, italic serif, slightly indented to
+// the right). AppHeaderTagline still exists for callers that want the
+// stand-alone component; AppHeader itself no longer mounts it.
+import { APP_HEADER_TAGLINE_TEXT } from './AppHeaderTagline';
 
 interface Props {
   /** Called when the user taps the logo / brand area. */
@@ -79,18 +83,26 @@ function getHomePressableMinWidth(band: Band): number {
   }
 }
 
+// Operator request 2026-05-26: render the logo at ≥3× its prior wide-band
+// size and keep it uniform across every breakpoint. Implemented locally
+// here (NOT in BRAND.logoHeightByBand / BRAND.headerHeightByBand) so the
+// design-system constants — and the 50+ tests pinning them — stay
+// untouched. The breakpoint hook still drives `band` (for tagline layout
+// + home-pressable minWidth); only the rendered logo + header heights
+// are overridden.
+const PROMINENT_LOGO_HEIGHT_PX = 288;
+// Tight padding above and below: 4 px top + 4 px bottom = 8 px combined.
+// Header total height therefore = 288 + 8 = 296.
+const PROMINENT_HEADER_HEIGHT_PX = PROMINENT_LOGO_HEIGHT_PX + 8;
+
 export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
   const source = logoSource ?? DEFAULT_LOGO;
-  const { band, logoHeightPx, headerHeightPx } = useHeaderBreakpoint();
-  // UX-001.1 — `inline` on tablet + wide; `stacked` on phone. Functionally
-  // equivalent to the prior `isWide ? 'inline' : 'stacked'` because the
-  // new `isWide` semantic is also `band !== 'phone'`, but reading
-  // `band` directly makes the intent explicit.
-  const taglineVariant = band === 'phone' ? 'stacked' : 'inline';
-  // The home pressable wraps both the logo + tagline so the accessible
-  // group reads as a single button. Inner alignment changes by
-  // breakpoint — row for tablet+wide, column for phone.
-  const homeInnerStyle = band === 'phone' ? styles.homeInnerStacked : styles.homeInnerInline;
+  const { band } = useHeaderBreakpoint();
+  const logoHeightPx = PROMINENT_LOGO_HEIGHT_PX;
+  const headerHeightPx = PROMINENT_HEADER_HEIGHT_PX;
+  // Operator request 2026-05-26: the layout is now always stacked — logo
+  // on top, tagline tucked underneath. The Stage 2 inline-on-wide layout
+  // is retired alongside the band-specific logo sizes.
   const homePressableStyle = [styles.homePressable, { minWidth: getHomePressableMinWidth(band) }];
   const wordmarkFallbackStyle: TextStyle = BRAND.typography.wordmarkFallback[band];
 
@@ -115,11 +127,18 @@ export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         style={homePressableStyle}
       >
-        <View style={homeInnerStyle}>
+        <View style={styles.homeInnerRow}>
           {source ? (
             <Image
               source={source}
-              style={{ height: logoHeightPx }}
+              // Operator request 2026-05-26: explicit width (natural 3:2
+              // aspect → height × 1.5) prevents react-native-web from
+              // sizing the Image element wider than the visible logo
+              // and "centering" the logo inside that whitespace.
+              style={{
+                height: logoHeightPx,
+                width: logoHeightPx * 1.5,
+              }}
               resizeMode="contain"
               accessibilityLabel="CivilDiscourse"
               accessible
@@ -133,7 +152,20 @@ export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
               CivilDiscourse
             </Text>
           )}
-          <AppHeaderTagline variant={taglineVariant} />
+          {/* Operator request 2026-05-26: tagline sits to the RIGHT of
+              the logo, anchored to the logo's bottom edge with only a
+              hair of horizontal gap. 10 px italic serif. The "..."
+              prefix mirrors the operator's verbatim copy
+              ("...Just get to the bottom of it"). */}
+          <Text
+            accessibilityRole="text"
+            testID="app-header-tagline"
+            style={styles.taglineInline}
+            numberOfLines={1}
+            allowFontScaling
+          >
+            {`...${APP_HEADER_TAGLINE_TEXT}`}
+          </Text>
         </View>
       </Pressable>
       <View style={styles.rightSlot} testID="app-header-right-slot">
@@ -171,13 +203,29 @@ const styles = StyleSheet.create({
     // shared center-axis justification.
     justifyContent: 'center',
   },
-  homeInnerInline: {
+  homeInnerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // `flex-end` anchors the tagline against the bottom edge of the
+    // (much taller) logo image, so the tagline visually sits at the
+    // logo's baseline instead of floating high or hugging the nav bar.
+    alignItems: 'flex-end',
   },
-  homeInnerStacked: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
+  // Operator request 2026-05-26: prominent-logo tagline sits to the
+  // RIGHT of the logo (inline, not stacked) at 10 px italic serif,
+  // anchored against the logo's bottom edge by `alignItems: 'flex-end'`
+  // on the parent row, with a small horizontal gap.
+  taglineInline: {
+    color: BRAND.text.taglineFg,
+    fontFamily: Platform.select({
+      ios: 'Georgia',
+      android: 'serif',
+      default: 'Georgia, "Times New Roman", serif',
+    }),
+    fontStyle: 'italic',
+    fontSize: 10,
+    lineHeight: 14,
+    paddingLeft: 6,
+    paddingBottom: 8,
   },
   // UX-001.1 — color only; per-band fontSize / lineHeight / fontWeight /
   // letterSpacing now come from BRAND.typography.wordmarkFallback[band].

@@ -42,87 +42,39 @@ import {
   resolveObserverDockVariant,
   resolveSheetMaxHeightPx,
 } from './ObserverActionDockLayout';
+import {
+  RAIL_ACTION_CATEGORIES,
+  RAIL_ACTION_CATEGORY_LABEL,
+  groupRailActionsByCategory,
+} from './railActionCategories';
+import type {
+  RailAction,
+  RailActionCategory,
+  RailActionCode,
+  RailActionGroup,
+  RailActionWithCategory,
+  RailBubbleActor,
+  RailViewerRole,
+} from './railActionCategories';
 import type { ParticipantSide } from '../debates/types';
 
-export type RailViewerRole = 'observer' | 'participant';
-export type RailBubbleActor = 'self' | 'other' | 'bot' | 'admin' | 'unknown';
-
-// UX-001.4 — RailActionCode union. The migrate-to-Act entries
-// (ask_source, ask_quote, split_branch, flag, qualifiers,
-// request_deletion, open_timeline) are no longer rendered by the rail;
-// the entries were dispositioned per UX-001.4 design §1 Table B. The
-// codes remain in the union for back-compat with the railActionToBubbleControl
-// mapper (kept so existing callers / tests that still reference the
-// codes do not break); the rail's OBSERVER_ACTIONS / PARTICIPANT_OTHER_ACTIONS
-// / SELF_ACTIONS arrays no longer include them. Act is the canonical
-// surface for migrated entries.
-export type RailActionCode =
-  // Observer set — preserve-as-shortcut (watch / join) + retain (share)
-  | 'watch'
-  | 'join_aff'
-  | 'join_neg'
-  // UX-001.4: ask_source migrated to Act (still in union for
-  // railActionToBubbleControl back-compat).
-  | 'ask_source'
-  // UX-001.4: open_timeline migrated to Go's view_timeline entry.
-  | 'open_timeline'
-  | 'share'
-  // Participant set (other bubble) — preserve-as-shortcut for reply / disagree
-  | 'reply'
-  | 'disagree'
-  // UX-001.4: ask_quote migrated to Act (still in union for back-compat).
-  | 'ask_quote'
-  // UX-001.4: split_branch migrated to Act (branch_tangent entry).
-  | 'split_branch'
-  // UX-001.4: flag migrated to Act (direct group).
-  | 'flag'
-  // UX-001.4: qualifiers migrated to Act (view_qualifiers direct entry).
-  | 'qualifiers'
-  // UX-001.4: request_deletion migrated to Act (direct group).
-  | 'request_deletion';
-
-/**
- * SC-001 — Grouping taxonomy. The issue body specifies seven groups:
- * Watch/Observe · Join side · Reply · Evidence · Branch · Review/flag ·
- * Share. Every rail action carries one of these so a future UI pass
- * can render the expanded rail as ordered category sections.
- */
-export type RailActionCategory =
-  | 'watch_observe'
-  | 'join_side'
-  | 'reply'
-  | 'evidence'
-  | 'branch'
-  | 'review_flag'
-  | 'share';
-
-export const RAIL_ACTION_CATEGORIES: readonly RailActionCategory[] = [
-  'watch_observe',
-  'join_side',
-  'reply',
-  'evidence',
-  'branch',
-  'review_flag',
-  'share',
-] as const;
-
-export const RAIL_ACTION_CATEGORY_LABEL: Record<RailActionCategory, string> = {
-  watch_observe: 'Watch / Observe',
-  join_side: 'Join side',
-  reply: 'Reply',
-  evidence: 'Evidence',
-  branch: 'Branch',
-  review_flag: 'Review / Flag',
-  share: 'Share',
+// Re-export the rail-action category model so existing call sites and
+// tests that import from './ArgumentSideActionRail' continue to work
+// after the railActionCategories extraction.
+export {
+  RAIL_ACTION_CATEGORIES,
+  RAIL_ACTION_CATEGORY_LABEL,
+  groupRailActionsByCategory,
 };
-
-interface RailAction {
-  code: RailActionCode;
-  label: string;
-  helper: string;
-  category: RailActionCategory;
-  tone?: 'primary' | 'warning' | 'critical' | 'neutral';
-}
+export type {
+  RailAction,
+  RailActionCategory,
+  RailActionCode,
+  RailActionGroup,
+  RailActionWithCategory,
+  RailBubbleActor,
+  RailViewerRole,
+};
 
 // UX-001.4 — Migrate-to-Act entries removed per design §1 Table B (B.1/B.2/B.3).
 // The remaining entries are either:
@@ -165,29 +117,6 @@ const PARTICIPANT_OTHER_ACTIONS: RailAction[] = [
 // empty array means the expanded dock shows no rows; the user opens
 // Act to view qualifiers or request deletion.
 const SELF_ACTIONS: RailAction[] = [];
-
-export type RailActionWithCategory = RailAction;
-
-export interface RailActionGroup {
-  category: RailActionCategory;
-  label: string;
-  actions: RailAction[];
-}
-
-/**
- * Bucket a flat rail action list into ordered category groups. Skips
- * empty groups so the UI never renders an empty section.
- */
-export function groupRailActionsByCategory(actions: readonly RailAction[]): RailActionGroup[] {
-  const out: RailActionGroup[] = [];
-  for (const cat of RAIL_ACTION_CATEGORIES) {
-    const matched = actions.filter((a) => a.category === cat);
-    if (matched.length > 0) {
-      out.push({ category: cat, label: RAIL_ACTION_CATEGORY_LABEL[cat], actions: matched });
-    }
-  }
-  return out;
-}
 
 export function getRailActions(viewerRole: RailViewerRole, bubbleActor: RailBubbleActor): RailAction[] {
   if (viewerRole === 'observer') return OBSERVER_ACTIONS;

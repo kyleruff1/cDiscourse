@@ -43,7 +43,14 @@ function diffAgainstMain(filePath: string): string {
 
 const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   // UX-001.1 brand-shell files
-  'src/components/AppHeader.tsx',
+  // NOTE: `src/components/AppHeader.tsx` was removed from the zero-diff
+  // boundary on 2026-05-26 when the operator requested a prominent logo
+  // (≥ 3× the prior wide-band size) and a left-flush, tight-padding
+  // header. The local overrides (PROMINENT_LOGO_HEIGHT_PX, etc.) keep
+  // the rest of the design system untouched; the contract tests in
+  // appHeader.test.ts / useHeaderBreakpoint.test.ts /
+  // uxOneOneAppHeaderDensity.test.ts continue to verify the asset
+  // path, accessibility labels, and component shape.
   'src/components/AppHeaderTagline.tsx',
   'src/hooks/useHeaderBreakpoint.ts',
   // NOTE: `src/lib/designTokens.ts` was removed from the zero-diff
