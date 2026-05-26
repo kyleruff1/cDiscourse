@@ -47,6 +47,33 @@ export {
   makeMachineObservationKey,
 } from './machineObservationRegistry';
 
+// ── MCP-021A exports — parallel definitions registry ─────────────
+export {
+  ALL_MACHINE_OBSERVATION_DEFINITION_KEYS,
+  ALL_MACHINE_OBSERVATION_DEFINITION_RAW_KEYS,
+  MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY,
+  MACHINE_OBSERVATION_DEFINITIONS_REGISTRY,
+  getDefinitionsForFamily,
+  lookupMachineObservationDefinition,
+  lookupMachineObservationDefinitionByCompoundKey,
+} from './machineObservationDefinitions';
+
+// ── MCP-021A exports — boolean observation schema ────────────────
+export {
+  MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+  buildMcpBooleanObservationRequest,
+  mcpResponseToNodeLabelMarks,
+  parseMcpBooleanObservationResponse,
+  sanitizeMcpBooleanObservationResponse,
+  type BuildRequestInput,
+  type McpBooleanObservationParseFailureReason,
+  type McpBooleanObservationParseResult,
+  type McpBooleanObservationRequest,
+  type McpBooleanObservationResponse,
+  type McpBooleanObservationSchemaVersion,
+  type SanitizeOptions,
+} from './mcpBooleanObservationSchema';
+
 // ── Pure-TS exports — User Allegation registry ──────────────────
 export {
   ALL_USER_ALLEGATION_RAW_KEYS,
