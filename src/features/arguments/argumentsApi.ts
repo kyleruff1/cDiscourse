@@ -9,6 +9,10 @@ import type {
   PersistedPointTag,
 } from './types';
 import type { ManualTagCode } from '../metadata/moveMetadataLedger';
+import type {
+  MachineObservationConfidence,
+  MachineObservationResultRow,
+} from '../nodeLabels/machineObservationPersistenceTypes';
 
 type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -37,6 +41,20 @@ interface RawCheck {
   id: string; debate_id: string; argument_id: string; method: string;
   score: number; threshold: number; status: string;
   matched_terms: string[]; missing_terms: string[]; created_at: string;
+}
+
+// MCP-021B — raw Supabase row shape for argument_machine_observation_results.
+interface RawPersistedObservationRow {
+  id: string;
+  run_id: string;
+  debate_id: string;
+  argument_id: string;
+  schema_version: string;
+  raw_key: string;
+  family: string;
+  confidence: string;
+  evidence_span: string | null;
+  created_at: string;
 }
 
 function mapArgument(r: RawArgument): ArgumentRow {
@@ -90,6 +108,24 @@ function mapCheck(r: RawCheck): TopicSatisfactionCheck {
     score: r.score, threshold: r.threshold,
     status: r.status as TopicSatisfactionCheck['status'],
     matchedTerms: r.matched_terms ?? [], missingTerms: r.missing_terms ?? [],
+    createdAt: r.created_at,
+  };
+}
+
+// MCP-021B — snake_case → camelCase mapper for persisted observation rows.
+// The adapter re-validates confidence via isMachineObservationConfidence;
+// the cast here is convenience only.
+function mapPersistedObservationRow(r: RawPersistedObservationRow): MachineObservationResultRow {
+  return {
+    id: r.id,
+    runId: r.run_id,
+    debateId: r.debate_id,
+    argumentId: r.argument_id,
+    schemaVersion: r.schema_version,
+    rawKey: r.raw_key,
+    family: r.family,
+    confidence: r.confidence as MachineObservationConfidence,
+    evidenceSpan: r.evidence_span,
     createdAt: r.created_at,
   };
 }
@@ -219,10 +255,14 @@ export async function listChildArguments(
 export async function fetchArgumentRelations(
   argumentIds: string[],
 ): Promise<ApiResult<ArgumentRelations>> {
-  if (!SUPABASE_CONFIGURED) return { ok: true, data: { tags: [], flags: [], checks: [], pointTags: [] } };
-  if (argumentIds.length === 0) return { ok: true, data: { tags: [], flags: [], checks: [], pointTags: [] } };
+  if (!SUPABASE_CONFIGURED) {
+    return { ok: true, data: { tags: [], flags: [], checks: [], pointTags: [], persistedObservations: [] } };
+  }
+  if (argumentIds.length === 0) {
+    return { ok: true, data: { tags: [], flags: [], checks: [], pointTags: [], persistedObservations: [] } };
+  }
 
-  const [tagsRes, flagsRes, checksRes, pointTagsRes] = await Promise.all([
+  const [tagsRes, flagsRes, checksRes, pointTagsRes, persistedObsRes] = await Promise.all([
     supabase
       .from('argument_tags')
       .select('argument_id,tag_code,created_at')
@@ -244,6 +284,16 @@ export async function fetchArgumentRelations(
       .select('id,debate_id,argument_id,tag_code,tagged_by,created_at,removed_at')
       .in('argument_id', argumentIds)
       .is('removed_at', null),
+    // MCP-021B — persisted Machine Observation result rows. Read-only SELECT;
+    // RLS gates visibility via amor_results_select_via_run (inherits from runs
+    // → arguments via QOL-039 SECURITY DEFINER helpers). Empty when MCP-021C
+    // has not yet written for the room, or when the caller is unauthorized.
+    supabase
+      .from('argument_machine_observation_results')
+      .select(
+        'id,run_id,debate_id,argument_id,schema_version,raw_key,family,confidence,evidence_span,created_at',
+      )
+      .in('argument_id', argumentIds),
   ]);
 
   return {
@@ -253,6 +303,9 @@ export async function fetchArgumentRelations(
       flags: ((flagsRes.data ?? []) as RawFlag[]).map(mapFlag),
       checks: ((checksRes.data ?? []) as RawCheck[]).map(mapCheck),
       pointTags: ((pointTagsRes.data ?? []) as RawPointTag[]).map(mapPointTag),
+      persistedObservations: ((persistedObsRes.data ?? []) as RawPersistedObservationRow[]).map(
+        mapPersistedObservationRow,
+      ),
     },
   };
 }

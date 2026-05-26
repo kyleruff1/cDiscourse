@@ -62,6 +62,12 @@ export interface NodeLabelStripProps {
   clusterState: PointLifecycleState;
   /** Optional per-message contribution. */
   messageContribution: PointLifecycleState | null;
+  /**
+   * MCP-021B — Optional persisted Machine Observation result rows for
+   * this message. When supplied AND non-empty, Source 6 emits derived
+   * marks; when absent / empty, Source 6 returns `[]` byte-equal.
+   */
+  persistedClassifierRows?: ReadonlyArray<unknown>;
   /** Resolved band; defaults to `'tablet'`. */
   band?: AnnotationBand;
   /** v1: chips are non-interactive; reserved for future override. */
@@ -85,6 +91,9 @@ export function computeNodeLabelStripDescriptors(props: {
   autoMetadataCodes: ReadonlyArray<AutoMetadataCode>;
   clusterState: PointLifecycleState;
   messageContribution: PointLifecycleState | null;
+  /** MCP-021B — optional persisted classifier rows, threaded into
+   *  Source 6 via the additive aggregator parameter. */
+  persistedClassifierRows?: ReadonlyArray<unknown>;
 }): TimelineComputeResult {
   if (typeof props.messageId !== 'string' || props.messageId.length === 0) {
     return { descriptors: [], maxVisible: 0, visibleCount: 0 };
@@ -95,6 +104,8 @@ export function computeNodeLabelStripDescriptors(props: {
     clusterState: props.clusterState,
     messageContribution: props.messageContribution,
     messageId: props.messageId,
+    persistedClassifierRows: props.persistedClassifierRows,
+    surface: 'timeline_node',
   });
   const combined = combinePerNodeMarks(perNode);
   const surfaceFiltered = filterMarksBySurface(combined, 'timeline_node');
@@ -149,6 +160,7 @@ export function NodeLabelStrip(props: NodeLabelStripProps): React.ReactElement |
         autoMetadataCodes: props.autoMetadataCodes,
         clusterState: props.clusterState,
         messageContribution: props.messageContribution,
+        persistedClassifierRows: props.persistedClassifierRows,
       }),
     [
       props.messageId,
@@ -156,6 +168,7 @@ export function NodeLabelStrip(props: NodeLabelStripProps): React.ReactElement |
       props.autoMetadataCodes,
       props.clusterState,
       props.messageContribution,
+      props.persistedClassifierRows,
     ],
   );
 

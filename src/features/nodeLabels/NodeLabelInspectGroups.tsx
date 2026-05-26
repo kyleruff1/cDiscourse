@@ -57,6 +57,12 @@ export interface NodeLabelInspectGroupsProps {
   clusterState: PointLifecycleState;
   /** Optional per-message contribution. */
   messageContribution: PointLifecycleState | null;
+  /**
+   * MCP-021B — Optional persisted Machine Observation result rows for
+   * this message. Threaded into Source 6 with surface `'inspect'` (the
+   * lower-confidence-floor path).
+   */
+  persistedClassifierRows?: ReadonlyArray<unknown>;
   /** Resolved band; defaults to `'tablet'`. */
   band?: AnnotationBand;
   /** Container style override. */
@@ -79,6 +85,9 @@ export function computeNodeLabelInspectGroups(props: {
   autoMetadataCodes: ReadonlyArray<AutoMetadataCode>;
   clusterState: PointLifecycleState;
   messageContribution: PointLifecycleState | null;
+  /** MCP-021B — optional persisted classifier rows, threaded into
+   *  Source 6 via the additive aggregator parameter. */
+  persistedClassifierRows?: ReadonlyArray<unknown>;
 }): InspectGroupsComputeResult {
   if (typeof props.messageId !== 'string' || props.messageId.length === 0) {
     return {
@@ -94,6 +103,8 @@ export function computeNodeLabelInspectGroups(props: {
     clusterState: props.clusterState,
     messageContribution: props.messageContribution,
     messageId: props.messageId,
+    persistedClassifierRows: props.persistedClassifierRows,
+    surface: 'inspect',
   });
   const combined = combinePerNodeMarks(perNode);
   const surfaceFiltered = filterMarksBySurface(combined, 'inspect');
@@ -122,6 +133,7 @@ export function NodeLabelInspectGroups(
         autoMetadataCodes: props.autoMetadataCodes,
         clusterState: props.clusterState,
         messageContribution: props.messageContribution,
+        persistedClassifierRows: props.persistedClassifierRows,
       }),
     [
       props.messageId,
@@ -129,6 +141,7 @@ export function NodeLabelInspectGroups(
       props.autoMetadataCodes,
       props.clusterState,
       props.messageContribution,
+      props.persistedClassifierRows,
     ],
   );
 

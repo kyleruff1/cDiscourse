@@ -70,7 +70,7 @@ import {
 import { diffPointTagSets, pickLatestChange } from '../metadata/pointTagsRealtime';
 import type { ManualTagCode } from '../metadata';
 import { ROOM_REALTIME_COPY } from './gameCopy';
-import type { PersistedPointTag } from './types';
+import type { PersistedPointTag, MachineObservationResultRow } from './types';
 import {
   buildTimelineNodeActionDockModel,
   actionDockToComposerPreset,
@@ -164,6 +164,16 @@ interface Props {
    * the metadata ledger with persisted tags instead of an empty map.
    */
   pointTagsByArgumentId?: Record<string, PersistedPointTag[]>;
+  /**
+   * MCP-021B — Optional per-message persisted Machine Observation result
+   * rows (`public.argument_machine_observation_results`). When supplied
+   * AND non-empty, the NodeLabelStrip + NodeLabelInspectGroups mounts
+   * forward them into the Source 6 adapter via
+   * `adaptAllSourcesForNode({ persistedClassifierRows, surface })`. When
+   * absent or empty for a message, Source 6 returns `[]` byte-equal
+   * pre-MCP-021B.
+   */
+  persistedObservationsByArgumentId?: Record<string, MachineObservationResultRow[]>;
   /** Optional latest-message-id hint from the full-room loader (used to snap active when new messages arrive). */
   latestMessageId?: string | null;
   /** Optional map of (messageId → boolean) for "I have an open deletion request on this". */
@@ -285,6 +295,7 @@ export function ArgumentGameSurface({
   flagsByArgumentId,
   tagsByArgumentId,
   pointTagsByArgumentId,
+  persistedObservationsByArgumentId,
   latestMessageId: latestIdHint,
   deletionRequestedMap,
   categoryLabelById: _categoryLabelById,
@@ -1396,6 +1407,9 @@ export function ArgumentGameSurface({
                 messageContribution={
                   lifecycleMap.byMessage.get(activeMessageId)?.messageContribution ?? null
                 }
+                persistedClassifierRows={
+                  persistedObservationsByArgumentId?.[activeMessageId] ?? []
+                }
               />
             ) : null}
             {/* UX-001.3 — Persistent collapsed-composer strip. Sits
@@ -1623,6 +1637,9 @@ export function ArgumentGameSurface({
           }
           messageContribution={
             lifecycleMap.byMessage.get(activeMessageId)?.messageContribution ?? null
+          }
+          persistedClassifierRows={
+            persistedObservationsByArgumentId?.[activeMessageId] ?? []
           }
           testID="ux001-5a-inspect-groups-overlay"
         />

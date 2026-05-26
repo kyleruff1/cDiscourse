@@ -314,6 +314,7 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
     tagsByArgumentId,
     flagsByArgumentId,
     pointTagsByArgumentId,
+    persistedObservationsByArgumentId,
     loading,
     error,
     latestId,
@@ -500,6 +501,7 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         flagsByArgumentId={flagsByArgumentId}
         tagsByArgumentId={tagsByArgumentId}
         pointTagsByArgumentId={pointTagsByArgumentId}
+        persistedObservationsByArgumentId={persistedObservationsByArgumentId}
         latestMessageId={latestId}
         onAction={handleAction}
         onRefresh={refresh}
