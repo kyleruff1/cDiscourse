@@ -36,7 +36,7 @@ export const CLASSIFY_SEMANTIC_MOVE_TOOL: ToolMetadata = {
   name: 'classify_semantic_move',
   title: 'Semantic Move Classifier',
   description:
-    "Classifies a single argument move's structural properties — parent continuity, evidence hygiene, branch hygiene, constructive movement, debate-mode fit, friction. STRUCTURAL questions only — never assigns truth value, never picks a winner, never reads popularity as evidence. Returns a SemanticRefereePacket. Used by CDiscourse's semantic-referee Edge Function.",
+    "Classifies a single argument move's structural properties — parent continuity, evidence hygiene, branch hygiene, constructive movement, debate-mode fit, friction. STRUCTURAL questions only — does not assign factual standing, does not award outcomes, does not treat engagement or popularity as evidence. Returns a SemanticRefereePacket. Used by CDiscourse's semantic-referee Edge Function.",
   inputSchema: {
     type: 'object',
     required: ['moveBodyRedacted', 'roomContext', 'requestedClassifiers', 'contentHash', 'roomId'],

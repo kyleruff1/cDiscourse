@@ -248,6 +248,85 @@ describe('MCP-SERVER-001 — presence test', () => {
     });
   });
 
+  // ── Runbook + audit template ────────────────────────────────────
+  describe('docs/deployment/mcp-server-001-runbook.md', () => {
+    it('exists and is non-empty', () => {
+      expect(exists('docs/deployment/mcp-server-001-runbook.md')).toBe(true);
+      const text = read('docs/deployment/mcp-server-001-runbook.md');
+      expect(text.length).toBeGreaterThan(500);
+    });
+
+    it('covers the five operator phases', () => {
+      const text = read('docs/deployment/mcp-server-001-runbook.md');
+      expect(text).toMatch(/Phase 1\s*[—-]\s*Local smoke/i);
+      expect(text).toMatch(/Phase 2\s*[—-]\s*Deno Deploy/i);
+      expect(text).toMatch(/Phase 3\s*[—-]\s*Hosted smoke/i);
+      expect(text).toMatch(/Phase 4\s*[—-]\s*Supabase secret/i);
+      expect(text).toMatch(/Phase 5\s*[—-]\s*MCP-018 integration/i);
+    });
+
+    it('covers token rotation, logs access, and rollback', () => {
+      const text = read('docs/deployment/mcp-server-001-runbook.md');
+      expect(text).toMatch(/Token rotation/i);
+      expect(text).toMatch(/Logs access/i);
+      expect(text).toMatch(/Rollback/i);
+    });
+
+    it('pins the URL suffix `/mcp/adapter-compat` for the Supabase secret', () => {
+      const text = read('docs/deployment/mcp-server-001-runbook.md');
+      expect(text).toContain('/mcp/adapter-compat');
+      // Must explicitly warn about NOT using /mcp:
+      expect(text).toMatch(/NOT\s+`?\/mcp`?/i);
+    });
+
+    it('references the documented model id', () => {
+      const text = read('docs/deployment/mcp-server-001-runbook.md');
+      expect(text).toContain('claude-haiku-4-5');
+    });
+
+    it('references npx supabase secrets set for both required secrets', () => {
+      const text = read('docs/deployment/mcp-server-001-runbook.md');
+      expect(text).toContain('SEMANTIC_REFEREE_MCP_URL');
+      expect(text).toContain('SEMANTIC_REFEREE_MCP_TOKEN');
+      expect(text).toContain('npx supabase secrets set');
+    });
+
+    it('explicitly forbids MCP_SERVER_USE_FIXTURE_PROVIDER in prod', () => {
+      const text = read('docs/deployment/mcp-server-001-runbook.md');
+      expect(text).toContain('MCP_SERVER_USE_FIXTURE_PROVIDER');
+      // The runbook must instruct operators not to set this in production.
+      expect(text).toMatch(/never set this flag in production/i);
+      expect(text).toMatch(/DO NOT set\s+`?MCP_SERVER_USE_FIXTURE_PROVIDER`?\s+in production/i);
+    });
+  });
+
+  describe('docs/audits/MCP-SERVER-001-smoke-template.md', () => {
+    it('exists as a Markdown template', () => {
+      expect(exists('docs/audits/MCP-SERVER-001-smoke-template.md')).toBe(true);
+    });
+
+    it('contains the five-phase checklist', () => {
+      const text = read('docs/audits/MCP-SERVER-001-smoke-template.md');
+      expect(text).toMatch(/Phase 1\s*[—-]\s*Local smoke/i);
+      expect(text).toMatch(/Phase 2\s*[—-]\s*Hosted deploy/i);
+      expect(text).toMatch(/Phase 3\s*[—-]\s*Hosted smoke/i);
+      expect(text).toMatch(/Phase 4\s*[—-]\s*Supabase secret/i);
+      expect(text).toMatch(/Phase 5\s*[—-]\s*MCP-018 integration/i);
+    });
+
+    it('includes a verdict section + failure-reason interpretation table', () => {
+      const text = read('docs/audits/MCP-SERVER-001-smoke-template.md');
+      expect(text).toMatch(/Verdict/i);
+      expect(text).toMatch(/Common failure_reason interpretations/i);
+    });
+
+    it('references the operator-deferred items (MCP-SERVER-002 + ADMIN-MCP-001 authorization)', () => {
+      const text = read('docs/audits/MCP-SERVER-001-smoke-template.md');
+      expect(text).toContain('MCP-SERVER-002');
+      expect(text).toContain('ADMIN-MCP-001');
+    });
+  });
+
   // ── No client-secret leakage ────────────────────────────────────
   describe('Client-secret boundary', () => {
     it('mcp-server/.env.local.example never carries a real Anthropic key', () => {

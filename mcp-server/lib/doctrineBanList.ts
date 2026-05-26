@@ -11,26 +11,44 @@
  * The ban-list is enforced at TWO layers (server + adapter) so any drift on
  * either side still blocks doctrine violations.
  *
- * Word-boundary matching keeps neutral words ("hottake" inside a reason code
- * like "playable_hot_take") clear. Tokens that legitimately appear in a
- * structural reason code (e.g. "satire", "popularity") are NOT banned — only
- * verdict / person / truth language.
+ * Matching strategy:
+ *   - We use a "boundary" that recognises both word breaks AND snake_case
+ *     boundaries. JS regex `\b` treats underscore as a word character, so
+ *     plain `\bwinner\b` would MISS `winner_decided` (the most realistic
+ *     reason-code shape). We use `(^|[^a-z0-9])` and `([^a-z0-9]|$)` to also
+ *     break on `_` / `-` / space.
+ *   - Neutral substrings like "hottake" inside `playable_hot_take` remain
+ *     clear because the banned tokens are full words ("winner", "loser",
+ *     etc.) not fragments.
  */
+const TOKEN_BOUNDARY_START = '(^|[^a-z0-9])';
+const TOKEN_BOUNDARY_END = '([^a-z0-9]|$)';
+
+function tokenPattern(token: string): RegExp {
+  return new RegExp(`${TOKEN_BOUNDARY_START}${token}${TOKEN_BOUNDARY_END}`, 'i');
+}
+
+const BANNED_TOKENS: readonly string[] = Object.freeze([
+  'winner',
+  'loser',
+  'correct',
+  'incorrect',
+  'truth',
+  'untrue',
+  'dishonest',
+  'liar',
+  'manipulative',
+  'extremist',
+  'propagandist',
+  'stupid',
+  'idiot',
+  'verdict',
+]);
+
 export const DOCTRINE_BAN_PATTERNS: readonly RegExp[] = Object.freeze([
-  /\bwinner\b/i,
-  /\bloser\b/i,
-  /\bcorrect\b/i,
-  /\bincorrect\b/i,
-  /\btruth\b/i,
-  /\buntrue\b/i,
-  /\bdishonest\b/i,
-  /\bliar\b/i,
-  /\bbad[\s_-]+faith\b/i,
-  /\bmanipulative\b/i,
-  /\bextremist\b/i,
-  /\bpropagandist\b/i,
-  /\bstupid\b/i,
-  /\bidiot\b/i,
-  /\bverdict\b/i,
-  /\bproof[\s_-]*of\b/i,
+  ...BANNED_TOKENS.map((t) => tokenPattern(t)),
+  // Two-word phrases — `bad faith`, `proof of`. Match across `_`, `-`, or
+  // space separators.
+  /(?:^|[^a-z0-9])bad[\s_-]+faith(?:[^a-z0-9]|$)/i,
+  /(?:^|[^a-z0-9])proof[\s_-]*of(?:[^a-z0-9]|$)/i,
 ]);

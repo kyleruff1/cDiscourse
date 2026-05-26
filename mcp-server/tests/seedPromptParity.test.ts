@@ -51,14 +51,19 @@ Deno.test('seedPrompt: system prompt absolute rules are byte-equal', async () =>
 });
 
 Deno.test('seedPrompt: structured-output instruction keywords are present', () => {
+  // The system prompt wraps lines, so we check for the load-bearing fragments
+  // individually rather than a single concatenated string.
   const expected = [
     'Return strict JSON only.',
     'no prose, no markdown, no chain-of-thought',
-    'Never include a blocking field, a truth field, a verdict field, or a winner field',
+    'Never include a blocking field',
+    'a truth\nfield',
+    'a verdict field',
+    'or a winner field',
   ];
   for (const keyword of expected) {
     if (!SEMANTIC_REFEREE_SYSTEM_PROMPT.includes(keyword)) {
-      throw new Error(`Server mirror missing structured-output keyword: ${keyword}`);
+      throw new Error(`Server mirror missing structured-output keyword: ${JSON.stringify(keyword)}`);
     }
   }
 });
