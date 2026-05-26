@@ -76,14 +76,27 @@ export function buildBooleanObservationRequestForArgument(
   const eligibleFamilies = filterFamiliesForMode(input.requestedFamilies, input.mode);
 
   // Build the rawKey set from the eligible families.
-  const rawKeys: string[] = [];
+  // Build the rawKey set + definitions map. Iterate the compound registry
+  // (keyed by `${source}:${rawKey}`); two rawKeys overlap between sources
+  // (`source_requested`, `quote_requested` appear in both `auto_metadata`
+  // and `lifecycle` per MCP-021A §"Key shape"). Dedupe rawKeys via a Set
+  // so the MCP server only receives one question per distinct key. The
+  // definitions map naturally dedupes (Record by rawKey); the priority
+  // order in `machineObservationDefinitions.buildByRawKeyRegistry` picks
+  // the highest-priority entry per rawKey.
+  const rawKeySet = new Set<string>();
   const definitions: Record<string, MachineObservationDefinition> = {};
   for (const def of Object.values(MACHINE_OBSERVATION_DEFINITIONS_REGISTRY)) {
     if (eligibleFamilies.includes(def.family)) {
-      rawKeys.push(def.rawKey);
+      rawKeySet.add(def.rawKey);
+      // Last write wins in this loop; the parser caller resolves via
+      // lookupMachineObservationDefinition() which uses the priority
+      // BY_RAW_KEY registry. Either map shape is acceptable; the wire
+      // contract is `definitions` keyed by rawKey.
       definitions[def.rawKey] = def;
     }
   }
+  const rawKeys = Array.from(rawKeySet);
 
   // Truncate threadContextExcerpt defensively.
   const safeThreadContext =
