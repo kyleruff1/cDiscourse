@@ -7,22 +7,26 @@
     "currentText": "[fixture] I agree with the parent's claim that streetlights reduce nighttime accidents.",
     "parentText": null,
     "threadContextExcerpt": "[fixture] Cities should install more streetlights.",
-    "requestedFamilies": ["family_evidence"],
-    "requestedRawKeys": ["evidence_present", "quote_present"],
-    "definitions": {
-      "evidence_present": {
-        "rawKey": "evidence_present",
-        "displayLabel": "Evidence present",
-        "structuralQuestion": "Does this move include any cited evidence?",
-        "family": "family_evidence"
-      },
-      "quote_present": {
-        "rawKey": "quote_present",
-        "displayLabel": "Quote present",
-        "structuralQuestion": "Does this move quote the parent or a third source?",
-        "family": "family_evidence"
-      }
-    },
+    "requestedFamilies": ["parent_relation"],
+    "requestedRawKeys": [
+      "supports_parent",
+      "challenges_parent",
+      "refines_parent",
+      "extends_parent",
+      "distinguishes_parent",
+      "reframes_parent",
+      "questions_parent",
+      "summarizes_parent",
+      "acknowledges_parent",
+      "corrects_parent_detail",
+      "contrasts_with_parent",
+      "answers_parent_question",
+      "has_rebuttal",
+      "has_counter_rebuttal",
+      "rebutted",
+      "quote_anchors_parent"
+    ],
+    "definitions": {},
     "timeoutMs": 12000
   }
 }
