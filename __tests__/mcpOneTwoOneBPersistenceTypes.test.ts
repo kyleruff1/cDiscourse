@@ -20,7 +20,7 @@ import {
   type MachineObservationResultRow,
   type MachineObservationRunRow,
 } from '../src/features/nodeLabels/machineObservationPersistenceTypes';
-import { ALL_MACHINE_OBSERVATION_FAMILIES } from '../src/features/nodeLabels';
+import { ALL_MACHINE_OBSERVATION_FAMILIES } from '../src/features/nodeLabels/nodeLabelTypes';
 
 const VALID_RESULT: MachineObservationResultRow = {
   id: 'res-1',

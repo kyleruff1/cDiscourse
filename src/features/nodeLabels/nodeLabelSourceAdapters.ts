@@ -3,22 +3,30 @@
  *
  * Six pure-TS adapter functions, one per source category. Each adapter
  * is deterministic: same input → same output. Source 1/2/3 emit
- * non-empty marks for present inputs; Source 4, Source 5 (node-mount),
- * and Source 6 return `[]` UNCONDITIONALLY in v1 per the source-access
- * audit + intent brief Decisions 1, 2, 4 (binding).
+ * non-empty marks for present inputs; Source 4 and Source 5 (node-mount)
+ * return `[]` UNCONDITIONALLY in v1 per the source-access audit + intent
+ * brief Decisions 1, 2, 4 (binding).
  *
- * Stop conditions 17 & 18 from the implementer prompt:
- *   - 17: Source 4 OR Source 6 adapter emits non-empty for ANY test
- *     input → HALT. Enforced here at the function level (empty literal
- *     return).
- *   - 18: Source 5 node-mount adapter emits non-empty for ANY test
- *     input → HALT. Enforced here at the function level (empty literal
- *     return).
+ * MCP-021B — Source 6 (raw classifier binaries) is now persisted-rows-
+ * aware. It returns `[]` for every caller that does NOT supply the
+ * optional `persistedClassifierRows` input (byte-equal pre-MCP-021B
+ * behavior); when persisted rows ARE supplied, it delegates to
+ * `mapPersistedObservationRowsToNodeLabelMarks`. The function never
+ * calls MCP live; MCP-021C wires the live execution path separately
+ * via a service-role Edge Function.
+ *
+ * Stop conditions inherited from UX-001.5A implementer prompt:
+ *   - 17 (Source 4): emit non-empty here → HALT. Enforced at the
+ *     function level (empty literal return).
+ *   - 18 (Source 5 node-mount): emit non-empty here → HALT. Enforced
+ *     at the function level (empty literal return).
  *
  * Doctrine anchor: cdiscourse-doctrine §10a — the schema boundary is
  * load-bearing. Adapters never collapse Observations and Allegations.
  *
- * Pure TS. No React. No Supabase. No network. No new dependency.
+ * Pure TS. No React. Source 6's MCP-021B path uses no Supabase / network
+ * directly — the persisted rows are pre-fetched upstream by the room
+ * loader and threaded in as a pure data input.
  */
 
 import type { ManualTagCode, ManualTagEntry } from '../metadata/moveMetadataLedger';
@@ -27,6 +35,10 @@ import type { PointLifecycleState } from '../lifecycle/pointLifecycleModel';
 import { lookupMachineObservation } from './machineObservationRegistry';
 import { USER_ALLEGATION_REGISTRY } from './userAllegationRegistry';
 import type { NodeLabelMark } from './nodeLabelTypes';
+import {
+  mapPersistedObservationRowsToNodeLabelMarks,
+  type MachineObservationPersistenceSurface,
+} from './machineObservationPersistenceAdapter';
 
 // ── Source 1 — Manual tags (User Allegations) ─────────────────────
 
@@ -277,36 +289,71 @@ export function adaptSemanticRefereeSourceNodeMount(
   return [];
 }
 
-// ── Source 6 — Raw classifier binaries (future_source v1) ─────────
+// ── Source 6 — Raw classifier binaries (MCP-021B persisted) ───────
 
 export interface RawClassifierBinaryAdapterInput {
   messageId: string;
-  /** Reserved for future_source consumption. v1 ignores. */
+  /** Reserved for future_source consumption; pre-MCP-021B callers ignored. */
   binaries?: ReadonlyArray<unknown>;
+  /**
+   * MCP-021B — Persisted Machine Observation result rows for THIS message,
+   * pre-fetched by the room loader. When absent OR empty, the adapter
+   * returns `[]` (byte-equal pre-MCP-021B behavior). When supplied with
+   * valid rows, the adapter delegates to
+   * `mapPersistedObservationRowsToNodeLabelMarks`. The pipeline never
+   * calls MCP live; MCP-021C wires the live execution path separately.
+   */
+  persistedClassifierRows?: ReadonlyArray<unknown>;
+  /**
+   * MCP-021B — Target surface for confidence-floor gating. Defaults to
+   * `'timeline_node'` for safety (highest confidence floor; least
+   * surface noise). Inspect path can request `'inspect'` to permit
+   * lower-confidence rows.
+   */
+  surface?: MachineObservationPersistenceSurface;
 }
 
 /**
  * Adapter — Source 6 (raw classifier binaries). Pure.
  *
- * v1 returns `[]` UNCONDITIONALLY per:
- *   - Audit verdict §Source 6: TRANSIENT_ONLY. No Supabase classifier-
- *     output table exists; the only place raw binaries live is inside
- *     `refereeStateByMoveId` (Source 5's React state).
- *   - Intent brief Decision 4 (binding): "UX-001.5B: NOT FILED. Remains
- *     contingent. File UX-001.5B only if [trigger 1]: product requires
- *     raw classifier binaries visible as shared Timeline node
- *     Observations."
+ * MCP-021B contract: returns `[]` for every existing caller that does
+ * NOT supply `persistedClassifierRows` (backwards-compatible with the
+ * pre-MCP-021B v1 behavior and with the MCP-021A invariance test). When
+ * a caller DOES supply persisted rows, the adapter delegates to
+ * `mapPersistedObservationRowsToNodeLabelMarks` which applies four
+ * filters in order (schema_version → rawKey registry membership →
+ * confidence floor → evidence_span truncation) and silently drops every
+ * row that fails any filter.
  *
- * Implementer Stop Condition 17: emit non-empty here → HALT.
+ * Pre-MCP-021B behavior preserved:
+ *   - No `messageId` / empty `messageId` → `[]`
+ *   - No `persistedClassifierRows` / empty → `[]`
+ *   - Pre-existing callers that pass only `{ messageId, binaries }` →
+ *     `[]` (the `binaries` slot remains reserved for future_source)
  *
- * The registry slot for ai_classifier source exists for the reviewer
- * mechanical check (every classifier ID accounted for) and for forward
- * compatibility. v1 emits zero.
+ * Doctrine:
+ *   - cdiscourse-doctrine §10a — emitted marks keep
+ *     `kind: 'machine_observation'`; never `user_allegation`.
+ *   - cdiscourse-doctrine §9 — labels are sourced from the MCP-021A
+ *     definition registry; raw_keys never appear in user-facing copy.
+ *   - cdiscourse-doctrine §3 — engagement / popularity / heat are NOT
+ *     inputs; the persisted-rows path consumes only structural
+ *     classifier output.
  */
 export function adaptRawClassifierBinarySource(
-  _input: RawClassifierBinaryAdapterInput,
+  input: RawClassifierBinaryAdapterInput,
 ): NodeLabelMark[] {
-  return [];
+  if (!input || typeof input.messageId !== 'string' || input.messageId.length === 0) {
+    return [];
+  }
+  const persisted = input.persistedClassifierRows;
+  if (!Array.isArray(persisted) || persisted.length === 0) {
+    return [];
+  }
+  return mapPersistedObservationRowsToNodeLabelMarks(persisted, {
+    argumentId: input.messageId,
+    surface: input.surface ?? 'timeline_node',
+  });
 }
 
 // ── Convenience aggregator ────────────────────────────────────────
@@ -319,7 +366,9 @@ export interface PerNodeMarkInput {
   compositionMutationMarks: ReadonlyArray<NodeLabelMark>;
   /** v1 always [] — Source 5 node-mount future_source. */
   semanticRefereeNodeMountMarks: ReadonlyArray<NodeLabelMark>;
-  /** v1 always [] — Source 6 future_source. */
+  /** MCP-021B: empty when no persisted rows are threaded into Source 6;
+   *  populated when a caller passes `persistedClassifierRows` via
+   *  `adaptAllSourcesForNode`. */
   rawClassifierMarks: ReadonlyArray<NodeLabelMark>;
 }
 
@@ -330,6 +379,11 @@ export interface PerNodeMarkInput {
  * The composer-only adapter is NOT called here — composer-only chips
  * flow through `RefereeBannerView.observationChips` via a separate
  * call-site wire in `ArgumentGameSurface.tsx`.
+ *
+ * MCP-021B — additive optional `persistedClassifierRows` + `surface`
+ * inputs thread persisted Machine Observation rows through Source 6.
+ * Pre-MCP-021B callers omit both and receive `[]` byte-equal for
+ * `rawClassifierMarks` (preserves MCP-021A invariance contract).
  */
 export function adaptAllSourcesForNode(input: {
   manualTagEntries: ReadonlyArray<ManualTagEntry>;
@@ -337,6 +391,12 @@ export function adaptAllSourcesForNode(input: {
   clusterState: PointLifecycleState;
   messageContribution: PointLifecycleState | null;
   messageId: string;
+  /** MCP-021B — Persisted Machine Observation rows for this message.
+   *  Pre-MCP-021B callers may omit. */
+  persistedClassifierRows?: ReadonlyArray<unknown>;
+  /** MCP-021B — Surface gate for the raw-classifier adapter. Defaults
+   *  to `'timeline_node'`. */
+  surface?: MachineObservationPersistenceSurface;
 }): PerNodeMarkInput {
   return {
     manualTagMarks: adaptManualTagSource({
@@ -352,15 +412,18 @@ export function adaptAllSourcesForNode(input: {
       messageContribution: input.messageContribution,
       messageId: input.messageId,
     }),
-    // v1: every adapter below returns [] unconditionally.
+    // v1: Source 4 + Source 5 node-mount return [] unconditionally.
     compositionMutationMarks: adaptCompositionMutationSource({
       messageId: input.messageId,
     }),
     semanticRefereeNodeMountMarks: adaptSemanticRefereeSourceNodeMount({
       messageId: input.messageId,
     }),
+    // MCP-021B: Source 6 returns [] when no persisted rows are threaded.
     rawClassifierMarks: adaptRawClassifierBinarySource({
       messageId: input.messageId,
+      persistedClassifierRows: input.persistedClassifierRows,
+      surface: input.surface,
     }),
   };
 }

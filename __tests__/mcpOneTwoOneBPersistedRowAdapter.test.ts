@@ -15,10 +15,8 @@ import {
   mapPersistedObservationRowsToNodeLabelMarks,
   type MachineObservationPersistenceSurface,
 } from '../src/features/nodeLabels/machineObservationPersistenceAdapter';
-import {
-  MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY,
-  MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-} from '../src/features/nodeLabels';
+import { MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY } from '../src/features/nodeLabels/machineObservationDefinitions';
+import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from '../src/features/nodeLabels/mcpBooleanObservationSchema';
 import type { MachineObservationResultRow } from '../src/features/nodeLabels/machineObservationPersistenceTypes';
 
 const ARGUMENT_ID = 'arg-fixture-1';

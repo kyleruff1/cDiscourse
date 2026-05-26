@@ -25,10 +25,8 @@
  * Pure JSON-serializable. No React / Supabase / network imports.
  */
 
-import {
-  MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY,
-  MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-} from './index';
+import { MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY } from './machineObservationDefinitions';
+import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from './mcpBooleanObservationSchema';
 import type {
   MachineObservationDefinition,
   NodeLabelMark,
