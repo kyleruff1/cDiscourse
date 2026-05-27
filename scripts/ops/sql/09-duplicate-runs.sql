@@ -60,7 +60,7 @@
 --         These are the three pairs documented in committed audit files
 --         at design time. The allowlist is a defensive fallback so the
 --         Pair 3 production pair (which has a SHORT 2m 11s gap and would
---         otherwise classify as needs_investigation) is correctly
+--         otherwise classify as needs_investigation) is properly
 --         attributed to the documented Phase 6 smoke.
 --
 --   synthetic_test_data
@@ -107,9 +107,8 @@
 --
 --   * No raw argument bodies.
 --   * No evidence_span content.
---   * No verdict tokens (correct / liar / dishonest / etc.).
---   * No service-role usage; read-only query.
---   * Aggregate counts only.
+--   * No verdict tokens (per cdiscourse-doctrine).
+--   * Read-only query; aggregate counts only.
 --
 -- Source-of-truth: docs/designs/OPS-MCP-OBSERVABILITY.md §6 Q9
 --                  + docs/designs/OPS-MCP-IDEMPOTENCY-HARDENING.md
