@@ -23,6 +23,10 @@ import {
   FAMILY_B_RAW_KEYS,
   FAMILY_B_CLASSIFIER_SET_VERSION,
 } from '../lib/familyBKeys.ts';
+import {
+  FAMILY_C_RAW_KEYS,
+  FAMILY_C_CLASSIFIER_SET_VERSION,
+} from '../lib/familyCKeys.ts';
 
 Deno.test('registry-newly-constructed-is-empty', () => {
   const registry = createFamilyRegistry();
@@ -256,4 +260,90 @@ Deno.test('registry-isRawKeySupportedForFamily-cross-family-rejection', () => {
     registry.isRawKeySupportedForFamily('disagreement_axis', 'disputes_definition'),
     true,
   );
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-004-FAMILY-C additions
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('registry-getSupportedFamilies-preserves-three-family-order', () => {
+  // Upgrade of the Family B precedent test: use real Family A + B + C.
+  // Per familyRegistry.ts:82-84, insertion order is preserved.
+  const registry = createFamilyRegistry();
+  registry.register('parent_relation', {
+    rawKeys: new Set(FAMILY_A_RAW_KEYS),
+    classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+  assertEquals(
+    registry.getSupportedFamilies(),
+    ['parent_relation', 'disagreement_axis', 'misunderstanding_repair'],
+  );
+  assertEquals(registry.getRawKeysForFamily('misunderstanding_repair').size, 17);
+  assertEquals(registry.getClassifierSetVersion('misunderstanding_repair'), 'family-c-v1');
+});
+
+Deno.test('registry-isRawKeySupportedForFamily-three-way-cross-family-rejection', () => {
+  // With all three real families registered, cross-family rawKey lookups
+  // must return false across every combination. Each family recognizes only
+  // its own rawKey set.
+  const registry = createFamilyRegistry();
+  registry.register('parent_relation', {
+    rawKeys: new Set(FAMILY_A_RAW_KEYS),
+    classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+
+  // Family A key under Family C → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('misunderstanding_repair', 'supports_parent'),
+    false,
+  );
+  // Family B key under Family C → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('misunderstanding_repair', 'disputes_definition'),
+    false,
+  );
+  // Family C key under Family A → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('parent_relation', 'offers_candidate_understanding'),
+    false,
+  );
+  // Family C key under Family B → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('disagreement_axis', 'offers_candidate_understanding'),
+    false,
+  );
+  // Sanity: each family still supports its own keys.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('misunderstanding_repair', 'offers_candidate_understanding'),
+    true,
+  );
+});
+
+Deno.test('registry-getRawKeysForFamily-returns-all-17-for-family-c', () => {
+  const registry = createFamilyRegistry();
+  registry.register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+  const keys = registry.getRawKeysForFamily('misunderstanding_repair');
+  assertEquals(keys.size, 17);
+  for (const binding of FAMILY_C_RAW_KEYS) {
+    assertEquals(keys.has(binding), true);
+  }
 });

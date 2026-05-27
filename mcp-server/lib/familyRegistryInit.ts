@@ -30,6 +30,10 @@ import {
   FAMILY_B_RAW_KEYS,
   FAMILY_B_CLASSIFIER_SET_VERSION,
 } from './familyBKeys.ts';
+import {
+  FAMILY_C_RAW_KEYS,
+  FAMILY_C_CLASSIFIER_SET_VERSION,
+} from './familyCKeys.ts';
 
 let initialized = false;
 
@@ -43,7 +47,8 @@ let initialized = false;
  *
  * Registration order is preserved by the underlying Map (per
  * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
- * ['parent_relation', 'disagreement_axis'] in this exact order.
+ * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair']
+ * in this exact order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -57,6 +62,11 @@ export function initializeFamilyRegistry(): void {
   register('disagreement_axis', {
     rawKeys: new Set(FAMILY_B_RAW_KEYS),
     classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+
+  register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
   });
 }
 
