@@ -1,6 +1,6 @@
-# MCP-021C-EDGE-FAMILIES-B-C-ENABLE — production-mode flip for Families B + C
+# MCP-021C-EDGE-FAMILIES-B-C-ENABLE — production-mode flip for Families B + C + dispatcher refactor (registry-derived)
 
-**Status:** Design draft — **HALT trigger 4 fires; scope-reality finding requires operator decision before implementation**
+**Status:** Stage 2B operator decision recorded — **Option A approved**; implementation in progress
 **Epic:** MCP — production-mode enablement for shipped families
 **Release:** Card 1 of the 2-card flip + Family D batch (per intent brief §12)
 **Issue:** https://github.com/kyleruff1/cDiscourse/issues/328
@@ -9,7 +9,83 @@
 
 ---
 
-## 0. Cannot proceed as scoped — HALT trigger 4 finding (binding)
+## STAGE 2B — Operator decision recorded (binding, 2026-05-27)
+
+**Result:** Option A approved with strict guardrails. Scope expansion is REQUIRED, not optional creep — it is necessary to make the original production-mode enablement semantics true.
+
+The Stage 2A HALT (auto-trigger dispatcher hard-coded to Family A, see §0 below) was surfaced. The operator's binding decision at Stage 2B is recorded verbatim:
+
+### Approved scope expansion
+
+- Expand Card 1 scope just enough to make production auto-trigger derive its families from the Edge family registry.
+- Production auto-trigger runs all and only families with `productionEnabled: true`.
+- After this card, that means Family A + Family B + Family C.
+- Do NOT touch Family D in Card 1.
+- Do NOT begin Card 2 until Card 1 ships and smokes PASS.
+
+### Preferred implementation shape
+
+1. Flip `productionEnabled` for `disagreement_axis` and `misunderstanding_repair`.
+2. Refactor `autoTriggerDispatcher.ts` so it derives the production family list from the registry rather than hard-coding `parent_relation`.
+3. **One-run-per-family loop** for auto-triggered production classification — operator preference for observability, run rows, idempotency classification, and Source 6 readback per family.
+4. Preserve Family A behavior.
+5. Preserve admin_validation behavior.
+6. Preserve unsupported-family rejection for D–J.
+7. Preserve current idempotency behavior; do NOT introduce a new uniqueness index, `forceRerun`, or idempotency card work.
+8. No schema migration.
+9. No UI changes.
+10. No MCP server changes.
+11. No taxonomy changes.
+12. No Source 6 rendering policy changes.
+
+### HALT table updates at Stage 2B
+
+| HALT trigger | Stage 2B status |
+|---|---|
+| #4 (Auto-trigger dispatcher change beyond registry-derived path) | **Option A APPROVED** — the proposed scope expansion MAKES the dispatcher registry-derived (not "beyond" it). Reviewers should re-check that the refactor only derives from `productionEnabledFamilies()` and adds no side-channel / env flag / non-registry hard-code. |
+| All other 17 triggers | Unchanged — see §17 below. |
+
+Broader runtime changes still blocked: MCP server changes (#10), Source 6 filter changes (#5), schema changes (#6), taxonomy changes (#7), MCP schema version changes (#8), prompt changes (#9). The operator's binding decision keeps these as hard HALTs.
+
+### Card 1 revised PASS criteria
+
+- Edge family registry has: `parent_relation`, `disagreement_axis`, `misunderstanding_repair` → `productionEnabled=true`; D–J remain `false`.
+- Auto-trigger dispatch derives production families from registry.
+- New argument insert triggers production classification for A + B + C.
+- Production runs are persisted for A + B + C (or, where a family legitimately produces 0 positives, a successful production run row still exists).
+- B/C are no longer admin_validation-only after this card.
+- D–J are NOT auto-triggered.
+- Existing admin_validation behavior still works.
+- Source 6 production filter remains `run_mode='production'` (byte-equal).
+- Tests prove Family A behavior is preserved and B/C are additive.
+
+### Smoke expectation updates
+
+Smoke plan §11 Phase 2: now expects exactly **3 new runs (one per family) for a new argument_id**, all with `run_mode='production'`, `status='success'`. The same idempotency-pre-check semantics apply per family.
+
+### Implementer's classifyArgumentCore.ts decision (documented per Stage 2B binding)
+
+`classifyArgumentCore.ts` is NOT modified. The existing core already accepts a `requestedFamilies` array, filters via `filterFamiliesForMode`, builds ONE MCP request with the filtered array, and persists ONE run row per invocation. The dispatcher achieves the one-run-per-family pattern by calling `classifyOneArgumentCore` once per eligible family with a single-element `[family]` array. The MCP server's single-family-per-call resolution is honored at the per-iteration level (each iteration sends a single-family request). No core change is needed; the dispatcher orchestrates the loop entirely.
+
+### Loop ordering
+
+Sequential `for-of` loop (NOT `Promise.all`) per Stage 2B operator preference + the existing race-tolerance documentation in `autoTriggerDispatcher.ts` lines 41–48. Sequential ordering means Family A runs FIRST in the loop (because registry iteration order is A→J), exactly preserving Family A's current behavior at iteration #1. Failures in one family iteration do NOT abort other family iterations.
+
+### Critical guardrail (from operator's binding)
+
+> "If implementation discovers this is materially larger than estimated, HALT before proceeding beyond the dispatcher refactor. Do NOT degrade into Option B or C silently."
+
+The implementer evaluated this guardrail at design-review time (Stage 2B) and during implementation:
+- `classifyArgumentCore.ts` does NOT need to change. (Operator-named decision documented above.)
+- `findExistingRun` parameterizes `family` (one extra positional argument).
+- `dispatchAutoTriggerForArgument` adds a single sequential `for-of` over `productionEnabledFamilies()`.
+- `AutoTriggerOutcome` interface stays byte-equal at the per-family level; a new `family` optional field is added so callers can distinguish per-family outcomes. The dispatcher returns `AutoTriggerOutcome[]` (array of per-family outcomes); the `submit-argument` call site does NOT inspect this return value, so the call-site contract is unchanged.
+
+No HALT trigger fires during implementation. The scope stays within the operator's binding.
+
+---
+
+## 0. Pre-Stage-2B finding (preserved for historical context) — HALT trigger 4 finding
 
 The intent brief §2 states:
 
