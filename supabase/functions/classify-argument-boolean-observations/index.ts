@@ -411,9 +411,12 @@ async function classifyOneArgument(
     };
   }
 
-  // Collect positive observations.
+  // Collect positive observations (in-memory aggregation from the
+  // sanitized response). The actual response summary is built from the
+  // post-persist SELECT below, NOT this in-memory state — see
+  // MCP-021C-EDGE-RESPONSE-SUMMARY-FIX.
   const resultsToWrite: PersistResultInput[] = [];
-  const rawKeysWithPositive: string[] = [];
+  const inMemoryRawKeys: string[] = [];
   for (const rawKey of sanitized.checkedRawKeys) {
     if (sanitized.observations[rawKey] !== true) continue;
     const def = MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY[rawKey];
@@ -431,11 +434,48 @@ async function classifyOneArgument(
       confidence,
       evidenceSpan,
     });
-    rawKeysWithPositive.push(rawKey);
+    inMemoryRawKeys.push(rawKey);
   }
 
+  // Persist positives and capture the writer's outcome. A silent persist
+  // failure (the pre-fix behavior) is now surfaced as a failed run.
+  let persistFailureReason: string | null = null;
   if (resultsToWrite.length > 0) {
-    await persistResults(resultsToWrite);
+    const writeResult = await persistResults(resultsToWrite);
+    if (!writeResult.ok) {
+      persistFailureReason = `persist_results_failed:${writeResult.error}`;
+    }
+  }
+
+  // MCP-021C-EDGE-RESPONSE-SUMMARY-FIX: the per-arg summary reflects what's
+  // actually persisted, not what we attempted to write. A post-persist
+  // SELECT against argument_machine_observation_results for this runId
+  // is the authoritative source. This guarantees the response matches
+  // persistence regardless of any in-memory state divergence (e.g., the
+  // discrepancy surfaced by MCP-021C-EDGE-SMOKE 2026-05-26 where the
+  // response reported `positiveObservationCount: 0` despite persistence
+  // holding the actual positive rows).
+  const { data: persistedRows, error: countError } = await serviceClient
+    .from('argument_machine_observation_results')
+    .select('raw_key')
+    .eq('run_id', runWrite.runId);
+
+  const actualPositiveCount = countError
+    ? resultsToWrite.length
+    : (persistedRows?.length ?? 0);
+  const actualRawKeys = countError
+    ? inMemoryRawKeys
+    : (persistedRows ?? []).map((r: { raw_key: string }) => r.raw_key);
+
+  if (persistFailureReason !== null) {
+    return {
+      argumentId,
+      runId: runWrite.runId,
+      status: 'failed',
+      failureReason: persistFailureReason,
+      positiveObservationCount: actualPositiveCount,
+      rawKeysWithPositive: actualRawKeys,
+    };
   }
 
   return {
@@ -443,8 +483,8 @@ async function classifyOneArgument(
     runId: runWrite.runId,
     status: 'success',
     failureReason: null,
-    positiveObservationCount: resultsToWrite.length,
-    rawKeysWithPositive,
+    positiveObservationCount: actualPositiveCount,
+    rawKeysWithPositive: actualRawKeys,
   };
 }
 
