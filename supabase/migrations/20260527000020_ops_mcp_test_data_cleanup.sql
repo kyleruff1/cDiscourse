@@ -1,0 +1,83 @@
+-- ============================================================
+-- Migration: 20260527000020_ops_mcp_test_data_cleanup
+-- Description: OPS-MCP-TEST-DATA-CLEANUP — remove 11 synthetic test
+--   rows (2 runs + 9 results) seeded with provider_key='smoke-mcp:test-server'
+--   on 2026-05-26 05:56:33. The OPS-MCP-OBSERVABILITY smoke at
+--   0e98c27 surfaced these rows as contamination of the production-mode
+--   aggregate at Q11 + Q12. The Q12-SEMANTIC-TIGHTENING smoke at
+--   19b8d8a confirmed they persist after the Q12 SQL fix.
+--
+-- Card: OPS-MCP-TEST-DATA-CLEANUP
+--   - Intent brief: docs/designs/OPS-MCP-TEST-DATA-CLEANUP-intent.md
+--   - Design: docs/designs/OPS-MCP-TEST-DATA-CLEANUP.md (Approach A)
+-- Operator decision: Stage 2B chose Approach A (hard delete).
+--
+-- Predecessor SHA chain:
+--   - 19b8d8a — OPS-MCP-OBSERVABILITY-Q12-SEMANTIC-TIGHTENING smoke PASS
+--   - e060eef — Q12 SEMANTIC TIGHTENING ship (PR #323)
+--   - 0e98c27 — OPS-MCP-OBSERVABILITY smoke PARTIAL
+--   - d500037 — OPS-MCP-OBSERVABILITY ship (PR #321)
+--
+-- Doctrine encoded:
+--   - This is data cleanup, NOT argument soft-delete. The
+--     cdiscourse-doctrine §8 "soft-delete only for arguments" rule
+--     applies to public.arguments rows; this migration touches only
+--     public.argument_machine_observation_runs (and via FK CASCADE
+--     public.argument_machine_observation_results). The two target
+--     argument rows (f41b18b0... and 781f8057...) are real posted
+--     production arguments — they are NOT touched by this migration.
+--   - This migration does NOT delete any flag row (cdiscourse-doctrine
+--     §8 "flags rows never delete"). This migration does NOT touch the
+--     flags table at all.
+--   - Tightly bounded WHERE clause: single exact provider_key match,
+--     NOT a LIKE pattern. Intent brief §2 binding constraint.
+--   - Idempotent: a second apply finds 0 matching rows and is a no-op.
+--
+-- Affected rows (Phase A.1 inventory; design §1):
+--   - 2 runs (ids 2a16fe8b-ff19-4112-9f41-aab6be5e1a82 and
+--     ff2bd3cc-2e06-411b-878b-b7ceb9139dfd, both provider_key
+--     'smoke-mcp:test-server')
+--   - 9 result rows (via FK ON DELETE CASCADE from runs.id)
+--   - Total: 11 rows.
+--
+-- HALT trigger evaluation (intent brief §6):
+--   - HALT 5 (> 11 rows): does not fire — exact 11.
+--   - HALT 6 (backfill scope creep): N/A — no backfill in Approach A.
+--   - HALT 2 (non-synthetic provider affected): does not fire —
+--     single exact provider_key match.
+--   - HALT 3 (touches tables beyond argument_machine_observation_*):
+--     does not fire — single statement on the runs table only.
+--
+-- OPS-001 §4 four-class compliance:
+--   Class 1 — Ambiguous column references: not applicable; the single
+--     statement references one column (provider_key) on one table; no
+--     subquery, no join.
+--   Class 2 — Column type mismatches: provider_key is text;
+--     'smoke-mcp:test-server' is a text literal. Match.
+--   Class 3 — Implicit ordering dependencies: single statement; no
+--     ordering. The FK ON DELETE CASCADE on results.run_id is declared
+--     in the original MCP-021B migration (line 102) — Postgres handles
+--     the cascade automatically within the same transaction.
+--   Class 4 — Function / trigger / extension dependencies: none
+--     introduced. No COMMENT ON storage.* statement (PR-003 SQLSTATE
+--     42501 boundary preserved).
+-- ============================================================
+
+-- ── Single statement; CASCADE handles dependent results ───────
+-- The ON DELETE CASCADE on results.run_id → runs.id (declared in
+-- 20260526000018_mcp_021b_machine_observation_results.sql line 102)
+-- guarantees the 9 result rows are atomically removed in the same
+-- transaction. Supabase wraps each migration in a transaction; no
+-- explicit BEGIN/COMMIT is required (consistent with the existing
+-- 19 migrations in this repo, none of which use explicit BEGIN/COMMIT).
+
+DELETE FROM public.argument_machine_observation_runs
+WHERE provider_key = 'smoke-mcp:test-server';
+-- Expected affected rows: 2 (runs). 9 result rows are removed by
+-- the CASCADE FK (verified by post-migration Q11 + Q12 returning 0
+-- rows for the synthetic providers).
+
+-- Idempotency proof: a second apply of this migration matches 0
+-- rows (because the first apply removed them) and is a no-op.
+-- The post-merge smoke verifies this by re-running Q11 + Q12 and
+-- confirming zero contamination.
