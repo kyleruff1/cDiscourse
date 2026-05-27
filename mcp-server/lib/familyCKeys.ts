@@ -372,12 +372,3 @@ export const FAMILY_C_PROMPT_ENTRIES: readonly FamilyCPromptEntry[] = Object.fre
       "Do NOT mark TRUE for follow-up questions on accepted answers. Do NOT mark TRUE for adversarial challenges framed as 'you did not answer'. Q-A mismatch surfacing is repair-positive; prevents the conversation from drifting.",
   }),
 ]);
-
-/** MAX_TOKENS for the Family C response. 17 keys × ~85 tokens + overhead. */
-export const FAMILY_C_MAX_TOKENS = 1500;
-
-/** Deterministic decoding. Mirrors Family A/B. */
-export const FAMILY_C_TEMPERATURE = 0;
-
-/** Bound for the moveBody / parentBody fields in the user prompt. */
-export const FAMILY_C_MAX_BODY_FIELD_LEN = 8000;
