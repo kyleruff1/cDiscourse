@@ -5137,4 +5137,44 @@ Run on 2026-05-17 (post Stage 6.1.3.1 dry-corpus gate):
 - `MCP-021C-AUTO-TRIGGER-FAMILY-A-IDEMPOTENCY-HARDENING` (Option B unique index; only if duplicate production runs are observed).
 - `OPS-MCP-RATE-LIMITING` (concurrent caps, per-debate limits, cost-budget enforcement).
 
+## OPS-MCP-FAMILY-VALIDATOR-REFACTOR — Multi-family shared boolean-observation request validator (2026-05-27)
+
+**Status:** Implementer phase complete; operator post-merge smoke pending per `docs/designs/OPS-MCP-FAMILY-VALIDATOR-REFACTOR-intent.md` §8.
+
+**Card:** OPS-MCP-FAMILY-VALIDATOR-REFACTOR (effort S-M; Stage 0 prerequisite for MCP-SERVER-003-BATCH-B-C-D-E).
+**Predecessor:** MCP-021C-AUTO-TRIGGER-FAMILY-A smoke PASS (`e281753`).
+**Design doc:** `docs/designs/OPS-MCP-FAMILY-VALIDATOR-REFACTOR.md` (committed at `1f287c7`).
+**Intent brief:** `docs/designs/OPS-MCP-FAMILY-VALIDATOR-REFACTOR-intent.md` (committed at `6ef132c`).
+
+**What shipped:** A server-side internal refactor that extracts Family A's boolean-observation request validator into a shared `FamilyValidatorRegistry` pattern. Family A self-registers via a dedicated init module; the renamed `validateFamilyBooleanRequest` routes raw-key and family-id checks through the registry instead of hard-coding Family A's data. Family A behavior is preserved byte-equal: every validation rule's literal error-message string from design §2.4 (`'must be string'`, `'length above 8000'`, `` `expected ${X}; got ${Y}` ``, `'out of range 1..60000'`, etc.) survives the rename. The `unsupported_family` / `unsupported_rawKey` / `invalid_params` envelope shapes are unchanged at both the validator boundary and the tool-handler boundary (the handler's literal `'Family A is the only supported family in this server build'` text is untouched). Adding Family B in a follow-on card becomes a one-line `register('disagreement_axis', { ... })` addition in `familyRegistryInit.ts` rather than a near-duplicate `familyBBooleanRequestSchema.ts` file.
+
+**Files touched:**
+- New (5 files):
+  - `mcp-server/lib/familyRegistry.ts` (~150 lines; Map-backed registry; 6 public functions; `createFamilyRegistry()` factory for test isolation).
+  - `mcp-server/lib/familyRegistryInit.ts` (~50 lines; idempotent init module; side-effect-imported by tool handler + parity tests).
+  - `mcp-server/tests/familyRegistry.test.ts` (14 tests; factory-based isolation).
+  - `mcp-server/tests/familyRegistryInit.test.ts` (5 tests; singleton + idempotency).
+  - `mcp-server/tests/familyBooleanRequestSchema.test.ts` (17 tests; byte-equal failure-envelope assertions for every validation rule in design §2.4).
+- Renamed (1 file via `git mv`):
+  - `mcp-server/lib/familyABooleanRequestSchema.ts` → `mcp-server/lib/familyBooleanRequestSchema.ts` (function `validateFamilyABooleanRequest` → `validateFamilyBooleanRequest`; types `FamilyARequestValidationFailure` / `Result` → `FamilyRequestValidationFailure` / `Result`; no thin wrapper kept — Decision 5).
+- Bounded edits (4 files):
+  - `mcp-server/tools/classifyArgumentBooleanObservations.ts` (line 39 import path + function name; new side-effect import of `familyRegistryInit.ts`; line 164 call site updated; tool handler's error-envelope mapping at lines 165-210 unchanged).
+  - `mcp-server/tests/familyAKeysParity.test.ts` (now reads raw keys via `getRawKeysForFamily('parent_relation')`; the `upstreamKeys.length !== 16` invariant + both `Deno.test` names preserved verbatim for CI history).
+  - `mcp-server/tests/familyAFixtureParity.test.ts` (import + 2 call sites updated; side-effect import of `familyRegistryInit.ts` added).
+  - `mcp-server/lib/familyAKeys.ts` (docstring-only update — the 16-key array and `FAMILY_A_CLASSIFIER_SET_VERSION` constant are byte-identical; the comment reference now names the renamed validator).
+
+**Test delta:** **200 → 236 passing Deno tests in `mcp-server/tests/`** (+36 new; matches design §7.3 forecast exactly). Root Jest suite is unchanged (these tests live under `mcp-server/tests/` and run via `deno test`, not Jest). Typecheck + lint clean. Doctrine + secrets greps clean (no verdict tokens in any new user-facing string; no `ANTHROPIC_API_KEY` / `SERVICE_ROLE` / `MCP_SERVER_BEARER_TOKEN` references introduced).
+
+**Operator follow-up post-merge:**
+1. Auto-deploy: the merge triggers Deno Deploy's git auto-deploy (MCP-SERVER-001 deployment pattern; the build is `mcp-server/main.ts` and rebuilds on every push to main). No Supabase migration; no Edge Function redeploy needed (Edge Function calls the MCP server via JSON-RPC and is invisible to this rename).
+2. Run the single-phase post-merge smoke per intent brief §8. Audit file: `docs/audits/OPS-MCP-FAMILY-VALIDATOR-REFACTOR-SMOKE-<YYYY-MM-DD>.md`. Phases: (1) HEAD at refactor merge SHA + hosted server still ACTIVE + `tools/list` still advertises only Family A; (2) hosted Family A direct call; (3) Edge Function `admin_validation` regression on the 3 seeded args; (4) `requestedFamilies=['disagreement_axis']` rejection regression (must still return `unsupported_family` envelope byte-equal); (5) regression tests (`__tests__/mcpOneTwoOneC*`, `cd mcp-server && deno test`).
+3. Verdict thresholds per intent brief §8: PASS = all 5 phases clean + Family A byte-equal verified end-to-end + Family B-J still rejected correctly. FAIL conditions trigger `OPS-MCP-FAMILY-VALIDATOR-REFACTOR-FIX`; do NOT begin MCP-SERVER-003-FAMILY-B until refactor is stable.
+
+**Design self-check (post-implementation):**
+- 19/20 HALT triggers from intent brief §5 + design §9 remain CLEAN. HALT #14 (byte-equal preservation — the dominant risk) is mitigated by the 17 byte-equal envelope-shape assertions in the new schema test plus the unchanged 11 tool-handler integration tests in `classifyArgumentBooleanObservations.test.ts`.
+- cdiscourse-doctrine §1 (no verdict tokens), §6 (no new secrets surfaces), §7 (no AI calls added; pure validation), §10a (registry encodes structural-observation groupings only) all preserved.
+
+**Future cards authorized post-smoke (per intent brief §10, gated on PASS):**
+- `MCP-SERVER-003-BATCH-B-C-D-E` Stage 0 complete; `MCP-SERVER-003-FAMILY-B` AUTHORIZED to begin (one-line addition to `familyRegistryInit.ts` per design).
+
 
