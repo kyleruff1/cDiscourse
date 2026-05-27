@@ -70,6 +70,35 @@ Copy this template to `docs/audits/MCP-SERVER-001-SMOKE-<YYYY-MM-DD>.md` and tic
 
 ## Phase 5 — MCP-018 integration
 
+### Phase 5 prerequisite — DB-config provider override
+
+If ADMIN-AI-001's DB-config layer is in effect (it is, in production as of 2026-05-26),
+Phase 5 will fail to route through MCP if the DB row carries `provider_mode != 'mcp'`.
+Verify and flip before running Phase 5:
+
+```sql
+-- Step 5.A — Inspect the runtime-config row (singleton).
+select id, provider_mode, enabled, updated_at
+from public.semantic_referee_runtime_config
+where id = true;
+
+-- Step 5.B — If provider_mode is not 'mcp', flip it (service-role required).
+update public.semantic_referee_runtime_config
+set provider_mode = 'mcp',
+    enabled = true,
+    updated_at = now()
+where id = true
+returning id, provider_mode, enabled, updated_at;
+```
+
+Schema notes:
+- `id` is `boolean`; the table is a singleton with `id = true` constraint.
+- The active toggle column is `enabled`, not `semantic_referee_enabled`.
+- The Admin UI control for `mcp` provider stays disabled until ADMIN-MCP-001 ships;
+  the SQL update is the operator-only path.
+
+### Phase 5 verification
+
 - [ ] Triggered semantic-referee path on a test room (via the MCP-018 integration runbook OR a direct `semantic-referee` Edge Function invoke).
 - [ ] Returned `SemanticRefereePacket` has `provider: 'mcp'` (NOT `'mock'`, NOT `'anthropic'`).
 - [ ] `authoritative` is `false`.

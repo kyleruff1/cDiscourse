@@ -2,11 +2,11 @@
   "tool": "classify_argument_boolean_observations",
   "input": {
     "schemaVersion": "mcp-021.machine-observations.boolean.v1",
-    "nodeId": "fixture-node-mainline-001",
+    "nodeId": "f41b18b0-8ad6-4865-94c5-17a568f6a6ad",
     "parentNodeId": null,
-    "currentText": "[fixture] I agree with the parent's claim that streetlights reduce nighttime accidents.",
+    "currentText": "[fixture] Long onboarding is an apology for bad UI.",
     "parentText": null,
-    "threadContextExcerpt": "[fixture] Cities should install more streetlights.",
+    "threadContextExcerpt": "[fixture] Debate room: Long onboarding is an apology for bad UI.",
     "requestedFamilies": ["parent_relation"],
     "requestedRawKeys": [
       "supports_parent",

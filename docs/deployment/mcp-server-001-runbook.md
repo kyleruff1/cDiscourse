@@ -24,7 +24,7 @@ Bring the audit template at `docs/audits/MCP-SERVER-001-smoke-template.md` into 
   - `POST /mcp/adapter-compat` — simplified `{tool, input}` envelope the shipped MCP-018 + MCP-021C-EDGE adapters consume. Bearer required.
 - Two registered tools:
   - `classify_semantic_move` — fully implemented; calls Anthropic via the canonical seed prompt and returns a SemanticRefereePacket structural subset.
-  - `classify_argument_boolean_observations` — scaffolded; returns `{isError: true, reason: "not_implemented", scaffoldedFor: "MCP-SERVER-002"}` and DOES NOT consume Anthropic tokens.
+  - `classify_argument_boolean_observations` — fully implemented as of **MCP-SERVER-002**; calls Anthropic via the Family A (`parent_relation`) prompt and returns an MCP-021A `McpBooleanObservationResponse` over 16 binding rawKeys. Family B-J return an `unsupported_family` error envelope. See **MCP-SERVER-002 — Family A testing** below for the test procedure.
 - A local smoke script at `scripts/mcp-server-001-smoke.sh`.
 - Fixtures at `mcp-server/fixtures/`.
 
@@ -205,6 +205,36 @@ Deno Deploy dashboard → project → Logs tab. Log lines are structured JSON. F
 | `promptHash` / `responseHash` | SHA-256 hex (debugging only; the body is NEVER logged) |
 
 You will NOT see: bearer tokens, the Anthropic API key, any raw prompt or response text, any argument body text, any room or move id text.
+
+---
+
+## MCP-SERVER-002 — Family A testing
+
+The MCP-SERVER-002 card promoted `classify_argument_boolean_observations` from
+a scaffolded `not_implemented` envelope to the real Family A classifier. The
+test procedure is documented in detail at `docs/audits/MCP-SERVER-002-smoke-template.md`.
+
+Key points for operator deployment:
+
+1. **No new env vars required.** Family A reuses the same ANTHROPIC_API_KEY +
+   MCP_SERVER_BEARER_TOKEN + ANTHROPIC_MODEL secrets MCP-SERVER-001 already needs.
+   `MCP_SERVER_USE_FIXTURE_PROVIDER=true` (offline mode) is supported for both tools.
+2. **No new dependencies.** Server-side Deno tree only.
+3. **Updated smoke script:** Checks 5 + 9 of `scripts/mcp-server-001-smoke.sh`
+   now validate the REAL Family A response shape (16 rawKeys, schemaVersion,
+   modelInfo.classifierSetVersion='family-a-v1'). Run the same script as before;
+   the new checks are baked in.
+4. **Family B-J:** the server returns `unsupported_family` for any
+   `requestedFamilies` outside `['parent_relation']`. MCP-SERVER-003+ adds
+   additional families.
+5. **Phase 3 validator:** post-deploy, capture the Family A response payload
+   and run `deno run --allow-read mcp-server/scripts/validate-family-a-response.ts
+   <payload-path>` to verify MCP-021A schema compliance.
+6. **Provider precedence reminder (added with MCP-SERVER-002):** the
+   `public.semantic_referee_runtime_config.provider_mode` DB row wins over the
+   `SEMANTIC_REFEREE_PROVIDER` env var. If Phase 5 returns the wrong provider,
+   inspect and flip the DB row (see `docs/audits/MCP-SERVER-001-smoke-template.md`
+   Phase 5 prerequisite).
 
 ---
 

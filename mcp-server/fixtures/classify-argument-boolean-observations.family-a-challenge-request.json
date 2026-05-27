@@ -2,11 +2,11 @@
   "tool": "classify_argument_boolean_observations",
   "input": {
     "schemaVersion": "mcp-021.machine-observations.boolean.v1",
-    "nodeId": "fixture-node-mainline-001",
-    "parentNodeId": null,
-    "currentText": "[fixture] I agree with the parent's claim that streetlights reduce nighttime accidents.",
-    "parentText": null,
-    "threadContextExcerpt": "[fixture] Cities should install more streetlights.",
+    "nodeId": "781f8057-9e2a-4fa9-92a8-469676950ff7",
+    "parentNodeId": "f41b18b0-8ad6-4865-94c5-17a568f6a6ad",
+    "currentText": "[fixture] That ignores the role of user education — some products require onboarding because the domain is genuinely complex, not because the UI is bad.",
+    "parentText": "[fixture] Long onboarding is an apology for bad UI.",
+    "threadContextExcerpt": "[fixture] Debate room: Long onboarding is an apology for bad UI. Depth 1 challenge.",
     "requestedFamilies": ["parent_relation"],
     "requestedRawKeys": [
       "supports_parent",

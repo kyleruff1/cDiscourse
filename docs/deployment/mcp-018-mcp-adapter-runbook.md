@@ -94,6 +94,13 @@ After 4b, the next `classifyMove` invocation routes to the operator-hosted MCP a
 
 > **DB-config alternative.** If ADMIN-AI-001's DB layer is the runtime source of truth, the provider flip is instead a SQL update of the `semantic_referee_runtime_config.provider_mode` row to `'mcp'`. The `provider_mode` CHECK constraint already permits `'mcp'` (ADMIN-AI-001). **Note the Admin UI control for `mcp` stays disabled** ("Coming later" label) — making `mcp` admin-selectable is a separate one-line follow-up card (add `'mcp'` to the write-path `z.enum` in `adminSemanticConfigSchemas.ts` and drop the UI `disabled` flag); it is **not** part of MCP-018. The DB row can still be set by hand. The DB layer overrides the env var when a DB row exists.
 
+> **Provider precedence (binding).** The semantic-referee Edge Function selects its provider via this precedence chain:
+> 1. `public.semantic_referee_runtime_config.provider_mode` (DB row) — wins if present (singleton table; `id` is boolean, pinned to `true`).
+> 2. `SEMANTIC_REFEREE_PROVIDER` Supabase secret — wins only if no DB row exists.
+> 3. Default `'mock'` — wins only if neither is set.
+>
+> ADMIN-AI-001 introduced the DB-config layer. The DB row, when present, has higher precedence than the env var. MCP-SERVER-001-SMOKE on 2026-05-26 surfaced this when Phase 5 returned `provider: 'anthropic'` despite `SEMANTIC_REFEREE_PROVIDER=mcp` being set as a Supabase secret — the DB row carried `provider_mode='anthropic'` from an earlier session. The fix was a service-role SQL update on the DB row, NOT a secret change. Both layers should match in production to avoid this confusion.
+
 > **Doctrine note.** `SEMANTIC_REFEREE_PROVIDER` defaults to `'mock'`. Any value other than the exact string `'mcp'` (including unset) keeps the deterministic mock provider. There is no way to make `mcp` the default — it is always an explicit operator opt-in.
 
 ---

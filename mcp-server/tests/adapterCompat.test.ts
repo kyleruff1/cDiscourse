@@ -31,15 +31,20 @@ Deno.test('invokeToolByName accepts the verbatim semantic-referee name', async (
 });
 
 Deno.test('invokeToolByName accepts the verbatim boolean-observations name', async () => {
+  // MCP-SERVER-002 promoted this tool from scaffold to real. With empty
+  // rawArgs the real validator rejects with invalid_params (not_implemented
+  // is gone). The dispatch contract: the dispatch DOES NOT fail on the name
+  // itself; the validator does.
   const result = await invokeToolByName({
     toolName: 'classify_argument_boolean_observations',
     rawArgs: {},
     requestId: 'r3',
     envelope: 'jsonRpc',
   });
-  // Scaffolded tool — must return isError: true + reason: not_implemented.
   assertEquals(result.isError, true);
-  const sc = result.structuredContent as { reason: string; scaffoldedFor: string };
-  assertEquals(sc.reason, 'not_implemented');
-  assertEquals(sc.scaffoldedFor, 'MCP-SERVER-002');
+  const sc = result.structuredContent as { reason?: string };
+  if (sc.reason === 'unknown_tool') {
+    throw new Error('classify_argument_boolean_observations dispatch returned unknown_tool');
+  }
+  assertEquals(sc.reason, 'invalid_params');
 });

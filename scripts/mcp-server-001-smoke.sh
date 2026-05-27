@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script.
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002).
 #
 # Verifies the deployed (or locally-running) MCP server against the 9 checks
-# documented in `docs/designs/MCP-SERVER-001.md` §19.3.
+# documented in `docs/designs/MCP-SERVER-001.md` §19.3 + the MCP-SERVER-002
+# extensions to Check 5 + Check 9 (real Family A response shape instead of
+# scaffolded not_implemented envelope).
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -23,8 +25,10 @@
 #     a redacted "[REDACTED]" placeholder on diagnostic output.
 #   - The script does NOT need an Anthropic API key. The
 #     `classify_semantic_move` check works against the server's fixture
-#     provider when `MCP_SERVER_USE_FIXTURE_PROVIDER=true`. Real Anthropic
-#     calls happen ONLY in production.
+#     provider when `MCP_SERVER_USE_FIXTURE_PROVIDER=true`. The Family A
+#     boolean tool (Checks 5 + 9) ALSO works against the fixture provider
+#     when the same env is set. Real Anthropic calls happen ONLY in
+#     production (when the env is not set AND ANTHROPIC_API_KEY is present).
 
 set -u
 set -o pipefail
@@ -215,19 +219,30 @@ else
   fail "$CHECK_NAME" "Expected SemanticRefereePacket structural subset. Got: $RESPONSE"
 fi
 
-# ── Check 5: POST /mcp/adapter-compat with VALID bearer + boolean (scaffold) ──
-CHECK_NAME="5-compat-boolean-scaffold"
-BOOLEAN_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node","currentText":"[fixture] body","threadContextExcerpt":"[fixture] thread","requestedFamilies":["family_evidence"],"requestedRawKeys":["evidence_present"],"definitions":{},"timeoutMs":12000}}'
-note "POST $BASE_URL/mcp/adapter-compat (boolean scaffolded)"
+# ── Check 5: POST /mcp/adapter-compat with VALID bearer + boolean (real Family A) ──
+# MCP-SERVER-002 promoted this tool from scaffold to real. The request body now uses
+# Family A rawKeys (parent_relation family). Response shape MUST be a real
+# McpBooleanObservationResponse per the MCP-021A schema:
+#   - schemaVersion: 'mcp-021.machine-observations.boolean.v1'
+#   - observations is an object of booleans
+#   - confidence is an object of low|medium|high
+#   - modelInfo.classifierSetVersion is 'family-a-v1'
+# The smoke runs against either a real Anthropic key OR the fixture provider
+# (MCP_SERVER_USE_FIXTURE_PROVIDER=true). Either way the response shape is the same.
+CHECK_NAME="5-compat-boolean-family-a"
+BOOLEAN_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-001","parentNodeId":null,"currentText":"[fixture] body","parentText":null,"threadContextExcerpt":"[fixture] thread","requestedFamilies":["parent_relation"],"requestedRawKeys":["supports_parent","challenges_parent"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family A)"
 RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_REQUEST")"
 if [[ $? -ne 0 ]]; then
   fail "$CHECK_NAME" "$RESPONSE"
-elif contains "$RESPONSE" '"isError":true' \
-     && contains "$RESPONSE" '"reason":"not_implemented"' \
-     && contains "$RESPONSE" 'MCP-SERVER-002'; then
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-a-v1"'; then
   pass "$CHECK_NAME"
 else
-  fail "$CHECK_NAME" "Expected scaffolded error envelope. Got: $RESPONSE"
+  fail "$CHECK_NAME" "Expected real Family A response shape. Got: $RESPONSE"
 fi
 
 # ── Check 6: POST /mcp with VALID bearer + initialize ──────────────
@@ -274,19 +289,24 @@ else
   fail "$CHECK_NAME" "Expected structured tool result. Got: $RESPONSE"
 fi
 
-# ── Check 9: POST /mcp tools/call classify_argument_boolean_observations ──
-CHECK_NAME="9-mcp-tools-call-boolean-scaffold"
-BOOLEAN_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-2","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node","currentText":"[fixture] body","threadContextExcerpt":"[fixture] thread","requestedFamilies":["family_evidence"],"requestedRawKeys":["evidence_present"],"definitions":{},"timeoutMs":12000}}}'
-note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations)"
+# ── Check 9: POST /mcp tools/call classify_argument_boolean_observations (Family A) ──
+# MCP-SERVER-002 promoted this tool from scaffold to real. Same body + same assertion
+# pattern as Check 5, but via the official MCP /mcp endpoint with JSON-RPC envelope.
+CHECK_NAME="9-mcp-tools-call-boolean-family-a"
+BOOLEAN_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-2","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-001","parentNodeId":null,"currentText":"[fixture] body","parentText":null,"threadContextExcerpt":"[fixture] thread","requestedFamilies":["parent_relation"],"requestedRawKeys":["supports_parent","challenges_parent"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations Family A)"
 RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_CALL_BODY")"
 if [[ $? -ne 0 ]]; then
   fail "$CHECK_NAME" "$RESPONSE"
-elif contains "$RESPONSE" '"isError":true' \
-     && contains "$RESPONSE" '"reason":"not_implemented"' \
-     && contains "$RESPONSE" 'MCP-SERVER-002'; then
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-a-v1"' \
+     && contains "$RESPONSE" '"isError":false'; then
   pass "$CHECK_NAME"
 else
-  fail "$CHECK_NAME" "Expected scaffolded error envelope. Got: $RESPONSE"
+  fail "$CHECK_NAME" "Expected real Family A tool result. Got: $RESPONSE"
 fi
 
 echo

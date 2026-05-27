@@ -141,3 +141,29 @@ Deno.test('anthropic source file never console.logs the Authorization header', a
     throw new Error('anthropic.ts contains a console.log line that mentions ANTHROPIC_API_KEY');
   }
 });
+
+Deno.test('anthropicCall source file never console.logs the Authorization header', async () => {
+  const source = await Deno.readTextFile(new URL('../lib/anthropicCall.ts', import.meta.url));
+  if (/console\.log.*Authorization/i.test(source)) {
+    throw new Error('anthropicCall.ts contains a console.log line that mentions Authorization');
+  }
+  if (/console\.log.*x-api-key/i.test(source)) {
+    throw new Error('anthropicCall.ts contains a console.log line that mentions x-api-key');
+  }
+  if (/console\.log.*ANTHROPIC_API_KEY/i.test(source)) {
+    throw new Error('anthropicCall.ts contains a console.log line that mentions ANTHROPIC_API_KEY');
+  }
+});
+
+Deno.test('familyAAnthropic source file never console.logs the Authorization header', async () => {
+  const source = await Deno.readTextFile(new URL('../lib/familyAAnthropic.ts', import.meta.url));
+  if (/console\.log.*Authorization/i.test(source)) {
+    throw new Error('familyAAnthropic.ts contains a console.log line that mentions Authorization');
+  }
+  if (/console\.log.*x-api-key/i.test(source)) {
+    throw new Error('familyAAnthropic.ts contains a console.log line that mentions x-api-key');
+  }
+  if (/console\.log.*ANTHROPIC_API_KEY/i.test(source)) {
+    throw new Error('familyAAnthropic.ts contains a console.log line that mentions ANTHROPIC_API_KEY');
+  }
+});
