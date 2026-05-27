@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-b-1",
+  "checkedRawKeys": ["disputes_value_weighting"],
+  "observations": {
+    "disputes_value_weighting": true
+  },
+  "confidence": {
+    "disputes_value_weighting": "high"
+  },
+  "evidenceSpan": {
+    "disputes_value_weighting": "anyone who disagrees is a propagandist"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-b-v1"
+  }
+}

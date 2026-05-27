@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-mainline-b-001",
+  "checkedRawKeys": [
+    "disputes_evidence_applicability",
+    "disagreement_present",
+    "disputes_definition",
+    "disputes_scope",
+    "disputes_fact",
+    "disputes_causal_link",
+    "disputes_value_weighting",
+    "disputes_decision_criterion",
+    "disputes_generalization",
+    "disputes_analogy",
+    "disputes_interpretation",
+    "disputes_priority_order",
+    "disputes_remedy_or_solution",
+    "disputes_relevance"
+  ],
+  "observations": {
+    "disputes_evidence_applicability": false,
+    "disagreement_present": true,
+    "disputes_definition": false,
+    "disputes_scope": true,
+    "disputes_fact": true,
+    "disputes_causal_link": false,
+    "disputes_value_weighting": false,
+    "disputes_decision_criterion": false,
+    "disputes_generalization": false,
+    "disputes_analogy": false,
+    "disputes_interpretation": false,
+    "disputes_priority_order": false,
+    "disputes_remedy_or_solution": false,
+    "disputes_relevance": false
+  },
+  "confidence": {
+    "disputes_evidence_applicability": "medium",
+    "disagreement_present": "high",
+    "disputes_definition": "medium",
+    "disputes_scope": "high",
+    "disputes_fact": "high",
+    "disputes_causal_link": "medium",
+    "disputes_value_weighting": "medium",
+    "disputes_decision_criterion": "medium",
+    "disputes_generalization": "medium",
+    "disputes_analogy": "medium",
+    "disputes_interpretation": "medium",
+    "disputes_priority_order": "medium",
+    "disputes_remedy_or_solution": "medium",
+    "disputes_relevance": "medium"
+  },
+  "evidenceSpan": {
+    "disputes_evidence_applicability": null,
+    "disagreement_present": "EV adoption is at 10% nationally; that figure does not apply to dense urban areas where adoption runs higher.",
+    "disputes_definition": null,
+    "disputes_scope": "that figure does not apply to dense urban areas",
+    "disputes_fact": "EV adoption is at 10% nationally",
+    "disputes_causal_link": null,
+    "disputes_value_weighting": null,
+    "disputes_decision_criterion": null,
+    "disputes_generalization": null,
+    "disputes_analogy": null,
+    "disputes_interpretation": null,
+    "disputes_priority_order": null,
+    "disputes_remedy_or_solution": null,
+    "disputes_relevance": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-b-v1"
+  }
+}

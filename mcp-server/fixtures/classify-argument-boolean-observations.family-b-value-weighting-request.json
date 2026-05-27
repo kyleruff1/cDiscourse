@@ -1,0 +1,30 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-b-value-weighting-node",
+    "parentNodeId": "fixture-b-value-weighting-parent",
+    "currentText": "[fixture] Efficiency is a real value, but equity of access matters more here — the high-cost rural branches serve people who lack alternatives.",
+    "parentText": "[fixture] Library funding should prioritize efficiency.",
+    "threadContextExcerpt": "[fixture] Debate room: Library funding criteria. Depth 1 value-weighting dispute.",
+    "requestedFamilies": ["disagreement_axis"],
+    "requestedRawKeys": [
+      "disputes_evidence_applicability",
+      "disagreement_present",
+      "disputes_definition",
+      "disputes_scope",
+      "disputes_fact",
+      "disputes_causal_link",
+      "disputes_value_weighting",
+      "disputes_decision_criterion",
+      "disputes_generalization",
+      "disputes_analogy",
+      "disputes_interpretation",
+      "disputes_priority_order",
+      "disputes_remedy_or_solution",
+      "disputes_relevance"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

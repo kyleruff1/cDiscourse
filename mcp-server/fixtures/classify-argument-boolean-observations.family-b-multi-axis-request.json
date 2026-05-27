@@ -1,0 +1,30 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-b-multi-axis-node",
+    "parentNodeId": "fixture-b-multi-axis-parent",
+    "currentText": "[fixture] Carbon taxes work where enforcement is durable; Australia's was repealed before measurement, so the generalization is too strong. And the spam analogy fails: spam has technical markers, misinformation is contextual judgment.",
+    "parentText": "[fixture] Carbon taxes always reduce emissions; the BC data proves it. Misinformation is like spam — filter at the platform.",
+    "threadContextExcerpt": "[fixture] Debate room: Policy generalization and analogies. Depth 1 multi-axis dispute.",
+    "requestedFamilies": ["disagreement_axis"],
+    "requestedRawKeys": [
+      "disputes_evidence_applicability",
+      "disagreement_present",
+      "disputes_definition",
+      "disputes_scope",
+      "disputes_fact",
+      "disputes_causal_link",
+      "disputes_value_weighting",
+      "disputes_decision_criterion",
+      "disputes_generalization",
+      "disputes_analogy",
+      "disputes_interpretation",
+      "disputes_priority_order",
+      "disputes_remedy_or_solution",
+      "disputes_relevance"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
