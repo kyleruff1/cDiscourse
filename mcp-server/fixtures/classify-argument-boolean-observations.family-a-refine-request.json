@@ -1,0 +1,32 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "db0de3e0-24c6-40af-ba5f-2844acfa5bac",
+    "parentNodeId": "781f8057-9e2a-4fa9-92a8-469676950ff7",
+    "currentText": "[fixture] Even where the domain is complex, the onboarding should distinguish complexity-of-domain from complexity-of-interface — only the latter is an apology for bad UI.",
+    "parentText": "[fixture] That ignores the role of user education — some products require onboarding because the domain is genuinely complex, not because the UI is bad.",
+    "threadContextExcerpt": "[fixture] Debate room: Long onboarding is an apology for bad UI. Depth 2 counter-rebuttal.",
+    "requestedFamilies": ["parent_relation"],
+    "requestedRawKeys": [
+      "supports_parent",
+      "challenges_parent",
+      "refines_parent",
+      "extends_parent",
+      "distinguishes_parent",
+      "reframes_parent",
+      "questions_parent",
+      "summarizes_parent",
+      "acknowledges_parent",
+      "corrects_parent_detail",
+      "contrasts_with_parent",
+      "answers_parent_question",
+      "has_rebuttal",
+      "has_counter_rebuttal",
+      "rebutted",
+      "quote_anchors_parent"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-1",
+  "checkedRawKeys": ["supports_parent"],
+  "observations": {
+    "supports_parent": true
+  },
+  "confidence": {
+    "supports_parent": "high"
+  },
+  "evidenceSpan": {
+    "supports_parent": "This claim seems to be the winner of the round"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-a-v1"
+  }
+}

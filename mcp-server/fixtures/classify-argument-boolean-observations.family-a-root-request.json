@@ -1,0 +1,32 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "f41b18b0-8ad6-4865-94c5-17a568f6a6ad",
+    "parentNodeId": null,
+    "currentText": "[fixture] Long onboarding is an apology for bad UI.",
+    "parentText": null,
+    "threadContextExcerpt": "[fixture] Debate room: Long onboarding is an apology for bad UI.",
+    "requestedFamilies": ["parent_relation"],
+    "requestedRawKeys": [
+      "supports_parent",
+      "challenges_parent",
+      "refines_parent",
+      "extends_parent",
+      "distinguishes_parent",
+      "reframes_parent",
+      "questions_parent",
+      "summarizes_parent",
+      "acknowledges_parent",
+      "corrects_parent_detail",
+      "contrasts_with_parent",
+      "answers_parent_question",
+      "has_rebuttal",
+      "has_counter_rebuttal",
+      "rebutted",
+      "quote_anchors_parent"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

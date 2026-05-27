@@ -1,0 +1,15 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-node-unsupported-family-1",
+    "parentNodeId": null,
+    "currentText": "[fixture] Sample move that targets an unsupported family.",
+    "parentText": null,
+    "threadContextExcerpt": "[fixture] Thread.",
+    "requestedFamilies": ["evidence_hygiene"],
+    "requestedRawKeys": ["evidence_present"],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
