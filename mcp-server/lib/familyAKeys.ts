@@ -39,8 +39,8 @@
 
 /**
  * The 16 Family A rawKeys, frozen in declaration order. Used by:
- *   - validateFamilyABooleanRequest (rejects unknown rawKeys with
- *     unsupported_rawKey error envelope)
+ *   - validateFamilyBooleanRequest (rejects unknown rawKeys with
+ *     unsupported_rawKey error envelope; routes via familyRegistry)
  *   - validateMcpBooleanObservationResponse (rejects checkedRawKeys
  *     entries outside this set)
  *   - the parity test (asserts every literal is present in both source
