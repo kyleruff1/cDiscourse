@@ -12,7 +12,7 @@
  * corresponding validators (negative tests).
  *
  * The 3 fixture requests MUST be valid Family A requests
- * (validateFamilyABooleanRequest returns ok=true).
+ * (validateFamilyBooleanRequest returns ok=true).
  */
 import { assertEquals } from 'std/assert/mod.ts';
 import {
@@ -21,7 +21,8 @@ import {
 } from '../lib/mcpBooleanObservationSchemaMirror.ts';
 import { scanFamilyABooleanResponseForBanList } from '../lib/familyABanListScan.ts';
 import { FAMILY_A_RAW_KEYS } from '../lib/familyAKeys.ts';
-import { validateFamilyABooleanRequest } from '../lib/familyABooleanRequestSchema.ts';
+import '../lib/familyRegistryInit.ts'; // side-effect: register Family A
+import { validateFamilyBooleanRequest } from '../lib/familyBooleanRequestSchema.ts';
 
 const FIXTURE_DIR = new URL('../fixtures/', import.meta.url);
 
@@ -242,7 +243,7 @@ Deno.test('fixture: 3 Family A request fixtures pass request validator', async (
   ];
   for (const name of requestNames) {
     const wrapper = (await loadFixture(name)) as { input: Record<string, unknown> };
-    const result = validateFamilyABooleanRequest(wrapper.input);
+    const result = validateFamilyBooleanRequest(wrapper.input);
     if (!result.ok) {
       throw new Error(`${name} failed request validator`);
     }
@@ -253,7 +254,7 @@ Deno.test('fixture: unsupported-family-request returns kind=unsupported_family',
   const wrapper = (await loadFixture(
     'classify-argument-boolean-observations.unsupported-family-request.json',
   )) as { input: Record<string, unknown> };
-  const result = validateFamilyABooleanRequest(wrapper.input);
+  const result = validateFamilyBooleanRequest(wrapper.input);
   assertEquals(result.ok, false);
   if (!result.ok) {
     assertEquals(result.kind, 'unsupported_family');

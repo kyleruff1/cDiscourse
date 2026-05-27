@@ -10,7 +10,10 @@
  * If MCP-021A adds/removes a Family A rawKey, this test fails the build
  * and forces a coordinated bump on the server-side mirror.
  */
-import { FAMILY_A_RAW_KEYS } from '../lib/familyAKeys.ts';
+import '../lib/familyRegistryInit.ts'; // side-effect: register Family A
+import { getRawKeysForFamily } from '../lib/familyRegistry.ts';
+
+const FAMILY_A_RAW_KEYS = Array.from(getRawKeysForFamily('parent_relation'));
 
 const UPSTREAM_FAMILY_A_PATH = new URL(
   '../../src/features/nodeLabels/machineObservationDefinitions/familyA.ts',
