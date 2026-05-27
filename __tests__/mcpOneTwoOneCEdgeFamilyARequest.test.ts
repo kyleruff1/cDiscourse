@@ -1,18 +1,23 @@
 /**
- * MCP-021C-EDGE — Test: Family A exact 16-key binding.
+ * MCP-021C-EDGE — Test: Family A exact 16-key binding + post-Stage-2B
+ * production-mode A+B+C admission.
  *
- * Per Decision 3 (BINDING): production mode at MCP-021C-EDGE ship MUST
- * send exactly the 16 Family A keys, no more, no less.
+ * Per Decision 3 (BINDING): Family A in the registry is exactly the 16
+ * raw keys listed below; this is the FOCUSED binding gate — if a future
+ * card adds a Family A key without updating this list, the test fires.
  *
- * The binding list (Decision 3):
+ * Per Stage 2B (`MCP-021C-EDGE-FAMILIES-B-C-ENABLE`): production mode
+ * now admits Family A (16 keys) + Family B (disagreement_axis, 14 keys)
+ * + Family C (misunderstanding_repair, 17 keys) = 47 raw keys total
+ * across the 3 productionEnabled families. Families D–J are still
+ * dropped from production-mode requests at the request-builder layer.
+ *
+ * The binding Family A list (Decision 3):
  *   supports_parent, challenges_parent, refines_parent, extends_parent,
  *   distinguishes_parent, reframes_parent, questions_parent,
  *   summarizes_parent, acknowledges_parent, corrects_parent_detail,
  *   contrasts_with_parent, answers_parent_question, has_rebuttal,
  *   has_counter_rebuttal, rebutted, quote_anchors_parent.
- *
- * This file is the FOCUSED binding gate — if a future card adds a
- * Family A key without updating this list, the test fires.
  */
 
 import {
@@ -123,8 +128,10 @@ describe('MCP-021C-EDGE — production mode sends exactly the 16 Family A keys',
   });
 });
 
-describe('MCP-021C-EDGE — production NEVER leaks non-Family-A keys', () => {
-  it('FA-12 — requestedRawKeys contains NO Family B keys', () => {
+describe('MCP-021C-EDGE — production filters out D–J keys (post Stage 2B: A+B+C kept)', () => {
+  it('FA-12 — requestedRawKeys CONTAINS Family B keys when B is requested (post Stage 2B)', () => {
+    // Post Stage 2B (MCP-021C-EDGE-FAMILIES-B-C-ENABLE): disagreement_axis (B)
+    // is productionEnabled, so production mode keeps its keys.
     const req = edgeBuildBooleanObservationRequestForArgument({
       argumentId: 'arg-1',
       parentArgumentId: 'arg-0',
@@ -135,12 +142,13 @@ describe('MCP-021C-EDGE — production NEVER leaks non-Family-A keys', () => {
       mode: 'production',
     });
     const familyB = edgeGetDefinitionsForFamily('disagreement_axis').map((d) => d.rawKey);
+    expect(familyB.length).toBeGreaterThan(0);
     for (const key of familyB) {
-      expect(req.requestedRawKeys).not.toContain(key);
+      expect(req.requestedRawKeys).toContain(key);
     }
   });
 
-  it('FA-13 — requestedRawKeys contains NO Family J (sensitive_composer) keys', () => {
+  it('FA-13 — requestedRawKeys contains NO Family J (sensitive_composer) keys (J remains admin-only)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       argumentId: 'arg-1',
       parentArgumentId: 'arg-0',
@@ -156,7 +164,10 @@ describe('MCP-021C-EDGE — production NEVER leaks non-Family-A keys', () => {
     }
   });
 
-  it('FA-14 — every definition in the request has family === parent_relation', () => {
+  it('FA-14 — every definition in the request has family in {parent_relation, disagreement_axis} (D dropped, post Stage 2B)', () => {
+    // Post Stage 2B: A (parent_relation) and B (disagreement_axis) kept;
+    // D (evidence_source_chain) remains admin-only and is dropped from
+    // production-mode requests.
     const req = edgeBuildBooleanObservationRequestForArgument({
       argumentId: 'arg-1',
       parentArgumentId: 'arg-0',
@@ -166,8 +177,14 @@ describe('MCP-021C-EDGE — production NEVER leaks non-Family-A keys', () => {
       requestedFamilies: ['parent_relation', 'disagreement_axis', 'evidence_source_chain'],
       mode: 'production',
     });
+    const ALLOWED_PRODUCTION_FAMILIES = new Set(['parent_relation', 'disagreement_axis']);
     for (const def of Object.values(req.definitions)) {
-      expect(def.family).toBe('parent_relation');
+      expect(ALLOWED_PRODUCTION_FAMILIES.has(def.family)).toBe(true);
+    }
+    // The forbidden family (evidence_source_chain — D, admin-only) must
+    // not appear in any definition.
+    for (const def of Object.values(req.definitions)) {
+      expect(def.family).not.toBe('evidence_source_chain');
     }
   });
 });

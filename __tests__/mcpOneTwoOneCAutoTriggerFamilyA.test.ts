@@ -113,8 +113,15 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — wiring in submit-argument', () => {
 });
 
 describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — dispatcher source contract', () => {
-  it('TRG-11 — dispatcher hard-codes requestedFamilies = [\'parent_relation\'] (no external input)', () => {
-    expect(dispatcherText).toContain("'parent_relation'");
+  it('TRG-11 — dispatcher derives requestedFamilies from productionEnabledFamilies() (registry-derived post Stage 2B)', () => {
+    // Post Stage 2B (MCP-021C-EDGE-FAMILIES-B-C-ENABLE), the dispatcher
+    // no longer hard-codes a single family literal. It imports
+    // productionEnabledFamilies from the registry and uses its output
+    // as the dispatch family list.
+    expect(dispatcherText).toContain('productionEnabledFamilies');
+    expect(/import\s+\{[\s\S]*?productionEnabledFamilies[\s\S]*?\}\s+from\s+['"]\.\/familyRegistry\.ts['"]/.test(
+      dispatcherText,
+    )).toBe(true);
   });
 
   it('TRG-12 — dispatcher hard-codes mode = \'production\' (literal, not computed)', () => {
@@ -154,29 +161,44 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — dispatcher source contract', () => 
     expect(/await\s+requireAdmin\s*\(\s*req\s*\)/.test(classifierText)).toBe(true);
   });
 
-  it('TRG-18 — dispatcher source mentions \'parent_relation\' as a literal (the only family string)', () => {
-    // The literal appears in AUTO_TRIGGER_FAMILIES + in the idempotency
-    // pre-check's .contains(...) array argument.
-    const matches = dispatcherText.match(/'parent_relation'/g) ?? [];
-    expect(matches.length).toBeGreaterThanOrEqual(1);
-    // No OTHER family literal should appear.
-    expect(dispatcherText).not.toContain("'disagreement_axis'");
-    expect(dispatcherText).not.toContain("'misunderstanding_repair'");
-    expect(dispatcherText).not.toContain("'evidence_source_chain'");
-    expect(dispatcherText).not.toContain("'argument_scheme'");
-    expect(dispatcherText).not.toContain("'critical_question'");
-    expect(dispatcherText).not.toContain("'resolution_progress'");
-    expect(dispatcherText).not.toContain("'claim_clarity'");
-    expect(dispatcherText).not.toContain("'thread_topology'");
-    expect(dispatcherText).not.toContain("'sensitive_composer'");
+  it('TRG-18 — dispatcher source contains NO family literals at all (fully registry-derived)', () => {
+    // Post Stage 2B: the dispatcher derives the production family list
+    // from productionEnabledFamilies() at runtime. No family literal
+    // appears in the source — neither parent_relation, nor B/C, nor
+    // any of D–J. This is the strongest registry-derived guarantee
+    // (operator preference per Stage 2B). The single per-iteration
+    // [family] array is built from the loop variable, not from a
+    // literal string.
+    const ALL_FAMILY_LITERALS = [
+      "'parent_relation'",
+      "'disagreement_axis'",
+      "'misunderstanding_repair'",
+      "'evidence_source_chain'",
+      "'argument_scheme'",
+      "'critical_question'",
+      "'resolution_progress'",
+      "'claim_clarity'",
+      "'thread_topology'",
+      "'sensitive_composer'",
+    ];
+    for (const literal of ALL_FAMILY_LITERALS) {
+      expect(dispatcherText).not.toContain(literal);
+    }
   });
 
-  it('TRG-19 — dispatcher calls classifyOneArgumentCore with the binding payload', () => {
-    // (argumentId, AUTO_TRIGGER_FAMILIES, AUTO_TRIGGER_MODE, serviceClient, adapter)
+  it('TRG-19 — dispatcher calls classifyOneArgumentCore with single-family [family] + AUTO_TRIGGER_MODE inside the per-family loop', () => {
+    // Post Stage 2B: the dispatcher loops over productionEnabledFamilies()
+    // and invokes classifyOneArgumentCore once per family with a
+    // single-element array. AUTO_TRIGGER_MODE (the 'production'
+    // literal) is preserved as a constant. AUTO_TRIGGER_FAMILIES is
+    // GONE — the families are sourced from the registry at runtime.
     expect(dispatcherText).toContain('classifyOneArgumentCore(');
-    expect(dispatcherText).toContain('AUTO_TRIGGER_FAMILIES');
     expect(dispatcherText).toContain('AUTO_TRIGGER_MODE');
     expect(dispatcherText).toContain('runBooleanObservationMcpAdapter');
+    // The sequential for-of loop over eligibleFamilies must exist.
+    expect(/for\s*\(\s*const\s+\w+\s+of\s+eligibleFamilies\s*\)/.test(dispatcherText)).toBe(true);
+    // The old AUTO_TRIGGER_FAMILIES constant must NOT exist.
+    expect(dispatcherText).not.toContain('AUTO_TRIGGER_FAMILIES');
   });
 
   it('TRG-20 — doctrine ban-list scan: no verdict / winner / loser language in the dispatcher source', () => {

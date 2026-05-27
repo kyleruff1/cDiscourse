@@ -139,10 +139,16 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — skip-on-disabled', () => {
 });
 
 describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — skip-on-family-not-enabled', () => {
-  it('FAIL-13 — empty filterFamiliesForMode result returns \'skipped\' with reason \'family_not_enabled\'', () => {
+  it('FAIL-13 — empty productionEnabledFamilies() result returns \'skipped\' with reason \'family_not_enabled\' (registry-derived post Stage 2B)', () => {
+    // Post Stage 2B (MCP-021C-EDGE-FAMILIES-B-C-ENABLE): the dispatcher
+    // sources its production family list from productionEnabledFamilies()
+    // directly (the registry helper returns an already-filtered list).
+    // The defensive zero-length branch still fires the same skip outcome,
+    // but the upstream helper is productionEnabledFamilies() not
+    // filterFamiliesForMode (the registry IS the filter).
     expect(dispatcherText).toContain("skipReason: 'family_not_enabled'");
     expect(dispatcherText).toContain("skip_reason: 'family_not_enabled'");
-    expect(dispatcherText).toMatch(/filterFamiliesForMode\s*\(/);
+    expect(dispatcherText).toMatch(/productionEnabledFamilies\s*\(\s*\)/);
     expect(dispatcherText).toMatch(/eligibleFamilies\.length\s*===\s*0/);
   });
 });
