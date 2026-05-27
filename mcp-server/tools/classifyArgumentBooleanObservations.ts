@@ -36,7 +36,10 @@
 import type { ToolInvocation, ToolCallResult } from '../lib/toolDispatch.ts';
 import type { ToolMetadata } from '../lib/toolRegistry.ts';
 import { log } from '../lib/logging.ts';
-import { validateFamilyABooleanRequest } from '../lib/familyABooleanRequestSchema.ts';
+import { validateFamilyBooleanRequest } from '../lib/familyBooleanRequestSchema.ts';
+// Side-effect import: ensure the family registry is initialized (Family A
+// self-registers) before the validator runs.
+import '../lib/familyRegistryInit.ts';
 import { runAnthropicFamilyAClassifier } from '../lib/familyAAnthropic.ts';
 import { loadFixtureFamilyAPacket } from '../lib/familyAFixtureProvider.ts';
 import { validateMcpBooleanObservationResponse } from '../lib/mcpBooleanObservationSchemaMirror.ts';
@@ -161,7 +164,7 @@ export async function handleClassifyArgumentBooleanObservations(
   }
 
   // Step 1: server-side input validation.
-  const validated = validateFamilyABooleanRequest(args);
+  const validated = validateFamilyBooleanRequest(args);
   if (!validated.ok) {
     if (validated.kind === 'unsupported_family') {
       log('warn', 'boolean_observations_unsupported_family', {
