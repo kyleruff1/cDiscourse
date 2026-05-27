@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-c-1",
+  "checkedRawKeys": ["rejects_candidate_understanding"],
+  "observations": {
+    "rejects_candidate_understanding": true
+  },
+  "confidence": {
+    "rejects_candidate_understanding": "high"
+  },
+  "evidenceSpan": {
+    "rejects_candidate_understanding": "the rejector showed the parent author was a propagandist"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-c-v1"
+  }
+}

@@ -28,11 +28,15 @@ import {
   FAMILY_B_RAW_KEYS,
   FAMILY_B_CLASSIFIER_SET_VERSION,
 } from '../lib/familyBKeys.ts';
+import {
+  FAMILY_C_RAW_KEYS,
+  FAMILY_C_CLASSIFIER_SET_VERSION,
+} from '../lib/familyCKeys.ts';
 
-// Ensure Family A + Family B are registered in the production singleton
-// for these tests. familyRegistryInit.ts is the canonical registration
-// site; these guards keep the test self-sufficient and avoid a
-// double-register throw if init happens elsewhere in the module graph.
+// Ensure Family A + Family B + Family C are registered in the production
+// singleton for these tests. familyRegistryInit.ts is the canonical
+// registration site; these guards keep the test self-sufficient and avoid
+// a double-register throw if init happens elsewhere in the module graph.
 if (!isFamilySupported('parent_relation')) {
   register('parent_relation', {
     rawKeys: new Set(FAMILY_A_RAW_KEYS),
@@ -43,6 +47,12 @@ if (!isFamilySupported('disagreement_axis')) {
   register('disagreement_axis', {
     rawKeys: new Set(FAMILY_B_RAW_KEYS),
     classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+}
+if (!isFamilySupported('misunderstanding_repair')) {
+  register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
   });
 }
 
@@ -181,16 +191,16 @@ Deno.test('validateFamilyBooleanRequest-rejects-oversized-threadContextExcerpt',
 });
 
 Deno.test('validateFamilyBooleanRequest-rejects-unsupported-family-with-byte-equal-envelope', () => {
-  // MCP-SERVER-003-FAMILY-B registered 'disagreement_axis'; the test now
-  // exercises an UNREGISTERED family (Family C: misunderstanding_repair).
+  // MCP-SERVER-004-FAMILY-C registered 'misunderstanding_repair'; the test
+  // now exercises an UNREGISTERED family (Family D: evidence_source_chain).
   // Envelope shape is byte-equal-preserved: kind=unsupported_family,
   // requestedFamilies field echoes the requested array.
   const result = validateFamilyBooleanRequest(
-    validRequest({ requestedFamilies: ['misunderstanding_repair'] }),
+    validRequest({ requestedFamilies: ['evidence_source_chain'] }),
   );
   assertEquals(result.ok, false);
   if (!result.ok && result.kind === 'unsupported_family') {
-    assertEquals(result.requestedFamilies, ['misunderstanding_repair']);
+    assertEquals(result.requestedFamilies, ['evidence_source_chain']);
   } else {
     throw new Error('expected unsupported_family failure');
   }
@@ -358,9 +368,9 @@ Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-b-ra
   }
 });
 
-Deno.test('validateFamilyBooleanRequest-c-d-e-still-rejected-as-unsupported-family', () => {
-  // Regression: Family C/D/E remain unsupported after Family B lands.
-  for (const family of ['misunderstanding_repair', 'evidence_source_chain', 'argument_scheme']) {
+Deno.test('validateFamilyBooleanRequest-d-e-f-still-rejected-as-unsupported-family', () => {
+  // Regression: Family D/E/F remain unsupported after Family C lands.
+  for (const family of ['evidence_source_chain', 'argument_scheme', 'critical_question']) {
     const result = validateFamilyBooleanRequest(validRequest({ requestedFamilies: [family] }));
     assertEquals(result.ok, false, `${family} should be unsupported`);
     if (!result.ok && result.kind === 'unsupported_family') {
@@ -368,5 +378,128 @@ Deno.test('validateFamilyBooleanRequest-c-d-e-still-rejected-as-unsupported-fami
     } else {
       throw new Error(`expected unsupported_family for ${family}`);
     }
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-004-FAMILY-C additions
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('validateFamilyBooleanRequest-valid-family-c-request-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['misunderstanding_repair'],
+    requestedRawKeys: ['offers_candidate_understanding', 'confirms_understanding'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.requestedFamilies, ['misunderstanding_repair']);
+    assertEquals(result.value.requestedRawKeys, ['offers_candidate_understanding', 'confirms_understanding']);
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-c-request-with-empty-rawKeys-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['misunderstanding_repair'],
+    requestedRawKeys: [],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+});
+
+Deno.test('validateFamilyBooleanRequest-family-c-request-with-all-17-rawKeys-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['misunderstanding_repair'],
+    requestedRawKeys: [
+      'clarified',
+      'requests_clarification',
+      'answers_clarification',
+      'provides_alternate_interpretation',
+      'offers_candidate_understanding',
+      'confirms_understanding',
+      'rejects_candidate_understanding',
+      'requests_restatement',
+      'self_initiates_self_repair',
+      'other_initiates_repair',
+      'acknowledges_misread',
+      'flags_ambiguous_reference',
+      'flags_term_ambiguity',
+      'proposes_shared_definition',
+      'confirms_shared_definition',
+      'scope_mismatch_identified',
+      'question_answer_mismatch',
+    ],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.requestedRawKeys.length, 17);
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-a-key-under-misunderstanding-repair', () => {
+  // Sending a Family A rawKey ('supports_parent') under
+  // requestedFamilies=['misunderstanding_repair'] must be rejected — the
+  // rawKey is supported in Family A but NOT in Family C's set.
+  const req = validRequest({
+    requestedFamilies: ['misunderstanding_repair'],
+    requestedRawKeys: ['supports_parent'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['supports_parent']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family A key under C');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-b-key-under-misunderstanding-repair', () => {
+  // Sending a Family B rawKey ('disputes_definition') under
+  // requestedFamilies=['misunderstanding_repair'] must be rejected.
+  const req = validRequest({
+    requestedFamilies: ['misunderstanding_repair'],
+    requestedRawKeys: ['disputes_definition'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['disputes_definition']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family B key under C');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-c-key-under-disagreement-axis', () => {
+  // Symmetric: sending a Family C rawKey ('offers_candidate_understanding')
+  // under requestedFamilies=['disagreement_axis'] must be rejected.
+  const req = validRequest({
+    requestedFamilies: ['disagreement_axis'],
+    requestedRawKeys: ['offers_candidate_understanding'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['offers_candidate_understanding']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family C key under B');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-c-rawKey-rejects', () => {
+  // When requestedFamilies is empty, the validator defaults to checking
+  // rawKeys against Family A only (byte-equal-preservation anchor). A
+  // Family C rawKey under empty requestedFamilies is therefore rejected as
+  // unsupported_rawKey.
+  const req = validRequest({
+    requestedFamilies: [],
+    requestedRawKeys: ['offers_candidate_understanding'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['offers_candidate_understanding']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for Family C key under empty families');
   }
 });

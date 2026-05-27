@@ -1,0 +1,33 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-c-candidate-understanding-node",
+    "parentNodeId": "fixture-c-candidate-understanding-parent",
+    "currentText": "[fixture] Not quite — I mean libraries are like roads: collectively funded because the value is the network of access, not the individual transaction.",
+    "parentText": "[fixture] Are you saying libraries should be funded like public schools — because individual market provision fails?",
+    "threadContextExcerpt": "[fixture] Debate room: Library funding priorities. Depth 2 rejects_candidate_understanding + offers_candidate_understanding.",
+    "requestedFamilies": ["misunderstanding_repair"],
+    "requestedRawKeys": [
+      "clarified",
+      "requests_clarification",
+      "answers_clarification",
+      "provides_alternate_interpretation",
+      "offers_candidate_understanding",
+      "confirms_understanding",
+      "rejects_candidate_understanding",
+      "requests_restatement",
+      "self_initiates_self_repair",
+      "other_initiates_repair",
+      "acknowledges_misread",
+      "flags_ambiguous_reference",
+      "flags_term_ambiguity",
+      "proposes_shared_definition",
+      "confirms_shared_definition",
+      "scope_mismatch_identified",
+      "question_answer_mismatch"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

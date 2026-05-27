@@ -33,16 +33,23 @@ Deno.test('familyRegistryInit-registers-family-b-on-import', () => {
   assertEquals(isFamilySupported('disagreement_axis'), true);
 });
 
-Deno.test('familyRegistryInit-registers-both-families-in-insertion-order', () => {
+Deno.test('familyRegistryInit-registers-family-c-on-import', () => {
+  // MCP-SERVER-004-FAMILY-C added the third register() call. Family C must
+  // be present in the singleton after the side-effect import.
+  assertEquals(isFamilySupported('misunderstanding_repair'), true);
+});
+
+Deno.test('familyRegistryInit-registers-all-three-families-in-insertion-order', () => {
   // The singleton is shared across test files; however, init registers
-  // exactly two families: Family A first, Family B second. Other test
-  // files may add fake families via createFamilyRegistry() factories
-  // (which yield isolated instances and never touch the singleton).
+  // exactly three families: Family A first, Family B second, Family C third.
+  // Other test files may add fake families via createFamilyRegistry()
+  // factories (which yield isolated instances and never touch the singleton).
   // The singleton's getSupportedFamilies() must remain exactly
-  // ['parent_relation', 'disagreement_axis'] in the current server build.
+  // ['parent_relation', 'disagreement_axis', 'misunderstanding_repair']
+  // in the current server build.
   const families = getSupportedFamilies();
-  assertEquals(families, ['parent_relation', 'disagreement_axis']);
-  assertEquals(families.length, 2);
+  assertEquals(families, ['parent_relation', 'disagreement_axis', 'misunderstanding_repair']);
+  assertEquals(families.length, 3);
 });
 
 Deno.test('familyRegistryInit-family-a-has-16-rawKeys', () => {
@@ -55,6 +62,11 @@ Deno.test('familyRegistryInit-family-b-has-14-rawKeys', () => {
   assertEquals(rawKeys.size, 14);
 });
 
+Deno.test('familyRegistryInit-family-c-has-17-rawKeys', () => {
+  const rawKeys = getRawKeysForFamily('misunderstanding_repair');
+  assertEquals(rawKeys.size, 17);
+});
+
 Deno.test('familyRegistryInit-family-a-classifier-version-is-family-a-v1', () => {
   assertEquals(getClassifierSetVersion('parent_relation'), 'family-a-v1');
 });
@@ -63,12 +75,19 @@ Deno.test('familyRegistryInit-family-b-classifier-version-is-family-b-v1', () =>
   assertEquals(getClassifierSetVersion('disagreement_axis'), 'family-b-v1');
 });
 
+Deno.test('familyRegistryInit-family-c-classifier-version-is-family-c-v1', () => {
+  assertEquals(getClassifierSetVersion('misunderstanding_repair'), 'family-c-v1');
+});
+
 Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
   // Second invocation must not throw (idempotent guard per design §5.2).
   // Without the guard, the underlying registry.register() would throw
   // 'family already registered: parent_relation'.
   initializeFamilyRegistry();
   initializeFamilyRegistry();
-  // Still exactly two families registered, in the same insertion order.
-  assertEquals(getSupportedFamilies(), ['parent_relation', 'disagreement_axis']);
+  // Still exactly three families registered, in the same insertion order.
+  assertEquals(
+    getSupportedFamilies(),
+    ['parent_relation', 'disagreement_axis', 'misunderstanding_repair'],
+  );
 });
