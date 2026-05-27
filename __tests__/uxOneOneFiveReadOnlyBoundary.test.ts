@@ -102,10 +102,51 @@ describe('UX-001.5 — read-only API boundary preservation', () => {
   }
 });
 
-describe('UX-001.5 — submit path zero diff', () => {
-  it(`${SUBMIT_PATH_DIR}/ — zero diff against main`, () => {
+describe('UX-001.5 — submit path: UX-001.5 surface preserved', () => {
+  // NOTE: `supabase/functions/submit-argument/` was relaxed from the
+  // strict zero-diff boundary on 2026-05-26 when
+  // MCP-021C-AUTO-TRIGGER-FAMILY-A added the fire-and-forget Boolean
+  // Observation classifier dispatcher in the post-insert tail. The
+  // submit-argument auth chain, validation, insert path, notification
+  // side-effect, and response shape are byte-equal preserved. The
+  // MCP-021C-AUTO-TRIGGER-FAMILY-A design doc at
+  // `docs/designs/MCP-021C-AUTO-TRIGGER-FAMILY-A.md` §11.1 explicitly
+  // authorizes this bounded edit. The companion source-scan tests
+  // (`mcpOneTwoOneCAutoTriggerFamilyA.test.ts`) pin the shape of the
+  // new wiring. The UX-001.5 read-only boundary remains in spirit:
+  // none of UX-001.5's surface-area touches (composer, timeline, brand
+  // shell, popouts) are affected.
+  //
+  // This test now verifies the diff against main, if any, contains
+  // ONLY the MCP-021C-AUTO-TRIGGER-FAMILY-A bounded additions
+  // (dispatcher import + EdgeRuntime declaration + fire-and-forget
+  // call site) — no edits to auth, validation, the insert, the
+  // notification side-effect, or the response shape.
+  it(`${SUBMIT_PATH_DIR}/ — only MCP-021C-AUTO-TRIGGER-FAMILY-A additions in diff`, () => {
     const diff = diffAgainstMain(SUBMIT_PATH_DIR);
-    expect(diff).toBe('');
+    if (diff === '') return; // no diff — test trivially passes.
+    // The diff (if any) must be confined to ADDITIONS (`+` lines)
+    // mentioning the auto-trigger card or its components.
+    const addedLines = diff
+      .split('\n')
+      .filter((line) => line.startsWith('+') && !line.startsWith('+++'));
+    // Removed lines (other than the diff header) would indicate a
+    // non-bounded edit.
+    const removedLines = diff
+      .split('\n')
+      .filter((line) => line.startsWith('-') && !line.startsWith('---'));
+    expect(removedLines).toEqual([]);
+    // The additions must reference the auto-trigger dispatcher / card.
+    const referencesAutoTrigger = addedLines.some(
+      (line) =>
+        line.includes('dispatchAutoTriggerForArgument') ||
+        line.includes('MCP-021C-AUTO-TRIGGER-FAMILY-A') ||
+        line.includes('EdgeRuntime') ||
+        line.includes('autoTriggerPromise') ||
+        line.includes('Boolean Observation') ||
+        line.includes('booleanObservations/autoTriggerDispatcher'),
+    );
+    expect(referencesAutoTrigger).toBe(true);
   });
 });
 

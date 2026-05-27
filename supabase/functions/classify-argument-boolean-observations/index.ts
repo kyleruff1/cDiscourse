@@ -13,9 +13,11 @@
  *   2. Reject non-POST.
  *   3. Parse + validate the request body (zod schema below).
  *   4. requireAdmin(req) — at MCP-021C-EDGE ship, BOTH production and
- *      admin_validation modes are admin-gated (Decision 7). A future
- *      MCP-021C-AUTO-TRIGGER card will widen production to allow
- *      service-role automation.
+ *      admin_validation modes are admin-gated (Decision 7). The
+ *      MCP-021C-AUTO-TRIGGER-FAMILY-A card adds a SECOND server-side
+ *      invocation path through the shared `classifyOneArgumentCore`
+ *      helper (called from submit-argument's post-insert tail); the
+ *      HTTP endpoint's admin gate is UNCHANGED.
  *   5. For each argumentId:
  *        a. Fetch the move body + parent body + ancestor chain context
  *           via the SERVICE-role client (RLS bypass — the admin caller
@@ -59,29 +61,10 @@ import {
 } from '../_shared/http.ts';
 import { requireAdmin } from '../_shared/adminAuth.ts';
 import { runBooleanObservationMcpAdapter } from '../_shared/booleanObservations/booleanObservationMcpAdapter.ts';
-import type { BooleanObservationAdapterResult } from '../_shared/booleanObservations/booleanObservationMcpAdapterCore.ts';
-import {
-  buildBooleanObservationRequestForArgument,
-  buildBooleanObservationInputHash,
-} from '../_shared/booleanObservations/booleanObservationRequestBuilder.ts';
 import { filterFamiliesForMode } from '../_shared/booleanObservations/familyRegistry.ts';
 import {
   MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-  sanitizeMcpBooleanObservationResponse,
 } from '../_shared/booleanObservations/mcpBooleanObservationSchema.ts';
-import type { McpBooleanObservationResponse } from '../_shared/booleanObservations/mcpBooleanObservationSchema.ts';
-import { MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY } from '../_shared/booleanObservations/machineObservationDefinitions.ts';
-import {
-  persistRun,
-  persistResults,
-} from '../_shared/booleanObservations/persistenceWriter.ts';
-import type {
-  PersistResultInput,
-} from '../_shared/booleanObservations/persistenceWriter.ts';
-import {
-  DEFAULT_MCP_BOOLEAN_OBSERVATION_SERVER_NAME,
-  MCP_BOOLEAN_OBSERVATION_TOOL_NAME,
-} from '../_shared/booleanObservations/booleanObservationMcpAdapterCore.ts';
 import { isMachineObservationRunMode } from '../_shared/booleanObservations/runModeConstants.ts';
 import type { MachineObservationRunMode } from '../_shared/booleanObservations/runModeConstants.ts';
 import { ALL_MACHINE_OBSERVATION_FAMILIES } from '../_shared/booleanObservations/nodeLabelTypes.ts';
@@ -89,24 +72,20 @@ import type {
   MachineObservationFamily,
 } from '../_shared/booleanObservations/nodeLabelTypes.ts';
 import { createServiceClient } from '../_shared/supabaseClients.ts';
+import {
+  classifyOneArgumentCore,
+} from '../_shared/booleanObservations/classifyArgumentCore.ts';
+import type {
+  PerArgumentSummary,
+} from '../_shared/booleanObservations/classifyArgumentCore.ts';
 
 const MAX_ARGUMENTS_PER_CALL = 10;
-const PROVIDER_KEY = `mcp:${MCP_BOOLEAN_OBSERVATION_TOOL_NAME}`;
 
 interface ClassifyRequestBody {
   argumentIds: string[];
   requestedFamilies: MachineObservationFamily[];
   mode: MachineObservationRunMode;
   schemaVersion: typeof MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION;
-}
-
-interface PerArgumentSummary {
-  argumentId: string;
-  runId: string | null;
-  status: 'success' | 'failed';
-  failureReason: string | null;
-  positiveObservationCount: number;
-  rawKeysWithPositive: string[];
 }
 
 interface ClassifyResponseBody {
@@ -201,292 +180,17 @@ function validateRequestBody(raw: unknown): ValidateResult {
   };
 }
 
-interface ArgumentContext {
-  argumentId: string;
-  parentArgumentId: string | null;
-  currentText: string;
-  parentText: string | null;
-  threadContextExcerpt: string;
-  debateId: string;
-}
-
 /**
- * Load the argument context (move body + parent body + thread excerpt) via
- * the service-role client. Returns null when the argument is missing or
- * soft-deleted (a sanitized signal so the per-argument summary marks
- * status='failed' with failure_reason='argument_not_found').
- */
-async function loadArgumentContext(
-  argumentId: string,
-  serviceClient: ReturnType<typeof createServiceClient>,
-): Promise<ArgumentContext | null> {
-  const { data: arg, error: argError } = await serviceClient
-    .from('arguments')
-    .select('id, debate_id, body, parent_id, status')
-    .eq('id', argumentId)
-    .maybeSingle();
-  if (argError || !arg || arg.status === 'deleted') return null;
-
-  let parentText: string | null = null;
-  if (arg.parent_id) {
-    const { data: parent } = await serviceClient
-      .from('arguments')
-      .select('id, body, status')
-      .eq('id', arg.parent_id)
-      .maybeSingle();
-    if (parent && parent.status !== 'deleted') {
-      parentText = typeof parent.body === 'string' ? parent.body : null;
-    }
-  }
-
-  // Thread context: up to 3 ancestor bodies above the parent, joined by ---.
-  const ancestorBodies: string[] = [];
-  let cursor = arg.parent_id as string | null;
-  let depth = 0;
-  while (cursor && depth < 3) {
-    const { data: ancestor } = await serviceClient
-      .from('arguments')
-      .select('id, body, parent_id, status')
-      .eq('id', cursor)
-      .maybeSingle();
-    if (!ancestor) break;
-    if (ancestor.status !== 'deleted' && typeof ancestor.body === 'string') {
-      ancestorBodies.push(ancestor.body);
-    }
-    cursor = (ancestor.parent_id as string | null) ?? null;
-    depth += 1;
-  }
-  const threadContextExcerpt = ancestorBodies.join('\n---\n').slice(0, 2_000);
-
-  return {
-    argumentId,
-    parentArgumentId: (arg.parent_id as string | null) ?? null,
-    currentText: typeof arg.body === 'string' ? arg.body : '',
-    parentText,
-    threadContextExcerpt,
-    debateId: arg.debate_id as string,
-  };
-}
-
-/**
- * Map the adapter `unavailable` reason to the persisted `failure_reason`
- * column value. Stable strings; matches design §4.2.
- */
-function unavailableReasonToFailureReason(reason: string): string {
-  switch (reason) {
-    case 'url_missing':
-      return 'mcp_url_missing';
-    case 'token_missing':
-      return 'mcp_token_missing';
-    case 'network_error':
-      return 'mcp_network_error';
-    case 'api_error':
-      return 'mcp_api_error';
-    case 'rate_limited':
-      return 'mcp_rate_limited';
-    case 'parse_failure':
-      return 'mcp_parse_failure';
-    case 'validation_failed':
-      return 'mcp_validation_failed';
-    default:
-      return `mcp_${reason}`;
-  }
-}
-
-/**
- * Classify ONE argument: fetch context, build request, invoke adapter,
- * persist run + results. Returns the per-argument summary entry.
+ * Classify ONE argument — thin wrapper around the shared core.
  *
- * Inner errors are caught and recorded — the function never throws.
- *
- * The adapter dependency is injected so tests can wire a mock without
- * making a real fetch.
+ * The per-argument classifier logic was lifted into
+ * `../_shared/booleanObservations/classifyArgumentCore.ts` so the same
+ * code can be invoked by the MCP-021C-AUTO-TRIGGER-FAMILY-A dispatcher
+ * from `submit-argument`. The Edge Function HTTP handler keeps its
+ * `requireAdmin` gate and response shape; per-argument behavior is
+ * byte-equivalent to the pre-refactor inline implementation.
  */
-async function classifyOneArgument(
-  argumentId: string,
-  requestedFamilies: ReadonlyArray<MachineObservationFamily>,
-  mode: MachineObservationRunMode,
-  serviceClient: ReturnType<typeof createServiceClient>,
-  adapter: (request: ReturnType<typeof buildBooleanObservationRequestForArgument>) => Promise<BooleanObservationAdapterResult>,
-): Promise<PerArgumentSummary> {
-  const startedAt = new Date().toISOString();
-
-  // Load context.
-  const context = await loadArgumentContext(argumentId, serviceClient);
-  if (!context) {
-    // No run row; the argument isn't visible. Return a sanitized
-    // summary without writing — the database has no record because the
-    // run never started.
-    return {
-      argumentId,
-      runId: null,
-      status: 'failed',
-      failureReason: 'argument_not_found',
-      positiveObservationCount: 0,
-      rawKeysWithPositive: [],
-    };
-  }
-
-  // Filter families per mode.
-  const eligibleFamilies = filterFamiliesForMode(requestedFamilies, mode);
-
-  // Build the MCP request.
-  const mcpRequest = buildBooleanObservationRequestForArgument({
-    argumentId,
-    parentArgumentId: context.parentArgumentId,
-    currentText: context.currentText,
-    parentText: context.parentText,
-    threadContextExcerpt: context.threadContextExcerpt,
-    requestedFamilies: eligibleFamilies,
-    mode,
-  });
-
-  // Compute the audit input hash.
-  const inputHash = buildBooleanObservationInputHash({
-    argumentId,
-    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    runMode: mode,
-    families: eligibleFamilies as ReadonlyArray<string>,
-  });
-
-  // Invoke the adapter.
-  const adapterResult = await adapter(mcpRequest);
-  const completedAt = new Date().toISOString();
-
-  // Branch on adapter result.
-  if (adapterResult.kind === 'unavailable') {
-    const failureReason = unavailableReasonToFailureReason(adapterResult.reason);
-    const runWrite = await persistRun({
-      debateId: context.debateId,
-      argumentId,
-      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-      requestedFamilies: eligibleFamilies,
-      providerKey: PROVIDER_KEY,
-      modelName: DEFAULT_MCP_BOOLEAN_OBSERVATION_SERVER_NAME,
-      inputHash,
-      runMode: mode,
-      status: 'failed',
-      failureReason,
-      startedAt,
-      completedAt,
-    });
-    return {
-      argumentId,
-      runId: runWrite.ok ? runWrite.runId : null,
-      status: 'failed',
-      failureReason,
-      positiveObservationCount: 0,
-      rawKeysWithPositive: [],
-    };
-  }
-
-  // Success path — sanitize at inspect floor.
-  const sanitized: McpBooleanObservationResponse = sanitizeMcpBooleanObservationResponse(
-    adapterResult.response,
-    { surface: 'inspect' },
-  );
-
-  const runWrite = await persistRun({
-    debateId: context.debateId,
-    argumentId,
-    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    requestedFamilies: eligibleFamilies,
-    providerKey: PROVIDER_KEY,
-    modelName: DEFAULT_MCP_BOOLEAN_OBSERVATION_SERVER_NAME,
-    inputHash,
-    runMode: mode,
-    status: 'success',
-    failureReason: null,
-    startedAt,
-    completedAt,
-  });
-  if (!runWrite.ok) {
-    return {
-      argumentId,
-      runId: null,
-      status: 'failed',
-      failureReason: 'persist_run_failed',
-      positiveObservationCount: 0,
-      rawKeysWithPositive: [],
-    };
-  }
-
-  // Collect positive observations (in-memory aggregation from the
-  // sanitized response). The actual response summary is built from the
-  // post-persist SELECT below, NOT this in-memory state — see
-  // MCP-021C-EDGE-RESPONSE-SUMMARY-FIX.
-  const resultsToWrite: PersistResultInput[] = [];
-  const inMemoryRawKeys: string[] = [];
-  for (const rawKey of sanitized.checkedRawKeys) {
-    if (sanitized.observations[rawKey] !== true) continue;
-    const def = MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY[rawKey];
-    if (!def) continue;
-    const confidence = sanitized.confidence[rawKey];
-    if (confidence !== 'low' && confidence !== 'medium' && confidence !== 'high') continue;
-    const evidenceSpan = sanitized.evidenceSpan[rawKey] ?? null;
-    resultsToWrite.push({
-      runId: runWrite.runId,
-      debateId: context.debateId,
-      argumentId,
-      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-      rawKey,
-      family: def.family,
-      confidence,
-      evidenceSpan,
-    });
-    inMemoryRawKeys.push(rawKey);
-  }
-
-  // Persist positives and capture the writer's outcome. A silent persist
-  // failure (the pre-fix behavior) is now surfaced as a failed run.
-  let persistFailureReason: string | null = null;
-  if (resultsToWrite.length > 0) {
-    const writeResult = await persistResults(resultsToWrite);
-    if (!writeResult.ok) {
-      persistFailureReason = `persist_results_failed:${writeResult.error}`;
-    }
-  }
-
-  // MCP-021C-EDGE-RESPONSE-SUMMARY-FIX: the per-arg summary reflects what's
-  // actually persisted, not what we attempted to write. A post-persist
-  // SELECT against argument_machine_observation_results for this runId
-  // is the authoritative source. This guarantees the response matches
-  // persistence regardless of any in-memory state divergence (e.g., the
-  // discrepancy surfaced by MCP-021C-EDGE-SMOKE 2026-05-26 where the
-  // response reported `positiveObservationCount: 0` despite persistence
-  // holding the actual positive rows).
-  const { data: persistedRows, error: countError } = await serviceClient
-    .from('argument_machine_observation_results')
-    .select('raw_key')
-    .eq('run_id', runWrite.runId);
-
-  const actualPositiveCount = countError
-    ? resultsToWrite.length
-    : (persistedRows?.length ?? 0);
-  const actualRawKeys = countError
-    ? inMemoryRawKeys
-    : (persistedRows ?? []).map((r: { raw_key: string }) => r.raw_key);
-
-  if (persistFailureReason !== null) {
-    return {
-      argumentId,
-      runId: runWrite.runId,
-      status: 'failed',
-      failureReason: persistFailureReason,
-      positiveObservationCount: actualPositiveCount,
-      rawKeysWithPositive: actualRawKeys,
-    };
-  }
-
-  return {
-    argumentId,
-    runId: runWrite.runId,
-    status: 'success',
-    failureReason: null,
-    positiveObservationCount: actualPositiveCount,
-    rawKeysWithPositive: actualRawKeys,
-  };
-}
+const classifyOneArgument = classifyOneArgumentCore;
 
 Deno.serve(async (req: Request): Promise<Response> => {
   // ── CORS preflight ────────────────────────────────────────────

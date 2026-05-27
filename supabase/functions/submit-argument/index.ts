@@ -15,6 +15,21 @@ import { runRailsChecks } from '../_shared/constitution/railsChecks.ts';
 import { adaptDbConstitutionVersion, adaptDbRule, adaptDbTagDef, adaptDbFlagDef } from '../_shared/constitution/dbAdapters.ts';
 import type { DbConstitutionRule, DbConstitutionTagDef, DbConstitutionFlagDef } from '../_shared/constitution/dbAdapters.ts';
 import type { ParentArgument, SiblingArgument, EvidenceAttachment, ArgumentTarget } from '../_shared/constitution/types.ts';
+// MCP-021C-AUTO-TRIGGER-FAMILY-A — fire-and-forget Boolean Observation
+// classifier dispatcher (Family A = parent_relation; production mode).
+// Invoked from the post-insert tail BEFORE `return created(...)`. The
+// submit-argument response is returned BEFORE this dispatcher settles —
+// argument submission is structurally unblocked by the design.
+import { dispatchAutoTriggerForArgument } from '../_shared/booleanObservations/autoTriggerDispatcher.ts';
+
+// EdgeRuntime is a Deno-runtime-provided global for Supabase Edge
+// Functions (https://supabase.com/docs/guides/functions/background-tasks).
+// At type level Deno does not surface it; declare a narrow shape so the
+// fire-and-forget call below is typed without forcing the function to
+// fail at load time when EdgeRuntime is absent (local Deno run, jest).
+declare const EdgeRuntime:
+  | { waitUntil?: (promise: Promise<unknown>) => void }
+  | undefined;
 
 Deno.serve(async (req: Request): Promise<Response> => {
   // ── CORS preflight ────────────────────────────────────────────
@@ -749,6 +764,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
       argumentIdShort: typeof insertedArg.id === 'string' ? insertedArg.id.slice(0, 8) : '(unknown)',
       message: notifyErr instanceof Error ? notifyErr.message.slice(0, 120) : 'unknown',
     });
+  }
+
+  // ── MCP-021C-AUTO-TRIGGER-FAMILY-A — fire-and-forget classifier ──
+  //
+  // Kick off the Boolean Observation classifier (Family A, production
+  // mode) for the just-inserted argument. The dispatcher:
+  //   - Reads the runtime-config kill switch first; skips if disabled.
+  //   - Checks idempotency (Option A) against the most-recent
+  //     production run for this argument; skips if already classified.
+  //   - Invokes the MCP adapter with bounded retry (2 attempts max for
+  //     transient classes).
+  //   - Persists the run row + result rows; emits a structured log.
+  //
+  // The promise is intentionally NOT awaited — the submit-argument
+  // response is returned BEFORE the dispatcher settles. Doctrine: the
+  // user must never wait on classifier latency or failures.
+  // `EdgeRuntime.waitUntil` keeps the isolate alive until the promise
+  // settles in Supabase Edge runtime; when absent (local Deno run,
+  // jest) the promise is still dispatched but the isolate may terminate
+  // sooner. Both paths are correct — the response is already returned.
+  const autoTriggerPromise = dispatchAutoTriggerForArgument(
+    insertedArg.id,
+    data.debate_id,
+    serviceClient,
+  ).catch(() => undefined);
+  if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime?.waitUntil === 'function') {
+    EdgeRuntime.waitUntil(autoTriggerPromise);
   }
 
   // ── Return 201 ────────────────────────────────────────────────

@@ -1,0 +1,220 @@
+/**
+ * MCP-021C-AUTO-TRIGGER-FAMILY-A — Failure-mode + retry-semantics tests.
+ *
+ * Verifies the bounded retry / failure semantics per design §4. The
+ * dispatcher is Deno-only and source-scanned for:
+ *   - The 7 unavailable adapter reasons map to stable `failure_reason`
+ *     strings (lifted from classifyArgumentCore.ts).
+ *   - Retry cap is 2 attempts for transient classes only
+ *     (network_error / api_error / rate_limited).
+ *   - Non-retryable classes (url_missing / token_missing /
+ *     parse_failure / validation_failed) attempt exactly once.
+ *   - Backoff schedule is 2s then 8s.
+ *   - Skip-on-disabled returns 'skipped' with reason 'config_disabled'
+ *     and writes NO run row (no persistRun call in the disabled path).
+ *   - Skip-on-family-not-enabled returns 'skipped' with reason
+ *     'family_not_enabled'; no run row.
+ *   - Submit-not-blocked: dispatcher promise is in the
+ *     fire-and-forget tail, not the response return.
+ *   - Defensive: dispatcher NEVER throws; uncaught conditions surface
+ *     as `outcome: 'failed', failureReason: 'unexpected_error'`.
+ *
+ * Forecast: ~22 tests (FAIL-1 through FAIL-22).
+ */
+import * as fs from 'fs';
+import * as path from 'path';
+
+const REPO = process.cwd();
+const DISPATCHER_PATH = path.join(
+  REPO,
+  'supabase/functions/_shared/booleanObservations/autoTriggerDispatcher.ts',
+);
+const CORE_PATH = path.join(
+  REPO,
+  'supabase/functions/_shared/booleanObservations/classifyArgumentCore.ts',
+);
+const SUBMIT_PATH = path.join(REPO, 'supabase/functions/submit-argument/index.ts');
+
+let dispatcherText = '';
+let coreText = '';
+let submitText = '';
+
+beforeAll(() => {
+  dispatcherText = fs.readFileSync(DISPATCHER_PATH, 'utf8');
+  coreText = fs.readFileSync(CORE_PATH, 'utf8');
+  submitText = fs.readFileSync(SUBMIT_PATH, 'utf8');
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — adapter unavailable → failure_reason mapping', () => {
+  // Each adapter unavailable reason maps to a stable `mcp_<reason>`
+  // failure_reason string. The mapping lives in classifyArgumentCore.ts;
+  // the dispatcher does not re-map.
+  it('FAIL-1 — url_missing maps to mcp_url_missing', () => {
+    expect(coreText).toContain("'url_missing'");
+    expect(coreText).toContain('mcp_url_missing');
+  });
+
+  it('FAIL-2 — token_missing maps to mcp_token_missing', () => {
+    expect(coreText).toContain("'token_missing'");
+    expect(coreText).toContain('mcp_token_missing');
+  });
+
+  it('FAIL-3 — network_error maps to mcp_network_error', () => {
+    expect(coreText).toContain("'network_error'");
+    expect(coreText).toContain('mcp_network_error');
+  });
+
+  it('FAIL-4 — api_error maps to mcp_api_error', () => {
+    expect(coreText).toContain("'api_error'");
+    expect(coreText).toContain('mcp_api_error');
+  });
+
+  it('FAIL-5 — rate_limited maps to mcp_rate_limited', () => {
+    expect(coreText).toContain("'rate_limited'");
+    expect(coreText).toContain('mcp_rate_limited');
+  });
+
+  it('FAIL-6 — parse_failure maps to mcp_parse_failure', () => {
+    expect(coreText).toContain("'parse_failure'");
+    expect(coreText).toContain('mcp_parse_failure');
+  });
+
+  it('FAIL-7 — validation_failed maps to mcp_validation_failed', () => {
+    expect(coreText).toContain("'validation_failed'");
+    expect(coreText).toContain('mcp_validation_failed');
+  });
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — retry policy', () => {
+  it('FAIL-8 — retry cap is 2 attempts total (MAX_ATTEMPTS constant)', () => {
+    expect(dispatcherText).toMatch(/MAX_ATTEMPTS\s*=\s*2/);
+  });
+
+  it('FAIL-9 — backoff schedule is 2s then 8s (RETRY_BACKOFF_MS)', () => {
+    // The schedule is declared as a frozen array literal. Check both
+    // numeric values appear in the correct order.
+    const scheduleMatch = dispatcherText.match(/RETRY_BACKOFF_MS[\s\S]*?Object\.freeze\(\s*\[([^\]]+)\]/);
+    expect(scheduleMatch).not.toBeNull();
+    const arrayBody = scheduleMatch![1];
+    const firstIdx = arrayBody.indexOf('2_000');
+    const secondIdx = arrayBody.indexOf('8_000');
+    expect(firstIdx).toBeGreaterThanOrEqual(0);
+    expect(secondIdx).toBeGreaterThan(firstIdx);
+  });
+
+  it('FAIL-10 — retryable classes are network_error / api_error / rate_limited only', () => {
+    const setBlock = dispatcherText.match(/RETRYABLE_FAILURE_REASONS[\s\S]*?Set\(\s*\[([^\]]+)\]/);
+    expect(setBlock).not.toBeNull();
+    const setBody = setBlock![1];
+    expect(setBody).toContain('mcp_network_error');
+    expect(setBody).toContain('mcp_api_error');
+    expect(setBody).toContain('mcp_rate_limited');
+    // Non-retryable classes must NOT be in the set.
+    expect(setBody).not.toContain('mcp_url_missing');
+    expect(setBody).not.toContain('mcp_token_missing');
+    expect(setBody).not.toContain('mcp_parse_failure');
+    expect(setBody).not.toContain('mcp_validation_failed');
+  });
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — skip-on-disabled', () => {
+  it('FAIL-11 — disabled runtime config returns outcome \'skipped\' with reason \'config_disabled\'', () => {
+    // The dispatcher emits `outcome: 'skipped'` and
+    // `skipReason: 'config_disabled'` in the disabled branch.
+    expect(dispatcherText).toContain("skipReason: 'config_disabled'");
+    expect(dispatcherText).toContain("skip_reason: 'config_disabled'");
+  });
+
+  it('FAIL-12 — disabled path writes NO run row (persistRun is not called when skipped)', () => {
+    // The dispatcher does not call persistRun in the disabled or
+    // family-not-enabled branches — only classifyOneArgumentCore writes
+    // run rows, and it is gated AFTER the skip checks.
+    expect(dispatcherText).not.toContain('persistRun(');
+    // Confirm the skip check fires BEFORE any classifier invocation.
+    const enabledCheckIdx = dispatcherText.indexOf("'config_disabled'");
+    const classifyIdx = dispatcherText.indexOf('classifyOneArgumentCore(');
+    expect(enabledCheckIdx).toBeGreaterThan(-1);
+    expect(classifyIdx).toBeGreaterThan(enabledCheckIdx);
+  });
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — skip-on-family-not-enabled', () => {
+  it('FAIL-13 — empty filterFamiliesForMode result returns \'skipped\' with reason \'family_not_enabled\'', () => {
+    expect(dispatcherText).toContain("skipReason: 'family_not_enabled'");
+    expect(dispatcherText).toContain("skip_reason: 'family_not_enabled'");
+    expect(dispatcherText).toMatch(/filterFamiliesForMode\s*\(/);
+    expect(dispatcherText).toMatch(/eligibleFamilies\.length\s*===\s*0/);
+  });
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — submit-not-blocked invariants', () => {
+  it('FAIL-14 — dispatcher promise is NOT in the submit response return path', () => {
+    // The response builder uses `return created(...)`. The dispatcher
+    // call appears earlier in the function; there is no `await
+    // dispatchAutoTriggerForArgument` in the call site.
+    expect(submitText).not.toMatch(/await\s+dispatchAutoTriggerForArgument/);
+  });
+
+  it('FAIL-15 — submit-argument handler does NOT inspect dispatcher resolution before returning', () => {
+    // The dispatcher's promise value is never bound to a local consumed
+    // by the response builder. Source pattern: the promise is bound to
+    // `autoTriggerPromise` but never `await`ed or `.then()`ed in
+    // submit-argument.
+    expect(submitText).not.toMatch(/autoTriggerPromise\.then/);
+    expect(submitText).not.toMatch(/await\s+autoTriggerPromise/);
+  });
+
+  it('FAIL-16 — dispatcher promise is wrapped in .catch(() => undefined)', () => {
+    expect(submitText).toMatch(
+      /dispatchAutoTriggerForArgument\([^)]+\)\s*\.catch\s*\(\s*\(\s*\)\s*=>\s*undefined\s*\)/,
+    );
+  });
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — persistence on adapter failure', () => {
+  it('FAIL-17 — adapter unavailable persists run row with status=\'failed\' + failure_reason', () => {
+    // The classifier core writes a run row on the unavailable branch.
+    expect(coreText).toMatch(/status:\s*['"]failed['"]/);
+    expect(coreText).toContain('failureReason');
+    expect(coreText).toContain('unavailableReasonToFailureReason');
+  });
+
+  it('FAIL-18 — adapter unavailable writes zero result rows', () => {
+    // In the unavailable branch, the classifier returns without
+    // invoking persistResults. The success branch is the only path
+    // that calls persistResults; the unavailable branch returns early.
+    const unavailableBlock = coreText.match(
+      /if\s*\(\s*adapterResult\.kind\s*===\s*['"]unavailable['"]\s*\)\s*\{[\s\S]*?return\s*\{[\s\S]*?\};\s*\}/,
+    );
+    expect(unavailableBlock).not.toBeNull();
+    const unavailableBlockBody = unavailableBlock![0];
+    expect(unavailableBlockBody).not.toContain('persistResults(');
+  });
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — argument-not-found skip', () => {
+  it('FAIL-19 — argument_not_found returns \'skipped\' with skipReason argument_not_found', () => {
+    expect(dispatcherText).toContain("skipReason: 'argument_not_found'");
+    expect(dispatcherText).toContain("skip_reason: 'argument_not_found'");
+    expect(dispatcherText).toContain("'argument_not_found'");
+  });
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — persistence failure surfacing', () => {
+  it('FAIL-20 — persist_run_failed surfaces as outcome failed in the core summary', () => {
+    expect(coreText).toContain('persist_run_failed');
+  });
+
+  it('FAIL-21 — persist_results_failed:<code> surfaces as failureReason in the core summary', () => {
+    expect(coreText).toContain('persist_results_failed');
+  });
+});
+
+describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — defensive try/catch', () => {
+  it('FAIL-22 — dispatcher body wraps in try/catch returning unexpected_error on uncaught', () => {
+    // The whole dispatcher body is wrapped in try/catch. The catch
+    // surface returns a sanitized failed outcome.
+    expect(dispatcherText).toMatch(/try\s*\{[\s\S]*?\}\s*catch\s*\{/);
+    expect(dispatcherText).toContain("failureReason: 'unexpected_error'");
+  });
+});

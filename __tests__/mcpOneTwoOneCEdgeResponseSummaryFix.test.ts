@@ -31,11 +31,21 @@ const HANDLER_PATH = path.join(
   REPO,
   'supabase/functions/classify-argument-boolean-observations/index.ts',
 );
+// MCP-021C-AUTO-TRIGGER-FAMILY-A — the per-argument classifier (including
+// the response-summary-fix post-persist SELECT) was lifted from the
+// inline handler body into the shared core module. Source-scan tests
+// now read both files; classifier-body assertions check the core file.
+const CORE_PATH = path.join(
+  REPO,
+  'supabase/functions/_shared/booleanObservations/classifyArgumentCore.ts',
+);
 
 let handlerText = '';
+let coreText = '';
 
 beforeAll(() => {
   handlerText = fs.readFileSync(HANDLER_PATH, 'utf8');
+  coreText = fs.readFileSync(CORE_PATH, 'utf8');
 });
 
 // ─────────────────────────────────────────────────────────────────────
@@ -46,7 +56,7 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — capture persistResults outcome'
   it('SUM-1 — handler captures persistResults return value (no fire-and-forget)', () => {
     // Pre-fix: `await persistResults(resultsToWrite);` (return ignored)
     // Post-fix: result is bound to a local + branched on `.ok`
-    expect(handlerText).toMatch(
+    expect(coreText).toMatch(
       /const\s+writeResult\s*=\s*await\s+persistResults\s*\(\s*resultsToWrite\s*\)/,
     );
   });
@@ -54,39 +64,39 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — capture persistResults outcome'
   it('SUM-2 — persist failure surfaces via persist_results_failed failureReason', () => {
     // The previous code silently dropped persist failures. The fix makes
     // them visible via a stable failure_reason prefix.
-    expect(handlerText).toContain('persist_results_failed');
+    expect(coreText).toContain('persist_results_failed');
   });
 
   it('SUM-3 — persistFailureReason variable carries the failure forward', () => {
-    expect(handlerText).toMatch(/let\s+persistFailureReason\s*:\s*string\s*\|\s*null/);
+    expect(coreText).toMatch(/let\s+persistFailureReason\s*:\s*string\s*\|\s*null/);
   });
 
   it('SUM-4 — handler branches on writeResult.ok to detect failure', () => {
-    expect(handlerText).toMatch(/!\s*writeResult\.ok/);
+    expect(coreText).toMatch(/!\s*writeResult\.ok/);
   });
 });
 
 describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — post-persist SELECT is the source of truth', () => {
   it('SUM-5 — handler performs a SELECT against argument_machine_observation_results filtered by run_id', () => {
-    expect(handlerText).toContain('argument_machine_observation_results');
-    expect(handlerText).toMatch(
+    expect(coreText).toContain('argument_machine_observation_results');
+    expect(coreText).toMatch(
       /\.from\s*\(\s*['"]argument_machine_observation_results['"]\s*\)/,
     );
-    expect(handlerText).toMatch(/\.eq\s*\(\s*['"]run_id['"]\s*,\s*runWrite\.runId\s*\)/);
+    expect(coreText).toMatch(/\.eq\s*\(\s*['"]run_id['"]\s*,\s*runWrite\.runId\s*\)/);
   });
 
   it('SUM-6 — SELECT returns the raw_key column needed for rawKeysWithPositive', () => {
-    expect(handlerText).toMatch(/\.select\s*\(\s*['"]raw_key['"]\s*\)/);
+    expect(coreText).toMatch(/\.select\s*\(\s*['"]raw_key['"]\s*\)/);
   });
 
   it('SUM-7 — actualPositiveCount derived from the post-persist SELECT rows', () => {
-    expect(handlerText).toMatch(/actualPositiveCount/);
-    expect(handlerText).toMatch(/persistedRows\?\.length/);
+    expect(coreText).toMatch(/actualPositiveCount/);
+    expect(coreText).toMatch(/persistedRows\?\.length/);
   });
 
   it('SUM-8 — actualRawKeys derived from the post-persist SELECT rows', () => {
-    expect(handlerText).toMatch(/actualRawKeys/);
-    expect(handlerText).toMatch(
+    expect(coreText).toMatch(/actualRawKeys/);
+    expect(coreText).toMatch(
       /persistedRows\s*\?\?\s*\[\]\s*\)\.map\s*\(\s*\(\s*r\s*:\s*\{\s*raw_key\s*:\s*string\s*\}/,
     );
   });
@@ -95,9 +105,9 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — post-persist SELECT is the sour
     // If the post-persist SELECT errors, we don't want the response to
     // 500. Fall back to the in-memory tracker so the response still
     // tells the caller something.
-    expect(handlerText).toMatch(/countError/);
-    expect(handlerText).toMatch(/countError\s*\?\s*resultsToWrite\.length/);
-    expect(handlerText).toMatch(/countError\s*\?\s*inMemoryRawKeys/);
+    expect(coreText).toMatch(/countError/);
+    expect(coreText).toMatch(/countError\s*\?\s*resultsToWrite\.length/);
+    expect(coreText).toMatch(/countError\s*\?\s*inMemoryRawKeys/);
   });
 
   it('SUM-10 — in-memory aggregation renamed to inMemoryRawKeys to signal it is not the source of truth', () => {
@@ -105,7 +115,7 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — post-persist SELECT is the sour
     // those keys WERE in the response, when in fact they were only
     // proposed. The rename clarifies the distinction between proposed
     // (in-memory) and actual (post-persist).
-    expect(handlerText).toMatch(/const\s+inMemoryRawKeys\s*:\s*string\[\]\s*=/);
+    expect(coreText).toMatch(/const\s+inMemoryRawKeys\s*:\s*string\[\]\s*=/);
   });
 });
 
@@ -114,13 +124,13 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — response summary fields use act
     // Pre-fix: `positiveObservationCount: resultsToWrite.length` (in-memory only).
     // Post-fix: `positiveObservationCount: actualPositiveCount` (post-persist SELECT).
     // Appears in BOTH return paths (success + persist-failed) — count both occurrences.
-    const matches = handlerText.match(/positiveObservationCount\s*:\s*actualPositiveCount/g);
+    const matches = coreText.match(/positiveObservationCount\s*:\s*actualPositiveCount/g);
     expect(matches).not.toBeNull();
     expect((matches ?? []).length).toBeGreaterThanOrEqual(2);
   });
 
   it('SUM-12 — success + persist-failed returns both use actualRawKeys', () => {
-    const matches = handlerText.match(/rawKeysWithPositive\s*:\s*actualRawKeys/g);
+    const matches = coreText.match(/rawKeysWithPositive\s*:\s*actualRawKeys/g);
     expect(matches).not.toBeNull();
     expect((matches ?? []).length).toBeGreaterThanOrEqual(2);
   });
@@ -130,7 +140,7 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — response summary fields use act
     // in the success return. After the fix, no return statement uses
     // `resultsToWrite.length` directly. The variable is still constructed
     // (input to persistResults) but no longer surfaces in the response.
-    expect(handlerText).not.toMatch(/positiveObservationCount\s*:\s*resultsToWrite\.length/);
+    expect(coreText).not.toMatch(/positiveObservationCount\s*:\s*resultsToWrite\.length/);
   });
 });
 
@@ -169,35 +179,34 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — production mode behavior unchan
   });
 
   it('REG-5 — sanitization at inspect floor is preserved', () => {
-    expect(handlerText).toContain('sanitizeMcpBooleanObservationResponse');
-    expect(handlerText).toMatch(/surface\s*:\s*['"]inspect['"]/);
+    // Post-refactor: this lives in classifyArgumentCore.ts.
+    expect(coreText).toContain('sanitizeMcpBooleanObservationResponse');
+    expect(coreText).toMatch(/surface\s*:\s*['"]inspect['"]/);
   });
 
   it('REG-6 — adapter-unavailable failureReason mapping is preserved', () => {
-    // The 7 failure_reason strings from MCP-021A-EDGE Decision 4.2 must
-    // remain reachable for unavailable adapter outcomes.
-    expect(handlerText).toContain('mcp_url_missing');
-    expect(handlerText).toContain('mcp_token_missing');
-    expect(handlerText).toContain('mcp_network_error');
-    expect(handlerText).toContain('mcp_api_error');
-    expect(handlerText).toContain('mcp_rate_limited');
-    expect(handlerText).toContain('mcp_parse_failure');
-    expect(handlerText).toContain('mcp_validation_failed');
+    // Post-refactor: the 7 failure_reason strings live in classifyArgumentCore.ts.
+    expect(coreText).toContain('mcp_url_missing');
+    expect(coreText).toContain('mcp_token_missing');
+    expect(coreText).toContain('mcp_network_error');
+    expect(coreText).toContain('mcp_api_error');
+    expect(coreText).toContain('mcp_rate_limited');
+    expect(coreText).toContain('mcp_parse_failure');
+    expect(coreText).toContain('mcp_validation_failed');
   });
 
   it('REG-7 — persistRun is still called before persistResults (run row must exist for FK)', () => {
-    const runIdx = handlerText.indexOf('persistRun(');
-    const resultsIdx = handlerText.indexOf('persistResults(');
+    // Post-refactor: the call ordering lives in classifyArgumentCore.ts.
+    const runIdx = coreText.indexOf('persistRun(');
+    const resultsIdx = coreText.indexOf('persistResults(');
     expect(runIdx).toBeGreaterThan(-1);
     expect(resultsIdx).toBeGreaterThan(-1);
     expect(runIdx).toBeLessThan(resultsIdx);
   });
 
   it('REG-8 — PerArgumentSummary contract is preserved (no new fields; no removed fields)', () => {
-    // The fix changes how the fields are populated, not the typed
-    // contract. Any client (admin tooling, etc.) consuming the
-    // response should not see a shape change.
-    const summaryBlockMatch = handlerText.match(/interface\s+PerArgumentSummary\s*\{[\s\S]*?\n\}/);
+    // Post-refactor: the interface is defined in classifyArgumentCore.ts.
+    const summaryBlockMatch = coreText.match(/interface\s+PerArgumentSummary\s*\{[\s\S]*?\n\}/);
     expect(summaryBlockMatch).not.toBeNull();
     const summaryBlock = summaryBlockMatch![0];
     expect(summaryBlock).toContain('argumentId');
@@ -234,10 +243,9 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — doctrine and security guards', 
   });
 
   it('DOC-4 — fix references the source audit motivating the change', () => {
-    // The comment block above the new code names the audit that
-    // surfaced the bug so future maintainers can trace why the
-    // post-persist SELECT exists.
-    expect(handlerText).toContain('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX');
+    // Post-refactor: the audit reference moved with the code into the
+    // shared core module.
+    expect(coreText).toContain('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX');
   });
 });
 
