@@ -1,26 +1,49 @@
 /**
- * MCP-021C-AUTO-TRIGGER-FAMILY-A — Auto-trigger dispatcher for Family A
- * Boolean Observation classification.
+ * MCP-021C-EDGE-FAMILIES-B-C-ENABLE — Registry-derived auto-trigger
+ * dispatcher for Boolean Observation classification.
  *
  * Wired into `submit-argument`'s post-insert tail as a fire-and-forget
- * promise. Returns a typed outcome; NEVER throws. The submit-argument
- * response is returned BEFORE this dispatcher's promise settles —
- * argument submission is structurally unblocked by the design (§2.4).
+ * promise. Returns a typed outcome array (one per production-enabled
+ * family); NEVER throws. The submit-argument response is returned BEFORE
+ * this dispatcher's promise settles — argument submission is structurally
+ * unblocked by the design (§2.4).
+ *
+ * Per the Stage 2B operator decision (MCP-021C-EDGE-FAMILIES-B-C-ENABLE
+ * design §"STAGE 2B"), this dispatcher derives the production family
+ * list from the Edge family registry (`familyRegistry.ts`) rather than
+ * hard-coding `parent_relation`. Each production-enabled family is
+ * classified in its own iteration (sequential `for-of` loop), producing
+ * its own MCP request, run row, and structured log entry.
  *
  * Workflow:
  *   1. Read `semantic_referee_runtime_config.enabled` via the existing
- *      SECURITY DEFINER RPC. If `false` → outcome `'skipped'` with
- *      reason `'config_disabled'`; no MCP call, no DB row written.
- *   2. Filter requested families for production mode via
- *      `filterFamiliesForMode(['parent_relation'], 'production')`. If
- *      empty → outcome `'skipped'` with reason `'family_not_enabled'`.
- *   3. Idempotency pre-check (Option A): query
- *      `argument_machine_observation_runs` for an existing canonical
- *      run for this argument. If `status='success'` → outcome
- *      `'already_classified'`; no MCP call, no new run row.
- *   4. Invoke `classifyOneArgumentCore(...)` with the shared service
- *      client. Bounded retry per design §4 (transient classes only).
- *   5. Emit a structured log entry per intent brief Decision 9.
+ *      SECURITY DEFINER RPC. If `false` → every outcome is `'skipped'`
+ *      with reason `'config_disabled'`; no MCP call, no DB row written.
+ *      The config check is ONCE per dispatch (not per family) — the kill
+ *      switch governs all families uniformly.
+ *   2. Resolve the production-enabled family list from the registry via
+ *      `productionEnabledFamilies()`. If empty → no iterations run and
+ *      an outer `'skipped'` summary is emitted.
+ *   3. For each eligible family (sequential for-of):
+ *      a. Idempotency pre-check (Option A): query
+ *         `argument_machine_observation_runs` for an existing canonical
+ *         run for this argument + family. If `status='success'` → outcome
+ *         `'already_classified'`; no MCP call, no new run row for this
+ *         family.
+ *      b. Invoke `classifyOneArgumentCore(...)` with a single-element
+ *         `[family]` array. The classifier core's existing
+ *         `filterFamiliesForMode` keeps the family (it's
+ *         productionEnabled), the MCP server resolves a single family
+ *         per call, and one run row is persisted per call. Bounded retry
+ *         per design §4 (transient classes only).
+ *      c. Emit a structured log entry tagged with the family.
+ *   4. Return the array of per-family outcomes.
+ *
+ * Family A behavior preservation: Family A is the first entry in
+ * `productionEnabledFamilies()` (registry iteration order is A→J), so
+ * its iteration runs FIRST and uses the same per-family idempotency
+ * pre-check + bounded retry + log emission as before. Failures in one
+ * family iteration do NOT abort other family iterations.
  *
  * Doctrine:
  *   - cdiscourse-doctrine §7 — server-only file; never imported by
@@ -39,13 +62,20 @@
  * gate is UNCHANGED for its HTTP endpoint.
  *
  * Race-tolerance documentation: Option A's "two run rows for the same
- * argument" failure mode is benign because Source 6 dedupes by `raw_key`
- * per argument (per the
+ * argument + family" failure mode is benign because Source 6 dedupes by
+ * `raw_key` per argument (per the
  * `src/features/nodeLabels/machineObservationPersistenceQuery.ts:127`
  * production filter and the
  * `MCP-021C-EDGE-SMOKE` 2026-05-26 Phase 4.1 observation: "every
  * `raw_key` is distinct" across multiple production runs of the same
- * argument).
+ * argument). Across families the raw_keys are pairwise disjoint per the
+ * MCP-021A registry, so cross-family contamination is impossible.
+ *
+ * Sequential loop choice: per the Stage 2B operator preference, families
+ * run sequentially (not in parallel) for observability + idempotency
+ * clarity. The wall-time cost of three sequential MCP calls is accepted
+ * — the dispatcher runs as a background task via EdgeRuntime.waitUntil,
+ * so it does NOT block the submit-argument response.
  */
 
 import { runBooleanObservationMcpAdapter } from './booleanObservationMcpAdapter.ts';
@@ -54,16 +84,11 @@ import {
   PROVIDER_KEY,
 } from './classifyArgumentCore.ts';
 import type { PerArgumentSummary } from './classifyArgumentCore.ts';
-import { filterFamiliesForMode } from './familyRegistry.ts';
+import { productionEnabledFamilies } from './familyRegistry.ts';
 import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from './mcpBooleanObservationSchema.ts';
 import type { MachineObservationFamily } from './nodeLabelTypes.ts';
 import type { createServiceClient } from '../supabaseClients.ts';
 import { emitAutoTriggerLog } from './autoTriggerLog.ts';
-
-/** The dispatcher always invokes the classifier with this family list. */
-const AUTO_TRIGGER_FAMILIES: ReadonlyArray<MachineObservationFamily> = Object.freeze([
-  'parent_relation',
-]);
 
 /** Production-mode literal. The dispatcher never runs admin_validation. */
 const AUTO_TRIGGER_MODE = 'production' as const;
@@ -89,11 +114,18 @@ const RETRYABLE_FAILURE_REASONS: ReadonlySet<string> = new Set([
 const RETRY_BACKOFF_MS: ReadonlyArray<number> = Object.freeze([2_000, 8_000]);
 
 /**
- * Outcome of the dispatcher. Always typed; never throws.
+ * Outcome of a single per-family dispatcher iteration. Always typed;
+ * never throws.
+ *
+ * The `family` field tags which family this outcome corresponds to —
+ * present on every iteration so log consumers + smoke audits can
+ * partition per-family.
  */
 export interface AutoTriggerOutcome {
   outcome: 'triggered' | 'skipped' | 'already_classified' | 'failed';
   runId: string | null;
+  /** The family this outcome describes (registry-derived). */
+  family?: MachineObservationFamily;
   skipReason?: 'config_disabled' | 'family_not_enabled' | 'argument_not_found';
   failureReason?: string;
 }
@@ -125,15 +157,23 @@ async function readEnabledFlag(
 }
 
 /**
- * Idempotency pre-check (Option A — query-before-create).
+ * Idempotency pre-check (Option A — query-before-create), parameterized
+ * by family.
  *
- * Returns the most-recent canonical run row, or `null` when none exists.
- * Defensive: any RPC / SELECT failure returns `null` so the dispatcher
- * proceeds (the worst case is a duplicate run row, which is benign per
- * §3.6 — Source 6 dedupes by `raw_key`).
+ * Returns the most-recent canonical run row for this argument + family,
+ * or `null` when none exists. Defensive: any RPC / SELECT failure
+ * returns `null` so the dispatcher proceeds (the worst case is a
+ * duplicate run row, which is benign per §3.6 — Source 6 dedupes by
+ * `raw_key` per argument, and raw_keys are pairwise disjoint across
+ * families).
+ *
+ * Per-family scoping: a successful Family A run for argument X does NOT
+ * make Family B's first run for argument X skip — each family has its
+ * own idempotency scope.
  */
 async function findExistingRun(
   argumentId: string,
+  family: MachineObservationFamily,
   serviceClient: ReturnType<typeof createServiceClient>,
 ): Promise<{ id: string; status: string; run_mode: string } | null> {
   try {
@@ -144,7 +184,7 @@ async function findExistingRun(
       .eq('schema_version', MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION)
       .eq('run_mode', 'production')
       .eq('provider_key', PROVIDER_KEY)
-      .contains('requested_families', ['parent_relation'])
+      .contains('requested_families', [family])
       .order('started_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -173,76 +213,43 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * The fire-and-forget dispatcher entry point. Called from
- * `submit-argument`'s post-insert tail (after the QOL-040 notification
- * block, before `return created(...)`). The returned promise is
- * intentionally NOT awaited at the call site.
+ * Per-family iteration body. Runs the idempotency pre-check + bounded
+ * retry loop for a single family. Returns a single `AutoTriggerOutcome`.
  *
- * Per design §2.3 the call site uses `EdgeRuntime.waitUntil(...)` to
- * keep the isolate alive for the background promise.
- *
- * Returns the outcome; NEVER throws — every internal failure is wrapped
- * in try/catch and surfaced via the `outcome: 'failed'` branch.
+ * Extracted into its own function so the outer `for-of` loop in
+ * `dispatchAutoTriggerForArgument` stays readable and so the
+ * per-iteration try/catch isolates failures per family (one family's
+ * crash does NOT abort other families' iterations).
  */
-export async function dispatchAutoTriggerForArgument(
+async function dispatchOneFamilyIteration(
   argumentId: string,
-  _debateId: string,
+  family: MachineObservationFamily,
   serviceClient: ReturnType<typeof createServiceClient>,
 ): Promise<AutoTriggerOutcome> {
-  const startMs = Date.now();
+  const iterationStartMs = Date.now();
+  // Single-element family array. The classifier core's
+  // filterFamiliesForMode keeps it (it's productionEnabled by definition
+  // — we sourced it from productionEnabledFamilies()), and the MCP
+  // server resolves a single family per call.
+  const singleFamilyArray: ReadonlyArray<MachineObservationFamily> = [family];
+
   try {
-    // ── Guard 1: runtime config enabled flag ─────────────────────
-    const enabled = await readEnabledFlag(serviceClient);
-    if (enabled === false) {
-      const outcome: AutoTriggerOutcome = {
-        outcome: 'skipped',
-        runId: null,
-        skipReason: 'config_disabled',
-      };
-      emitAutoTriggerLog({
-        timestamp: new Date().toISOString(),
-        argument_id: argumentId,
-        trigger_source: 'submit_argument_auto_trigger',
-        outcome: 'skipped',
-        skip_reason: 'config_disabled',
-        latency_ms: Date.now() - startMs,
-      });
-      return outcome;
-    }
-
-    // ── Guard 2: family registry enablement ──────────────────────
-    const eligibleFamilies = filterFamiliesForMode(AUTO_TRIGGER_FAMILIES, AUTO_TRIGGER_MODE);
-    if (eligibleFamilies.length === 0) {
-      const outcome: AutoTriggerOutcome = {
-        outcome: 'skipped',
-        runId: null,
-        skipReason: 'family_not_enabled',
-      };
-      emitAutoTriggerLog({
-        timestamp: new Date().toISOString(),
-        argument_id: argumentId,
-        trigger_source: 'submit_argument_auto_trigger',
-        outcome: 'skipped',
-        skip_reason: 'family_not_enabled',
-        latency_ms: Date.now() - startMs,
-      });
-      return outcome;
-    }
-
-    // ── Guard 3: idempotency pre-check (Option A) ────────────────
-    const existing = await findExistingRun(argumentId, serviceClient);
+    // ── Idempotency pre-check (Option A, per-family) ─────────────
+    const existing = await findExistingRun(argumentId, family, serviceClient);
     if (existing && existing.status === 'success') {
       const outcome: AutoTriggerOutcome = {
         outcome: 'already_classified',
         runId: existing.id,
+        family,
       };
       emitAutoTriggerLog({
         timestamp: new Date().toISOString(),
         argument_id: argumentId,
         trigger_source: 'submit_argument_auto_trigger',
         outcome: 'already_classified',
+        family,
         run_id: existing.id,
-        latency_ms: Date.now() - startMs,
+        latency_ms: Date.now() - iterationStartMs,
       });
       return outcome;
     }
@@ -256,7 +263,7 @@ export async function dispatchAutoTriggerForArgument(
     for (attemptNumber = 1; attemptNumber <= MAX_ATTEMPTS; attemptNumber += 1) {
       lastSummary = await classifyOneArgumentCore(
         argumentId,
-        AUTO_TRIGGER_FAMILIES,
+        singleFamilyArray,
         AUTO_TRIGGER_MODE,
         serviceClient,
         runBooleanObservationMcpAdapter,
@@ -268,13 +275,15 @@ export async function dispatchAutoTriggerForArgument(
           argument_id: argumentId,
           trigger_source: 'submit_argument_auto_trigger',
           outcome: 'triggered',
+          family,
           run_id: lastSummary.runId ?? undefined,
           attempt_number: attemptNumber,
-          latency_ms: Date.now() - startMs,
+          latency_ms: Date.now() - iterationStartMs,
         });
         return {
           outcome: 'triggered',
           runId: lastSummary.runId,
+          family,
         };
       }
 
@@ -285,13 +294,15 @@ export async function dispatchAutoTriggerForArgument(
           argument_id: argumentId,
           trigger_source: 'submit_argument_auto_trigger',
           outcome: 'skipped',
+          family,
           skip_reason: 'argument_not_found',
           attempt_number: attemptNumber,
-          latency_ms: Date.now() - startMs,
+          latency_ms: Date.now() - iterationStartMs,
         });
         return {
           outcome: 'skipped',
           runId: null,
+          family,
           skipReason: 'argument_not_found',
         };
       }
@@ -312,14 +323,16 @@ export async function dispatchAutoTriggerForArgument(
       argument_id: argumentId,
       trigger_source: 'submit_argument_auto_trigger',
       outcome: 'failed',
+      family,
       run_id: terminal?.runId ?? undefined,
       failure_reason: terminal?.failureReason ?? 'unexpected_no_summary',
       attempt_number: attemptNumber > MAX_ATTEMPTS ? MAX_ATTEMPTS : attemptNumber,
-      latency_ms: Date.now() - startMs,
+      latency_ms: Date.now() - iterationStartMs,
     });
     return {
       outcome: 'failed',
       runId: terminal?.runId ?? null,
+      family,
       failureReason: terminal?.failureReason ?? 'unexpected_no_summary',
     };
   } catch {
@@ -330,13 +343,118 @@ export async function dispatchAutoTriggerForArgument(
       argument_id: argumentId,
       trigger_source: 'submit_argument_auto_trigger',
       outcome: 'failed',
+      family,
       failure_reason: 'unexpected_error',
-      latency_ms: Date.now() - startMs,
+      latency_ms: Date.now() - iterationStartMs,
     });
     return {
       outcome: 'failed',
       runId: null,
+      family,
       failureReason: 'unexpected_error',
     };
+  }
+}
+
+/**
+ * The fire-and-forget dispatcher entry point. Called from
+ * `submit-argument`'s post-insert tail (after the QOL-040 notification
+ * block, before `return created(...)`). The returned promise is
+ * intentionally NOT awaited at the call site.
+ *
+ * Per design §2.3 the call site uses `EdgeRuntime.waitUntil(...)` to
+ * keep the isolate alive for the background promise.
+ *
+ * Returns an array of per-family outcomes; NEVER throws — every internal
+ * failure is wrapped in try/catch and surfaced via per-family
+ * `outcome: 'failed'` branches.
+ */
+export async function dispatchAutoTriggerForArgument(
+  argumentId: string,
+  _debateId: string,
+  serviceClient: ReturnType<typeof createServiceClient>,
+): Promise<AutoTriggerOutcome[]> {
+  const startMs = Date.now();
+  try {
+    // ── Guard 1: runtime config enabled flag (once per dispatch) ─
+    const enabled = await readEnabledFlag(serviceClient);
+    if (enabled === false) {
+      const outcome: AutoTriggerOutcome = {
+        outcome: 'skipped',
+        runId: null,
+        skipReason: 'config_disabled',
+      };
+      emitAutoTriggerLog({
+        timestamp: new Date().toISOString(),
+        argument_id: argumentId,
+        trigger_source: 'submit_argument_auto_trigger',
+        outcome: 'skipped',
+        skip_reason: 'config_disabled',
+        latency_ms: Date.now() - startMs,
+      });
+      return [outcome];
+    }
+
+    // ── Guard 2: family registry enablement (registry-derived) ───
+    // No hard-coded family literal here — the production family list is
+    // the runtime registry's productionEnabledFamilies() output. Adding
+    // or removing a production family is a 1-boolean flip in
+    // familyRegistry.ts; no edit to this file is needed.
+    const eligibleFamilies = productionEnabledFamilies();
+    if (eligibleFamilies.length === 0) {
+      const outcome: AutoTriggerOutcome = {
+        outcome: 'skipped',
+        runId: null,
+        skipReason: 'family_not_enabled',
+      };
+      emitAutoTriggerLog({
+        timestamp: new Date().toISOString(),
+        argument_id: argumentId,
+        trigger_source: 'submit_argument_auto_trigger',
+        outcome: 'skipped',
+        skip_reason: 'family_not_enabled',
+        latency_ms: Date.now() - startMs,
+      });
+      return [outcome];
+    }
+
+    // ── Per-family sequential loop ───────────────────────────────
+    // Sequential `for-of` (NOT Promise.all) per Stage 2B operator
+    // preference: observability + idempotency clarity + per-family run
+    // rows are easier to reason about when each family runs to
+    // completion before the next starts. Family A is the first entry
+    // (registry order A→J) so its iteration runs first. A failure in
+    // one family iteration does NOT abort the next iteration — the
+    // per-iteration try/catch inside dispatchOneFamilyIteration
+    // isolates each family.
+    const outcomes: AutoTriggerOutcome[] = [];
+    for (const family of eligibleFamilies) {
+      const iterationOutcome = await dispatchOneFamilyIteration(
+        argumentId,
+        family,
+        serviceClient,
+      );
+      outcomes.push(iterationOutcome);
+    }
+    return outcomes;
+  } catch {
+    // Defensive outer catch: any uncaught condition surfaces as a single
+    // failed outcome (no per-family tag because we don't know which
+    // family we were on when this fired).
+    emitAutoTriggerLog({
+      timestamp: new Date().toISOString(),
+      argument_id: argumentId,
+      trigger_source: 'submit_argument_auto_trigger',
+      outcome: 'failed',
+      failure_reason: 'unexpected_error',
+      latency_ms: Date.now() - startMs,
+    });
+    return [
+      {
+        outcome: 'failed',
+        runId: null,
+        failureReason: 'unexpected_error',
+      },
+    ];
   }
 }

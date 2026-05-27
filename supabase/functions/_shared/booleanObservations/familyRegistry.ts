@@ -5,10 +5,12 @@
  * production mode" vs "which families are eligible to run in admin
  * validation mode". Per design §3.2 + Decision 4:
  *
- *   - Production mode: ONLY `parent_relation` (Family A — 16 keys) is
- *     enabled at MCP-021C-EDGE ship. Other families ship as mirrors but
- *     do NOT receive production traffic until a per-family enablement
- *     card flips the flag.
+ *   - Production mode: `parent_relation` (Family A — 16 keys),
+ *     `disagreement_axis` (Family B — 14 keys), and
+ *     `misunderstanding_repair` (Family C — 17 keys) are enabled at
+ *     `MCP-021C-EDGE-FAMILIES-B-C-ENABLE` ship. Other families ship as
+ *     mirrors but do NOT receive production traffic until a per-family
+ *     enablement card flips the flag.
  *   - Admin validation mode: ALL 10 families are enabled. Admin
  *     validation rows are persisted with `run_mode = 'admin_validation'`
  *     and filtered out of production Source 6 rendering at the
@@ -16,7 +18,10 @@
  *
  * Future family enablement is a small surgical card: flip the
  * `productionEnabled` flag for the target family + add a test asserting
- * the flip + ship. No Edge Function code change required.
+ * the flip + ship. No Edge Function code change required — the
+ * auto-trigger dispatcher (`autoTriggerDispatcher.ts`) derives the
+ * production family list from this registry at runtime, so flipping a
+ * boolean here automatically extends auto-trigger.
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1, §10a — Machine Observations are structural;
@@ -40,8 +45,9 @@ export interface FamilyRegistryEntry {
   family: MachineObservationFamily;
   /**
    * True when the family is eligible for production-mode classifier
-   * traffic at the Edge Function. At MCP-021C-EDGE ship, ONLY
-   * `parent_relation` is `true`; all others are `false`.
+   * traffic at the Edge Function. At `MCP-021C-EDGE-FAMILIES-B-C-ENABLE`
+   * ship, `parent_relation` (A), `disagreement_axis` (B), and
+   * `misunderstanding_repair` (C) are `true`; D–J remain `false`.
    */
   productionEnabled: boolean;
   /**
@@ -67,12 +73,12 @@ export const FAMILY_REGISTRY: ReadonlyArray<FamilyRegistryEntry> = Object.freeze
   },
   {
     family: 'disagreement_axis',
-    productionEnabled: false,
+    productionEnabled: true,
     adminValidationEnabled: true,
   },
   {
     family: 'misunderstanding_repair',
-    productionEnabled: false,
+    productionEnabled: true,
     adminValidationEnabled: true,
   },
   {
