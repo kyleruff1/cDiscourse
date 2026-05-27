@@ -54,8 +54,18 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — idempotency pre-check (Option A)', 
     expect(dispatcherText).toMatch(/\.eq\s*\(\s*['"]provider_key['"]\s*,\s*PROVIDER_KEY\s*\)/);
   });
 
-  it('IDEM-6 — pre-check filters requested_families to contain \'parent_relation\'', () => {
+  it('IDEM-6 — pre-check filters requested_families to contain the per-iteration [family] parameter (post Stage 2B)', () => {
+    // Post Stage 2B (MCP-021C-EDGE-FAMILIES-B-C-ENABLE): findExistingRun
+    // is parameterized by family; the .contains() argument is built
+    // from the parameter (the loop variable), not a hard-coded
+    // 'parent_relation' literal. Per-family idempotency scope is
+    // enforced — a successful Family A run does NOT make Family B's
+    // first run skip.
     expect(dispatcherText).toMatch(
+      /\.contains\s*\(\s*['"]requested_families['"]\s*,\s*\[\s*family\s*\]\s*\)/,
+    );
+    // Old literal must NOT appear inside the .contains() argument.
+    expect(dispatcherText).not.toMatch(
       /\.contains\s*\(\s*['"]requested_families['"]\s*,\s*\[\s*['"]parent_relation['"]\s*\]\s*\)/,
     );
   });
@@ -94,9 +104,13 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — idempotency pre-check (Option A)', 
     );
   });
 
-  it('IDEM-12 — pre-check uses the serviceClient passed into the dispatcher (no new client)', () => {
-    // The findExistingRun helper accepts serviceClient as a parameter.
-    expect(dispatcherText).toMatch(/findExistingRun\s*\(\s*argumentId\s*,\s*serviceClient\s*\)/);
+  it('IDEM-12 — pre-check uses the serviceClient + family parameters passed into the dispatcher (no new client; per-family scope)', () => {
+    // Post Stage 2B: findExistingRun signature is (argumentId, family,
+    // serviceClient). The dispatcher passes both the loop variable
+    // `family` and the already-authenticated serviceClient.
+    expect(dispatcherText).toMatch(
+      /findExistingRun\s*\(\s*argumentId\s*,\s*family\s*,\s*serviceClient\s*\)/,
+    );
   });
 
   it('IDEM-13 — dispatcher call in submit-argument is positioned AFTER the client_submission_id replay return', () => {

@@ -127,26 +127,33 @@ describe('MCP-021C-EDGE — run_mode binding to migration', () => {
   });
 });
 
-describe('MCP-021C-EDGE — production filter does NOT see admin_validation families', () => {
-  it('AVM-10 — production filter drops disagreement_axis (admin-only)', () => {
-    expect(edgeFilterFamiliesForMode(['disagreement_axis'], 'production')).toEqual([]);
+describe('MCP-021C-EDGE — production filter does NOT see D–J admin_validation families (post Stage 2B)', () => {
+  // Post Stage 2B (MCP-021C-EDGE-FAMILIES-B-C-ENABLE): families A + B + C
+  // are productionEnabled; D–J remain admin-only.
+
+  it('AVM-10 — production filter keeps disagreement_axis (B was flipped to productionEnabled in Stage 2B)', () => {
+    expect(edgeFilterFamiliesForMode(['disagreement_axis'], 'production')).toEqual([
+      'disagreement_axis',
+    ]);
   });
 
-  it('AVM-11 — production filter drops evidence_source_chain (admin-only)', () => {
+  it('AVM-11 — production filter drops evidence_source_chain (D remains admin-only)', () => {
     expect(edgeFilterFamiliesForMode(['evidence_source_chain'], 'production')).toEqual([]);
   });
 
-  it('AVM-12 — production filter drops sensitive_composer (admin-only)', () => {
+  it('AVM-12 — production filter drops sensitive_composer (J remains admin-only)', () => {
     expect(edgeFilterFamiliesForMode(['sensitive_composer'], 'production')).toEqual([]);
   });
 
-  it('AVM-13 — production filter keeps parent_relation only when mixed', () => {
+  it('AVM-13 — production filter keeps A+B when mixed; drops D (evidence_source_chain)', () => {
+    // Post Stage 2B: parent_relation (A) AND disagreement_axis (B) are
+    // productionEnabled; evidence_source_chain (D) is admin-only.
     expect(
       edgeFilterFamiliesForMode(
         ['parent_relation', 'disagreement_axis', 'evidence_source_chain'],
         'production',
       ),
-    ).toEqual(['parent_relation']);
+    ).toEqual(['parent_relation', 'disagreement_axis']);
   });
 });
 
