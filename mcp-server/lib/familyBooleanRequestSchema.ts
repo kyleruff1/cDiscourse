@@ -1,39 +1,62 @@
 /**
- * MCP-SERVER-002 — Server-side validator for the Family A request shape.
+ * OPS-MCP-FAMILY-VALIDATOR-REFACTOR — Server-side validator for the
+ * boolean-observation request shape (multi-family-capable; routes via the
+ * FamilyValidatorRegistry).
  *
  * Accepts the MCP-021A wire shape per `classifyArgumentBooleanObservations.ts`
  * inputSchema, PLUS these binding extras:
  *
  *   - schemaVersion MUST equal MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION
- *   - requestedFamilies MUST be a subset of ['parent_relation']
- *   - requestedRawKeys (if non-empty) MUST be a subset of FAMILY_A_RAW_KEYS
+ *   - requestedFamilies entries MUST be registered families
+ *     (per familyRegistry.isFamilySupported)
+ *   - requestedRawKeys (if non-empty) MUST be supported by the requested
+ *     family (per familyRegistry.isRawKeySupportedForFamily). When
+ *     requestedFamilies is empty, raw-key checks default to 'parent_relation'
+ *     — the only family currently registered (Family A) — preserving
+ *     pre-refactor behavior byte-equal.
  *   - timeoutMs MUST be in [1, 60000]
  *
- * Returns a typed ValidatedFamilyARequest or an error envelope.
+ * Returns a typed ValidatedFamilyARequest or an error envelope. The success-
+ * envelope value type stays `ValidatedFamilyARequest` per design §4.5 (the
+ * type rename to a discriminated union is deferred to MCP-SERVER-003-FAMILY-B).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §7 — pure validation; no fetch / no I/O
  *   - cdiscourse-doctrine §6 — request shape never includes secrets;
  *     bodies are caller-redacted at the Edge Function boundary (MCP-021C)
+ *   - cdiscourse-doctrine §10a — request validator runs BELOW the
+ *     observation-emit layer; encodes no verdict
  */
 import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from './mcpBooleanObservationSchemaMirror.ts';
-import { FAMILY_A_RAW_KEYS } from './familyAKeys.ts';
+import { isFamilySupported, isRawKeySupportedForFamily } from './familyRegistry.ts';
 import type { ValidatedFamilyARequest } from './familyAPrompt.ts';
 
-const SUPPORTED_FAMILIES: readonly string[] = Object.freeze(['parent_relation']);
 const MAX_TIMEOUT_MS = 60000;
 const MIN_TIMEOUT_MS = 1;
 const MAX_BODY_LEN = 8000;
 const MAX_THREAD_CONTEXT_LEN = 8000;
 
-export type FamilyARequestValidationFailure =
+/**
+ * Default family used for raw-key membership checks when the caller passes an
+ * empty requestedFamilies array. Preserves pre-refactor behavior byte-equal
+ * (the original validator hard-coded Family A's rawKeys for ALL requests; in
+ * the multi-family world, when no family is named the raw-key check still
+ * routes to Family A — the only registered family).
+ *
+ * When Family B/C/D/E land and callers can pass requestedFamilies=[]
+ * meaningfully across multiple families, this default will need to be
+ * revisited. For now it is the byte-equal-preservation anchor.
+ */
+const DEFAULT_FAMILY_FOR_RAWKEY_CHECK = 'parent_relation';
+
+export type FamilyRequestValidationFailure =
   | { ok: false; kind: 'invalid_params'; path: string; detail: string }
   | { ok: false; kind: 'unsupported_family'; requestedFamilies: readonly string[] }
   | { ok: false; kind: 'unsupported_rawKey'; unsupportedRawKeys: readonly string[] };
 
-export type FamilyARequestValidationResult =
+export type FamilyRequestValidationResult =
   | { ok: true; value: ValidatedFamilyARequest }
-  | FamilyARequestValidationFailure;
+  | FamilyRequestValidationFailure;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return (
@@ -87,17 +110,26 @@ function checkStringArray(value: unknown, path: string) {
 }
 
 /**
- * Validate a Family A boolean-observation request. Returns the validated
- * value typed as ValidatedFamilyARequest, or a structured failure.
+ * Validate a boolean-observation request against the registered families.
+ * Returns the validated value typed as ValidatedFamilyARequest, or a
+ * structured failure.
+ *
+ * Routing semantics:
+ *   - requestedFamilies entries are checked against the registry's
+ *     `isFamilySupported`.
+ *   - requestedRawKeys entries are checked against the requested family's
+ *     rawKey set. If requestedFamilies is empty, raw-key checks default
+ *     to 'parent_relation' (preserves pre-refactor byte-equal behavior;
+ *     Family A is the only registered family in the current server build).
  *
  * The handler maps failure kinds to MCP error envelopes:
- *   - 'invalid_params'    → errorResult('invalid_params', ...)
+ *   - 'invalid_params'      → errorResult('invalid_params', ...)
  *   - 'unsupported_family'  → errorResult('unsupported_family', ...)
  *   - 'unsupported_rawKey'  → errorResult('unsupported_rawKey', ...)
  */
-export function validateFamilyABooleanRequest(
+export function validateFamilyBooleanRequest(
   raw: unknown,
-): FamilyARequestValidationResult {
+): FamilyRequestValidationResult {
   if (!isPlainObject(raw)) {
     return {
       ok: false,
@@ -170,7 +202,7 @@ export function validateFamilyABooleanRequest(
     };
   }
 
-  // requestedFamilies
+  // requestedFamilies — each entry must be a registered family.
   const familiesCheck = checkStringArray(raw['requestedFamilies'], 'requestedFamilies');
   if (!familiesCheck.ok) {
     return {
@@ -182,7 +214,7 @@ export function validateFamilyABooleanRequest(
   }
   const requestedFamilies = familiesCheck.value;
   for (const family of requestedFamilies) {
-    if (!SUPPORTED_FAMILIES.includes(family)) {
+    if (!isFamilySupported(family)) {
       return {
         ok: false,
         kind: 'unsupported_family',
@@ -191,7 +223,10 @@ export function validateFamilyABooleanRequest(
     }
   }
 
-  // requestedRawKeys (subset of FAMILY_A_RAW_KEYS when non-empty)
+  // requestedRawKeys — each entry must belong to one of the requested
+  // families. When requestedFamilies is empty, default to the byte-equal
+  // anchor (parent_relation / Family A) so the original "subset of
+  // FAMILY_A_RAW_KEYS" semantics survive the refactor.
   const rawKeysCheck = checkStringArray(raw['requestedRawKeys'], 'requestedRawKeys');
   if (!rawKeysCheck.ok) {
     return {
@@ -202,9 +237,18 @@ export function validateFamilyABooleanRequest(
     };
   }
   const requestedRawKeys = rawKeysCheck.value;
+  const familiesToCheck: readonly string[] =
+    requestedFamilies.length > 0 ? requestedFamilies : [DEFAULT_FAMILY_FOR_RAWKEY_CHECK];
   const unsupportedKeys: string[] = [];
   for (const key of requestedRawKeys) {
-    if (!FAMILY_A_RAW_KEYS.includes(key)) {
+    let supportedBySomeFamily = false;
+    for (const family of familiesToCheck) {
+      if (isRawKeySupportedForFamily(family, key)) {
+        supportedBySomeFamily = true;
+        break;
+      }
+    }
+    if (!supportedBySomeFamily) {
       unsupportedKeys.push(key);
     }
   }
@@ -261,5 +305,3 @@ export function validateFamilyABooleanRequest(
     },
   };
 }
-
-export { SUPPORTED_FAMILIES };
