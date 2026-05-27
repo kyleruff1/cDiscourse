@@ -1,5 +1,100 @@
 # OPS-MCP-IDEMPOTENCY-HARDENING — design document
 
+---
+
+## STAGE 2B SUPERSEDES THIS DESIGN
+
+**Status (post Stage 2B):** Cause-C-only path approved by operator. The runtime-hardening design described in §3 below is HISTORICAL / REJECTED. The implemented scope is an RCA-backed observability refinement to Q9 only.
+
+**Operator's Stage 2B binding decision (verbatim):**
+
+The operator chose Option 2 — Cause-C-only path — with these refinements.
+
+### Binding NO-GO list
+
+- NO migration.
+- NO partial UNIQUE INDEX.
+- NO `admin_force_rerun` parameter or column.
+- NO Edge Function runtime idempotency behavior change.
+- NO `classify-argument-boolean-observations` request-shape change.
+- NO `autoTriggerDispatcher.ts` change.
+- NO `classifyArgumentCore.ts` union widening.
+- NO production behavior change.
+
+### Binding GO list
+
+1. Treat this card as an RCA-backed observability refinement, not runtime hardening.
+2. Update Q9 duplicate-run SQL/report semantics so documented audit/smoke/manual re-fires do not appear as unresolved duplicate-run risk.
+3. Preserve visibility into true duplicate risk:
+   - Q9 still flags duplicate pairs that are NOT attributable to documented audit/manual re-runs.
+   - Q9 classifies rows into four categories: `organic_duplicate_candidate`, `audit_or_smoke_rerun`, `synthetic_test_data`, `needs_investigation`.
+4. Tests prove:
+   - Documented audit re-fires are NOT counted as unresolved duplicate-risk findings.
+   - True same-argument/same-family/same-run_mode duplicate candidates still get flagged.
+   - Report output remains safe: no raw bodies, no evidence spans by default, no secrets.
+5. Update the design language:
+   - RCA found no current runtime idempotency defect requiring a DB or Edge fix.
+   - Observability produced a useful signal; the correct next move is semantic classification of duplicate findings.
+   - Runtime idempotency hardening remains DEFERRED until Q9 surfaces organic duplicate candidates after the filter is applied.
+
+### Verdict logic (per operator's binding decision)
+
+- **PASS:** Q9 distinguishes audit re-fires from actual duplicate-risk candidates; tests pass.
+- **PARTIAL:** Q9 cannot separate categories cleanly.
+- **FAIL:** Report hides real duplicate risk OR weakens production/admin_validation separation.
+
+### Post-card state (per operator's binding decision)
+
+- `MCP-SERVER-005-FAMILY-D` remains authorized.
+- `OPS-MCP-IDEMPOTENCY-HARDENING-RUNTIME` (or equivalent) is DEFERRED — NOT filed — unless future observability reports show organic duplicate candidates.
+
+### Implemented scope (Stage 2B)
+
+Two files changed under the Cause-C-only path:
+
+1. **`scripts/ops/sql/09-duplicate-runs.sql`** — rewritten with a 2-CTE structure (`run_to_family` + `grouped`) and a `CASE` expression that classifies each duplicate-pair into one of the four categories. The four-category grammar matches the operator's binding list verbatim. The conservative default is `organic_duplicate_candidate` — any duplicate-pair the SQL cannot provably classify into the other three falls through to this bucket so real risk is never hidden.
+
+   Classification heuristic (data-derived primary + run_id allowlist fallback):
+   - **`synthetic_test_data`** — `provider_key LIKE 'smoke-%'` (defensive; currently empty post `b8ce07b` cleanup).
+   - **`audit_or_smoke_rerun`** — admin_validation duplicates with `>=1 hour` gap (Signal 1 — data-derived) OR run_id match against the six documented historical run_ids (Signal 2 — fallback for the 2m 11s production Pair 3).
+   - **`needs_investigation`** — same-tuple gap `< 30 seconds` and not synthetic / not allowlisted; race or retry suspect.
+   - **`organic_duplicate_candidate`** — the conservative-default `else` branch.
+
+   Live-DB verification at design time: all 3 historical pairs classify as `audit_or_smoke_rerun`; zero rows in any other category.
+
+2. **`scripts/ops/mcp-observability-report-lib.cjs`** — the Q9 `SECTIONS` entry gains `classification` as an 8th column and the question / title strings convey the four-category classification grammar.
+
+3. **`__tests__/opsMcpIdempotencyHardening.test.ts`** — new (28 tests). Pure-Jest file-content scans against the SQL + a small cross-check against the runner library. Verifies all four categories are emitted, the runner column contract is preserved + extended, the conservative-default semantics hold, header documentation surfaces the heuristic + RCA findings + Stage 2B re-scope, and the binding NO-GO list is honored defensively (no migration / no admin_force_rerun / no forceRerun / no unique-index reference).
+
+### What is NOT implemented (vs §3 below)
+
+- ❌ No new migration under `supabase/migrations/`.
+- ❌ No `admin_force_rerun` column on `argument_machine_observation_runs`.
+- ❌ No partial UNIQUE INDEX on the runs table.
+- ❌ No SQLSTATE 23505 handling in `autoTriggerDispatcher.ts`.
+- ❌ No `forceRerun` request-body parameter on `classify-argument-boolean-observations`.
+- ❌ No new `PerArgumentSummary.status` union extension in `classifyArgumentCore.ts`.
+
+These items remain in §3 below as HISTORICAL / REJECTED context — preserved for audit trail. A future card (e.g., `OPS-MCP-IDEMPOTENCY-HARDENING-RUNTIME`) may revisit them ONLY if Q9 surfaces `organic_duplicate_candidate` rows after the filter is applied.
+
+### Implementer note on the design proposal in §3 below
+
+The design proposal in §3 of this document was authored by the roadmap-designer subagent in good faith after a thorough RCA. The Stage 2B operator decision rejected the broader runtime fix because:
+
+1. The RCA (§2 below) found ALL THREE pairs are documented audit/smoke re-fires — there is no current runtime defect.
+2. Building a DB constraint + Edge Function changes against documented historical noise would expand surface area without addressing real risk.
+3. Defer-until-real-signal is the correct posture; the classified Q9 will surface real signal if/when it appears.
+
+The HISTORICAL CONTEXT below remains valid as the analysis that informed the operator's decision, NOT as an implementation plan.
+
+---
+
+## HISTORICAL CONTEXT (Stage 2B REJECTED)
+
+The remainder of this document (§1 through §12) is the original design draft, RETAINED FOR AUDIT TRAIL. It describes a runtime hardening fix that the operator's Stage 2B decision REJECTED in favor of the Cause-C-only path documented above. Implementers reading this document MUST treat §3-§12 as HISTORICAL / REJECTED context, not as a build plan.
+
+---
+
 **Status:** Design draft (Stage 2B operator-decision pending)
 **Epic:** OPS — operational integrity
 **Issue:** https://github.com/kyleruff1/cDiscourse/issues/326
