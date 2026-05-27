@@ -5074,3 +5074,67 @@ Run on 2026-05-17 (post Stage 6.1.3.1 dry-corpus gate):
      Cross-reference sweep complete: CLAUDE.md, .claude/agents, .claude/skills, .claude/scripts,
      scripts/diagnostics, scripts/github, and 100+ docs/ Markdown files all rewritten to docs/core/<name>.md. -->
 
+---
+
+## MCP-021C-AUTO-TRIGGER-FAMILY-A — Automatic Family A classification on argument insert (2026-05-26)
+
+**Status:** Implementer phase complete; operator post-merge smoke pending.
+
+**Card:** MCP-021C-AUTO-TRIGGER-FAMILY-A (effort M-L; design-heavy).
+**Predecessor:** MCP-021C-FAMILY-A-PROD-SMOKE PASS (`67fcba5`).
+**Design doc:** `docs/designs/MCP-021C-AUTO-TRIGGER-FAMILY-A.md` (1,595 lines; committed at `8371625`).
+**Intent brief:** `docs/designs/MCP-021C-AUTO-TRIGGER-FAMILY-A-intent.md` (operator-authored).
+
+**What shipped:** A fire-and-forget Boolean Observation classifier dispatcher that fires for every newly inserted argument in `submit-argument` (Family A = `parent_relation`; `mode='production'`). The dispatcher inherits submit-argument's already-authenticated isolate's service-role client — there is no client-side MCP call, no service-role surface in the app, no admin-gate widening on the classifier Edge Function. The classifier core was lifted byte-equivalent out of `classify-argument-boolean-observations/index.ts` into a shared module so both the HTTP endpoint and the dispatcher share the same per-argument logic.
+
+**Files touched:**
+- New (8 files):
+  - `supabase/functions/_shared/booleanObservations/classifyArgumentCore.ts` (lifted classifier core; ~290 lines).
+  - `supabase/functions/_shared/booleanObservations/autoTriggerDispatcher.ts` (fire-and-forget dispatcher; ~320 lines).
+  - `supabase/functions/_shared/booleanObservations/autoTriggerLog.ts` (structured-log helper; ~65 lines).
+  - `__tests__/mcpOneTwoOneCAutoTriggerFamilyA.test.ts` (25 tests).
+  - `__tests__/mcpOneTwoOneCAutoTriggerIdempotency.test.ts` (18 tests).
+  - `__tests__/mcpOneTwoOneCAutoTriggerFailureMode.test.ts` (22 tests).
+  - `__tests__/mcpOneTwoOneCAutoTriggerSourceSixRendering.test.ts` (12 tests).
+  - `__tests__/mcpOneTwoOneCAutoTriggerSecurityBoundary.test.ts` (18 tests).
+- Bounded edits (2 files):
+  - `supabase/functions/classify-argument-boolean-observations/index.ts` (HTTP handler now imports the shared core; `requireAdmin` gate unchanged; response shape unchanged).
+  - `supabase/functions/submit-argument/index.ts` (one new import + `declare const EdgeRuntime` + one fire-and-forget dispatcher call site after the QOL-040 notification block / before the final `return created(...)`).
+- Test files updated to reflect the lift-and-shift refactor (3 files):
+  - `__tests__/mcpOneTwoOneCEdgeFunctionHandler.test.ts` (source-scans the core file alongside the handler).
+  - `__tests__/mcpOneTwoOneCEdgeResponseSummaryFix.test.ts` (source-scans the core file alongside the handler).
+  - `__tests__/uxOneOneFiveReadOnlyBoundary.test.ts` (submit-argument zero-diff relaxed; new assertion confines the diff to dispatcher additions only).
+
+**Test delta:** 17,617 → **17,712 passing** (+95 new tests, 5 new suites). Typecheck and lint clean. Doctrine + secrets greps clean.
+
+**Operator follow-up post-merge:**
+1. Auto-merge will redeploy both Edge Functions (`submit-argument` + `classify-argument-boolean-observations`) via the Supabase GitHub integration. No migration in this card.
+2. Verify both functions are ACTIVE post-deploy: `npx supabase functions list --linked`.
+3. Verify runtime config is `enabled = true`, `provider_mode = 'mcp'`:
+   ```sql
+   SELECT id, provider_mode, enabled
+   FROM public.semantic_referee_runtime_config
+   WHERE id = true;
+   ```
+4. Run the three-phase smoke per design §10.1 (Phase 1 = trigger fires on new arg; Phase 2/2.5 = idempotency holds on duplicate; Phase 3 = failure doesn't block submit). Record results at `docs/audits/MCP-021C-AUTO-TRIGGER-FAMILY-A-SMOKE-<YYYY-MM-DD>.md`.
+5. **Operator kill switch (if needed):**
+   ```sql
+   UPDATE public.semantic_referee_runtime_config SET enabled = false WHERE id = true;
+   ```
+   The dispatcher reads this flag first; setting it to `false` stops all auto-trigger MCP traffic without redeploy.
+
+**Design self-check (post-implementation):**
+- 25/25 HALT triggers from intent brief §5 remain CLEAN.
+- cdiscourse-doctrine §1 + §3 + §4 + §6 + §7 + §10a all preserved.
+
+**Future cards authorized post-smoke (per intent brief §9, gated on PASS):**
+- `MCP-SERVER-003` (Family B template).
+- `ADMIN-MCP-001` (UI flip).
+- `MCP-021C-AUTO-TRIGGER-FAMILY-B`–`-FAMILY-J` (one per family per cadence).
+- `OPS-MCP-OBSERVABILITY` (promotable from DEFERRED to PLANNED).
+
+**Conditional follow-ups (filed only if observed in production smoke):**
+- `MCP-021C-AUTO-TRIGGER-FAMILY-A-IDEMPOTENCY-HARDENING` (Option B unique index; only if duplicate production runs are observed).
+- `OPS-MCP-RATE-LIMITING` (concurrent caps, per-debate limits, cost-budget enforcement).
+
+
