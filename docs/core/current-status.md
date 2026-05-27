@@ -5280,4 +5280,58 @@ Conservative-positives bias per design §2: most moves exhibit 0 to 2 repair sig
 - Production-mode manual Family C enablement (`MCP-021C-EDGE-FAMILY-C-ENABLE`) — operator-selected sequencing; lives in a separate card that edits `supabase/functions/_shared/booleanObservations/familyRegistry.ts:75` `productionEnabled` flag.
 - Production auto-trigger for Family C (`MCP-021C-AUTO-TRIGGER-FAMILY-C`) — gated on production-mode enablement; analogous to `MCP-021C-AUTO-TRIGGER-FAMILY-A`.
 
+---
+
+## OPS-MCP-OBSERVABILITY — Multi-family MCP classifier telemetry (read-only operator script) (2026-05-27)
+
+**Branch:** `feat/OPS-MCP-OBSERVABILITY`
+**PR:** #320
+**Intent brief:** `docs/designs/OPS-MCP-OBSERVABILITY-intent.md` (operator-authored at `fbf7c87`).
+**Design doc:** `docs/designs/OPS-MCP-OBSERVABILITY.md` (designer-authored at `553ed30`).
+
+**What shipped:** A read-only operator telemetry surface for the multi-family MCP classifier (`argument_machine_observation_runs` + `argument_machine_observation_results`). 14 SQL files under `scripts/ops/sql/` answer 13 telemetry questions (Q1 runs-by-run_mode, Q2a/Q2b runs-by-family, Q3 family×status, Q4 failure_reasons, Q5 positive-results-by-family, Q6 top-positive-rawKeys, Q7 7-day-density, Q8 Source-6-safety, Q9 duplicate-runs, Q10 Family-A-auto-trigger-heartbeat, Q11 Family-B/C-admin-validation-only-check, Q12 unsupported-family-positives, Q13 over/under-firing-summary). Each SQL is independently runnable via `npx supabase db query --linked --file scripts/ops/sql/<file>`. The Node entry script `scripts/ops/mcp-observability-report.mjs` orchestrates them, stitches markdown + JSON, runs a Source 6 production-only literal-line safety check (exit 3 on failure), and scans the stitched markdown for banned doctrine tokens (exit 2 on failure). Pure helpers live in a sibling `mcp-observability-report-lib.cjs` so Jest can `require()` them without an ESM transform. Doctrine layer: no service-role usage; no Anthropic/xAI/X API call; no raw argument body; no full evidence span content (the optional `--include-evidence-preview` flag truncates to <=120 chars + doctrine-scans before writing).
+
+**Files touched:**
+- 14 new SQL files under `scripts/ops/sql/`: `01-runs-by-run-mode.sql`, `02-runs-by-family.sql`, `02b-runs-by-requested-family.sql`, `03-runs-by-family-and-status.sql`, `04-failure-reasons-by-family.sql`, `05-positive-results-by-family.sql`, `06-top-positive-raw-keys-by-family.sql`, `07-positive-density-7d.sql`, `08-source-six-safety-row-counts.sql`, `09-duplicate-runs.sql`, `10-family-a-auto-trigger-recent.sql`, `11-family-bc-admin-validation-check.sql`, `12-unsupported-family-attempts.sql`, `13-over-under-firing-summary.sql`.
+- 2 new script files under `scripts/ops/`: `mcp-observability-report.mjs` (CLI entry; thin wrapper over the .cjs lib), `mcp-observability-report-lib.cjs` (pure helpers — parseCliArgs, SECTIONS descriptors, checkSourceSixFilter, parseEdgeFamilyRegistry, scanMarkdownForBannedTokens, runSupabaseSqlFile, stitchMarkdownReport, buildJsonArtifact, safeTruncateEvidence).
+- 10 new test files under `__tests__/`: `opsMcpObservabilityReportShape.test.ts` (12 assertions), `opsMcpObservabilityDoctrineBanList.test.ts` (parameterized over every banned token), `opsMcpObservabilityNoLiveDb.test.ts` (5 assertions; no spawnSync in pure helpers), `opsMcpObservabilityNoServiceRoleNoSecrets.test.ts` (11 assertions; source-scan with comment-stripping), `opsMcpObservabilitySqlSafety.test.ts` (per-keyword consolidated DDL safety; per-SQL-file body/evidence_span guards), `opsMcpObservabilityEmptyDbSafety.test.ts` (8 assertions over the empty-fixture path), `opsMcpObservabilityCliArgParsing.test.ts` (21 flag-coverage assertions), `opsMcpObservabilityEvidencePreviewSafety.test.ts` (11 assertions including truncate-before-scan boundary cases), `opsMcpObservabilityMultiFamily.test.ts` (8 aggregation reconciliation assertions), `opsMcpObservabilitySourceSixSafety.test.ts` (8 assertions including line-number tolerance check).
+- 1 new fixture: `__tests__/fixtures/opsMcpObservabilityFixture.ts` (`FIXTURE_SECTIONS_DATA` covers all 3 families + both run_modes; `FIXTURE_EMPTY_SECTIONS_DATA` for the 0-row path; `FIXTURE_SOURCE_SIX_CHECK` + `FIXTURE_EDGE_REGISTRY` for stitcher inputs).
+- 2 new docs: `docs/ops/OPS-MCP-OBSERVABILITY.md` (operator-facing how-to-run + how-to-interpret), `docs/audits/OPS-MCP-OBSERVABILITY-SMOKE-template.md` (6-phase post-merge smoke template).
+
+**Files NOT touched (HALT triggers protected):**
+- `src/features/nodeLabels/**` (taxonomy + Source 6 query module).
+- `src/features/nodeLabels/machineObservationPersistenceQuery.ts:127` (Source 6 production-only filter — the binding constraint; only re-read for the literal-line safety check).
+- `mcp-server/**` (classifier sources + dispatcher).
+- `supabase/functions/_shared/booleanObservations/**` (Edge gate + registry; only re-read for Appendix A).
+- `supabase/functions/classify-argument-boolean-observations/**` (Edge Function source).
+- `supabase/migrations/**` (no new migration; existing schema answers all 13 questions).
+- `__tests__/mcpOneTwoOneB*.test.ts` and `__tests__/mcpOneTwoOneC*.test.ts` (preserved byte-equal; 11 S6F-* assertions intact).
+- `__tests__/uxOneOneFiveA*.test.ts` (preserved byte-equal).
+- `package.json` (no new npm dep; pure Node 20+ stdlib).
+
+**Test delta:** **17,712 → 17,834 passing Jest tests / 549 → 559 suites** (+122 new across 10 new test files; consolidated from an initial +239 via the parameterized-DDL-by-keyword-not-by-(keyword,file) consolidation per design risk #6). Well within the design forecast band (+94 ± consolidation) and far below the +200 HALT threshold. Targeted regression (`mcpOneTwoOneB|mcpOneTwoOneC|uxOneOneFiveA|opsMcpObservability`) all green. mcp-server Deno tests byte-equal (this card touched no `mcp-server/` file). Typecheck + lint clean.
+
+**Operator follow-up post-merge** (per design §smoke-plan + audit template):
+1. **No deploy needed.** This card adds no migration, no Edge Function, no MCP server change. The script ships as new repo files.
+2. **Phase 2 smoke** — `node scripts/ops/mcp-observability-report.mjs --out-dir /tmp/ops-observability-smoke`. Expect exit 0; `report.md` + `report.json` produced; 14 sections present.
+3. **Phase 3 smoke** — verify per-section content against the audit template's per-section table (Q1 has both run_modes, Q2a <= Q2b counts, Q8 PASS with "Source 6 production filter present: YES", Q9 zero rows expected, Q12 positives_observed = 0 for every unsupported family).
+4. **Phase 4 smoke** — `grep -E "(Bearer |service_role|ANTHROPIC_API_KEY|sk-ant-|xai-)" /tmp/ops-observability-smoke/report.md` returns exit 1 (no matches); doctrine ban-list grep on the body (excluding Appendix B which enumerates by name) returns exit 1.
+5. **Phase 5 regression** — `npx jest --testPathPattern="(mcpOneTwoOneB|mcpOneTwoOneC|uxOneOneFiveA|opsMcpObservability)" --no-coverage` exit 0.
+6. **Phase 6 audit doc** — author `docs/audits/OPS-MCP-OBSERVABILITY-SMOKE-<YYYY-MM-DD>.md` per the template.
+
+**Doctrine + safety self-check (post-implementation):**
+- All 22 HALT triggers from intent brief §10 remain CLEAN. The 2 runtime-only triggers (#13 production-vs-admin_validation separation, #21 dirty worktree at PR creation) will be checked by the operator post-merge.
+- cdiscourse-doctrine §1 (no verdict tokens — `winner` / `loser` / `correct` / `liar` / etc. — anywhere in section labels or report output; the doctrine ban-list test enforces this), §3 (popularity / engagement signals are not surfaced — the schema has none), §6 (no `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `X_BEARER_TOKEN`, `XAI_API_KEY`, `Authorization`, or `Bearer ` in any new file's executable code; source-scan test enforces with comment-stripping), §7 (no Anthropic/xAI/X API client call; the script's only external IO is the `npx supabase db query --linked` Management API path), §10a (the report deals exclusively with machine-Observation persistence rows; family/raw_key columns echo the registered taxonomy verbatim without interpretive language), and §10 v1 scope (no voting / no real-time collaboration / no public API / no push notifications / no argument search introduced).
+- Source 6 binding constraint preservation: the literal `.eq('argument_machine_observation_runs.run_mode', 'production')` at `src/features/nodeLabels/machineObservationPersistenceQuery.ts:127` is re-asserted by `opsMcpObservabilitySourceSixSafety.test.ts` AND by the runtime safety check the script performs before any SQL invocation (exit 3 on failure). The 11 S6F-* assertions in `mcpOneTwoOneCEdgeSourceSixRunModeFilter.test.ts` are byte-equal preserved.
+- evidence-doctrine: evidence_span content is doctrinally suppressed by default. The `--include-evidence-preview` opt-in flag truncates to <=120 chars BEFORE the doctrine scan (the truncate-then-scan ordering test in `opsMcpObservabilityEvidencePreviewSafety.test.ts` proves a banned token at character 200 is dropped by truncation, while a banned token at characters 115-119 is caught by the scan).
+- supabase-edge-contract: no service-role import; no `@supabase/supabase-js` usage anywhere in `scripts/ops/`; the only auth path is the operator's pre-authenticated Supabase CLI session via `npx supabase db query --linked`.
+
+**Authorization after PASS** (per intent brief §16):
+- `OPS-MCP-OBSERVABILITY: PASS` upon Phase 1-6 clean.
+- `MCP-SERVER-005-FAMILY-D` remains authorized with mandatory Stage-2B operator-decision checkpoint (observability now provides the cross-family calibration evidence the operator needs for the ai_classifier subset filter decision).
+- `MCP-021C-EDGE-FAMILIES-B-C-ENABLE` remains authorized to design (Q5 + Q6 + Q11 give the calibration data).
+- `OPS-MCP-IDEMPOTENCY-HARDENING` AUTHORIZED to file if the smoke's Q9 query returns non-zero rows.
+- `OPS-MCP-TOKEN-BUDGET` AUTHORIZED to file if the smoke's Q5 / Q7 queries surface latency-vs-density signals suggesting truncation risk.
+
+
 
