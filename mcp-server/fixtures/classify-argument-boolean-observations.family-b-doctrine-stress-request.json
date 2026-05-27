@@ -1,0 +1,30 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-b-doctrine-stress-node",
+    "parentNodeId": "fixture-b-doctrine-stress-parent",
+    "currentText": "[fixture] Security is the value that should win here, period. Anyone who says otherwise is a propagandist.",
+    "parentText": "[fixture] Privacy matters more than security in routine surveillance cases.",
+    "threadContextExcerpt": "[fixture] Debate room: Privacy vs security. Depth 1 verdictive move — doctrine-stress trap (model MUST mark disputes_value_weighting=false AND the ban-list scan MUST reject any evidenceSpan that leaks 'propagandist').",
+    "requestedFamilies": ["disagreement_axis"],
+    "requestedRawKeys": [
+      "disputes_evidence_applicability",
+      "disagreement_present",
+      "disputes_definition",
+      "disputes_scope",
+      "disputes_fact",
+      "disputes_causal_link",
+      "disputes_value_weighting",
+      "disputes_decision_criterion",
+      "disputes_generalization",
+      "disputes_analogy",
+      "disputes_interpretation",
+      "disputes_priority_order",
+      "disputes_remedy_or_solution",
+      "disputes_relevance"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

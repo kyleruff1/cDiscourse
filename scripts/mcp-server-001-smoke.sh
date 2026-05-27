@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B).
 #
-# Verifies the deployed (or locally-running) MCP server against the 9 checks
-# documented in `docs/designs/MCP-SERVER-001.md` §19.3 + the MCP-SERVER-002
-# extensions to Check 5 + Check 9 (real Family A response shape instead of
-# scaffolded not_implemented envelope).
+# Verifies the deployed (or locally-running) MCP server against the 11 checks:
+#   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
+#   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -16,7 +15,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 9 checks passed
+#   0 — all 11 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -26,9 +25,10 @@
 #   - The script does NOT need an Anthropic API key. The
 #     `classify_semantic_move` check works against the server's fixture
 #     provider when `MCP_SERVER_USE_FIXTURE_PROVIDER=true`. The Family A
-#     boolean tool (Checks 5 + 9) ALSO works against the fixture provider
-#     when the same env is set. Real Anthropic calls happen ONLY in
-#     production (when the env is not set AND ANTHROPIC_API_KEY is present).
+#     boolean tool (Checks 5 + 9) AND Family B boolean tool (Checks 10 + 11)
+#     ALSO work against the fixture provider when the same env is set.
+#     Real Anthropic calls happen ONLY in production (when the env is not
+#     set AND ANTHROPIC_API_KEY is present).
 
 set -u
 set -o pipefail
@@ -307,6 +307,50 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "Expected real Family A tool result. Got: $RESPONSE"
+fi
+
+# ── Check 10: POST /mcp/adapter-compat with VALID bearer + boolean (Family B) ──
+# MCP-SERVER-003-FAMILY-B promoted Family B from unsupported to real. The
+# request body uses Family B rawKeys (disagreement_axis family). Response
+# shape MUST be a real McpBooleanObservationResponse per the MCP-021A schema:
+#   - schemaVersion: 'mcp-021.machine-observations.boolean.v1'
+#   - observations is an object of booleans (14 keys for Family B canonical)
+#   - confidence is an object of low|medium|high
+#   - modelInfo.classifierSetVersion is 'family-b-v1'
+CHECK_NAME="10-compat-boolean-family-b"
+BOOLEAN_B_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-b-001","parentNodeId":"fixture-node-parent-b-001","currentText":"[fixture] You are defining infrastructure to exclude branch libraries — that definition prejudges the conclusion.","parentText":"[fixture] Library funding should support infrastructure.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["disagreement_axis"],"requestedRawKeys":["disagreement_present","disputes_definition","disputes_scope"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family B)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_B_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-b-v1"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family B response shape. Got: $RESPONSE"
+fi
+
+# ── Check 11: POST /mcp tools/call classify_argument_boolean_observations (Family B) ──
+# MCP-SERVER-003-FAMILY-B. Same body + same assertion pattern as Check 10,
+# but via the official MCP /mcp endpoint with JSON-RPC envelope.
+CHECK_NAME="11-mcp-tools-call-boolean-family-b"
+BOOLEAN_B_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-3","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-b-001","parentNodeId":"fixture-node-parent-b-001","currentText":"[fixture] You are defining infrastructure to exclude branch libraries — that definition prejudges the conclusion.","parentText":"[fixture] Library funding should support infrastructure.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["disagreement_axis"],"requestedRawKeys":["disagreement_present","disputes_definition","disputes_scope"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations Family B)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_B_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-b-v1"' \
+     && contains "$RESPONSE" '"isError":false'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family B tool result. Got: $RESPONSE"
 fi
 
 echo

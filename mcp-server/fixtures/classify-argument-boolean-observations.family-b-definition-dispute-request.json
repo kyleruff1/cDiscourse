@@ -1,0 +1,30 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-b-definition-dispute-node",
+    "parentNodeId": "fixture-b-definition-dispute-parent",
+    "currentText": "[fixture] You are defining infrastructure to exclude branch libraries — that definition prejudges the conclusion.",
+    "parentText": "[fixture] Library funding should support infrastructure.",
+    "threadContextExcerpt": "[fixture] Debate room: Library funding priorities. Depth 1 definition dispute.",
+    "requestedFamilies": ["disagreement_axis"],
+    "requestedRawKeys": [
+      "disputes_evidence_applicability",
+      "disagreement_present",
+      "disputes_definition",
+      "disputes_scope",
+      "disputes_fact",
+      "disputes_causal_link",
+      "disputes_value_weighting",
+      "disputes_decision_criterion",
+      "disputes_generalization",
+      "disputes_analogy",
+      "disputes_interpretation",
+      "disputes_priority_order",
+      "disputes_remedy_or_solution",
+      "disputes_relevance"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

@@ -19,6 +19,10 @@ import {
   FAMILY_A_RAW_KEYS,
   FAMILY_A_CLASSIFIER_SET_VERSION,
 } from '../lib/familyAKeys.ts';
+import {
+  FAMILY_B_RAW_KEYS,
+  FAMILY_B_CLASSIFIER_SET_VERSION,
+} from '../lib/familyBKeys.ts';
 
 Deno.test('registry-newly-constructed-is-empty', () => {
   const registry = createFamilyRegistry();
@@ -194,5 +198,62 @@ Deno.test('registry-isRawKeySupportedForFamily-false-for-sample-unsupported', ()
   assertEquals(
     registry.isRawKeySupportedForFamily('disagreement_axis', 'supports_parent'),
     false,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-003-FAMILY-B additions
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('registry-getSupportedFamilies-preserves-real-family-b-order', () => {
+  // Upgrade of the fake_b precedent test: use real Family A + real Family B.
+  // Per familyRegistry.ts:82-84, insertion order is preserved.
+  const registry = createFamilyRegistry();
+  registry.register('parent_relation', {
+    rawKeys: new Set(FAMILY_A_RAW_KEYS),
+    classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+  assertEquals(registry.getSupportedFamilies(), ['parent_relation', 'disagreement_axis']);
+  assertEquals(registry.getRawKeysForFamily('disagreement_axis').size, 14);
+  assertEquals(registry.getClassifierSetVersion('disagreement_axis'), 'family-b-v1');
+});
+
+Deno.test('registry-isRawKeySupportedForFamily-cross-family-rejection', () => {
+  // With both real families registered, cross-family rawKey lookups must
+  // return false. A Family A rawKey under 'disagreement_axis' is rejected;
+  // a Family B rawKey under 'parent_relation' is rejected. Each family
+  // recognizes only its own rawKey set.
+  const registry = createFamilyRegistry();
+  registry.register('parent_relation', {
+    rawKeys: new Set(FAMILY_A_RAW_KEYS),
+    classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+
+  // Family A key under Family B → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('disagreement_axis', 'supports_parent'),
+    false,
+  );
+  // Family B key under Family A → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('parent_relation', 'disputes_definition'),
+    false,
+  );
+  // Sanity: each family still supports its own keys.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('parent_relation', 'supports_parent'),
+    true,
+  );
+  assertEquals(
+    registry.isRawKeySupportedForFamily('disagreement_axis', 'disputes_definition'),
+    true,
   );
 });

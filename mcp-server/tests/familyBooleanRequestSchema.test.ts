@@ -24,15 +24,25 @@ import {
   FAMILY_A_RAW_KEYS,
   FAMILY_A_CLASSIFIER_SET_VERSION,
 } from '../lib/familyAKeys.ts';
+import {
+  FAMILY_B_RAW_KEYS,
+  FAMILY_B_CLASSIFIER_SET_VERSION,
+} from '../lib/familyBKeys.ts';
 
-// Ensure Family A is registered in the production singleton for these tests.
-// Commit 3 will introduce familyRegistryInit.ts as the canonical registration
-// site; this guard keeps the test self-sufficient and avoids a double-register
-// throw if init happens elsewhere in the module graph.
+// Ensure Family A + Family B are registered in the production singleton
+// for these tests. familyRegistryInit.ts is the canonical registration
+// site; these guards keep the test self-sufficient and avoid a
+// double-register throw if init happens elsewhere in the module graph.
 if (!isFamilySupported('parent_relation')) {
   register('parent_relation', {
     rawKeys: new Set(FAMILY_A_RAW_KEYS),
     classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+}
+if (!isFamilySupported('disagreement_axis')) {
+  register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
   });
 }
 
@@ -171,12 +181,16 @@ Deno.test('validateFamilyBooleanRequest-rejects-oversized-threadContextExcerpt',
 });
 
 Deno.test('validateFamilyBooleanRequest-rejects-unsupported-family-with-byte-equal-envelope', () => {
+  // MCP-SERVER-003-FAMILY-B registered 'disagreement_axis'; the test now
+  // exercises an UNREGISTERED family (Family C: misunderstanding_repair).
+  // Envelope shape is byte-equal-preserved: kind=unsupported_family,
+  // requestedFamilies field echoes the requested array.
   const result = validateFamilyBooleanRequest(
-    validRequest({ requestedFamilies: ['disagreement_axis'] }),
+    validRequest({ requestedFamilies: ['misunderstanding_repair'] }),
   );
   assertEquals(result.ok, false);
   if (!result.ok && result.kind === 'unsupported_family') {
-    assertEquals(result.requestedFamilies, ['disagreement_axis']);
+    assertEquals(result.requestedFamilies, ['misunderstanding_repair']);
   } else {
     throw new Error('expected unsupported_family failure');
   }
@@ -237,5 +251,122 @@ Deno.test('validateFamilyBooleanRequest-rejects-timeoutMs-above-60000', () => {
     assertEquals(result.detail, 'out of range 1..60000');
   } else {
     throw new Error('expected invalid_params failure');
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-003-FAMILY-B additions
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('validateFamilyBooleanRequest-valid-family-b-request-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['disagreement_axis'],
+    requestedRawKeys: ['disagreement_present', 'disputes_definition'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.requestedFamilies, ['disagreement_axis']);
+    assertEquals(result.value.requestedRawKeys, ['disagreement_present', 'disputes_definition']);
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-b-request-with-empty-rawKeys-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['disagreement_axis'],
+    requestedRawKeys: [],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+});
+
+Deno.test('validateFamilyBooleanRequest-family-b-request-with-all-14-rawKeys-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['disagreement_axis'],
+    requestedRawKeys: [
+      'disputes_evidence_applicability',
+      'disagreement_present',
+      'disputes_definition',
+      'disputes_scope',
+      'disputes_fact',
+      'disputes_causal_link',
+      'disputes_value_weighting',
+      'disputes_decision_criterion',
+      'disputes_generalization',
+      'disputes_analogy',
+      'disputes_interpretation',
+      'disputes_priority_order',
+      'disputes_remedy_or_solution',
+      'disputes_relevance',
+    ],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.requestedRawKeys.length, 14);
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-a-key-under-disagreement-axis', () => {
+  // Sending a Family A rawKey ('supports_parent') under
+  // requestedFamilies=['disagreement_axis'] must be rejected — the rawKey
+  // is supported in Family A but NOT in Family B's set.
+  const req = validRequest({
+    requestedFamilies: ['disagreement_axis'],
+    requestedRawKeys: ['supports_parent'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['supports_parent']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family A key');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-b-key-under-parent-relation', () => {
+  // Symmetric: sending a Family B rawKey ('disputes_definition') under
+  // requestedFamilies=['parent_relation'] must be rejected.
+  const req = validRequest({
+    requestedFamilies: ['parent_relation'],
+    requestedRawKeys: ['disputes_definition'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['disputes_definition']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family B key');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-b-rawKey-rejects', () => {
+  // When requestedFamilies is empty, the validator defaults to checking
+  // rawKeys against Family A only (byte-equal-preservation anchor in
+  // familyBooleanRequestSchema.ts:50). A Family B rawKey under empty
+  // requestedFamilies is therefore rejected as unsupported_rawKey.
+  const req = validRequest({
+    requestedFamilies: [],
+    requestedRawKeys: ['disagreement_present'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['disagreement_present']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for Family B key under empty families');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-c-d-e-still-rejected-as-unsupported-family', () => {
+  // Regression: Family C/D/E remain unsupported after Family B lands.
+  for (const family of ['misunderstanding_repair', 'evidence_source_chain', 'argument_scheme']) {
+    const result = validateFamilyBooleanRequest(validRequest({ requestedFamilies: [family] }));
+    assertEquals(result.ok, false, `${family} should be unsupported`);
+    if (!result.ok && result.kind === 'unsupported_family') {
+      assertEquals(result.requestedFamilies, [family]);
+    } else {
+      throw new Error(`expected unsupported_family for ${family}`);
+    }
   }
 });

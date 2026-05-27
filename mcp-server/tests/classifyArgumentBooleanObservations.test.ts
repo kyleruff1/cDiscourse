@@ -122,11 +122,14 @@ Deno.test('boolean tool rejects schemaVersion mismatch with invalid_params', asy
   });
 });
 
-Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_family', async () => {
+Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_family (C/D/E remain unsupported)', async () => {
   await withFixtureEnv(async () => {
+    // MCP-SERVER-003-FAMILY-B uses 'evidence_source_chain' (Family D) which
+    // remains unsupported. The supportedFamilies envelope now lists both
+    // registered families (Family A and Family B).
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: validRequest({ requestedFamilies: ['evidence_hygiene'] }),
+      rawArgs: validRequest({ requestedFamilies: ['evidence_source_chain'] }),
       requestId: 'r-bad-family-1',
       envelope: 'jsonRpc',
     });
@@ -137,8 +140,8 @@ Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_f
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['evidence_hygiene']);
-    assertEquals(sc.supportedFamilies, ['parent_relation']);
+    assertEquals(sc.requestedFamilies, ['evidence_source_chain']);
+    assertEquals(sc.supportedFamilies, ['parent_relation', 'disagreement_axis']);
   });
 });
 

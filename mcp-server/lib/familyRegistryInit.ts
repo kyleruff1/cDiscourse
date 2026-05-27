@@ -26,6 +26,10 @@ import {
   FAMILY_A_RAW_KEYS,
   FAMILY_A_CLASSIFIER_SET_VERSION,
 } from './familyAKeys.ts';
+import {
+  FAMILY_B_RAW_KEYS,
+  FAMILY_B_CLASSIFIER_SET_VERSION,
+} from './familyBKeys.ts';
 
 let initialized = false;
 
@@ -36,6 +40,10 @@ let initialized = false;
  *
  * The top-of-file side effect below handles the production import path; the
  * explicit function form is for tests that want a stable entry point.
+ *
+ * Registration order is preserved by the underlying Map (per
+ * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
+ * ['parent_relation', 'disagreement_axis'] in this exact order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -44,6 +52,11 @@ export function initializeFamilyRegistry(): void {
   register('parent_relation', {
     rawKeys: new Set(FAMILY_A_RAW_KEYS),
     classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+
+  register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
   });
 }
 

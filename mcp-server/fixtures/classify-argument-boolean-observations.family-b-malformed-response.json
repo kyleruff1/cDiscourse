@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-malformed-b-1",
+  "checkedRawKeys": ["disagreement_present", "disputes_scope"],
+  "observations": {
+    "disagreement_present": true,
+    "disputes_scope": false
+  },
+  "confidence": {
+    "disagreement_present": "high"
+  },
+  "evidenceSpan": {
+    "disagreement_present": null,
+    "disputes_scope": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-b-v1"
+  }
+}

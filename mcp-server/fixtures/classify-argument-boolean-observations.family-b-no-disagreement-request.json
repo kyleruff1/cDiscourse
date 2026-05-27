@@ -1,0 +1,30 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-b-no-disagreement-node",
+    "parentNodeId": "fixture-b-no-disagreement-parent",
+    "currentText": "[fixture] Agreed — and the 2024 NYC data backs that up.",
+    "parentText": "[fixture] EVs reduce urban tailpipe emissions in dense cities.",
+    "threadContextExcerpt": "[fixture] Debate room: EVs and urban pollution. Depth 1 supportive reply.",
+    "requestedFamilies": ["disagreement_axis"],
+    "requestedRawKeys": [
+      "disputes_evidence_applicability",
+      "disagreement_present",
+      "disputes_definition",
+      "disputes_scope",
+      "disputes_fact",
+      "disputes_causal_link",
+      "disputes_value_weighting",
+      "disputes_decision_criterion",
+      "disputes_generalization",
+      "disputes_analogy",
+      "disputes_interpretation",
+      "disputes_priority_order",
+      "disputes_remedy_or_solution",
+      "disputes_relevance"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

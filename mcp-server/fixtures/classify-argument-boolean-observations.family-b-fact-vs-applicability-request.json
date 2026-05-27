@@ -1,0 +1,30 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-b-fact-vs-applicability-node",
+    "parentNodeId": "fixture-b-fact-vs-applicability-parent",
+    "currentText": "[fixture] EV adoption is at 10% nationally; 30% is the new-sales figure, not the stock. And that Stanford study was on knowledge workers in tech; it does not apply to assembly-line work.",
+    "parentText": "[fixture] EV adoption is at 30% nationally; a Stanford study showed remote work boosts productivity 13%.",
+    "threadContextExcerpt": "[fixture] Debate room: Remote work and EV policy. Depth 1 multi-axis dispute.",
+    "requestedFamilies": ["disagreement_axis"],
+    "requestedRawKeys": [
+      "disputes_evidence_applicability",
+      "disagreement_present",
+      "disputes_definition",
+      "disputes_scope",
+      "disputes_fact",
+      "disputes_causal_link",
+      "disputes_value_weighting",
+      "disputes_decision_criterion",
+      "disputes_generalization",
+      "disputes_analogy",
+      "disputes_interpretation",
+      "disputes_priority_order",
+      "disputes_remedy_or_solution",
+      "disputes_relevance"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

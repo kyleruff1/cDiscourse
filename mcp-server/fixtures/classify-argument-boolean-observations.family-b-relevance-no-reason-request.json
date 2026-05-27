@@ -1,0 +1,30 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-b-relevance-no-reason-node",
+    "parentNodeId": "fixture-b-relevance-no-reason-parent",
+    "currentText": "[fixture] Irrelevant.",
+    "parentText": "[fixture] Library buildings emit carbon during construction.",
+    "threadContextExcerpt": "[fixture] Debate room: Library funding priorities. Depth 1 pure dismissal — false-positive guard.",
+    "requestedFamilies": ["disagreement_axis"],
+    "requestedRawKeys": [
+      "disputes_evidence_applicability",
+      "disagreement_present",
+      "disputes_definition",
+      "disputes_scope",
+      "disputes_fact",
+      "disputes_causal_link",
+      "disputes_value_weighting",
+      "disputes_decision_criterion",
+      "disputes_generalization",
+      "disputes_analogy",
+      "disputes_interpretation",
+      "disputes_priority_order",
+      "disputes_remedy_or_solution",
+      "disputes_relevance"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

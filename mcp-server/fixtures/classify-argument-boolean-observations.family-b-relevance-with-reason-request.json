@@ -1,0 +1,30 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-b-relevance-with-reason-node",
+    "parentNodeId": "fixture-b-relevance-with-reason-parent",
+    "currentText": "[fixture] That is tangential to whether libraries should be funded — that question is about value-of-service, not construction emissions.",
+    "parentText": "[fixture] Library buildings emit carbon during construction.",
+    "threadContextExcerpt": "[fixture] Debate room: Library funding priorities. Depth 1 relevance dispute with reason.",
+    "requestedFamilies": ["disagreement_axis"],
+    "requestedRawKeys": [
+      "disputes_evidence_applicability",
+      "disagreement_present",
+      "disputes_definition",
+      "disputes_scope",
+      "disputes_fact",
+      "disputes_causal_link",
+      "disputes_value_weighting",
+      "disputes_decision_criterion",
+      "disputes_generalization",
+      "disputes_analogy",
+      "disputes_interpretation",
+      "disputes_priority_order",
+      "disputes_remedy_or_solution",
+      "disputes_relevance"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

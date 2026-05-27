@@ -27,15 +27,22 @@ Deno.test('familyRegistryInit-registers-family-a-on-import', () => {
   assertEquals(isFamilySupported('parent_relation'), true);
 });
 
-Deno.test('familyRegistryInit-registers-only-family-a', () => {
-  // The singleton is shared across test files; however, init registers only
-  // Family A. Other test files may add fake families via createFamilyRegistry()
-  // factories (which yield isolated instances and never touch the singleton).
-  // So the singleton's getSupportedFamilies() must remain exactly
-  // ['parent_relation'] in the current server build.
+Deno.test('familyRegistryInit-registers-family-b-on-import', () => {
+  // MCP-SERVER-003-FAMILY-B added the second register() call. Family B must
+  // be present in the singleton after the side-effect import.
+  assertEquals(isFamilySupported('disagreement_axis'), true);
+});
+
+Deno.test('familyRegistryInit-registers-both-families-in-insertion-order', () => {
+  // The singleton is shared across test files; however, init registers
+  // exactly two families: Family A first, Family B second. Other test
+  // files may add fake families via createFamilyRegistry() factories
+  // (which yield isolated instances and never touch the singleton).
+  // The singleton's getSupportedFamilies() must remain exactly
+  // ['parent_relation', 'disagreement_axis'] in the current server build.
   const families = getSupportedFamilies();
-  assertEquals(families, ['parent_relation']);
-  assertEquals(families.length, 1);
+  assertEquals(families, ['parent_relation', 'disagreement_axis']);
+  assertEquals(families.length, 2);
 });
 
 Deno.test('familyRegistryInit-family-a-has-16-rawKeys', () => {
@@ -43,8 +50,17 @@ Deno.test('familyRegistryInit-family-a-has-16-rawKeys', () => {
   assertEquals(rawKeys.size, 16);
 });
 
+Deno.test('familyRegistryInit-family-b-has-14-rawKeys', () => {
+  const rawKeys = getRawKeysForFamily('disagreement_axis');
+  assertEquals(rawKeys.size, 14);
+});
+
 Deno.test('familyRegistryInit-family-a-classifier-version-is-family-a-v1', () => {
   assertEquals(getClassifierSetVersion('parent_relation'), 'family-a-v1');
+});
+
+Deno.test('familyRegistryInit-family-b-classifier-version-is-family-b-v1', () => {
+  assertEquals(getClassifierSetVersion('disagreement_axis'), 'family-b-v1');
 });
 
 Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
@@ -53,6 +69,6 @@ Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
   // 'family already registered: parent_relation'.
   initializeFamilyRegistry();
   initializeFamilyRegistry();
-  // Still exactly one family registered.
-  assertEquals(getSupportedFamilies(), ['parent_relation']);
+  // Still exactly two families registered, in the same insertion order.
+  assertEquals(getSupportedFamilies(), ['parent_relation', 'disagreement_axis']);
 });
