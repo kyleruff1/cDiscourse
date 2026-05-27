@@ -232,9 +232,9 @@ const SECTIONS = Object.freeze([
   },
   {
     id: 'q09-duplicate-runs',
-    title: 'Duplicate runs',
+    title: 'Duplicate runs (classified)',
     question:
-      'Q9 — Are production rows accumulating duplicates for the same (argument_id, family, run_mode, schema_version, provider_key, model_name) tuple?',
+      'Q9 — Are production rows accumulating duplicates for the same (argument_id, family, run_mode, schema_version, provider_key, model_name) tuple? Classifies each duplicate-pair as audit_or_smoke_rerun / synthetic_test_data / needs_investigation / organic_duplicate_candidate so documented audit/smoke re-fires do not over-read as runtime defect.',
     sqlFile: '09-duplicate-runs.sql',
     columns: [
       'argument_id',
@@ -244,6 +244,7 @@ const SECTIONS = Object.freeze([
       'provider_key',
       'model_name',
       'duplicate_successful_runs',
+      'classification',
     ],
     emptyMessage:
       'No duplicate successful runs detected. Idempotency posture nominal.',
