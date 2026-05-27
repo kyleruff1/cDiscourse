@@ -77,17 +77,24 @@ describe('OPS-MCP-OBSERVABILITY — SQL safety', () => {
     'REVOKE',
   ];
 
-  describe.each(DDL_KEYWORDS)('no executable %s keyword', (kw) => {
-    for (const file of FILES) {
-      const name = path.basename(file);
-      it(`${name}: no executable ${kw}`, () => {
+  // Single test per keyword that iterates over all SQL files internally.
+  // Consolidated to keep the test count manageable per design risk #6
+  // ("the implementer MAY consolidate via parameterization to land
+  // closer to the upper band of the forecast"). The descriptive error
+  // message identifies which file + which keyword.
+  describe.each(DDL_KEYWORDS)('no executable %s keyword in any SQL file', (kw) => {
+    it(`every SQL file rejects ${kw}`, () => {
+      const re = new RegExp('\\b' + kw + '\\b', 'i');
+      const offenders: string[] = [];
+      for (const file of FILES) {
         const src = fs.readFileSync(file, 'utf8');
         const stripped = stripSqlComments(src);
-        // Word-boundary, case-insensitive search.
-        const re = new RegExp('\\b' + kw + '\\b', 'i');
-        expect(re.test(stripped)).toBe(false);
-      });
-    }
+        if (re.test(stripped)) {
+          offenders.push(path.basename(file));
+        }
+      }
+      expect(offenders).toEqual([]);
+    });
   });
 
   it('no file contains `select * from public.arguments`', () => {
