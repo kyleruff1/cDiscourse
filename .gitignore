@@ -105,3 +105,8 @@ scripts/admin/bootstrap-admin.sql
 /ios
 /android
 .scratch/
+
+# MCP-SERVER-001-SMOKE Phase 5 operator-territory smoke artifacts
+# (created during the MCP-018 hosted-deploy smoke when the operator
+# captures request/response payloads outside the repo tracking surface)
+phase5-*.json

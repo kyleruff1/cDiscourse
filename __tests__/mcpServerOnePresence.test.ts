@@ -120,16 +120,18 @@ describe('MCP-SERVER-001 — presence test', () => {
 
     it('exercises all 9 documented checks', () => {
       const text = read('scripts/mcp-server-001-smoke.sh');
-      // Each check has a CHECK_NAME label
+      // Each check has a CHECK_NAME label. MCP-SERVER-002 renamed checks 5 and 9
+      // from `*-boolean-scaffold` to `*-boolean-family-a` to reflect the real
+      // (non-scaffolded) Family A response shape they now validate.
       expect(text).toContain('1-health');
       expect(text).toContain('2-compat-no-auth');
       expect(text).toContain('3-compat-bad-token');
       expect(text).toContain('4-compat-semantic-move');
-      expect(text).toContain('5-compat-boolean-scaffold');
+      expect(text).toContain('5-compat-boolean-family-a');
       expect(text).toContain('6-mcp-initialize');
       expect(text).toContain('7-mcp-tools-list');
       expect(text).toContain('8-mcp-tools-call-semantic');
-      expect(text).toContain('9-mcp-tools-call-boolean-scaffold');
+      expect(text).toContain('9-mcp-tools-call-boolean-family-a');
     });
 
     it('never prints the bearer token value verbatim', () => {
@@ -196,14 +198,19 @@ describe('MCP-SERVER-001 — presence test', () => {
       expect(fixture.input.schemaVersion).toBe('mcp-021.machine-observations.boolean.v1');
     });
 
-    it('classify-argument-boolean-observations.scaffolded-response.json carries the documented envelope', () => {
+    it('classify-argument-boolean-observations.family-a-canonical-response.json carries a valid Family A shape (MCP-SERVER-002 replaces the scaffolded-response.json fixture)', () => {
       const text = read(
-        'mcp-server/fixtures/classify-argument-boolean-observations.scaffolded-response.json',
+        'mcp-server/fixtures/classify-argument-boolean-observations.family-a-canonical-response.json',
       );
       const fixture = JSON.parse(text);
-      expect(fixture.result.isError).toBe(true);
-      expect(fixture.result.reason).toBe('not_implemented');
-      expect(fixture.result.scaffoldedFor).toBe('MCP-SERVER-002');
+      expect(fixture.schemaVersion).toBe('mcp-021.machine-observations.boolean.v1');
+      expect(typeof fixture.nodeId).toBe('string');
+      expect(Array.isArray(fixture.checkedRawKeys)).toBe(true);
+      expect(typeof fixture.observations).toBe('object');
+      expect(typeof fixture.confidence).toBe('object');
+      expect(typeof fixture.evidenceSpan).toBe('object');
+      expect(fixture.modelInfo.provider).toBe('mcp');
+      expect(fixture.modelInfo.classifierSetVersion).toBe('family-a-v1');
     });
 
     it('every fixture body text begins with [fixture] (synthetic-only rule)', () => {
@@ -233,13 +240,21 @@ describe('MCP-SERVER-001 — presence test', () => {
     it('no fixture contains banned verdict / person language', () => {
       const banned = /\b(winner|loser|liar|correct\b|verdict|dishonest|bad faith|manipulative|extremist|propagandist|stupid|idiot)\b/i;
       // The malformed fixture INTENTIONALLY contains "verdict: correct" — it's the
-      // failure case for schema validation. Skip it for this scan.
+      // failure case for schema validation. The Family A ban-list-response fixture
+      // INTENTIONALLY contains "winner" — it's the negative-test fixture for the
+      // doctrine ban-list scan. Both are skipped from this production-fixture scan.
       const fixtureFiles = [
         'mcp-server/fixtures/classify-semantic-move.response.json',
         'mcp-server/fixtures/classify-semantic-move.request.json',
         'mcp-server/fixtures/classify-semantic-move.adapter-compat-request.json',
         'mcp-server/fixtures/classify-argument-boolean-observations.request.json',
-        'mcp-server/fixtures/classify-argument-boolean-observations.scaffolded-response.json',
+        'mcp-server/fixtures/classify-argument-boolean-observations.family-a-canonical-response.json',
+        'mcp-server/fixtures/classify-argument-boolean-observations.family-a-root-request.json',
+        'mcp-server/fixtures/classify-argument-boolean-observations.family-a-challenge-request.json',
+        'mcp-server/fixtures/classify-argument-boolean-observations.family-a-refine-request.json',
+        'mcp-server/fixtures/classify-argument-boolean-observations.arg1-response.json',
+        'mcp-server/fixtures/classify-argument-boolean-observations.arg2-response.json',
+        'mcp-server/fixtures/classify-argument-boolean-observations.arg3-response.json',
       ];
       for (const file of fixtureFiles) {
         const text = read(file);
