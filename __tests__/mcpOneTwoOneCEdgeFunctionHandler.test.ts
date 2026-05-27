@@ -21,14 +21,32 @@ const HANDLER_PATH = path.join(
   REPO,
   'supabase/functions/classify-argument-boolean-observations/index.ts',
 );
+// MCP-021C-AUTO-TRIGGER-FAMILY-A — the per-argument classifier logic was
+// lifted from the inline handler body into a shared core module so the
+// same code can be invoked from `submit-argument`'s auto-trigger
+// dispatcher. The handler now imports `classifyOneArgumentCore` from the
+// shared module. Source-scan tests that previously inspected the inline
+// classifier body now scan the core file at its new location.
+const CORE_PATH = path.join(
+  REPO,
+  'supabase/functions/_shared/booleanObservations/classifyArgumentCore.ts',
+);
 const CONFIG_PATH = path.join(REPO, 'supabase/config.toml');
 
 let handlerText = '';
+let coreText = '';
 let configText = '';
+let combinedClassifierText = '';
 
 beforeAll(() => {
   handlerText = fs.readFileSync(HANDLER_PATH, 'utf8');
+  coreText = fs.readFileSync(CORE_PATH, 'utf8');
   configText = fs.readFileSync(CONFIG_PATH, 'utf8');
+  // The classifier orchestration surface is the union of the handler
+  // (HTTP envelope, admin gate, request validation) + the shared core
+  // (per-argument classifier body). Tests that target classifier-body
+  // patterns scan the combined text.
+  combinedClassifierText = `${handlerText}\n\n// ── classifyArgumentCore.ts ──\n${coreText}`;
 });
 
 function stripCommentsAndStrings(src: string): string {
@@ -181,41 +199,44 @@ describe('MCP-021C-EDGE — MCP adapter invocation', () => {
   });
 
   it('EFH-16 — uses buildBooleanObservationRequestForArgument', () => {
-    expect(handlerText).toContain('buildBooleanObservationRequestForArgument');
+    // Post-refactor: this symbol lives in classifyArgumentCore.ts (the lifted core).
+    expect(combinedClassifierText).toContain('buildBooleanObservationRequestForArgument');
   });
 
   it('EFH-17 — adapter result has typed kind: success | unavailable', () => {
-    expect(handlerText).toContain('BooleanObservationAdapterResult');
+    // Post-refactor: the adapter-result type is referenced in the core module.
+    expect(combinedClassifierText).toContain('BooleanObservationAdapterResult');
   });
 });
 
 describe('MCP-021C-EDGE — persistence writer wiring', () => {
   it('EFH-18 — imports persistRun + persistResults from the writer', () => {
-    expect(/import\s+\{[\s\S]*?persistRun[\s\S]*?\}\s+from\s+['"]\.\.\/_shared\/booleanObservations\/persistenceWriter\.ts['"]/.test(handlerText)).toBe(true);
-    expect(handlerText).toContain('persistResults');
+    // Post-refactor: the writer imports live in classifyArgumentCore.ts.
+    expect(/import\s+\{[\s\S]*?persistRun[\s\S]*?\}\s+from\s+['"]\.\/persistenceWriter\.ts['"]/.test(coreText)).toBe(true);
+    expect(coreText).toContain('persistResults');
   });
 
   it('EFH-19 — writes run row with status === success on adapter success', () => {
-    expect(handlerText).toMatch(/status:\s*['"]success['"]/);
+    expect(combinedClassifierText).toMatch(/status:\s*['"]success['"]/);
   });
 
   it('EFH-20 — writes run row with status === failed on adapter unavailable', () => {
-    expect(handlerText).toMatch(/status:\s*['"]failed['"]/);
+    expect(combinedClassifierText).toMatch(/status:\s*['"]failed['"]/);
   });
 
   it('EFH-21 — writes runMode from input body', () => {
-    expect(handlerText).toContain('runMode: mode');
+    expect(combinedClassifierText).toContain('runMode: mode');
   });
 
   it('EFH-22 — input_hash via buildBooleanObservationInputHash', () => {
-    expect(handlerText).toContain('buildBooleanObservationInputHash');
+    expect(combinedClassifierText).toContain('buildBooleanObservationInputHash');
   });
 });
 
 describe('MCP-021C-EDGE — sanitization at inspect floor', () => {
   it('EFH-23 — calls sanitizeMcpBooleanObservationResponse with surface inspect', () => {
-    expect(handlerText).toContain('sanitizeMcpBooleanObservationResponse');
-    expect(handlerText).toMatch(/surface:\s*['"]inspect['"]/);
+    expect(combinedClassifierText).toContain('sanitizeMcpBooleanObservationResponse');
+    expect(combinedClassifierText).toMatch(/surface:\s*['"]inspect['"]/);
   });
 });
 
@@ -232,16 +253,19 @@ describe('MCP-021C-EDGE — no credential leak in response', () => {
   });
 
   it('EFH-26 — return shape (PerArgumentSummary) carries no credential fields', () => {
+    // Post-refactor: PerArgumentSummary is defined in classifyArgumentCore.ts
+    // and re-imported by the handler as a type. The handler still references
+    // the name (in `perArgument: PerArgumentSummary[]`).
     expect(handlerText).toContain('PerArgumentSummary');
-    expect(handlerText).toContain('argumentId');
-    expect(handlerText).toContain('runId');
-    expect(handlerText).toContain('positiveObservationCount');
-    expect(handlerText).toContain('rawKeysWithPositive');
+    expect(coreText).toContain('argumentId');
+    expect(coreText).toContain('runId');
+    expect(coreText).toContain('positiveObservationCount');
+    expect(coreText).toContain('rawKeysWithPositive');
     // Explicit absence checks for credential fields in the PerArgumentSummary
-    // interface block. (The shape declared at the top of the file is the
+    // interface block. (The shape declared at the top of the core file is the
     // typed contract; PerArgumentSummary may not contain Authorization /
     // token / serviceClient / etc.)
-    const summaryBlockMatch = handlerText.match(/interface\s+PerArgumentSummary\s*\{[\s\S]*?\n\}/);
+    const summaryBlockMatch = coreText.match(/interface\s+PerArgumentSummary\s*\{[\s\S]*?\n\}/);
     expect(summaryBlockMatch).not.toBeNull();
     const summaryBlock = summaryBlockMatch![0];
     expect(/[Aa]uthorization/.test(summaryBlock)).toBe(false);
@@ -278,14 +302,13 @@ describe('MCP-021C-EDGE — service-role usage discipline', () => {
 
 describe('MCP-021C-EDGE — failure-mode mapping', () => {
   it('EFH-30 — maps every adapter unavailable reason to a stable failure_reason', () => {
-    // The mappings are in string literals — scan the raw text (the
-    // comment-stripper would erase them).
-    expect(handlerText).toContain('mcp_url_missing');
-    expect(handlerText).toContain('mcp_token_missing');
-    expect(handlerText).toContain('mcp_network_error');
-    expect(handlerText).toContain('mcp_api_error');
-    expect(handlerText).toContain('mcp_rate_limited');
-    expect(handlerText).toContain('mcp_parse_failure');
-    expect(handlerText).toContain('mcp_validation_failed');
+    // Post-refactor: the failure-reason mapper lives in classifyArgumentCore.ts.
+    expect(coreText).toContain('mcp_url_missing');
+    expect(coreText).toContain('mcp_token_missing');
+    expect(coreText).toContain('mcp_network_error');
+    expect(coreText).toContain('mcp_api_error');
+    expect(coreText).toContain('mcp_rate_limited');
+    expect(coreText).toContain('mcp_parse_failure');
+    expect(coreText).toContain('mcp_validation_failed');
   });
 });
