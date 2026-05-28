@@ -88,18 +88,92 @@ describe('OPS-MCP-OBSERVABILITY — multi-family aggregation', () => {
     }
   });
 
-  it('Q11 (admin-validation check) surfaces B+C and does not surface them in production mode', () => {
+  it('Q11 (per-family per-mode coverage) surfaces all four families with status breakdown', () => {
     const json = buildJsonArtifact(baseArgs);
     const q11 = json.sections.find(
-      (s) => s.id === 'q11-family-bc-admin-validation-check',
+      (s) => s.id === 'q11-per-family-per-mode-coverage',
     );
     expect(q11).toBeDefined();
-    // Every row's run_mode for B+C must be admin_validation.
+    expect(q11!.rows.length).toBeGreaterThan(0);
+    // Reframed Q11 surfaces all 4 supported families (A+B+C+D), and the
+    // 6-column shape carries the status breakdown.
+    const families = new Set(q11!.rows.map((r) => String(r.requested_family)));
+    expect(families.has('parent_relation')).toBe(true);
+    expect(families.has('disagreement_axis')).toBe(true);
+    expect(families.has('misunderstanding_repair')).toBe(true);
+    expect(families.has('evidence_source_chain')).toBe(true);
     for (const row of q11!.rows) {
-      const fam = String(row.requested_family);
-      if (fam === 'disagreement_axis' || fam === 'misunderstanding_repair') {
-        expect(row.run_mode).toBe('admin_validation');
-      }
+      // The 4 status columns reconcile with run_count.
+      const runCount = Number(row.run_count);
+      const success = Number(row.success_count);
+      const failed = Number(row.failed_count);
+      const fallback = Number(row.fallback_count);
+      expect(success + failed + fallback).toBe(runCount);
+    }
+  });
+
+  it('Q11 reframed: B+C admin_validation rows are still present (preservation property)', () => {
+    const json = buildJsonArtifact(baseArgs);
+    const q11 = json.sections.find(
+      (s) => s.id === 'q11-per-family-per-mode-coverage',
+    );
+    expect(q11).toBeDefined();
+    // Filter to the original Q11 shape (B+C admin_validation) and verify
+    // success_count is present and non-zero for these rows.
+    const preservation = q11!.rows.filter(
+      (r) =>
+        (r.requested_family === 'disagreement_axis' ||
+          r.requested_family === 'misunderstanding_repair') &&
+        r.run_mode === 'admin_validation',
+    );
+    expect(preservation.length).toBeGreaterThan(0);
+    for (const row of preservation) {
+      expect(Number(row.success_count)).toBeGreaterThan(0);
+    }
+  });
+
+  it('Q11 reframed: Family D admin_validation row is visible (4-family extension)', () => {
+    const json = buildJsonArtifact(baseArgs);
+    const q11 = json.sections.find(
+      (s) => s.id === 'q11-per-family-per-mode-coverage',
+    );
+    expect(q11).toBeDefined();
+    const familyDRow = q11!.rows.find(
+      (r) =>
+        r.requested_family === 'evidence_source_chain' &&
+        r.run_mode === 'admin_validation',
+    );
+    expect(familyDRow).toBeDefined();
+  });
+
+  it('Q14 (signal density) surfaces all four supported families with hardcoded key counts', () => {
+    const json = buildJsonArtifact(baseArgs);
+    const q14 = json.sections.find(
+      (s) => s.id === 'q14-per-family-per-mode-signal-density',
+    );
+    expect(q14).toBeDefined();
+    const keyCountByFamily: Record<string, number> = {};
+    for (const row of q14!.rows) {
+      keyCountByFamily[String(row.family)] = Number(row.family_key_count);
+    }
+    expect(keyCountByFamily.parent_relation).toBe(16);
+    expect(keyCountByFamily.disagreement_axis).toBe(14);
+    expect(keyCountByFamily.misunderstanding_repair).toBe(17);
+    expect(keyCountByFamily.evidence_source_chain).toBe(19);
+  });
+
+  it('Q15 (Family D subset coverage) — observed raw_keys are all in the ai_classifier_subset bucket', () => {
+    const json = buildJsonArtifact(baseArgs);
+    const q15 = json.sections.find(
+      (s) => s.id === 'q15-family-d-subset-coverage',
+    );
+    expect(q15).toBeDefined();
+    expect(q15!.rows.length).toBeGreaterThan(0);
+    for (const row of q15!.rows) {
+      // Live observed Family D keys must all classify into the subset.
+      // Any leak (deterministic_excluded_leak) is a defect surface, not
+      // an expected fixture state.
+      expect(row.subset_membership).toBe('ai_classifier_subset');
     }
   });
 
