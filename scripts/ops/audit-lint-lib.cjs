@@ -144,18 +144,23 @@ function detectAuditType(title, body) {
     return override[1].toLowerCase();
   }
 
-  const hostedCompletionHit = rules.AUDIT_TYPE_PATTERNS.hostedCompletion.some(
-    (re) => re.test(safeTitle),
-  );
-  if (hostedCompletionHit) {
-    return 'hosted-completion';
-  }
-
+  // Precedence: AMENDMENT before COMPLETION because an amendment doc
+  // may name its goal ("smoke-completion") in a parenthetical without
+  // being a hosted-completion audit. The hosted-completion type is
+  // reserved for docs whose primary subject IS the completion (no
+  // AMENDMENT marker in the title).
   const amendmentHit = rules.AUDIT_TYPE_PATTERNS.amendment.some((re) =>
     re.test(safeTitle),
   );
   if (amendmentHit) {
     return 'amendment';
+  }
+
+  const hostedCompletionHit = rules.AUDIT_TYPE_PATTERNS.hostedCompletion.some(
+    (re) => re.test(safeTitle),
+  );
+  if (hostedCompletionHit) {
+    return 'hosted-completion';
   }
 
   const productionEnableHit = rules.AUDIT_TYPE_PATTERNS.productionEnable.some(
@@ -189,19 +194,41 @@ function detectAuditType(title, body) {
 /**
  * Detect the audit's family from title + body declarations. Returns
  * null when no family can be determined.
+ *
+ * Precedence:
+ *   1. Doc-level `Family:` declaration in the body (highest authority).
+ *   2. Title pattern `MCP-SERVER-NNN-FAMILY-X` mapped to a family name
+ *      via the family-letter table (so a Family D audit that mentions
+ *      argument_scheme in passing is still classified as Family D).
+ *   3. Title pattern `EDGE-FAMILY-X-ENABLE` for production-enable
+ *      audits.
+ *   4. Body mention of argument_scheme / slippery_slope ONLY when no
+ *      title family-letter pattern matched. This is the fallback for
+ *      OPS docs or amendment docs whose title omits the family letter.
  */
 function detectFamily(title, body) {
   const safeTitle = typeof title === 'string' ? title : '';
   const safeBody = typeof body === 'string' ? body : '';
 
-  // Doc-level declaration has highest priority.
+  // 1. Doc-level declaration has highest priority.
   const decl = safeBody.match(/^Family\s*:\s*([\w-]+)/im);
   if (decl) {
     return decl[1].toLowerCase().replace(/-/g, '_');
   }
 
-  // Look for explicit family-name references in body for Family E
-  // (the argument_scheme / slippery_slope axis).
+  // 2. Family letter from MCP-SERVER-NNN-FAMILY-X title pattern.
+  let letterMatch = safeTitle.match(/MCP-SERVER-\d+-FAMILY-([A-Z])/i);
+  if (letterMatch) {
+    return mapFamilyLetterToName(letterMatch[1]);
+  }
+
+  // 3. Family letter from EDGE-FAMILY-X-ENABLE title pattern.
+  letterMatch = safeTitle.match(/EDGE-FAMILY-([A-Z])-ENABLE/i);
+  if (letterMatch) {
+    return mapFamilyLetterToName(letterMatch[1]);
+  }
+
+  // 4. Body mention fallback — only when title gave nothing.
   if (
     /\bargument_scheme\b/.test(safeBody) ||
     /\bslippery_slope\b/.test(safeBody) ||
@@ -210,13 +237,30 @@ function detectFamily(title, body) {
     return 'argument_scheme';
   }
 
-  // Family letter from title (MCP-SERVER-006-FAMILY-E => family-letter "E").
-  const letterMatch = safeTitle.match(/MCP-SERVER-\d+-FAMILY-([A-Z])/i);
-  if (letterMatch) {
-    return `family_${letterMatch[1].toLowerCase()}`;
-  }
-
   return null;
+}
+
+/**
+ * Map the family-letter code (A-J) to the canonical family name used
+ * by the rules-file DOCTRINE_RISK_FAMILIES set. Unmapped letters fall
+ * back to `family_<letter>` so the linter is conservative.
+ */
+function mapFamilyLetterToName(letter) {
+  const upper = String(letter).toUpperCase();
+  switch (upper) {
+    case 'A':
+      return 'parent_relation';
+    case 'B':
+      return 'disagreement_axis';
+    case 'C':
+      return 'misunderstanding_repair';
+    case 'D':
+      return 'evidence_source_chain';
+    case 'E':
+      return 'argument_scheme';
+    default:
+      return `family_${upper.toLowerCase()}`;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -291,68 +335,68 @@ function normalizePhaseId(rawHeader) {
  * Canonicalize the slug portion of a phase id so common header
  * variants map to a single canonical phase id. This is the layer
  * where regex-tolerated header phrasing meets the strict
- * `phase-N-canonical-name` keys in the rules file.
+ * `phase-N-canonical-name` keys in the rules file. Uses SUBSTRING
+ * matching (not anchored) because real audit headers carry extra
+ * trailing context like "(15 checks)" or "F/G/H/I/J rejection
+ * regression".
  */
 function canonicalizePhaseSlug(slug, kind, _number) {
   if (kind !== 'phase' && kind !== 'amendment') {
     return slug;
   }
   // Hosted MCP smoke variants
-  if (/hosted[\s-]*mcp(?:[\s-]*(server|smoke))*/i.test(slug)) {
-    return 'hosted-mcp-smoke';
-  }
-  if (/^hosted-mcp$/.test(slug)) {
+  if (/hosted[-\s]*mcp/.test(slug)) {
     return 'hosted-mcp-smoke';
   }
   // Pre-flight variants
-  if (/^pre-?flight$/.test(slug) || /^preflight$/.test(slug)) {
+  if (/pre-?flight/.test(slug) || /^preflight$/.test(slug)) {
     return 'preflight';
   }
-  if (/^pre-flight$/.test(slug)) {
-    return 'preflight';
-  }
-  // Local regression variants
-  if (/^local-deno-regression$/.test(slug) || /^local-regression$/.test(slug)) {
-    return 'local-regression';
-  }
-  if (/^local-deno-regression-/.test(slug)) {
+  // Local regression variants — must check BEFORE generic 'regression'
+  if (/local[-\s]*(deno[-\s]*)?regression/.test(slug)) {
     return 'local-regression';
   }
   // Edge admin_validation variants
-  if (/^edge-admin-validation$/.test(slug) || /^edge-admin/.test(slug)) {
+  if (/edge[-\s]*admin/.test(slug)) {
     return 'edge-admin-validation';
   }
-  // Unsupported-family rejection variants
-  if (/^unsupported-family-rejection$/.test(slug) || /^unsupported-rejection$/.test(slug)) {
+  // Unsupported-family rejection variants — match any `unsupported`+`rejection`
+  if (/unsupported.*rejection/.test(slug)) {
     return 'unsupported-rejection';
   }
-  // Targeted regression variants
-  if (/^targeted-regression$/.test(slug) || /^targeted-family-/.test(slug)) {
-    return 'targeted-regression';
+  // Doctrine verification variants — match `slippery_slope` + `doctrine` or `verification`
+  if (
+    /slippery[-_]?slope/.test(slug) &&
+    /(doctrine|verification)/.test(slug)
+  ) {
+    return 'doctrine-verification';
+  }
+  if (/doctrine[-\s]*verification/.test(slug)) {
+    return 'doctrine-verification';
   }
   // Auto-trigger dispatch variants
-  if (/^auto-trigger-dispatch$/.test(slug) || /^auto-trigger$/.test(slug)) {
+  if (/auto[-\s]*trigger/.test(slug)) {
     return 'auto-trigger-dispatch';
   }
-  // Targeted-signal variants
-  if (/^targeted-signal$/.test(slug) || /^targeted-classifier-signal$/.test(slug)) {
+  // Targeted-signal variants — must check BEFORE generic 'targeted-regression'
+  if (/targeted[-\s]*(classifier[-\s]*)?signal/.test(slug)) {
     return 'targeted-signal';
   }
+  // Targeted regression variants
+  if (/targeted[-\s]*(family[-\s]*)?(regression|family)/.test(slug)) {
+    return 'targeted-regression';
+  }
   // Read-path variants
-  if (/^read-path$/.test(slug) || /^source-6$/.test(slug) || /^source-6-/.test(slug)) {
+  if (/read[-\s]*path/.test(slug) || /source[-\s]*6/.test(slug)) {
     return 'read-path';
   }
-  // Regression variants
-  if (/^regression$/.test(slug)) {
-    return 'regression';
-  }
   // OPS observations
-  if (/^ops-observations?$/.test(slug)) {
+  if (/ops[-\s]*observations?/.test(slug)) {
     return 'ops-observations';
   }
-  // Doctrine verification
-  if (/^doctrine-verification$/.test(slug) || /^slippery-slope-(doctrine|verification)/.test(slug)) {
-    return 'doctrine-verification';
+  // Generic regression (catches just "Regression" alone)
+  if (/^regression$/.test(slug) || /^regression[-\s]/.test(slug)) {
+    return 'regression';
   }
   return slug;
 }
@@ -371,8 +415,32 @@ function parseAuditDoc(text) {
   const lines = splitLines(text);
   const body = lines.join('\n');
 
-  // Title (line 1) — strip leading `#` markers.
-  const titleRaw = lines.length > 0 ? lines[0] : '';
+  // Title: first non-empty line that is not an HTML comment. Fixtures
+  // prepend an `<!-- AUDIT-LINT-FIXTURE ... -->` marker; the parser
+  // skips leading HTML comments + blank lines to find the title.
+  let titleLineIdx = 0;
+  while (titleLineIdx < lines.length) {
+    const l = lines[titleLineIdx].trim();
+    if (l.length === 0) {
+      titleLineIdx += 1;
+      continue;
+    }
+    if (l.startsWith('<!--') && l.endsWith('-->')) {
+      titleLineIdx += 1;
+      continue;
+    }
+    if (l.startsWith('<!--') && !l.endsWith('-->')) {
+      // Multi-line HTML comment — advance past `-->` close.
+      titleLineIdx += 1;
+      while (titleLineIdx < lines.length && !lines[titleLineIdx].includes('-->')) {
+        titleLineIdx += 1;
+      }
+      titleLineIdx += 1;
+      continue;
+    }
+    break;
+  }
+  const titleRaw = titleLineIdx < lines.length ? lines[titleLineIdx] : '';
   const title = titleRaw.replace(/^#+\s*/, '').trim();
 
   const auditType = detectAuditType(titleRaw, body);
@@ -505,17 +573,327 @@ function parseAuditDoc(text) {
 }
 
 /* ------------------------------------------------------------------ */
-/* lintAuditDoc — stub; L1-L6 land in C3                              */
+/* L1-L6 rule implementations                                          */
 /* ------------------------------------------------------------------ */
 
 /**
- * Apply L1-L6 rules. C2 returns the parsed doc with no findings; C3
- * fills in L1-L6.
+ * Sort findings deterministically — by rule id (ASCII), then by
+ * line number ascending. Used by `lintAuditDoc` to ensure stable
+ * output across runs (HALT trigger 11).
+ */
+function sortFindings(findings) {
+  return [...findings].sort((a, b) => {
+    if (a.rule !== b.rule) {
+      return a.rule < b.rule ? -1 : 1;
+    }
+    const al = typeof a.line === 'number' ? a.line : Number.MAX_SAFE_INTEGER;
+    const bl = typeof b.line === 'number' ? b.line : Number.MAX_SAFE_INTEGER;
+    return al - bl;
+  });
+}
+
+/**
+ * L1 — Required phase NOT-RUN + verdict PASS fails (R1/R2).
+ */
+function applyL1(parsed) {
+  const required = rules.REQUIRED_PHASES_BY_AUDIT_TYPE[parsed.auditType];
+  if (!required || required.size === 0) {
+    return [];
+  }
+  if (parsed.verdict !== 'PASS') {
+    return [];
+  }
+  const optional = rules.OPTIONAL_PHASES_BY_AUDIT_TYPE[parsed.auditType] || new Set();
+  const findings = [];
+  const notRunRequired = [];
+  for (const phase of parsed.phases) {
+    if (phase.explicitlyOptional) {
+      continue;
+    }
+    if (phase.status !== 'NOT-RUN') {
+      continue;
+    }
+    if (!required.has(phase.id)) {
+      continue;
+    }
+    if (optional.has(phase.id)) {
+      continue;
+    }
+    notRunRequired.push({ id: phase.id, line: phase.headerLineNumber });
+  }
+  if (notRunRequired.length > 0) {
+    findings.push({
+      rule: 'L1',
+      severity: 'error',
+      message:
+        'Required phase(s) NOT-RUN but verdict is PASS — under R1/R2 the verdict CANNOT exceed PARTIAL.',
+      details: {
+        verdict: parsed.verdict,
+        notRunRequiredPhases: notRunRequired.map((p) => p.id),
+        remedy:
+          'Either run the phase to PASS, OR downgrade verdict to PARTIAL, OR explicitly mark the phase optional with rationale.',
+      },
+      line: notRunRequired[0].line,
+    });
+  }
+  return findings;
+}
+
+/**
+ * L2 — Indirect-proof phrase in a NOT-RUN direct-proof phase's
+ * justification with verdict PASS fails (R2/R4).
+ */
+function applyL2(parsed) {
+  const directRequired =
+    rules.DIRECT_PROOF_REQUIRED_PHASES_BY_AUDIT_TYPE[parsed.auditType];
+  if (!directRequired || directRequired.size === 0) {
+    return [];
+  }
+  if (parsed.verdict !== 'PASS') {
+    return [];
+  }
+  const findings = [];
+  for (const phase of parsed.phases) {
+    if (phase.status !== 'NOT-RUN') {
+      continue;
+    }
+    if (!directRequired.has(phase.id)) {
+      continue;
+    }
+    for (const phraseRegex of rules.L2_INDIRECT_PHRASES) {
+      const m = phase.justificationText.match(phraseRegex);
+      if (m) {
+        const snippet = extractSnippet(phase.justificationText, m.index, m[0]);
+        findings.push({
+          rule: 'L2',
+          severity: 'error',
+          message:
+            "Direct-proof-required phase justified by indirect-proof phrase — R4 forbids substitution.",
+          details: {
+            phaseId: phase.id,
+            phrase: m[0],
+            snippet,
+            remedy:
+              'Either run the direct proof (e.g., hosted MCP 17/17), OR downgrade verdict to PARTIAL.',
+          },
+          line: phase.headerLineNumber,
+        });
+        // One finding per phase is enough — break after first phrase match.
+        break;
+      }
+    }
+  }
+  return findings;
+}
+
+/**
+ * Extract a short context snippet around a regex match for the
+ * finding detail. Caps at 120 characters.
+ */
+function extractSnippet(text, matchIndex, matchText) {
+  if (typeof matchIndex !== 'number' || matchIndex < 0) {
+    return matchText || '';
+  }
+  const before = Math.max(0, matchIndex - 30);
+  const after = Math.min(text.length, matchIndex + matchText.length + 30);
+  return text.slice(before, after).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * L3 — Production-enable audits must have all three assertion levels
+ * (dispatch, targetedSignal, readPath).
+ */
+function applyL3(parsed, fullDocText) {
+  if (parsed.auditType !== 'production-enable') {
+    return [];
+  }
+  const found = { dispatch: false, targetedSignal: false, readPath: false };
+  for (const key of Object.keys(found)) {
+    const patterns = rules.PRODUCTION_ENABLE_REQUIRED_ASSERTIONS[key] || [];
+    found[key] = patterns.some((re) => re.test(fullDocText));
+  }
+  const missing = Object.keys(found).filter((k) => !found[k]);
+  if (missing.length === 0) {
+    return [];
+  }
+  return [
+    {
+      rule: 'L3',
+      severity: 'error',
+      message:
+        'Production-enable audit missing assertion(s) for: ' + missing.join(', '),
+      details: {
+        missingLevels: missing,
+        presentLevels: Object.keys(found).filter((k) => found[k]),
+        remedy:
+          'Add a section demonstrating each missing level (dispatch, targetedSignal, readPath).',
+      },
+      line: null,
+    },
+  ];
+}
+
+/**
+ * L4 — Production-enable targeted-signal must include at least one
+ * positive result-row, not just a successful run-row.
+ */
+function applyL4(parsed, fullDocText) {
+  if (parsed.auditType !== 'production-enable') {
+    return [];
+  }
+  const signalText = extractTargetedSignalSection(parsed, fullDocText);
+  if (!signalText) {
+    return [];
+  }
+  const hasResultRow = rules.L4_RESULT_ROW_EVIDENCE.some((re) =>
+    re.test(signalText),
+  );
+  const hasRunRowOnly = rules.L4_RUN_ROW_ONLY_LANGUAGE.some((re) =>
+    re.test(signalText),
+  );
+  if (hasResultRow) {
+    return [];
+  }
+  if (hasRunRowOnly || !hasResultRow) {
+    return [
+      {
+        rule: 'L4',
+        severity: 'error',
+        message:
+          'Production-enable targeted-signal claim is run-row-only; no positive result row evidence found.',
+        details: {
+          remedy:
+            'Cite at least 1 positive result row with raw_key + confidence + evidence_span_len, on text deliberately targeted to fire a classifier signal.',
+        },
+        line: null,
+      },
+    ];
+  }
+  return [];
+}
+
+/**
+ * Locate the targeted-signal section of a production-enable audit.
+ * Looks for any phase whose canonical id is `phase-N-targeted-signal`;
+ * falls back to scanning the full text for the assertion bundle.
+ */
+function extractTargetedSignalSection(parsed, fullDocText) {
+  for (const phase of parsed.phases) {
+    if (/-targeted-signal$/.test(phase.id)) {
+      return phase.justificationText;
+    }
+  }
+  return fullDocText;
+}
+
+/**
+ * L5 — Doctrine-risk audits must inspect persisted direct output.
+ */
+function applyL5(parsed, fullDocText) {
+  const bodyOverride = fullDocText.match(/^Doctrine-risk:\s*(true|false)\b/im);
+  let isDoctrineRisk = false;
+  if (bodyOverride) {
+    isDoctrineRisk = bodyOverride[1].toLowerCase() === 'true';
+  } else {
+    isDoctrineRisk = !!parsed.family && rules.DOCTRINE_RISK_FAMILIES.has(parsed.family);
+  }
+  if (!isDoctrineRisk) {
+    return [];
+  }
+  const hasInspection = rules.L5_PERSISTED_INSPECTION_PATTERNS.some((re) =>
+    re.test(fullDocText),
+  );
+  if (hasInspection) {
+    return [];
+  }
+  return [
+    {
+      rule: 'L5',
+      severity: 'error',
+      message:
+        'Doctrine-risk audit does not inspect persisted direct output (evidence_span or equivalent).',
+      details: {
+        family: parsed.family,
+        remedy:
+          'Add a SQL readback section that queries argument_machine_observation_results.evidence_span for the test runs and inspects rows for doctrine compliance.',
+      },
+      line: null,
+    },
+  ];
+}
+
+/**
+ * L6 — Verdict upgrades carry provenance: prior verdict, missing
+ * proof, newly-supplied proof.
+ */
+function applyL6(parsed, fullDocText) {
+  const isAmendment =
+    parsed.auditType === 'amendment' ||
+    parsed.auditType === 'hosted-completion' ||
+    /AMENDMENT|COMPLETION|upgrade/i.test(parsed.title) ||
+    /^Prior\s+verdict\s*:/im.test(fullDocText) ||
+    /^Predecessor\s+audit\s*:/im.test(fullDocText);
+  if (!isAmendment) {
+    return [];
+  }
+  const hasPriorVerdict = rules.L6_PRIOR_VERDICT_PATTERNS.some((re) =>
+    re.test(fullDocText),
+  );
+  const hasMissingProof = rules.L6_MISSING_PROOF_PATTERNS.some((re) =>
+    re.test(fullDocText),
+  );
+  const hasNewlySupplied = rules.L6_NEWLY_SUPPLIED_PROOF_PATTERNS.some((re) =>
+    re.test(fullDocText),
+  );
+  const present = [];
+  const missing = [];
+  if (hasPriorVerdict) {
+    present.push('priorVerdict');
+  } else {
+    missing.push('priorVerdict');
+  }
+  if (hasMissingProof) {
+    present.push('missingProof');
+  } else {
+    missing.push('missingProof');
+  }
+  if (hasNewlySupplied) {
+    present.push('newlySuppliedProof');
+  } else {
+    missing.push('newlySuppliedProof');
+  }
+  if (missing.length === 0) {
+    return [];
+  }
+  return [
+    {
+      rule: 'L6',
+      severity: 'error',
+      message:
+        'Verdict upgrade missing provenance for: ' + missing.join(', '),
+      details: {
+        missingComponents: missing,
+        presentComponents: present,
+        remedy:
+          'Name the specific newly-supplied proof that lifts the prior cap (e.g., "operator-supplied hosted smoke 17/17 PASS").',
+      },
+      line: null,
+    },
+  ];
+}
+
+/* ------------------------------------------------------------------ */
+/* lintAuditDoc                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Apply L1-L6 rules to a parsed audit doc. Returns deterministic
+ * findings sorted by rule id then line number. Exit code 0 when no
+ * findings; 1 when one or more findings; 2 on parse failure.
  */
 function lintAuditDoc(text, _options) {
   const parsed = parseAuditDoc(text);
   if (parsed.verdict === null && parsed.phases.length === 0 && parsed.auditType === 'unknown') {
-    // Unparseable doc — surface as exitCode 2 per CLI contract.
     return {
       exitCode: 2,
       parsed,
@@ -530,10 +908,20 @@ function lintAuditDoc(text, _options) {
       ],
     };
   }
+
+  const fullText = stripBom(text || '');
+  const findings = [];
+  findings.push(...applyL1(parsed));
+  findings.push(...applyL2(parsed));
+  findings.push(...applyL3(parsed, fullText));
+  findings.push(...applyL4(parsed, fullText));
+  findings.push(...applyL5(parsed, fullText));
+  findings.push(...applyL6(parsed, fullText));
+  const sorted = sortFindings(findings);
   return {
-    exitCode: 0,
+    exitCode: sorted.length === 0 ? 0 : 1,
     parsed,
-    findings: [],
+    findings: sorted,
   };
 }
 
@@ -581,10 +969,18 @@ module.exports = {
   splitLines,
   detectAuditType,
   detectFamily,
+  mapFamilyLetterToName,
   normalizePhaseId,
   parseAuditDoc,
   lintAuditDoc,
   formatFindingsText,
+  sortFindings,
+  applyL1,
+  applyL2,
+  applyL3,
+  applyL4,
+  applyL5,
+  applyL6,
   // Re-export rules for tests + future extensions
   rules,
 };

@@ -13,7 +13,6 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,json}\"",
     "test": "jest --passWithNoTests",
     "checkpoint": "node scripts/checkpoint-status.mjs",
-    "audit-lint": "node scripts/ops/audit-lint.mjs",
     "web:build": "expo export --platform web --output-dir dist",
     "web:build:dry": "node scripts/build/build-web.mjs --dry",
     "bot:fixture": "node scripts/bot-fixtures/runScenario.js",

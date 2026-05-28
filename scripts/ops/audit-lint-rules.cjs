@@ -138,7 +138,10 @@ const DIRECT_PROOF_REQUIRED_PHASES_BY_AUDIT_TYPE = Object.freeze({
 const L2_INDIRECT_PHRASES = [
   /covered\s+indirectly/i,
   /indirect\s+evidence/i,
-  /verified\s+via\s+unit\s+tests?(?!\s+(plus|and|as\s+a\s+supplement))/i,
+  // Word-boundary after `unit tests` so the negative lookahead checks
+  // the WHITESPACE after the s, not the optional s itself.
+  /verified\s+via\s+unit\s+tests\b(?!\s+(plus|and|as\s+a\s+supplement))/i,
+  /verified\s+via\s+unit\s+test\b(?!\s+(plus|and|as\s+a\s+supplement))/i,
   /would\s+pass/i,
   /will\s+pass/i,
   /implied\s+by/i,
@@ -238,14 +241,18 @@ const L6_PRIOR_VERDICT_PATTERNS = [
 ];
 
 /**
- * Patterns indicating the specific missing proof that capped the
- * prior verdict is named.
+ * Patterns indicating the specific missing proof / unmet obligation
+ * that capped the prior verdict is named.
  */
 const L6_MISSING_PROOF_PATTERNS = [
   /\bGap\s+\d+\b/i,
   /Phase\s+\d+\s+NOT[-\s]?RUN/i,
   /missing\s+proof/i,
   /\bcapped\s+(at|by)\b/i,
+  /strengthened\s+(proof\s+)?obligations?/i,
+  /unmet\s+obligation/i,
+  /\bamendment\s+§?\s*\d+\b/i,
+  /required\s+verifications?/i,
 ];
 
 /**
@@ -259,6 +266,11 @@ const L6_NEWLY_SUPPLIED_PROOF_PATTERNS = [
   /newly\s+(added|supplied)/i,
   /\bGap\s+\d+\s+closed/i,
   /direct\s+proof/i,
+  /\d+\s+strengthened\s+criteria\s+(satisfied|met)/i,
+  /\bsatisfied\b.*\bamendment/i,
+  /\bamendment.*\bsatisfied\b/i,
+  /supplements?\s+the\s+original/i,
+  /all\s+\d+\s+(strengthened\s+)?criteria/i,
 ];
 
 /* ------------------------------------------------------------------ */
