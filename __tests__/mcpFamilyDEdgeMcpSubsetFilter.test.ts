@@ -1,0 +1,169 @@
+/**
+ * MCP-SERVER-005-FAMILY-D fix — Edge → MCP subset filter regression coverage.
+ *
+ * Card 2 (MCP-SERVER-005-FAMILY-D) shipped the 19-key ai_classifier Subset
+ * per operator Stage 2B decision. The MCP server supports those 19 keys
+ * only; requesting any of the 8 deterministic Family D rawKeys
+ * (5 auto_metadata + 3 lifecycle, 6 unique strings) triggers MCP's
+ * `unsupported_rawKey` validation → Edge maps to `mcp_validation_failed`.
+ *
+ * Pre-fix, `buildBooleanObservationRequestForArgument` iterated all 27
+ * Family D entries and sent ~25 rawKeys (compound-key collision dedupes 2)
+ * to the MCP server, causing every Family D admin_validation request to
+ * fail with mcp_validation_failed in live smoke (Card 2 Phase 4).
+ *
+ * Post-fix, `MCP_SERVER_SUPPORTED_FAMILY_SOURCES['evidence_source_chain']
+ * = {'ai_classifier'}` filters the request builder to only send the
+ * 19 ai_classifier rawKeys. Other families (A/B/C) have no entry in the
+ * map, so all of their sources pass through unchanged (current behavior
+ * preserved byte-equal).
+ *
+ * Doctrine:
+ *   - cdiscourse-doctrine §10a — structural observations only
+ *   - cdiscourse-doctrine §7 — pure TS; no Deno-specific calls
+ *   - Stage 2B operator binding — Subset path only; no compound-key
+ *     response shape; no schema mirror change; no Anthropic inference
+ *     of deterministic facts
+ */
+
+import {
+  edgeBuildBooleanObservationRequestForArgument,
+} from './_helpers/booleanObservationEdgeDeno';
+
+const FAMILY_D_AI_CLASSIFIER_KEYS = [
+  'asks_for_evidence',
+  'provides_evidence',
+  'evidence_supports_claim',
+  'creates_source_chain_gap',
+  'opens_evidence_debt_marker',
+  'closes_evidence_debt_marker',
+  'supplies_corroborating_document',
+  'source_provided',
+  'quote_provided',
+  'concrete_example_requested',
+  'concrete_example_provided',
+  'evidence_claim_present',
+  'evidence_gap_present',
+  'source_chain_repair',
+  'anecdote_used',
+  'statistic_used',
+  'external_authority_used',
+  'evidence_quality_questioned',
+  'burden_request_present',
+] as const;
+
+const FAMILY_D_DETERMINISTIC_EXCLUDED_KEYS = [
+  // auto_metadata (5)
+  'has_evidence',
+  'source_requested',
+  'quote_requested',
+  'source_attached',
+  'quote_attached',
+  // lifecycle (3); source_requested + quote_requested are compound-key
+  // collisions with auto_metadata and dedupe to one string each.
+  'sourced',
+] as const;
+
+const FAMILY_D_BASE_INPUT = {
+  argumentId: 'arg-d-1',
+  parentArgumentId: 'arg-d-0',
+  currentText: 'a reply that may or may not provide evidence',
+  parentText: 'a claim being evaluated for evidence chain',
+  threadContextExcerpt: 'thread context',
+  requestedFamilies: ['evidence_source_chain' as const],
+  mode: 'admin_validation' as const,
+};
+
+describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', () => {
+  it('SF-1 — Family D admin_validation request contains exactly 19 ai_classifier rawKeys', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_BASE_INPUT);
+    expect(req.requestedRawKeys.length).toBe(19);
+  });
+
+  it('SF-2 — every Family D rawKey sent matches the operator-approved 19-key ai_classifier set', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_BASE_INPUT);
+    const sent = new Set(req.requestedRawKeys);
+    for (const expected of FAMILY_D_AI_CLASSIFIER_KEYS) {
+      expect(sent.has(expected)).toBe(true);
+    }
+    expect(sent.size).toBe(19);
+  });
+
+  it('SF-3 — Family D request does NOT include any of the 8 excluded deterministic rawKeys', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_BASE_INPUT);
+    const sent = new Set(req.requestedRawKeys);
+    for (const excluded of FAMILY_D_DETERMINISTIC_EXCLUDED_KEYS) {
+      expect(sent.has(excluded)).toBe(false);
+    }
+  });
+
+  it('SF-4 — Family D definitions map size matches the 19 rawKeys (no orphan keys)', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_BASE_INPUT);
+    expect(Object.keys(req.definitions).length).toBe(19);
+    for (const key of Object.keys(req.definitions)) {
+      expect(FAMILY_D_AI_CLASSIFIER_KEYS.includes(key as never)).toBe(true);
+    }
+  });
+
+  it('SF-5 — every Family D definition emitted has source=ai_classifier', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_BASE_INPUT);
+    for (const def of Object.values(req.definitions)) {
+      expect(def.source).toBe('ai_classifier');
+    }
+  });
+
+  it('SF-6 — Family A admin_validation request is unaffected (all 16 rawKeys still sent; current behavior preserved)', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument({
+      ...FAMILY_D_BASE_INPUT,
+      requestedFamilies: ['parent_relation'],
+    });
+    // Family A has 16 rawKeys across auto_metadata + lifecycle + ai_classifier;
+    // all must pass through (no source filter for parent_relation).
+    expect(req.requestedRawKeys.length).toBe(16);
+  });
+
+  it('SF-7 — Family B admin_validation request is unaffected', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument({
+      ...FAMILY_D_BASE_INPUT,
+      requestedFamilies: ['disagreement_axis'],
+    });
+    // Family B has 14 rawKeys; all must pass through.
+    expect(req.requestedRawKeys.length).toBe(14);
+  });
+
+  it('SF-8 — Family C admin_validation request is unaffected', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument({
+      ...FAMILY_D_BASE_INPUT,
+      requestedFamilies: ['misunderstanding_repair'],
+    });
+    // Family C has 17 rawKeys; all must pass through.
+    expect(req.requestedRawKeys.length).toBe(17);
+  });
+
+  it('SF-9 — production-mode Family D request returns empty rawKeys (productionEnabled=false)', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument({
+      ...FAMILY_D_BASE_INPUT,
+      mode: 'production',
+    });
+    // Family D is admin_validation-only; production mode filter excludes
+    // it entirely. eligibleFamilies = []; rawKeys = [].
+    expect(req.requestedRawKeys.length).toBe(0);
+    expect(req.requestedFamilies.length).toBe(0);
+  });
+
+  it('SF-10 — multi-family request (D + A) sends Family A all-source + Family D ai_classifier only', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument({
+      ...FAMILY_D_BASE_INPUT,
+      requestedFamilies: ['evidence_source_chain', 'parent_relation'],
+    });
+    // 19 Family D ai_classifier + 16 Family A = 35 total (no overlap between families).
+    expect(req.requestedRawKeys.length).toBe(35);
+    const sent = new Set(req.requestedRawKeys);
+    for (const key of FAMILY_D_AI_CLASSIFIER_KEYS) {
+      expect(sent.has(key)).toBe(true);
+    }
+    for (const excluded of FAMILY_D_DETERMINISTIC_EXCLUDED_KEYS) {
+      expect(sent.has(excluded)).toBe(false);
+    }
+  });
+});

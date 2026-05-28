@@ -31,11 +31,56 @@ import { filterFamiliesForMode } from './familyRegistry.ts';
 import type {
   MachineObservationDefinition,
   MachineObservationFamily,
+  MachineObservationSource,
 } from './nodeLabelTypes.ts';
 import type { MachineObservationRunMode } from './runModeConstants.ts';
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
 const MAX_THREAD_CONTEXT_CHARS = 2_000;
+
+/**
+ * MCP-SERVER-005-FAMILY-D Stage 2B subset filter — per-family source allowlist
+ * for the MCP server's classifier scope.
+ *
+ * The Edge function's full registry (MACHINE_OBSERVATION_DEFINITIONS_REGISTRY)
+ * enumerates ALL rawKeys for a family across ALL sources (auto_metadata +
+ * lifecycle + ai_classifier). The MCP server, per operator Stage 2B decisions
+ * for each family, may support only a subset of those sources.
+ *
+ * For Family D (`evidence_source_chain`), operator Stage 2B approved
+ * "Subset path (19 ai_classifier keys; 8 deterministic excluded)". Sending
+ * the 8 deterministic keys to the MCP server would trigger unsupported_rawKey
+ * validation → mcp_validation_failed at the Edge.
+ *
+ * For Family A/B/C, the MCP server supports all sources in those families'
+ * key sets (lifecycle + auto_metadata + ai_classifier as appropriate); the
+ * absence of an entry in this map preserves current behavior (all sources
+ * sent).
+ *
+ * Future families with similar source-mix complexity (E/F/G/H/I/J) add an
+ * entry here keyed on their family identifier when their Stage 2B decision
+ * lands; absence = full registry passthrough.
+ *
+ * Doctrine: this constant is the binding boundary between Edge taxonomy
+ * (full 27-entry Family D for parser/rendering purposes) and MCP server
+ * classifier scope (19 ai_classifier keys per Stage 2B).
+ */
+const MCP_SERVER_SUPPORTED_FAMILY_SOURCES: Readonly<
+  Partial<Record<MachineObservationFamily, ReadonlySet<MachineObservationSource>>>
+> = Object.freeze({
+  evidence_source_chain: Object.freeze(new Set<MachineObservationSource>(['ai_classifier'])),
+});
+
+/**
+ * Test-only export to verify the constant shape from outside. Production
+ * code should rely on the filter behavior in
+ * `buildBooleanObservationRequestForArgument`.
+ */
+export function getMcpServerSupportedFamilySources(
+  family: MachineObservationFamily,
+): ReadonlySet<MachineObservationSource> | undefined {
+  return MCP_SERVER_SUPPORTED_FAMILY_SOURCES[family];
+}
 
 export interface BuildBooleanObservationRequestInput {
   /** The move being classified. */
@@ -87,14 +132,20 @@ export function buildBooleanObservationRequestForArgument(
   const rawKeySet = new Set<string>();
   const definitions: Record<string, MachineObservationDefinition> = {};
   for (const def of Object.values(MACHINE_OBSERVATION_DEFINITIONS_REGISTRY)) {
-    if (eligibleFamilies.includes(def.family)) {
-      rawKeySet.add(def.rawKey);
-      // Last write wins in this loop; the parser caller resolves via
-      // lookupMachineObservationDefinition() which uses the priority
-      // BY_RAW_KEY registry. Either map shape is acceptable; the wire
-      // contract is `definitions` keyed by rawKey.
-      definitions[def.rawKey] = def;
-    }
+    if (!eligibleFamilies.includes(def.family)) continue;
+    // MCP-SERVER-005-FAMILY-D Stage 2B subset filter: if the family
+    // has an explicit MCP-supported-source allowlist (e.g., Family D =
+    // ai_classifier only per operator Stage 2B), skip entries whose
+    // source is not in the allowlist. Families without an entry pass
+    // through unfiltered (current Family A/B/C behavior preserved).
+    const allowedSources = MCP_SERVER_SUPPORTED_FAMILY_SOURCES[def.family];
+    if (allowedSources && !allowedSources.has(def.source)) continue;
+    rawKeySet.add(def.rawKey);
+    // Last write wins in this loop; the parser caller resolves via
+    // lookupMachineObservationDefinition() which uses the priority
+    // BY_RAW_KEY registry. Either map shape is acceptable; the wire
+    // contract is `definitions` keyed by rawKey.
+    definitions[def.rawKey] = def;
   }
   const rawKeys = Array.from(rawKeySet);
 
