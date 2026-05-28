@@ -1,5 +1,7 @@
 # MCP-SERVER-006-FAMILY-E-SMOKE — audit template
 
+Audit-Lint: v1
+
 **Card:** MCP-SERVER-006-FAMILY-E (Argument Scheme — 16 Walton (1995, 2008) schemes)
 **Path chosen at Stage 2B:** Stage 2B NOT REQUIRED (uniform ai_classifier, 16/16 keys; MAX_TOKENS=1500; admin_validation-only)
 **Operator:** _<operator-name>_
@@ -363,3 +365,36 @@ positives):**
 
 Filed at: `docs/audits/MCP-SERVER-006-FAMILY-E-SMOKE-<YYYY-MM-DD>.md`
 (rename this file from `-template.md` to the dated filename on commit).
+
+---
+
+## Audit-lint required final step
+
+Before signing the Verdict line above:
+
+```
+node scripts/ops/audit-lint.mjs docs/audits/MCP-SERVER-006-FAMILY-E-SMOKE-<YYYY-MM-DD>.md
+```
+
+This MUST exit 0 before the verdict is valid. The linter enforces
+the operator-stated audit-integrity rules R1-R4 via L1-L6, including:
+
+- L1 — required-phase NOT-RUN + verdict PASS fails (Phase 3 hosted
+  MCP smoke is REQUIRED for family-ship; the original Family E audit
+  at `29f30b0` marked it NOT-RUN and was caught at amendment time —
+  this linter now catches that defect at authoring time)
+- L2 — indirect-proof phrase ("covered indirectly", "would pass") in
+  a NOT-RUN direct-proof phase fails
+- L5 — Family E is a doctrine-risk family (argument_scheme /
+  slippery_slope); the audit MUST cite persisted `evidence_span`
+  inspection
+- L6 — if this audit is an amendment / hosted-completion / upgrade,
+  it must name all three of priorVerdict + missingProof +
+  newlySuppliedProof
+
+If the linter reports a finding, EITHER (a) run the missing phase to
+PASS, OR (b) downgrade the verdict to PARTIAL, OR (c) add the
+required provenance language. Do NOT sign PASS while the linter exits
+non-zero.
+
+See `docs/ops/AUDIT-LINT.md` for the full rule reference.

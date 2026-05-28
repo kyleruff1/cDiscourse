@@ -1,5 +1,7 @@
 # MCP-SERVER-005-FAMILY-D-SMOKE — audit template
 
+Audit-Lint: v1
+
 **Card:** MCP-SERVER-005-FAMILY-D (Evidence Source Chain — 19-key ai_classifier Subset)
 **Path chosen at Stage 2B:** Subset (19 ai_classifier rawKeys; MAX_TOKENS=1800; admin_validation-only)
 **Operator:** _<operator-name>_
@@ -280,3 +282,28 @@ positives):**
 
 Filed at: `docs/audits/MCP-SERVER-005-FAMILY-D-SMOKE-<YYYY-MM-DD>.md`
 (rename this file from `-template.md` to the dated filename on commit).
+
+---
+
+## Audit-lint required final step
+
+Before signing the Verdict line above:
+
+```
+node scripts/ops/audit-lint.mjs docs/audits/MCP-SERVER-005-FAMILY-D-SMOKE-<YYYY-MM-DD>.md
+```
+
+This MUST exit 0 before the verdict is valid. The linter enforces
+the operator-stated audit-integrity rules R1-R4 via L1-L6:
+
+- L1 — required-phase NOT-RUN + verdict PASS fails
+- L2 — indirect-proof phrase in a NOT-RUN direct-proof phase fails
+- L5 — doctrine-risk audits inspect persisted direct output
+- L6 — verdict upgrades carry full provenance
+
+If the linter reports a finding, EITHER (a) run the missing phase to
+PASS, OR (b) downgrade the verdict to PARTIAL, OR (c) add the
+required provenance language. Do NOT sign PASS while the linter exits
+non-zero.
+
+See `docs/ops/AUDIT-LINT.md` for the full rule reference.
