@@ -88,7 +88,7 @@ export const FAMILY_REGISTRY: ReadonlyArray<FamilyRegistryEntry> = Object.freeze
   },
   {
     family: 'argument_scheme',
-    productionEnabled: false,
+    productionEnabled: true,
     adminValidationEnabled: true,
   },
   {
