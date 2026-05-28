@@ -17,6 +17,10 @@ interface ParseCliArgsResult {
     docPath: string | null;
     reportOnly: boolean;
     help: boolean;
+    classifyChanged?: boolean;
+    baseSha?: string | null;
+    headSha?: string | null;
+    changedListStdin?: boolean;
   };
   error?: string;
 }
@@ -55,8 +59,21 @@ interface LintResult {
   findings: AuditFinding[];
 }
 
+interface ChangedFileEntry {
+  status: string;
+  path: string;
+}
+
 const lib = require('../scripts/ops/audit-lint-lib.cjs') as {
-  DEFAULTS: { docPath: null; reportOnly: false; help: false };
+  DEFAULTS: {
+    docPath: null;
+    reportOnly: false;
+    help: false;
+    classifyChanged: false;
+    baseSha: null;
+    headSha: null;
+    changedListStdin: false;
+  };
   parseCliArgs: (argv: unknown) => ParseCliArgsResult;
   helpText: () => string;
   isTemplateFilename: (p: string) => boolean;
@@ -71,6 +88,11 @@ const lib = require('../scripts/ops/audit-lint-lib.cjs') as {
     result: LintResult,
     options?: { docPath?: string },
   ) => string;
+  classifyChangedFiles: (
+    entries: ChangedFileEntry[],
+    readMarkerAtHead: (p: string) => boolean,
+  ) => string[];
+  SMOKE_AUDIT_PATH_PATTERN: RegExp;
   rules: {
     MARKER_STRING: string;
     AUDIT_TYPE_PATTERNS: Record<string, RegExp[]>;
@@ -1324,5 +1346,112 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — rules file invariants', () => {
       'readPath',
       'targetedSignal',
     ]);
+  });
+});
+
+/* ============================================================ */
+/* 12. CI scoping classifier + workflow shape                    */
+/*    (OPS-MCP-SMOKE-LINT-CI-WIRING)                             */
+/* ============================================================ */
+
+const { classifyChangedFiles } = lib;
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — classifyChangedFiles truth table', () => {
+  const MARKED_PATH = 'docs/audits/MCP-SERVER-007-FAMILY-F-SMOKE-2026-06-01.md';
+  const UNMARKED_PATH =
+    'docs/audits/MCP-SERVER-001-FAMILY-A-SMOKE-2026-01-01.md';
+  const NON_AUDIT_PATH = 'src/lib/foo.ts';
+  const TEMPLATE_PATH =
+    'docs/audits/MCP-SERVER-005-FAMILY-D-SMOKE-template.md';
+
+  // The injected reader stub. Returns true iff the path is in the
+  // `marked` set (simulates the file containing MARKER_STRING at HEAD).
+  function reader(marked: Set<string>) {
+    return (p: string) => marked.has(p);
+  }
+
+  it('Added smoke audit (status A) without marker -> IN SCOPE', () => {
+    const entries = [{ status: 'A', path: UNMARKED_PATH }];
+    expect(classifyChangedFiles(entries, reader(new Set()))).toEqual([
+      UNMARKED_PATH,
+    ]);
+  });
+
+  it('Added smoke audit (status A) with marker -> IN SCOPE', () => {
+    const entries = [{ status: 'A', path: MARKED_PATH }];
+    expect(
+      classifyChangedFiles(entries, reader(new Set([MARKED_PATH]))),
+    ).toEqual([MARKED_PATH]);
+  });
+
+  it('Modified smoke audit (status M) with marker -> IN SCOPE', () => {
+    const entries = [{ status: 'M', path: MARKED_PATH }];
+    expect(
+      classifyChangedFiles(entries, reader(new Set([MARKED_PATH]))),
+    ).toEqual([MARKED_PATH]);
+  });
+
+  it('Modified smoke audit (status M) without marker -> OUT OF SCOPE', () => {
+    const entries = [{ status: 'M', path: UNMARKED_PATH }];
+    expect(classifyChangedFiles(entries, reader(new Set()))).toEqual([]);
+  });
+
+  it('Non-audit file (status A) -> OUT OF SCOPE', () => {
+    const entries = [{ status: 'A', path: NON_AUDIT_PATH }];
+    expect(classifyChangedFiles(entries, reader(new Set()))).toEqual([]);
+  });
+
+  it('Non-audit file (status M) -> OUT OF SCOPE', () => {
+    const entries = [{ status: 'M', path: NON_AUDIT_PATH }];
+    expect(
+      classifyChangedFiles(entries, reader(new Set([NON_AUDIT_PATH]))),
+    ).toEqual([]);
+  });
+
+  it('Deleted smoke audit (status D) with marker -> OUT OF SCOPE', () => {
+    const entries = [{ status: 'D', path: MARKED_PATH }];
+    expect(
+      classifyChangedFiles(entries, reader(new Set([MARKED_PATH]))),
+    ).toEqual([]);
+  });
+
+  it('Template doc (status A) -> OUT OF SCOPE (templates are refused)', () => {
+    const entries = [{ status: 'A', path: TEMPLATE_PATH }];
+    expect(classifyChangedFiles(entries, reader(new Set()))).toEqual([]);
+  });
+
+  it('Multiple entries preserve input order in the in-scope list', () => {
+    const entries = [
+      { status: 'M', path: UNMARKED_PATH }, // out (no marker)
+      { status: 'A', path: MARKED_PATH }, // in (added)
+      { status: 'A', path: UNMARKED_PATH }, // in (added always)
+    ];
+    const out = classifyChangedFiles(
+      entries,
+      reader(new Set([MARKED_PATH])),
+    );
+    expect(out).toEqual([MARKED_PATH, UNMARKED_PATH]);
+  });
+
+  it('Empty entries -> empty result', () => {
+    expect(classifyChangedFiles([], reader(new Set()))).toEqual([]);
+  });
+
+  it('readMarkerAtHead is invoked at most once per Modified path; never for A/D/non-audit', () => {
+    const calls: string[] = [];
+    const tracker = (p: string) => {
+      calls.push(p);
+      return false;
+    };
+    classifyChangedFiles(
+      [
+        { status: 'M', path: UNMARKED_PATH }, // reader called once
+        { status: 'A', path: MARKED_PATH }, // A -> reader NOT called
+        { status: 'D', path: MARKED_PATH }, // D -> reader NOT called
+        { status: 'M', path: NON_AUDIT_PATH }, // non-audit -> reader NOT called
+      ],
+      tracker,
+    );
+    expect(calls).toEqual([UNMARKED_PATH]);
   });
 });

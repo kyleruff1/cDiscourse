@@ -98,6 +98,92 @@ function isTemplateFilename(filePath) {
 }
 
 /* ------------------------------------------------------------------ */
+/* CI changed-file classification (OPS-MCP-SMOKE-LINT-CI-WIRING)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Path filter for smoke audit docs. Matches any markdown file under
+ * `docs/audits/` whose name contains the substring `SMOKE` (case
+ * insensitive). Mirrors the glob `docs/audits/**SMOKE*.md` used in
+ * the GitHub Actions workflow's path-filter trigger.
+ */
+const SMOKE_AUDIT_PATH_PATTERN = /^docs\/audits\/.*SMOKE.*\.md$/i;
+
+/**
+ * Classify a list of changed-file entries against the audit-lint
+ * scoping rule. PURE function: NO fs, NO spawn, NO git. The caller
+ * (the `.mjs` entry) is responsible for resolving the actual entries
+ * (via `git diff --name-status`) and for the marker reader (via
+ * `git show <head>:<path>` or working-tree file-read).
+ *
+ * Truth table (per intent §4):
+ *   - status A (added) + SMOKE audit path -> IN SCOPE (marker not needed;
+ *     closes "submit new audit without marker" evasion)
+ *   - status M (modified) + SMOKE audit path + marker at HEAD -> IN SCOPE
+ *   - status M (modified) + SMOKE audit path + no marker -> OUT OF SCOPE
+ *     (pre-hardening historical edits exempt)
+ *   - any other status (D/R/C/...) -> OUT OF SCOPE
+ *   - any non-audit path -> OUT OF SCOPE
+ *   - any template doc (-template.md) -> OUT OF SCOPE
+ *
+ * The readMarkerAtHead closure is invoked at most once per Modified
+ * entry. It is NEVER invoked for Added entries (they are always in
+ * scope) nor for non-audit paths (filtered out earlier).
+ *
+ * @param entries           Array of { status, path } objects. status
+ *                          is one of the git diff --name-status letters.
+ * @param readMarkerAtHead  (path: string) => boolean. True iff the file
+ *                          at HEAD contains MARKER_STRING.
+ * @returns                 Array of in-scope path strings, in the same
+ *                          order as the input entries (deterministic).
+ */
+function classifyChangedFiles(entries, readMarkerAtHead) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  if (typeof readMarkerAtHead !== 'function') {
+    return [];
+  }
+  const inScope = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const status = typeof entry.status === 'string' ? entry.status : '';
+    const filePath = typeof entry.path === 'string' ? entry.path : '';
+    if (filePath.length === 0) {
+      continue;
+    }
+    // Path-filter: only smoke audit docs.
+    if (!SMOKE_AUDIT_PATH_PATTERN.test(filePath)) {
+      continue;
+    }
+    // Templates are refused.
+    if (isTemplateFilename(filePath)) {
+      continue;
+    }
+    // Status filter: A or M only.
+    if (status === 'A') {
+      // Added — ALWAYS in scope. Marker not required. This closes the
+      // "submit new audit without marker" evasion loophole.
+      inScope.push(filePath);
+      continue;
+    }
+    if (status === 'M') {
+      // Modified — in scope iff the HEAD version carries the marker.
+      if (readMarkerAtHead(filePath)) {
+        inScope.push(filePath);
+      }
+      continue;
+    }
+    // D, R, C, and any other status: skip silently. Renames are
+    // typically handled by git's natural A+D pair under default rename
+    // detection — the A side covers them above.
+  }
+  return inScope;
+}
+
+/* ------------------------------------------------------------------ */
 /* Text-normalization helpers                                          */
 /* ------------------------------------------------------------------ */
 
@@ -981,6 +1067,9 @@ module.exports = {
   applyL4,
   applyL5,
   applyL6,
+  // OPS-MCP-SMOKE-LINT-CI-WIRING — changed-file classifier
+  classifyChangedFiles,
+  SMOKE_AUDIT_PATH_PATTERN,
   // Re-export rules for tests + future extensions
   rules,
 };
