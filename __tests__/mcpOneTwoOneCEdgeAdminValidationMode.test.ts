@@ -127,9 +127,9 @@ describe('MCP-021C-EDGE — run_mode binding to migration', () => {
   });
 });
 
-describe('MCP-021C-EDGE — production filter does NOT see D–J admin_validation families (post Stage 2B)', () => {
-  // Post Stage 2B (MCP-021C-EDGE-FAMILIES-B-C-ENABLE): families A + B + C
-  // are productionEnabled; D–J remain admin-only.
+describe('MCP-021C-EDGE — production filter does NOT see E–J admin_validation families (post Card 2 flip)', () => {
+  // Post Card 2 (MCP-021C-EDGE-FAMILY-D-ENABLE): families A + B + C + D
+  // are productionEnabled; E–J remain admin-only.
 
   it('AVM-10 — production filter keeps disagreement_axis (B was flipped to productionEnabled in Stage 2B)', () => {
     expect(edgeFilterFamiliesForMode(['disagreement_axis'], 'production')).toEqual([
@@ -137,23 +137,25 @@ describe('MCP-021C-EDGE — production filter does NOT see D–J admin_validatio
     ]);
   });
 
-  it('AVM-11 — production filter drops evidence_source_chain (D remains admin-only)', () => {
-    expect(edgeFilterFamiliesForMode(['evidence_source_chain'], 'production')).toEqual([]);
+  it('AVM-11 — production filter keeps evidence_source_chain (D flipped to productionEnabled in Card 2)', () => {
+    expect(edgeFilterFamiliesForMode(['evidence_source_chain'], 'production')).toEqual([
+      'evidence_source_chain',
+    ]);
   });
 
   it('AVM-12 — production filter drops sensitive_composer (J remains admin-only)', () => {
     expect(edgeFilterFamiliesForMode(['sensitive_composer'], 'production')).toEqual([]);
   });
 
-  it('AVM-13 — production filter keeps A+B when mixed; drops D (evidence_source_chain)', () => {
-    // Post Stage 2B: parent_relation (A) AND disagreement_axis (B) are
-    // productionEnabled; evidence_source_chain (D) is admin-only.
+  it('AVM-13 — production filter keeps A+B+D when mixed (all three production-enabled)', () => {
+    // Post Card 2: parent_relation (A), disagreement_axis (B), and
+    // evidence_source_chain (D) are all productionEnabled.
     expect(
       edgeFilterFamiliesForMode(
         ['parent_relation', 'disagreement_axis', 'evidence_source_chain'],
         'production',
       ),
-    ).toEqual(['parent_relation', 'disagreement_axis']);
+    ).toEqual(['parent_relation', 'disagreement_axis', 'evidence_source_chain']);
   });
 });
 

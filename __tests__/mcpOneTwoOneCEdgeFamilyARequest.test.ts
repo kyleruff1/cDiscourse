@@ -128,7 +128,7 @@ describe('MCP-021C-EDGE — production mode sends exactly the 16 Family A keys',
   });
 });
 
-describe('MCP-021C-EDGE — production filters out D–J keys (post Stage 2B: A+B+C kept)', () => {
+describe('MCP-021C-EDGE — production filters out E–J keys (post Card 2: A+B+C+D kept)', () => {
   it('FA-12 — requestedRawKeys CONTAINS Family B keys when B is requested (post Stage 2B)', () => {
     // Post Stage 2B (MCP-021C-EDGE-FAMILIES-B-C-ENABLE): disagreement_axis (B)
     // is productionEnabled, so production mode keeps its keys.
@@ -164,10 +164,12 @@ describe('MCP-021C-EDGE — production filters out D–J keys (post Stage 2B: A+
     }
   });
 
-  it('FA-14 — every definition in the request has family in {parent_relation, disagreement_axis} (D dropped, post Stage 2B)', () => {
-    // Post Stage 2B: A (parent_relation) and B (disagreement_axis) kept;
-    // D (evidence_source_chain) remains admin-only and is dropped from
-    // production-mode requests.
+  it('FA-14 — every definition in the request has family in {parent_relation, disagreement_axis, evidence_source_chain} (post Card 2 flip)', () => {
+    // Post Card 2 (MCP-021C-EDGE-FAMILY-D-ENABLE): A (parent_relation),
+    // B (disagreement_axis), and D (evidence_source_chain) are all
+    // productionEnabled and pass the production-mode filter. Family D's
+    // emitted definitions are limited to the 19 ai_classifier rawKeys
+    // by the MCP_SERVER_SUPPORTED_FAMILY_SOURCES subset filter.
     const req = edgeBuildBooleanObservationRequestForArgument({
       argumentId: 'arg-1',
       parentArgumentId: 'arg-0',
@@ -177,14 +179,18 @@ describe('MCP-021C-EDGE — production filters out D–J keys (post Stage 2B: A+
       requestedFamilies: ['parent_relation', 'disagreement_axis', 'evidence_source_chain'],
       mode: 'production',
     });
-    const ALLOWED_PRODUCTION_FAMILIES = new Set(['parent_relation', 'disagreement_axis']);
+    const ALLOWED_PRODUCTION_FAMILIES = new Set([
+      'parent_relation',
+      'disagreement_axis',
+      'evidence_source_chain',
+    ]);
     for (const def of Object.values(req.definitions)) {
       expect(ALLOWED_PRODUCTION_FAMILIES.has(def.family)).toBe(true);
     }
-    // The forbidden family (evidence_source_chain — D, admin-only) must
-    // not appear in any definition.
+    // Family C (misunderstanding_repair) was not requested; it must not
+    // appear. E-J remain admin-only and would be filtered out by mode.
     for (const def of Object.values(req.definitions)) {
-      expect(def.family).not.toBe('evidence_source_chain');
+      expect(def.family).not.toBe('misunderstanding_repair');
     }
   });
 });
