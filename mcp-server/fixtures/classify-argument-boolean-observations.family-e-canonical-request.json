@@ -1,0 +1,32 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-e-canonical-node",
+    "parentNodeId": "fixture-e-canonical-parent",
+    "currentText": "[fixture] Carbon taxes work because they raise the price of carbon, which reduces consumption. BC, Sweden, and Ireland all show measurable reductions in their first 5 years.",
+    "parentText": "[fixture] Should we adopt carbon pricing?",
+    "threadContextExcerpt": "[fixture] Debate room: carbon pricing effectiveness. Depth 1 mixed causal+example move.",
+    "requestedFamilies": ["argument_scheme"],
+    "requestedRawKeys": [
+      "causal_reasoning_present",
+      "analogy_reasoning_present",
+      "example_reasoning_present",
+      "authority_reasoning_present",
+      "consequence_reasoning_present",
+      "principle_reasoning_present",
+      "definition_reasoning_present",
+      "classification_reasoning_present",
+      "precedent_reasoning_present",
+      "means_end_reasoning_present",
+      "tradeoff_reasoning_present",
+      "abductive_explanation_present",
+      "exception_reasoning_present",
+      "slippery_slope_reasoning_present",
+      "cost_benefit_reasoning_present",
+      "risk_reasoning_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

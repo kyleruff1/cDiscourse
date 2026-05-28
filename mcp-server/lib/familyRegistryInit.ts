@@ -38,6 +38,10 @@ import {
   FAMILY_D_RAW_KEYS,
   FAMILY_D_CLASSIFIER_SET_VERSION,
 } from './familyDKeys.ts';
+import {
+  FAMILY_E_RAW_KEYS,
+  FAMILY_E_CLASSIFIER_SET_VERSION,
+} from './familyEKeys.ts';
 
 let initialized = false;
 
@@ -52,7 +56,7 @@ let initialized = false;
  * Registration order is preserved by the underlying Map (per
  * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
  * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
- * 'evidence_source_chain'] in this exact order.
+ * 'evidence_source_chain', 'argument_scheme'] in this exact order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -82,6 +86,16 @@ export function initializeFamilyRegistry(): void {
   register('evidence_source_chain', {
     rawKeys: new Set(FAMILY_D_RAW_KEYS),
     classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
+  });
+
+  // MCP-SERVER-006-FAMILY-E: register argument_scheme with the 16-key
+  // ai_classifier set per design §1 (uniform ai_classifier; Stage 2B NOT
+  // REQUIRED). All 16 Walton (1995, 2008) argumentation schemes are
+  // descriptive structural pattern facts; the doctrine binding lives in
+  // familyEPrompt.ts + familyEBanListScan.ts.
+  register('argument_scheme', {
+    rawKeys: new Set(FAMILY_E_RAW_KEYS),
+    classifierSetVersion: FAMILY_E_CLASSIFIER_SET_VERSION,
   });
 }
 

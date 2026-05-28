@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-e-analogy-reasoning-node",
+    "parentNodeId": "fixture-e-analogy-reasoning-parent",
+    "currentText": "[fixture] Libraries are like roads — public goods that should be funded collectively. What is true of road funding applies to libraries: individual market provision systematically underprovides.",
+    "parentText": "[fixture] How should libraries be funded?",
+    "threadContextExcerpt": "[fixture] Debate room: library funding model. Move uses an explicit analogical mapping (roads -> libraries) as primary support.",
+    "requestedFamilies": ["argument_scheme"],
+    "requestedRawKeys": [
+      "analogy_reasoning_present",
+      "example_reasoning_present",
+      "definition_reasoning_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

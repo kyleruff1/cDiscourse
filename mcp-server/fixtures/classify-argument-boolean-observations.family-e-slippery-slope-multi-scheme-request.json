@@ -1,0 +1,20 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-e-slippery-slope-multi-scheme-node",
+    "parentNodeId": "fixture-e-slippery-slope-multi-scheme-parent",
+    "currentText": "[fixture] If we approve subsidized housing in this neighborhood, the property values nearby will drop because investors will exit, which will cascade — first to the adjacent neighborhood, then to the larger district, until the tax base of the whole city contracts. The 2008 housing-policy data from Detroit is the precedent we should look at.",
+    "parentText": "[fixture] Should the council approve the subsidized-housing proposal?",
+    "threadContextExcerpt": "[fixture] Debate room: housing policy. Move uses causal-chain reasoning AND cites Detroit precedent.",
+    "requestedFamilies": ["argument_scheme"],
+    "requestedRawKeys": [
+      "causal_reasoning_present",
+      "consequence_reasoning_present",
+      "slippery_slope_reasoning_present",
+      "precedent_reasoning_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
