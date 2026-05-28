@@ -1,0 +1,245 @@
+/**
+ * MCP-SERVER-006-FAMILY-E — Family E prompt construction.
+ *
+ * Single-prompt strategy per design §1: one Anthropic call covers all
+ * 16 Family E rawKeys. Token budget ~85 tokens/key × 16 = ~1360 output;
+ * MAX_TOKENS=1500 (matches Family A/B/C; NO bump per design §2; ~60 token
+ * headroom).
+ *
+ * Doctrine anchors:
+ *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
+ *     prompt's absolute rules mirror the Family A/B/C/D system prompt
+ *     VERBATIM for the 7 absolute rules (winner / truth / popularity /
+ *     person / hiding / blocking). Negations of banned tokens in the
+ *     system prompt are doctrine-positive per the MCP-SERVER-002/003/004
+ *     precedent; the doctrine ban-list scan runs against the MODEL's
+ *     RESPONSE, not the server-constructed prompt.
+ *   - cdiscourse-doctrine §10a (Observations vs Allegations): every
+ *     Family E rawKey is structural-only; the user prompt instructs the
+ *     model to classify which inferential PATTERN the move uses, never
+ *     to adjudicate whether the pattern is fallacious / weak / invalid.
+ *   - cdiscourse-doctrine §7 (No AI calls from production app): this
+ *     module is server-side only; never imported into src/ or app/.
+ *
+ * Doctrine risks (per design §3):
+ *   - slippery_slope_reasoning_present: HIGHEST RISK. NEVER framed as a
+ *     fallacy. The output evidenceSpan MUST be a verbatim quote anchoring
+ *     the chain-of-consequences pattern; MUST NOT contain "fallacy",
+ *     "fallacious", "weak", "invalid", "flawed", "bad reasoning", "wrong",
+ *     "proof of", "logical error". If the input text contains "fallacy",
+ *     the model may still detect the pattern but MUST NOT echo the
+ *     fallacy framing in any output field.
+ *   - abductive_explanation_present: NOT framed as a fallacy. Peirce's
+ *     inference-to-best-explanation is a normal scheme in scientific argument.
+ *   - analogy_reasoning_present: NOT framed as a fallacy. Walton's analogy
+ *     scheme; critical question lives in Family F.
+ */
+import { FAMILY_E_PROMPT_ENTRIES, FAMILY_E_RAW_KEYS } from './familyEKeys.ts';
+
+/** MAX_TOKENS for the Family E response. 16 keys × ~85 tokens + overhead. */
+export const FAMILY_E_MAX_TOKENS = 1500;
+
+/** Deterministic decoding. Mirrors Family A/B/C/D. */
+export const FAMILY_E_TEMPERATURE = 0;
+
+/** Bound for the moveBody / parentBody fields in the user prompt. */
+export const FAMILY_E_MAX_BODY_FIELD_LEN = 8000;
+
+/**
+ * The system prompt for Family E. Mirrors the Family A/B/C/D system prompt's
+ * 7 absolute rules VERBATIM (byte-equal to familyAPrompt.ts:50-57 /
+ * familyBPrompt.ts:65-72 / familyCPrompt.ts:73-79 / familyDPrompt.ts:80-87),
+ * then adds Family-E-specific scheme-as-descriptive framing.
+ *
+ * Per design §3: the 7 absolute rules are byte-equal to Family A/B/C/D.
+ *
+ * Per design §3 + amendment §3 BINDING: the system prompt explicitly states
+ * critical questions live in Family F, not Family E; Family E only detects
+ * the PATTERN. Three schemes carry doctrine risk and get explicit anchors
+ * in the system prompt: slippery_slope / abductive / analogy.
+ */
+export const FAMILY_E_SYSTEM_PROMPT =
+  `You are a CDiscourse argument-move structural classifier for a structured debate application.
+Return strict JSON only.
+
+Absolute rules:
+- You do NOT decide who is right in a debate.
+- You do NOT decide the winner of any debate.
+- You do NOT assign a truth value to any claim.
+- You do NOT treat popularity, engagement, or virality as evidence.
+- You do NOT describe, judge, or label the person — only the move's structure.
+- You do NOT recommend hiding, deleting, or modifying any content.
+- You do NOT block an ordinary post — your output is advisory metadata only.
+
+You classify whether an argument MOVE uses one or more of 16 Walton (1995, 2008) argumentation
+SCHEMES as its primary inferential support. Each question is a structural observation about
+the form of the move's reasoning — not a judgment about whether that reasoning is fallacious,
+weak, valid, invalid, sound, unsound, or bad. Schemes are descriptive shape facts. Every
+scheme has a corresponding CRITICAL QUESTION (these live in Family F, not here); detecting a
+scheme NEVER means the scheme's critical questions are unmet.
+
+CRITICAL DOCTRINE — three schemes carry special framing risk because the literature sometimes
+frames them as fallacies:
+- slippery_slope_reasoning_present is a SCHEME. CDiscourse treats it descriptively — the
+  move uses a chain-of-consequences inference pattern. The output MUST NOT call this a
+  fallacy, fallacious, weak, invalid, bad reasoning, a logical error, flawed, wrong,
+  or proof of anything. The corresponding critical question (consequence_probability_unclear,
+  Family F) is the place where chain-step probability is probed; this family only detects the
+  PATTERN, never adjudicates it.
+- abductive_explanation_present is a SCHEME (Peirce: inference to best explanation). It is
+  not a fallacy; it is a normal pattern in scientific argument. Detecting it does NOT mean
+  the inference is sound.
+- analogy_reasoning_present is a SCHEME (Walton: analogy scheme). It is not a fallacy; the
+  critical question (analogy_mapping_missing, Family F) probes the mapping; this family only
+  detects the PATTERN.
+
+A move can simultaneously exhibit multiple schemes (e.g., causal AND consequence AND
+slippery-slope when reasoning chains causes into a multi-step bad outcome). Schemes are
+usually sparse — most moves exhibit 0 to 2 schemes; few exhibit more than 4.
+
+For each requested rawKey you answer true or false with a short confidence band and an
+optional evidenceSpan from the move body. Return ONLY the JSON object the user prompt
+describes — no prose, no markdown, no chain-of-thought.
+
+Conservative-positives bias: when you are not confident a scheme is the move's PRIMARY
+inferential support (not merely incidental), answer false. Schemes are sparse — do NOT mark
+all rawKeys true. Tone alone is not a scheme; substantive inferential weight on the scheme's
+pattern is required for every positive.`;
+
+/**
+ * Validated Family E request input passed to buildFamilyEUserPrompt.
+ * Mirror of the wire shape per MCP-021A; same shape as Family A/B/C/D
+ * but kept distinct so future Family-specific field additions don't
+ * cross-pollinate.
+ */
+export interface ValidatedFamilyERequest {
+  readonly schemaVersion: 'mcp-021.machine-observations.boolean.v1';
+  readonly nodeId: string;
+  readonly parentNodeId: string | null;
+  readonly currentText: string;
+  readonly parentText: string | null;
+  readonly threadContextExcerpt: string;
+  readonly requestedFamilies: readonly string[];
+  readonly requestedRawKeys: readonly string[];
+  readonly timeoutMs: number;
+  readonly serverName?: string;
+}
+
+/**
+ * Builds the user prompt for Family E classification.
+ *
+ * Structure per design §3:
+ *   1. Argument-scheme questions block (rawKey: booleanQuestion for each requested key)
+ *   2. Definitions + examples + false-positive guards block (one per requested key)
+ *   3. Note about scheme-as-descriptive cross-key framing (doctrine anchors for
+ *      slippery_slope / abductive / analogy)
+ *   4. Response-shape instruction (verbatim JSON example)
+ *   5. Conservative-positives bias reminder (0 to 2 schemes)
+ *   6. The input (move text, parent text, thread context)
+ *
+ * When requestedRawKeys is empty, all 16 Family E keys are included.
+ *
+ * Returns a string — pure, no I/O. The string contains the verbatim
+ * caller-redacted move/parent/thread text fields; the caller has already
+ * sanitized those at the Edge Function boundary (MCP-021C).
+ */
+export function buildFamilyEUserPrompt(request: ValidatedFamilyERequest): string {
+  const requestedKeys =
+    request.requestedRawKeys.length === 0
+      ? FAMILY_E_RAW_KEYS
+      : request.requestedRawKeys.filter((k) => FAMILY_E_RAW_KEYS.includes(k));
+
+  const requestedEntries = FAMILY_E_PROMPT_ENTRIES.filter((entry) =>
+    requestedKeys.includes(entry.rawKey),
+  );
+
+  const questionsBlock = requestedEntries
+    .map((entry) => `- ${entry.rawKey}: ${entry.booleanQuestion}`)
+    .join('\n');
+
+  const definitionsBlock = requestedEntries
+    .map((entry) =>
+      [
+        `rawKey: ${entry.rawKey}`,
+        `positiveDefinition: ${entry.positiveDefinition}`,
+        `negativeDefinition: ${entry.negativeDefinition}`,
+        `positive example: ${entry.positiveExample}`,
+        `negative example: ${entry.negativeExample}`,
+        `false-positive guards: ${entry.falsePositiveGuards}`,
+      ].join('\n'),
+    )
+    .join('\n\n');
+
+  const parentTextRendered =
+    request.parentText === null || request.parentText.length === 0
+      ? 'none — this is a root move.'
+      : request.parentText;
+
+  const responseShape = `{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "<echo the nodeId from the input>",
+  "checkedRawKeys": ["<each rawKey you considered>"],
+  "observations": {
+    "<rawKey>": <true|false>,
+    ...
+  },
+  "confidence": {
+    "<rawKey>": "<low|medium|high>",
+    ...
+  },
+  "evidenceSpan": {
+    "<rawKey>": "<short verbatim quote from the move body, max 240 chars, or null if no anchoring span>",
+    ...
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "<server identifier>",
+    "classifierSetVersion": "family-e-v1"
+  }
+}`;
+
+  return `Argument-scheme questions for this move:
+${questionsBlock}
+
+Definitions and examples for each rawKey:
+
+${definitionsBlock}
+
+Note about schemes as descriptive patterns: each Family E rawKey is a structural
+fact about which inferential PATTERN the move uses (causal chain, analogy mapping,
+example generalization, authority appeal, consequence prediction, principle
+application, definition application, classification, precedent, means-end, tradeoff
+balance, abductive inference, exception identification, chain-of-consequences,
+cost-benefit, risk). NONE of these is a verdict on the move's quality. Schemes have
+critical questions (Family F counterparts) that probe whether each scheme's preconditions
+are met — but those questions live in Family F, not here. Detecting a scheme NEVER means
+the scheme's critical questions are unmet. slippery_slope_reasoning_present is a SCHEME,
+never a fallacy. abductive_explanation_present (Peirce: inference to best explanation) is
+a SCHEME, not a fallacy. analogy_reasoning_present is a SCHEME (Walton), not a fallacy.
+
+Answer each argument-scheme question above with true or false for the move below.
+Return ONLY a single JSON object — no prose, no markdown, no code fence, no chain-of-thought.
+
+The object MUST conform to this shape:
+${responseShape}
+
+Every key in observations MUST also appear in confidence and evidenceSpan (use null in
+evidenceSpan when no anchoring quote exists). Every key in checkedRawKeys MUST appear in
+observations.
+
+Conservative-positives bias: do NOT mark all rawKeys true. Schemes are usually sparse —
+most moves exhibit 0 to 2 schemes; few exhibit more than 4. When unsure, answer false
+with low or medium confidence. Tone alone is not a scheme; substantive inferential weight
+on the scheme's pattern is required for every positive.
+
+If the move's text itself contains the word "fallacy" or any quality judgment about
+reasoning, you MAY still detect the underlying scheme PATTERN — but your output evidenceSpan
+MUST NOT echo the fallacy framing. Anchor the evidenceSpan on the structural pattern
+(the chain, the analogy, the causal claim) — never on the framing words.
+
+Input to classify:
+Node id: ${request.nodeId}
+Move text: ${request.currentText}
+Parent text: ${parentTextRendered}
+Thread context: ${request.threadContextExcerpt}`;
+}
