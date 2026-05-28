@@ -1,5 +1,7 @@
 # MCP-SERVER-004-FAMILY-C-SMOKE — Post-merge 8-phase audit (TEMPLATE)
 
+Audit-Lint: v1
+
 **Date:** <YYYY-MM-DD> (operator fills in post-merge)
 **Operator:** <operator-name>
 **Predecessor:** MCP-SERVER-004-FAMILY-C shipped at `<merge-sha>` (PR #<number>).
@@ -327,3 +329,27 @@ After audit doc is committed, delete temp files:
 - `$HOME/mcp-hosted-token.current`
 - `%TEMP%/mcp-server-004-family-c-*.json`
 - `%TEMP%/family-c-smoke-admin-jwt.txt`
+
+---
+
+## Audit-lint required final step
+
+Before signing the Verdict line above:
+
+```
+node scripts/ops/audit-lint.mjs docs/audits/MCP-SERVER-004-FAMILY-C-SMOKE-<YYYY-MM-DD>.md
+```
+
+This MUST exit 0 before the verdict is valid. The linter enforces
+the operator-stated audit-integrity rules R1-R4 via L1-L6:
+
+- L1 — required-phase NOT-RUN + verdict PASS fails
+- L2 — indirect-proof phrase in a NOT-RUN direct-proof phase fails
+- L6 — verdict upgrades carry full provenance
+
+If the linter reports a finding, EITHER (a) run the missing phase to
+PASS, OR (b) downgrade the verdict to PARTIAL, OR (c) add the
+required provenance language. Do NOT sign PASS while the linter exits
+non-zero.
+
+See `docs/ops/AUDIT-LINT.md` for the full rule reference.
