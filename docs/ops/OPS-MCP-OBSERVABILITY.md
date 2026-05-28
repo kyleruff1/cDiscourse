@@ -8,25 +8,27 @@
 
 ## What this is
 
-A read-only operator script that runs 14 SQL queries against the
+A read-only operator script that runs 16 SQL queries against the
 linked Supabase project and emits a doctrine-safe markdown + JSON
-report answering 13 telemetry questions about the multi-family MCP
+report answering 15 telemetry questions about the multi-family MCP
 classifier (`argument_machine_observation_runs` +
 `argument_machine_observation_results`).
 
 The report consolidates inspections that prior smokes (Family A
-prod, Family B, Family C) had to do ad-hoc on the side. It is
-intended for:
+prod, Family B, Family C, Family D) had to do ad-hoc on the side. It
+is intended for:
 
-- **Family D Stage-2B operator-decision checkpoint** — see Q5, Q6, Q7,
-  Q13 for cross-family calibration.
+- **Family D operational visibility** — Q14 + Q15 (added by
+  OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE) give per-family-per-mode
+  signal density and Family-D 19-key Subset coverage.
 - **`OPS-MCP-IDEMPOTENCY-HARDENING` triage** — Q9 surfaces duplicate
   successful runs.
 - **`OPS-MCP-TOKEN-BUDGET` triage** — Q7 + Q5 surface density that
   may suggest truncation risk.
-- **`MCP-021C-EDGE-FAMILIES-B-C-ENABLE`** — Q11 confirms B+C are
-  still admin-validation-only in DB; Q5 + Q6 give calibration
-  evidence for the production-flip decision.
+- **`MCP-021C-EDGE-FAMILIES-B-C-ENABLE` post-flip verification** —
+  Q11 (reframed by OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE) confirms
+  B+C have production AND admin_validation activity after the flip,
+  with Family D admin_validation-only visibility.
 
 ---
 
@@ -76,7 +78,7 @@ node scripts/ops/mcp-observability-report.mjs --help
 
 ## How to interpret the report
 
-The report has 13 sections, one per telemetry question, plus a
+The report has 15 sections, one per telemetry question, plus a
 Source 6 safety summary header, Appendix A (family registry), and
 Appendix B (doctrine scan note).
 
@@ -133,8 +135,8 @@ confidence band counts (high/medium/low).
 
 ### Q6 — Top positive raw_keys by family
 
-Surfaces the concentration of positive signal across the 47 supported
-raw_keys (Family A=16, B=14, C=17).
+Surfaces the concentration of positive signal across the 66 supported
+raw_keys (Family A=16, B=14, C=17, D=19).
 
 **Healthy state:**
 - Top raw_keys are well-distributed (no single key dominating without
@@ -183,13 +185,38 @@ runs in the last 7 days.
 **Healthy state:** continuous days of `production_runs > 0`
 indicating the auto-trigger is alive.
 
-### Q11 — Family B + C admin-validation-only check
+### Q11 — Per-family per-mode coverage
 
-DB confirmation that `disagreement_axis` and `misunderstanding_repair`
-have not received production-mode traffic. Cross-checked against the
-script-level registry parse of `familyRegistry.ts`.
+Reframed by OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE (Card 1 of 3). The
+section now surfaces run counts and status breakdown across ALL
+registered families and both run_modes, providing a single coverage
+table that captures the 4-family operational state:
 
-**Healthy state:** All Q11 rows have `run_mode = 'admin_validation'`.
+- Family A (`parent_relation`): production + auto-trigger + admin_validation
+- Family B (`disagreement_axis`): production + admin_validation
+- Family C (`misunderstanding_repair`): production + admin_validation
+- Family D (`evidence_source_chain`): admin_validation only (19-key
+  ai_classifier Subset)
+- Families E-J: unsupported (failed attempts surface as zero-positive runs)
+
+Columns: `requested_family`, `run_mode`, `run_count`, `success_count`,
+`failed_count`, `fallback_count`.
+
+The query makes NO assumption that any family is mode-restricted; it
+reports the actual observed state. The operator interprets per the
+Edge registry (Appendix A).
+
+**Preservation property:** the original Q11 (Family B + C
+admin-validation success counts) is a strict subset of this output —
+filter to `requested_family in ('disagreement_axis',
+'misunderstanding_repair') and run_mode = 'admin_validation'` and read
+the `success_count` column.
+
+**Healthy state:**
+- A+B+C have rows in both `production` and `admin_validation`.
+- D has rows only in `admin_validation` (Stage 2B subset path).
+- `success_count + failed_count + fallback_count = run_count` for
+  every row.
 
 ### Q12 — Unsupported-family attempt visibility
 
@@ -216,10 +243,88 @@ Compare `raw_keys_observed` against the expected:
 - Family A (parent_relation): 16 keys
 - Family B (disagreement_axis): 14 keys
 - Family C (misunderstanding_repair): 17 keys
+- Family D (evidence_source_chain): 19 keys (Subset; 8 deterministic
+  excluded)
 
 The report does NOT label any family as "over-firing" or "under-firing"
 in its output — the section title mirrors the operator's §6 question
 wording but the data is interpretive. Operator decides.
+
+### Q14 — Per-family per-mode signal density
+
+Added by OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE (Card 1 of 3). For
+each (family, run_mode) pair, computes the per-(run, possible_key)
+signal density: the fraction of (run × key) cells that fired positive.
+
+**Formula:** `positives / (runs × family_key_count)`
+
+`family_key_count` is hardcoded per family from the binding contract
+in `mcp-server/lib/family[ABCD]Keys.ts`:
+
+| Family | Key count | Source file (citation) |
+| --- | --- | --- |
+| parent_relation | 16 | mcp-server/lib/familyAKeys.ts:49 |
+| disagreement_axis | 14 | mcp-server/lib/familyBKeys.ts:53 |
+| misunderstanding_repair | 17 | mcp-server/lib/familyCKeys.ts:61 |
+| evidence_source_chain | 19 | mcp-server/lib/familyDKeys.ts:85 (Subset; 8 deterministic excluded) |
+| others (E-J) | 0 | no MCP-supported keys |
+
+`nullif(runs * family_key_count, 0)` handles zero-runs and unsupported
+families gracefully (density renders as `null` / `—`).
+
+The query **does NOT filter `status='success'`** — a failed run
+consumed (run × key) attempt cells and is included in the denominator.
+Q13 already provides the success-only `avg_positives_per_run` signal;
+Q14 complements with the all-runs density.
+
+**Use cases:**
+- Compare Family D's 19-key admin_validation density to Family A's
+  16-key production density.
+- Compare production vs admin_validation per family.
+- Spot over- or under-firing patterns (operator interprets; the report
+  applies no verdict label).
+
+### Q15 — Family D 19-key subset coverage
+
+Added by OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE (Card 1 of 3).
+Family-D-scoped query that verifies the Stage-2B Subset-path contract
+holds in the persisted data.
+
+**The 19-vs-27 distinction (binding context):**
+
+Family D (`evidence_source_chain`) has 27 entries in the upstream Edge
+taxonomy registry (`src/features/nodeLabels/machineObservationDefinitions/familyD.ts`):
+
+- **19 ai_classifier-source rawKeys** (the "Subset") — routed to the
+  MCP server per the Stage 2B operator decision.
+- **8 deterministic rawKeys** split across `auto_metadata` and
+  `lifecycle` — intentionally excluded from the MCP path. A future
+  Edge/app-side card will compute these app-side without an Anthropic
+  call. (`source_requested` and `quote_requested` each appear twice
+  in the upstream taxonomy across the two source-types, so the unique
+  excluded-string count is 6.)
+
+Source-of-truth files:
+- 19-key list: `mcp-server/lib/familyDKeys.ts:85-105` (`FAMILY_D_RAW_KEYS`)
+- excluded list: `mcp-server/lib/familyDKeys.ts:119-129` (`FAMILY_D_EXCLUDED_DETERMINISTIC_RAW_KEYS`)
+
+**`subset_membership` values:**
+
+| Value | Meaning |
+| --- | --- |
+| `ai_classifier_subset` | The observed raw_key is in the 19-key Subset — expected and healthy. |
+| `deterministic_excluded_leak` | The observed raw_key is one of the 6 deterministic-excluded strings — would indicate a leak from somewhere outside the MCP path. Expected count: 0. |
+| `unknown_key_outside_taxonomy` | The observed raw_key is neither in the Subset nor in the excluded list — would indicate a registry-vs-DB inconsistency or a stale row. |
+
+**ORDER BY** prioritizes `deterministic_excluded_leak` first so any
+security-adjacent finding lands at the top of the section.
+
+**Healthy state:** all rows have `subset_membership =
+'ai_classifier_subset'`; zero `deterministic_excluded_leak` rows; zero
+`unknown_key_outside_taxonomy` rows.
+
+A non-zero `deterministic_excluded_leak` count is a security-adjacent
+finding worth surfacing for operator investigation.
 
 ---
 
@@ -298,7 +403,7 @@ adds the safety + stitching layer.
    for recency, configurable via `--time-window-days`. Other queries
    are all-time.
 3. **One operator session per run.** Each invocation re-authenticates
-   the supabase CLI; 14 sequential SQL invocations take ~15-20s.
+   the supabase CLI; 16 sequential SQL invocations take ~18-25s.
    Acceptable for manual audit; not cron-friendly.
 4. **No alerting integration.** This is a manual report tool.
    `OPS-MCP-ALERTING` is future work.
