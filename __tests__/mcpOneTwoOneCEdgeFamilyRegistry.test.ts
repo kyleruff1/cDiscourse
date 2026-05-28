@@ -1,11 +1,12 @@
 /**
  * MCP-021C-EDGE — Test: family registry enablement matrix.
  *
- * Post `MCP-021C-EDGE-FAMILY-E-ENABLE` (Card 2 of the FAMILY-E chain):
+ * Post `MCP-021C-EDGE-FAMILY-F-ENABLE` (Card 3 of the FAMILY-F chain):
  * `parent_relation` (A), `disagreement_axis` (B), `misunderstanding_repair`
- * (C), `evidence_source_chain` (D), and `argument_scheme` (E) are
- * `productionEnabled: true`; F–J remain `productionEnabled: false`. All
- * 10 families are `adminValidationEnabled: true`.
+ * (C), `evidence_source_chain` (D), `argument_scheme` (E), and
+ * `critical_question` (F) are `productionEnabled: true`; G–J remain
+ * `productionEnabled: false`. All 10 families are
+ * `adminValidationEnabled: true`.
  *
  * Future family enablement is a flip of the boolean — no Edge Function
  * code changes (the auto-trigger dispatcher derives from this registry
@@ -59,8 +60,8 @@ describe('MCP-021C-EDGE — FAMILY_REGISTRY shape', () => {
   });
 });
 
-describe('MCP-021C-EDGE — production enablement is A+B+C+D+E (post MCP-021C-EDGE-FAMILY-E-ENABLE flip)', () => {
-  it('FR-5 — only parent_relation, disagreement_axis, misunderstanding_repair, evidence_source_chain, and argument_scheme have productionEnabled: true', () => {
+describe('MCP-021C-EDGE — production enablement is A+B+C+D+E+F (post MCP-021C-EDGE-FAMILY-F-ENABLE flip)', () => {
+  it('FR-5 — only parent_relation, disagreement_axis, misunderstanding_repair, evidence_source_chain, argument_scheme, and critical_question have productionEnabled: true', () => {
     const productionFamilies = EDGE_FAMILY_REGISTRY.filter((e) => e.productionEnabled).map(
       (e) => e.family,
     );
@@ -70,26 +71,29 @@ describe('MCP-021C-EDGE — production enablement is A+B+C+D+E (post MCP-021C-ED
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
   });
 
-  it('FR-6 — productionEnabledFamilies() returns exactly [parent_relation, disagreement_axis, misunderstanding_repair, evidence_source_chain, argument_scheme]', () => {
+  it('FR-6 — productionEnabledFamilies() returns exactly [parent_relation, disagreement_axis, misunderstanding_repair, evidence_source_chain, argument_scheme, critical_question]', () => {
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
   });
 
-  it('FR-7 — every F–J family is productionEnabled: false', () => {
+  it('FR-7 — every G–J family is productionEnabled: false', () => {
     const PRODUCTION_ENABLED_FAMILIES = new Set([
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
     for (const entry of EDGE_FAMILY_REGISTRY) {
       if (!PRODUCTION_ENABLED_FAMILIES.has(entry.family)) {
@@ -159,13 +163,14 @@ describe('MCP-021C-EDGE — filterFamiliesForMode (production)', () => {
     ).toEqual(['parent_relation', 'disagreement_axis']);
   });
 
-  it('FR-16 — filter(allFamilies, production) keeps exactly A+B+C+D+E', () => {
+  it('FR-16 — filter(allFamilies, production) keeps exactly A+B+C+D+E+F', () => {
     expect(edgeFilterFamiliesForMode(ALL_MACHINE_OBSERVATION_FAMILIES, 'production')).toEqual([
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
   });
 });
@@ -216,7 +221,7 @@ describe('MCP-021C-EDGE — defensive: registry is immutable', () => {
   });
 });
 
-describe('MCP-021C-EDGE-FAMILY-E-ENABLE — five-family production posture', () => {
+describe('MCP-021C-EDGE-FAMILY-F-ENABLE — six-family production posture', () => {
   it('FR-24 — filter([disagreement_axis], production) keeps disagreement_axis', () => {
     expect(edgeFilterFamiliesForMode(['disagreement_axis'], 'production')).toEqual([
       'disagreement_axis',
@@ -241,6 +246,12 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — five-family production posture', () 
     ]);
   });
 
+  it('FR-26c — filter([critical_question], production) keeps critical_question (post Card 3 flip)', () => {
+    expect(edgeFilterFamiliesForMode(['critical_question'], 'production')).toEqual([
+      'critical_question',
+    ]);
+  });
+
   it('FR-27 — lookupFamilyRegistryEntry(misunderstanding_repair) shows productionEnabled true post Stage 2B', () => {
     const entry = edgeLookupFamilyRegistryEntry('misunderstanding_repair');
     expect(entry).not.toBeNull();
@@ -249,16 +260,15 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — five-family production posture', () 
     expect(entry!.adminValidationEnabled).toBe(true);
   });
 
-  it('FR-28 — every F–J family in productionEnabledFamilies() output is absent', () => {
+  it('FR-28 — every G–J family in productionEnabledFamilies() output is absent', () => {
     const productionList = edgeProductionEnabledFamilies();
-    const FJ_FAMILIES: ReadonlyArray<MachineObservationFamily> = [
-      'critical_question',
+    const GJ_FAMILIES: ReadonlyArray<MachineObservationFamily> = [
       'resolution_progress',
       'claim_clarity',
       'thread_topology',
       'sensitive_composer',
     ];
-    for (const family of FJ_FAMILIES) {
+    for (const family of GJ_FAMILIES) {
       expect(productionList).not.toContain(family);
     }
   });
@@ -279,18 +289,19 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — five-family production posture', () 
     ]);
   });
 
-  it('FR-30 — productionEnabledFamilies() preserves A→E iteration order (Family A first)', () => {
+  it('FR-30 — productionEnabledFamilies() preserves A→F iteration order (Family A first)', () => {
     // Stage 2B operator-named invariant: Family A must remain first in
     // productionEnabledFamilies() output so the auto-trigger
     // dispatcher's sequential for-of loop preserves Family A's
-    // byte-equal iteration #1 behavior. Post Card 2 of FAMILY-E chain,
-    // Family E follows D as iteration #5.
+    // byte-equal iteration #1 behavior. Post Card 3 of FAMILY-F chain,
+    // Family F follows E as iteration #6.
     const productionList = edgeProductionEnabledFamilies();
     expect(productionList[0]).toBe('parent_relation');
     expect(productionList[1]).toBe('disagreement_axis');
     expect(productionList[2]).toBe('misunderstanding_repair');
     expect(productionList[3]).toBe('evidence_source_chain');
     expect(productionList[4]).toBe('argument_scheme');
+    expect(productionList[5]).toBe('critical_question');
   });
 
   it('FR-31 — productionEnabledFamilies() returns a frozen array (no mutation)', () => {
@@ -298,8 +309,8 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — five-family production posture', () 
     expect(Object.isFrozen(list)).toBe(true);
   });
 
-  it('FR-32 — no family literal beyond A/B/C/D/E is productionEnabled post Card 2 flip', () => {
-    // Doctrine guard: F-J are explicitly admin_validation-only. This
+  it('FR-32 — no family literal beyond A/B/C/D/E/F is productionEnabled post Card 3 flip', () => {
+    // Doctrine guard: G-J are explicitly admin_validation-only. This
     // test catches accidental widening (a future card flipping an
     // unintended boolean).
     const PRODUCTION_ENABLED_NAMES = new Set([
@@ -308,6 +319,7 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — five-family production posture', () 
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
     const offenders = EDGE_FAMILY_REGISTRY.filter(
       (e) => e.productionEnabled && !PRODUCTION_ENABLED_NAMES.has(e.family),
