@@ -1,0 +1,35 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-d-canonical-node",
+    "parentNodeId": "fixture-d-canonical-parent",
+    "currentText": "[fixture] Per the 2024 EPA report Table 3.1, urban EV-heavy cities show a 40% drop in tailpipe emissions from 2020 to 2023.",
+    "parentText": "[fixture] EVs reduce emissions in cities.",
+    "threadContextExcerpt": "[fixture] Debate room: EV impact on urban air quality. Depth 1 evidence-provision move.",
+    "requestedFamilies": ["evidence_source_chain"],
+    "requestedRawKeys": [
+      "asks_for_evidence",
+      "provides_evidence",
+      "evidence_supports_claim",
+      "creates_source_chain_gap",
+      "opens_evidence_debt_marker",
+      "closes_evidence_debt_marker",
+      "supplies_corroborating_document",
+      "source_provided",
+      "quote_provided",
+      "concrete_example_requested",
+      "concrete_example_provided",
+      "evidence_claim_present",
+      "evidence_gap_present",
+      "source_chain_repair",
+      "anecdote_used",
+      "statistic_used",
+      "external_authority_used",
+      "evidence_quality_questioned",
+      "burden_request_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

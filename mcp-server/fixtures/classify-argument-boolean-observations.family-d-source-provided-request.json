@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-d-source-provided-node",
+    "parentNodeId": "fixture-d-source-provided-parent",
+    "currentText": "[fixture] You asked for a source — here it is: EPA 2024 Urban Air Quality Report, Table 3.1, Section 4.2 (peer-reviewed).",
+    "parentText": "[fixture] What is your source for the 40% claim?",
+    "threadContextExcerpt": "[fixture] Source-request cycle. Depth 2 source-provision move.",
+    "requestedFamilies": ["evidence_source_chain"],
+    "requestedRawKeys": [
+      "source_provided",
+      "provides_evidence",
+      "external_authority_used"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

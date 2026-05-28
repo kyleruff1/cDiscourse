@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-d-1",
+  "checkedRawKeys": ["evidence_gap_present"],
+  "observations": {
+    "evidence_gap_present": true
+  },
+  "confidence": {
+    "evidence_gap_present": "high"
+  },
+  "evidenceSpan": {
+    "evidence_gap_present": "the author is dishonest about the evidence"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-d-v1"
+  }
+}
