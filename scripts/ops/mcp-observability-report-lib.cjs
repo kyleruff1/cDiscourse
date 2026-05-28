@@ -260,13 +260,20 @@ const SECTIONS = Object.freeze([
       'No Family A production runs in the last 7 days.',
   },
   {
-    id: 'q11-family-bc-admin-validation-check',
-    title: 'Family B and C admin-validation-only check',
-    question: 'Q11 — Are Family B and C still admin_validation-only?',
-    sqlFile: '11-family-bc-admin-validation-check.sql',
-    columns: ['requested_family', 'run_mode', 'run_count'],
-    emptyMessage:
-      'No successful runs for Family B or C. Admin-validation posture not exercised in this window.',
+    id: 'q11-per-family-per-mode-coverage',
+    title: 'Per-family per-mode coverage',
+    question:
+      'Q11 — How are runs distributed across families and run_modes? (4-family state: A+B+C production + admin_validation; D admin_validation only; E-J failed attempts.)',
+    sqlFile: '11-per-family-per-mode-coverage.sql',
+    columns: [
+      'requested_family',
+      'run_mode',
+      'run_count',
+      'success_count',
+      'failed_count',
+      'fallback_count',
+    ],
+    emptyMessage: 'No runs in the table.',
   },
   {
     id: 'q12-unsupported-family-attempts',
@@ -300,6 +307,40 @@ const SECTIONS = Object.freeze([
       'fraction_of_runs_with_any_positive',
     ],
     emptyMessage: 'No successful runs to summarize.',
+  },
+  {
+    id: 'q14-per-family-per-mode-signal-density',
+    title: 'Per-family per-mode signal density',
+    question:
+      'Q14 — What is the per-(run, possible_key) signal density across all four supported families and both run_modes?',
+    sqlFile: '14-per-family-per-mode-signal-density.sql',
+    columns: [
+      'family',
+      'run_mode',
+      'runs',
+      'positives',
+      'raw_keys_observed',
+      'family_key_count',
+      'positives_per_run_key_cell',
+    ],
+    emptyMessage:
+      'No runs in the table. Density math requires runs to evaluate.',
+  },
+  {
+    id: 'q15-family-d-subset-coverage',
+    title: 'Family D 19-key subset coverage',
+    question:
+      'Q15 — Are all observed Family D raw_keys within the 19-key ai_classifier Subset, with zero deterministic-key leaks?',
+    sqlFile: '15-family-d-subset-coverage.sql',
+    columns: [
+      'raw_key',
+      'run_mode',
+      'positive_count',
+      'distinct_arguments',
+      'subset_membership',
+    ],
+    emptyMessage:
+      'No Family D positive results yet. Subset coverage will populate after admin_validation runs produce positives.',
   },
 ]);
 

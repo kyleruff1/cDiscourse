@@ -6,8 +6,8 @@
  * `mcp-observability-report-lib.cjs` (CommonJS so the Jest default
  * loader can `require()` them). This file is the CLI surface — it
  * resolves the repo root via `import.meta.url`, runs the Source 6
- * safety check first, dispatches the 14 SQL files via
- * `npx supabase db query --linked --file <file>`, stitches the
+ * safety check first, dispatches each SQL file in `scripts/ops/sql/`
+ * via `npx supabase db query --linked --file <file>`, stitches the
  * markdown + JSON output, runs the doctrine ban-list scan, and writes
  * the artifacts (or prints them on --no-write).
  *

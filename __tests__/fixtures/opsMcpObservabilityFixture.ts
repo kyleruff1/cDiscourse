@@ -1,14 +1,21 @@
 /**
  * OPS-MCP-OBSERVABILITY — Test fixture.
  *
- * A complete `sectionsData`-shaped object covering all 3 families
- * (parent_relation, disagreement_axis, misunderstanding_repair) and
- * both run_modes (production, admin_validation). Drives the stitcher
- * unit tests without invoking `npx supabase db query`.
+ * A complete `sectionsData`-shaped object covering all 4 supported
+ * families (parent_relation, disagreement_axis, misunderstanding_repair,
+ * evidence_source_chain) and both run_modes (production,
+ * admin_validation). Drives the stitcher unit tests without invoking
+ * `npx supabase db query`.
  *
  * Row shapes mirror the SQL files under `scripts/ops/sql/`. Values are
  * synthetic but consistent (Q1 sums reconcile with Q3; Q5 distinct
  * counts reconcile with Q6 raw_key list).
+ *
+ * The Q11 key is `q11-per-family-per-mode-coverage` after the
+ * OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE rename (was
+ * `q11-family-bc-admin-validation-check`). New keys
+ * `q14-per-family-per-mode-signal-density` and
+ * `q15-family-d-subset-coverage` ship alongside.
  *
  * Doctrine:
  *   - No body content; no evidence span values; no secrets.
@@ -389,16 +396,62 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       failed_count: 0,
     }),
   ]),
-  'q11-family-bc-admin-validation-check': Object.freeze([
+  'q11-per-family-per-mode-coverage': Object.freeze([
     Object.freeze({
       requested_family: 'disagreement_axis',
       run_mode: 'admin_validation',
-      run_count: 3,
+      run_count: 4,
+      success_count: 3,
+      failed_count: 1,
+      fallback_count: 0,
+    }),
+    Object.freeze({
+      requested_family: 'disagreement_axis',
+      run_mode: 'production',
+      run_count: 1,
+      success_count: 1,
+      failed_count: 0,
+      fallback_count: 0,
+    }),
+    Object.freeze({
+      requested_family: 'evidence_source_chain',
+      run_mode: 'admin_validation',
+      run_count: 14,
+      success_count: 3,
+      failed_count: 11,
+      fallback_count: 0,
     }),
     Object.freeze({
       requested_family: 'misunderstanding_repair',
       run_mode: 'admin_validation',
-      run_count: 3,
+      run_count: 4,
+      success_count: 3,
+      failed_count: 1,
+      fallback_count: 0,
+    }),
+    Object.freeze({
+      requested_family: 'misunderstanding_repair',
+      run_mode: 'production',
+      run_count: 1,
+      success_count: 1,
+      failed_count: 0,
+      fallback_count: 0,
+    }),
+    Object.freeze({
+      requested_family: 'parent_relation',
+      run_mode: 'admin_validation',
+      run_count: 6,
+      success_count: 6,
+      failed_count: 0,
+      fallback_count: 0,
+    }),
+    Object.freeze({
+      requested_family: 'parent_relation',
+      run_mode: 'production',
+      run_count: 6,
+      success_count: 6,
+      failed_count: 0,
+      fallback_count: 0,
     }),
   ]),
   'q12-unsupported-family-attempts': Object.freeze([
@@ -494,6 +547,69 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       fraction_of_runs_with_any_positive: 1.0,
     }),
   ]),
+  'q14-per-family-per-mode-signal-density': Object.freeze([
+    Object.freeze({
+      family: 'disagreement_axis',
+      run_mode: 'admin_validation',
+      runs: 2,
+      positives: 7,
+      raw_keys_observed: 4,
+      family_key_count: 14,
+      positives_per_run_key_cell: 0.25,
+    }),
+    Object.freeze({
+      family: 'evidence_source_chain',
+      run_mode: 'admin_validation',
+      runs: 2,
+      positives: 4,
+      raw_keys_observed: 2,
+      family_key_count: 19,
+      positives_per_run_key_cell: 0.1053,
+    }),
+    Object.freeze({
+      family: 'misunderstanding_repair',
+      run_mode: 'admin_validation',
+      runs: 2,
+      positives: 3,
+      raw_keys_observed: 2,
+      family_key_count: 17,
+      positives_per_run_key_cell: 0.0882,
+    }),
+    Object.freeze({
+      family: 'parent_relation',
+      run_mode: 'admin_validation',
+      runs: 4,
+      positives: 12,
+      raw_keys_observed: 3,
+      family_key_count: 16,
+      positives_per_run_key_cell: 0.1875,
+    }),
+    Object.freeze({
+      family: 'parent_relation',
+      run_mode: 'production',
+      runs: 4,
+      positives: 12,
+      raw_keys_observed: 4,
+      family_key_count: 16,
+      positives_per_run_key_cell: 0.1875,
+    }),
+  ]),
+  'q15-family-d-subset-coverage': Object.freeze([
+    Object.freeze({
+      raw_key: 'evidence_gap_present',
+      run_mode: 'admin_validation',
+      positive_count: 2,
+      distinct_arguments: 2,
+      subset_membership: 'ai_classifier_subset',
+    }),
+    Object.freeze({
+      raw_key: 'opens_evidence_debt_marker',
+      run_mode: 'admin_validation',
+      positive_count: 2,
+      distinct_arguments: 2,
+      subset_membership: 'ai_classifier_subset',
+    }),
+  ]),
 });
 
 /**
@@ -512,7 +628,9 @@ export const FIXTURE_EMPTY_SECTIONS_DATA: Record<string, ReadonlyArray<Record<st
   'q08-source-six-safety': Object.freeze([]),
   'q09-duplicate-runs': Object.freeze([]),
   'q10-family-a-auto-trigger-recent': Object.freeze([]),
-  'q11-family-bc-admin-validation-check': Object.freeze([]),
+  'q11-per-family-per-mode-coverage': Object.freeze([]),
   'q12-unsupported-family-attempts': Object.freeze([]),
   'q13-over-under-firing-summary': Object.freeze([]),
+  'q14-per-family-per-mode-signal-density': Object.freeze([]),
+  'q15-family-d-subset-coverage': Object.freeze([]),
 });
