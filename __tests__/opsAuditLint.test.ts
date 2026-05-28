@@ -17,6 +17,10 @@ interface ParseCliArgsResult {
     docPath: string | null;
     reportOnly: boolean;
     help: boolean;
+    classifyChanged?: boolean;
+    baseSha?: string | null;
+    headSha?: string | null;
+    changedListStdin?: boolean;
   };
   error?: string;
 }
@@ -55,8 +59,21 @@ interface LintResult {
   findings: AuditFinding[];
 }
 
+interface ChangedFileEntry {
+  status: string;
+  path: string;
+}
+
 const lib = require('../scripts/ops/audit-lint-lib.cjs') as {
-  DEFAULTS: { docPath: null; reportOnly: false; help: false };
+  DEFAULTS: {
+    docPath: null;
+    reportOnly: false;
+    help: false;
+    classifyChanged: false;
+    baseSha: null;
+    headSha: null;
+    changedListStdin: false;
+  };
   parseCliArgs: (argv: unknown) => ParseCliArgsResult;
   helpText: () => string;
   isTemplateFilename: (p: string) => boolean;
@@ -71,6 +88,11 @@ const lib = require('../scripts/ops/audit-lint-lib.cjs') as {
     result: LintResult,
     options?: { docPath?: string },
   ) => string;
+  classifyChangedFiles: (
+    entries: ChangedFileEntry[],
+    readMarkerAtHead: (p: string) => boolean,
+  ) => string[];
+  SMOKE_AUDIT_PATH_PATTERN: RegExp;
   rules: {
     MARKER_STRING: string;
     AUDIT_TYPE_PATTERNS: Record<string, RegExp[]>;
@@ -122,6 +144,12 @@ const RULES_PATH = path.join(
   'scripts',
   'ops',
   'audit-lint-rules.cjs',
+);
+const WORKFLOW_PATH = path.join(
+  process.cwd(),
+  '.github',
+  'workflows',
+  'audit-lint.yml',
 );
 
 /* ============================================================ */
@@ -1324,5 +1352,293 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — rules file invariants', () => {
       'readPath',
       'targetedSignal',
     ]);
+  });
+});
+
+/* ============================================================ */
+/* 12. CI scoping classifier + workflow shape                    */
+/*    (OPS-MCP-SMOKE-LINT-CI-WIRING)                             */
+/* ============================================================ */
+
+const { classifyChangedFiles } = lib;
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — classifyChangedFiles truth table', () => {
+  const MARKED_PATH = 'docs/audits/MCP-SERVER-007-FAMILY-F-SMOKE-2026-06-01.md';
+  const UNMARKED_PATH =
+    'docs/audits/MCP-SERVER-001-FAMILY-A-SMOKE-2026-01-01.md';
+  const NON_AUDIT_PATH = 'src/lib/foo.ts';
+  const TEMPLATE_PATH =
+    'docs/audits/MCP-SERVER-005-FAMILY-D-SMOKE-template.md';
+
+  // The injected reader stub. Returns true iff the path is in the
+  // `marked` set (simulates the file containing MARKER_STRING at HEAD).
+  function reader(marked: Set<string>) {
+    return (p: string) => marked.has(p);
+  }
+
+  it('Added smoke audit (status A) without marker -> IN SCOPE', () => {
+    const entries = [{ status: 'A', path: UNMARKED_PATH }];
+    expect(classifyChangedFiles(entries, reader(new Set()))).toEqual([
+      UNMARKED_PATH,
+    ]);
+  });
+
+  it('Added smoke audit (status A) with marker -> IN SCOPE', () => {
+    const entries = [{ status: 'A', path: MARKED_PATH }];
+    expect(
+      classifyChangedFiles(entries, reader(new Set([MARKED_PATH]))),
+    ).toEqual([MARKED_PATH]);
+  });
+
+  it('Modified smoke audit (status M) with marker -> IN SCOPE', () => {
+    const entries = [{ status: 'M', path: MARKED_PATH }];
+    expect(
+      classifyChangedFiles(entries, reader(new Set([MARKED_PATH]))),
+    ).toEqual([MARKED_PATH]);
+  });
+
+  it('Modified smoke audit (status M) without marker -> OUT OF SCOPE', () => {
+    const entries = [{ status: 'M', path: UNMARKED_PATH }];
+    expect(classifyChangedFiles(entries, reader(new Set()))).toEqual([]);
+  });
+
+  it('Non-audit file (status A) -> OUT OF SCOPE', () => {
+    const entries = [{ status: 'A', path: NON_AUDIT_PATH }];
+    expect(classifyChangedFiles(entries, reader(new Set()))).toEqual([]);
+  });
+
+  it('Non-audit file (status M) -> OUT OF SCOPE', () => {
+    const entries = [{ status: 'M', path: NON_AUDIT_PATH }];
+    expect(
+      classifyChangedFiles(entries, reader(new Set([NON_AUDIT_PATH]))),
+    ).toEqual([]);
+  });
+
+  it('Deleted smoke audit (status D) with marker -> OUT OF SCOPE', () => {
+    const entries = [{ status: 'D', path: MARKED_PATH }];
+    expect(
+      classifyChangedFiles(entries, reader(new Set([MARKED_PATH]))),
+    ).toEqual([]);
+  });
+
+  it('Template doc (status A) -> OUT OF SCOPE (templates are refused)', () => {
+    const entries = [{ status: 'A', path: TEMPLATE_PATH }];
+    expect(classifyChangedFiles(entries, reader(new Set()))).toEqual([]);
+  });
+
+  it('Multiple entries preserve input order in the in-scope list', () => {
+    const entries = [
+      { status: 'M', path: UNMARKED_PATH }, // out (no marker)
+      { status: 'A', path: MARKED_PATH }, // in (added)
+      { status: 'A', path: UNMARKED_PATH }, // in (added always)
+    ];
+    const out = classifyChangedFiles(
+      entries,
+      reader(new Set([MARKED_PATH])),
+    );
+    expect(out).toEqual([MARKED_PATH, UNMARKED_PATH]);
+  });
+
+  it('Empty entries -> empty result', () => {
+    expect(classifyChangedFiles([], reader(new Set()))).toEqual([]);
+  });
+
+  it('readMarkerAtHead is invoked at most once per Modified path; never for A/D/non-audit', () => {
+    const calls: string[] = [];
+    const tracker = (p: string) => {
+      calls.push(p);
+      return false;
+    };
+    classifyChangedFiles(
+      [
+        { status: 'M', path: UNMARKED_PATH }, // reader called once
+        { status: 'A', path: MARKED_PATH }, // A -> reader NOT called
+        { status: 'D', path: MARKED_PATH }, // D -> reader NOT called
+        { status: 'M', path: NON_AUDIT_PATH }, // non-audit -> reader NOT called
+      ],
+      tracker,
+    );
+    expect(calls).toEqual([UNMARKED_PATH]);
+  });
+});
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — marker string single-source', () => {
+  it('classifyChangedFiles uses the same MARKER_STRING as audit-lint-rules.cjs', () => {
+    // Re-use the existing marker-presence path via parseAuditDoc as the
+    // ground truth: classifyChangedFiles must treat a doc whose body
+    // contains rules.MARKER_STRING as marked, and a doc whose body does
+    // NOT contain that exact string as unmarked.
+    const markedBody = `# x\n\n${rules.MARKER_STRING}\n\nbody`;
+    const unmarkedBody = '# x\n\nbody';
+    const reader = (p: string) =>
+      p === 'docs/audits/M-SMOKE.md'
+        ? parseAuditDoc(markedBody).hasMarker
+        : p === 'docs/audits/U-SMOKE.md'
+          ? parseAuditDoc(unmarkedBody).hasMarker
+          : false;
+    const inScope = classifyChangedFiles(
+      [
+        { status: 'M', path: 'docs/audits/M-SMOKE.md' },
+        { status: 'M', path: 'docs/audits/U-SMOKE.md' },
+      ],
+      reader,
+    );
+    expect(inScope).toEqual(['docs/audits/M-SMOKE.md']);
+  });
+
+  it('audit-lint-lib source: no literal "Audit-Lint: v1" string outside rules import', () => {
+    // The lib MUST source the marker from the rules file via require().
+    // No literal duplication permitted (HALT trigger 11).
+    const src = fs.readFileSync(LIB_PATH, 'utf8');
+    expect(src).not.toContain("'Audit-Lint: v1'");
+    expect(src).not.toContain('"Audit-Lint: v1"');
+  });
+
+  it('audit-lint.mjs source: no literal "Audit-Lint: v1" string', () => {
+    const src = fs.readFileSync(SCRIPT_PATH, 'utf8');
+    expect(src).not.toContain("'Audit-Lint: v1'");
+    expect(src).not.toContain('"Audit-Lint: v1"');
+  });
+});
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — --classify-changed CLI parsing', () => {
+  it('parses --classify-changed --base SHA1 --head SHA2', () => {
+    const result = parseCliArgs([
+      '--classify-changed',
+      '--base',
+      'abc123',
+      '--head',
+      'def456',
+    ]);
+    expect(result.ok).toBe(true);
+    expect(result.options?.classifyChanged).toBe(true);
+    expect(result.options?.baseSha).toBe('abc123');
+    expect(result.options?.headSha).toBe('def456');
+  });
+
+  it('rejects --classify-changed with positional doc path', () => {
+    const result = parseCliArgs([
+      '--classify-changed',
+      '--base',
+      'a',
+      '--head',
+      'b',
+      'docs/x.md',
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/positional|classify-changed/i);
+  });
+
+  it('rejects --classify-changed without --base', () => {
+    const result = parseCliArgs(['--classify-changed', '--head', 'b']);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/--base/);
+  });
+
+  it('rejects --classify-changed without --head', () => {
+    const result = parseCliArgs(['--classify-changed', '--base', 'a']);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/--head/);
+  });
+
+  it('parses --changed-list-stdin as alternative to --base/--head', () => {
+    const result = parseCliArgs([
+      '--classify-changed',
+      '--changed-list-stdin',
+    ]);
+    expect(result.ok).toBe(true);
+    expect(result.options?.classifyChanged).toBe(true);
+    expect(result.options?.changedListStdin).toBe(true);
+  });
+
+  it('rejects --base/--head outside --classify-changed mode', () => {
+    const result = parseCliArgs(['docs/x.md', '--base', 'a']);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/--base|classify-changed/i);
+  });
+});
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — workflow YAML inspection', () => {
+  it('workflow file exists at .github/workflows/audit-lint.yml', () => {
+    expect(fs.existsSync(WORKFLOW_PATH)).toBe(true);
+  });
+
+  it('workflow calls the classifier via --classify-changed', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('audit-lint.mjs --classify-changed');
+  });
+
+  it('workflow uses PR base SHA, NOT HEAD~1 / origin/main / ~1', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('${{ github.event.pull_request.base.sha }}');
+    expect(yml).not.toContain('HEAD~1');
+    expect(yml).not.toContain('origin/main');
+    expect(yml).not.toMatch(/git\s+diff\s+~1\b/);
+  });
+
+  it('workflow uses PR head SHA', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('${{ github.event.pull_request.head.sha }}');
+  });
+
+  it('workflow trigger paths include all 5 patterns from intent §3', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain("'docs/audits/**SMOKE*.md'");
+    expect(yml).toContain("'scripts/ops/audit-lint.mjs'");
+    expect(yml).toContain("'scripts/ops/audit-lint-lib.cjs'");
+    expect(yml).toContain("'scripts/ops/audit-lint-rules.cjs'");
+    expect(yml).toContain("'__tests__/fixtures/audit-lint/**'");
+  });
+
+  it('workflow uses actions/checkout@v4 with fetch-depth: 0', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('actions/checkout@v4');
+    expect(yml).toMatch(/fetch-depth:\s*0/);
+  });
+
+  it('workflow uses actions/setup-node@v4 with Node 20.x', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('actions/setup-node@v4');
+    expect(yml).toMatch(/node-version:\s*'?20/);
+  });
+
+  it('workflow has read-only permissions on contents', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toMatch(/permissions:\s*[\s\S]*?contents:\s*read/);
+  });
+
+  it('workflow does NOT contain a literal "Audit-Lint: v1" marker string', () => {
+    // Single-source rule: the marker lives in audit-lint-rules.cjs.
+    // The workflow only invokes the classifier, which sources the marker
+    // through the lib.
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).not.toContain('Audit-Lint: v1');
+  });
+
+  it('workflow does NOT implement inline added-vs-modified scoping logic', () => {
+    // No git diff --name-status invocation; no marker-substring grep
+    // in YAML/bash. All scoping logic must live in the classifier.
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).not.toContain('git diff --name-status');
+    expect(yml).not.toContain('grep -q "Audit-Lint: v1"');
+    expect(yml).not.toMatch(/git\s+show.*Audit-Lint/);
+  });
+});
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — lib export + purity discipline', () => {
+  it('lib source: classifyChangedFiles is exported and named in module.exports', () => {
+    const src = fs.readFileSync(LIB_PATH, 'utf8');
+    expect(src).toContain('classifyChangedFiles');
+    expect(src).toContain('module.exports');
+  });
+
+  it('lib source: classifyChangedFiles preserves pure-helper discipline (no fs / no spawn / no fetch)', () => {
+    // Re-asserts the Block 10 invariant after classifyChangedFiles
+    // landed. The classifier accepts an injected reader closure so the
+    // lib itself remains free of fs / spawn / network references.
+    const src = fs.readFileSync(LIB_PATH, 'utf8');
+    expect(src).not.toContain('readFileSync');
+    expect(src).not.toContain('spawnSync');
+    expect(src).not.toContain('global.fetch');
   });
 });

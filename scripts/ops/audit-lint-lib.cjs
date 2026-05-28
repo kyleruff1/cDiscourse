@@ -29,6 +29,11 @@ const DEFAULTS = Object.freeze({
   docPath: null,
   reportOnly: false,
   help: false,
+  // OPS-MCP-SMOKE-LINT-CI-WIRING — CI classifier mode
+  classifyChanged: false,
+  baseSha: null,
+  headSha: null,
+  changedListStdin: false,
 });
 
 function parseCliArgs(argv) {
@@ -46,6 +51,32 @@ function parseCliArgs(argv) {
       options.reportOnly = true;
       continue;
     }
+    if (a === '--classify-changed') {
+      options.classifyChanged = true;
+      continue;
+    }
+    if (a === '--changed-list-stdin') {
+      options.changedListStdin = true;
+      continue;
+    }
+    if (a === '--base') {
+      const next = argv[i + 1];
+      if (typeof next !== 'string' || next.length === 0 || next.startsWith('--')) {
+        return { ok: false, error: 'Missing value for --base <sha>' };
+      }
+      options.baseSha = next;
+      i += 1;
+      continue;
+    }
+    if (a === '--head') {
+      const next = argv[i + 1];
+      if (typeof next !== 'string' || next.length === 0 || next.startsWith('--')) {
+        return { ok: false, error: 'Missing value for --head <sha>' };
+      }
+      options.headSha = next;
+      i += 1;
+      continue;
+    }
     if (a.startsWith('--')) {
       return { ok: false, error: `Unknown flag: ${a}` };
     }
@@ -57,6 +88,52 @@ function parseCliArgs(argv) {
     }
     options.docPath = a;
   }
+
+  // Cross-flag validation for classify-changed mode.
+  if (options.classifyChanged) {
+    if (options.docPath !== null) {
+      return {
+        ok: false,
+        error:
+          'positional <doc-path> is not allowed with --classify-changed (this mode emits paths; it does not lint one)',
+      };
+    }
+    if (!options.changedListStdin) {
+      if (options.baseSha === null) {
+        return {
+          ok: false,
+          error: '--classify-changed requires --base <sha>',
+        };
+      }
+      if (options.headSha === null) {
+        return {
+          ok: false,
+          error: '--classify-changed requires --head <sha>',
+        };
+      }
+    }
+  } else {
+    // --base / --head are only valid inside classify-changed mode.
+    if (options.baseSha !== null) {
+      return {
+        ok: false,
+        error: '--base is only valid with --classify-changed',
+      };
+    }
+    if (options.headSha !== null) {
+      return {
+        ok: false,
+        error: '--head is only valid with --classify-changed',
+      };
+    }
+    if (options.changedListStdin) {
+      return {
+        ok: false,
+        error: '--changed-list-stdin is only valid with --classify-changed',
+      };
+    }
+  }
+
   return { ok: true, options };
 }
 
@@ -66,15 +143,27 @@ function helpText() {
     '',
     'USAGE:',
     '  node scripts/ops/audit-lint.mjs <doc-path> [--report-only]',
+    '  node scripts/ops/audit-lint.mjs --classify-changed --base <sha> --head <sha>',
+    '  node scripts/ops/audit-lint.mjs --classify-changed --changed-list-stdin',
     '  node scripts/ops/audit-lint.mjs --help',
     '',
     'FLAGS:',
-    '  --report-only   Print findings + counts; exit 0 even if findings present.',
-    '                  Used for corpus census without blocking.',
-    '  --help, -h      Show this help.',
+    '  --report-only           Print findings + counts; exit 0 even if findings present.',
+    '                          Used for corpus census without blocking.',
+    '  --classify-changed      Emit one in-scope path per line (stdout); no linting.',
+    '                          Used by .github/workflows/audit-lint.yml to compute the',
+    '                          per-PR scoping set. Exits 0 even on empty output.',
+    '  --base <sha>            Required with --classify-changed (unless --changed-list-stdin).',
+    '                          The PR base SHA; the workflow passes the PR base.sha here.',
+    '  --head <sha>            Required with --classify-changed (unless --changed-list-stdin).',
+    '                          The PR head SHA; the workflow passes the PR head.sha here.',
+    '  --changed-list-stdin    Read <status>\\t<path> lines from stdin instead of running',
+    '                          git diff. Operator-debug / test seam only; the workflow does',
+    '                          NOT use this flag.',
+    '  --help, -h              Show this help.',
     '',
     'EXIT CODES:',
-    '  0  No findings (or --report-only flag set)',
+    '  0  No findings (or --report-only flag set, or --classify-changed mode)',
     '  1  At least one rule violation',
     '  2  Parse error (verdict not extractable; malformed doc)',
     '  3  File not found or unreadable',
@@ -95,6 +184,92 @@ function isTemplateFilename(filePath) {
     return false;
   }
   return /-template\.md$/i.test(filePath);
+}
+
+/* ------------------------------------------------------------------ */
+/* CI changed-file classification (OPS-MCP-SMOKE-LINT-CI-WIRING)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Path filter for smoke audit docs. Matches any markdown file under
+ * `docs/audits/` whose name contains the substring `SMOKE` (case
+ * insensitive). Mirrors the glob `docs/audits/**SMOKE*.md` used in
+ * the GitHub Actions workflow's path-filter trigger.
+ */
+const SMOKE_AUDIT_PATH_PATTERN = /^docs\/audits\/.*SMOKE.*\.md$/i;
+
+/**
+ * Classify a list of changed-file entries against the audit-lint
+ * scoping rule. PURE function: NO fs, NO spawn, NO git. The caller
+ * (the `.mjs` entry) is responsible for resolving the actual entries
+ * (via `git diff --name-status`) and for the marker reader (via
+ * `git show <head>:<path>` or working-tree file-read).
+ *
+ * Truth table (per intent §4):
+ *   - status A (added) + SMOKE audit path -> IN SCOPE (marker not needed;
+ *     closes "submit new audit without marker" evasion)
+ *   - status M (modified) + SMOKE audit path + marker at HEAD -> IN SCOPE
+ *   - status M (modified) + SMOKE audit path + no marker -> OUT OF SCOPE
+ *     (pre-hardening historical edits exempt)
+ *   - any other status (D/R/C/...) -> OUT OF SCOPE
+ *   - any non-audit path -> OUT OF SCOPE
+ *   - any template doc (-template.md) -> OUT OF SCOPE
+ *
+ * The readMarkerAtHead closure is invoked at most once per Modified
+ * entry. It is NEVER invoked for Added entries (they are always in
+ * scope) nor for non-audit paths (filtered out earlier).
+ *
+ * @param entries           Array of { status, path } objects. status
+ *                          is one of the git diff --name-status letters.
+ * @param readMarkerAtHead  (path: string) => boolean. True iff the file
+ *                          at HEAD contains MARKER_STRING.
+ * @returns                 Array of in-scope path strings, in the same
+ *                          order as the input entries (deterministic).
+ */
+function classifyChangedFiles(entries, readMarkerAtHead) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+  if (typeof readMarkerAtHead !== 'function') {
+    return [];
+  }
+  const inScope = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const status = typeof entry.status === 'string' ? entry.status : '';
+    const filePath = typeof entry.path === 'string' ? entry.path : '';
+    if (filePath.length === 0) {
+      continue;
+    }
+    // Path-filter: only smoke audit docs.
+    if (!SMOKE_AUDIT_PATH_PATTERN.test(filePath)) {
+      continue;
+    }
+    // Templates are refused.
+    if (isTemplateFilename(filePath)) {
+      continue;
+    }
+    // Status filter: A or M only.
+    if (status === 'A') {
+      // Added — ALWAYS in scope. Marker not required. This closes the
+      // "submit new audit without marker" evasion loophole.
+      inScope.push(filePath);
+      continue;
+    }
+    if (status === 'M') {
+      // Modified — in scope iff the HEAD version carries the marker.
+      if (readMarkerAtHead(filePath)) {
+        inScope.push(filePath);
+      }
+      continue;
+    }
+    // D, R, C, and any other status: skip silently. Renames are
+    // typically handled by git's natural A+D pair under default rename
+    // detection — the A side covers them above.
+  }
+  return inScope;
 }
 
 /* ------------------------------------------------------------------ */
@@ -981,6 +1156,9 @@ module.exports = {
   applyL4,
   applyL5,
   applyL6,
+  // OPS-MCP-SMOKE-LINT-CI-WIRING — changed-file classifier
+  classifyChangedFiles,
+  SMOKE_AUDIT_PATH_PATTERN,
   // Re-export rules for tests + future extensions
   rules,
 };

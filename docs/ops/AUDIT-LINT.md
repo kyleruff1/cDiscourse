@@ -8,9 +8,11 @@ hosted MCP marked "NOT-RUN, covered indirectly via Phase 4 success";
 verdict PASS) is caught at authoring time rather than via amendment
 after the fact.
 
-The linter is the enforcement layer. CI wiring is deferred to a
-follow-on card (see § "CI deferred" below); for now the linter is
-operator-run via the required final step in each smoke template.
+The linter is the enforcement layer. CI wiring landed in
+`OPS-MCP-SMOKE-LINT-CI-WIRING` (see § "CI enforcement (GitHub
+Actions)" below); the linter is now mechanically enforced on every PR
+that touches a smoke audit doc OR the linter source / fixtures, and
+remains operator-runnable via direct node invocation for local checks.
 
 ## Usage
 
@@ -100,21 +102,92 @@ can distinguish:
 The marker string is exact (`Audit-Lint: v1`) and is defined in
 `scripts/ops/audit-lint-rules.cjs` as `MARKER_STRING`.
 
-## CI deferred
+## CI enforcement (GitHub Actions)
 
-`.github/workflows/` does not exist in this repo. Introducing it
-would fire HALT trigger 9 (non-additive shared-CI-config change) per
-the design doc's HALT-trigger table. Per the operator addendum, the
-card lands with CI wiring deferred to a follow-on card
-(`OPS-MCP-SMOKE-LINT-CI-WIRING`). The linter remains operator-run
-until the follow-on lands.
+CI wiring landed in `OPS-MCP-SMOKE-LINT-CI-WIRING` (issue
+[#341](https://github.com/kyleruff1/cDiscourse/issues/341)). The
+workflow lives at `.github/workflows/audit-lint.yml` and runs on
+every PR that touches one of these path patterns:
 
-The smoke templates (Family C / D / E) each carry an "Audit-lint
-required final step" section that points the operator at the
-`node scripts/ops/audit-lint.mjs <doc>` invocation. This makes the
-linter operator-required-by-template — the enforcement value comes
-from the linter, the templates, and the documentation; the CI
-mechanism is a delivery vector that can be added later.
+- `docs/audits/**SMOKE*.md` — any smoke audit doc
+- `scripts/ops/audit-lint.mjs` — the runner
+- `scripts/ops/audit-lint-lib.cjs` — the pure helpers
+- `scripts/ops/audit-lint-rules.cjs` — the rule data
+- `__tests__/fixtures/audit-lint/**` — fixture changes
+
+Why the linter source files are in the trigger set: changing the
+linter without re-running self-validation would silently break
+enforcement. That's the same evasion path the marker scoping closes
+for new audit docs.
+
+### What the workflow does
+
+1. Checks out the PR head with `fetch-depth: 0` so the PR base SHA's
+   tree is fetchable for `git diff`.
+2. Pins Node 20.x via `actions/setup-node@v4`.
+3. Resolves `BASE_SHA=${{ github.event.pull_request.base.sha }}` and
+   `HEAD_SHA=${{ github.event.pull_request.head.sha }}`.
+4. Shells out to the shared classifier:
+
+   ```
+   node scripts/ops/audit-lint.mjs --classify-changed \
+     --base "$BASE_SHA" --head "$HEAD_SHA"
+   ```
+
+   This is the single source of in-scope decisions — CI and the
+   runner cannot disagree.
+5. For each in-scope path, runs `node scripts/ops/audit-lint.mjs
+   <path>` and aggregates exit codes. Any non-zero exit fails the
+   workflow.
+6. If no applicable files → the workflow exits 0 (the lint step is
+   skipped via step-condition).
+
+### Single-source scoping rule
+
+The in-scope set is computed entirely inside the classifier:
+
+| Status | Marker at HEAD? | In-scope? |
+| --- | --- | --- |
+| `A` (added smoke audit doc) | not needed | YES — always linted (closes the "submit new audit without marker" evasion) |
+| `M` (modified smoke audit doc) | YES (`Audit-Lint: v1` present) | YES |
+| `M` (modified smoke audit doc) | NO | NO — historical, exempt |
+| `D` / `R` / `C` | n/a | NO — out of scope |
+| Any other path | n/a | NO — out of scope |
+| `-template.md` (any status) | n/a | NO — templates refused |
+
+The marker string lives in `scripts/ops/audit-lint-rules.cjs` as
+`MARKER_STRING`. The classifier sources it from there via `require()`;
+the workflow YAML never contains the literal string.
+
+### Diff base mechanics
+
+The workflow uses the GitHub-provided PR base SHA, NEVER `HEAD~1` or
+`origin/main`. Under force-push / stale-base / squash, the guessed
+bases go wrong precisely when enforcement matters; the PR event's
+`base.sha` is the only stable reference.
+
+### Operator-run local checks
+
+The direct-node invocation remains the canonical operator surface:
+
+```
+node scripts/ops/audit-lint.mjs <doc-path>
+```
+
+CI is the mechanical safety net; the operator pre-checks the doc
+locally during authoring. The smoke templates (Family C / D / E) each
+carry an "Audit-lint required final step" section that points the
+operator at the local invocation.
+
+### Historical note: CI was deferred in the predecessor card
+
+`OPS-MCP-SMOKE-DOCTRINE-HARDENING` (PR #340) landed with PARTIAL
+verdict because `.github/workflows/` did not exist in the repo;
+introducing it inside that card would have been a non-additive
+shared-workflow change firing HALT trigger 9. The PARTIAL cap was
+explicitly tied to "CI wiring deferred to follow-on
+`OPS-MCP-SMOKE-LINT-CI-WIRING`." This card created the workflow file
+and lifted the cap.
 
 ## Adding a doctrine-risk family
 
