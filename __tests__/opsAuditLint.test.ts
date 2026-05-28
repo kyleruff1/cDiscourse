@@ -145,6 +145,12 @@ const RULES_PATH = path.join(
   'ops',
   'audit-lint-rules.cjs',
 );
+const WORKFLOW_PATH = path.join(
+  process.cwd(),
+  '.github',
+  'workflows',
+  'audit-lint.yml',
+);
 
 /* ============================================================ */
 /* 1. CLI argument parsing                                       */
@@ -1549,5 +1555,90 @@ describe('OPS-MCP-SMOKE-LINT-CI-WIRING — --classify-changed CLI parsing', () =
     const result = parseCliArgs(['docs/x.md', '--base', 'a']);
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/--base|classify-changed/i);
+  });
+});
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — workflow YAML inspection', () => {
+  it('workflow file exists at .github/workflows/audit-lint.yml', () => {
+    expect(fs.existsSync(WORKFLOW_PATH)).toBe(true);
+  });
+
+  it('workflow calls the classifier via --classify-changed', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('audit-lint.mjs --classify-changed');
+  });
+
+  it('workflow uses PR base SHA, NOT HEAD~1 / origin/main / ~1', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('${{ github.event.pull_request.base.sha }}');
+    expect(yml).not.toContain('HEAD~1');
+    expect(yml).not.toContain('origin/main');
+    expect(yml).not.toMatch(/git\s+diff\s+~1\b/);
+  });
+
+  it('workflow uses PR head SHA', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('${{ github.event.pull_request.head.sha }}');
+  });
+
+  it('workflow trigger paths include all 5 patterns from intent §3', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain("'docs/audits/**SMOKE*.md'");
+    expect(yml).toContain("'scripts/ops/audit-lint.mjs'");
+    expect(yml).toContain("'scripts/ops/audit-lint-lib.cjs'");
+    expect(yml).toContain("'scripts/ops/audit-lint-rules.cjs'");
+    expect(yml).toContain("'__tests__/fixtures/audit-lint/**'");
+  });
+
+  it('workflow uses actions/checkout@v4 with fetch-depth: 0', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('actions/checkout@v4');
+    expect(yml).toMatch(/fetch-depth:\s*0/);
+  });
+
+  it('workflow uses actions/setup-node@v4 with Node 20.x', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toContain('actions/setup-node@v4');
+    expect(yml).toMatch(/node-version:\s*'?20/);
+  });
+
+  it('workflow has read-only permissions on contents', () => {
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).toMatch(/permissions:\s*[\s\S]*?contents:\s*read/);
+  });
+
+  it('workflow does NOT contain a literal "Audit-Lint: v1" marker string', () => {
+    // Single-source rule: the marker lives in audit-lint-rules.cjs.
+    // The workflow only invokes the classifier, which sources the marker
+    // through the lib.
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).not.toContain('Audit-Lint: v1');
+  });
+
+  it('workflow does NOT implement inline added-vs-modified scoping logic', () => {
+    // No git diff --name-status invocation; no marker-substring grep
+    // in YAML/bash. All scoping logic must live in the classifier.
+    const yml = fs.readFileSync(WORKFLOW_PATH, 'utf8');
+    expect(yml).not.toContain('git diff --name-status');
+    expect(yml).not.toContain('grep -q "Audit-Lint: v1"');
+    expect(yml).not.toMatch(/git\s+show.*Audit-Lint/);
+  });
+});
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — lib export + purity discipline', () => {
+  it('lib source: classifyChangedFiles is exported and named in module.exports', () => {
+    const src = fs.readFileSync(LIB_PATH, 'utf8');
+    expect(src).toContain('classifyChangedFiles');
+    expect(src).toContain('module.exports');
+  });
+
+  it('lib source: classifyChangedFiles preserves pure-helper discipline (no fs / no spawn / no fetch)', () => {
+    // Re-asserts the Block 10 invariant after classifyChangedFiles
+    // landed. The classifier accepts an injected reader closure so the
+    // lib itself remains free of fs / spawn / network references.
+    const src = fs.readFileSync(LIB_PATH, 'utf8');
+    expect(src).not.toContain('readFileSync');
+    expect(src).not.toContain('spawnSync');
+    expect(src).not.toContain('global.fetch');
   });
 });
