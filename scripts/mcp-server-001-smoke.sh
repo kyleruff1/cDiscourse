@@ -447,6 +447,50 @@ else
   fail "$CHECK_NAME" "Expected real Family D tool result. Got: $RESPONSE"
 fi
 
+# ── Check 16: POST /mcp/adapter-compat with VALID bearer + boolean (Family E) ──
+# MCP-SERVER-006-FAMILY-E promoted Family E from unsupported to real. The request
+# body uses Family E rawKeys (argument_scheme family). Response shape MUST be a
+# real McpBooleanObservationResponse per the MCP-021A schema:
+#   - schemaVersion: 'mcp-021.machine-observations.boolean.v1'
+#   - observations is an object of booleans (16 keys for Family E canonical)
+#   - confidence is an object of low|medium|high
+#   - modelInfo.classifierSetVersion is 'family-e-v1'
+CHECK_NAME="16-compat-boolean-family-e"
+BOOLEAN_E_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-e-001","parentNodeId":"fixture-node-parent-e-001","currentText":"[fixture] If we approve this regulation, agencies will start defining acceptable speech for one category, then a second, then a third — until we have arrived at full-scope content suppression.","parentText":"[fixture] A targeted regulation against fraudulent product claims has been proposed.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["argument_scheme"],"requestedRawKeys":["slippery_slope_reasoning_present","consequence_reasoning_present","causal_reasoning_present"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family E)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_E_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-e-v1"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family E response shape. Got: $RESPONSE"
+fi
+
+# ── Check 17: POST /mcp tools/call classify_argument_boolean_observations (Family E) ──
+# MCP-SERVER-006-FAMILY-E. Same body + same assertion pattern as Check 16, but via
+# the official MCP /mcp endpoint with JSON-RPC envelope.
+CHECK_NAME="17-mcp-tools-call-boolean-family-e"
+BOOLEAN_E_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-6","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-e-001","parentNodeId":"fixture-node-parent-e-001","currentText":"[fixture] If we approve this regulation, agencies will start defining acceptable speech for one category, then a second, then a third — until we have arrived at full-scope content suppression.","parentText":"[fixture] A targeted regulation against fraudulent product claims has been proposed.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["argument_scheme"],"requestedRawKeys":["slippery_slope_reasoning_present","consequence_reasoning_present","causal_reasoning_present"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations Family E)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_E_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-e-v1"' \
+     && contains "$RESPONSE" '"isError":false'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family E tool result. Got: $RESPONSE"
+fi
+
 echo
 echo "MCP-SERVER-001 smoke: $PASSES PASSES, $FAILS FAILS"
 if [[ "$FAILS" -gt 0 ]]; then
