@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-f-canonical-node",
+  "checkedRawKeys": [
+    "missing_warrant",
+    "unstated_assumption",
+    "authority_basis_missing",
+    "causal_mechanism_missing",
+    "analogy_mapping_missing",
+    "example_representativeness_unclear",
+    "consequence_probability_unclear",
+    "definition_boundary_unclear",
+    "criterion_weighting_unclear",
+    "alternative_explanation_available",
+    "counterexample_available",
+    "scope_limit_unstated",
+    "qualification_missing",
+    "comparison_baseline_missing"
+  ],
+  "observations": {
+    "missing_warrant": true,
+    "unstated_assumption": false,
+    "authority_basis_missing": false,
+    "causal_mechanism_missing": false,
+    "analogy_mapping_missing": false,
+    "example_representativeness_unclear": false,
+    "consequence_probability_unclear": true,
+    "definition_boundary_unclear": false,
+    "criterion_weighting_unclear": false,
+    "alternative_explanation_available": false,
+    "counterexample_available": false,
+    "scope_limit_unstated": false,
+    "qualification_missing": false,
+    "comparison_baseline_missing": false
+  },
+  "confidence": {
+    "missing_warrant": "medium",
+    "unstated_assumption": "medium",
+    "authority_basis_missing": "medium",
+    "causal_mechanism_missing": "medium",
+    "analogy_mapping_missing": "medium",
+    "example_representativeness_unclear": "medium",
+    "consequence_probability_unclear": "high",
+    "definition_boundary_unclear": "medium",
+    "criterion_weighting_unclear": "medium",
+    "alternative_explanation_available": "medium",
+    "counterexample_available": "medium",
+    "scope_limit_unstated": "medium",
+    "qualification_missing": "medium",
+    "comparison_baseline_missing": "medium"
+  },
+  "evidenceSpan": {
+    "missing_warrant": "until we have arrived at full-scope content suppression",
+    "unstated_assumption": null,
+    "authority_basis_missing": null,
+    "causal_mechanism_missing": null,
+    "analogy_mapping_missing": null,
+    "example_representativeness_unclear": null,
+    "consequence_probability_unclear": "they will expand to a second category, then a third, then a fourth",
+    "definition_boundary_unclear": null,
+    "criterion_weighting_unclear": null,
+    "alternative_explanation_available": null,
+    "counterexample_available": null,
+    "scope_limit_unstated": null,
+    "qualification_missing": null,
+    "comparison_baseline_missing": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-f-v1"
+  }
+}

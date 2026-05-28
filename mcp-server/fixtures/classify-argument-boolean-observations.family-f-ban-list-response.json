@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-f-1",
+  "checkedRawKeys": ["consequence_probability_unclear"],
+  "observations": {
+    "consequence_probability_unclear": true
+  },
+  "confidence": {
+    "consequence_probability_unclear": "high"
+  },
+  "evidenceSpan": {
+    "consequence_probability_unclear": "this argument is a slippery-slope fallacy with no probability anchor"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-f-v1"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-f-cq-adversarial-fallacy-word-node",
+    "parentNodeId": "fixture-f-cq-adversarial-fallacy-word-parent",
+    "currentText": "[fixture] Critics call this a slippery-slope fallacy when I lay out the chain, but the chain is real and the probabilities are not the point: once a single category gets restricted, the next category follows in the same legislative session, and from there to a third and fourth, ending in broad-scope content rules. Asking me for probability anchors is itself a fallacy of misplaced precision.",
+    "parentText": "[fixture] A targeted regulation against fraudulent product claims has been proposed.",
+    "threadContextExcerpt": "[fixture] Debate room: scope of platform content regulation. Move uses 'fallacy' TWICE in input as adversarial test.",
+    "requestedFamilies": ["critical_question"],
+    "requestedRawKeys": [
+      "consequence_probability_unclear",
+      "missing_warrant",
+      "alternative_explanation_available"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

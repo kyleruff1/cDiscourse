@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-f-cq-met-baseline-node",
+    "parentNodeId": "fixture-f-cq-met-baseline-parent",
+    "currentText": "[fixture] If we permit this regulation to pass — based on the 2018 EU intermediary-liability case data showing 12 of 15 jurisdictions expanded scope within 24 months — government agencies are likely (around a 70-80% rate, per the meta-analysis) to expand to a second category. From there, the empirical pattern shows about a 50% probability of further expansion, declining to ~30% at the third step. The expected outcome under enforcement-similar conditions is moderate-scope suppression within 5 years, not full-scope.",
+    "parentText": "[fixture] A targeted regulation against fraudulent product claims has been proposed.",
+    "threadContextExcerpt": "[fixture] Debate room: scope of platform content regulation; CQ-met baseline variant.",
+    "requestedFamilies": ["critical_question"],
+    "requestedRawKeys": [
+      "consequence_probability_unclear",
+      "missing_warrant",
+      "comparison_baseline_missing"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
