@@ -93,7 +93,7 @@ export const FAMILY_REGISTRY: ReadonlyArray<FamilyRegistryEntry> = Object.freeze
   },
   {
     family: 'critical_question',
-    productionEnabled: false,
+    productionEnabled: true,
     adminValidationEnabled: true,
   },
   {
