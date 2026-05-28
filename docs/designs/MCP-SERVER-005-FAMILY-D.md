@@ -1,6 +1,6 @@
 # MCP-SERVER-005-FAMILY-D — Evidence-Source-Chain Boolean Observation Classifier (design)
 
-**Status:** Design draft
+**Status:** Design draft — Stage 2B operator-decision RECORDED
 **Epic:** MCP server family rollout (Family D of B-C-D-E batch; Card 2 of combined launch)
 **Release:** Stage 6.x — Machine Observation classifiers
 **Issue:** binding source is `docs/designs/MCP-SERVER-005-FAMILY-D-intent.md` (operator-authored intent brief at `bd3dbdf`)
@@ -13,6 +13,100 @@
 **Branch:** `feat/MCP-SERVER-005-FAMILY-D`
 
 **Designer recommendation (binding pending Stage 2B operator-decision):** **Path A — Subset (19 ai_classifier-only keys).** Rationale in §6.
+
+---
+
+## Stage 2B — operator-approved binding decision (RECORDED)
+
+This section is **prepended** to the design at implementer Stage 3 to record
+the operator's Stage 2B decision verbatim. The implementer ships exactly to
+the bindings below; any deviation is a HALT.
+
+### Path chosen
+
+**Path A — Subset (19 `ai_classifier` keys only).** The 8 deterministic
+keys (5 `auto_metadata` + 3 `lifecycle`) are EXCLUDED from MCP server
+scope and deferred to a future Edge/app-side deterministic-computation card.
+
+### Approved scope (operator-bound)
+
+- Support only the 19 `ai_classifier` Family D rawKeys in the MCP server.
+- Exclude the 8 deterministic keys:
+  - auto_metadata: `has_evidence`, `source_requested`, `quote_requested`,
+    `source_attached`, `quote_attached`
+  - lifecycle: `sourced`, `quote_requested`, `source_requested`
+- NO compound-key response shape.
+- NO MCP-021A schema mirror alteration.
+- NO duplicate `rawKey` disambiguation in this card.
+- NO asking Anthropic to infer deterministic auto_metadata/lifecycle facts.
+- Deterministic Family D facts deferred to a later Edge/app-side card.
+
+### Approved MAX_TOKENS
+
+- Family D specific: **1500 → 1800** (+300, +20%).
+- NOT global; Family A/B/C remain at 1500.
+- HALT trigger #15 implicitly satisfied by this approval.
+- HALT if 1800 proves insufficient — do not silently bump further.
+
+### Implementation constraints (operator-bound; HALT if violated)
+
+- Register `evidence_source_chain` in the shared MCP family registry with
+  exactly the 19 `ai_classifier` rawKeys.
+- Family D admin_validation only; `productionEnabled=false` (unchanged
+  from the current Edge `familyRegistry` entry).
+- NO Edge `familyRegistry` production flag changes.
+- NO auto-trigger inclusion for Family D.
+- NO Source 6 rendering policy changes.
+- NO persistence schema changes.
+- NO Family A/B/C code changes (except stale unsupported-family fixture
+  updates).
+- Preserve `unsupported_family` rejection for E/F/G/H/I/J.
+- Preserve `unsupported_rawKey` rejection for the 8 excluded
+  deterministic Family D keys (requesting any of those rawKeys under
+  `evidence_source_chain` must return `unsupported_rawKey`/`invalid_params`,
+  NOT a silent false).
+
+### Required tests (operator-bound additions)
+
+- Family D key parity test (MCP subset = exactly the 19 `ai_classifier`
+  rawKeys from upstream `familyD.ts`).
+- 8 deterministic keys are intentionally excluded from the supported
+  rawKey set.
+- Requesting any of the 8 excluded deterministic Family D rawKeys under
+  `evidence_source_chain` returns `unsupported_rawKey`/`invalid_params`
+  (not silent false).
+- Family A/B/C behavior unchanged (byte-equal preserved).
+- E/F/G/H/I/J remain unsupported.
+- Doctrine-risk key tests for `anecdote_used`, `burden_request_present`,
+  `evidence_gap_present`.
+- `classifierSetVersion` `family-d-v1` consistent across keys + prompt +
+  fixture + dispatcher.
+- Evidence spans ≤ 240 chars; doctrine ban-list scan clean across
+  Family D response paths.
+
+### Smoke expectations (operator-bound)
+
+- Hosted MCP smoke script: add Family D Check 14 + Check 15 (15 PASS
+  total).
+- Edge `admin_validation` smoke with `requestedFamilies=['evidence_source_chain']`.
+- At least one real Family D positive on an evidence/source-chain-targeted
+  fixture OR a seeded argument is the bias; 0 positives on the 3 generic
+  seeded args is PARTIAL-acceptable per intent brief §9 Decision 9.
+- Any observed positives must be within the 19-key Subset.
+- The 8 excluded deterministic keys must NOT appear in any Family D
+  positive (taxonomy boundary check).
+- Family D stays `productionEnabled=false` / no auto-trigger.
+
+### Critical bindings (HALT if any of these are violated)
+
+- Do NOT implement Full-27.
+- Do NOT implement compound-key support.
+- Do NOT broaden the schema mirror.
+- Do NOT silently convert deterministic excluded keys into
+  model-inferred keys.
+
+This Stage 2B record fixes the implementation surface. Any divergence
+from these bindings is a HALT.
 
 ---
 
