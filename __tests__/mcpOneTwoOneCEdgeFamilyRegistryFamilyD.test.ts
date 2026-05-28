@@ -1,26 +1,23 @@
 /**
  * MCP-SERVER-005-FAMILY-D — Test: Edge family registry Family D entry parity.
  *
- * Per Stage 2B operator binding (recorded in
- * `docs/designs/MCP-SERVER-005-FAMILY-D.md` § "Stage 2B"):
- *   - Family D ships in admin_validation-only posture.
+ * Post `MCP-021C-EDGE-FAMILY-D-ENABLE` (Card 2 of the FAMILY-D chain):
+ *   - Family D ships in production + admin_validation posture.
  *   - The Edge `familyRegistry.ts` entry for `evidence_source_chain`
- *     MUST keep `productionEnabled: false` AND `adminValidationEnabled: true`.
- *   - HALT trigger #17 in the intent brief forbids any Edge edit that
- *     flips `productionEnabled: true` in this card.
+ *     now has `productionEnabled: true` AND `adminValidationEnabled: true`.
+ *   - The Card 2 flip is locked in by FD-2 (productionEnabled is true),
+ *     FD-4 (productionEnabledFamilies() INCLUDES evidence_source_chain),
+ *     and FD-6 (production-mode filter keeps D).
  *
- * The existing `mcpOneTwoOneCEdgeFamilyRegistry.test.ts:FR-7` already
- * asserts every NON-A/B/C family has `productionEnabled: false`,
- * including Family D. This dedicated Family D file makes the assertion
- * explicit + load-bearing — if a future card accidentally flips Family
- * D's production posture, this file fails the build with a Family-D-
- * specific error message.
+ * If a future card accidentally reverts Family D's production posture
+ * to admin-only, this file fails the build with a Family-D-specific
+ * error message.
  *
  * Per the Edge family registry primer
  * (`supabase/functions/_shared/booleanObservations/familyRegistry.ts:84-88`)
- * the Family D entry is pre-existing from MCP-021C-EDGE-FAMILIES-B-C-ENABLE;
- * this test does NOT introduce or modify the Edge code, only asserts the
- * current shape.
+ * the Family D entry was pre-existing from MCP-021C-EDGE-FAMILIES-B-C-ENABLE
+ * (admin-only) and was flipped to production by MCP-021C-EDGE-FAMILY-D-ENABLE.
+ * This test asserts the CURRENT (post-flip) shape.
  */
 
 import {
@@ -38,10 +35,10 @@ describe('MCP-SERVER-005-FAMILY-D — Edge familyRegistry Family D entry (Stage 
     expect(entry!.family).toBe('evidence_source_chain');
   });
 
-  it('FD-2 — Family D entry has productionEnabled: false (Stage 2B HALT trigger #17)', () => {
+  it('FD-2 — Family D entry has productionEnabled: true (post MCP-021C-EDGE-FAMILY-D-ENABLE Card 2 flip)', () => {
     const entry = edgeLookupFamilyRegistryEntry('evidence_source_chain');
     expect(entry).not.toBeNull();
-    expect(entry!.productionEnabled).toBe(false);
+    expect(entry!.productionEnabled).toBe(true);
   });
 
   it('FD-3 — Family D entry has adminValidationEnabled: true', () => {
@@ -50,16 +47,18 @@ describe('MCP-SERVER-005-FAMILY-D — Edge familyRegistry Family D entry (Stage 
     expect(entry!.adminValidationEnabled).toBe(true);
   });
 
-  it('FD-4 — edgeProductionEnabledFamilies() does NOT include evidence_source_chain', () => {
-    expect(edgeProductionEnabledFamilies()).not.toContain('evidence_source_chain');
+  it('FD-4 — edgeProductionEnabledFamilies() includes evidence_source_chain (post Card 2 flip)', () => {
+    expect(edgeProductionEnabledFamilies()).toContain('evidence_source_chain');
   });
 
   it('FD-5 — edgeAdminValidationEnabledFamilies() includes evidence_source_chain', () => {
     expect(edgeAdminValidationEnabledFamilies()).toContain('evidence_source_chain');
   });
 
-  it('FD-6 — edgeFilterFamiliesForMode([evidence_source_chain], production) returns empty (D admin-only)', () => {
-    expect(edgeFilterFamiliesForMode(['evidence_source_chain'], 'production')).toEqual([]);
+  it('FD-6 — edgeFilterFamiliesForMode([evidence_source_chain], production) keeps evidence_source_chain (post Card 2 flip)', () => {
+    expect(edgeFilterFamiliesForMode(['evidence_source_chain'], 'production')).toEqual([
+      'evidence_source_chain',
+    ]);
   });
 
   it('FD-7 — edgeFilterFamiliesForMode([evidence_source_chain], admin_validation) keeps evidence_source_chain', () => {

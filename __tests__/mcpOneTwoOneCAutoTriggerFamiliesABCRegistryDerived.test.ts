@@ -306,13 +306,15 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — doctrine safety (post-refactor)'
 });
 
 describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
-  it('DREG-29 — at registry HEAD, productionEnabledFamilies() returns exactly [A, B, C]', () => {
+  it('DREG-29 — at registry HEAD, productionEnabledFamilies() returns exactly [A, B, C, D] (post Card 2 flip)', () => {
     // Cross-checks the registry source against the dispatcher's expected
-    // dispatch list (this is the binding registry-shape gate).
+    // dispatch list (this is the binding registry-shape gate). Post
+    // MCP-021C-EDGE-FAMILY-D-ENABLE, the production list is 4 families.
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
+      'evidence_source_chain',
     ]);
   });
 
@@ -330,10 +332,11 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
     ).toBe(true);
   });
 
-  it('DREG-31 — registry source still has D–J productionEnabled: false (no widening)', () => {
-    // Catches a future PR accidentally flipping D-J before its own card.
-    const DJ_FAMILIES = [
-      'evidence_source_chain',
+  it('DREG-31 — registry source still has E–J productionEnabled: false (no widening past D)', () => {
+    // Catches a future PR accidentally flipping E-J before its own card.
+    // Post Card 2 (MCP-021C-EDGE-FAMILY-D-ENABLE), D is productionEnabled;
+    // E-J must remain admin-only.
+    const EJ_FAMILIES = [
       'argument_scheme',
       'critical_question',
       'resolution_progress',
@@ -341,7 +344,7 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
       'thread_topology',
       'sensitive_composer',
     ];
-    for (const family of DJ_FAMILIES) {
+    for (const family of EJ_FAMILIES) {
       // The family block has productionEnabled: false within ~200 chars
       // of the family declaration.
       const pattern = new RegExp(

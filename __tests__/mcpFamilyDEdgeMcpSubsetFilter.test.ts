@@ -140,15 +140,25 @@ describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', ()
     expect(req.requestedRawKeys.length).toBe(17);
   });
 
-  it('SF-9 — production-mode Family D request returns empty rawKeys (productionEnabled=false)', () => {
+  it('SF-9 — production-mode Family D request returns 19 ai_classifier rawKeys (post MCP-021C-EDGE-FAMILY-D-ENABLE Card 2 flip)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_D_BASE_INPUT,
       mode: 'production',
     });
-    // Family D is admin_validation-only; production mode filter excludes
-    // it entirely. eligibleFamilies = []; rawKeys = [].
-    expect(req.requestedRawKeys.length).toBe(0);
-    expect(req.requestedFamilies.length).toBe(0);
+    // Post Card 2: Family D is productionEnabled; the subset filter is
+    // mode-agnostic, so production mode emits the same 19 ai_classifier
+    // rawKeys as admin_validation mode. See
+    // mcpFamilyDSubsetFilterProductionMode.test.ts SFP-1..SFP-7 for the
+    // dedicated production-mode subset filter binding.
+    expect(req.requestedRawKeys.length).toBe(19);
+    expect(req.requestedFamilies).toEqual(['evidence_source_chain']);
+    const sent = new Set(req.requestedRawKeys);
+    for (const expected of FAMILY_D_AI_CLASSIFIER_KEYS) {
+      expect(sent.has(expected)).toBe(true);
+    }
+    for (const excluded of FAMILY_D_DETERMINISTIC_EXCLUDED_KEYS) {
+      expect(sent.has(excluded)).toBe(false);
+    }
   });
 
   it('SF-10 — multi-family request (D + A) sends Family A all-source + Family D ai_classifier only', () => {

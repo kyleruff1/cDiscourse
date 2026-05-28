@@ -5354,5 +5354,71 @@ Cleans 11 synthetic test rows (2 runs + 9 results, all `provider_key='smoke-mcp:
 
 Q9 observability refinement (Stage 2B Cause-C-only path). The card pivoted from runtime hardening to RCA-backed Q9 classification after the operator's Stage 2B binding decision rejected the broader fix. The RCA at design HEAD `a79c041` found ALL THREE duplicate-run pairs surfaced by the OBSERVABILITY smoke at `0e98c27` are documented audit/smoke re-fires, NOT runtime defects: Pairs 1+2 (admin_validation, ~8h 26m gap) are cross-session admin smoke re-runs (MCP-021C-EDGE-SMOKE + OPS-MCP-FAMILY-VALIDATOR-REFACTOR-SMOKE); Pair 3 (production, 2m 11s gap) is the Phase 6 idempotency smoke from MCP-021C-AUTO-TRIGGER-FAMILY-A-SMOKE. **No migration. No Edge Function change. No `src/` change. No `mcp-server/` change. No production behavior change.** `scripts/ops/sql/09-duplicate-runs.sql` is rewritten with a 2-CTE structure (`run_to_family` + `grouped`) and a `CASE` expression that classifies each duplicate-pair into one of four categories: `audit_or_smoke_rerun` (admin_validation duplicates with `>=1h` gap OR run_id allowlist match for the 3 documented historical pairs); `synthetic_test_data` (`provider_key LIKE 'smoke-%'` — defensive, currently empty post `b8ce07b` cleanup); `needs_investigation` (same-tuple gap `<30s` — race/retry suspect); `organic_duplicate_candidate` (the conservative-default `else` branch — every duplicate-pair the SQL cannot provably classify into the other three falls here so real risk is NEVER hidden). The runner library `scripts/ops/mcp-observability-report-lib.cjs` Q9 SECTIONS entry gains `classification` as an 8th column and the question / title strings convey the four-category grammar; the seven pre-existing columns (`argument_id`, `family`, `run_mode`, `schema_version`, `provider_key`, `model_name`, `duplicate_successful_runs`) are preserved byte-equal. Live-DB verification at implement time: all 3 historical pairs classify as `audit_or_smoke_rerun`; zero rows in `organic_duplicate_candidate`, `needs_investigation`, or `synthetic_test_data` (the clean current state). New test file `__tests__/opsMcpIdempotencyHardening.test.ts` (+28 tests across 6 groups): classification categories (5), runner column contract (2), classification logic conservative + data-derived (6 including the `else` conservative-default invariant), header documentation Stage-2B-aware + heuristic + RCA + audit-doc citation (6), binding NO-GO defense — no DDL keywords, no `admin_force_rerun` column reference, no `forceRerun` request-param reference, no unique-index reference, only reads runs + results tables (5), doctrine ban-list + safety (4). Pattern follows `__tests__/opsMcpObservabilityQ12SemanticTightening.test.ts` (pure Jest; `fs.readFileSync`; regex/substring assertions; no live DB call). The design doc `docs/designs/OPS-MCP-IDEMPOTENCY-HARDENING.md` is prepended with a `STAGE 2B SUPERSEDES THIS DESIGN` section documenting the binding NO-GO / GO lists, the implemented Cause-C-only scope, what is NOT implemented vs the rejected broader fix, and an implementer note explaining the operator's rejection rationale; the historical §1-§12 content is preserved below the new top section as audit trail (labeled `HISTORICAL CONTEXT (Stage 2B REJECTED)`). **Test delta: 17,853 → 17,881 passing Jest tests / 561 → 562 suites (+28 / +1).** Targeted regression (`mcpOneTwoOneB|mcpOneTwoOneC|uxOneOneFiveA|opsMcpObservability|opsMcpTestDataCleanup|opsMcpIdempotencyHardening`) all green — 53 suites / 1095 tests. Typecheck + lint exit 0. **Operator follow-up post-merge:** no migration / no Edge deploy required (this card is read-only SQL + tests + docs). The post-merge smoke per intent brief §12 reruns Q9 against the linked DB and verifies all 3 historical pairs surface as `audit_or_smoke_rerun` with zero `organic_duplicate_candidate` rows. On smoke PASS, `MCP-SERVER-005-FAMILY-D` and `MCP-021C-EDGE-FAMILIES-B-C-ENABLE` remain authorized per intent brief §13. The runtime hardening path remains deferred — a future `OPS-MCP-IDEMPOTENCY-HARDENING-RUNTIME` (or equivalent) is NOT filed unless future observability reports show `organic_duplicate_candidate` rows after this filter is applied.
 
+---
+
+## MCP-021C-EDGE-FAMILY-D-ENABLE — Family D production-mode flip (2026-05-27)
+
+**Status:** Implementer phase complete; operator post-merge smoke pending per `docs/designs/MCP-021C-EDGE-FAMILY-D-ENABLE-intent.md` §9 (6-phase smoke).
+
+**Card:** MCP-021C-EDGE-FAMILY-D-ENABLE (Issue [#335](https://github.com/kyleruff/debate-constitution-app/issues/335); Card 2 of 3 in the FAMILY-D-COVERAGE → EDGE-FAMILY-D-ENABLE → FAMILY-E chain).
+
+**Design doc:** `docs/designs/MCP-021C-EDGE-FAMILY-D-ENABLE.md` (committed at `592d73d`).
+
+**Intent brief:** `docs/designs/MCP-021C-EDGE-FAMILY-D-ENABLE-intent.md` (committed at `21f9874`).
+
+Single-boolean production-mode flip for the `evidence_source_chain` (Family D) entry in the Edge `familyRegistry.ts`. After this card ships, every new argument submission fires FOUR sequential production runs (A+B+C+D) instead of three (A+B+C); the auto-trigger dispatcher (registry-derived since Card 1 of the prior launch) extends automatically because `productionEnabledFamilies()` now returns 4 entries. The Edge subset filter at `MCP_SERVER_SUPPORTED_FAMILY_SOURCES['evidence_source_chain'] = {'ai_classifier'}` (PR #332) keeps the 19-key ai_classifier Subset boundary under production mode (subset filter is mode-agnostic by construction; CRITICAL HALT trigger #14 binding). The OPS observability surface (Q11 reframe + Q14 density + Q15 D subset) was already 4-family-aware after `OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE`. The hosted MCP server was already Family-D-capable after `MCP-SERVER-005-FAMILY-D` (admin_validation operational).
+
+**The 1-line diff** at `supabase/functions/_shared/booleanObservations/familyRegistry.ts:86`:
+
+```diff
+   {
+     family: 'evidence_source_chain',
+-    productionEnabled: false,
++    productionEnabled: true,
+     adminValidationEnabled: true,
+   },
+```
+
+That is the entire production-code diff. A/B/C remain `true` (unchanged); E–J remain `false` (unchanged). The header comment in `familyRegistry.ts:5-25` was NOT updated this card (Risk 6 operator-deferred per design § "Operator-deferred review surface"); reviewer may request a minor doc patch.
+
+**New test files (+19 net):**
+
+- `__tests__/edgeFamilyDProductionEnable.test.ts` — **+17 tests** across 4 describe blocks (FDE-1..FDE-12 spread across post-flip binding, E-J admin-only iteration, registry index/order, and A/B/C-unchanged guard). Locks in: D productionEnabled=true, productionEnabledFamilies() returns [A,B,C,D] in registry order, length=4, FDE-7 iterates over E-J only (no D), Family D occupies registry index 3, A/B/C remain productionEnabled=true. The +5 over the design's +12 forecast (FDE-8..FDE-12) are tightly bound to HALT trigger #2 (A/B/C unchanged) and Family D registry-position invariants — doctrinally appropriate; still well within the +20 to +50 intent brief budget.
+
+- `__tests__/mcpFamilyDSubsetFilterProductionMode.test.ts` — **+7 tests** (SFP-1..SFP-7). CRITICAL: production-mode subset filter binding for HALT trigger #14. SFP-1 asserts exactly 19 ai_classifier rawKeys under production mode (not 27); SFP-2 enumerates the 19-key set; SFP-3 enumerates the 6 unique excluded deterministic keys (all absent); SFP-4 asserts definitions map size 19; SFP-5 asserts every emitted definition has `source: 'ai_classifier'`; SFP-6 asserts production and admin_validation modes emit byte-equal rawKey sets (subset filter is mode-agnostic); SFP-7 asserts production-mode multi-family request (D + A) sends 19 D ai_classifier + 16 A full = 35 (subset filter composes correctly). Mirror of `mcpFamilyDEdgeMcpSubsetFilter.test.ts` SF-1..SF-5 and SF-10 with `mode: 'production'`.
+
+**Updated test files (+1 net; 7 files; mechanical stale-assertion bumps):** 
+
+- `mcpOneTwoOneCEdgeFamilyRegistry.test.ts`: FR-5, FR-6, FR-7, FR-16, FR-26, FR-28, FR-30, FR-32 — production list expands from A+B+C to A+B+C+D; D moves from "production-disabled" to "production-enabled" set; FR-7 + FR-28 + FR-32 admin-only iteration narrows from D-J to E-J.
+- `mcpOneTwoOneCEdgeFamilyEnablement.test.ts`: FE-1 (THREE → FOUR), FE-2 (list expands to A+B+C+D), FE-3 (productionEnabledFamilies() returns 4-element list), FE-4 (length 3 → 4), FE-7 iteration list drops `evidence_source_chain`. **Adds FE-11** (D explicit production flip assertion) per design plan; this is the +1 net.
+- `mcpOneTwoOneCEdgeFamilyRegistryFamilyD.test.ts`: FD-2 (productionEnabled false → true), FD-4 (NOT include → include), FD-6 (returns empty → keeps D); header doc updated to reflect post-Card-2 binding semantics.
+- `mcpOneTwoOneCEdgeAdminValidationMode.test.ts`: AVM-11 (drops D → keeps D), AVM-13 (mixed-list filter now keeps A+B+D).
+- `mcpFamilyDEdgeMcpSubsetFilter.test.ts`: SF-9 flips from "empty rawKeys (productionEnabled=false)" to "19 ai_classifier rawKeys" (assertions inside SF-9 widened to verify both the 19-key set and the 6-key excluded set under production mode).
+- `mcpOneTwoOneCAutoTriggerFamiliesABCRegistryDerived.test.ts`: DREG-29 expands from [A, B, C] to [A, B, C, D]; DREG-31 admin-only registry-source scan narrows from D-J to E-J.
+- `mcpOneTwoOneCEdgeFamilyARequest.test.ts`: FA-14 widens ALLOWED_PRODUCTION_FAMILIES set to include `evidence_source_chain`; describe label updated from "filters out D-J" to "filters out E-J"; "forbidden family" assertion repurposed to Family C (misunderstanding_repair) which was not requested in the test input.
+
+**Verification gates:**
+
+- `npm run typecheck`: exit 0.
+- `npm run lint`: exit 0.
+- Full Jest sweep: **17,984 → 18,008 passing tests (+24) / 567 → 568 suites (+1).** All gates green.
+- Targeted Jest regression (`(mcpOneTwoOneC|mcpFamilyD|edgeFamilyD|opsMcp)`): 43 suites / 829 tests / 0 failures.
+- `cd mcp-server && deno test`: 614 passed (byte-equal to baseline; no `mcp-server/*` file touched).
+
+**Doctrine self-check CLEAN.** No verdict tokens in any new string; no truth labels; no user-facing string changes; new tests are pure-TS structural assertions. Doctrine §1 (production flip is a routing decision, never a verdict on family quality), §10a (Family D rows persist as Machine Observations), §7 (no AI calls leak to client; all classification stays inside Edge Functions + the hosted MCP server) all preserved. supabase-edge-contract preserved: no service-role in client, no direct insert into `public.arguments`, no migration, no RLS change, no logging-rule violation.
+
+**All 18 HALT triggers from intent brief §6 CLEAN:** (1) familyRegistry edit affects only Family D (1-line diff verified by `git diff --stat`); (2) A/B/C productionEnabled unchanged (FDE-10..FDE-12 + FR-5, FE-9, FE-10 post-flip assertions); (3) Auto-trigger dispatcher hard-codes families — IMPOSSIBLE (no dispatcher edit; DREG-2 still passes); (4) Source 6 filter change — none (no `machineObservationPersistenceQuery.ts` edit); (5) Persistence schema change — none (no migration); (6+14) Subset filter weakened under production mode — STRUCTURALLY IMPOSSIBLE per SFP-1..SFP-7 + Phase A.3 trace (no `booleanObservationRequestBuilder.ts` edit); (7) New taxonomy keys — none; (8) MCP schema version change — none; (9) Family A/B/C/D prompt changes — none; (10) Hosted MCP server file changes — none (`mcp-server/*` untouched; Deno 614 byte-equal preserved); (11+12) Secret/log leak — none (no log-statement change); (13) Auto-trigger broken for A/B/C — IMPOSSIBLE (no dispatcher change; per-iteration try/catch isolation preserved); (15) Test forecast > +100 — actual +24, well below; (16) D production runs don't persist — preserved (no `classifyArgumentCore.ts` edit; persistence path unchanged); (17) Verdict tokens in user-facing strings — none (new tests are pure-TS structural assertions); (18) Unclassified untracked files at PR creation — the 10 documented operator-territory files remain (4 testing-runs + netlify-prod.git + mcp021c-edge-smoke-* + phase5-mcpserver002-*).
+
+**Operator follow-up (no manual deploy required — Supabase GitHub integration auto-deploys on merge):**
+
+1. `submit-argument` Edge Function redeploys automatically via the GitHub integration (per `supabase-merge-autodeploy.md` memory). The `classify-argument-boolean-observations` Edge Function does too (also picks up the new `familyRegistry.ts` source). Wait ~30-90s post-merge for auto-deploy completion.
+2. Run the 6-phase post-merge smoke per intent brief §9, audit at `docs/audits/MCP-021C-EDGE-FAMILY-D-ENABLE-SMOKE-<date>.md`. Phase 2 submits one new argument and verifies 4 production runs (A+B+C+D) created with `status='success'` and Family D run sending only 19 ai_classifier keys. Phase 3 verifies Family D production results ⊆ 19-key Subset (0 deterministic keys). Phase 4 verifies Source 6 multi-family read shows A+B+C+D raw_keys. Phase 5 verifies observability adapts (Q11 / Q14 / Q15). Phase 6 verifies A/B/C unregressed + Family D admin_validation still works + targeted Jest regression exit 0.
+3. **On smoke PASS:** AUTHORIZED to proceed to INTER-CARD CHECKPOINT B (SOFT gate; ~2-min window) → `MCP-SERVER-006-FAMILY-E` design (Card 3 of the chain).
+4. **Emergency rollback:** if Family D production produces systemic failures, flip `semantic_referee_runtime_config.enabled = false` via SQL — this halts auto-trigger for ALL families (A+B+C+D) until re-enabled. Per-family rollback for just D requires a follow-up PR flipping the boolean back; the kill switch is dispatch-wide.
+
+**Operator-deferred review (per design § "Operator-deferred review surface"):** (a) Verify Phase 2 smoke captures the first 4-family auto-trigger cleanly. (b) Decide whether to amend the `familyRegistry.ts` header comment to reflect the post-Card-2 state (Risk 6; doc-only). (c) Confirm Q14 density shows D production density alongside A/B/C. (d) Confirm INTER-CARD CHECKPOINT B before authorizing Card 3.
+
+See `docs/designs/MCP-021C-EDGE-FAMILY-D-ENABLE.md` for the binding design, the read-only boundary list, the 18-HALT-trigger structural-check table, and the Phase A.1–A.4 audit conclusions.
+
 
 

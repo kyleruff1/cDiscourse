@@ -83,7 +83,7 @@ export const FAMILY_REGISTRY: ReadonlyArray<FamilyRegistryEntry> = Object.freeze
   },
   {
     family: 'evidence_source_chain',
-    productionEnabled: false,
+    productionEnabled: true,
     adminValidationEnabled: true,
   },
   {
