@@ -29,6 +29,11 @@ const DEFAULTS = Object.freeze({
   docPath: null,
   reportOnly: false,
   help: false,
+  // OPS-MCP-SMOKE-LINT-CI-WIRING — CI classifier mode
+  classifyChanged: false,
+  baseSha: null,
+  headSha: null,
+  changedListStdin: false,
 });
 
 function parseCliArgs(argv) {
@@ -46,6 +51,32 @@ function parseCliArgs(argv) {
       options.reportOnly = true;
       continue;
     }
+    if (a === '--classify-changed') {
+      options.classifyChanged = true;
+      continue;
+    }
+    if (a === '--changed-list-stdin') {
+      options.changedListStdin = true;
+      continue;
+    }
+    if (a === '--base') {
+      const next = argv[i + 1];
+      if (typeof next !== 'string' || next.length === 0 || next.startsWith('--')) {
+        return { ok: false, error: 'Missing value for --base <sha>' };
+      }
+      options.baseSha = next;
+      i += 1;
+      continue;
+    }
+    if (a === '--head') {
+      const next = argv[i + 1];
+      if (typeof next !== 'string' || next.length === 0 || next.startsWith('--')) {
+        return { ok: false, error: 'Missing value for --head <sha>' };
+      }
+      options.headSha = next;
+      i += 1;
+      continue;
+    }
     if (a.startsWith('--')) {
       return { ok: false, error: `Unknown flag: ${a}` };
     }
@@ -57,6 +88,52 @@ function parseCliArgs(argv) {
     }
     options.docPath = a;
   }
+
+  // Cross-flag validation for classify-changed mode.
+  if (options.classifyChanged) {
+    if (options.docPath !== null) {
+      return {
+        ok: false,
+        error:
+          'positional <doc-path> is not allowed with --classify-changed (this mode emits paths; it does not lint one)',
+      };
+    }
+    if (!options.changedListStdin) {
+      if (options.baseSha === null) {
+        return {
+          ok: false,
+          error: '--classify-changed requires --base <sha>',
+        };
+      }
+      if (options.headSha === null) {
+        return {
+          ok: false,
+          error: '--classify-changed requires --head <sha>',
+        };
+      }
+    }
+  } else {
+    // --base / --head are only valid inside classify-changed mode.
+    if (options.baseSha !== null) {
+      return {
+        ok: false,
+        error: '--base is only valid with --classify-changed',
+      };
+    }
+    if (options.headSha !== null) {
+      return {
+        ok: false,
+        error: '--head is only valid with --classify-changed',
+      };
+    }
+    if (options.changedListStdin) {
+      return {
+        ok: false,
+        error: '--changed-list-stdin is only valid with --classify-changed',
+      };
+    }
+  }
+
   return { ok: true, options };
 }
 
@@ -66,15 +143,27 @@ function helpText() {
     '',
     'USAGE:',
     '  node scripts/ops/audit-lint.mjs <doc-path> [--report-only]',
+    '  node scripts/ops/audit-lint.mjs --classify-changed --base <sha> --head <sha>',
+    '  node scripts/ops/audit-lint.mjs --classify-changed --changed-list-stdin',
     '  node scripts/ops/audit-lint.mjs --help',
     '',
     'FLAGS:',
-    '  --report-only   Print findings + counts; exit 0 even if findings present.',
-    '                  Used for corpus census without blocking.',
-    '  --help, -h      Show this help.',
+    '  --report-only           Print findings + counts; exit 0 even if findings present.',
+    '                          Used for corpus census without blocking.',
+    '  --classify-changed      Emit one in-scope path per line (stdout); no linting.',
+    '                          Used by .github/workflows/audit-lint.yml to compute the',
+    '                          per-PR scoping set. Exits 0 even on empty output.',
+    '  --base <sha>            Required with --classify-changed (unless --changed-list-stdin).',
+    '                          The PR base SHA; the workflow passes the PR base.sha here.',
+    '  --head <sha>            Required with --classify-changed (unless --changed-list-stdin).',
+    '                          The PR head SHA; the workflow passes the PR head.sha here.',
+    '  --changed-list-stdin    Read <status>\\t<path> lines from stdin instead of running',
+    '                          git diff. Operator-debug / test seam only; the workflow does',
+    '                          NOT use this flag.',
+    '  --help, -h              Show this help.',
     '',
     'EXIT CODES:',
-    '  0  No findings (or --report-only flag set)',
+    '  0  No findings (or --report-only flag set, or --classify-changed mode)',
     '  1  At least one rule violation',
     '  2  Parse error (verdict not extractable; malformed doc)',
     '  3  File not found or unreadable',

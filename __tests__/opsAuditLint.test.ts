@@ -1455,3 +1455,99 @@ describe('OPS-MCP-SMOKE-LINT-CI-WIRING — classifyChangedFiles truth table', ()
     expect(calls).toEqual([UNMARKED_PATH]);
   });
 });
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — marker string single-source', () => {
+  it('classifyChangedFiles uses the same MARKER_STRING as audit-lint-rules.cjs', () => {
+    // Re-use the existing marker-presence path via parseAuditDoc as the
+    // ground truth: classifyChangedFiles must treat a doc whose body
+    // contains rules.MARKER_STRING as marked, and a doc whose body does
+    // NOT contain that exact string as unmarked.
+    const markedBody = `# x\n\n${rules.MARKER_STRING}\n\nbody`;
+    const unmarkedBody = '# x\n\nbody';
+    const reader = (p: string) =>
+      p === 'docs/audits/M-SMOKE.md'
+        ? parseAuditDoc(markedBody).hasMarker
+        : p === 'docs/audits/U-SMOKE.md'
+          ? parseAuditDoc(unmarkedBody).hasMarker
+          : false;
+    const inScope = classifyChangedFiles(
+      [
+        { status: 'M', path: 'docs/audits/M-SMOKE.md' },
+        { status: 'M', path: 'docs/audits/U-SMOKE.md' },
+      ],
+      reader,
+    );
+    expect(inScope).toEqual(['docs/audits/M-SMOKE.md']);
+  });
+
+  it('audit-lint-lib source: no literal "Audit-Lint: v1" string outside rules import', () => {
+    // The lib MUST source the marker from the rules file via require().
+    // No literal duplication permitted (HALT trigger 11).
+    const src = fs.readFileSync(LIB_PATH, 'utf8');
+    expect(src).not.toContain("'Audit-Lint: v1'");
+    expect(src).not.toContain('"Audit-Lint: v1"');
+  });
+
+  it('audit-lint.mjs source: no literal "Audit-Lint: v1" string', () => {
+    const src = fs.readFileSync(SCRIPT_PATH, 'utf8');
+    expect(src).not.toContain("'Audit-Lint: v1'");
+    expect(src).not.toContain('"Audit-Lint: v1"');
+  });
+});
+
+describe('OPS-MCP-SMOKE-LINT-CI-WIRING — --classify-changed CLI parsing', () => {
+  it('parses --classify-changed --base SHA1 --head SHA2', () => {
+    const result = parseCliArgs([
+      '--classify-changed',
+      '--base',
+      'abc123',
+      '--head',
+      'def456',
+    ]);
+    expect(result.ok).toBe(true);
+    expect(result.options?.classifyChanged).toBe(true);
+    expect(result.options?.baseSha).toBe('abc123');
+    expect(result.options?.headSha).toBe('def456');
+  });
+
+  it('rejects --classify-changed with positional doc path', () => {
+    const result = parseCliArgs([
+      '--classify-changed',
+      '--base',
+      'a',
+      '--head',
+      'b',
+      'docs/x.md',
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/positional|classify-changed/i);
+  });
+
+  it('rejects --classify-changed without --base', () => {
+    const result = parseCliArgs(['--classify-changed', '--head', 'b']);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/--base/);
+  });
+
+  it('rejects --classify-changed without --head', () => {
+    const result = parseCliArgs(['--classify-changed', '--base', 'a']);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/--head/);
+  });
+
+  it('parses --changed-list-stdin as alternative to --base/--head', () => {
+    const result = parseCliArgs([
+      '--classify-changed',
+      '--changed-list-stdin',
+    ]);
+    expect(result.ok).toBe(true);
+    expect(result.options?.classifyChanged).toBe(true);
+    expect(result.options?.changedListStdin).toBe(true);
+  });
+
+  it('rejects --base/--head outside --classify-changed mode', () => {
+    const result = parseCliArgs(['docs/x.md', '--base', 'a']);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/--base|classify-changed/i);
+  });
+});
