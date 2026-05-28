@@ -1,0 +1,32 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-e-no-scheme-adversarial-node",
+    "parentNodeId": "fixture-e-no-scheme-adversarial-parent",
+    "currentText": "[fixture] Yes, I attended the city council meeting last week. The room was full. The mayor spoke first, then several council members, then the public comment period began. The session lasted about two hours.",
+    "parentText": "[fixture] Was the city council meeting well-attended?",
+    "threadContextExcerpt": "[fixture] Debate room: city council meeting attendance. Move is pure description; no inferential scheme is the primary support. All 16 schemes should return false on this content (adversarial discriminator).",
+    "requestedFamilies": ["argument_scheme"],
+    "requestedRawKeys": [
+      "causal_reasoning_present",
+      "analogy_reasoning_present",
+      "example_reasoning_present",
+      "authority_reasoning_present",
+      "consequence_reasoning_present",
+      "principle_reasoning_present",
+      "definition_reasoning_present",
+      "classification_reasoning_present",
+      "precedent_reasoning_present",
+      "means_end_reasoning_present",
+      "tradeoff_reasoning_present",
+      "abductive_explanation_present",
+      "exception_reasoning_present",
+      "slippery_slope_reasoning_present",
+      "cost_benefit_reasoning_present",
+      "risk_reasoning_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

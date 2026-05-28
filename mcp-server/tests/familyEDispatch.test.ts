@@ -1,27 +1,22 @@
 /**
- * MCP-SERVER-005-FAMILY-D — Family D tool dispatcher tests.
+ * MCP-SERVER-006-FAMILY-E — Family E tool dispatcher tests.
  *
  * Critical invariants:
- *   - Family D fixture-mode request returns a Family D canonical response
- *     (classifierSetVersion='family-d-v1', 19 keys, no Family A / B / C keys).
- *   - Family A, B, C fixture-mode requests continue to return their
+ *   - Family E fixture-mode request returns a Family E canonical response
+ *     (classifierSetVersion='family-e-v1', 16 keys, no Family A/B/C/D keys).
+ *   - Family A, B, C, D fixture-mode requests continue to return their
  *     respective canonical responses (regression — byte-equal preservation).
- *   - 4-way cross-family rejection: each family's keys rejected under
- *     other 3 families (12 combinations + 4 sanity).
- *   - Unregistered families (E-J) return unsupported_family with all four
- *     supported families in the envelope.
- *   - The 8 excluded deterministic Family D rawKeys return unsupported_rawKey
- *     when requested under evidence_source_chain (Stage 2B safeguard).
- *   - Tool description advertises Family D alongside A, B, C.
+ *   - 5-way cross-family rejection: each family's keys rejected under
+ *     other 4 families (20 combinations sampled + 5 sanity).
+ *   - Unregistered families (F-J) return unsupported_family with the
+ *     supportedFamilies envelope including all five real families.
+ *   - Tool description advertises Family E alongside A, B, C, D.
  *
  * All tests run under MCP_SERVER_USE_FIXTURE_PROVIDER=true so no Anthropic
- * call is made. The Family D canonical fixture file is added in Commit 5;
- * this dispatch test schedules but does not actually exercise the fixture
- * load until Commit 5 lands.
+ * call is made.
  */
 import { assertEquals } from 'std/assert/mod.ts';
 import { handleClassifyArgumentBooleanObservations } from '../tools/classifyArgumentBooleanObservations.ts';
-import { FAMILY_D_EXCLUDED_DETERMINISTIC_RAW_KEYS } from '../lib/familyDKeys.ts';
 
 const SCHEMA_VERSION = 'mcp-021.machine-observations.boolean.v1';
 
@@ -32,6 +27,22 @@ function withFixtureEnv<T>(fn: () => Promise<T>): Promise<T> {
     if (prev === undefined) Deno.env.delete('MCP_SERVER_USE_FIXTURE_PROVIDER');
     else Deno.env.set('MCP_SERVER_USE_FIXTURE_PROVIDER', prev);
   });
+}
+
+function familyERequest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    nodeId: 'fixture-node-e-1',
+    parentNodeId: null,
+    currentText: 'If we permit this, agencies will start defining acceptable speech, then expand the categories, then arrive at full suppression.',
+    parentText: 'A targeted regulation against fraudulent product claims has been proposed.',
+    threadContextExcerpt: 'fixture Family E thread context',
+    requestedFamilies: ['argument_scheme'],
+    requestedRawKeys: ['slippery_slope_reasoning_present', 'causal_reasoning_present'],
+    definitions: {},
+    timeoutMs: 12000,
+    ...overrides,
+  };
 }
 
 function familyDRequest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -98,47 +109,50 @@ function familyARequest(overrides: Record<string, unknown> = {}): Record<string,
   };
 }
 
-Deno.test('dispatch: Family D request routes to Family D fixture provider (family-d-v1)', async () => {
+Deno.test('dispatch: Family E request routes to Family E fixture provider (family-e-v1)', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: familyDRequest(),
-      requestId: 'r-dispatch-d-1',
+      rawArgs: familyERequest(),
+      requestId: 'r-dispatch-e-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, false);
     const sc = result.structuredContent as Record<string, unknown>;
     const modelInfo = sc.modelInfo as Record<string, unknown>;
-    assertEquals(modelInfo.classifierSetVersion, 'family-d-v1');
+    assertEquals(modelInfo.classifierSetVersion, 'family-e-v1');
   });
 });
 
-Deno.test('dispatch: Family D fixture response uses only the 19 Subset keys (not Family A/B/C keys)', async () => {
+Deno.test('dispatch: Family E fixture response uses only the 16 Family E keys (not Family A/B/C/D keys)', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: familyDRequest(),
-      requestId: 'r-dispatch-d-2',
+      rawArgs: familyERequest(),
+      requestId: 'r-dispatch-e-2',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, false);
     const sc = result.structuredContent as Record<string, unknown>;
     const checkedRawKeys = sc.checkedRawKeys as string[];
-    // source_provided is a Family D key; supports_parent is Family A;
-    // disagreement_present is Family B; offers_candidate_understanding is
-    // Family C. The Family D response MUST NOT include any of the Family
-    // A/B/C keys.
-    if (!checkedRawKeys.includes('source_provided')) {
-      throw new Error('Family D dispatch did not return source_provided');
+    // slippery_slope_reasoning_present is a Family E key; supports_parent is A;
+    // disagreement_present is B; offers_candidate_understanding is C;
+    // source_provided is D. The Family E response MUST NOT include any of
+    // the Family A/B/C/D keys.
+    if (!checkedRawKeys.includes('slippery_slope_reasoning_present')) {
+      throw new Error('Family E dispatch did not return slippery_slope_reasoning_present');
     }
     if (checkedRawKeys.includes('supports_parent')) {
-      throw new Error('Family D dispatch incorrectly returned Family A rawKey supports_parent');
+      throw new Error('Family E dispatch incorrectly returned Family A rawKey supports_parent');
     }
     if (checkedRawKeys.includes('disagreement_present')) {
-      throw new Error('Family D dispatch incorrectly returned Family B rawKey disagreement_present');
+      throw new Error('Family E dispatch incorrectly returned Family B rawKey disagreement_present');
     }
     if (checkedRawKeys.includes('offers_candidate_understanding')) {
-      throw new Error('Family D dispatch incorrectly returned Family C rawKey offers_candidate_understanding');
+      throw new Error('Family E dispatch incorrectly returned Family C rawKey offers_candidate_understanding');
+    }
+    if (checkedRawKeys.includes('source_provided')) {
+      throw new Error('Family E dispatch incorrectly returned Family D rawKey source_provided');
     }
   });
 });
@@ -188,14 +202,33 @@ Deno.test('dispatch: Family C request continues to route to Family C fixture pro
   });
 });
 
-Deno.test('dispatch: 4-way cross-family rejection (Family A rawKey under evidence_source_chain) returns unsupported_rawKey', async () => {
+Deno.test('dispatch: Family D request continues to route to Family D fixture provider (regression)', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: familyDRequest({
-        requestedRawKeys: ['supports_parent'], // Family A key under D
+      rawArgs: familyDRequest(),
+      requestId: 'r-dispatch-d-1',
+      envelope: 'jsonRpc',
+    });
+    assertEquals(result.isError, false);
+    const sc = result.structuredContent as Record<string, unknown>;
+    const modelInfo = sc.modelInfo as Record<string, unknown>;
+    assertEquals(modelInfo.classifierSetVersion, 'family-d-v1');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// 5-way cross-family rejection (A↔E, B↔E, C↔E, D↔E + sanity)
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('dispatch: 5-way cross-family rejection (Family A rawKey under argument_scheme) returns unsupported_rawKey', async () => {
+  await withFixtureEnv(async () => {
+    const result = await handleClassifyArgumentBooleanObservations({
+      toolName: 'classify_argument_boolean_observations',
+      rawArgs: familyERequest({
+        requestedRawKeys: ['supports_parent'],
       }),
-      requestId: 'r-dispatch-cross-d-a',
+      requestId: 'r-dispatch-cross-e-a',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -208,14 +241,14 @@ Deno.test('dispatch: 4-way cross-family rejection (Family A rawKey under evidenc
   });
 });
 
-Deno.test('dispatch: 4-way cross-family rejection (Family B rawKey under evidence_source_chain) returns unsupported_rawKey', async () => {
+Deno.test('dispatch: 5-way cross-family rejection (Family B rawKey under argument_scheme) returns unsupported_rawKey', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: familyDRequest({
-        requestedRawKeys: ['disputes_definition'], // Family B key under D
+      rawArgs: familyERequest({
+        requestedRawKeys: ['disputes_definition'],
       }),
-      requestId: 'r-dispatch-cross-d-b',
+      requestId: 'r-dispatch-cross-e-b',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -228,14 +261,14 @@ Deno.test('dispatch: 4-way cross-family rejection (Family B rawKey under evidenc
   });
 });
 
-Deno.test('dispatch: 4-way cross-family rejection (Family C rawKey under evidence_source_chain) returns unsupported_rawKey', async () => {
+Deno.test('dispatch: 5-way cross-family rejection (Family C rawKey under argument_scheme) returns unsupported_rawKey', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: familyDRequest({
-        requestedRawKeys: ['offers_candidate_understanding'], // Family C key under D
+      rawArgs: familyERequest({
+        requestedRawKeys: ['offers_candidate_understanding'],
       }),
-      requestId: 'r-dispatch-cross-d-c',
+      requestId: 'r-dispatch-cross-e-c',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -248,14 +281,14 @@ Deno.test('dispatch: 4-way cross-family rejection (Family C rawKey under evidenc
   });
 });
 
-Deno.test('dispatch: 4-way cross-family rejection (Family D rawKey under parent_relation) returns unsupported_rawKey', async () => {
+Deno.test('dispatch: 5-way cross-family rejection (Family D rawKey under argument_scheme) returns unsupported_rawKey', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: familyARequest({
-        requestedRawKeys: ['source_provided'], // Family D key under A
+      rawArgs: familyERequest({
+        requestedRawKeys: ['source_provided'],
       }),
-      requestId: 'r-dispatch-cross-a-d',
+      requestId: 'r-dispatch-cross-e-d',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -268,14 +301,34 @@ Deno.test('dispatch: 4-way cross-family rejection (Family D rawKey under parent_
   });
 });
 
-Deno.test('dispatch: 4-way cross-family rejection (Family D rawKey under disagreement_axis) returns unsupported_rawKey', async () => {
+Deno.test('dispatch: 5-way cross-family rejection (Family E rawKey under parent_relation) returns unsupported_rawKey', async () => {
+  await withFixtureEnv(async () => {
+    const result = await handleClassifyArgumentBooleanObservations({
+      toolName: 'classify_argument_boolean_observations',
+      rawArgs: familyARequest({
+        requestedRawKeys: ['slippery_slope_reasoning_present'],
+      }),
+      requestId: 'r-dispatch-cross-a-e',
+      envelope: 'jsonRpc',
+    });
+    assertEquals(result.isError, true);
+    const sc = result.structuredContent as {
+      reason: string;
+      unsupportedRawKeys?: string[];
+    };
+    assertEquals(sc.reason, 'unsupported_rawKey');
+    assertEquals(sc.unsupportedRawKeys, ['slippery_slope_reasoning_present']);
+  });
+});
+
+Deno.test('dispatch: 5-way cross-family rejection (Family E rawKey under disagreement_axis) returns unsupported_rawKey', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyBRequest({
-        requestedRawKeys: ['evidence_gap_present'], // Family D key under B
+        requestedRawKeys: ['causal_reasoning_present'],
       }),
-      requestId: 'r-dispatch-cross-b-d',
+      requestId: 'r-dispatch-cross-b-e',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -284,18 +337,18 @@ Deno.test('dispatch: 4-way cross-family rejection (Family D rawKey under disagre
       unsupportedRawKeys?: string[];
     };
     assertEquals(sc.reason, 'unsupported_rawKey');
-    assertEquals(sc.unsupportedRawKeys, ['evidence_gap_present']);
+    assertEquals(sc.unsupportedRawKeys, ['causal_reasoning_present']);
   });
 });
 
-Deno.test('dispatch: 4-way cross-family rejection (Family D rawKey under misunderstanding_repair) returns unsupported_rawKey', async () => {
+Deno.test('dispatch: 5-way cross-family rejection (Family E rawKey under misunderstanding_repair) returns unsupported_rawKey', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyCRequest({
-        requestedRawKeys: ['burden_request_present'], // Family D key under C
+        requestedRawKeys: ['analogy_reasoning_present'],
       }),
-      requestId: 'r-dispatch-cross-c-d',
+      requestId: 'r-dispatch-cross-c-e',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -304,18 +357,39 @@ Deno.test('dispatch: 4-way cross-family rejection (Family D rawKey under misunde
       unsupportedRawKeys?: string[];
     };
     assertEquals(sc.reason, 'unsupported_rawKey');
-    assertEquals(sc.unsupportedRawKeys, ['burden_request_present']);
+    assertEquals(sc.unsupportedRawKeys, ['analogy_reasoning_present']);
   });
 });
 
-Deno.test('dispatch: unsupported family F (critical_question) returns unsupported_family with 5-family supportedFamilies list (post Family E registration)', async () => {
-  // MCP-SERVER-006-FAMILY-E promoted argument_scheme to supported. The
-  // dispatcher's supportedFamilies list now includes 5 entries; the
-  // remaining unsupported families F/G/H/I/J each return unsupported_family.
+Deno.test('dispatch: 5-way cross-family rejection (Family E rawKey under evidence_source_chain) returns unsupported_rawKey', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyDRequest({
+        requestedRawKeys: ['precedent_reasoning_present'],
+      }),
+      requestId: 'r-dispatch-cross-d-e',
+      envelope: 'jsonRpc',
+    });
+    assertEquals(result.isError, true);
+    const sc = result.structuredContent as {
+      reason: string;
+      unsupportedRawKeys?: string[];
+    };
+    assertEquals(sc.reason, 'unsupported_rawKey');
+    assertEquals(sc.unsupportedRawKeys, ['precedent_reasoning_present']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Unsupported families F-J
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('dispatch: unsupported family F (critical_question) returns unsupported_family with 5-family supportedFamilies list', async () => {
+  await withFixtureEnv(async () => {
+    const result = await handleClassifyArgumentBooleanObservations({
+      toolName: 'classify_argument_boolean_observations',
+      rawArgs: familyERequest({
         requestedFamilies: ['critical_question'],
       }),
       requestId: 'r-dispatch-f-1',
@@ -339,39 +413,25 @@ Deno.test('dispatch: unsupported family F (critical_question) returns unsupporte
   });
 });
 
-Deno.test('dispatch: 8 excluded deterministic Family D rawKeys all return unsupported_rawKey (Stage 2B safeguard)', async () => {
-  // Stage 2B operator binding: the 8 excluded deterministic Family D
-  // rawKeys (5 auto_metadata + 3 lifecycle; 6 unique strings) MUST NOT
-  // be silently converted into model-inferred keys. Requesting any of
-  // them under requestedFamilies=['evidence_source_chain'] returns
-  // unsupported_rawKey at the registry boundary. The dispatcher MUST
-  // NOT route them to the Family D Anthropic call.
+Deno.test('dispatch: unsupported families G/H/I/J all return unsupported_family', async () => {
   await withFixtureEnv(async () => {
-    for (const excludedKey of FAMILY_D_EXCLUDED_DETERMINISTIC_RAW_KEYS) {
+    for (const family of ['resolution_progress', 'claim_clarity', 'thread_topology', 'sensitive_composer']) {
       const result = await handleClassifyArgumentBooleanObservations({
         toolName: 'classify_argument_boolean_observations',
-        rawArgs: familyDRequest({
-          requestedRawKeys: [excludedKey],
+        rawArgs: familyERequest({
+          requestedFamilies: [family],
         }),
-        requestId: `r-dispatch-d-excluded-${excludedKey}`,
+        requestId: `r-dispatch-unsup-${family}`,
         envelope: 'jsonRpc',
       });
-      assertEquals(result.isError, true, `Excluded rawKey '${excludedKey}' must be rejected`);
-      const sc = result.structuredContent as {
-        reason: string;
-        unsupportedRawKeys?: string[];
-      };
-      assertEquals(sc.reason, 'unsupported_rawKey');
-      assertEquals(sc.unsupportedRawKeys, [excludedKey]);
+      assertEquals(result.isError, true, `${family} should be unsupported`);
+      const sc = result.structuredContent as { reason: string };
+      assertEquals(sc.reason, 'unsupported_family');
     }
   });
 });
 
-Deno.test('dispatch: Family D tool description advertises Family D alongside A, B, C', () => {
-  // Defensive doctrine check: the tool description must include all four
-  // family names so MCP clients (e.g., Edge adapter, hosted smoke) can
-  // route requests correctly. The tool description text is part of the
-  // wire contract.
+Deno.test('dispatch: Family E tool description advertises Family E alongside A, B, C, D', () => {
   return import('../tools/classifyArgumentBooleanObservations.ts').then((mod) => {
     const description = mod.CLASSIFY_BOOLEAN_OBSERVATIONS_TOOL.description;
     if (!description.includes('Family A')) {
@@ -386,20 +446,20 @@ Deno.test('dispatch: Family D tool description advertises Family D alongside A, 
     if (!description.includes('Family D')) {
       throw new Error('Tool description missing "Family D"');
     }
+    if (!description.includes('Family E')) {
+      throw new Error('Tool description missing "Family E"');
+    }
     if (!description.includes('parent_relation')) {
       throw new Error('Tool description missing "parent_relation"');
     }
-    if (!description.includes('disagreement_axis')) {
-      throw new Error('Tool description missing "disagreement_axis"');
+    if (!description.includes('argument_scheme')) {
+      throw new Error('Tool description missing "argument_scheme"');
     }
-    if (!description.includes('misunderstanding_repair')) {
-      throw new Error('Tool description missing "misunderstanding_repair"');
+    if (!description.includes('Walton')) {
+      throw new Error('Tool description missing Family E "Walton" reference');
     }
-    if (!description.includes('evidence_source_chain')) {
-      throw new Error('Tool description missing "evidence_source_chain"');
-    }
-    if (!description.includes('19-key ai_classifier Subset')) {
-      throw new Error('Tool description missing Family D Subset description');
+    if (!description.includes('slippery-slope')) {
+      throw new Error('Tool description missing "slippery-slope" reference');
     }
   });
 });

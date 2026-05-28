@@ -122,15 +122,15 @@ Deno.test('boolean tool rejects schemaVersion mismatch with invalid_params', asy
   });
 });
 
-Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_family (E/F/G/H/I/J remain unsupported)', async () => {
+Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_family (F/G/H/I/J remain unsupported)', async () => {
   await withFixtureEnv(async () => {
-    // MCP-SERVER-005-FAMILY-D added Family D (evidence_source_chain).
-    // The test uses 'argument_scheme' (Family E) which remains
-    // unsupported. The supportedFamilies envelope now lists all four
-    // registered families (Family A, B, C, D).
+    // MCP-SERVER-006-FAMILY-E promoted Family E (argument_scheme) to
+    // supported. The test now uses 'critical_question' (Family F) which
+    // remains unsupported. The supportedFamilies envelope now lists all
+    // five registered families (Family A, B, C, D, E).
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: validRequest({ requestedFamilies: ['argument_scheme'] }),
+      rawArgs: validRequest({ requestedFamilies: ['critical_question'] }),
       requestId: 'r-bad-family-1',
       envelope: 'jsonRpc',
     });
@@ -141,12 +141,13 @@ Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_f
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['argument_scheme']);
+    assertEquals(sc.requestedFamilies, ['critical_question']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
+      'argument_scheme',
     ]);
   });
 });

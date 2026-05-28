@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-e-slippery-slope-clear-node",
+    "parentNodeId": "fixture-e-slippery-slope-clear-parent",
+    "currentText": "[fixture] If we permit this regulation to pass, government agencies will start defining acceptable speech for one category. Once they do that, they will expand to a second category, then a third, then a fourth — until we have arrived at full-scope content suppression, with no clear stopping point along the way.",
+    "parentText": "[fixture] A targeted regulation against fraudulent product claims has been proposed.",
+    "threadContextExcerpt": "[fixture] Debate room: scope of platform content regulation.",
+    "requestedFamilies": ["argument_scheme"],
+    "requestedRawKeys": [
+      "causal_reasoning_present",
+      "consequence_reasoning_present",
+      "slippery_slope_reasoning_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

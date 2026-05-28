@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-e-causal-reasoning-node",
+    "parentNodeId": "fixture-e-causal-reasoning-parent",
+    "currentText": "[fixture] Library funding caused literacy gains in Pittsburgh because dosed-program studies show direct effects on reading proficiency after each funding increment.",
+    "parentText": "[fixture] Does library funding actually improve outcomes?",
+    "threadContextExcerpt": "[fixture] Debate room: library funding effectiveness. Pure causal reasoning move.",
+    "requestedFamilies": ["argument_scheme"],
+    "requestedRawKeys": [
+      "causal_reasoning_present",
+      "example_reasoning_present",
+      "abductive_explanation_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

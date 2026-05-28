@@ -46,21 +46,34 @@ Deno.test('familyRegistryInit-registers-family-d-on-import', () => {
   assertEquals(isFamilySupported('evidence_source_chain'), true);
 });
 
-Deno.test('familyRegistryInit-registers-all-four-families-in-insertion-order', () => {
+Deno.test('familyRegistryInit-registers-family-e-on-import', () => {
+  // MCP-SERVER-006-FAMILY-E added the fifth register() call (uniform
+  // ai_classifier path; 16 Walton argumentation schemes). Family E must
+  // be present in the singleton after the side-effect import.
+  assertEquals(isFamilySupported('argument_scheme'), true);
+});
+
+Deno.test('familyRegistryInit-registers-all-five-families-in-insertion-order', () => {
   // The singleton is shared across test files; however, init registers
-  // exactly four families: Family A first, Family B second, Family C third,
-  // Family D fourth. Other test files may add fake families via
-  // createFamilyRegistry() factories (which yield isolated instances and
-  // never touch the singleton). The singleton's getSupportedFamilies() must
-  // remain exactly ['parent_relation', 'disagreement_axis',
-  // 'misunderstanding_repair', 'evidence_source_chain'] in the current
-  // server build.
+  // exactly five families: Family A first, Family B second, Family C third,
+  // Family D fourth, Family E fifth. Other test files may add fake families
+  // via createFamilyRegistry() factories (which yield isolated instances
+  // and never touch the singleton). The singleton's getSupportedFamilies()
+  // must remain exactly ['parent_relation', 'disagreement_axis',
+  // 'misunderstanding_repair', 'evidence_source_chain', 'argument_scheme']
+  // in the current server build.
   const families = getSupportedFamilies();
   assertEquals(
     families,
-    ['parent_relation', 'disagreement_axis', 'misunderstanding_repair', 'evidence_source_chain'],
+    [
+      'parent_relation',
+      'disagreement_axis',
+      'misunderstanding_repair',
+      'evidence_source_chain',
+      'argument_scheme',
+    ],
   );
-  assertEquals(families.length, 4);
+  assertEquals(families.length, 5);
 });
 
 Deno.test('familyRegistryInit-family-a-has-16-rawKeys', () => {
@@ -83,6 +96,13 @@ Deno.test('familyRegistryInit-family-d-has-19-rawKeys-Subset', () => {
   assertEquals(rawKeys.size, 19);
 });
 
+Deno.test('familyRegistryInit-family-e-has-16-rawKeys', () => {
+  // MCP-SERVER-006-FAMILY-E ships 16 Walton (1995, 2008) argumentation
+  // schemes, all uniform ai_classifier (no Subset filter).
+  const rawKeys = getRawKeysForFamily('argument_scheme');
+  assertEquals(rawKeys.size, 16);
+});
+
 Deno.test('familyRegistryInit-family-a-classifier-version-is-family-a-v1', () => {
   assertEquals(getClassifierSetVersion('parent_relation'), 'family-a-v1');
 });
@@ -99,15 +119,25 @@ Deno.test('familyRegistryInit-family-d-classifier-version-is-family-d-v1', () =>
   assertEquals(getClassifierSetVersion('evidence_source_chain'), 'family-d-v1');
 });
 
+Deno.test('familyRegistryInit-family-e-classifier-version-is-family-e-v1', () => {
+  assertEquals(getClassifierSetVersion('argument_scheme'), 'family-e-v1');
+});
+
 Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
   // Second invocation must not throw (idempotent guard per design §5.2).
   // Without the guard, the underlying registry.register() would throw
   // 'family already registered: parent_relation'.
   initializeFamilyRegistry();
   initializeFamilyRegistry();
-  // Still exactly four families registered, in the same insertion order.
+  // Still exactly five families registered, in the same insertion order.
   assertEquals(
     getSupportedFamilies(),
-    ['parent_relation', 'disagreement_axis', 'misunderstanding_repair', 'evidence_source_chain'],
+    [
+      'parent_relation',
+      'disagreement_axis',
+      'misunderstanding_repair',
+      'evidence_source_chain',
+      'argument_scheme',
+    ],
   );
 });

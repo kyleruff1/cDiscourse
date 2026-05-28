@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-e-1",
+  "checkedRawKeys": ["slippery_slope_reasoning_present"],
+  "observations": {
+    "slippery_slope_reasoning_present": true
+  },
+  "confidence": {
+    "slippery_slope_reasoning_present": "high"
+  },
+  "evidenceSpan": {
+    "slippery_slope_reasoning_present": "this is a classic slippery-slope fallacy chain"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-e-v1"
+  }
+}

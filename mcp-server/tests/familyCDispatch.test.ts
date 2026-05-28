@@ -235,11 +235,10 @@ Deno.test('dispatch: cross-family request (Family C rawKey under disagreement_ax
 });
 
 Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family with full supportedFamilies list (replaces stale Family D test)', async () => {
-  // MCP-SERVER-005-FAMILY-D promoted evidence_source_chain from
-  // unsupported to supported. This regression now uses Family G to
-  // continue covering the "unsupported family with full
-  // supportedFamilies envelope" path. The supportedFamilies envelope
-  // now includes all four registered families.
+  // MCP-SERVER-006-FAMILY-E promoted argument_scheme from unsupported to
+  // supported. This regression now uses Family G to continue covering the
+  // "unsupported family with full supportedFamilies envelope" path. The
+  // supportedFamilies envelope now includes all five registered families.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
@@ -262,18 +261,21 @@ Deno.test('dispatch: unsupported family G (resolution_progress) returns unsuppor
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
+      'argument_scheme',
     ]);
   });
 });
 
-Deno.test('dispatch: unsupported family E (argument_scheme) returns unsupported_family', async () => {
+Deno.test('dispatch: unsupported family F (critical_question) returns unsupported_family (post MCP-SERVER-006-FAMILY-E)', async () => {
+  // MCP-SERVER-006-FAMILY-E promoted argument_scheme to supported. The
+  // unsupported-family regression for Family C now uses Family F instead.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyCRequest({
-        requestedFamilies: ['argument_scheme'],
+        requestedFamilies: ['critical_question'],
       }),
-      requestId: 'r-dispatch-e-1',
+      requestId: 'r-dispatch-f-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);

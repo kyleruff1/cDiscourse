@@ -1,0 +1,18 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-e-slippery-slope-adversarial-fallacy-node",
+    "parentNodeId": "fixture-e-slippery-slope-adversarial-fallacy-parent",
+    "currentText": "[fixture] Critics call this a slippery-slope fallacy when I make the case, but the chain is real: once a single category gets restricted, the next category follows in the same legislative session, and from there to a third and fourth, ending in broad-scope content rules.",
+    "parentText": "[fixture] A targeted regulation against fraudulent product claims has been proposed.",
+    "threadContextExcerpt": "[fixture] Debate room: scope of platform content regulation. Move uses the word fallacy in its input text but argues the chain anyway.",
+    "requestedFamilies": ["argument_scheme"],
+    "requestedRawKeys": [
+      "slippery_slope_reasoning_present",
+      "consequence_reasoning_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

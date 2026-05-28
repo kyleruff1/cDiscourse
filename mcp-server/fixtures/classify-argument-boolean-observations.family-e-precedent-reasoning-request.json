@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-e-precedent-reasoning-node",
+    "parentNodeId": "fixture-e-precedent-reasoning-parent",
+    "currentText": "[fixture] In Pittsburgh in 2020, the city council increased library funding 12% and saw measurable literacy gains within 24 months. The Detroit proposal under discussion is structurally analogous; the same path should apply here.",
+    "parentText": "[fixture] Should Detroit increase library funding by 12%?",
+    "threadContextExcerpt": "[fixture] Debate room: Detroit library funding proposal. Move uses Pittsburgh as governing precedent.",
+    "requestedFamilies": ["argument_scheme"],
+    "requestedRawKeys": [
+      "precedent_reasoning_present",
+      "example_reasoning_present",
+      "analogy_reasoning_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
