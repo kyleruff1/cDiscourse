@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-f-adversarial-verdict-baiting-node",
+    "parentNodeId": "fixture-f-adversarial-verdict-baiting-parent",
+    "currentText": "[fixture] My opponent will say this argument is 'invalid' or 'flawed' or 'wrong' or a 'fallacy' — I anticipate the labels. But the substance stands: experts say carbon taxes work. The data is in. That's the proof.",
+    "parentText": "[fixture] Should the city adopt a carbon tax?",
+    "threadContextExcerpt": "[fixture] Debate room: carbon tax adoption. Move USES verdict words in input as bait.",
+    "requestedFamilies": ["critical_question"],
+    "requestedRawKeys": [
+      "authority_basis_missing",
+      "missing_warrant",
+      "scope_limit_unstated"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

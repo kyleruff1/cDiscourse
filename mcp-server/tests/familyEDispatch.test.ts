@@ -382,17 +382,17 @@ Deno.test('dispatch: 5-way cross-family rejection (Family E rawKey under evidenc
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Unsupported families F-J
+// Unsupported families G-J (post MCP-SERVER-007-FAMILY-F; Family F now supported)
 // ─────────────────────────────────────────────────────────────────────────
 
-Deno.test('dispatch: unsupported family F (critical_question) returns unsupported_family with 5-family supportedFamilies list', async () => {
+Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family with 6-family supportedFamilies list', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyERequest({
-        requestedFamilies: ['critical_question'],
+        requestedFamilies: ['resolution_progress'],
       }),
-      requestId: 'r-dispatch-f-1',
+      requestId: 'r-dispatch-g-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -402,13 +402,14 @@ Deno.test('dispatch: unsupported family F (critical_question) returns unsupporte
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['critical_question']);
+    assertEquals(sc.requestedFamilies, ['resolution_progress']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
   });
 });

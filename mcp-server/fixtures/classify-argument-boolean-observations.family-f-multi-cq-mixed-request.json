@@ -1,0 +1,22 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-f-multi-cq-mixed-node",
+    "parentNodeId": "fixture-f-multi-cq-mixed-parent",
+    "currentText": "[fixture] Library funding boosts literacy — Pittsburgh, Detroit, and Indianapolis all show measurable gains in the 5 years following sustained funding increases. The mechanism is expanded program hours plus more staff for tutoring. The Australia case is an outlier because of concurrent budget cuts.",
+    "parentText": "[fixture] Should the city council approve sustained library funding?",
+    "threadContextExcerpt": "[fixture] Debate room: library funding policy. Mixed-CQ-state fixture.",
+    "requestedFamilies": ["critical_question"],
+    "requestedRawKeys": [
+      "causal_mechanism_missing",
+      "example_representativeness_unclear",
+      "counterexample_available",
+      "missing_warrant",
+      "scope_limit_unstated",
+      "qualification_missing"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

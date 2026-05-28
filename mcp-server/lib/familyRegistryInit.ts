@@ -42,6 +42,10 @@ import {
   FAMILY_E_RAW_KEYS,
   FAMILY_E_CLASSIFIER_SET_VERSION,
 } from './familyEKeys.ts';
+import {
+  FAMILY_F_RAW_KEYS,
+  FAMILY_F_CLASSIFIER_SET_VERSION,
+} from './familyFKeys.ts';
 
 let initialized = false;
 
@@ -56,7 +60,8 @@ let initialized = false;
  * Registration order is preserved by the underlying Map (per
  * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
  * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
- * 'evidence_source_chain', 'argument_scheme'] in this exact order.
+ * 'evidence_source_chain', 'argument_scheme', 'critical_question'] in
+ * this exact order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -96,6 +101,21 @@ export function initializeFamilyRegistry(): void {
   register('argument_scheme', {
     rawKeys: new Set(FAMILY_E_RAW_KEYS),
     classifierSetVersion: FAMILY_E_CLASSIFIER_SET_VERSION,
+  });
+
+  // MCP-SERVER-007-FAMILY-F: register critical_question with the 14-key
+  // ai_classifier set per design §1 (uniform ai_classifier; Stage 2B NOT
+  // REQUIRED). The 14 Walton (1995, 2008) + Toulmin (1958) + Peirce
+  // critical questions are descriptive structural probes on absence/gap;
+  // the existential doctrine binding (the CQ NEVER labels the scheme it
+  // probes a fallacy) lives in familyFPrompt.ts + familyFBanListScan.ts.
+  // Card 1 of the three-card chain: admin_validation-only at the Edge
+  // boundary (Edge familyRegistry already has Family F productionEnabled
+  // = false at supabase/functions/_shared/booleanObservations/
+  // familyRegistry.ts:95-97; no Edge edit in this card).
+  register('critical_question', {
+    rawKeys: new Set(FAMILY_F_RAW_KEYS),
+    classifierSetVersion: FAMILY_F_CLASSIFIER_SET_VERSION,
   });
 }
 

@@ -234,11 +234,11 @@ Deno.test('dispatch: cross-family request (Family C rawKey under disagreement_ax
   });
 });
 
-Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family with full supportedFamilies list (replaces stale Family D test)', async () => {
-  // MCP-SERVER-006-FAMILY-E promoted argument_scheme from unsupported to
-  // supported. This regression now uses Family G to continue covering the
-  // "unsupported family with full supportedFamilies envelope" path. The
-  // supportedFamilies envelope now includes all five registered families.
+Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family with full 6-family supportedFamilies list', async () => {
+  // MCP-SERVER-007-FAMILY-F promoted critical_question to supported. The
+  // supportedFamilies envelope now includes all six registered families.
+  // This regression continues to cover the "unsupported family with full
+  // supportedFamilies envelope" path.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
@@ -262,20 +262,21 @@ Deno.test('dispatch: unsupported family G (resolution_progress) returns unsuppor
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
   });
 });
 
-Deno.test('dispatch: unsupported family F (critical_question) returns unsupported_family (post MCP-SERVER-006-FAMILY-E)', async () => {
-  // MCP-SERVER-006-FAMILY-E promoted argument_scheme to supported. The
-  // unsupported-family regression for Family C now uses Family F instead.
+Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family (post MCP-SERVER-007-FAMILY-F)', async () => {
+  // MCP-SERVER-007-FAMILY-F promoted critical_question to supported. The
+  // unsupported-family regression for Family C now uses Family G instead.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyCRequest({
-        requestedFamilies: ['critical_question'],
+        requestedFamilies: ['resolution_progress'],
       }),
-      requestId: 'r-dispatch-f-1',
+      requestId: 'r-dispatch-g-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);

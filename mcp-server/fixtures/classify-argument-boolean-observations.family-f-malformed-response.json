@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-malformed-f-1",
+  "checkedRawKeys": ["consequence_probability_unclear", "missing_warrant"],
+  "observations": {
+    "consequence_probability_unclear": true,
+    "missing_warrant": false
+  },
+  "confidence": {
+    "consequence_probability_unclear": "high"
+  },
+  "evidenceSpan": {
+    "consequence_probability_unclear": null,
+    "missing_warrant": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-f-v1"
+  }
+}

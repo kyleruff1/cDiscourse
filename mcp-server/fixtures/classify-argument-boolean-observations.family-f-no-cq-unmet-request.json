@@ -1,0 +1,23 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-f-no-cq-unmet-node",
+    "parentNodeId": "fixture-f-no-cq-unmet-parent",
+    "currentText": "[fixture] Library funding usually boosts literacy in mid-size US cities with sustained programs (2015-2020 window): in 12 of 15 cases meeting the inclusion criteria, the effect held; the 3 exceptions had concurrent program changes that confound the comparison. The mechanism is expanded program hours plus more staff for tutoring (per the 2019 ALA white paper). Compared to the no-funding-increase baseline, the literacy gain is ~7% on average.",
+    "parentText": "[fixture] Should the city council approve sustained library funding?",
+    "threadContextExcerpt": "[fixture] Debate room: library funding policy. All-CQs-addressed sanity check fixture.",
+    "requestedFamilies": ["critical_question"],
+    "requestedRawKeys": [
+      "missing_warrant",
+      "causal_mechanism_missing",
+      "example_representativeness_unclear",
+      "counterexample_available",
+      "scope_limit_unstated",
+      "qualification_missing",
+      "comparison_baseline_missing"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
