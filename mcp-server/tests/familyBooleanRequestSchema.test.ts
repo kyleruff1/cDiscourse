@@ -32,11 +32,17 @@ import {
   FAMILY_C_RAW_KEYS,
   FAMILY_C_CLASSIFIER_SET_VERSION,
 } from '../lib/familyCKeys.ts';
+import {
+  FAMILY_D_RAW_KEYS,
+  FAMILY_D_CLASSIFIER_SET_VERSION,
+  FAMILY_D_EXCLUDED_DETERMINISTIC_RAW_KEYS,
+} from '../lib/familyDKeys.ts';
 
-// Ensure Family A + Family B + Family C are registered in the production
-// singleton for these tests. familyRegistryInit.ts is the canonical
-// registration site; these guards keep the test self-sufficient and avoid
-// a double-register throw if init happens elsewhere in the module graph.
+// Ensure Family A + Family B + Family C + Family D are registered in the
+// production singleton for these tests. familyRegistryInit.ts is the
+// canonical registration site; these guards keep the test self-sufficient
+// and avoid a double-register throw if init happens elsewhere in the
+// module graph.
 if (!isFamilySupported('parent_relation')) {
   register('parent_relation', {
     rawKeys: new Set(FAMILY_A_RAW_KEYS),
@@ -53,6 +59,12 @@ if (!isFamilySupported('misunderstanding_repair')) {
   register('misunderstanding_repair', {
     rawKeys: new Set(FAMILY_C_RAW_KEYS),
     classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+}
+if (!isFamilySupported('evidence_source_chain')) {
+  register('evidence_source_chain', {
+    rawKeys: new Set(FAMILY_D_RAW_KEYS),
+    classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
   });
 }
 
@@ -191,16 +203,16 @@ Deno.test('validateFamilyBooleanRequest-rejects-oversized-threadContextExcerpt',
 });
 
 Deno.test('validateFamilyBooleanRequest-rejects-unsupported-family-with-byte-equal-envelope', () => {
-  // MCP-SERVER-004-FAMILY-C registered 'misunderstanding_repair'; the test
-  // now exercises an UNREGISTERED family (Family D: evidence_source_chain).
+  // MCP-SERVER-005-FAMILY-D registered 'evidence_source_chain'; the test
+  // now exercises an UNREGISTERED family (Family E: argument_scheme).
   // Envelope shape is byte-equal-preserved: kind=unsupported_family,
   // requestedFamilies field echoes the requested array.
   const result = validateFamilyBooleanRequest(
-    validRequest({ requestedFamilies: ['evidence_source_chain'] }),
+    validRequest({ requestedFamilies: ['argument_scheme'] }),
   );
   assertEquals(result.ok, false);
   if (!result.ok && result.kind === 'unsupported_family') {
-    assertEquals(result.requestedFamilies, ['evidence_source_chain']);
+    assertEquals(result.requestedFamilies, ['argument_scheme']);
   } else {
     throw new Error('expected unsupported_family failure');
   }
@@ -368,9 +380,17 @@ Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-b-ra
   }
 });
 
-Deno.test('validateFamilyBooleanRequest-d-e-f-still-rejected-as-unsupported-family', () => {
-  // Regression: Family D/E/F remain unsupported after Family C lands.
-  for (const family of ['evidence_source_chain', 'argument_scheme', 'critical_question']) {
+Deno.test('validateFamilyBooleanRequest-e-f-g-h-i-j-still-rejected-as-unsupported-family', () => {
+  // Regression: Family E/F/G/H/I/J remain unsupported after Family D lands.
+  // (Family D is now supported as of MCP-SERVER-005-FAMILY-D Subset path.)
+  for (const family of [
+    'argument_scheme',
+    'critical_question',
+    'resolution_progress',
+    'claim_clarity',
+    'thread_topology',
+    'sensitive_composer',
+  ]) {
     const result = validateFamilyBooleanRequest(validRequest({ requestedFamilies: [family] }));
     assertEquals(result.ok, false, `${family} should be unsupported`);
     if (!result.ok && result.kind === 'unsupported_family') {
@@ -502,4 +522,208 @@ Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-c-ra
   } else {
     throw new Error('expected unsupported_rawKey failure for Family C key under empty families');
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-005-FAMILY-D additions
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('validateFamilyBooleanRequest-valid-family-d-request-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['evidence_source_chain'],
+    requestedRawKeys: ['source_provided', 'provides_evidence'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.requestedFamilies, ['evidence_source_chain']);
+    assertEquals(result.value.requestedRawKeys, ['source_provided', 'provides_evidence']);
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-d-request-with-empty-rawKeys-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['evidence_source_chain'],
+    requestedRawKeys: [],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+});
+
+Deno.test('validateFamilyBooleanRequest-family-d-request-with-all-19-rawKeys-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['evidence_source_chain'],
+    requestedRawKeys: [
+      'asks_for_evidence',
+      'provides_evidence',
+      'evidence_supports_claim',
+      'creates_source_chain_gap',
+      'opens_evidence_debt_marker',
+      'closes_evidence_debt_marker',
+      'supplies_corroborating_document',
+      'source_provided',
+      'quote_provided',
+      'concrete_example_requested',
+      'concrete_example_provided',
+      'evidence_claim_present',
+      'evidence_gap_present',
+      'source_chain_repair',
+      'anecdote_used',
+      'statistic_used',
+      'external_authority_used',
+      'evidence_quality_questioned',
+      'burden_request_present',
+    ],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.requestedRawKeys.length, 19);
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-a-key-under-evidence-source-chain', () => {
+  // Sending a Family A rawKey ('supports_parent') under
+  // requestedFamilies=['evidence_source_chain'] must be rejected — the
+  // rawKey is supported in Family A but NOT in Family D's set.
+  const req = validRequest({
+    requestedFamilies: ['evidence_source_chain'],
+    requestedRawKeys: ['supports_parent'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['supports_parent']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family A key under D');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-b-key-under-evidence-source-chain', () => {
+  const req = validRequest({
+    requestedFamilies: ['evidence_source_chain'],
+    requestedRawKeys: ['disputes_definition'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['disputes_definition']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family B key under D');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-c-key-under-evidence-source-chain', () => {
+  const req = validRequest({
+    requestedFamilies: ['evidence_source_chain'],
+    requestedRawKeys: ['offers_candidate_understanding'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['offers_candidate_understanding']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family C key under D');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-d-key-under-parent-relation', () => {
+  const req = validRequest({
+    requestedFamilies: ['parent_relation'],
+    requestedRawKeys: ['source_provided'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['source_provided']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family D key under A');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-d-key-under-disagreement-axis', () => {
+  const req = validRequest({
+    requestedFamilies: ['disagreement_axis'],
+    requestedRawKeys: ['evidence_gap_present'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['evidence_gap_present']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family D key under B');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-d-key-under-misunderstanding-repair', () => {
+  const req = validRequest({
+    requestedFamilies: ['misunderstanding_repair'],
+    requestedRawKeys: ['burden_request_present'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['burden_request_present']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family D key under C');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-d-rejects-excluded-deterministic-rawKeys-as-unsupported-rawKey', () => {
+  // Stage 2B operator binding: the 8 excluded deterministic Family D
+  // rawKeys (5 auto_metadata + 3 lifecycle) must NOT be silently
+  // converted into model-inferred keys. Requesting any of them under
+  // requestedFamilies=['evidence_source_chain'] returns unsupported_rawKey
+  // at the registry boundary (HALT trigger #15 / #18-22 safeguard:
+  // deterministic excluded keys do not become AI-inferred keys).
+  for (const excluded of FAMILY_D_EXCLUDED_DETERMINISTIC_RAW_KEYS) {
+    const req = validRequest({
+      requestedFamilies: ['evidence_source_chain'],
+      requestedRawKeys: [excluded],
+    });
+    const result = validateFamilyBooleanRequest(req);
+    assertEquals(result.ok, false, `excluded deterministic rawKey '${excluded}' must be rejected`);
+    if (!result.ok && result.kind === 'unsupported_rawKey') {
+      assertEquals(result.unsupportedRawKeys, [excluded]);
+    } else {
+      throw new Error(`expected unsupported_rawKey for excluded deterministic '${excluded}'`);
+    }
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-d-rawKey-rejects', () => {
+  // When requestedFamilies is empty, the validator defaults to checking
+  // rawKeys against Family A only. A Family D rawKey under empty
+  // requestedFamilies is therefore rejected as unsupported_rawKey.
+  const req = validRequest({
+    requestedFamilies: [],
+    requestedRawKeys: ['source_provided'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['source_provided']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for Family D key under empty families');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-a-and-b-and-c-still-pass-after-d-registered', () => {
+  // Regression: Family A/B/C requests still validate cleanly after
+  // Family D registration.
+  const reqA = validRequest({
+    requestedFamilies: ['parent_relation'],
+    requestedRawKeys: ['supports_parent'],
+  });
+  assertEquals(validateFamilyBooleanRequest(reqA).ok, true);
+  const reqB = validRequest({
+    requestedFamilies: ['disagreement_axis'],
+    requestedRawKeys: ['disagreement_present'],
+  });
+  assertEquals(validateFamilyBooleanRequest(reqB).ok, true);
+  const reqC = validRequest({
+    requestedFamilies: ['misunderstanding_repair'],
+    requestedRawKeys: ['offers_candidate_understanding'],
+  });
+  assertEquals(validateFamilyBooleanRequest(reqC).ok, true);
 });

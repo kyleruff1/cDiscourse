@@ -1,0 +1,35 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-d-no-evidence-node",
+    "parentNodeId": "fixture-d-no-evidence-parent",
+    "currentText": "[fixture] Are you saying libraries are public goods that should be funded like roads? — let me make sure I have you right.",
+    "parentText": "[fixture] Libraries are infrastructure.",
+    "threadContextExcerpt": "[fixture] Family C content (offers_candidate_understanding repair move) — adversarial test for Family D classifier discriminator. Expected: all 19 Family D keys false.",
+    "requestedFamilies": ["evidence_source_chain"],
+    "requestedRawKeys": [
+      "asks_for_evidence",
+      "provides_evidence",
+      "evidence_supports_claim",
+      "creates_source_chain_gap",
+      "opens_evidence_debt_marker",
+      "closes_evidence_debt_marker",
+      "supplies_corroborating_document",
+      "source_provided",
+      "quote_provided",
+      "concrete_example_requested",
+      "concrete_example_provided",
+      "evidence_claim_present",
+      "evidence_gap_present",
+      "source_chain_repair",
+      "anecdote_used",
+      "statistic_used",
+      "external_authority_used",
+      "evidence_quality_questioned",
+      "burden_request_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

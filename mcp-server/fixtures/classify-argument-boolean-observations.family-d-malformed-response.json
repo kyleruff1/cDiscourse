@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-malformed-d-1",
+  "checkedRawKeys": ["source_provided", "provides_evidence"],
+  "observations": {
+    "source_provided": true,
+    "provides_evidence": false
+  },
+  "confidence": {
+    "source_provided": "high"
+  },
+  "evidenceSpan": {
+    "source_provided": null,
+    "provides_evidence": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-d-v1"
+  }
+}

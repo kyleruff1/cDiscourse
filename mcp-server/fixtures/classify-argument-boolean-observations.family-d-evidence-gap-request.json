@@ -1,0 +1,20 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-d-evidence-gap-node",
+    "parentNodeId": "fixture-d-evidence-gap-parent",
+    "currentText": "[fixture] Crime rates have dropped 30% since 2010, and everyone knows policy X caused outcome Y.",
+    "parentText": "[fixture] How effective was the policy?",
+    "threadContextExcerpt": "[fixture] Statistical-claim-without-source case. Depth 1 evidence-gap demonstration.",
+    "requestedFamilies": ["evidence_source_chain"],
+    "requestedRawKeys": [
+      "evidence_gap_present",
+      "creates_source_chain_gap",
+      "statistic_used",
+      "evidence_supports_claim"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

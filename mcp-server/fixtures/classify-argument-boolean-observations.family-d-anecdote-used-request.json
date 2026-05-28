@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-d-anecdote-used-node",
+    "parentNodeId": "fixture-d-anecdote-used-parent",
+    "currentText": "[fixture] When I worked at the library, we saw firsthand how funding cuts hit programs — three of our after-school programs closed within six months.",
+    "parentText": "[fixture] How do library funding cuts affect programs?",
+    "threadContextExcerpt": "[fixture] Lived-experience domain. Anecdote-as-evidence doctrine-test case.",
+    "requestedFamilies": ["evidence_source_chain"],
+    "requestedRawKeys": [
+      "anecdote_used",
+      "concrete_example_provided",
+      "evidence_claim_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
