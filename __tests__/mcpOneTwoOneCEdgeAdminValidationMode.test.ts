@@ -127,9 +127,9 @@ describe('MCP-021C-EDGE — run_mode binding to migration', () => {
   });
 });
 
-describe('MCP-021C-EDGE — production filter does NOT see E–J admin_validation families (post Card 2 flip)', () => {
-  // Post Card 2 (MCP-021C-EDGE-FAMILY-D-ENABLE): families A + B + C + D
-  // are productionEnabled; E–J remain admin-only.
+describe('MCP-021C-EDGE — production filter does NOT see F–J admin_validation families (post Card 2 flip)', () => {
+  // Post Card 2 (MCP-021C-EDGE-FAMILY-E-ENABLE): families A + B + C + D
+  // + E are productionEnabled; F–J remain admin-only.
 
   it('AVM-10 — production filter keeps disagreement_axis (B was flipped to productionEnabled in Stage 2B)', () => {
     expect(edgeFilterFamiliesForMode(['disagreement_axis'], 'production')).toEqual([
@@ -137,9 +137,15 @@ describe('MCP-021C-EDGE — production filter does NOT see E–J admin_validatio
     ]);
   });
 
-  it('AVM-11 — production filter keeps evidence_source_chain (D flipped to productionEnabled in Card 2)', () => {
+  it('AVM-11 — production filter keeps evidence_source_chain (D flipped to productionEnabled in Card 2 of FAMILY-D chain)', () => {
     expect(edgeFilterFamiliesForMode(['evidence_source_chain'], 'production')).toEqual([
       'evidence_source_chain',
+    ]);
+  });
+
+  it('AVM-11b — production filter keeps argument_scheme (E flipped to productionEnabled in Card 2 of FAMILY-E chain)', () => {
+    expect(edgeFilterFamiliesForMode(['argument_scheme'], 'production')).toEqual([
+      'argument_scheme',
     ]);
   });
 
@@ -147,15 +153,21 @@ describe('MCP-021C-EDGE — production filter does NOT see E–J admin_validatio
     expect(edgeFilterFamiliesForMode(['sensitive_composer'], 'production')).toEqual([]);
   });
 
-  it('AVM-13 — production filter keeps A+B+D when mixed (all three production-enabled)', () => {
-    // Post Card 2: parent_relation (A), disagreement_axis (B), and
-    // evidence_source_chain (D) are all productionEnabled.
+  it('AVM-13 — production filter keeps A+B+D+E when mixed (all four production-enabled)', () => {
+    // Post Card 2 of FAMILY-E chain: parent_relation (A),
+    // disagreement_axis (B), evidence_source_chain (D), and
+    // argument_scheme (E) are all productionEnabled.
     expect(
       edgeFilterFamiliesForMode(
-        ['parent_relation', 'disagreement_axis', 'evidence_source_chain'],
+        ['parent_relation', 'disagreement_axis', 'evidence_source_chain', 'argument_scheme'],
         'production',
       ),
-    ).toEqual(['parent_relation', 'disagreement_axis', 'evidence_source_chain']);
+    ).toEqual([
+      'parent_relation',
+      'disagreement_axis',
+      'evidence_source_chain',
+      'argument_scheme',
+    ]);
   });
 });
 

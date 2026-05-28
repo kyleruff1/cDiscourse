@@ -306,15 +306,16 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — doctrine safety (post-refactor)'
 });
 
 describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
-  it('DREG-29 — at registry HEAD, productionEnabledFamilies() returns exactly [A, B, C, D] (post Card 2 flip)', () => {
+  it('DREG-29 — at registry HEAD, productionEnabledFamilies() returns exactly [A, B, C, D, E] (post Card 2 of FAMILY-E chain)', () => {
     // Cross-checks the registry source against the dispatcher's expected
     // dispatch list (this is the binding registry-shape gate). Post
-    // MCP-021C-EDGE-FAMILY-D-ENABLE, the production list is 4 families.
+    // MCP-021C-EDGE-FAMILY-E-ENABLE, the production list is 5 families.
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
+      'argument_scheme',
     ]);
   });
 
@@ -332,19 +333,18 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
     ).toBe(true);
   });
 
-  it('DREG-31 — registry source still has E–J productionEnabled: false (no widening past D)', () => {
-    // Catches a future PR accidentally flipping E-J before its own card.
-    // Post Card 2 (MCP-021C-EDGE-FAMILY-D-ENABLE), D is productionEnabled;
-    // E-J must remain admin-only.
-    const EJ_FAMILIES = [
-      'argument_scheme',
+  it('DREG-31 — registry source still has F–J productionEnabled: false (no widening past E)', () => {
+    // Catches a future PR accidentally flipping F-J before its own card.
+    // Post Card 2 of FAMILY-E chain (MCP-021C-EDGE-FAMILY-E-ENABLE), E
+    // is productionEnabled; F-J must remain admin-only.
+    const FJ_FAMILIES = [
       'critical_question',
       'resolution_progress',
       'claim_clarity',
       'thread_topology',
       'sensitive_composer',
     ];
-    for (const family of EJ_FAMILIES) {
+    for (const family of FJ_FAMILIES) {
       // The family block has productionEnabled: false within ~200 chars
       // of the family declaration.
       const pattern = new RegExp(
