@@ -213,16 +213,16 @@ Deno.test('validateFamilyBooleanRequest-rejects-oversized-threadContextExcerpt',
 });
 
 Deno.test('validateFamilyBooleanRequest-rejects-unsupported-family-with-byte-equal-envelope', () => {
-  // MCP-SERVER-006-FAMILY-E registered 'argument_scheme'; the test now
-  // exercises an UNREGISTERED family (Family F: critical_question).
+  // MCP-SERVER-007-FAMILY-F registered 'critical_question'; the test now
+  // exercises an UNREGISTERED family (Family G: resolution_progress).
   // Envelope shape is byte-equal-preserved: kind=unsupported_family,
   // requestedFamilies field echoes the requested array.
   const result = validateFamilyBooleanRequest(
-    validRequest({ requestedFamilies: ['critical_question'] }),
+    validRequest({ requestedFamilies: ['resolution_progress'] }),
   );
   assertEquals(result.ok, false);
   if (!result.ok && result.kind === 'unsupported_family') {
-    assertEquals(result.requestedFamilies, ['critical_question']);
+    assertEquals(result.requestedFamilies, ['resolution_progress']);
   } else {
     throw new Error('expected unsupported_family failure');
   }
@@ -390,12 +390,11 @@ Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-b-ra
   }
 });
 
-Deno.test('validateFamilyBooleanRequest-f-g-h-i-j-still-rejected-as-unsupported-family', () => {
-  // Regression: Family F/G/H/I/J remain unsupported after Family E lands.
-  // (Family E is now supported as of MCP-SERVER-006-FAMILY-E uniform
-  // ai_classifier path; argument_scheme has its own validation block.)
+Deno.test('validateFamilyBooleanRequest-g-h-i-j-still-rejected-as-unsupported-family', () => {
+  // Regression: Family G/H/I/J remain unsupported after Family F lands.
+  // (Family F is now supported as of MCP-SERVER-007-FAMILY-F uniform
+  // ai_classifier path; critical_question has its own validation block.)
   for (const family of [
-    'critical_question',
     'resolution_progress',
     'claim_clarity',
     'thread_topology',

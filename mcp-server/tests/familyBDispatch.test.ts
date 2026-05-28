@@ -176,20 +176,20 @@ Deno.test('dispatch: cross-family request (Family B rawKey under parent_relation
   });
 });
 
-Deno.test('dispatch: unsupported family F (critical_question) returns unsupported_family with full supportedFamilies list', async () => {
-  // MCP-SERVER-006-FAMILY-E promoted argument_scheme from unsupported to
+Deno.test('dispatch: unsupported family H (claim_clarity) returns unsupported_family with full 6-family supportedFamilies list', async () => {
+  // MCP-SERVER-007-FAMILY-F promoted critical_question from unsupported to
   // supported. This test continues to exercise an UNREGISTERED family
-  // (Family F: critical_question). The supportedFamilies envelope now
-  // includes all five currently-registered families: parent_relation,
+  // (Family H: claim_clarity). The supportedFamilies envelope now
+  // includes all six currently-registered families: parent_relation,
   // disagreement_axis, misunderstanding_repair, evidence_source_chain,
-  // argument_scheme.
+  // argument_scheme, critical_question.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyBRequest({
-        requestedFamilies: ['critical_question'],
+        requestedFamilies: ['claim_clarity'],
       }),
-      requestId: 'r-dispatch-f-1',
+      requestId: 'r-dispatch-h-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -199,13 +199,14 @@ Deno.test('dispatch: unsupported family F (critical_question) returns unsupporte
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['critical_question']);
+    assertEquals(sc.requestedFamilies, ['claim_clarity']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
   });
 });
@@ -230,16 +231,16 @@ Deno.test('dispatch: unsupported family G (resolution_progress) returns unsuppor
   });
 });
 
-Deno.test('dispatch: unsupported family F (critical_question) returns unsupported_family (post MCP-SERVER-006-FAMILY-E)', async () => {
-  // MCP-SERVER-006-FAMILY-E promoted argument_scheme to supported. The
-  // unsupported-family regression for Family B now uses Family F instead.
+Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_family (post MCP-SERVER-007-FAMILY-F)', async () => {
+  // MCP-SERVER-007-FAMILY-F promoted critical_question to supported. The
+  // unsupported-family regression for Family B now uses Family I instead.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyBRequest({
-        requestedFamilies: ['critical_question'],
+        requestedFamilies: ['thread_topology'],
       }),
-      requestId: 'r-dispatch-f-1',
+      requestId: 'r-dispatch-i-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);

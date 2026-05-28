@@ -53,15 +53,15 @@ Deno.test('familyRegistryInit-registers-family-e-on-import', () => {
   assertEquals(isFamilySupported('argument_scheme'), true);
 });
 
-Deno.test('familyRegistryInit-registers-all-five-families-in-insertion-order', () => {
+Deno.test('familyRegistryInit-registers-all-six-families-in-insertion-order', () => {
   // The singleton is shared across test files; however, init registers
-  // exactly five families: Family A first, Family B second, Family C third,
-  // Family D fourth, Family E fifth. Other test files may add fake families
-  // via createFamilyRegistry() factories (which yield isolated instances
-  // and never touch the singleton). The singleton's getSupportedFamilies()
-  // must remain exactly ['parent_relation', 'disagreement_axis',
-  // 'misunderstanding_repair', 'evidence_source_chain', 'argument_scheme']
-  // in the current server build.
+  // exactly six families: Family A first, Family B second, Family C third,
+  // Family D fourth, Family E fifth, Family F sixth. Other test files may
+  // add fake families via createFamilyRegistry() factories (which yield
+  // isolated instances and never touch the singleton). The singleton's
+  // getSupportedFamilies() must remain exactly ['parent_relation',
+  // 'disagreement_axis', 'misunderstanding_repair', 'evidence_source_chain',
+  // 'argument_scheme', 'critical_question'] in the current server build.
   const families = getSupportedFamilies();
   assertEquals(
     families,
@@ -71,9 +71,10 @@ Deno.test('familyRegistryInit-registers-all-five-families-in-insertion-order', (
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ],
   );
-  assertEquals(families.length, 5);
+  assertEquals(families.length, 6);
 });
 
 Deno.test('familyRegistryInit-family-a-has-16-rawKeys', () => {
@@ -129,7 +130,7 @@ Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
   // 'family already registered: parent_relation'.
   initializeFamilyRegistry();
   initializeFamilyRegistry();
-  // Still exactly five families registered, in the same insertion order.
+  // Still exactly six families registered, in the same insertion order.
   assertEquals(
     getSupportedFamilies(),
     [
@@ -138,6 +139,26 @@ Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ],
   );
+});
+
+Deno.test('familyRegistryInit-registers-family-f-on-import', () => {
+  // MCP-SERVER-007-FAMILY-F added the sixth register() call (uniform
+  // ai_classifier path; 14 Walton/Toulmin/Peirce critical questions).
+  // Family F must be present in the singleton after the side-effect import.
+  assertEquals(isFamilySupported('critical_question'), true);
+});
+
+Deno.test('familyRegistryInit-family-f-has-14-rawKeys', () => {
+  // MCP-SERVER-007-FAMILY-F ships 14 critical questions (Walton 1995/2008 +
+  // Toulmin 1958 + Peirce abductive), all uniform ai_classifier
+  // (no Subset filter; Stage 2B NOT REQUIRED per design §1).
+  const rawKeys = getRawKeysForFamily('critical_question');
+  assertEquals(rawKeys.size, 14);
+});
+
+Deno.test('familyRegistryInit-family-f-classifier-version-is-family-f-v1', () => {
+  assertEquals(getClassifierSetVersion('critical_question'), 'family-f-v1');
 });
