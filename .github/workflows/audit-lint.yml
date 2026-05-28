@@ -1,0 +1,69 @@
+name: audit-lint
+
+on:
+  pull_request:
+    paths:
+      - 'docs/audits/**SMOKE*.md'
+      - 'scripts/ops/audit-lint.mjs'
+      - 'scripts/ops/audit-lint-lib.cjs'
+      - 'scripts/ops/audit-lint-rules.cjs'
+      - '__tests__/fixtures/audit-lint/**'
+
+concurrency:
+  group: audit-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint changed audit docs (L1-L6)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Resolve PR base/head SHAs and classify changed files
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          IN_SCOPE=$(node scripts/ops/audit-lint.mjs --classify-changed --base "$BASE_SHA" --head "$HEAD_SHA")
+          {
+            echo "in_scope<<EOF"
+            echo "$IN_SCOPE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ -z "$IN_SCOPE" ]; then
+            echo "::notice::No in-scope audit docs in this PR — skipping lint."
+          else
+            echo "In-scope docs:"
+            echo "$IN_SCOPE"
+          fi
+
+      - name: Lint each in-scope doc
+        if: steps.classify.outputs.in_scope != ''
+        env:
+          IN_SCOPE: ${{ steps.classify.outputs.in_scope }}
+        run: |
+          FAIL=0
+          while IFS= read -r path; do
+            if [ -z "$path" ]; then
+              continue
+            fi
+            echo "::group::audit-lint $path"
+            if ! node scripts/ops/audit-lint.mjs "$path"; then
+              FAIL=1
+            fi
+            echo "::endgroup::"
+          done <<< "$IN_SCOPE"
+          exit "$FAIL"
