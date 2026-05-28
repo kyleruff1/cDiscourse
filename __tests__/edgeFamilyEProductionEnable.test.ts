@@ -46,17 +46,18 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — Family E production-mode flip bindin
     expect(edgeProductionEnabledFamilies()).toContain('argument_scheme');
   });
 
-  it('FEE-4 — edgeProductionEnabledFamilies() has length 5 (post Card 2 flip)', () => {
-    expect(edgeProductionEnabledFamilies()).toHaveLength(5);
+  it('FEE-4 — edgeProductionEnabledFamilies() has length 6 (post MCP-021C-EDGE-FAMILY-F-ENABLE flip; E entry remains)', () => {
+    expect(edgeProductionEnabledFamilies()).toHaveLength(6);
   });
 
-  it('FEE-5 — edgeProductionEnabledFamilies() preserves registry A→E order', () => {
+  it('FEE-5 — edgeProductionEnabledFamilies() preserves registry A→F order (E remains at index 4)', () => {
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
   });
 
@@ -67,16 +68,20 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — Family E production-mode flip bindin
   });
 });
 
-describe('MCP-021C-EDGE-FAMILY-E-ENABLE — F–J remain admin-only (no widening)', () => {
-  const FJ_ADMIN_ONLY = [
-    'critical_question',
+describe('MCP-021C-EDGE-FAMILY-E-ENABLE — G–J remain admin-only (no widening past F)', () => {
+  // Post Card 3 of FAMILY-F chain (MCP-021C-EDGE-FAMILY-F-ENABLE), F
+  // (critical_question) is production-enabled; G–J remain admin-only.
+  // This describe block's defensive guard updates from "F–J admin-only"
+  // to "G–J admin-only" while preserving the catch-accidental-widening
+  // property.
+  const GJ_ADMIN_ONLY = [
     'resolution_progress',
     'claim_clarity',
     'thread_topology',
     'sensitive_composer',
   ] as const;
 
-  for (const family of FJ_ADMIN_ONLY) {
+  for (const family of GJ_ADMIN_ONLY) {
     it(`FEE-7:${family} — productionEnabled is false (awaits its own card)`, () => {
       const entry = edgeLookupFamilyRegistryEntry(family);
       expect(entry).not.toBeNull();

@@ -306,16 +306,17 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — doctrine safety (post-refactor)'
 });
 
 describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
-  it('DREG-29 — at registry HEAD, productionEnabledFamilies() returns exactly [A, B, C, D, E] (post Card 2 of FAMILY-E chain)', () => {
+  it('DREG-29 — at registry HEAD, productionEnabledFamilies() returns exactly [A, B, C, D, E, F] (post Card 3 of FAMILY-F chain)', () => {
     // Cross-checks the registry source against the dispatcher's expected
     // dispatch list (this is the binding registry-shape gate). Post
-    // MCP-021C-EDGE-FAMILY-E-ENABLE, the production list is 5 families.
+    // MCP-021C-EDGE-FAMILY-F-ENABLE, the production list is 6 families.
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
       'evidence_source_chain',
       'argument_scheme',
+      'critical_question',
     ]);
   });
 
@@ -333,18 +334,17 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
     ).toBe(true);
   });
 
-  it('DREG-31 — registry source still has F–J productionEnabled: false (no widening past E)', () => {
-    // Catches a future PR accidentally flipping F-J before its own card.
-    // Post Card 2 of FAMILY-E chain (MCP-021C-EDGE-FAMILY-E-ENABLE), E
-    // is productionEnabled; F-J must remain admin-only.
-    const FJ_FAMILIES = [
-      'critical_question',
+  it('DREG-31 — registry source still has G–J productionEnabled: false (no widening past F)', () => {
+    // Catches a future PR accidentally flipping G-J before its own card.
+    // Post Card 3 of FAMILY-F chain (MCP-021C-EDGE-FAMILY-F-ENABLE), F
+    // is productionEnabled; G-J must remain admin-only.
+    const GJ_FAMILIES = [
       'resolution_progress',
       'claim_clarity',
       'thread_topology',
       'sensitive_composer',
     ];
-    for (const family of FJ_FAMILIES) {
+    for (const family of GJ_FAMILIES) {
       // The family block has productionEnabled: false within ~200 chars
       // of the family declaration.
       const pattern = new RegExp(
