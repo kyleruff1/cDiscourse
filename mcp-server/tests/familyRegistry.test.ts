@@ -347,3 +347,119 @@ Deno.test('registry-getRawKeysForFamily-returns-all-17-for-family-c', () => {
     assertEquals(keys.has(binding), true);
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-005-FAMILY-D additions
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('registry-getSupportedFamilies-preserves-four-family-order', async () => {
+  // MCP-SERVER-005-FAMILY-D adds the fourth family register() call.
+  // Insertion order is preserved by the underlying Map; the
+  // getSupportedFamilies() snapshot returns exactly
+  // ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
+  // 'evidence_source_chain'].
+  const { FAMILY_D_RAW_KEYS, FAMILY_D_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyDKeys.ts'
+  );
+  const registry = createFamilyRegistry();
+  registry.register('parent_relation', {
+    rawKeys: new Set(FAMILY_A_RAW_KEYS),
+    classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('evidence_source_chain', {
+    rawKeys: new Set(FAMILY_D_RAW_KEYS),
+    classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
+  });
+  assertEquals(
+    registry.getSupportedFamilies(),
+    ['parent_relation', 'disagreement_axis', 'misunderstanding_repair', 'evidence_source_chain'],
+  );
+  assertEquals(registry.getRawKeysForFamily('evidence_source_chain').size, 19);
+  assertEquals(registry.getClassifierSetVersion('evidence_source_chain'), 'family-d-v1');
+});
+
+Deno.test('registry-isRawKeySupportedForFamily-four-way-cross-family-rejection', async () => {
+  // With all four real families registered, cross-family rawKey lookups
+  // must return false across every combination. Each family recognizes
+  // only its own rawKey set.
+  const { FAMILY_D_RAW_KEYS, FAMILY_D_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyDKeys.ts'
+  );
+  const registry = createFamilyRegistry();
+  registry.register('parent_relation', {
+    rawKeys: new Set(FAMILY_A_RAW_KEYS),
+    classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('evidence_source_chain', {
+    rawKeys: new Set(FAMILY_D_RAW_KEYS),
+    classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
+  });
+
+  // Family A key under Family D → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('evidence_source_chain', 'supports_parent'),
+    false,
+  );
+  // Family B key under Family D → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('evidence_source_chain', 'disputes_definition'),
+    false,
+  );
+  // Family C key under Family D → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('evidence_source_chain', 'offers_candidate_understanding'),
+    false,
+  );
+  // Family D key under Family A → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('parent_relation', 'source_provided'),
+    false,
+  );
+  // Family D key under Family B → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('disagreement_axis', 'evidence_gap_present'),
+    false,
+  );
+  // Family D key under Family C → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('misunderstanding_repair', 'burden_request_present'),
+    false,
+  );
+  // Sanity: Family D supports its own keys.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('evidence_source_chain', 'source_provided'),
+    true,
+  );
+});
+
+Deno.test('registry-getRawKeysForFamily-returns-all-19-for-family-d-Subset', async () => {
+  const { FAMILY_D_RAW_KEYS, FAMILY_D_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyDKeys.ts'
+  );
+  const registry = createFamilyRegistry();
+  registry.register('evidence_source_chain', {
+    rawKeys: new Set(FAMILY_D_RAW_KEYS),
+    classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
+  });
+  const keys = registry.getRawKeysForFamily('evidence_source_chain');
+  assertEquals(keys.size, 19);
+  for (const binding of FAMILY_D_RAW_KEYS) {
+    assertEquals(keys.has(binding), true);
+  }
+});

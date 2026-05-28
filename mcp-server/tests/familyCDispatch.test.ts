@@ -234,14 +234,19 @@ Deno.test('dispatch: cross-family request (Family C rawKey under disagreement_ax
   });
 });
 
-Deno.test('dispatch: unsupported family D (evidence_source_chain) returns unsupported_family with full supportedFamilies list', async () => {
+Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family with full supportedFamilies list (replaces stale Family D test)', async () => {
+  // MCP-SERVER-005-FAMILY-D promoted evidence_source_chain from
+  // unsupported to supported. This regression now uses Family G to
+  // continue covering the "unsupported family with full
+  // supportedFamilies envelope" path. The supportedFamilies envelope
+  // now includes all four registered families.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyCRequest({
-        requestedFamilies: ['evidence_source_chain'],
+        requestedFamilies: ['resolution_progress'],
       }),
-      requestId: 'r-dispatch-d-1',
+      requestId: 'r-dispatch-g-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -251,8 +256,13 @@ Deno.test('dispatch: unsupported family D (evidence_source_chain) returns unsupp
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['evidence_source_chain']);
-    assertEquals(sc.supportedFamilies, ['parent_relation', 'disagreement_axis', 'misunderstanding_repair']);
+    assertEquals(sc.requestedFamilies, ['resolution_progress']);
+    assertEquals(sc.supportedFamilies, [
+      'parent_relation',
+      'disagreement_axis',
+      'misunderstanding_repair',
+      'evidence_source_chain',
+    ]);
   });
 });
 

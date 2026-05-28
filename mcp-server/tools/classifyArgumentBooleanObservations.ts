@@ -1,12 +1,14 @@
 /**
- * MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C — `classify_argument_boolean_observations` tool.
+ * MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C +
+ * MCP-SERVER-005-FAMILY-D — `classify_argument_boolean_observations` tool.
  *
  * Tool name pinned verbatim from MCP-021C-EDGE's deployed adapter:
  *   `supabase/functions/_shared/booleanObservations/
  *    booleanObservationMcpAdapterCore.ts:44-45` (MCP_BOOLEAN_OBSERVATION_TOOL_NAME)
  *
  * Flow (per design §3 + MCP-SERVER-003-FAMILY-B design §7 +
- * MCP-SERVER-004-FAMILY-C design §1):
+ * MCP-SERVER-004-FAMILY-C design §1 + MCP-SERVER-005-FAMILY-D Stage 2B
+ * binding):
  *   1. Validate input against the MCP-021A request shape + per-family
  *      rawKey-membership routing (requestedFamilies ⊆ registered families,
  *      requestedRawKeys ⊆ one-of-the-requested-family rawKey sets,
@@ -20,18 +22,27 @@
  *      orchestrator (default). Family A → runAnthropicFamilyAClassifier /
  *      loadFixtureFamilyAPacket; Family B → runAnthropicFamilyBClassifier /
  *      loadFixtureFamilyBPacket; Family C → runAnthropicFamilyCClassifier /
- *      loadFixtureFamilyCPacket.
+ *      loadFixtureFamilyCPacket; Family D →
+ *      runAnthropicFamilyDClassifier / loadFixtureFamilyDPacket.
  *   4. Validate the model response against the MCP-021A wire shape
  *      (validateMcpBooleanObservationResponse). Failure → validation_failed.
  *   5. Doctrine ban-list scan over every string field, using the
  *      family-specific scanner (Family A → scanFamilyABooleanResponseForBanList;
  *      Family B → scanFamilyBBooleanResponseForBanList; Family C →
- *      scanFamilyCBooleanResponseForBanList). Match → validation_failed.
+ *      scanFamilyCBooleanResponseForBanList; Family D →
+ *      scanFamilyDBooleanResponseForBanList). Match → validation_failed.
  *   6. Return the tool result with content[text] + structuredContent.
  *
- * Family D-J are NOT implemented in this card. The unsupported_family error
- * envelope is the boundary; the validator already rejects them at the
- * registry layer. Future MCP-SERVER-005+ cards add additional families.
+ * Family E-J are NOT implemented in this card. The unsupported_family
+ * error envelope is the boundary; the validator already rejects them at
+ * the registry layer. Future MCP-SERVER-006+ cards add additional families.
+ *
+ * Family D ships in admin_validation-only posture: the Edge familyRegistry
+ * entry at `supabase/functions/_shared/booleanObservations/familyRegistry.ts`
+ * keeps `productionEnabled: false` for Family D per Stage 2B operator
+ * binding (HALT trigger #17). The MCP server's classifier is fully
+ * operational; the production auto-trigger excludes Family D until a
+ * later card flips the Edge gate.
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 — server returns structural observations only,
@@ -59,6 +70,8 @@ import { runAnthropicFamilyBClassifier } from '../lib/familyBAnthropic.ts';
 import { loadFixtureFamilyBPacket } from '../lib/familyBFixtureProvider.ts';
 import { runAnthropicFamilyCClassifier } from '../lib/familyCAnthropic.ts';
 import { loadFixtureFamilyCPacket } from '../lib/familyCFixtureProvider.ts';
+import { runAnthropicFamilyDClassifier } from '../lib/familyDAnthropic.ts';
+import { loadFixtureFamilyDPacket } from '../lib/familyDFixtureProvider.ts';
 import {
   validateMcpBooleanObservationResponse,
   type McpBooleanObservationValidatedResponse,
@@ -66,16 +79,18 @@ import {
 import { scanFamilyABooleanResponseForBanList } from '../lib/familyABanListScan.ts';
 import { scanFamilyBBooleanResponseForBanList } from '../lib/familyBBanListScan.ts';
 import { scanFamilyCBooleanResponseForBanList } from '../lib/familyCBanListScan.ts';
+import { scanFamilyDBooleanResponseForBanList } from '../lib/familyDBanListScan.ts';
 import type { AnthropicCallResult } from '../lib/anthropicCall.ts';
 import type { ValidatedFamilyARequest } from '../lib/familyAPrompt.ts';
 import type { ValidatedFamilyBRequest } from '../lib/familyBPrompt.ts';
 import type { ValidatedFamilyCRequest } from '../lib/familyCPrompt.ts';
+import type { ValidatedFamilyDRequest } from '../lib/familyDPrompt.ts';
 
 export const CLASSIFY_BOOLEAN_OBSERVATIONS_TOOL: ToolMetadata = {
   name: 'classify_argument_boolean_observations',
   title: 'Argument Boolean Observation Classifier',
   description:
-    "Classifies an argument move against MCP-021A Family A (parent_relation), Family B (disagreement_axis), OR Family C (misunderstanding_repair) boolean Machine Observation taxonomy. Accepts McpBooleanObservationRequest with requestedFamilies=['parent_relation'] or requestedFamilies=['disagreement_axis'] or requestedFamilies=['misunderstanding_repair'] and returns McpBooleanObservationResponse per the schema in src/features/nodeLabels/mcpBooleanObservationSchema.ts. Family D through J return an unsupported_family error envelope in this server build. STRUCTURAL questions only — does not assign factual standing, does not award outcomes, does not treat engagement or popularity as evidence.",
+    "Classifies an argument move against MCP-021A Family A (parent_relation), Family B (disagreement_axis), Family C (misunderstanding_repair), OR Family D (evidence_source_chain) boolean Machine Observation taxonomy. Accepts McpBooleanObservationRequest with requestedFamilies=['parent_relation'] or requestedFamilies=['disagreement_axis'] or requestedFamilies=['misunderstanding_repair'] or requestedFamilies=['evidence_source_chain'] and returns McpBooleanObservationResponse per the schema in src/features/nodeLabels/mcpBooleanObservationSchema.ts. Family D ships with the 19-key ai_classifier Subset (the 8 deterministic auto_metadata + lifecycle keys are excluded; requesting any of them returns unsupported_rawKey). Family E through J return an unsupported_family error envelope in this server build. STRUCTURAL questions only — does not assign factual standing, does not award outcomes, does not treat engagement or popularity as evidence.",
   inputSchema: {
     type: 'object',
     required: [
@@ -173,19 +188,23 @@ function errorResult(
 /**
  * Family-specific provider table. The validator has already gated the
  * resolvedFamily to a registered family; the table maps family → (Anthropic
- * orchestrator, fixture provider, ban-list scan). Family A, Family B, and
- * Family C share the same Anthropic-call envelope (AnthropicCallResult)
- * and the same response-shape (McpBooleanObservationValidatedResponse),
- * so the dispatcher can route uniformly post-resolution.
+ * orchestrator, fixture provider, ban-list scan). Family A, B, C, and D
+ * share the same Anthropic-call envelope (AnthropicCallResult) and the
+ * same response-shape (McpBooleanObservationValidatedResponse), so the
+ * dispatcher can route uniformly post-resolution.
  *
- * The Family A wrapper accepts ValidatedFamilyARequest, which is structurally
- * identical to ValidatedFamilyBRequest and ValidatedFamilyCRequest (all
- * three mirror the wire shape); we cast at the boundary since all shapes
- * accept the same fields.
+ * The Family A wrapper accepts ValidatedFamilyARequest, which is
+ * structurally identical to ValidatedFamilyBRequest, ValidatedFamilyCRequest,
+ * and ValidatedFamilyDRequest (all four mirror the wire shape); we cast at
+ * the boundary since all shapes accept the same fields.
  */
 interface FamilyProviders {
   anthropic: (
-    req: ValidatedFamilyARequest | ValidatedFamilyBRequest | ValidatedFamilyCRequest,
+    req:
+      | ValidatedFamilyARequest
+      | ValidatedFamilyBRequest
+      | ValidatedFamilyCRequest
+      | ValidatedFamilyDRequest,
     requestId: string,
   ) => Promise<AnthropicCallResult>;
   fixture: () => Promise<
@@ -220,6 +239,14 @@ function pickFamilyProviders(family: string): FamilyProviders | null {
         runAnthropicFamilyCClassifier(req as ValidatedFamilyCRequest, requestId),
       fixture: loadFixtureFamilyCPacket,
       banListScan: scanFamilyCBooleanResponseForBanList,
+    };
+  }
+  if (family === 'evidence_source_chain') {
+    return {
+      anthropic: (req, requestId) =>
+        runAnthropicFamilyDClassifier(req as ValidatedFamilyDRequest, requestId),
+      fixture: loadFixtureFamilyDPacket,
+      banListScan: scanFamilyDBooleanResponseForBanList,
     };
   }
   return null; // unreachable post-validation; defensive

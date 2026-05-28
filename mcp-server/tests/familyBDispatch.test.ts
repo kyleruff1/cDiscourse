@@ -177,11 +177,12 @@ Deno.test('dispatch: cross-family request (Family B rawKey under parent_relation
 });
 
 Deno.test('dispatch: unsupported family F (critical_question) returns unsupported_family with full supportedFamilies list', async () => {
-  // MCP-SERVER-004-FAMILY-C promoted misunderstanding_repair from
-  // unsupported to supported, so this test now exercises an UNREGISTERED
-  // family (Family F: critical_question). The supportedFamilies envelope
-  // includes all three currently-registered families: parent_relation,
-  // disagreement_axis, misunderstanding_repair.
+  // MCP-SERVER-005-FAMILY-D promoted evidence_source_chain from
+  // unsupported to supported. This test continues to exercise an
+  // UNREGISTERED family (Family F: critical_question). The
+  // supportedFamilies envelope now includes all four currently-
+  // registered families: parent_relation, disagreement_axis,
+  // misunderstanding_repair, evidence_source_chain.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
@@ -199,18 +200,27 @@ Deno.test('dispatch: unsupported family F (critical_question) returns unsupporte
     };
     assertEquals(sc.reason, 'unsupported_family');
     assertEquals(sc.requestedFamilies, ['critical_question']);
-    assertEquals(sc.supportedFamilies, ['parent_relation', 'disagreement_axis', 'misunderstanding_repair']);
+    assertEquals(sc.supportedFamilies, [
+      'parent_relation',
+      'disagreement_axis',
+      'misunderstanding_repair',
+      'evidence_source_chain',
+    ]);
   });
 });
 
-Deno.test('dispatch: unsupported family D (evidence_source_chain) returns unsupported_family', async () => {
+Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family (replaces stale Family D test)', async () => {
+  // MCP-SERVER-005-FAMILY-D added Family D (evidence_source_chain) as a
+  // supported family. This regression test now uses Family G to keep
+  // the "unsupported family" check coverage. Family E/F/H/I/J also
+  // remain unsupported (verified in familyBooleanRequestSchema.test.ts).
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyBRequest({
-        requestedFamilies: ['evidence_source_chain'],
+        requestedFamilies: ['resolution_progress'],
       }),
-      requestId: 'r-dispatch-d-1',
+      requestId: 'r-dispatch-g-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);

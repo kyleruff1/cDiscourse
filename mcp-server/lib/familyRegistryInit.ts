@@ -34,6 +34,10 @@ import {
   FAMILY_C_RAW_KEYS,
   FAMILY_C_CLASSIFIER_SET_VERSION,
 } from './familyCKeys.ts';
+import {
+  FAMILY_D_RAW_KEYS,
+  FAMILY_D_CLASSIFIER_SET_VERSION,
+} from './familyDKeys.ts';
 
 let initialized = false;
 
@@ -47,8 +51,8 @@ let initialized = false;
  *
  * Registration order is preserved by the underlying Map (per
  * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
- * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair']
- * in this exact order.
+ * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
+ * 'evidence_source_chain'] in this exact order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -67,6 +71,17 @@ export function initializeFamilyRegistry(): void {
   register('misunderstanding_repair', {
     rawKeys: new Set(FAMILY_C_RAW_KEYS),
     classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+
+  // MCP-SERVER-005-FAMILY-D: register evidence_source_chain with the
+  // 19-key ai_classifier Subset per Stage 2B operator binding decision.
+  // The 8 deterministic Family D rawKeys (5 auto_metadata + 3 lifecycle)
+  // are intentionally excluded; requesting any of them under
+  // requestedFamilies=['evidence_source_chain'] returns unsupported_rawKey
+  // at the registry boundary.
+  register('evidence_source_chain', {
+    rawKeys: new Set(FAMILY_D_RAW_KEYS),
+    classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
   });
 }
 
