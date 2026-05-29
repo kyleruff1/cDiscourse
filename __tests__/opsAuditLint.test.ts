@@ -1106,6 +1106,117 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — 4-fixture self-validation', () =>
 });
 
 /* ============================================================ */
+/* 15b. Family F doctrine-risk enrollment                        */
+/*     (OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK)         */
+/* ============================================================ */
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK — doctrine-risk membership', () => {
+  it('doctrine-risk family set contains critical_question', () => {
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('critical_question')).toBe(true);
+  });
+
+  it('doctrine-risk family set contains family_f (the detector output)', () => {
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('family_f')).toBe(true);
+  });
+
+  it('doctrine-risk family set contains consequence_probability_unclear', () => {
+    expect(
+      rules.DOCTRINE_RISK_FAMILIES.has('consequence_probability_unclear'),
+    ).toBe(true);
+  });
+
+  it('preserves the existing Family E doctrine-risk members', () => {
+    // Additive-only guard: the F enrollment must not drop argument_scheme
+    // or slippery_slope (HALT trigger 7).
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('argument_scheme')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('slippery_slope')).toBe(true);
+  });
+});
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK — detectFamily A.1-trap pin', () => {
+  it('a MCP-SERVER-007-FAMILY-F title detects as family_f (NOT critical_question)', () => {
+    // Load-bearing: the title letter F has no case in mapFamilyLetterToName,
+    // so it falls through to the default branch -> `family_f`. If a future
+    // refactor adds an F case (changing the emitted string) this pin fails
+    // loudly rather than silently un-arming L5.
+    expect(
+      detectFamily(
+        '# MCP-SERVER-007-FAMILY-F-SMOKE — Post-merge audit',
+        'Phase 4b deferred.',
+      ),
+    ).toBe('family_f');
+  });
+});
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK — L5 fires for family_f', () => {
+  it('fires on a family_f audit with verdict PASS and no evidence_span mention', () => {
+    const doc = buildFamilyShipDoc({
+      titleOverride: '# MCP-SERVER-007-FAMILY-F-SMOKE — synthetic',
+      phases: [['Phase 1 — Pre-flight', 'PASS']],
+      verdict: 'PASS',
+    });
+    const result = lintAuditDoc(doc);
+    expect(result.findings.some((f) => f.rule === 'L5')).toBe(true);
+  });
+
+  it('does NOT fire on a family_f audit that inspects evidence_span', () => {
+    const doc = buildFamilyShipDoc({
+      titleOverride: '# MCP-SERVER-007-FAMILY-F-SMOKE — synthetic',
+      phases: [
+        [
+          'Phase 1 — Pre-flight',
+          'PASS',
+          'SELECT raw_key, confidence, evidence_span FROM argument_machine_observation_results;',
+        ],
+      ],
+      verdict: 'PASS',
+    });
+    const result = lintAuditDoc(doc);
+    expect(result.findings.some((f) => f.rule === 'L5')).toBe(false);
+  });
+});
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK — Family F fixture self-validation', () => {
+  it('family-f-original-PARTIAL PASSES as PARTIAL (consistent-PARTIAL preserved)', () => {
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-f-original-PARTIAL.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it('family-f-amendment-PASS PASSES (legitimate F amendment with persisted inspection)', () => {
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-f-amendment-PASS.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it('family-f-IMPROPER-PASS-no-evidence-span FAILS on L5 ONLY (the teeth proof)', () => {
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-f-IMPROPER-PASS-no-evidence-span.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(1);
+    const ruleIds = result.findings.map((f) => f.rule);
+    // L5 is the doctrine-risk teeth: verdict PASS + Family F + no evidence_span.
+    expect(ruleIds).toContain('L5');
+    // Teeth-precision: ONLY L5 trips. The synthetic is amendment-typed (empty
+    // required-phase set -> no L1), has no L2 indirect-proof phrase, and its L6
+    // provenance is intact -> none of L1/L2/L6 fire.
+    expect(ruleIds).not.toContain('L1');
+    expect(ruleIds).not.toContain('L2');
+    expect(ruleIds).not.toContain('L6');
+  });
+});
+
+/* ============================================================ */
 /* 16. Fixture-directory invariants                              */
 /* ============================================================ */
 
@@ -1115,6 +1226,9 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — fixture-directory invariants', ()
     'family-e-amendment-PARTIAL.md',
     'family-e-hosted-completion-PASS.md',
     'family-d-strengthened-amendment-PASS.md',
+    'family-f-original-PARTIAL.md',
+    'family-f-amendment-PASS.md',
+    'family-f-IMPROPER-PASS-no-evidence-span.md',
   ];
 
   it('README.md exists with required exclusion-contract content', () => {
@@ -1135,11 +1249,11 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — fixture-directory invariants', ()
     }
   });
 
-  it('fixture count is exactly 4', () => {
+  it('fixture count is exactly 7', () => {
     const mdFiles = fs
       .readdirSync(FIXTURE_DIR)
       .filter((n) => n.endsWith('.md') && n !== 'README.md');
-    expect(mdFiles).toHaveLength(4);
+    expect(mdFiles).toHaveLength(7);
     expect(mdFiles.sort()).toEqual([...FIXTURE_FILES].sort());
   });
 });
