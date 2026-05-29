@@ -6,7 +6,7 @@
  * `mcp-latency-report-lib.cjs` (CommonJS so the Jest default loader can
  * `require()` them). This file is the CLI surface — it resolves the repo
  * root via `import.meta.url`, runs the two latency SQL files in
- * `scripts/ops/sql/` via the lib's reused `runSupabaseSqlFile`, computes
+ * `scripts/ops-latency-sql/` via the lib's reused `runSupabaseSqlFile`, computes
  * per-family + wall-clock percentiles + classification + projection in JS,
  * stitches the markdown + JSON artifact, runs the doctrine ban-list scan,
  * and writes the artifacts to `out/ops-latency/<UTC>/` (or prints on
@@ -38,7 +38,12 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, '..', '..');
-const SQL_DIR = join(__dirname, 'sql');
+// Latency SQL lives in a DEDICATED sibling directory `scripts/ops-latency-sql/`,
+// NOT in the observability-owned `scripts/ops/sql/`. See docs/ops/LATENCY-BUDGET.md
+// § "Directory ownership" — the observability SQL-safety suites recursively scan
+// `scripts/ops/` and assert an exact 16-file observability count, so the latency
+// SQL must live outside that tree. runSupabaseSqlFile takes an absolute path.
+const SQL_DIR = resolve(__dirname, '..', 'ops-latency-sql');
 
 const require = createRequire(import.meta.url);
 const lib = require('./mcp-latency-report-lib.cjs');

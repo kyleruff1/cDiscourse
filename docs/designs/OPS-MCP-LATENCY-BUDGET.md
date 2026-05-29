@@ -106,12 +106,14 @@ All paths are within the STRICT-SCOPE allow-list. No forbidden file is touched.
   `buildLatencyJson(...)`, `LATENCY_SECTIONS`, `WARN_SECONDS`/`FAIL_SECONDS`
   constants, plus a re-export of the observability lib's `runSupabaseSqlFile`
   and `scanMarkdownForBannedTokens` (require-and-reexport — no copy).
-- `scripts/ops/sql/16-auto-trigger-per-family-duration.sql` (~35 lines) —
-  per-(argument, family) production-success durations for the most recent N
+- `scripts/ops-latency-sql/01-auto-trigger-per-family-duration.sql` (~35 lines)
+  — per-(argument, family) production-success durations for the most recent N
   arguments (one row per family run; the report computes percentiles in JS).
-- `scripts/ops/sql/17-auto-trigger-wall-clock-per-argument.sql` (~30 lines) —
-  per-argument `wall_clock_background` + `sum_of_per_family` + family-run count
-  for the same recent N arguments.
+  *(Relocated out of `scripts/ops/sql/` per the operator's Option B decision —
+  see § "Implementer note: RESOLVED" at the bottom of this doc.)*
+- `scripts/ops-latency-sql/02-auto-trigger-wall-clock-per-argument.sql`
+  (~30 lines) — per-argument `wall_clock_background` + `sum_of_per_family` +
+  family-run count for the same recent N arguments.
 - `docs/ops/LATENCY-BUDGET.md` (~120–160 lines) — the budget doc: the three
   clock definitions, the explicit statement that **45s is defined against
   `wall_clock_background`**, the 30s/45s thresholds + rationale, the projection
@@ -170,7 +172,7 @@ trigger 6 untouched).
 
 ## API / interface contracts
 
-### Read-only SQL — `16-auto-trigger-per-family-duration.sql` (EXACT)
+### Read-only SQL — `scripts/ops-latency-sql/01-auto-trigger-per-family-duration.sql` (Q16; EXACT)
 
 The report computes percentiles in JS from these per-sample rows (per A.1: SQL
 percentiles are awkward across a tiny N=5; JS `percentile()` is clearer and
@@ -190,7 +192,7 @@ most recent N arguments.
 -- Doctrine: aggregate timing only; no body content; no evidence_span.
 --           Latency is a system-performance metric, never a gameplay signal.
 -- Runs standalone via:
---   npx supabase db query --linked --file scripts/ops/sql/16-auto-trigger-per-family-duration.sql
+--   npx supabase db query --linked --file scripts/ops-latency-sql/01-auto-trigger-per-family-duration.sql
 with recent_args as (
   select argument_id, min(started_at) as arg_first_started
   from public.argument_machine_observation_runs
@@ -225,7 +227,7 @@ order by r.argument_id, family;
 > newest production family) — the smoke's 5 fresh submissions bring every
 > family to ≥ 5.
 
-### Read-only SQL — `17-auto-trigger-wall-clock-per-argument.sql` (EXACT)
+### Read-only SQL — `scripts/ops-latency-sql/02-auto-trigger-wall-clock-per-argument.sql` (Q17; EXACT)
 
 ```sql
 -- OPS-MCP-LATENCY-BUDGET — Q17: per-argument wall-clock background time.
@@ -241,7 +243,7 @@ order by r.argument_id, family;
 --
 -- Doctrine: aggregate timing only; no body content.
 -- Runs standalone via:
---   npx supabase db query --linked --file scripts/ops/sql/17-auto-trigger-wall-clock-per-argument.sql
+--   npx supabase db query --linked --file scripts/ops-latency-sql/02-auto-trigger-wall-clock-per-argument.sql
 with recent_args as (
   select argument_id, min(started_at) as arg_first_started
   from public.argument_machine_observation_runs
@@ -553,10 +555,16 @@ the forecast and far under the +50 HALT ceiling (HALT trigger 10 not approached)
   already sets `shell: process.platform === 'win32'` and parses `parsed.rows`;
   the new SQL files were executed via that exact path this session and parsed
   cleanly, so no new platform risk.
-- **Existing tests.** No existing test is modified — the new report is a
-  separate file with a separate `schemaVersion`, and the observability lib is
-  imported read-only. The observability report's 15-section TOC and its
-  doctrine ban-list suite are untouched. Test count goes strictly **up**.
+- **Existing tests.** *(Updated post-Option-B.)* The two **observability** test
+  suites are untouched (byte-equal, 0-diff) and green: the latency SQL was
+  relocated to the sibling dir `scripts/ops-latency-sql/` so the observability
+  suites' 16-file invariants hold. The only existing-test edit is one
+  assertion in the card's **own** `__tests__/opsMcpLatencyBudget.test.ts` (the
+  `LATENCY_SECTIONS` sqlFile names changed `16`/`17` → `01`/`02`). The new
+  report is a separate file with a separate `schemaVersion`, and the
+  observability lib is imported read-only. Test count goes strictly **up** (the
+  new `__tests__/opsMcpLatencySqlSafety.test.ts` adds +20). See § "Implementer
+  note: RESOLVED" below.
 - **Operator deploy.** None required — pure code + read-only SQL + docs. No
   migration, no Edge Function, no env var, no `package.json`. The Supabase
   GitHub auto-deploy is a no-op for this card.
@@ -812,82 +820,59 @@ reusing the shared SQL-runner + ban-list helpers by require-and-re-export.
 
 ---
 
-## Implementer note: cannot proceed all-green within STRICT SCOPE (2026-05-28)
+## Implementer note: RESOLVED (operator decision — Option B: relocate) (2026-05-28)
 
 **Author:** implementer (OPS-MCP-LATENCY-BUDGET, branch
 `feat/OPS-MCP-LATENCY-BUDGET`).
-**Trigger:** the design's § Risks → "Existing tests" assumption — *"No existing
-test is modified … Test count goes strictly up"* — is **materially incomplete**.
-Two existing **observability** test suites assert **exclusive ownership of the
-shared `scripts/ops/sql/` directory** by a hard file count and a card-name
-header. The card's own STRICT-SCOPE-mandated SQL files (`16-…sql`, `17-…sql`,
-placed in that exact directory per the design's file list) break **3
-assertions across 2 files**. Resolving it requires editing files **outside the
-implementer's explicit create/edit allow-list**, so per the implementer
-protocol I am stopping rather than silently expanding scope or leaving red
-tests on the branch.
+**Status:** **RESOLVED.** The earlier blocker — the card's SQL placed in
+`scripts/ops/sql/16,17` broke 3 assertions across the two observability
+suites, which assert an exact 16-file count over the observability-owned SQL
+dir — was resolved by the operator's **Option B (relocate)** decision rather
+than by editing the (forbidden) observability test files.
 
-### Exactly what breaks (verified by `npx jest`)
+**What changed:**
 
-The implementation is complete and its own gates are green (typecheck 0, lint
-0, `__tests__/opsMcpLatencyBudget.test.ts` 47/47). The **full** suite is red
-only on these 3 pre-existing assertions, all of which over-claim sole
-ownership of the now-shared SQL directory:
+- The two latency SQL files were **relocated out of `scripts/ops/sql/`** (via
+  `git mv`) into a dedicated dir and locally renumbered:
+  - `scripts/ops/sql/16-auto-trigger-per-family-duration.sql` →
+    `scripts/ops-latency-sql/01-auto-trigger-per-family-duration.sql`
+  - `scripts/ops/sql/17-auto-trigger-wall-clock-per-argument.sql` →
+    `scripts/ops-latency-sql/02-auto-trigger-wall-clock-per-argument.sql`
+  The SQL **bodies are byte-identical** to the design's Q16/Q17 logic; only the
+  header `--file …` paths were updated to the new locations.
+- `scripts/ops/sql/` is back to **exactly the 16 observability files**
+  (`git diff main..HEAD -- scripts/ops/sql/` is 0 lines).
+- The two **observability test files are untouched** (0-diff) and **green again**
+  (their 16-file invariants hold).
+- `mcp-latency-report.mjs` resolves `SQL_DIR` from `scripts/ops-latency-sql/`
+  with the `01`/`02` filenames; `mcp-latency-report-lib.cjs`'s
+  `LATENCY_SECTIONS` + markdown/JSON path strings reference the new dir.
+- A new **latency-specific SQL safety suite**
+  (`__tests__/opsMcpLatencySqlSafety.test.ts`, +20 tests) mirrors the
+  observability safety scans scoped to `scripts/ops-latency-sql/` (no DDL, no
+  `select *`, no bare body/`evidence_span`, no secrets/Authorization/Bearer/JWT,
+  terminating `;`, `OPS-MCP-LATENCY-BUDGET` header).
 
-1. `__tests__/opsMcpObservabilitySqlSafety.test.ts:59` —
-   `expect(FILES.length).toBe(16)` → now **18**. (`FILES` = every
-   `scripts/ops/sql/*.sql`.)
-2. `__tests__/opsMcpObservabilitySqlSafety.test.ts:163` —
-   `expect(src).toContain('OPS-MCP-OBSERVABILITY')` for **every** SQL file →
-   the two new files honestly reference `OPS-MCP-LATENCY-BUDGET`.
-3. `__tests__/opsMcpObservabilityNoServiceRoleNoSecrets.test.ts:81` —
-   `expect(sqlFiles.length).toBe(16)` → now **18**.
+**One documented deviation from the literal Option B spec — directory name.**
+The operator's resolution named the dedicated dir `scripts/ops/latency-sql/`
+(a *subdirectory* of `scripts/ops/`). That literal name cannot satisfy the
+operator's own verification gates, because
+`__tests__/opsMcpObservabilityNoServiceRoleNoSecrets.test.ts` collects `.sql`
+files **recursively** under `scripts/ops/` and asserts the count is **exactly
+16** (verified empirically: moving the files to `scripts/ops/latency-sql/`
+fixed `opsMcpObservabilitySqlSafety` but left
+`opsMcpObservabilityNoServiceRoleNoSecrets:81` red at 18). The only directory
+that satisfies **all** of the operator's gates simultaneously — obs suites
+green, obs test files byte-equal/0-diff, latency SQL out of `scripts/ops/sql/`
+— is a **sibling** of `scripts/ops/`, outside the recursive scan. The dir was
+therefore placed at **`scripts/ops-latency-sql/`** (sibling) rather than
+`scripts/ops/latency-sql/` (nested). This preserves the operator's dominant
+intent and every verification gate; the only change is the path being a sibling
+rather than a child of `scripts/ops/`. Documented in `docs/ops/LATENCY-BUDGET.md`
+§ "Directory ownership".
 
-**Everything else passes.** The same two suites' *doctrine-safety* scans
-(read-only / no `select *` / no bare `arguments.body` / no bare
-`evidence_span` / terminating-semicolon / no `SERVICE_ROLE` / no
-`Authorization` / no `@supabase/supabase-js` / no `fetch(` / no
-`anthropic`/`xai`) all run over the two new SQL files **and the new
-`.mjs`/`.cjs`** and **pass** — confirming the new artifacts are doctrine-clean
-and that the suites' *intent* (scan everything in `scripts/ops/` for safety) is
-correctly served; only the two **directory-ownership invariants** (exact count
-+ card-name header) need to become shared-directory-aware.
-
-### Why I did not just fix it
-
-- The STRICT-SCOPE "create/edit ONLY" list is exclusive and does **not**
-  include `__tests__/opsMcpObservability*.test.ts`. The dispatcher/registry/etc.
-  BLOCK-level list is a different (also-forbidden) set; these two test files are
-  simply not authorized for edit.
-- The SQL files cannot move (the design's file list and the observability
-  report's own `SECTIONS` both pin `scripts/ops/sql/`), and they cannot
-  honestly carry an `OPS-MCP-OBSERVABILITY` header. The `=== 16` count
-  assertions are unfixable without editing the observability suites. So there
-  is **no allow-list-compliant path to all-green**.
-
-### Proposed minimal resolution (for operator/designer authorization)
-
-Authorize a 3-assertion edit to the two observability test files to make their
-directory invariants **observability-scoped** rather than
-whole-directory-exclusive (a faithful tightening, not a weakening — the safety
-scans still cover every file):
-
-- `opsMcpObservabilitySqlSafety.test.ts`: change `toBe(16)` →
-  `toBeGreaterThanOrEqual(16)` (or assert the 16 observability files by name),
-  and scope the `OPS-MCP-OBSERVABILITY` header check to files whose first
-  comment line names that card (other cards' SQL in the shared dir are headed
-  with their own card name). Keep all safety scans applied to **all** files.
-- `opsMcpObservabilityNoServiceRoleNoSecrets.test.ts:81`: change
-  `sqlFiles.length).toBe(16)` → `toBeGreaterThanOrEqual(16)` (the adjacent
-  `FILES.length >= 18` already uses the inclusive form; this aligns them).
-
-Alternatively, if the operator prefers zero edits to the observability suite,
-the designer can re-place the latency SQL outside `scripts/ops/sql/` (e.g.
-`scripts/ops/sql-latency/`) and adjust the latency report's `SQL_DIR` — but
-that diverges from the design's current file list and is a designer decision.
-
-**State left on branch:** 3 commits (report+lib+SQL `63681a1`; tests `26e496d`;
-this note will be a 4th, committed alone). `out/` untracked. The
-`docs/ops/LATENCY-BUDGET.md` + `docs/core/current-status.md` handoff are
-written locally but **not committed** pending this decision, so the branch is
-not left in a misleadingly-complete state.
+**Verification (all green at resolution):** typecheck 0, lint 0;
+`opsMcpLatency*` suites green (latency budget 47/47 + latency SQL safety 20/20);
+`opsMcpObservability` suites green again (173/173 across 12 suites, back to the
+16-file count); full suite green. `node scripts/ops/mcp-latency-report.mjs
+--no-write` runs read-only end-to-end and exits 0.

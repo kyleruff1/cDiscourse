@@ -10,7 +10,7 @@
 -- Doctrine: aggregate timing only; no body content; no evidence_span.
 --           Latency is a system-performance metric, never a gameplay signal.
 -- Runs standalone via:
---   npx supabase db query --linked --file scripts/ops/sql/16-auto-trigger-per-family-duration.sql
+--   npx supabase db query --linked --file scripts/ops-latency-sql/01-auto-trigger-per-family-duration.sql
 with recent_args as (
   select argument_id, min(started_at) as arg_first_started
   from public.argument_machine_observation_runs

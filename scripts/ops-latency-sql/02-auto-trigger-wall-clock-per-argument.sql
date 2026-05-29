@@ -11,7 +11,7 @@
 --
 -- Doctrine: aggregate timing only; no body content.
 -- Runs standalone via:
---   npx supabase db query --linked --file scripts/ops/sql/17-auto-trigger-wall-clock-per-argument.sql
+--   npx supabase db query --linked --file scripts/ops-latency-sql/02-auto-trigger-wall-clock-per-argument.sql
 with recent_args as (
   select argument_id, min(started_at) as arg_first_started
   from public.argument_machine_observation_runs

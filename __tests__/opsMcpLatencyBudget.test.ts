@@ -158,10 +158,13 @@ describe('OPS-MCP-LATENCY-BUDGET — constants + reused machinery', () => {
     expect(typeof lib.scanMarkdownForBannedTokens).toBe('function');
   });
 
-  it('exposes exactly the two latency SQL sections (Q16, Q17)', () => {
+  it('exposes exactly the two latency SQL sections (Q16, Q17) by their local 01/02 filenames', () => {
+    // The latency SQL lives in the dedicated sibling dir scripts/ops-latency-sql/
+    // (NOT scripts/ops/sql/, which is observability-owned) and is locally
+    // renumbered 01/02. See docs/ops/LATENCY-BUDGET.md § "Directory ownership".
     expect(LATENCY_SECTIONS.map((s) => s.sqlFile)).toEqual([
-      '16-auto-trigger-per-family-duration.sql',
-      '17-auto-trigger-wall-clock-per-argument.sql',
+      '01-auto-trigger-per-family-duration.sql',
+      '02-auto-trigger-wall-clock-per-argument.sql',
     ]);
   });
 });

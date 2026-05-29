@@ -149,7 +149,7 @@ const LATENCY_SECTIONS = Object.freeze([
     title: 'Per-family production durations (Q16)',
     question:
       'Q16 — Per-(argument, family) production-success durations for the most recent N arguments (one row per family run).',
-    sqlFile: '16-auto-trigger-per-family-duration.sql',
+    sqlFile: '01-auto-trigger-per-family-duration.sql',
     columns: ['argument_id', 'family', 'family_seconds', 'started_at', 'completed_at'],
     emptyMessage:
       'No rows. No production-success auto-trigger runs in the recent-N window yet.',
@@ -159,7 +159,7 @@ const LATENCY_SECTIONS = Object.freeze([
     title: 'Per-argument wall-clock background time (Q17)',
     question:
       'Q17 — Per-argument wall_clock_background (max(completed_at) − min(started_at)) + sum_of_per_family + family-run count for the same recent-N arguments. wall_clock_background is the BINDING threshold clock (D2).',
-    sqlFile: '17-auto-trigger-wall-clock-per-argument.sql',
+    sqlFile: '02-auto-trigger-wall-clock-per-argument.sql',
     columns: [
       'argument_id',
       'family_runs',
@@ -471,7 +471,7 @@ function renderRawSection(section, rows) {
   lines.push('');
   lines.push(`**Question:** ${section.question}`);
   lines.push('');
-  lines.push(`**SQL:** \`scripts/ops/sql/${section.sqlFile}\``);
+  lines.push(`**SQL:** \`scripts/ops-latency-sql/${section.sqlFile}\``);
   lines.push('');
   if (safeRows.length === 0) {
     lines.push(`<sub>${section.emptyMessage}</sub>`);
@@ -705,7 +705,7 @@ function buildLatencyJson(model) {
       id: s.id,
       title: s.title,
       question: s.question,
-      sqlFile: `scripts/ops/sql/${s.sqlFile}`,
+      sqlFile: `scripts/ops-latency-sql/${s.sqlFile}`,
       columns: [...s.columns],
       rows:
         m.sectionsData && Object.prototype.hasOwnProperty.call(m.sectionsData, s.id)
