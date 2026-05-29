@@ -12,8 +12,12 @@
  * design §"STAGE 2B"), this dispatcher derives the production family
  * list from the Edge family registry (`familyRegistry.ts`) rather than
  * hard-coding `parent_relation`. Each production-enabled family is
- * classified in its own iteration (sequential `for-of` loop), producing
- * its own MCP request, run row, and structured log entry.
+ * classified in its own iteration, producing its own MCP request, run
+ * row, and structured log entry. Per OPS-MCP-AUTO-TRIGGER-PARALLELIZATION
+ * the iterations run with BOUNDED PARALLELISM (at most
+ * `MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES` in flight) rather than strictly
+ * one-at-a-time, to keep background wall-clock under budget before the
+ * next production family is added.
  *
  * Workflow:
  *   1. Read `semantic_referee_runtime_config.enabled` via the existing
@@ -24,7 +28,8 @@
  *   2. Resolve the production-enabled family list from the registry via
  *      `productionEnabledFamilies()`. If empty → no iterations run and
  *      an outer `'skipped'` summary is emitted.
- *   3. For each eligible family (sequential for-of):
+ *   3. For each eligible family (dispatched with bounded parallelism —
+ *      at most MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES concurrent):
  *      a. Idempotency pre-check (Option A): query
  *         `argument_machine_observation_runs` for an existing canonical
  *         run for this argument + family. If `status='success'` → outcome
@@ -40,10 +45,11 @@
  *   4. Return the array of per-family outcomes.
  *
  * Family A behavior preservation: Family A is the first entry in
- * `productionEnabledFamilies()` (registry iteration order is A→J), so
- * its iteration runs FIRST and uses the same per-family idempotency
- * pre-check + bounded retry + log emission as before. Failures in one
- * family iteration do NOT abort other family iterations.
+ * `productionEnabledFamilies()` (registry iteration order is A→J). Under
+ * bounded parallelism it occupies `outcomes[0]` (the runner preserves
+ * input order) and uses the same per-family idempotency pre-check +
+ * bounded retry + log emission as before. Failures in one family
+ * iteration do NOT abort other family iterations.
  *
  * Doctrine:
  *   - cdiscourse-doctrine §7 — server-only file; never imported by
@@ -71,11 +77,18 @@
  * argument). Across families the raw_keys are pairwise disjoint per the
  * MCP-021A registry, so cross-family contamination is impossible.
  *
- * Sequential loop choice: per the Stage 2B operator preference, families
- * run sequentially (not in parallel) for observability + idempotency
- * clarity. The wall-time cost of three sequential MCP calls is accepted
- * — the dispatcher runs as a background task via EdgeRuntime.waitUntil,
- * so it does NOT block the submit-argument response.
+ * Bounded-parallel dispatch choice (OPS-MCP-AUTO-TRIGGER-PARALLELIZATION):
+ * the families are dispatched with bounded parallelism — at most
+ * `MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES` (a code constant chosen for
+ * SAFETY, not throughput) classifications in flight at once — via the
+ * pure `runWithBoundedConcurrency` worker pool. This replaced the earlier
+ * strictly-sequential `for-of` loop to keep the background
+ * `wall_clock_background` p95 under budget as production families are
+ * added, WITHOUT introducing unbounded fan-out (HALT-4). The dispatcher
+ * still runs as a background task via EdgeRuntime.waitUntil, so it never
+ * blocks the submit-argument response (fire-and-forget). Per-family run
+ * rows, log lines, and outcome ORDER (registry order) are byte-equal to
+ * the sequential design; only the dispatch TIMING changes.
  */
 
 import { runBooleanObservationMcpAdapter } from './booleanObservationMcpAdapter.ts';
@@ -85,6 +98,8 @@ import {
 } from './classifyArgumentCore.ts';
 import type { PerArgumentSummary } from './classifyArgumentCore.ts';
 import { productionEnabledFamilies } from './familyRegistry.ts';
+import { MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES } from './autoTriggerConcurrency.ts';
+import { runWithBoundedConcurrency } from './boundedConcurrencyRunner.ts';
 import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from './mcpBooleanObservationSchema.ts';
 import type { MachineObservationFamily } from './nodeLabelTypes.ts';
 import type { createServiceClient } from '../supabaseClients.ts';
@@ -418,24 +433,37 @@ export async function dispatchAutoTriggerForArgument(
       return [outcome];
     }
 
-    // ── Per-family sequential loop ───────────────────────────────
-    // Sequential `for-of` (NOT Promise.all) per Stage 2B operator
-    // preference: observability + idempotency clarity + per-family run
-    // rows are easier to reason about when each family runs to
-    // completion before the next starts. Family A is the first entry
-    // (registry order A→J) so its iteration runs first. A failure in
-    // one family iteration does NOT abort the next iteration — the
-    // per-iteration try/catch inside dispatchOneFamilyIteration
-    // isolates each family.
-    const outcomes: AutoTriggerOutcome[] = [];
-    for (const family of eligibleFamilies) {
-      const iterationOutcome = await dispatchOneFamilyIteration(
-        argumentId,
-        family,
-        serviceClient,
-      );
-      outcomes.push(iterationOutcome);
-    }
+    // ── Per-family bounded-parallel dispatch ─────────────────────
+    // OPS-MCP-AUTO-TRIGGER-PARALLELIZATION: the families are dispatched
+    // with BOUNDED PARALLELISM (at most MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES
+    // in flight at once) via the pure worker-pool runner — NOT an
+    // unbounded Promise.all over the family list (HALT-4). The runner is
+    // allSettled-style: a per-family rejection NEVER aborts a sibling
+    // (HALT-6); each task's settle state is collected. `dispatchOneFamilyIteration`
+    // already never throws (it returns a typed `'failed'` outcome), so in
+    // practice every settled result is `'fulfilled'`; the rejected branch
+    // below is defense-in-depth. Results are returned in INPUT
+    // (registry) order, so Family A remains outcomes[0] and the
+    // per-family run rows / log lines are byte-equal to before — only the
+    // dispatch TIMING changes. The per-family idempotency pre-check +
+    // retry backoff + try/catch inside dispatchOneFamilyIteration are
+    // unchanged; each family is processed exactly once (the index-pull in
+    // the runner guarantees no index is processed twice).
+    const settled = await runWithBoundedConcurrency(
+      eligibleFamilies,
+      MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES,
+      (family) => dispatchOneFamilyIteration(argumentId, family, serviceClient),
+    );
+    const outcomes: AutoTriggerOutcome[] = settled.map((result, i) =>
+      result.status === 'fulfilled' && result.value
+        ? result.value
+        : {
+            outcome: 'failed',
+            runId: null,
+            family: eligibleFamilies[i],
+            failureReason: 'unexpected_error',
+          },
+    );
     return outcomes;
   } catch {
     // Defensive outer catch: any uncaught condition surfaces as a single
