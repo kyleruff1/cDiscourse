@@ -54,7 +54,14 @@ const FAIL_SECONDS = 45;
 // Projection defaults (D6; stated + justified in design § A.3).
 const DEFAULT_PER_FAMILY_DISPATCH_GAP_SECONDS = 0.5; // ~0.34s observed, rounded up.
 const PROJECTION_TARGET_COUNTS = Object.freeze([7, 8, 9, 10]);
-const CURRENT_FAMILY_COUNT = 6; // A+B+C+D+E+F production-enabled (anchor).
+// Data-derived fallback for the projection anchor's family count. The
+// projection base is no longer this module constant — it is derived from
+// the measured data (the number of distinct production families that
+// produced recent rows == measuredPerFamilyP95.length) or supplied
+// explicitly via the `anchorFamilyCount` parameter (D5 anchor fix:
+// the hardcoded "6 / A+B+C+D+E+F" went stale after the Family G flip).
+// Kept exported only as a documented fallback / back-compat constant.
+const CURRENT_FAMILY_COUNT = 6;
 const LOW_SAMPLE_FLOOR = 5; // a family with < 5 samples is flagged low-sample.
 
 /* ------------------------------------------------------------------ */
@@ -348,11 +355,11 @@ function roundTo(value, places) {
   return Math.round(value * factor) / factor;
 }
 
-function buildProjectionRows(anchor, addedFamilyP95, dispatchGap, targetCounts) {
+function buildProjectionRows(anchor, addedFamilyP95, dispatchGap, targetCounts, anchorCount) {
   const perAddedFamily = addedFamilyP95 + dispatchGap;
   return targetCounts.map((familyCount) => {
     const projected = roundTo(
-      anchor + (familyCount - CURRENT_FAMILY_COUNT) * perAddedFamily,
+      anchor + (familyCount - anchorCount) * perAddedFamily,
       3,
     );
     return {
@@ -365,11 +372,19 @@ function buildProjectionRows(anchor, addedFamilyP95, dispatchGap, targetCounts) 
 }
 
 /**
- * projectWallClockForFamilyCounts(...) — anchor on the measured 6-family
- * wall-clock p95, then add (n − 6) × (addedFamilyP95 + perFamilyDispatchGap)
- * per family beyond 6 (design § A.3). The anchor already includes the real
- * dispatch gaps, so it (not the per-family sum, which under-counts) is the
- * correct base.
+ * projectWallClockForFamilyCounts(...) — anchor on the measured wall-clock
+ * p95 (measured over `anchorFamilyCount` production families), then add
+ * (n − anchorFamilyCount) × (addedFamilyP95 + perFamilyDispatchGap) per
+ * family beyond the anchor (design § A.3). The anchor already includes the
+ * real dispatch gaps, so it (not the per-family sum, which under-counts) is
+ * the correct base.
+ *
+ * D5 anchor fix: `anchorFamilyCount` is DATA-DERIVED — it defaults to
+ * `measuredPerFamilyP95.length` (the number of distinct production families
+ * that produced the recent rows the anchor was measured over), or it may be
+ * supplied explicitly. This replaces the previously-hardcoded "6-family"
+ * base, which went stale after the Family G production flip (then 7
+ * families) and added a phantom extra family at the N=7 row.
  *
  * Emits a CENTRAL projection (median-of-measured addedFamilyP95) and a
  * SENSITIVITY projection (worst measured family p95), and mechanically
@@ -380,6 +395,7 @@ function projectWallClockForFamilyCounts(
   measuredWallClockP95Seconds,
   targetCounts,
   options,
+  anchorFamilyCount,
 ) {
   const opts = options || {};
   const counts =
@@ -393,6 +409,20 @@ function projectWallClockForFamilyCounts(
       'projectWallClockForFamilyCounts: measuredWallClockP95Seconds must be a finite, non-negative number',
     );
   }
+
+  // D5: resolve the anchor family count. Explicit param wins; otherwise
+  // derive from the measured per-family p95 array length (one entry per
+  // distinct production family observed). Falls back to the documented
+  // CURRENT_FAMILY_COUNT constant only when neither is available.
+  const measuredFamilyCount = Array.isArray(measuredPerFamilyP95)
+    ? measuredPerFamilyP95.length
+    : 0;
+  const resolvedAnchorFamilyCount =
+    typeof anchorFamilyCount === 'number' && Number.isFinite(anchorFamilyCount)
+      ? anchorFamilyCount
+      : measuredFamilyCount > 0
+        ? measuredFamilyCount
+        : CURRENT_FAMILY_COUNT;
 
   const dispatchGap =
     typeof opts.perFamilyDispatchGapSeconds === 'number' &&
@@ -413,7 +443,13 @@ function projectWallClockForFamilyCounts(
     );
   }
 
-  const rows = buildProjectionRows(anchor, addedFamilyP95Used, dispatchGap, counts);
+  const rows = buildProjectionRows(
+    anchor,
+    addedFamilyP95Used,
+    dispatchGap,
+    counts,
+    resolvedAnchorFamilyCount,
+  );
 
   // Sensitivity row set: worst measured family p95 (pessimistic). Falls back
   // to the central addedFamilyP95 when no per-family p95 is available.
@@ -425,6 +461,7 @@ function projectWallClockForFamilyCounts(
     sensitivityAddedFamilyP95,
     dispatchGap,
     counts,
+    resolvedAnchorFamilyCount,
   );
 
   // Crossing counts: smallest familyCount that crosses each line (null = none
@@ -435,6 +472,7 @@ function projectWallClockForFamilyCounts(
 
   return {
     anchorSeconds: anchor,
+    anchorFamilyCount: resolvedAnchorFamilyCount,
     addedFamilyP95Used,
     addedFamilyP95Default,
     dispatchGapUsed: dispatchGap,
@@ -602,7 +640,11 @@ function stitchLatencyMarkdown(model) {
     lines.push('');
   } else {
     lines.push(
-      `Anchored on measured ${CURRENT_FAMILY_COUNT}-family wall_clock_background p95 = ${fmtSeconds(
+      `Anchored on measured ${
+        typeof projection.anchorFamilyCount === 'number'
+          ? projection.anchorFamilyCount
+          : CURRENT_FAMILY_COUNT
+      }-family wall_clock_background p95 = ${fmtSeconds(
         projection.anchorSeconds,
       )}; added-family p95 = ${fmtSeconds(
         projection.addedFamilyP95Used,

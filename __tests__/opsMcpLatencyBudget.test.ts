@@ -32,6 +32,7 @@ interface ProjectionRow {
 
 interface ProjectionResult {
   anchorSeconds: number;
+  anchorFamilyCount: number;
   addedFamilyP95Used: number;
   addedFamilyP95Default: number | null;
   dispatchGapUsed: number;
@@ -115,6 +116,7 @@ const lib = require('../scripts/ops/mcp-latency-report-lib.cjs') as {
       addedFamilyP95Seconds?: number;
       perFamilyDispatchGapSeconds?: number;
     },
+    anchorFamilyCount?: number,
   ) => ProjectionResult;
   deriveDefaultAddedFamilyP95: (measured: PerFamilyP95[]) => number | null;
   scanMarkdownForBannedTokens: (
@@ -246,10 +248,21 @@ describe('OPS-MCP-LATENCY-BUDGET — projectWallClockForFamilyCounts arithmetic'
 
   it('projected 7/8/9/10 equal the closed form anchor + (n-6)*(addedFamilyP95+gap)', () => {
     const anchor = 30.4;
-    const result = projectWallClockForFamilyCounts(measured, anchor, [7, 8, 9, 10], {
-      addedFamilyP95Seconds: 6,
-      perFamilyDispatchGapSeconds: 0.5,
-    });
+    // The worked fixture has 6 measured families, so anchorFamilyCount=6 is
+    // both the data-derived default AND the correct explicit value; passing
+    // it explicitly keeps the closed form `(n − 6)` unchanged-and-correct
+    // after the D5 anchor parameterization.
+    const result = projectWallClockForFamilyCounts(
+      measured,
+      anchor,
+      [7, 8, 9, 10],
+      {
+        addedFamilyP95Seconds: 6,
+        perFamilyDispatchGapSeconds: 0.5,
+      },
+      6,
+    );
+    expect(result.anchorFamilyCount).toBe(6);
     const per = 6 + 0.5;
     const expected = (n: number) =>
       Math.round((anchor + (n - CURRENT_FAMILY_COUNT) * per) * 1000) / 1000;
@@ -265,10 +278,16 @@ describe('OPS-MCP-LATENCY-BUDGET — projectWallClockForFamilyCounts arithmetic'
   });
 
   it('crosses-warn / crosses-fail booleans flip at the right family count (FAIL first at n=9)', () => {
-    const result = projectWallClockForFamilyCounts(measured, 30.4, [7, 8, 9, 10], {
-      addedFamilyP95Seconds: 6,
-      perFamilyDispatchGapSeconds: 0.5,
-    });
+    const result = projectWallClockForFamilyCounts(
+      measured,
+      30.4,
+      [7, 8, 9, 10],
+      {
+        addedFamilyP95Seconds: 6,
+        perFamilyDispatchGapSeconds: 0.5,
+      },
+      6,
+    );
     expect(result.rows.map((r) => r.crossesWarn)).toEqual([true, true, true, true]);
     expect(result.rows.map((r) => r.crossesFail)).toEqual([
       false,
@@ -281,20 +300,32 @@ describe('OPS-MCP-LATENCY-BUDGET — projectWallClockForFamilyCounts arithmetic'
   });
 
   it('the G call (familyCount===7) derives crossesFail===false for the worked-example fixture', () => {
-    const result = projectWallClockForFamilyCounts(measured, 30.4, [7, 8, 9, 10], {
-      addedFamilyP95Seconds: 6,
-      perFamilyDispatchGapSeconds: 0.5,
-    });
+    const result = projectWallClockForFamilyCounts(
+      measured,
+      30.4,
+      [7, 8, 9, 10],
+      {
+        addedFamilyP95Seconds: 6,
+        perFamilyDispatchGapSeconds: 0.5,
+      },
+      6,
+    );
     expect(result.gRow?.crossesFail).toBe(false);
     expect(result.gUnderBudget).toBe(true);
   });
 
   it('the G call is DATA-DERIVED: a pessimistic fixture makes G cross FAIL (crossesFail===true)', () => {
     // Anchor already at 44, added-family 8 -> 7 families = 44 + 8.5 = 52.5 >= 45.
-    const result = projectWallClockForFamilyCounts(measured, 44, [7, 8, 9, 10], {
-      addedFamilyP95Seconds: 8,
-      perFamilyDispatchGapSeconds: 0.5,
-    });
+    const result = projectWallClockForFamilyCounts(
+      measured,
+      44,
+      [7, 8, 9, 10],
+      {
+        addedFamilyP95Seconds: 8,
+        perFamilyDispatchGapSeconds: 0.5,
+      },
+      6,
+    );
     expect(result.gRow?.crossesFail).toBe(true);
     expect(result.gUnderBudget).toBe(false);
     expect(result.failCrossingFamilyCount).toBe(7);
@@ -326,6 +357,69 @@ describe('OPS-MCP-LATENCY-BUDGET — projectWallClockForFamilyCounts arithmetic'
     expect(() => projectWallClockForFamilyCounts([], 30.4, [7])).toThrow(
       RangeError,
     );
+  });
+});
+
+/* ============================================================ */
+/* 2b. D5 anchor fix — data-derived production-family count     */
+/* ============================================================ */
+
+describe('OPS-MCP-AUTO-TRIGGER-PARALLELIZATION — D5 anchor fix (data-derived family count)', () => {
+  // After the Family G production flip, production has 7 families. The
+  // anchor count must DERIVE from the measured data (one entry per distinct
+  // production family) rather than the stale hardcoded "6", which added a
+  // phantom 7th family at the N=7 row.
+  const sevenMeasured: PerFamilyP95[] = [
+    { family: 'parent_relation', p95Seconds: 5 },
+    { family: 'disagreement_axis', p95Seconds: 5 },
+    { family: 'misunderstanding_repair', p95Seconds: 5 },
+    { family: 'evidence_source_chain', p95Seconds: 5 },
+    { family: 'argument_scheme', p95Seconds: 5 },
+    { family: 'critical_question', p95Seconds: 5 },
+    { family: 'resolution_progress', p95Seconds: 5 },
+  ];
+
+  it('a 7-family measured array yields the N=7 row EQUAL to the anchor (zero added families)', () => {
+    const anchor = 34.6;
+    const result = projectWallClockForFamilyCounts(sevenMeasured, anchor, [7, 8, 9, 10]);
+    // anchorFamilyCount derives from the array length = 7.
+    expect(result.anchorFamilyCount).toBe(7);
+    // N=7 row adds (7 − 7) = 0 families -> projection equals the anchor.
+    expect(result.gRow?.familyCount).toBe(7);
+    expect(result.gRow?.projectedWallClockP95Seconds).toBe(anchor);
+    expect(result.rows[0].projectedWallClockP95Seconds).toBe(anchor);
+  });
+
+  it('anchorFamilyCount defaults to measuredPerFamilyP95.length when omitted (data-derived)', () => {
+    // 7-entry array -> 7; 6-entry array -> 6. The default is the array
+    // length, NOT the module constant.
+    const seven = projectWallClockForFamilyCounts(sevenMeasured, 34.6, [7]);
+    expect(seven.anchorFamilyCount).toBe(7);
+
+    const six: PerFamilyP95[] = sevenMeasured.slice(0, 6);
+    const sixResult = projectWallClockForFamilyCounts(six, 30.4, [7]);
+    expect(sixResult.anchorFamilyCount).toBe(6);
+  });
+
+  it('an explicit anchorFamilyCount overrides the data-derived default', () => {
+    const result = projectWallClockForFamilyCounts(sevenMeasured, 34.6, [7], undefined, 6);
+    expect(result.anchorFamilyCount).toBe(6);
+    // With anchorFamilyCount=6 and 7 target, one added family is projected.
+    expect(result.gRow?.projectedWallClockP95Seconds).toBeGreaterThan(34.6);
+  });
+
+  it('stitchLatencyMarkdown renders "measured 7-family" for a 7-entry measured fixture (label derives from data)', () => {
+    const projection = projectWallClockForFamilyCounts(sevenMeasured, 34.6, [7, 8, 9, 10]);
+    const md = stitchLatencyMarkdown({
+      generatedAt: '2026-05-29T00:00:00.000Z',
+      perFamily: [],
+      wallClock: computeWallClockSamples([{ wall_clock_background_seconds: 34.6 }]),
+      classification: 'PARTIAL',
+      projection,
+      sectionsData: {},
+    });
+    expect(md).toContain('Anchored on measured 7-family wall_clock_background p95');
+    expect(md).not.toContain('Anchored on measured 6-family');
   });
 });
 
