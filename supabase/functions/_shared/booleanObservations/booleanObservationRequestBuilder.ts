@@ -69,6 +69,12 @@ const MCP_SERVER_SUPPORTED_FAMILY_SOURCES: Readonly<
   Partial<Record<MachineObservationFamily, ReadonlySet<MachineObservationSource>>>
 > = Object.freeze({
   evidence_source_chain: Object.freeze(new Set<MachineObservationSource>(['ai_classifier'])),
+  // MCP-SERVER-008A-FAMILY-G-EDGE-SUBSET — resolution_progress is a mixed-source
+  // family (5 auto_metadata + 7 lifecycle + 18 ai_classifier). Per the
+  // MCP-SERVER-008-FAMILY-G Stage 2B operator decision, the MCP server supports
+  // ONLY the 18 ai_classifier keys; sending the 12 deterministic keys triggers
+  // unsupported_rawKey → mcp_validation_failed. Mirrors the Family D entry above.
+  resolution_progress: Object.freeze(new Set<MachineObservationSource>(['ai_classifier'])),
 });
 
 /**
