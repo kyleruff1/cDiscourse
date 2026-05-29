@@ -65,6 +65,17 @@ const DOCTRINE_RISK_FAMILIES = new Set([
   'critical_question',
   'family_f',
   'consequence_probability_unclear',
+  // Family G (resolution_progress). `family_g` is the string detectFamily()
+  // actually emits for a `MCP-SERVER-NNN-FAMILY-G` title (mapFamilyLetterToName
+  // has no G case → default branch → `family_g`); it is the load-bearing alias.
+  // `resolution_progress` is the canonical key name (also covers any doc that
+  // declares `Family: resolution_progress`). `concedes_broader_point` is the G
+  // doctrinal-axis partner key (G's analog of E's `slippery_slope` / F's
+  // `consequence_probability_unclear` — the highest-risk verdict-adjacent key,
+  // reachable via a `Family:` declaration) — added for parallelism.
+  'resolution_progress',
+  'family_g',
+  'concedes_broader_point',
 ]);
 
 /* ------------------------------------------------------------------ */
