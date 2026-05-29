@@ -3,10 +3,12 @@
  *
  * Per Stage 2B operator decision: the auto-trigger dispatcher derives its
  * production family list from the Edge family registry (NOT a hard-coded
- * constant) and runs a sequential one-run-per-family loop. This test file
- * verifies the registry-derived semantics, the per-family loop shape, the
- * per-family idempotency scope, and the doctrine safety of the new
- * dispatcher source.
+ * constant) and runs one classification per family. Per
+ * OPS-MCP-AUTO-TRIGGER-PARALLELIZATION the families are dispatched with
+ * BOUNDED PARALLELISM (the earlier strictly-sequential `for-of` loop is
+ * gone). This test file verifies the registry-derived semantics, the
+ * bounded-parallel dispatch delegation, the per-family idempotency scope,
+ * and the doctrine safety of the dispatcher source.
  *
  * The dispatcher is Deno-only; the tests source-scan the dispatcher and
  * registry per the established `mcpOneTwoOneCAutoTriggerFamilyA.test.ts`
@@ -79,17 +81,48 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — dispatcher imports productionEna
   });
 });
 
-describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — sequential per-family loop', () => {
-  it('DREG-5 — dispatcher source contains a for-of loop over eligibleFamilies', () => {
-    expect(/for\s*\(\s*const\s+\w+\s+of\s+eligibleFamilies\s*\)/.test(dispatcherText)).toBe(true);
+describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — bounded-parallel per-family dispatch', () => {
+  it('DREG-5 — dispatcher delegates to runWithBoundedConcurrency with the imported bound (OPS-MCP-AUTO-TRIGGER-PARALLELIZATION)', () => {
+    // OPS-MCP-AUTO-TRIGGER-PARALLELIZATION replaced the strictly-sequential
+    // `for-of eligibleFamilies` loop with bounded-parallel dispatch: the
+    // dispatcher imports both the runner and the bound constant and calls
+    // the runner over the eligible-family list. The actual concurrency
+    // bound + isolation are exercised behaviourally at the runner seam
+    // (mcpAutoTriggerBoundedConcurrency.test.ts).
+    expect(
+      /import\s+\{[\s\S]*?MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES[\s\S]*?\}\s+from\s+['"]\.\/autoTriggerConcurrency\.ts['"]/.test(
+        dispatcherText,
+      ),
+    ).toBe(true);
+    expect(
+      /import\s+\{[\s\S]*?runWithBoundedConcurrency[\s\S]*?\}\s+from\s+['"]\.\/boundedConcurrencyRunner\.ts['"]/.test(
+        dispatcherText,
+      ),
+    ).toBe(true);
+    expect(dispatcherText).toContain('runWithBoundedConcurrency(');
   });
 
-  it('DREG-6 — dispatcher source does NOT use Promise.all over the family list (sequential, not parallel)', () => {
-    // Stage 2B operator preference: sequential for-of for observability +
-    // idempotency clarity. Promise.all over the family list would be a
-    // deviation.
+  it('DREG-6 — dispatcher delegates to runWithBoundedConcurrency; no UNBOUNDED Promise.all directly over the family list', () => {
+    // bounded parallel via the runner; no UNBOUNDED Promise.all directly
+    // over the family list. The dispatcher passes the eligible-family list
+    // + the imported MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES bound to the
+    // runner; the bounding `Promise.all(workers)` lives INSIDE
+    // boundedConcurrencyRunner.ts (a different file) over the FIXED worker
+    // pool, NOT here over the family list. These negative assertions are
+    // the dispatcher-level HALT-4 guard: they keep a future edit from
+    // re-introducing an unbounded `Promise.all(eligibleFamilies.map(...))`
+    // directly in the dispatcher.
+    expect(
+      /runWithBoundedConcurrency\s*\(\s*[\s\S]*?MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES/.test(
+        dispatcherText,
+      ),
+    ).toBe(true);
     expect(dispatcherText).not.toMatch(/Promise\.all\s*\([\s\S]*?eligibleFamilies/);
     expect(dispatcherText).not.toMatch(/Promise\.all\s*\([\s\S]*?productionEnabledFamilies/);
+    expect(dispatcherText).not.toMatch(/Promise\.allSettled\s*\([\s\S]*?eligibleFamilies/);
+    expect(dispatcherText).not.toMatch(
+      /Promise\.allSettled\s*\([\s\S]*?productionEnabledFamilies/,
+    );
   });
 
   it('DREG-7 — each iteration invokes classifyOneArgumentCore exactly once with a single-element [family] array', () => {
@@ -104,10 +137,22 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — sequential per-family loop', () 
     expect(/\[\s*family\s*\]/.test(dispatcherText)).toBe(true);
   });
 
-  it('DREG-8 — each iteration produces its own AutoTriggerOutcome', () => {
-    // The iteration helper returns an AutoTriggerOutcome; the outer
-    // loop pushes each into an outcomes array.
-    expect(/outcomes\.push\s*\(/.test(dispatcherText)).toBe(true);
+  it('DREG-8 — the dispatcher builds one ordered AutoTriggerOutcome per eligible family from the settled runner results', () => {
+    // OPS-MCP-AUTO-TRIGGER-PARALLELIZATION: the outer push-into-outcomes
+    // loop is replaced by mapping the runner's INPUT-ORDER settled results
+    // back to AutoTriggerOutcome[] (one per eligible family). We assert the
+    // SURVIVING shape invariant (an ordered .map over the runner result
+    // producing AutoTriggerOutcome[]) WITHOUT pinning the loop mechanism —
+    // the one-outcome-per-family behaviour is also covered behaviourally by
+    // the runner suite (result length == items length). Asserting the exact
+    // `outcomes.push(` token here would be the Card-1B brittleness anti-
+    // pattern (pinning a mechanism the card intentionally changed).
+    expect(
+      /const\s+outcomes\s*:\s*AutoTriggerOutcome\[\]\s*=\s*settled\.map\s*\(/.test(dispatcherText),
+    ).toBe(true);
+    // The rejected-result fallback tags the failed outcome with the family
+    // at the same input index (order-preserving).
+    expect(/eligibleFamilies\[\s*i\s*\]/.test(dispatcherText)).toBe(true);
   });
 
   it('DREG-9 — dispatcher returns AutoTriggerOutcome[] (array of per-family outcomes)', () => {
@@ -233,15 +278,20 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — call-site contract preserved', (
 
 describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — guards preserved', () => {
   it('DREG-22 — Guard 1 (config_disabled) runs ONCE per dispatch (NOT per family)', () => {
-    // The runtime config kill switch is checked outside the for-of
-    // loop. Source pattern: the readEnabledFlag call appears BEFORE
-    // the eligibleFamilies derivation.
+    // The runtime config kill switch is checked outside the per-family
+    // dispatch. Source pattern: the readEnabledFlag call appears BEFORE
+    // the eligibleFamilies derivation, which appears BEFORE the
+    // bounded-parallel dispatch call (runWithBoundedConcurrency). The
+    // dispatch landmark moved from the removed `for-of eligibleFamilies`
+    // loop to the runner call (OPS-MCP-AUTO-TRIGGER-PARALLELIZATION); the
+    // ordering invariant (config check is dispatch-wide, once, before any
+    // family is dispatched) is unchanged.
     const enabledIdx = dispatcherText.indexOf('await readEnabledFlag(');
     const eligibleIdx = dispatcherText.indexOf('const eligibleFamilies');
-    const forOfIdx = dispatcherText.search(/for\s*\(\s*const\s+\w+\s+of\s+eligibleFamilies/);
+    const dispatchIdx = dispatcherText.indexOf('runWithBoundedConcurrency(');
     expect(enabledIdx).toBeGreaterThan(-1);
     expect(eligibleIdx).toBeGreaterThan(enabledIdx);
-    expect(forOfIdx).toBeGreaterThan(eligibleIdx);
+    expect(dispatchIdx).toBeGreaterThan(eligibleIdx);
   });
 
   it('DREG-23 — config_disabled skip returns a single-outcome array (not per-family expansion)', () => {
@@ -370,9 +420,12 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
 
 describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry order = Family A first', () => {
   it('DREG-33 — Family A is first in productionEnabledFamilies() (preserves A iteration #1 behavior)', () => {
-    // The sequential for-of loop processes the first element first.
-    // Family A's existing behavior is preserved at iteration #1 by the
-    // registry order invariant.
+    // Registry-order invariant: Family A is the first eligible family.
+    // Under bounded parallelism the runner preserves INPUT (registry)
+    // order, so Family A remains outcomes[0] even though A and B may start
+    // concurrently (OPS-MCP-AUTO-TRIGGER-PARALLELIZATION). This assertion
+    // tests the registry source (edgeProductionEnabledFamilies()[0]), not
+    // the dispatcher's dispatch strategy.
     const list = edgeProductionEnabledFamilies();
     expect(list[0]).toBe('parent_relation');
   });

@@ -186,17 +186,21 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — dispatcher source contract', () => 
     }
   });
 
-  it('TRG-19 — dispatcher calls classifyOneArgumentCore with single-family [family] + AUTO_TRIGGER_MODE inside the per-family loop', () => {
-    // Post Stage 2B: the dispatcher loops over productionEnabledFamilies()
-    // and invokes classifyOneArgumentCore once per family with a
-    // single-element array. AUTO_TRIGGER_MODE (the 'production'
-    // literal) is preserved as a constant. AUTO_TRIGGER_FAMILIES is
-    // GONE — the families are sourced from the registry at runtime.
+  it('TRG-19 — dispatcher calls classifyOneArgumentCore with single-family [family] + AUTO_TRIGGER_MODE per family', () => {
+    // Post Stage 2B: the dispatcher invokes classifyOneArgumentCore once
+    // per family with a single-element array. AUTO_TRIGGER_MODE (the
+    // 'production' literal) is preserved as a constant. AUTO_TRIGGER_FAMILIES
+    // is GONE — the families are sourced from the registry at runtime. Per
+    // OPS-MCP-AUTO-TRIGGER-PARALLELIZATION the per-family task fn is driven
+    // by the bounded-parallel runner (the strictly-sequential `for-of`
+    // loop is gone); the behavioural concurrency bound is verified at the
+    // runner seam (mcpAutoTriggerBoundedConcurrency.test.ts).
     expect(dispatcherText).toContain('classifyOneArgumentCore(');
     expect(dispatcherText).toContain('AUTO_TRIGGER_MODE');
     expect(dispatcherText).toContain('runBooleanObservationMcpAdapter');
-    // The sequential for-of loop over eligibleFamilies must exist.
-    expect(/for\s*\(\s*const\s+\w+\s+of\s+eligibleFamilies\s*\)/.test(dispatcherText)).toBe(true);
+    // The dispatcher delegates the per-family dispatch to the bounded
+    // runner.
+    expect(dispatcherText).toContain('runWithBoundedConcurrency(');
     // The old AUTO_TRIGGER_FAMILIES constant must NOT exist.
     expect(dispatcherText).not.toContain('AUTO_TRIGGER_FAMILIES');
   });
