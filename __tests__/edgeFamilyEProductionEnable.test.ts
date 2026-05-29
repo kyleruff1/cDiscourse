@@ -146,11 +146,14 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — subset filter NOT applied to Family 
       'supabase/functions/_shared/booleanObservations/booleanObservationRequestBuilder.ts',
     );
     const builderText = fs.readFileSync(builderPath, 'utf8');
-    // The constant block must not contain a key 'argument_scheme'.
-    // The only key in the map at the time of this card is
-    // 'evidence_source_chain' (Family D Stage 2B subset filter).
+    // The constant block must not contain a key 'argument_scheme' (Family E
+    // is uniform ai_classifier → no subset entry). The map now holds
+    // 'evidence_source_chain' (Family D) + 'resolution_progress' (Family G,
+    // added in MCP-SERVER-008A); the regex anchors to the `const` declaration
+    // and matches the full Object.freeze block regardless of its size (the
+    // prior 500-char cap broke once the Family G entry grew the block).
     const constantBlock = builderText.match(
-      /MCP_SERVER_SUPPORTED_FAMILY_SOURCES[\s\S]{0,500}\}\);/,
+      /const MCP_SERVER_SUPPORTED_FAMILY_SOURCES[\s\S]*?\n\}\);/,
     );
     expect(constantBlock).not.toBeNull();
     expect(constantBlock![0]).not.toContain('argument_scheme');
