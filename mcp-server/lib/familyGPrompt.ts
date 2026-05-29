@@ -1,0 +1,270 @@
+/**
+ * MCP-SERVER-008-FAMILY-G — Family G prompt construction.
+ *
+ * Single-prompt strategy per design §A.3: one Anthropic call covers all
+ * 18 Family G ai_classifier rawKeys. Token budget ~85 tokens/key × 18 =
+ * ~1530 naive; the conservative-positives bias (positives are sparse —
+ * most moves have 0 to 2) keeps realistic output far under the budget.
+ * MAX_TOKENS=1500 (matches Family A/B/C/E/F; NO bump per design §A.2 — D
+ * already ships 19 ai_classifier keys at 1500 with no truncation).
+ *
+ * Doctrine anchors:
+ *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
+ *     prompt's absolute rules mirror the Family A/B/C/D/E/F system prompt
+ *     VERBATIM for the 7 absolute rules (winner / truth / popularity /
+ *     person / hiding / blocking). Negations of banned tokens in the
+ *     system prompt are doctrine-positive per the Family A-F precedent;
+ *     the doctrine ban-list scan runs against the MODEL's RESPONSE, not
+ *     the server-constructed prompt.
+ *   - cdiscourse-doctrine §10a (Observations vs Allegations): every
+ *     Family G rawKey is structural-only; the user prompt instructs the
+ *     model to flag a DESCRIPTIVE CONVERGENCE-STATE the move exhibits,
+ *     NEVER to adjudicate who is winning / losing / conceding-and-therefore-
+ *     losing / settled-in-favor. A resolution-progress observation describes
+ *     the SHAPE of the exchange's movement; it never closes a dispute with a
+ *     verdict.
+ *   - cdiscourse-doctrine §7 (No AI calls from production app): this
+ *     module is server-side only; never imported into src/ or app/.
+ *   - point-standing-economy: concession is a SCORING REPAIR, not a defeat;
+ *     synthesis is a GAMEPLAY move, not a verdict; G emits no standing delta.
+ *
+ * Doctrine risks (per design §A.3):
+ *   - concedes_broader_point: HIGHEST RISK (the axis-partner). A broad
+ *     relinquishment is the single key most likely to be mis-framed as
+ *     "this side lost". The output evidence_span MUST anchor the verbatim
+ *     relinquishment; MUST NOT contain won / lost / winner / loser /
+ *     defeated / prevailed / capitulated / ahead / behind / "settled in
+ *     favor". If the input move text says "you win" / "I lost" / "you beat
+ *     me", the model may still detect the concession but MUST NOT echo it.
+ *   - concedes_narrow_point / concedes_with_new_dispute: MEDIUM RISK
+ *     (concession axis). NEVER framed as defeat.
+ *   - synthesis_proposed: MEDIUM RISK. Synthesis is a GAMEPLAY move, not a
+ *     verdict about who won — both sides retain standing.
+ *   - proposes_settlement_terms / accepts_settlement_terms /
+ *     issue_closed_by_participant: MEDIUM RISK (settlement / closure axis).
+ *     Procedural closure, NEVER adjudication or "settled in X's favor".
+ */
+import { FAMILY_G_PROMPT_ENTRIES, FAMILY_G_RAW_KEYS } from './familyGKeys.ts';
+
+/** MAX_TOKENS for the Family G response. 18 keys; positives are sparse. */
+export const FAMILY_G_MAX_TOKENS = 1500;
+
+/** Deterministic decoding. Mirrors Family A/B/C/D/E/F. */
+export const FAMILY_G_TEMPERATURE = 0;
+
+/** Bound for the moveBody / parentBody fields in the user prompt. */
+export const FAMILY_G_MAX_BODY_FIELD_LEN = 8000;
+
+/**
+ * The system prompt for Family G. Mirrors the Family A/B/C/D/E/F system
+ * prompt's 7 absolute rules VERBATIM (byte-equal to familyFPrompt.ts:81-88),
+ * then adds Family-G-specific descriptive-convergence framing.
+ *
+ * Per design §A.3.1: the 7 absolute rules are byte-equal to Family A/B/C/D/E/F.
+ *
+ * Per design §A.3.1 BINDING: the system prompt explicitly forbids verdict
+ * framing for resolution-progress states; states resolution-progress
+ * observations are DESCRIPTIVE CONVERGENCE-STATE that NEVER assert who is
+ * ahead / behind / won / lost / prevailed / capitulated / settled-in-favor;
+ * anchors the concession-as-repair, synthesis-as-gameplay, and
+ * settlement-as-procedural doctrine verbatim.
+ */
+export const FAMILY_G_SYSTEM_PROMPT =
+  `You are a CDiscourse argument-move structural classifier for a structured debate application.
+Return strict JSON only.
+
+Absolute rules:
+- You do NOT decide who is right in a debate.
+- You do NOT decide the winner of any debate.
+- You do NOT assign a truth value to any claim.
+- You do NOT treat popularity, engagement, or virality as evidence.
+- You do NOT describe, judge, or label the person — only the move's structure.
+- You do NOT recommend hiding, deleting, or modifying any content.
+- You do NOT block an ordinary post — your output is advisory metadata only.
+
+You classify whether an argument MOVE exhibits one or more RESOLUTION-PROGRESS structural
+states — a claim narrowed, a narrow point conceded, a broader point relinquished, common
+ground identified, an unresolved point isolated, a synthesis proposed, settlement terms
+proposed or accepted, an issue closed by a participant, a point set aside, a decision
+criterion / action item / follow-up question proposed, a side branch or tangent suggested.
+
+CRITICAL DOCTRINE — resolution-progress states are DESCRIPTIVE CONVERGENCE-STATE, never verdicts:
+- A resolution-progress observation describes the SHAPE of the exchange's movement toward (or
+  away from) shared understanding. It NEVER asserts who is ahead, who is behind, who won, who
+  lost, who prevailed, who capitulated, or that a dispute was settled IN ONE SIDE'S FAVOR. Both
+  sides retain their standing regardless of which resolution-progress state the move exhibits.
+- Concession is a SCORING REPAIR, not a defeat. When a move concedes a narrow point
+  (concedes_narrow_point) or relinquishes the broader claim (concedes_broader_point), the
+  observation records the structural RELINQUISHMENT. It NEVER frames the conceding participant
+  as "wrong", "the loser", "defeated", or as having "lost the argument". A broad concession is
+  the highest-cost repair move; it resets standing for future rebuilding — it is NOT a verdict.
+- Synthesis is a GAMEPLAY move, not a verdict about who won. When a move proposes a synthesis
+  (synthesis_proposed) or signals readiness (ready_for_synthesis), the observation records that
+  BOTH sides' elements are being combined. It NEVER implies one side's position prevailed.
+- Settlement / closure is procedural, not adjudication. proposes_settlement_terms /
+  accepts_settlement_terms / issue_closed_by_participant record that participants are CLOSING
+  engagement on a point. They NEVER imply the point was "decided", "settled in X's favor", or
+  that one side is "ahead".
+- The output MUST NOT contain the words: won, lost, winner, loser, defeated, prevailed,
+  capitulated, ahead, behind, "settled in favor", "won the argument", "conceded the loss",
+  "lost the point". If the input move text itself contains such words (e.g., "you basically
+  lost this point"), the model MAY still detect the underlying resolution-progress state, but
+  its own output evidence_span MUST NOT echo the verdict framing — anchor the structural state
+  (the relinquished claim, the proposed synthesis, the accepted terms), never the verdict words.
+
+A move can simultaneously exhibit multiple resolution-progress states (e.g.,
+common_ground_identified AND unresolved_point_isolated AND synthesis_proposed). Resolution-progress
+signals are usually sparse — most moves have 0 to 2 positives; few have more than 4.
+
+For each requested rawKey you answer true (the move exhibits the state) or false (the state is
+absent OR not applicable to this move). Provide a short confidence band and an optional
+evidenceSpan from the move body anchoring the structural state. Return ONLY the JSON object the
+user prompt describes — no prose, no markdown, no chain-of-thought.
+
+Conservative-positives bias: when you are not confident a resolution-progress state is genuinely
+exhibited (rather than merely conciliatory in tone, or addressed obliquely, or not applicable),
+answer false. Resolution-progress signals are sparse — do NOT mark all rawKeys true. The state
+MUST be clearly present to answer true.`;
+
+/**
+ * Validated Family G request input passed to buildFamilyGUserPrompt.
+ * Mirror of the wire shape per MCP-021A; same shape as Family A/B/C/D/E/F
+ * but kept distinct so future Family-specific field additions don't
+ * cross-pollinate.
+ */
+export interface ValidatedFamilyGRequest {
+  readonly schemaVersion: 'mcp-021.machine-observations.boolean.v1';
+  readonly nodeId: string;
+  readonly parentNodeId: string | null;
+  readonly currentText: string;
+  readonly parentText: string | null;
+  readonly threadContextExcerpt: string;
+  readonly requestedFamilies: readonly string[];
+  readonly requestedRawKeys: readonly string[];
+  readonly timeoutMs: number;
+  readonly serverName?: string;
+}
+
+/**
+ * Builds the user prompt for Family G classification.
+ *
+ * Structure per design §A.3:
+ *   1. Resolution-progress questions block (rawKey: booleanQuestion for each requested key)
+ *   2. Definitions + examples + false-positive guards block (one per requested key)
+ *   3. Note about resolution-progress-as-descriptive-convergence-state cross-key framing
+ *      (the resolution<->verdict doctrine anchors)
+ *   4. Response-shape instruction (verbatim JSON example)
+ *   5. Conservative-positives bias reminder (0 to 2 states)
+ *   6. The input (move text, parent text, thread context)
+ *
+ * When requestedRawKeys is empty, all 18 Family G keys are included.
+ *
+ * Returns a string — pure, no I/O. The string contains the verbatim
+ * caller-redacted move/parent/thread text fields; the caller has already
+ * sanitized those at the Edge Function boundary (MCP-021C).
+ */
+export function buildFamilyGUserPrompt(request: ValidatedFamilyGRequest): string {
+  const requestedKeys =
+    request.requestedRawKeys.length === 0
+      ? FAMILY_G_RAW_KEYS
+      : request.requestedRawKeys.filter((k) => FAMILY_G_RAW_KEYS.includes(k));
+
+  const requestedEntries = FAMILY_G_PROMPT_ENTRIES.filter((entry) =>
+    requestedKeys.includes(entry.rawKey),
+  );
+
+  const questionsBlock = requestedEntries
+    .map((entry) => `- ${entry.rawKey}: ${entry.booleanQuestion}`)
+    .join('\n');
+
+  const definitionsBlock = requestedEntries
+    .map((entry) =>
+      [
+        `rawKey: ${entry.rawKey}`,
+        `positiveDefinition: ${entry.positiveDefinition}`,
+        `negativeDefinition: ${entry.negativeDefinition}`,
+        `positive example: ${entry.positiveExample}`,
+        `negative example: ${entry.negativeExample}`,
+        `false-positive guards: ${entry.falsePositiveGuards}`,
+      ].join('\n'),
+    )
+    .join('\n\n');
+
+  const parentTextRendered =
+    request.parentText === null || request.parentText.length === 0
+      ? 'none — this is a root move.'
+      : request.parentText;
+
+  const responseShape = `{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "<echo the nodeId from the input>",
+  "checkedRawKeys": ["<each rawKey you considered>"],
+  "observations": {
+    "<rawKey>": <true|false>,
+    ...
+  },
+  "confidence": {
+    "<rawKey>": "<low|medium|high>",
+    ...
+  },
+  "evidenceSpan": {
+    "<rawKey>": "<short verbatim quote from the move body, max 240 chars, or null if no anchoring span>",
+    ...
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "<server identifier>",
+    "classifierSetVersion": "family-g-v1"
+  }
+}`;
+
+  return `Resolution-progress questions for this move:
+${questionsBlock}
+
+Definitions and examples for each rawKey:
+
+${definitionsBlock}
+
+Note about resolution-progress states as DESCRIPTIVE CONVERGENCE-STATE: each Family G rawKey is a
+structural fact about the SHAPE of the exchange's movement toward (or away from) shared
+understanding (claim narrowed, narrow point conceded, broader point relinquished, common ground
+identified, unresolved point isolated, synthesis proposed, settlement terms proposed or accepted,
+issue closed by a participant, point set aside, decision criterion / action item / follow-up
+question proposed, side branch or tangent suggested). NONE of these is a verdict on who won. A
+resolution-progress observation OPENS a description of the exchange's movement — it NEVER asserts
+one side is ahead, behind, won, lost, prevailed, capitulated, or that a dispute was settled in one
+side's favor. Concession is a SCORING REPAIR, never a defeat: when a move relinquishes the broader
+point (concedes_broader_point), the observation anchors the verbatim relinquishment, NEVER "this
+side lost". Synthesis is a GAMEPLAY move, not a verdict: flagging synthesis_proposed NEVER means
+one side's position prevailed; both sides retain standing. Settlement / closure is procedural:
+flagging accepts_settlement_terms or issue_closed_by_participant NEVER means the point was settled
+in X's favor.
+
+Answer each resolution-progress question above with true (the move exhibits the state) or false
+(the state is absent OR not applicable to this move) for the move below. Return ONLY a single JSON
+object — no prose, no markdown, no code fence, no chain-of-thought.
+
+The object MUST conform to this shape:
+${responseShape}
+
+Every key in observations MUST also appear in confidence and evidenceSpan (use null in
+evidenceSpan when no anchoring quote exists). Every key in checkedRawKeys MUST appear in
+observations.
+
+Conservative-positives bias: do NOT mark all rawKeys true. Resolution-progress signals are usually
+sparse — most moves exhibit 0 to 2 states; few exhibit more than 4. When unsure, answer false with
+low or medium confidence. The state MUST be clearly present to answer true; conciliatory tone alone
+is not enough.
+
+If the move's text itself contains verdict words ("you won", "I lost", "you beat me", "settled in
+your favor") or any judgment about who is winning, you MAY still detect the underlying
+resolution-progress state — but your output evidenceSpan MUST NOT echo the verdict framing. Anchor
+the evidenceSpan on the structural state (the relinquished claim, the proposed synthesis, the
+accepted terms, the set-aside request) — never on the verdict words.
+
+Input to classify:
+Node id: ${request.nodeId}
+Move text: ${request.currentText}
+Parent text: ${parentTextRendered}
+Thread context: ${request.threadContextExcerpt}`;
+}
