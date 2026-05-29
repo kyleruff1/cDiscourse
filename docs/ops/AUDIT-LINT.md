@@ -240,6 +240,15 @@ and a synthetic-improper teeth fixture that only fails-correctly when
 `family_f` is present. **Do NOT add an alias the detector cannot emit, and
 do NOT add an `F` case to `mapFamilyLetterToName` — that is logic, not data.**
 
+**Family G followed the same DATA path** (`OPS-MCP-AUDIT-LINT-RULES-FAMILY-G-DOCTRINE-RISK`):
+the load-bearing alias is `family_g` (the detector output for a
+`MCP-SERVER-NNN-FAMILY-G` title); `resolution_progress` is the canonical key
+and `concedes_broader_point` is the G doctrinal-axis partner (G's analog of
+E's `slippery_slope` / F's `consequence_probability_unclear`). Same two guards:
+a `detectFamily(... -FAMILY-G ...) === 'family_g'` pin and a synthetic-improper
+G teeth fixture (`family-g-IMPROPER-PASS-no-evidence-span.md`) that only
+fails-correctly when `family_g` is in the set.
+
 ### Consistent-PARTIAL is preserved by MENTION, not by verdict-awareness
 
 L5 is **verdict-blind**: it fires on `(isDoctrineRisk && !hasInspection)` with
@@ -271,8 +280,9 @@ a new phrase:
 
 ## The fixture directory
 
-`__tests__/fixtures/audit-lint/` contains 7 audit-doc fixtures —
-6 STATIC copies of historical audit docs plus 1 SYNTHETIC negative:
+`__tests__/fixtures/audit-lint/` contains 10 audit-doc fixtures —
+7 static / real-shaped copies of historical audit docs plus 2 hand-authored
+synthetic negatives and 1 hand-authored representative amendment:
 
 - `original-family-e-IMPROPER-PASS.md` (29f30b0) — the centerpiece
   defect; L1 + L2 + L5 trip
@@ -292,6 +302,17 @@ a new phrase:
   shape with every `evidence_span` inspection trigger stripped; FAILS on
   L5 ONLY. The teeth proof for `OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK`
   (the F analog of `original-family-e-IMPROPER-PASS`)
+- `family-g-original-PARTIAL.md` (1c19d11) — consistent-PARTIAL for
+  Family G; passes L5 because it names `evidence_span` (the Phase 4b binding
+  obligation), the load-bearing regression guard for the Family G
+  doctrine-risk enrollment
+- `family-g-amendment-PASS.md` — **HAND-AUTHORED representative** G
+  hosted-completion amendment (the real one is operator-deferred); persisted
+  `evidence_span` inspection present; passes L5
+- `family-g-IMPROPER-PASS-no-evidence-span.md` — **SYNTHETIC** G-amendment
+  shape with every `evidence_span` inspection trigger stripped; FAILS on
+  L5 ONLY. The teeth proof for `OPS-MCP-AUDIT-LINT-RULES-FAMILY-G-DOCTRINE-RISK`
+  (the G analog of `original-family-e-IMPROPER-PASS`)
 
 Each fixture starts with an `<!-- AUDIT-LINT-FIXTURE: ... -->` HTML
 comment marker. The fixture directory carries a `README.md`
@@ -300,7 +321,7 @@ contain historical defect language by design, and doctrine ban-list
 scanners MUST exclude them.
 
 The Jest suite asserts every fixture starts with the marker, the
-README is present, and the fixture count is exactly 7.
+README is present, and the fixture count is exactly 10.
 
 ## Updating a smoke template
 
