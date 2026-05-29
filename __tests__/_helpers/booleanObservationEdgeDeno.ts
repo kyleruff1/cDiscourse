@@ -244,6 +244,35 @@ export const edgeBuildBooleanObservationRequestForArgument =
 export const edgeBuildBooleanObservationInputHash =
   requestBuilderModule.buildBooleanObservationInputHash;
 
+// ── boundedConcurrencyRunner.ts (pure, adapter-free) ───────────────
+
+export interface EdgeBoundedRunnerResult<T> {
+  index: number;
+  status: 'fulfilled' | 'rejected';
+  value?: T;
+  reason?: unknown;
+}
+
+const boundedConcurrencyRunnerModule = require(`${BO}/boundedConcurrencyRunner`) as {
+  runWithBoundedConcurrency: <TItem, TResult>(
+    items: ReadonlyArray<TItem>,
+    limit: number,
+    task: (item: TItem, index: number) => Promise<TResult>,
+  ) => Promise<ReadonlyArray<EdgeBoundedRunnerResult<TResult>>>;
+};
+
+export const edgeRunWithBoundedConcurrency =
+  boundedConcurrencyRunnerModule.runWithBoundedConcurrency;
+
+// ── autoTriggerConcurrency.ts (pure, single-export constant) ───────
+
+const autoTriggerConcurrencyModule = require(`${BO}/autoTriggerConcurrency`) as {
+  MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES: number;
+};
+
+export const edgeMaxAutoTriggerConcurrentFamilies =
+  autoTriggerConcurrencyModule.MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES;
+
 // ── Re-export types for test convenience ───────────────────────────
 
 export type {
