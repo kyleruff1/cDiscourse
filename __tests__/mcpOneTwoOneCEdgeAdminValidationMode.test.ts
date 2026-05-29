@@ -127,9 +127,9 @@ describe('MCP-021C-EDGE — run_mode binding to migration', () => {
   });
 });
 
-describe('MCP-021C-EDGE — production filter does NOT see G–J admin_validation families (post Card 3 flip)', () => {
-  // Post Card 3 (MCP-021C-EDGE-FAMILY-F-ENABLE): families A + B + C + D
-  // + E + F are productionEnabled; G–J remain admin-only.
+describe('MCP-021C-EDGE — production filter does NOT see H–J admin_validation families (post Card 3 flip)', () => {
+  // Post Card 3 (MCP-021C-EDGE-FAMILY-G-ENABLE): families A + B + C + D
+  // + E + F + G are productionEnabled; H–J remain admin-only.
 
   it('AVM-10 — production filter keeps disagreement_axis (B was flipped to productionEnabled in Stage 2B)', () => {
     expect(edgeFilterFamiliesForMode(['disagreement_axis'], 'production')).toEqual([
@@ -155,15 +155,21 @@ describe('MCP-021C-EDGE — production filter does NOT see G–J admin_validatio
     ]);
   });
 
+  it('AVM-11d — production filter keeps resolution_progress (G flipped to productionEnabled in Card 3 of FAMILY-G chain)', () => {
+    expect(edgeFilterFamiliesForMode(['resolution_progress'], 'production')).toEqual([
+      'resolution_progress',
+    ]);
+  });
+
   it('AVM-12 — production filter drops sensitive_composer (J remains admin-only)', () => {
     expect(edgeFilterFamiliesForMode(['sensitive_composer'], 'production')).toEqual([]);
   });
 
-  it('AVM-13 — production filter keeps A+B+D+E+F when mixed (all five production-enabled)', () => {
-    // Post Card 3 of FAMILY-F chain: parent_relation (A),
+  it('AVM-13 — production filter keeps A+B+D+E+F+G when mixed (all six production-enabled)', () => {
+    // Post Card 3 of FAMILY-G chain: parent_relation (A),
     // disagreement_axis (B), evidence_source_chain (D),
-    // argument_scheme (E), and critical_question (F) are all
-    // productionEnabled.
+    // argument_scheme (E), critical_question (F), and
+    // resolution_progress (G) are all productionEnabled.
     expect(
       edgeFilterFamiliesForMode(
         [
@@ -172,6 +178,7 @@ describe('MCP-021C-EDGE — production filter does NOT see G–J admin_validatio
           'evidence_source_chain',
           'argument_scheme',
           'critical_question',
+          'resolution_progress',
         ],
         'production',
       ),
@@ -181,6 +188,7 @@ describe('MCP-021C-EDGE — production filter does NOT see G–J admin_validatio
       'evidence_source_chain',
       'argument_scheme',
       'critical_question',
+      'resolution_progress',
     ]);
   });
 });
