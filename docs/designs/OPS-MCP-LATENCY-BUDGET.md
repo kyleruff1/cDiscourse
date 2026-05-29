@@ -809,3 +809,85 @@ fixed 15-section TOC keyed by downstream audits; computed aggregates +
 classification + projection belong in a separate report with its own schema,
 reusing the shared SQL-runner + ban-list helpers by require-and-re-export.
 **Test forecast: +18** (band +10..+30).
+
+---
+
+## Implementer note: cannot proceed all-green within STRICT SCOPE (2026-05-28)
+
+**Author:** implementer (OPS-MCP-LATENCY-BUDGET, branch
+`feat/OPS-MCP-LATENCY-BUDGET`).
+**Trigger:** the design's § Risks → "Existing tests" assumption — *"No existing
+test is modified … Test count goes strictly up"* — is **materially incomplete**.
+Two existing **observability** test suites assert **exclusive ownership of the
+shared `scripts/ops/sql/` directory** by a hard file count and a card-name
+header. The card's own STRICT-SCOPE-mandated SQL files (`16-…sql`, `17-…sql`,
+placed in that exact directory per the design's file list) break **3
+assertions across 2 files**. Resolving it requires editing files **outside the
+implementer's explicit create/edit allow-list**, so per the implementer
+protocol I am stopping rather than silently expanding scope or leaving red
+tests on the branch.
+
+### Exactly what breaks (verified by `npx jest`)
+
+The implementation is complete and its own gates are green (typecheck 0, lint
+0, `__tests__/opsMcpLatencyBudget.test.ts` 47/47). The **full** suite is red
+only on these 3 pre-existing assertions, all of which over-claim sole
+ownership of the now-shared SQL directory:
+
+1. `__tests__/opsMcpObservabilitySqlSafety.test.ts:59` —
+   `expect(FILES.length).toBe(16)` → now **18**. (`FILES` = every
+   `scripts/ops/sql/*.sql`.)
+2. `__tests__/opsMcpObservabilitySqlSafety.test.ts:163` —
+   `expect(src).toContain('OPS-MCP-OBSERVABILITY')` for **every** SQL file →
+   the two new files honestly reference `OPS-MCP-LATENCY-BUDGET`.
+3. `__tests__/opsMcpObservabilityNoServiceRoleNoSecrets.test.ts:81` —
+   `expect(sqlFiles.length).toBe(16)` → now **18**.
+
+**Everything else passes.** The same two suites' *doctrine-safety* scans
+(read-only / no `select *` / no bare `arguments.body` / no bare
+`evidence_span` / terminating-semicolon / no `SERVICE_ROLE` / no
+`Authorization` / no `@supabase/supabase-js` / no `fetch(` / no
+`anthropic`/`xai`) all run over the two new SQL files **and the new
+`.mjs`/`.cjs`** and **pass** — confirming the new artifacts are doctrine-clean
+and that the suites' *intent* (scan everything in `scripts/ops/` for safety) is
+correctly served; only the two **directory-ownership invariants** (exact count
++ card-name header) need to become shared-directory-aware.
+
+### Why I did not just fix it
+
+- The STRICT-SCOPE "create/edit ONLY" list is exclusive and does **not**
+  include `__tests__/opsMcpObservability*.test.ts`. The dispatcher/registry/etc.
+  BLOCK-level list is a different (also-forbidden) set; these two test files are
+  simply not authorized for edit.
+- The SQL files cannot move (the design's file list and the observability
+  report's own `SECTIONS` both pin `scripts/ops/sql/`), and they cannot
+  honestly carry an `OPS-MCP-OBSERVABILITY` header. The `=== 16` count
+  assertions are unfixable without editing the observability suites. So there
+  is **no allow-list-compliant path to all-green**.
+
+### Proposed minimal resolution (for operator/designer authorization)
+
+Authorize a 3-assertion edit to the two observability test files to make their
+directory invariants **observability-scoped** rather than
+whole-directory-exclusive (a faithful tightening, not a weakening — the safety
+scans still cover every file):
+
+- `opsMcpObservabilitySqlSafety.test.ts`: change `toBe(16)` →
+  `toBeGreaterThanOrEqual(16)` (or assert the 16 observability files by name),
+  and scope the `OPS-MCP-OBSERVABILITY` header check to files whose first
+  comment line names that card (other cards' SQL in the shared dir are headed
+  with their own card name). Keep all safety scans applied to **all** files.
+- `opsMcpObservabilityNoServiceRoleNoSecrets.test.ts:81`: change
+  `sqlFiles.length).toBe(16)` → `toBeGreaterThanOrEqual(16)` (the adjacent
+  `FILES.length >= 18` already uses the inclusive form; this aligns them).
+
+Alternatively, if the operator prefers zero edits to the observability suite,
+the designer can re-place the latency SQL outside `scripts/ops/sql/` (e.g.
+`scripts/ops/sql-latency/`) and adjust the latency report's `SQL_DIR` — but
+that diverges from the design's current file list and is a designer decision.
+
+**State left on branch:** 3 commits (report+lib+SQL `63681a1`; tests `26e496d`;
+this note will be a 4th, committed alone). `out/` untracked. The
+`docs/ops/LATENCY-BUDGET.md` + `docs/core/current-status.md` handoff are
+written locally but **not committed** pending this decision, so the branch is
+not left in a misleadingly-complete state.
