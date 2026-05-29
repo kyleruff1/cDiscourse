@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G).
 #
-# Verifies the deployed (or locally-running) MCP server against the 19 checks:
+# Verifies the deployed (or locally-running) MCP server against the 21 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -11,6 +11,9 @@
 #                   coverage — argument_scheme)
 #   - Checks 18-19: MCP-SERVER-007-FAMILY-F (Family F 14 Walton/Toulmin/
 #                   Peirce critical questions — critical_question)
+#   - Checks 20-21: MCP-SERVER-008-FAMILY-G (Family G 18-key ai_classifier
+#                   Subset — resolution_progress; descriptive convergence-state,
+#                   never a verdict)
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -22,7 +25,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 19 checks passed
+#   0 — all 21 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -34,8 +37,9 @@
 #     provider when `MCP_SERVER_USE_FIXTURE_PROVIDER=true`. The Family A
 #     boolean tool (Checks 5 + 9), Family B boolean tool (Checks 10 + 11),
 #     Family C boolean tool (Checks 12 + 13), Family D boolean tool
-#     (Checks 14 + 15), Family E boolean tool (Checks 16 + 17), AND
-#     Family F boolean tool (Checks 18 + 19) ALSO work against the
+#     (Checks 14 + 15), Family E boolean tool (Checks 16 + 17), Family F
+#     boolean tool (Checks 18 + 19), AND Family G boolean tool
+#     (Checks 20 + 21) ALSO work against the
 #     fixture provider when the same env is set.
 #     Real Anthropic calls happen ONLY in production (when the env is not
 #     set AND ANTHROPIC_API_KEY is present).
@@ -540,6 +544,55 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "Expected real Family F tool result. Got: $RESPONSE"
+fi
+
+# ── Check 20: POST /mcp/adapter-compat with VALID bearer + boolean (Family G) ──
+# MCP-SERVER-008-FAMILY-G promoted Family G (resolution_progress) from
+# unsupported to real (18-key ai_classifier Subset; the 12 deterministic
+# auto_metadata + lifecycle keys are excluded). The request body uses Family G
+# rawKeys with a benign resolution-progress move. Response shape MUST be a real
+# McpBooleanObservationResponse per the MCP-021A schema:
+#   - schemaVersion: 'mcp-021.machine-observations.boolean.v1'
+#   - observations is an object of booleans (18 keys for Family G canonical)
+#   - confidence is an object of low|medium|high
+#   - modelInfo.classifierSetVersion is 'family-g-v1'
+# DOCTRINE: resolution-progress states are DESCRIPTIVE CONVERGENCE-STATE, never
+# a verdict about who is leading or has resolved the dispute; concession is a
+# scoring repair, synthesis is a gameplay move, settlement is procedural.
+CHECK_NAME="20-compat-boolean-family-g"
+BOOLEAN_G_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-g-001","parentNodeId":"fixture-node-parent-g-001","currentText":"[fixture] I think we both agree on the BC and Sweden data showing carbon-tax effectiveness; the open question is whether that generalizes. What if both hold, and the open question is which dominates by 2030? I think we are mostly aligned; the remaining piece is the timing question.","parentText":"[fixture] A debate over whether carbon taxes reduce emissions generally.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["resolution_progress"],"requestedRawKeys":["synthesis_proposed","common_ground_identified","concedes_broader_point"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family G)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_G_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-g-v1"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family G response shape. Got: $RESPONSE"
+fi
+
+# ── Check 21: POST /mcp tools/call classify_argument_boolean_observations (Family G) ──
+# MCP-SERVER-008-FAMILY-G. Same body + same assertion pattern as Check 20, but via
+# the official MCP /mcp endpoint with JSON-RPC envelope.
+CHECK_NAME="21-mcp-tools-call-boolean-family-g"
+BOOLEAN_G_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-8","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-g-001","parentNodeId":"fixture-node-parent-g-001","currentText":"[fixture] I think we both agree on the BC and Sweden data showing carbon-tax effectiveness; the open question is whether that generalizes. What if both hold, and the open question is which dominates by 2030? I think we are mostly aligned; the remaining piece is the timing question.","parentText":"[fixture] A debate over whether carbon taxes reduce emissions generally.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["resolution_progress"],"requestedRawKeys":["synthesis_proposed","common_ground_identified","concedes_broader_point"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations Family G)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_G_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-g-v1"' \
+     && contains "$RESPONSE" '"isError":false'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family G tool result. Got: $RESPONSE"
 fi
 
 echo

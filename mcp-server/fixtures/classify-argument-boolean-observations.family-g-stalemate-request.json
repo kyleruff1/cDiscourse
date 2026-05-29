@@ -1,0 +1,18 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-g-stalemate-node",
+    "parentNodeId": "fixture-g-stalemate-parent",
+    "currentText": "[fixture] We're not going to settle this here. Can we set it aside and come back to the staffing question? I don't think either of us is moving on the durability point right now.",
+    "parentText": "[fixture] An unresolved dispute over carbon-tax durability.",
+    "threadContextExcerpt": "[fixture] Debate room: a stalemate / move-on. Tests move_on_requested vs issue_closed_by_participant discrimination (set-aside is NOT closed). A stalemate must produce NO who-won framing.",
+    "requestedFamilies": ["resolution_progress"],
+    "requestedRawKeys": [
+      "move_on_requested",
+      "issue_closed_by_participant"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-g-canonical-node",
+    "parentNodeId": "fixture-g-canonical-parent",
+    "currentText": "[fixture] I think we both agree on the BC and Sweden data showing carbon-tax effectiveness; the open question is whether that generalizes. What if both hold — they work where enforcement is stable, and the open question is which dominates by 2030? I think we are mostly aligned; the remaining piece is the timing question.",
+    "parentText": "[fixture] A debate over whether carbon taxes reduce emissions generally.",
+    "threadContextExcerpt": "[fixture] Debate room: carbon-tax effectiveness across jurisdictions.",
+    "requestedFamilies": ["resolution_progress"],
+    "requestedRawKeys": [
+      "narrows_claim",
+      "concedes_narrow_point",
+      "ready_for_synthesis",
+      "suggests_side_branch",
+      "suggests_diagonal_tangent",
+      "accepts_partial_with_caveat",
+      "concedes_with_new_dispute",
+      "proposes_settlement_terms",
+      "accepts_settlement_terms",
+      "concedes_broader_point",
+      "common_ground_identified",
+      "unresolved_point_isolated",
+      "synthesis_proposed",
+      "move_on_requested",
+      "issue_closed_by_participant",
+      "decision_criterion_proposed",
+      "action_item_proposed",
+      "followup_question_proposed"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

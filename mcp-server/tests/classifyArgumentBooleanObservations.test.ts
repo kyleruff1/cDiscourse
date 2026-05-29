@@ -122,15 +122,15 @@ Deno.test('boolean tool rejects schemaVersion mismatch with invalid_params', asy
   });
 });
 
-Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_family (G/H/I/J remain unsupported)', async () => {
+Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_family (H/I/J remain unsupported)', async () => {
   await withFixtureEnv(async () => {
-    // MCP-SERVER-007-FAMILY-F promoted Family F (critical_question) to
-    // supported. The test now uses 'resolution_progress' (Family G) which
-    // remains unsupported. The supportedFamilies envelope now lists all
-    // six registered families (Family A, B, C, D, E, F).
+    // MCP-SERVER-008-FAMILY-G promoted Family G (resolution_progress) to
+    // supported. The test now uses 'claim_clarity' (Family H) which remains
+    // unsupported. The supportedFamilies envelope now lists all seven
+    // registered families (Family A, B, C, D, E, F, G).
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: validRequest({ requestedFamilies: ['resolution_progress'] }),
+      rawArgs: validRequest({ requestedFamilies: ['claim_clarity'] }),
       requestId: 'r-bad-family-1',
       envelope: 'jsonRpc',
     });
@@ -141,7 +141,7 @@ Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_f
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['resolution_progress']);
+    assertEquals(sc.requestedFamilies, ['claim_clarity']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
@@ -149,6 +149,7 @@ Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_f
       'evidence_source_chain',
       'argument_scheme',
       'critical_question',
+      'resolution_progress',
     ]);
   });
 });

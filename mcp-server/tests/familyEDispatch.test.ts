@@ -382,17 +382,17 @@ Deno.test('dispatch: 5-way cross-family rejection (Family E rawKey under evidenc
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Unsupported families G-J (post MCP-SERVER-007-FAMILY-F; Family F now supported)
+// Unsupported families H-J (post MCP-SERVER-008-FAMILY-G; Family G now supported)
 // ─────────────────────────────────────────────────────────────────────────
 
-Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family with 6-family supportedFamilies list', async () => {
+Deno.test('dispatch: unsupported family H (claim_clarity) returns unsupported_family with 7-family supportedFamilies list', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyERequest({
-        requestedFamilies: ['resolution_progress'],
+        requestedFamilies: ['claim_clarity'],
       }),
-      requestId: 'r-dispatch-g-1',
+      requestId: 'r-dispatch-h-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -402,7 +402,7 @@ Deno.test('dispatch: unsupported family G (resolution_progress) returns unsuppor
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['resolution_progress']);
+    assertEquals(sc.requestedFamilies, ['claim_clarity']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
@@ -410,13 +410,14 @@ Deno.test('dispatch: unsupported family G (resolution_progress) returns unsuppor
       'evidence_source_chain',
       'argument_scheme',
       'critical_question',
+      'resolution_progress',
     ]);
   });
 });
 
-Deno.test('dispatch: unsupported families G/H/I/J all return unsupported_family', async () => {
+Deno.test('dispatch: unsupported families H/I/J all return unsupported_family', async () => {
   await withFixtureEnv(async () => {
-    for (const family of ['resolution_progress', 'claim_clarity', 'thread_topology', 'sensitive_composer']) {
+    for (const family of ['claim_clarity', 'thread_topology', 'sensitive_composer']) {
       const result = await handleClassifyArgumentBooleanObservations({
         toolName: 'classify_argument_boolean_observations',
         rawArgs: familyERequest({
@@ -429,6 +430,29 @@ Deno.test('dispatch: unsupported families G/H/I/J all return unsupported_family'
       const sc = result.structuredContent as { reason: string };
       assertEquals(sc.reason, 'unsupported_family');
     }
+  });
+});
+
+// MCP-SERVER-008-FAMILY-G: resolution_progress (Family G) is now SUPPORTED at
+// the dispatch layer. Verify the fixture-provider path returns a clean packet
+// (the F-card dispatch-retarget pattern: the newly-promoted family gets a
+// positive dispatch assertion when the prior family's dispatch file is
+// retargeted).
+Deno.test('dispatch: supported family G (resolution_progress) returns a clean family-g-v1 packet via fixture provider', async () => {
+  await withFixtureEnv(async () => {
+    const result = await handleClassifyArgumentBooleanObservations({
+      toolName: 'classify_argument_boolean_observations',
+      rawArgs: familyERequest({
+        requestedFamilies: ['resolution_progress'],
+        requestedRawKeys: ['synthesis_proposed', 'common_ground_identified'],
+      }),
+      requestId: 'r-dispatch-g-supported-1',
+      envelope: 'jsonRpc',
+    });
+    assertEquals(result.isError, false);
+    const sc = result.structuredContent as Record<string, unknown>;
+    const modelInfo = sc.modelInfo as Record<string, unknown>;
+    assertEquals(modelInfo.classifierSetVersion, 'family-g-v1');
   });
 });
 

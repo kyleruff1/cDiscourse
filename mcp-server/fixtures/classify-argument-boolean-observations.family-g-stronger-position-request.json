@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-g-stronger-position-node",
+    "parentNodeId": "fixture-g-stronger-position-parent",
+    "currentText": "[fixture] You've shown BC and Sweden, and those are strong cases. I'll narrow my claim — carbon taxes work where enforcement is stable, over 5+ year horizons. I'm not defending the universal version anymore.",
+    "parentText": "[fixture] Carbon taxes reduce emissions everywhere they are tried.",
+    "threadContextExcerpt": "[fixture] Debate room: one side has the stronger evidentiary position; the other narrows. Doctrine test — must NOT be labeled with who-is-winning framing.",
+    "requestedFamilies": ["resolution_progress"],
+    "requestedRawKeys": [
+      "narrows_claim",
+      "concedes_narrow_point",
+      "concedes_broader_point"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

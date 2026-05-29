@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-g-concession-as-loss-adversarial-node",
+    "parentNodeId": "fixture-g-concession-as-loss-adversarial-parent",
+    "currentText": "[fixture] OK, you basically won this point and I lost the broader argument — I withdraw the broad claim and stand on the narrow scope only. You beat me on the durability axis, so I'm only holding the stable-enforcement version now.",
+    "parentText": "[fixture] A targeted challenge to the broad carbon-tax effectiveness claim.",
+    "threadContextExcerpt": "[fixture] Debate room: a broad concession wrapped in verdict framing. Move uses verdict words ('won', 'lost', 'beat me') in the INPUT as the existential adversarial test — the OUTPUT evidence_span MUST anchor the relinquishment, NEVER echo the verdict words.",
+    "requestedFamilies": ["resolution_progress"],
+    "requestedRawKeys": [
+      "concedes_broader_point",
+      "concedes_narrow_point",
+      "narrows_claim"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
