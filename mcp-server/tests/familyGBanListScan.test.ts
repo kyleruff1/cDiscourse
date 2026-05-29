@@ -141,6 +141,24 @@ Deno.test('Family G ban-list rejects "settled in favor" phrase in evidenceSpan',
   assertEquals(result.ok, false);
 });
 
+Deno.test('Family G ban-list rejects "settled in your favor" phrase in evidenceSpan (design Fixture E intent)', () => {
+  // Design §A.4 Fixture E: the OUTPUT must not echo "settled in favor" /
+  // "in your favor". The pattern tolerates an intervening possessive.
+  const result = scanFamilyGBooleanResponseForBanList(
+    buildResponse('accepts_settlement_terms', 'the point is settled in your favor'),
+  );
+  assertEquals(result.ok, false);
+});
+
+Deno.test('Family G ban-list does NOT flag a benign "in favor of" without "settled" prefix', () => {
+  // "argued in favor of the policy" is descriptive, not a settlement verdict;
+  // the pattern requires "settled" before "in ... favor".
+  const result = scanFamilyGBooleanResponseForBanList(
+    buildResponse('decision_criterion_proposed', 'the author argued in favor of the 5-year criterion'),
+  );
+  assertEquals(result.ok, true);
+});
+
 Deno.test('Family G ban-list rejects "won the argument" phrase in evidenceSpan', () => {
   const result = scanFamilyGBooleanResponseForBanList(
     buildResponse('synthesis_proposed', 'the pro side won the argument'),

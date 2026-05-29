@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-g-malformed-node",
+  "checkedRawKeys": ["synthesis_proposed"],
+  "observations": {
+    "synthesis_proposed": "not-a-boolean"
+  },
+  "confidence": {
+    "synthesis_proposed": "high"
+  },
+  "evidenceSpan": {
+    "synthesis_proposed": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-g-v1"
+  }
+}

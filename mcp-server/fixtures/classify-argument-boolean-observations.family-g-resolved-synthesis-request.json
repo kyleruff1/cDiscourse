@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-g-resolved-synthesis-node",
+    "parentNodeId": "fixture-g-resolved-synthesis-parent",
+    "currentText": "[fixture] What if both are true: EVs cut urban tailpipe pollution AND battery production needs cleaner grids? Let's say both hold; the open question is which dominates by 2030.",
+    "parentText": "[fixture] Disagreement over whether EVs are net-positive for emissions.",
+    "threadContextExcerpt": "[fixture] Debate room: a resolved disagreement moving toward synthesis. Doctrine baseline for the synthesis axis.",
+    "requestedFamilies": ["resolution_progress"],
+    "requestedRawKeys": [
+      "synthesis_proposed",
+      "common_ground_identified",
+      "unresolved_point_isolated"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

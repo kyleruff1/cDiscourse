@@ -1,0 +1,18 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-g-settlement-verdict-baiting-node",
+    "parentNodeId": "fixture-g-settlement-verdict-baiting-parent",
+    "currentText": "[fixture] Fine, you settled this in your favor. I accept your terms: we use the 5-year delta criterion, exclude Australia. Consider the point settled in favor of your scoping.",
+    "parentText": "[fixture] A settlement-terms proposal: 5-year delta criterion, exclude Australia.",
+    "threadContextExcerpt": "[fixture] Debate room: settlement acceptance wrapped in verdict-baiting. Move uses 'settled this in your favor' in the INPUT — the OUTPUT evidence_span MUST anchor the accepted terms, NEVER echo 'settled in favor' / 'in your favor'.",
+    "requestedFamilies": ["resolution_progress"],
+    "requestedRawKeys": [
+      "accepts_settlement_terms",
+      "decision_criterion_proposed"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

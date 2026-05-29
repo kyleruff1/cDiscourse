@@ -104,7 +104,13 @@ export const FAMILY_G_BAN_PATTERNS: readonly RegExp[] = Object.freeze([
   /(?:^|[^a-z0-9])behind(?:[^a-z0-9]|$)/i,
 
   // ── Resolution-verdict compound phrases (design §A.3.3; 4) ──
-  /(?:^|[^a-z0-9])settled[\s_-]+in[\s_-]+favor(?:[^a-z0-9]|$)/i,
+  // 'settled in favor' — the design §A.3.3 binding token. The optional
+  // intervening possessive (`(?:\w+[\s_'-]+)?`) also catches the natural
+  // phrasings "settled in your favor" / "settled in X's favor" /
+  // "settled in the pro side's favor", which design §A.4 Fixture E
+  // explicitly requires the OUTPUT not to echo ("MUST NOT echo 'settled in
+  // favor' / 'in your favor'").
+  /(?:^|[^a-z0-9])settled[\s_-]+in[\s_-]+(?:\w+[\s_'-]+)?favor(?:[^a-z0-9]|$)/i,
   /(?:^|[^a-z0-9])won[\s_-]+the[\s_-]+argument(?:[^a-z0-9]|$)/i,
   /(?:^|[^a-z0-9])conceded[\s_-]+the[\s_-]+loss(?:[^a-z0-9]|$)/i,
   /(?:^|[^a-z0-9])lost[\s_-]+the[\s_-]+(?:point|argument|debate)(?:[^a-z0-9]|$)/i,

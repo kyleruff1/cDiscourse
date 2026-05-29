@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-g-1",
+  "checkedRawKeys": ["concedes_broader_point"],
+  "observations": {
+    "concedes_broader_point": true
+  },
+  "confidence": {
+    "concedes_broader_point": "high"
+  },
+  "evidenceSpan": {
+    "concedes_broader_point": "the author conceded the loss and lost the argument on durability"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-g-v1"
+  }
+}
