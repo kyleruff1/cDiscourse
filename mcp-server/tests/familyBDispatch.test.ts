@@ -176,13 +176,13 @@ Deno.test('dispatch: cross-family request (Family B rawKey under parent_relation
   });
 });
 
-Deno.test('dispatch: unsupported family H (claim_clarity) returns unsupported_family with full 6-family supportedFamilies list', async () => {
-  // MCP-SERVER-007-FAMILY-F promoted critical_question from unsupported to
+Deno.test('dispatch: unsupported family H (claim_clarity) returns unsupported_family with full 7-family supportedFamilies list', async () => {
+  // MCP-SERVER-008-FAMILY-G promoted resolution_progress from unsupported to
   // supported. This test continues to exercise an UNREGISTERED family
-  // (Family H: claim_clarity). The supportedFamilies envelope now
-  // includes all six currently-registered families: parent_relation,
+  // (Family H: claim_clarity). The supportedFamilies envelope now includes
+  // all seven currently-registered families: parent_relation,
   // disagreement_axis, misunderstanding_repair, evidence_source_chain,
-  // argument_scheme, critical_question.
+  // argument_scheme, critical_question, resolution_progress.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
@@ -207,27 +207,30 @@ Deno.test('dispatch: unsupported family H (claim_clarity) returns unsupported_fa
       'evidence_source_chain',
       'argument_scheme',
       'critical_question',
+      'resolution_progress',
     ]);
   });
 });
 
-Deno.test('dispatch: unsupported family G (resolution_progress) returns unsupported_family (replaces stale Family D test)', async () => {
-  // MCP-SERVER-005-FAMILY-D added Family D (evidence_source_chain) as a
-  // supported family. This regression test now uses Family G to keep
-  // the "unsupported family" check coverage. Family E/F/H/I/J also
-  // remain unsupported (verified in familyBooleanRequestSchema.test.ts).
+Deno.test('dispatch: supported family G (resolution_progress) returns unsupported_family=false (now registered post MCP-SERVER-008-FAMILY-G)', async () => {
+  // MCP-SERVER-008-FAMILY-G promoted Family G (resolution_progress) to
+  // supported. The prior stale test asserted it was unsupported; it now
+  // dispatches cleanly through the fixture provider. Family H/I/J remain
+  // unsupported (verified above + in familyBooleanRequestSchema.test.ts).
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyBRequest({
         requestedFamilies: ['resolution_progress'],
+        requestedRawKeys: ['synthesis_proposed'],
       }),
       requestId: 'r-dispatch-g-1',
       envelope: 'jsonRpc',
     });
-    assertEquals(result.isError, true);
-    const sc = result.structuredContent as { reason: string };
-    assertEquals(sc.reason, 'unsupported_family');
+    assertEquals(result.isError, false);
+    const sc = result.structuredContent as Record<string, unknown>;
+    const modelInfo = sc.modelInfo as Record<string, unknown>;
+    assertEquals(modelInfo.classifierSetVersion, 'family-g-v1');
   });
 });
 

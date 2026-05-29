@@ -46,6 +46,10 @@ import {
   FAMILY_F_RAW_KEYS,
   FAMILY_F_CLASSIFIER_SET_VERSION,
 } from './familyFKeys.ts';
+import {
+  FAMILY_G_RAW_KEYS,
+  FAMILY_G_CLASSIFIER_SET_VERSION,
+} from './familyGKeys.ts';
 
 let initialized = false;
 
@@ -60,8 +64,8 @@ let initialized = false;
  * Registration order is preserved by the underlying Map (per
  * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
  * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
- * 'evidence_source_chain', 'argument_scheme', 'critical_question'] in
- * this exact order.
+ * 'evidence_source_chain', 'argument_scheme', 'critical_question',
+ * 'resolution_progress'] in this exact order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -116,6 +120,24 @@ export function initializeFamilyRegistry(): void {
   register('critical_question', {
     rawKeys: new Set(FAMILY_F_RAW_KEYS),
     classifierSetVersion: FAMILY_F_CLASSIFIER_SET_VERSION,
+  });
+
+  // MCP-SERVER-008-FAMILY-G: register resolution_progress with the 18-key
+  // ai_classifier Subset per Stage 2B operator binding decision. The 12
+  // deterministic Family G rawKeys (5 auto_metadata + 7 lifecycle) are
+  // intentionally excluded; requesting any of them under
+  // requestedFamilies=['resolution_progress'] returns unsupported_rawKey
+  // at the registry boundary (mirror Family D). The 18 keys sit at the
+  // resolution<->verdict boundary; the existential doctrine binding (a
+  // resolution-progress state is DESCRIPTIVE CONVERGENCE-STATE, never a
+  // verdict about who won) lives in familyGPrompt.ts + familyGBanListScan.ts.
+  // Card 1 of the three-card chain: admin_validation-only at the Edge
+  // boundary (Edge familyRegistry already has Family G productionEnabled
+  // = false at supabase/functions/_shared/booleanObservations/
+  // familyRegistry.ts:100-103; no Edge edit in this card; Card 3 flips it).
+  register('resolution_progress', {
+    rawKeys: new Set(FAMILY_G_RAW_KEYS),
+    classifierSetVersion: FAMILY_G_CLASSIFIER_SET_VERSION,
   });
 }
 
