@@ -55,6 +55,16 @@ const AUDIT_TYPE_PATTERNS = Object.freeze({
 const DOCTRINE_RISK_FAMILIES = new Set([
   'argument_scheme',
   'slippery_slope',
+  // Family F (critical_question). `family_f` is the string detectFamily()
+  // actually emits for a `MCP-SERVER-NNN-FAMILY-F` title (mapFamilyLetterToName
+  // has no F case → default branch → `family_f`); it is the load-bearing alias.
+  // `critical_question` is the canonical key name (also covers any doc that
+  // declares `Family: critical_question`). `consequence_probability_unclear`
+  // is the F doctrinal-axis partner key (the exact parallel of `slippery_slope`
+  // for E), reachable only via a `Family:` declaration — added for parallelism.
+  'critical_question',
+  'family_f',
+  'consequence_probability_unclear',
 ]);
 
 /* ------------------------------------------------------------------ */

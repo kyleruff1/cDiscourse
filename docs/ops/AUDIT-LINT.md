@@ -48,7 +48,7 @@ done
 | **L2** | R2/R4 | Indirect-proof phrase ("covered indirectly", "would pass", "verified via unit tests" as sole justification, etc.) in a NOT-RUN direct-proof phase fails (R4 forbids substitution) |
 | **L3** | — | Production-enable audits must distinguish three success levels: dispatch + targeted classifier-signal + read-path (Source 6) |
 | **L4** | — | Production-enable targeted-signal must include at least one positive RESULT row on deliberately targeted text; a successful RUN row alone is not signal proof |
-| **L5** | — | Doctrine-risk audits (Family E `argument_scheme` / `slippery_slope`) must cite persisted direct output (the `evidence_span` column of `argument_machine_observation_results`) |
+| **L5** | — | Doctrine-risk audits (Family E `argument_scheme` / `slippery_slope`; Family F `critical_question` / `family_f` / `consequence_probability_unclear`) must cite persisted direct output (the `evidence_span` column of `argument_machine_observation_results`) |
 | **L6** | — | Amendment / hosted-completion / verdict-upgrade docs must name all three of: prior verdict, the specific missing proof that capped it, and the specific newly-supplied proof that lifts the cap |
 
 The rules are pure DATA in `scripts/ops/audit-lint-rules.cjs`. Adding
@@ -213,6 +213,45 @@ add a new family:
 A future audit doc for the new family that lacks `evidence_span`
 inspection will trigger L5.
 
+### Add the alias the DETECTOR emits, not just the canonical key (Family F lesson)
+
+`applyL5` decides doctrine-risk via `parsed.family ∈ DOCTRINE_RISK_FAMILIES`,
+and `parsed.family` comes from `detectFamily(title, body)`. For a
+`MCP-SERVER-NNN-FAMILY-X` title, `detectFamily` maps the letter through
+`mapFamilyLetterToName`. **That mapper has no case past E** — letters F, G,
+H… hit the `default` branch and return `family_f`, `family_g`, … (NOT the
+canonical key like `critical_question`). So a real F audit doc parses to
+`family: 'family_f'`.
+
+This was the load-bearing trap in `OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK`:
+adding only the canonical key `critical_question` would be a **silent no-op**
+for every real F audit, because none of them carry a body-level
+`Family: critical_question` declaration — they detect as `family_f`. The fix
+added BOTH:
+- `family_f` — the string the detector actually emits (load-bearing);
+- `critical_question` — the canonical key name (covers any doc that
+  declares `Family: critical_question` explicitly);
+- `consequence_probability_unclear` — the F doctrinal-axis partner, the exact
+  parallel of `slippery_slope` for E (only reachable via a `Family:` declaration).
+
+Two guard tests pin this so a future refactor cannot silently un-arm L5:
+a `detectFamily('# MCP-SERVER-007-FAMILY-F-SMOKE — …') === 'family_f'` pin,
+and a synthetic-improper teeth fixture that only fails-correctly when
+`family_f` is present. **Do NOT add an alias the detector cannot emit, and
+do NOT add an `F` case to `mapFamilyLetterToName` — that is logic, not data.**
+
+### Consistent-PARTIAL is preserved by MENTION, not by verdict-awareness
+
+L5 is **verdict-blind**: it fires on `(isDoctrineRisk && !hasInspection)` with
+no `verdict` check. A doctrine-risk audit that is honestly PARTIAL (e.g. the
+persisted-`evidence_span` readback is a deferred / BINDING obligation that
+did not run yet) must NOT fail L5 — and it does not, because it still **names**
+`evidence_span` as the deferred obligation, so `hasInspection` is true. This
+is identical to how the Family E PARTIAL fixture passes, and is a faithful
+extension of the existing system, not a new mechanism. If a future doctrine-risk
+PARTIAL audit forgets to even mention `evidence_span`, L5 will (correctly) fire
+— that is the intended teeth, not a regression.
+
 ## Adding an indirect-proof phrase
 
 Indirect-proof phrases are in
@@ -232,8 +271,8 @@ a new phrase:
 
 ## The fixture directory
 
-`__tests__/fixtures/audit-lint/` contains 4 STATIC copies of
-historical audit docs:
+`__tests__/fixtures/audit-lint/` contains 7 audit-doc fixtures —
+6 STATIC copies of historical audit docs plus 1 SYNTHETIC negative:
 
 - `original-family-e-IMPROPER-PASS.md` (29f30b0) — the centerpiece
   defect; L1 + L2 + L5 trip
@@ -243,6 +282,16 @@ historical audit docs:
   operator-supplied direct proof
 - `family-d-strengthened-amendment-PASS.md` — model amendment with
   all 9 strengthened criteria satisfied
+- `family-f-original-PARTIAL.md` (6395023) — consistent-PARTIAL for
+  Family F; passes L5 because it names `evidence_span` as the deferred
+  Phase 4b obligation (the load-bearing regression guard for the
+  Family F doctrine-risk enrollment)
+- `family-f-amendment-PASS.md` (6395023) — legitimate F amendment with
+  persisted `evidence_span` inspection; passes L5
+- `family-f-IMPROPER-PASS-no-evidence-span.md` — **SYNTHETIC** F-amendment
+  shape with every `evidence_span` inspection trigger stripped; FAILS on
+  L5 ONLY. The teeth proof for `OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK`
+  (the F analog of `original-family-e-IMPROPER-PASS`)
 
 Each fixture starts with an `<!-- AUDIT-LINT-FIXTURE: ... -->` HTML
 comment marker. The fixture directory carries a `README.md`
@@ -251,7 +300,7 @@ contain historical defect language by design, and doctrine ban-list
 scanners MUST exclude them.
 
 The Jest suite asserts every fixture starts with the marker, the
-README is present, and the fixture count is exactly 4.
+README is present, and the fixture count is exactly 7.
 
 ## Updating a smoke template
 

@@ -23,7 +23,9 @@ file-level opt-out signal without needing a directory allow-list.
 Jest tests in `__tests__/opsAuditLint.test.ts` assert:
 - this `README.md` exists in the directory;
 - each fixture file starts with the `<!-- AUDIT-LINT-FIXTURE` marker;
-- the fixture count is exactly 4 (the four motivating arc docs).
+- the fixture count is exactly 7 (the four original Family E/D motivating
+  arc docs plus the three Family F doctrine-risk-enrollment fixtures added
+  in `OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK`).
 
 ## DO NOT EDIT
 
@@ -58,7 +60,24 @@ cp docs/audits/MCP-021C-EDGE-FAMILY-D-ENABLE-SMOKE-AMENDMENT-2026-05-27.md \
    /tmp/raw.md && \
   cat <(echo '<!-- AUDIT-LINT-FIXTURE: intentional negative case; preserved historical content for self-validation; exclude from doctrine/verdict scans -->') /tmp/raw.md \
   > __tests__/fixtures/audit-lint/family-d-strengthened-amendment-PASS.md
+
+git show 6395023:docs/audits/MCP-SERVER-007-FAMILY-F-SMOKE-2026-05-28.md \
+  > /tmp/raw.md && \
+  cat <(echo '<!-- AUDIT-LINT-FIXTURE: intentional negative case; preserved historical content for self-validation; exclude from doctrine/verdict scans -->') /tmp/raw.md \
+  > __tests__/fixtures/audit-lint/family-f-original-PARTIAL.md
+
+git show 6395023:docs/audits/MCP-SERVER-007-FAMILY-F-SMOKE-AMENDMENT-2026-05-28.md \
+  > /tmp/raw.md && \
+  cat <(echo '<!-- AUDIT-LINT-FIXTURE: intentional negative case; preserved historical content for self-validation; exclude from doctrine/verdict scans -->') /tmp/raw.md \
+  > __tests__/fixtures/audit-lint/family-f-amendment-PASS.md
 ```
+
+`family-f-IMPROPER-PASS-no-evidence-span.md` is **SYNTHETIC** (hand-authored,
+not extracted) — its exact construction lives in
+`docs/designs/OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK.md`
+§ "Synthetic fixture 7 — exact construction". It is the F-amendment shape with
+every `evidence_span` inspection trigger stripped, so re-author it from that
+design body rather than extracting it from a commit.
 
 ## Expected linter outcomes (existential contract)
 
@@ -68,6 +87,9 @@ cp docs/audits/MCP-021C-EDGE-FAMILY-D-ENABLE-SMOKE-AMENDMENT-2026-05-27.md \
 | `family-e-amendment-PARTIAL.md` | 0 (PASSES) | (none) — consistent-PARTIAL; R2 satisfied; L6 provenance present |
 | `family-e-hosted-completion-PASS.md` | 0 (PASSES) | (none) — Phase 1 hosted smoke ran; L6 provenance present |
 | `family-d-strengthened-amendment-PASS.md` | 0 (PASSES) | (none) — model audit; all of L1-L6 satisfied; not a doctrine-risk family |
+| `family-f-original-PARTIAL.md` | 0 (PASSES) | (none) — consistent-PARTIAL for Family F; names `evidence_span` as the deferred Phase 4b obligation so `hasInspection` is true and L5 does not fire |
+| `family-f-amendment-PASS.md` | 0 (PASSES) | (none) — legitimate F amendment; persisted `evidence_span` inspection present; L5 satisfied |
+| `family-f-IMPROPER-PASS-no-evidence-span.md` | 1 (FAILS) | L5 ONLY — doctrine-risk Family F + verdict PASS + ZERO `evidence_span` inspection. The teeth proof (F analog of `original-family-e-IMPROPER-PASS`). Amendment-typed + intact L6 → L1/L2/L6 do NOT fire |
 
 The Jest suite asserts these outcomes. If a future linter change causes a
 mismatch, EITHER the linter must be tuned back OR the design's expected
