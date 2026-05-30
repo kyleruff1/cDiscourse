@@ -124,7 +124,12 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — mapToFailureSubreason (a
 // ─────────────────────────────────────────────────────────────────────
 
 describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — vocabulary', () => {
-  it('VOCAB-1 — contains exactly the 15 declared values in order', () => {
+  it('VOCAB-1 — contains exactly the 16 declared values in order (Phase 3: +provider_server_error)', () => {
+    // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): the body-level
+    // `{ isError }` envelope class `provider_server_error` is inserted in
+    // the provider/transport group, between `provider_api_error` and
+    // `provider_network_error`. The constant grows 15 → 16; this ordered
+    // assertion is the canonical declared-order guard.
     expect(EDGE_ALL_BOOLEAN_OBSERVATION_FAILURE_SUBREASONS).toEqual([
       'request_unsupported_family',
       'request_unsupported_raw_key',
@@ -139,6 +144,7 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — vocabulary', () => {
       'provider_timeout',
       'provider_rate_limited',
       'provider_api_error',
+      'provider_server_error',
       'provider_network_error',
       'unknown',
     ]);
@@ -218,6 +224,14 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — buildFailureDetail (happ
   it('DET-6 — family enum value is kept', () => {
     const detail = edgeBuildFailureDetail({ family: 'evidence_source_chain' });
     expect(detail).toEqual({ family: 'evidence_source_chain' });
+  });
+
+  it('DET-6a — serverReason (Phase 3): a benign server code is forwarded as-is', () => {
+    // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): the server's own
+    // short error code rides through forwarded-with-scrub (NOT allowlisted,
+    // since the server can emit any short diagnostic code).
+    const detail = edgeBuildFailureDetail({ serverReason: 'overloaded' });
+    expect(detail).toEqual({ serverReason: 'overloaded' });
   });
 });
 
@@ -390,6 +404,46 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — buildFailureDetail HOSTI
     // validatorReason + schemaVersion always survive the degradation.
     expect(detail?.validatorReason).toBe('wrong_shape');
     expect(detail?.schemaVersion).toBe('mcp-021.machine-observations.boolean.v1');
+  });
+
+  it('DET-23 — serverReason (Phase 3): EVERY banned secret shape via serverReason is dropped', () => {
+    // serverReason is the FIRST detail field sourced directly from the
+    // server response body (Phase 1's expected/schemaVersion were
+    // constants). It MUST ride the same `looksSecret` scrub — a misbehaving
+    // server echoing a token in its `reason` is dropped (HALT-4).
+    const bannedValues = [
+      FAKE_BEARER,
+      FAKE_SK_ANT,
+      FAKE_SB_SECRET,
+      FAKE_XAI,
+      FAKE_JWT,
+      FAKE_AUTH_HEADER,
+    ];
+    for (const value of bannedValues) {
+      // serverReason was the only field → the whole detail is undefined.
+      expect(edgeBuildFailureDetail({ serverReason: value })).toBeUndefined();
+    }
+  });
+
+  it('DET-24 — serverReason (Phase 3): a benign code survives (scrub is shape-based) and is ≤200 chars', () => {
+    // Proves the scrub is shape-based, not a blanket drop.
+    const benign = edgeBuildFailureDetail({ serverReason: 'rate_limit_exceeded' });
+    expect(benign).toEqual({ serverReason: 'rate_limit_exceeded' });
+    // A long-but-benign code is capped at 200 chars.
+    const long = edgeBuildFailureDetail({ serverReason: 'r'.repeat(5_000) });
+    expect(long?.serverReason).toBeDefined();
+    expect(long!.serverReason!.length).toBeLessThanOrEqual(200);
+  });
+
+  it('DET-25 — serverReason (Phase 3): a 5000-char serverReason keeps serialized detail ≤2000', () => {
+    const detail = edgeBuildFailureDetail({
+      validatorReason: 'wrong_shape',
+      schemaVersion: 'mcp-021.machine-observations.boolean.v1',
+      serverReason: 'x'.repeat(5_000),
+    });
+    expect(detail).toBeDefined();
+    expect(JSON.stringify(detail).length).toBeLessThanOrEqual(2_000);
+    expect(detail!.serverReason!.length).toBeLessThanOrEqual(200);
   });
 
   it('DET-22 — receivedKeys is the FIRST field dropped under the size cap', () => {
