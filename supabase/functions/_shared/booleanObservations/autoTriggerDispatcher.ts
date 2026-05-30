@@ -185,16 +185,28 @@ async function readEnabledFlag(
  * Per-family scoping: a successful Family A run for argument X does NOT
  * make Family B's first run for argument X skip — each family has its
  * own idempotency scope.
+ *
+ * ARCH-001 Card 2 — ACTIVE-QUEUE AWARENESS: the SELECT now also reads the
+ * new `state` lifecycle column (added by the Card-1 substrate). A cell
+ * whose most-recent run row is in an ACTIVE QUEUE state
+ * (`pending` | `leased` | `retry_scheduled`) is already IN FLIGHT via the
+ * queue and MUST NOT be re-dispatched by the direct path — otherwise the
+ * direct dispatcher (which today only checks `status='success'`, and a
+ * pending queue row has `status` NULL) would mis-read it as not-classified
+ * and fire a redundant provider call. The caller treats either an active
+ * queue state OR `status='success'` as "already handled". Card-1 index #5
+ * is the DB backstop; this app-logic check AGREES with it. This change is
+ * MINIMAL + ADDITIVE — the rest of the direct path is untouched.
  */
 async function findExistingRun(
   argumentId: string,
   family: MachineObservationFamily,
   serviceClient: ReturnType<typeof createServiceClient>,
-): Promise<{ id: string; status: string; run_mode: string } | null> {
+): Promise<{ id: string; status: string; run_mode: string; state: string | null } | null> {
   try {
     const { data, error } = await serviceClient
       .from('argument_machine_observation_runs')
-      .select('id, status, run_mode')
+      .select('id, status, run_mode, state')
       .eq('argument_id', argumentId)
       .eq('schema_version', MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION)
       .eq('run_mode', 'production')
@@ -204,11 +216,23 @@ async function findExistingRun(
       .limit(1)
       .maybeSingle();
     if (error || !data) return null;
-    return data as { id: string; status: string; run_mode: string };
+    return data as { id: string; status: string; run_mode: string; state: string | null };
   } catch {
     return null;
   }
 }
+
+/**
+ * ARCH-001 Card 2 — the active queue states. A run row in one of these is a
+ * live queue job (enqueued / claimed / awaiting retry); the direct path must
+ * treat it as already-in-flight and NOT re-dispatch. Mirrors the Card-1
+ * index #5 predicate (`state IN ('pending','leased','retry_scheduled')`).
+ */
+const ACTIVE_QUEUE_STATES: ReadonlySet<string> = new Set([
+  'pending',
+  'leased',
+  'retry_scheduled',
+]);
 
 /**
  * Determine whether a failed summary is retryable per design §4.1.
@@ -251,7 +275,18 @@ async function dispatchOneFamilyIteration(
   try {
     // ── Idempotency pre-check (Option A, per-family) ─────────────
     const existing = await findExistingRun(argumentId, family, serviceClient);
-    if (existing && existing.status === 'success') {
+    // ARCH-001 Card 2 — active-queue awareness: a cell already IN FLIGHT via
+    // the queue (state pending/leased/retry_scheduled) OR already a terminal
+    // success (status='success') is "already handled" — do NOT re-dispatch.
+    // The active-queue check is FIRST because a pending queue row has
+    // status=NULL (so the legacy `status==='success'` check alone would miss
+    // it and fire a redundant provider call). Card-1 index #5 is the DB
+    // backstop; this AGREES with it.
+    const isActiveQueueJob =
+      existing !== null &&
+      typeof existing.state === 'string' &&
+      ACTIVE_QUEUE_STATES.has(existing.state);
+    if (existing && (isActiveQueueJob || existing.status === 'success')) {
       const outcome: AutoTriggerOutcome = {
         outcome: 'already_classified',
         runId: existing.id,
@@ -268,9 +303,10 @@ async function dispatchOneFamilyIteration(
       });
       return outcome;
     }
-    // If `existing` is failed (or null), proceed.
+    // If `existing` is a terminal failure (or null), proceed.
     // Rationale: a failed run does not count as classified; the retry
-    // loop below will attempt fresh on this path.
+    // loop below will attempt fresh on this path. An active queue job was
+    // already handled above.
 
     // ── Bounded retry loop (design §4) ───────────────────────────
     let lastSummary: PerArgumentSummary | null = null;

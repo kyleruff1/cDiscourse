@@ -96,12 +96,16 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — idempotency pre-check (Option A)', 
   });
 
   it('IDEM-11 — dispatcher proceeds when pre-check returns no row (new run)', () => {
-    // The "no row" path falls through the success-row branch directly
-    // into the retry loop. The branch's return triggers on
-    // `existing && existing.status === 'success'`.
-    expect(dispatcherText).toMatch(
-      /existing\s*&&\s*existing\.status\s*===\s*['"]success['"]/,
-    );
+    // The "no row" path falls through the already-handled branch directly
+    // into the retry loop. The branch's return still triggers on a terminal
+    // `existing.status === 'success'` check — ARCH-001 Card 2 ADDED an
+    // active-queue-state check (isActiveQueueJob) ahead of it in the same
+    // boolean (`existing && (isActiveQueueJob || existing.status ===
+    // 'success')`), so the `existing &&` is no longer directly adjacent to
+    // the status check. We assert BOTH the preserved status check and the
+    // outer `existing &&` guard remain present.
+    expect(dispatcherText).toMatch(/existing\.status\s*===\s*['"]success['"]/);
+    expect(dispatcherText).toMatch(/if\s*\(\s*existing\s*&&/);
   });
 
   it('IDEM-12 — pre-check uses the serviceClient + family parameters passed into the dispatcher (no new client; per-family scope)', () => {
