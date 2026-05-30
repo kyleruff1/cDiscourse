@@ -24,6 +24,7 @@
  *   - AbortSignal.timeout(effectiveMs) used for the fetch
  */
 import { log, sha256Hex } from './logging.ts';
+import { providerConcurrencyGate } from './providerConcurrency.ts';
 
 export const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 export const ANTHROPIC_API_VERSION = '2023-06-01';
@@ -181,106 +182,117 @@ export async function callAnthropic(opts: CallAnthropicOpts): Promise<AnthropicC
 
   const startMs = performance.now();
   const fetchImpl = opts.fetchImpl ?? fetch;
-  let response: Response;
+
+  // PER-ISOLATE provider-concurrency cap (OPS-MCP-SERVER-CAPACITY-INVESTIGATION).
+  // Acquire AFTER the key check (a missing key must not consume a slot) and
+  // BEFORE the fetch (the slot must cover the actual provider round-trip).
+  // Released in `finally` AFTER the body is consumed or drained on EVERY path
+  // (success, 429, !ok, fetch-throw/timeout, json-throw, parse-null) via the
+  // idempotent ReleaseFn. This is a per-isolate cap, NOT a global cap.
+  const release = await providerConcurrencyGate.acquire();
   try {
-    response = await fetchImpl(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_API_VERSION,
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (err) {
-    const duration = Math.round(performance.now() - startMs);
-    const reason: AnthropicFailureReason =
-      err instanceof Error && err.name === 'TimeoutError'
+    let response: Response;
+    try {
+      response = await fetchImpl(ANTHROPIC_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': ANTHROPIC_API_VERSION,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (err) {
+      const duration = Math.round(performance.now() - startMs);
+      const reason: AnthropicFailureReason = err instanceof Error && err.name === 'TimeoutError'
         ? 'model_timeout'
         : 'network_error';
-    log('error', 'anthropic_call_fetch_threw', {
-      requestId: opts.requestId,
-      tool: opts.toolNameForLogging,
-      reason,
-      duration_ms: duration,
-      status: 'failure',
-      errorClass: err instanceof Error ? err.name : 'unknown',
-    });
-    return { ok: false, reason };
-  }
-
-  const duration = Math.round(performance.now() - startMs);
-
-  if (response.status === 429) {
-    log('warn', 'anthropic_rate_limited', {
-      requestId: opts.requestId,
-      tool: opts.toolNameForLogging,
-      httpStatus: 429,
-      duration_ms: duration,
-      status: 'failure',
-      reason: 'rate_limited',
-    });
-    // Drain body to free the connection — do NOT log it.
-    try {
-      await response.text();
-    } catch {
-      // ignore
+      log('error', 'anthropic_call_fetch_threw', {
+        requestId: opts.requestId,
+        tool: opts.toolNameForLogging,
+        reason,
+        duration_ms: duration,
+        status: 'failure',
+        errorClass: err instanceof Error ? err.name : 'unknown',
+      });
+      return { ok: false, reason };
     }
-    return { ok: false, reason: 'rate_limited' };
-  }
-  if (!response.ok) {
-    log('error', 'anthropic_api_error', {
+
+    const duration = Math.round(performance.now() - startMs);
+
+    if (response.status === 429) {
+      log('warn', 'anthropic_rate_limited', {
+        requestId: opts.requestId,
+        tool: opts.toolNameForLogging,
+        httpStatus: 429,
+        duration_ms: duration,
+        status: 'failure',
+        reason: 'rate_limited',
+      });
+      // Drain body to free the connection — do NOT log it.
+      try {
+        await response.text();
+      } catch {
+        // ignore
+      }
+      return { ok: false, reason: 'rate_limited' };
+    }
+    if (!response.ok) {
+      log('error', 'anthropic_api_error', {
+        requestId: opts.requestId,
+        tool: opts.toolNameForLogging,
+        httpStatus: response.status,
+        duration_ms: duration,
+        status: 'failure',
+        reason: 'api_error',
+      });
+      // Drain body to free the connection — do NOT log it.
+      try {
+        await response.text();
+      } catch {
+        // ignore
+      }
+      return { ok: false, reason: 'api_error' };
+    }
+
+    let responseJson: unknown;
+    try {
+      responseJson = await response.json();
+    } catch {
+      log('error', 'anthropic_response_not_json', {
+        requestId: opts.requestId,
+        tool: opts.toolNameForLogging,
+        reason: 'parse_failure',
+        duration_ms: duration,
+        status: 'failure',
+      });
+      return { ok: false, reason: 'parse_failure' };
+    }
+    const text = extractAnthropicContentText(responseJson);
+    const parsed = parseJsonFromContent(text);
+    if (parsed === null) {
+      log('error', 'anthropic_parse_failure', {
+        requestId: opts.requestId,
+        tool: opts.toolNameForLogging,
+        reason: 'parse_failure',
+        duration_ms: duration,
+        status: 'failure',
+      });
+      return { ok: false, reason: 'parse_failure' };
+    }
+    const responseHash = await sha256Hex(text ?? '');
+    log('info', 'anthropic_call_success', {
       requestId: opts.requestId,
       tool: opts.toolNameForLogging,
+      promptHash,
+      responseHash,
+      duration_ms: duration,
+      status: 'success',
       httpStatus: response.status,
-      duration_ms: duration,
-      status: 'failure',
-      reason: 'api_error',
     });
-    // Drain body to free the connection — do NOT log it.
-    try {
-      await response.text();
-    } catch {
-      // ignore
-    }
-    return { ok: false, reason: 'api_error' };
+    return { ok: true, packet: parsed };
+  } finally {
+    release();
   }
-
-  let responseJson: unknown;
-  try {
-    responseJson = await response.json();
-  } catch {
-    log('error', 'anthropic_response_not_json', {
-      requestId: opts.requestId,
-      tool: opts.toolNameForLogging,
-      reason: 'parse_failure',
-      duration_ms: duration,
-      status: 'failure',
-    });
-    return { ok: false, reason: 'parse_failure' };
-  }
-  const text = extractAnthropicContentText(responseJson);
-  const parsed = parseJsonFromContent(text);
-  if (parsed === null) {
-    log('error', 'anthropic_parse_failure', {
-      requestId: opts.requestId,
-      tool: opts.toolNameForLogging,
-      reason: 'parse_failure',
-      duration_ms: duration,
-      status: 'failure',
-    });
-    return { ok: false, reason: 'parse_failure' };
-  }
-  const responseHash = await sha256Hex(text ?? '');
-  log('info', 'anthropic_call_success', {
-    requestId: opts.requestId,
-    tool: opts.toolNameForLogging,
-    promptHash,
-    responseHash,
-    duration_ms: duration,
-    status: 'success',
-    httpStatus: response.status,
-  });
-  return { ok: true, packet: parsed };
 }
