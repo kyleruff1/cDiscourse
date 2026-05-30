@@ -437,6 +437,23 @@ verify_jwt = true
 [functions.classify-argument-boolean-observations]
 verify_jwt = true
 
+# ARCH-001 Card 2 — classifier-drainer. verify_jwt = false because this
+# endpoint is invoked by the pg_cron safety tick + the enqueue-kick trigger
+# (server-side net.http_post), NOT by an end user with a JWT. It is the
+# single-flight, bounded-batch queue drainer (design §A.4/§A.5): it acquires
+# the drain lease, reclaims stale leases, claims due jobs, classifies each via
+# the operator-hosted MCP server (with the corrected >=30s caller-side timeout
+# — design §A.6), and finalizes them atomically via finalize_classifier_job.
+# Because verify_jwt is false, the function validates a SHARED SECRET on the
+# Authorization header (CLASSIFIER_DRAIN_SHARED_SECRET — an operator-set
+# function secret equal to the value seeded in Vault for the kick/cron) BEFORE
+# doing any work; a missing/mismatched header → 401. The secret is NEVER
+# logged. The drain uses the service-role client (bypasses RLS, same posture
+# as the existing MCP-021C writer). No production rollout / percentage routing
+# (Card 3); routing ships DEFAULT-DISABLED (smoke-tag only).
+[functions.classifier-drainer]
+verify_jwt = false
+
 # PR-004 — [functions.upload-avatar] block removed. The avatar upload
 # pipeline (PR-003) was deprecated when the operator pivoted to the
 # InitialsAvatar identity glyph. The source under
