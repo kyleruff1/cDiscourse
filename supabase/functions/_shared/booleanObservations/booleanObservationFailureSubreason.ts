@@ -68,6 +68,7 @@ export type BooleanObservationFailureSubreason =
   | 'provider_timeout' // RESERVED — folded into network_error today
   | 'provider_rate_limited'
   | 'provider_api_error'
+  | 'provider_server_error' // body-level { isError } envelope (Phase 3)
   | 'provider_network_error'
   // catch-all for a reason with no mapping (forward-compatible)
   | 'unknown';
@@ -91,6 +92,7 @@ export const ALL_BOOLEAN_OBSERVATION_FAILURE_SUBREASONS: readonly BooleanObserva
   'provider_timeout',
   'provider_rate_limited',
   'provider_api_error',
+  'provider_server_error',
   'provider_network_error',
   'unknown',
 ];
@@ -119,6 +121,13 @@ export interface BooleanObservationFailureDetail {
   schemaVersion?: string;
   /** The family the request targeted, when relevant. */
   family?: MachineObservationFamily;
+  /**
+   * OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): the MCP server's
+   * OWN short error code, read off its `{ isError, reason }` envelope under
+   * load. UNTRUSTED server input — scrubbed for secret shapes + capped, the
+   * same way `expected`/`schemaVersion` are. NEVER the raw `detail` blob.
+   */
+  serverReason?: string;
 }
 
 // ── mapToFailureSubreason ────────────────────────────────────────
@@ -238,6 +247,8 @@ export interface FailureDetailInput {
   schemaVersion?: string;
   /** The family the request targeted. */
   family?: MachineObservationFamily;
+  /** UNTRUSTED server-supplied error code; scrubbed + capped like `expected`. */
+  serverReason?: string;
 }
 
 /**
@@ -376,6 +387,14 @@ export function buildFailureDetail(
     detail.schemaVersion = input.schemaVersion.slice(0, MAX_EXPECTED_PATH_CHARS);
   }
 
+  // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): the server's own
+  // short error code off its `{ isError, reason }` envelope. UNTRUSTED —
+  // forwarded with the SAME `looksSecret` scrub + 200-char cap as
+  // `expected`/`schemaVersion` (NOT echoed raw, NOT the `detail` blob).
+  if (typeof input.serverReason === 'string' && !looksSecret(input.serverReason)) {
+    detail.serverReason = input.serverReason.slice(0, MAX_EXPECTED_PATH_CHARS);
+  }
+
   if (input.family !== undefined) {
     detail.family = input.family;
   }
@@ -391,6 +410,9 @@ export function buildFailureDetail(
   }
   if (detail.schemaVersion !== undefined && looksSecret(detail.schemaVersion)) {
     delete detail.schemaVersion;
+  }
+  if (detail.serverReason !== undefined && looksSecret(detail.serverReason)) {
+    delete detail.serverReason;
   }
   if (detail.checkedRawKey !== undefined && looksSecret(detail.checkedRawKey)) {
     delete detail.checkedRawKey;
@@ -416,13 +438,16 @@ export function buildFailureDetail(
   if (serializedLength(detail) <= MAX_SERIALIZED_DETAIL_CHARS) {
     return detail;
   }
-  // 2. Truncate path / expected to 200 chars each (already capped on
-  //    entry, but re-apply defensively in case the cap budget is tight).
+  // 2. Truncate path / expected / serverReason to 200 chars each (already
+  //    capped on entry, but re-apply defensively in case the budget is tight).
   if (typeof detail.path === 'string') {
     detail.path = detail.path.slice(0, MAX_EXPECTED_PATH_CHARS);
   }
   if (typeof detail.expected === 'string') {
     detail.expected = detail.expected.slice(0, MAX_EXPECTED_PATH_CHARS);
+  }
+  if (typeof detail.serverReason === 'string') {
+    detail.serverReason = detail.serverReason.slice(0, MAX_EXPECTED_PATH_CHARS);
   }
   if (serializedLength(detail) <= MAX_SERIALIZED_DETAIL_CHARS) {
     return detail;
