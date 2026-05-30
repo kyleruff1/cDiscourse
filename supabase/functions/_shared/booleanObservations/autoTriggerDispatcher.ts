@@ -99,6 +99,7 @@ import {
 import type { PerArgumentSummary } from './classifyArgumentCore.ts';
 import { productionEnabledFamilies } from './familyRegistry.ts';
 import { MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES } from './autoTriggerConcurrency.ts';
+import { providerServerErrorBackoffMs } from './providerServerErrorBackoff.ts';
 import { runWithBoundedConcurrency } from './boundedConcurrencyRunner.ts';
 import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from './mcpBooleanObservationSchema.ts';
 import type { MachineObservationFamily } from './nodeLabelTypes.ts';
@@ -327,7 +328,20 @@ async function dispatchOneFamilyIteration(
       if (attemptNumber >= MAX_ATTEMPTS) break;
 
       // Bounded backoff before next attempt.
-      const waitMs = RETRY_BACKOFF_MS[attemptNumber - 1] ?? RETRY_BACKOFF_MS[RETRY_BACKOFF_MS.length - 1];
+      // OPS-MCP-RESULT-VALIDATION-RETRY-TUNING: a `provider_server_error`
+      // failure (the hosted MCP `{ isError }` overload envelope, #365 Phase 3)
+      // uses a LONGER jittered backoff so the single retry waits out the hot
+      // burst window (#365 Phase 4 found the 2s backoff re-enters the still-hot
+      // server window → retryHeals=0). This is keyed on `failureSubReason`, NOT
+      // the shared `failure_reason` — genuine HTTP `mcp_api_error` /
+      // `mcp_network_error` / `mcp_rate_limited` keep the byte-equal
+      // RETRY_BACKOFF_MS. Math.random() is supplied HERE (the helper is pure
+      // and takes rand01); MAX_ATTEMPTS (1 retry) + RETRYABLE_FAILURE_REASONS
+      // are unchanged — only the DELAY changes.
+      const waitMs =
+        lastSummary.failureSubReason === 'provider_server_error'
+          ? providerServerErrorBackoffMs(attemptNumber, Math.random())
+          : RETRY_BACKOFF_MS[attemptNumber - 1] ?? RETRY_BACKOFF_MS[RETRY_BACKOFF_MS.length - 1];
       await sleep(waitMs);
     }
 
