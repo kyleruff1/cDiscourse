@@ -224,3 +224,27 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — defensive try/catch', () => {
     expect(dispatcherText).toContain("failureReason: 'unexpected_error'");
   });
 });
+
+describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — typed sub-reason threading (Phase 1)', () => {
+  // The FAIL-1..7 failure_reason mapping above is UNCHANGED — the typed
+  // sub-reason is ADDITIVE. These assertions prove the new fields ride
+  // alongside the byte-equal failure_reason mapping.
+  it('FAIL-23 — the unavailable branch reads adapterResult.subReason / .detail', () => {
+    expect(coreText).toContain('adapterResult.subReason');
+    expect(coreText).toContain('adapterResult.detail');
+  });
+
+  it('FAIL-24 — the unavailable branch sets failureSubReason + failureDetail on the summary', () => {
+    expect(coreText).toMatch(/failureSubReason:\s*adapterResult\.subReason/);
+    expect(coreText).toMatch(/failureDetail:\s*adapterResult\.detail/);
+  });
+
+  it('FAIL-25 — failure_reason mapping is unchanged (validation_failed → mcp_validation_failed survives the additive change)', () => {
+    // Regression proof: the additive sub-reason did NOT disturb the
+    // existing failure_reason strings (the FAIL-1..7 contract).
+    expect(coreText).toContain('mcp_validation_failed');
+    expect(coreText).toContain('unavailableReasonToFailureReason');
+    // The sub-reason field is NOT derived from the failure_reason string.
+    expect(coreText).not.toMatch(/failureReason:\s*adapterResult\.subReason/);
+  });
+});

@@ -144,10 +144,15 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — log emit is sanitized', () => {
     expect(logHelperText).not.toMatch(/parentText\s*:/);
   });
 
-  it('SEC-8 — log helper field set matches intent brief Decision 9', () => {
-    // The interface declares: timestamp, argument_id, trigger_source,
+  it('SEC-8 — log helper carries the intent-brief Decision-9 field set PLUS the additive Phase-1 optional fields', () => {
+    // The Decision-9 field set (timestamp, argument_id, trigger_source,
     // outcome, optional skip_reason / run_id / failure_reason /
-    // attempt_number / latency_ms.
+    // attempt_number / latency_ms) is the surviving invariant and is
+    // preserved here in full. OPS-MCP-RESULT-VALIDATION-BURST-HARDENING
+    // (Phase 1) ADDS two optional diagnostic fields —
+    // failure_sub_reason? / failure_detail? — supplementary to
+    // failure_reason (the run row's failure_reason is unchanged). They
+    // are additive, so every Decision-9 assertion below still holds.
     expect(logHelperText).toContain('timestamp:');
     expect(logHelperText).toContain('argument_id:');
     expect(logHelperText).toContain('trigger_source:');
@@ -157,6 +162,9 @@ describe('MCP-021C-AUTO-TRIGGER-FAMILY-A — log emit is sanitized', () => {
     expect(logHelperText).toContain('failure_reason?:');
     expect(logHelperText).toContain('attempt_number?:');
     expect(logHelperText).toContain('latency_ms?:');
+    // Phase-1 additive optional fields.
+    expect(logHelperText).toContain('failure_sub_reason?:');
+    expect(logHelperText).toContain('failure_detail?:');
   });
 
   it('SEC-9 — log helper has no bearer / authorization / service-role / Anthropic key field', () => {

@@ -36,6 +36,10 @@ const BO_TREE_FILES = [
   'machineObservationDefinitions.ts',
   'machineObservationRegistry.ts',
   'nodeLabelTypes.ts',
+  // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1): the new pure
+  // sub-reason module is in the fenced tree — SCAN-17 must cover it for
+  // the no-secret-literal guarantee.
+  'booleanObservationFailureSubreason.ts',
 ];
 
 function readBo(file: string): string {
@@ -300,6 +304,9 @@ describe('MCP-021C-EDGE source scan — no client AI calls (cdiscourse-doctrine 
       const content = fs.readFileSync(file, 'utf8');
       expect(content.includes('booleanObservationMcpAdapter')).toBe(false);
       expect(content.includes('booleanObservationMcpAdapterCore')).toBe(false);
+      // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1): the new pure
+      // sub-reason module stays inside the Edge fence — no client import.
+      expect(content.includes('booleanObservationFailureSubreason')).toBe(false);
     }
   });
 
@@ -314,5 +321,37 @@ describe('MCP-021C-EDGE source scan — no client AI calls (cdiscourse-doctrine 
         /from\s+['"][^'"]*supabase\/functions\/_shared\/booleanObservations/.test(content),
       ).toBe(false);
     }
+  });
+});
+
+describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — adapter threads the typed sub-reason (Phase 1)', () => {
+  it('SCAN-21 — adapter imports mapToFailureSubreason + buildFailureDetail from the new module', () => {
+    const src = readBo('booleanObservationMcpAdapter.ts');
+    expect(/from\s+['"]\.\/booleanObservationFailureSubreason\.ts['"]/.test(src)).toBe(true);
+    expect(src).toContain('mapToFailureSubreason');
+    expect(src).toContain('buildFailureDetail');
+  });
+
+  it('SCAN-22 — adapter still carries reason:\'validation_failed\' at the collapse sites (HALT-9)', () => {
+    const src = readBo('booleanObservationMcpAdapter.ts');
+    const occurrences = (src.match(/reason:\s*'validation_failed'/g) ?? []).length;
+    expect(occurrences).toBeGreaterThanOrEqual(2);
+  });
+
+  it('SCAN-23 — adapter NEVER reads parsed.details in executable code (re-derive decision)', () => {
+    const code = stripCommentsAndStrings(readBo('booleanObservationMcpAdapter.ts'));
+    expect(code.includes('parsed.details')).toBe(false);
+    expect(code.includes('.details')).toBe(false);
+  });
+
+  it('SCAN-24 — the new sub-reason module has no console.log in executable code', () => {
+    const code = stripCommentsAndStrings(readBo('booleanObservationFailureSubreason.ts'));
+    expect(/\bconsole\.\w+\s*\(/.test(code)).toBe(false);
+  });
+
+  it('SCAN-25 — the new sub-reason module reads no Deno.env / fetch (pure)', () => {
+    const code = stripCommentsAndStrings(readBo('booleanObservationFailureSubreason.ts'));
+    expect(/Deno\.env/.test(code)).toBe(false);
+    expect(/\bfetch\s*\(/.test(code)).toBe(false);
   });
 });

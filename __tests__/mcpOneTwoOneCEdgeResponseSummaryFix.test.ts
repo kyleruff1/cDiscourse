@@ -204,8 +204,12 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — production mode behavior unchan
     expect(runIdx).toBeLessThan(resultsIdx);
   });
 
-  it('REG-8 — PerArgumentSummary contract is preserved (no new fields; no removed fields)', () => {
+  it('REG-8 — the six load-bearing PerArgumentSummary fields are preserved; Phase 1 adds optional failureSubReason/failureDetail', () => {
     // Post-refactor: the interface is defined in classifyArgumentCore.ts.
+    // The six load-bearing fields are the surviving invariant.
+    // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1) ADDS two
+    // OPTIONAL diagnostic fields (failureSubReason? / failureDetail?) —
+    // no load-bearing field is removed and failureReason is unchanged.
     const summaryBlockMatch = coreText.match(/interface\s+PerArgumentSummary\s*\{[\s\S]*?\n\}/);
     expect(summaryBlockMatch).not.toBeNull();
     const summaryBlock = summaryBlockMatch![0];
@@ -215,6 +219,9 @@ describe('MCP-021C-EDGE-RESPONSE-SUMMARY-FIX — production mode behavior unchan
     expect(summaryBlock).toContain('failureReason');
     expect(summaryBlock).toContain('positiveObservationCount');
     expect(summaryBlock).toContain('rawKeysWithPositive');
+    // Phase-1 additive optional fields (present + optional).
+    expect(summaryBlock).toMatch(/failureSubReason\?\s*:/);
+    expect(summaryBlock).toMatch(/failureDetail\?\s*:/);
   });
 });
 

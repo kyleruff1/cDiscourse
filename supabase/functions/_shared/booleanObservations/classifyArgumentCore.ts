@@ -31,6 +31,10 @@
 
 import type { createServiceClient } from '../supabaseClients.ts';
 import type { BooleanObservationAdapterResult } from './booleanObservationMcpAdapterCore.ts';
+import type {
+  BooleanObservationFailureSubreason,
+  BooleanObservationFailureDetail,
+} from './booleanObservationFailureSubreason.ts';
 import {
   buildBooleanObservationRequestForArgument,
   buildBooleanObservationInputHash,
@@ -69,6 +73,20 @@ export interface PerArgumentSummary {
   failureReason: string | null;
   positiveObservationCount: number;
   rawKeysWithPositive: string[];
+  /**
+   * OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1): the typed
+   * adapter-failure sub-reason, present ONLY on the adapter-unavailable
+   * path. ADDITIVE — `failureReason` is unchanged (the validator path
+   * still yields `'mcp_validation_failed'`). Read synchronously off the
+   * RETURN by the Phase 2 reproduction harness. Never user-facing.
+   */
+  failureSubReason?: BooleanObservationFailureSubreason;
+  /**
+   * The bounded, sanitized adapter-failure detail (allowlisted structural
+   * fields only — never a body/prompt/raw response/secret). Present only
+   * on the adapter-unavailable path.
+   */
+  failureDetail?: BooleanObservationFailureDetail;
 }
 
 /** Loaded argument context (move body + parent + ancestors). */
@@ -247,6 +265,13 @@ export async function classifyOneArgumentCore(
       failureReason,
       positiveObservationCount: 0,
       rawKeysWithPositive: [],
+      // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1): thread the
+      // typed sub-reason + sanitized detail off the adapter result onto
+      // the RETURN. ADDITIVE — `failureReason` above is unchanged. Both
+      // are absent when the adapter did not populate them (e.g.
+      // url_missing / token_missing leave subReason unset).
+      failureSubReason: adapterResult.subReason,
+      failureDetail: adapterResult.detail,
     };
   }
 
