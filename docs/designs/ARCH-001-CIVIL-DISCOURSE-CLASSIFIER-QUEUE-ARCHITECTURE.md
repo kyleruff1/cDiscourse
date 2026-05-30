@@ -1,9 +1,9 @@
 # ARCH-001 — Civil Discourse classifier queue architecture
 
-**Status:** Design draft — **PHASE-A DESIGN ONLY**. No production code, no migration SQL, no flag change, no branch/commit/push. This doc PROPOSES migrations + runtime changes; the operator approves before any implementation card is filed.
+**Status:** APPROVED as implementation basis (operator, 2026-05-30). Committed design draft — no production code, migration SQL, runtime flag, or deploy yet. Implementation staged: Card 1 (DB substrate), Card 2 (drainer + enqueue behind smoke-only flag), Card 3 (production smoke + staged rollout). Three operator confirmations pending: Anthropic tier, Edge plan, pg_cron granularity.
 **Epic:** Epic 12 / MCP semantic-referee track (Civil Discourse classifier infrastructure)
 **Release:** Stage 2B successor — supersedes Option A (`OPS-MCP-GLOBAL-PROVIDER-CAPACITY-CONTROL.md`)
-**Issue / card spec:** `.claude-tmp/arch-001-card-spec.md` (authoritative operator card)
+**Issue / trail:** source spec absorbed into this document; GitHub issue #373 is the durable trail.
 **Supersedes:** `docs/designs/OPS-MCP-GLOBAL-PROVIDER-CAPACITY-CONTROL.md` (Option A — Deno-KV in-MCP-server admission limiter; relabelled rejected/alternative, committed `f659d58`). Harvested concepts only; Option A's KV mechanism is NOT used.
 
 > **Doctrine acceptance-gate constraint (HARD, repeated at the top because it is the spine of this design):**
