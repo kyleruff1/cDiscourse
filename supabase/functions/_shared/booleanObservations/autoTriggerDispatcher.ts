@@ -341,6 +341,13 @@ async function dispatchOneFamilyIteration(
       family,
       run_id: terminal?.runId ?? undefined,
       failure_reason: terminal?.failureReason ?? 'unexpected_no_summary',
+      // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1): supplementary
+      // typed sub-reason + sanitized detail read off the PerArgumentSummary
+      // the loop already holds. ADDITIVE — `failure_reason` above is
+      // unchanged; the run row's failure_reason is untouched (no retry /
+      // dispatch / concurrency change).
+      failure_sub_reason: terminal?.failureSubReason,
+      failure_detail: terminal?.failureDetail,
       attempt_number: attemptNumber > MAX_ATTEMPTS ? MAX_ATTEMPTS : attemptNumber,
       latency_ms: Date.now() - iterationStartMs,
     });

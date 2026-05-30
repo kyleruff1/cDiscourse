@@ -18,6 +18,11 @@
  * Function logs). Inside the dispatcher, this is the ONLY console call.
  */
 
+import type {
+  BooleanObservationFailureSubreason,
+  BooleanObservationFailureDetail,
+} from './booleanObservationFailureSubreason.ts';
+
 export type AutoTriggerOutcome =
   | 'triggered'
   | 'skipped'
@@ -47,6 +52,18 @@ export interface AutoTriggerLogFields {
   run_id?: string;
   /** Set when `outcome === 'failed'`. Stable failure_reason strings. */
   failure_reason?: string;
+  /**
+   * OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1): the typed
+   * adapter-failure sub-reason, supplementary to `failure_reason` (the
+   * run row's `failure_reason` is unchanged). ADDITIVE / optional.
+   */
+  failure_sub_reason?: BooleanObservationFailureSubreason;
+  /**
+   * The bounded, sanitized adapter-failure detail (allowlisted structural
+   * fields only — never a body/prompt/raw response/secret). ADDITIVE /
+   * optional.
+   */
+  failure_detail?: BooleanObservationFailureDetail;
   /** 1-based attempt count, including the first attempt. */
   attempt_number?: number;
   /** Wall time from invocation to outcome, in milliseconds. */
