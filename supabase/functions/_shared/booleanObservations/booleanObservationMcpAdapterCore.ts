@@ -34,6 +34,10 @@ import type {
   McpBooleanObservationRequest,
   McpBooleanObservationResponse,
 } from './mcpBooleanObservationSchema.ts';
+import type {
+  BooleanObservationFailureSubreason,
+  BooleanObservationFailureDetail,
+} from './booleanObservationFailureSubreason.ts';
 
 /**
  * The MCP tool name the operator-hosted server exposes for the Boolean
@@ -96,10 +100,23 @@ export const ALL_BOOLEAN_OBSERVATION_UNAVAILABLE_REASONS:
  * The result of one MCP Boolean Observation adapter call. `success`
  * carries the validated MCP-021A response object; `unavailable` carries
  * a typed reason.
+ *
+ * OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1): the `unavailable`
+ * variant gains an OPTIONAL typed `subReason` + a bounded, sanitized
+ * `detail`. Both are ADDITIVE — `reason` is byte-equal and
+ * `'validation_failed'` is preserved so `unavailableReasonToFailureReason`
+ * still yields `failure_reason='mcp_validation_failed'` (HALT-9). The
+ * `detail` field is a secret-surface guarded by the allowlist builder in
+ * `booleanObservationFailureSubreason.ts` (cdiscourse-doctrine §6).
  */
 export type BooleanObservationAdapterResult =
   | { kind: 'success'; response: McpBooleanObservationResponse }
-  | { kind: 'unavailable'; reason: BooleanObservationUnavailableReason };
+  | {
+      kind: 'unavailable';
+      reason: BooleanObservationUnavailableReason;
+      subReason?: BooleanObservationFailureSubreason;
+      detail?: BooleanObservationFailureDetail;
+    };
 
 /**
  * Build the MCP tool-invocation request body. Pure — exported so tests

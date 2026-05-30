@@ -68,6 +68,10 @@ import type {
   McpBooleanObservationRequest,
   McpBooleanObservationResponse,
 } from './mcpBooleanObservationSchema.ts';
+import {
+  mapToFailureSubreason,
+  buildFailureDetail,
+} from './booleanObservationFailureSubreason.ts';
 
 /**
  * The standard HTTP Authorization scheme prefix. Assembled from two
@@ -126,16 +130,24 @@ export async function runBooleanObservationMcpAdapter(
   } catch {
     // A thrown fetch (DNS, TLS, connection reset, or a timeout abort). The
     // error object can carry host / connection detail — it is NOT logged
-    // or returned.
-    return { kind: 'unavailable', reason: 'network_error' };
+    // or returned. The sub-reason is the structural class only; no detail
+    // (the caught error is never inspected — posture preserved).
+    return {
+      kind: 'unavailable',
+      reason: 'network_error',
+      subReason: mapToFailureSubreason('network_error'),
+    };
   }
 
   // 4. Map a non-OK HTTP status. 429 → rate_limited; anything else →
-  //    api_error.
+  //    api_error. The sub-reason mirrors the reason; no detail (the HTTP
+  //    status class is already implied by the sub-reason — keep minimal).
   if (!rawResponse.ok) {
+    const httpReason = rawResponse.status === 429 ? 'rate_limited' : 'api_error';
     return {
       kind: 'unavailable',
-      reason: rawResponse.status === 429 ? 'rate_limited' : 'api_error',
+      reason: httpReason,
+      subReason: mapToFailureSubreason(httpReason),
     };
   }
 
@@ -144,7 +156,13 @@ export async function runBooleanObservationMcpAdapter(
   try {
     responseJson = await rawResponse.json();
   } catch {
-    return { kind: 'unavailable', reason: 'parse_failure' };
+    // Non-JSON body. The sub-reason names the structural class; no detail
+    // (there is no `extracted` here, and the raw body is never read).
+    return {
+      kind: 'unavailable',
+      reason: 'parse_failure',
+      subReason: mapToFailureSubreason('parse_failure'),
+    };
   }
   // `sanitizeBooleanObservationRawPayload` keeps only a small allow-list
   // of envelope keys — it is the only thing about the response that may
@@ -153,19 +171,55 @@ export async function runBooleanObservationMcpAdapter(
 
   const extracted = extractBooleanObservationResponse(responseJson);
   if (extracted === null) {
-    return { kind: 'unavailable', reason: 'parse_failure' };
+    // Unrecognized envelope (extract returned null). Sub-reason only —
+    // there is no structural field to name (no `extracted` object).
+    return {
+      kind: 'unavailable',
+      reason: 'parse_failure',
+      subReason: mapToFailureSubreason('parse_failure'),
+    };
   }
 
   // 6. Validate through the MCP-021A parser. A parser failure →
   //    validation_failed → caller writes a `failed` run row.
+  //
+  // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 1): stop discarding
+  // the validator's granular reason. `reason:'validation_failed'` is
+  // PRESERVED (HALT-9); the sub-reason delegates to the validator map and
+  // the detail is RE-DERIVED from the `extracted` object the adapter
+  // already holds (the validator's `parsed.details` free-text string is
+  // NEVER read — the secret-surface guarantee is self-contained here).
   const parsed = parseMcpBooleanObservationResponse(extracted);
   if (!parsed.ok) {
-    return { kind: 'unavailable', reason: 'validation_failed' };
+    return {
+      kind: 'unavailable',
+      reason: 'validation_failed',
+      subReason: mapToFailureSubreason('validation_failed', parsed.reason),
+      detail: buildFailureDetail({
+        validatorReason: parsed.reason,
+        schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+        received: extracted,
+        receivedKeysFrom: extracted,
+      }),
+    };
   }
 
   // 7. Schema-version guard (parser already does this; belt-and-suspenders).
+  //    There is no `parsed` failure object at this site (the parser
+  //    returned ok), so the sub-reason is set DIRECTLY and the detail
+  //    carries only the expected schema-version constant.
   if (parsed.response.schemaVersion !== MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION) {
-    return { kind: 'unavailable', reason: 'validation_failed' };
+    return {
+      kind: 'unavailable',
+      reason: 'validation_failed',
+      subReason: 'response_wrong_schema_version',
+      detail: buildFailureDetail({
+        path: 'schemaVersion',
+        expected: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+        received: parsed.response.schemaVersion,
+        schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      }),
+    };
   }
 
   // 8. Clean pass — return the validated, frozen response.
