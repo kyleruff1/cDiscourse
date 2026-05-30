@@ -273,21 +273,6 @@ const autoTriggerConcurrencyModule = require(`${BO}/autoTriggerConcurrency`) as 
 export const edgeMaxAutoTriggerConcurrentFamilies =
   autoTriggerConcurrencyModule.MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES;
 
-// ── providerServerErrorBackoff.ts (pure, OPS-MCP-RESULT-VALIDATION-RETRY-TUNING) ─
-
-const providerServerErrorBackoffModule = require(`${BO}/providerServerErrorBackoff`) as {
-  PROVIDER_SERVER_ERROR_RETRY_BASE_MS: number;
-  PROVIDER_SERVER_ERROR_RETRY_JITTER_MS: number;
-  providerServerErrorBackoffMs: (attemptNumber: number, rand01: number) => number;
-};
-
-export const EDGE_PROVIDER_SERVER_ERROR_RETRY_BASE_MS =
-  providerServerErrorBackoffModule.PROVIDER_SERVER_ERROR_RETRY_BASE_MS;
-export const EDGE_PROVIDER_SERVER_ERROR_RETRY_JITTER_MS =
-  providerServerErrorBackoffModule.PROVIDER_SERVER_ERROR_RETRY_JITTER_MS;
-export const edgeProviderServerErrorBackoffMs =
-  providerServerErrorBackoffModule.providerServerErrorBackoffMs;
-
 // ── Re-export types for test convenience ───────────────────────────
 
 export type {
