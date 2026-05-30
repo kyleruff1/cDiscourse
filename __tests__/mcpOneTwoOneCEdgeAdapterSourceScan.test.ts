@@ -355,3 +355,50 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — adapter threads the type
     expect(/\bfetch\s*\(/.test(code)).toBe(false);
   });
 });
+
+describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — adapter detects the {isError} envelope BEFORE the parser (Phase 3)', () => {
+  it('SCAN-26 — adapter has a strict `.isError === true` detection AFTER the extracted===null guard and BEFORE the parser', () => {
+    const code = stripCommentsAndStrings(readBo('booleanObservationMcpAdapter.ts'));
+    // The strict-equality discriminator exists (NOT truthiness — the
+    // predicate keys on `=== true`).
+    expect(/\.isError\s*===\s*true/.test(code)).toBe(true);
+    // Ordering: extracted===null guard < isError detection < parser call.
+    const nullGuardIdx = code.search(/extracted\s*===\s*null/);
+    const detectIdx = code.search(/isServerErrorEnvelope\s*\(\s*extracted\s*\)/);
+    const parserIdx = code.search(/parseMcpBooleanObservationResponse\s*\(\s*extracted\s*\)/);
+    expect(nullGuardIdx).toBeGreaterThan(-1);
+    expect(detectIdx).toBeGreaterThan(-1);
+    expect(parserIdx).toBeGreaterThan(-1);
+    // detection sits AFTER extraction's null guard …
+    expect(detectIdx).toBeGreaterThan(nullGuardIdx);
+    // … and BEFORE the parser (the bug fix: never route the envelope
+    // through parseMcpBooleanObservationResponse — HALT-7).
+    expect(detectIdx).toBeLessThan(parserIdx);
+  });
+
+  it('SCAN-27 — the isError block carries reason:\'api_error\' + subReason:\'provider_server_error\' (NOT validation_failed)', () => {
+    const src = readBo('booleanObservationMcpAdapter.ts');
+    // Isolate the isServerErrorEnvelope block body (from the guard open to
+    // the matching close of its single return object).
+    const blockMatch = src.match(/if\s*\(\s*isServerErrorEnvelope\s*\(\s*extracted\s*\)\s*\)\s*\{[\s\S]*?\n\s{2}\}/);
+    expect(blockMatch).not.toBeNull();
+    const block = blockMatch![0];
+    expect(/reason:\s*'api_error'/.test(block)).toBe(true);
+    expect(/subReason:\s*'provider_server_error'/.test(block)).toBe(true);
+    // The carrier is api_error — NOT a validation_failed collapse.
+    expect(/reason:\s*'validation_failed'/.test(block)).toBe(false);
+    // It reads the envelope's own fields, NOT a parsed result.
+    expect(block).toContain('extracted.reason');
+    expect(block).toContain('extracted.path');
+  });
+
+  it('SCAN-28 — SCAN-23 re-confirmed: the isError block reads extracted.reason/.path, NEVER parsed.details', () => {
+    // The Phase-3 block reads `extracted.reason` / `extracted.path` — which
+    // contain no `.details` substring — so the SCAN-23 `.details` ban stays
+    // green (the secret-surface guarantee: the validator's free-text
+    // `parsed.details` is never read anywhere in the adapter).
+    const code = stripCommentsAndStrings(readBo('booleanObservationMcpAdapter.ts'));
+    expect(code.includes('parsed.details')).toBe(false);
+    expect(code.includes('.details')).toBe(false);
+  });
+});

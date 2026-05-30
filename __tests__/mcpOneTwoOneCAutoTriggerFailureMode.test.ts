@@ -248,3 +248,27 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — typed sub-reason threadi
     expect(coreText).not.toMatch(/failureReason:\s*adapterResult\.subReason/);
   });
 });
+
+describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — RETRYABLE_FAILURE_REASONS byte-equal after Phase 3 (HALT-1 guard)', () => {
+  it('FAIL-26 — RETRYABLE_FAILURE_REASONS is STILL the 3-element set (mcp_api_error present, mcp_validation_failed absent)', () => {
+    // Phase 3 carries the `{isError}` envelope on the EXISTING `api_error`
+    // reason → `mcp_api_error`, which is ALREADY retryable. NO new entry
+    // was added; no broad class became retryable. This is the HALT-1
+    // regression guard: the set must be byte-equal to the pre-Phase-3
+    // 3-element set.
+    const setBlock = dispatcherText.match(/RETRYABLE_FAILURE_REASONS[\s\S]*?Set\(\s*\[([^\]]+)\]/);
+    expect(setBlock).not.toBeNull();
+    const setBody = setBlock![1];
+    // Exactly the three transient classes — count the quoted entries.
+    const entries = (setBody.match(/'[^']+'/g) ?? []).map((s) => s.replace(/'/g, ''));
+    expect(entries).toEqual(['mcp_network_error', 'mcp_api_error', 'mcp_rate_limited']);
+    // The envelope rides mcp_api_error (retryable); mcp_validation_failed
+    // (the old mis-type) is NOT retryable.
+    expect(entries).toContain('mcp_api_error');
+    expect(entries).not.toContain('mcp_validation_failed');
+    // MAX_ATTEMPTS = 2 (exactly one retry) byte-equal.
+    expect(dispatcherText).toMatch(/MAX_ATTEMPTS\s*=\s*2/);
+    // Concurrency cap referenced (bounded, unedited).
+    expect(dispatcherText).toContain('MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES');
+  });
+});

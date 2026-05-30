@@ -91,6 +91,35 @@ function isHttpsUrl(value: string): boolean {
 }
 
 /**
+ * True when the MCP server returned its OWN error envelope on the
+ * extracted response object — a top-level `{ isError: true, … }` shape.
+ * This is a provider/server-side error signal, NOT a schema-shape failure;
+ * it MUST NOT be routed through parseMcpBooleanObservationResponse (which
+ * would mis-type it as `response_wrong_schema_version` because the envelope
+ * has no schemaVersion — OPS-MCP-RESULT-VALIDATION-BURST-HARDENING Phase 2).
+ *
+ * The object check is inlined (same shape the adapter-core's private
+ * `isPlainObject` uses + the adapter already inlines `isHttpsUrl`); no new
+ * symbol is exported from a schema-mirrored file. Pure, never throws.
+ *
+ * `isError` must be the boolean literal `true` (STRICT `=== true`): a
+ * falsey / absent / non-`true` `isError` is NOT an error envelope, so an
+ * ordinary wrong-schema response still routes to the parser. Truthiness
+ * (`isError: 1` / `'true'` / an object) MUST NOT trip detection — that
+ * would over-broaden the catch and hide real schema/shape failures.
+ */
+function isServerErrorEnvelope(
+  extracted: unknown,
+): extracted is { isError: true; reason?: unknown; path?: unknown; detail?: unknown } {
+  return (
+    typeof extracted === 'object' &&
+    extracted !== null &&
+    !Array.isArray(extracted) &&
+    (extracted as Record<string, unknown>).isError === true
+  );
+}
+
+/**
  * Run the operator-hosted MCP-server's Boolean Observation classifier
  * adapter. Returns a typed `BooleanObservationAdapterResult` — never
  * throws. On `{ kind: 'success' }` the response has already passed the
@@ -177,6 +206,31 @@ export async function runBooleanObservationMcpAdapter(
       kind: 'unavailable',
       reason: 'parse_failure',
       subReason: mapToFailureSubreason('parse_failure'),
+    };
+  }
+
+  // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): detect the MCP
+  // server's OWN error envelope BEFORE the schema validator. Under
+  // concurrent load the server returns `{ isError, reason, path, detail }`;
+  // routing it through parseMcpBooleanObservationResponse mis-types it as
+  // `response_wrong_schema_version` (it has no schemaVersion — Phase 2). It
+  // is a provider/server transient — type it `provider_server_error`, carry
+  // it on the existing `api_error` reason so the EXISTING bounded retry
+  // (1 retry / 2s,8s / concurrency 2) heals it with NO dispatch-config edit.
+  // The server's short `reason` value rides the Phase-1 sanitizer as
+  // `serverReason` (UNTRUSTED — scrubbed + capped); the raw `detail` is
+  // NEVER forwarded (no `detail:` arg exists on FailureDetailInput).
+  if (isServerErrorEnvelope(extracted)) {
+    return {
+      kind: 'unavailable',
+      reason: 'api_error',
+      subReason: 'provider_server_error',
+      detail: buildFailureDetail({
+        serverReason:
+          typeof extracted.reason === 'string' ? extracted.reason : undefined,
+        path: typeof extracted.path === 'string' ? extracted.path : undefined,
+        receivedKeysFrom: extracted,
+      }),
     };
   }
 

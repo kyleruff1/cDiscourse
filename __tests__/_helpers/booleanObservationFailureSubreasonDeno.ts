@@ -46,6 +46,9 @@ export type BooleanObservationFailureSubreason =
   | 'provider_timeout'
   | 'provider_rate_limited'
   | 'provider_api_error'
+  // OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): body-level
+  // { isError } envelope class. Mirrors the real Deno union.
+  | 'provider_server_error'
   | 'provider_network_error'
   | 'unknown';
 
@@ -58,6 +61,8 @@ export interface BooleanObservationFailureDetail {
   checkedRawKey?: string;
   schemaVersion?: string;
   family?: MachineObservationFamily;
+  /** OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): scrubbed server code. */
+  serverReason?: string;
 }
 
 export interface FailureDetailInput {
@@ -69,6 +74,8 @@ export interface FailureDetailInput {
   checkedRawKey?: string;
   schemaVersion?: string;
   family?: MachineObservationFamily;
+  /** OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): untrusted server code. */
+  serverReason?: string;
 }
 
 const subreasonModule = require(`${BO}/booleanObservationFailureSubreason`) as {
