@@ -21,6 +21,17 @@ import type { ParentArgument, SiblingArgument, EvidenceAttachment, ArgumentTarge
 // submit-argument response is returned BEFORE this dispatcher settles —
 // argument submission is structurally unblocked by the design.
 import { dispatchAutoTriggerForArgument } from '../_shared/booleanObservations/autoTriggerDispatcher.ts';
+// ARCH-001 Card 2 — smoke-only, DEFAULT-DISABLED queue routing. When the
+// operator master flag is on AND the debate is smoke-tagged, the classifier
+// fan-out routes to the QUEUE (a fast local enqueue + the background drainer)
+// instead of the direct dispatch. Ordinary production submits ALWAYS take the
+// unchanged direct-dispatch path (the predicate returns false). Card 3 owns
+// any production rollout.
+import {
+  shouldRouteToQueue,
+  enqueueClassifierJobs,
+  CLASSIFIER_QUEUE_ROUTING_ENABLED_ENV,
+} from '../_shared/booleanObservations/classifierQueueRouting.ts';
 
 // EdgeRuntime is a Deno-runtime-provided global for Supabase Edge
 // Functions (https://supabase.com/docs/guides/functions/background-tasks).
@@ -784,13 +795,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // settles in Supabase Edge runtime; when absent (local Deno run,
   // jest) the promise is still dispatched but the isolate may terminate
   // sooner. Both paths are correct — the response is already returned.
-  const autoTriggerPromise = dispatchAutoTriggerForArgument(
-    insertedArg.id,
-    data.debate_id,
-    serviceClient,
-  ).catch(() => undefined);
-  if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime?.waitUntil === 'function') {
-    EdgeRuntime.waitUntil(autoTriggerPromise);
+  //
+  // ── ARCH-001 Card 2 — mutually-exclusive routing branch ──────────
+  // shouldRouteToQueue is DEFAULT DISABLED: it returns false for EVERY
+  // argument unless the operator master flag
+  // (CLASSIFIER_QUEUE_ROUTING_ENABLED) is exactly 'true' AND the debate is
+  // smoke-tagged. So the ELSE branch below is the current direct dispatch,
+  // BYTE-UNCHANGED for ordinary production submits (the only path they ever
+  // take). When routed (smoke only): we ENQUEUE one job per production
+  // family A–G (a fast local INSERT, idempotent via Card-1 index #5) INSTEAD
+  // of the direct dispatch — NEVER both (design §A.11 double-dispatch proof;
+  // index #4/#5 are the DB backstops). Submit stays nonblocking either way.
+  const queueRoutingEnabled =
+    Deno.env.get(CLASSIFIER_QUEUE_ROUTING_ENABLED_ENV) === 'true';
+  if (
+    shouldRouteToQueue(
+      { id: insertedArg.id, debate_id: data.debate_id },
+      { id: debate.id, title: debate.title },
+      queueRoutingEnabled,
+    )
+  ) {
+    // QUEUE path: enqueue A–G jobs; the kick trigger + cron tick drive the
+    // drainer. Fire-and-forget (kept off the 201 critical path, same posture
+    // as the direct dispatch). The kick trigger fires from the DB INSERT.
+    const enqueuePromise = enqueueClassifierJobs(
+      insertedArg.id,
+      data.debate_id,
+      serviceClient,
+    ).catch(() => undefined);
+    if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime?.waitUntil === 'function') {
+      EdgeRuntime.waitUntil(enqueuePromise);
+    }
+  } else {
+    // DIRECT-DISPATCH path (UNCHANGED) — the only path ordinary submits take.
+    const autoTriggerPromise = dispatchAutoTriggerForArgument(
+      insertedArg.id,
+      data.debate_id,
+      serviceClient,
+    ).catch(() => undefined);
+    if (typeof EdgeRuntime !== 'undefined' && typeof EdgeRuntime?.waitUntil === 'function') {
+      EdgeRuntime.waitUntil(autoTriggerPromise);
+    }
   }
 
   // ── Return 201 ────────────────────────────────────────────────
