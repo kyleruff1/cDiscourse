@@ -493,6 +493,8 @@ Master plan: [`docs/deployment/google-cloud-run-hosting-plan.md`](deployment/goo
 
 ## Epic 12 — Evidence-Enhanced Game Rules and Flow
 
+> **Acknowledgment note (2026-05-31):** Shipped MCP family + ARCH work — Family D/E/F/G server cards, MCP-021C edge-enable cards (B/C, D, E, F, G), the audit-lint L5 doctrine-risk rules for those families, ARCH-001 Cards 1 / 2A / 2 / 3 — is documented in commit history + the per-card audit docs (`docs/audits/`) + the rolling `docs/core/current-status.md` entries. **Retroactive issue backfill is OUT OF SCOPE** for this restoration card. The entries below cover the queued forward-looking work; future cards should land with issues at issue time.
+
 ### LIFE-001 — Point lifecycle metadata model
 - **Priority:** P0 — **Effort:** L — **Release:** 6.6 — **Wave:** 1 — **Agent:** evidence-rules-agent + timeline-ui-agent
 - **Goal:** Pure-TS lifecycle model for individual points and point clusters. Computed deterministically from existing `public.arguments` + `attached_evidence` + semantic flags. No persistence.
@@ -606,6 +608,76 @@ synthesis_ready   -> "Offer synthesis"
 - **Acceptance:** disabled-by-default — `SEMANTIC_REFEREE_ENABLED` unset → `{ enabled: false }`, HTTP 200, no provider selected, no key read · the provider registry defaults to `mock`; `anthropic` / `mcp` slots are stubbed off · no provider key required, no live call, no service-role, no `public.arguments` insert · the outbound packet schema pins `authoritative` to `z.literal(false)` and is `.strict()` — a widened packet falls back to a deterministic minimal packet · the Node ↔ Deno parity test passes.
 - **Tests:** disabled-by-default + provider-spy · provider-registry mock-default routing · inbound request schema + outbound packet schema (re-declared + Deno source-parity) · deterministic mock provider · fixture provider hit/miss · boundary fallback · Edge Function auth / invalid-input / RLS source-shape · doctrine ban-list scan · no-live-call source scan · forbidden-secrets source scan · Node↔Deno parity · the `classifyMove` wrapper. +210 tests / +14 suites.
 - **Operator follow-up (separate, out of scope for this card):** `npx supabase functions deploy semantic-referee --linked`; optionally `npx supabase secrets set SEMANTIC_REFEREE_ENABLED=true SEMANTIC_REFEREE_PROVIDER=mock`. The live-provider pilot is a separate, explicitly operator-approved card.
+
+### MCP-SERVER-009-FAMILY-H — `claim_clarity` server-side admin_validation ship
+- **Priority:** P1 — **Effort:** M — **Release:** 6.8 — **Wave:** 2 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD (filed by OPS-WORKFLOW-RESTORATION Phase 4).
+- **Status:** Authorized, not started. See `docs/designs/MCP-SERVER-009-FAMILY-H-intent.md`.
+- **Goal:** Server-side ship of Family H (`claim_clarity`, 12 keys uniform `ai_classifier`) on the hosted MCP server with admin_validation-only Edge posture. Card 1 of the H 3-card chain.
+- **Acceptance:** 5 `familyH*.ts` files mirror Family G structure; doctrine-risk = YES with 4 HIGH-risk per-key `falsePositiveGuards`; `FAMILY_H_BAN_PATTERNS` Family-H-LOCAL; smoke template carries `Audit-Lint: v1`; A–G byte-equal; HALT 3 PASS (uniform ai_classifier confirmed); operator post-merge smoke PASS unblocks Card 2.
+- **Tests:** +110 to +160 net Deno + ~8 Jest (HALT 8 ceiling +250).
+
+### OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — L5 mechanization for `family_h`
+- **Priority:** P1 — **Effort:** S — **Release:** 6.8 — **Wave:** 2 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD.
+- **Status:** Authorized, not started; CONDITIONAL on Card 1 (MCP-SERVER-009-FAMILY-H) smoke PASS. See `docs/designs/OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK-intent.md`.
+- **Goal:** Append `family_h` + `claim_clarity` + highest-doctrine-risk H classifier key to `DOCTRINE_RISK_FAMILIES` Set in `scripts/ops/audit-lint-rules.cjs`. Card 2 of the H chain. DATA-only.
+- **Acceptance:** Set membership tests pin all 3 new entries; Family A–G byte-equal; L5 fires on a Family H audit doc that omits `evidence_span` inspection; 3 fixtures self-validate.
+- **Tests:** +10 to +15 net Jest (HALT 8 ceiling +30).
+
+### MCP-021C-EDGE-FAMILY-H-ENABLE — production-mode flip for `claim_clarity` (8th production family)
+- **Priority:** P1 — **Effort:** S — **Release:** 6.8 — **Wave:** 2 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD.
+- **Status:** Authorized, not started; CONDITIONAL on Cards 1+2 smoke PASS. See `docs/designs/MCP-021C-EDGE-FAMILY-H-ENABLE-intent.md`.
+- **Goal:** Flip `familyRegistry.ts` Family H `productionEnabled: false → true`. Card 3 of the H chain. Production family count 7→8.
+- **Acceptance:** One-character flip in `familyRegistry.ts` (HALT 12); 6 stale-assertion test updates (SEVEN → EIGHT count); new `__tests__/edgeFamilyHProductionEnable.test.ts` ~19 tests; smoke template Phase 6 doctrine `evidence_span` inspection BINDING (L5 CI-mechanical because Card 2 added `family_h` to `DOCTRINE_RISK_FAMILIES`).
+- **Tests:** +15 to +25 net Jest (HALT 8 ceiling +35).
+
+### MCP-SERVER-010-FAMILY-I — `thread_topology` server-side admin_validation ship (mixed-source)
+- **Priority:** P1 — **Effort:** M — **Release:** 6.8 — **Wave:** 3 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD.
+- **Status:** Authorized, not started; predecessor = Family H chain CLOSED. See `docs/designs/MCP-SERVER-010-FAMILY-I-intent.md`.
+- **Goal:** Server-side ship of Family I (`thread_topology`, 21 keys, 6 `ai_classifier` subset routed via MCP path, 8 `auto_metadata` + 7 `lifecycle` routed via non-MCP paths). Card 1 of the I 3-card chain. Mixed-source per Family D precedent.
+- **Acceptance:** `familyIKeys.ts` = 6-key ai_classifier subset; `MCP_SERVER_SUPPORTED_FAMILY_SOURCES` entry for `thread_topology` per D precedent; doctrine-risk = LOW (per Phase 1 verification); A–H byte-equal; HALT 14 trigger if subset wrong.
+- **Tests:** +60 to +110 net Deno + ~8 Jest.
+
+### OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK — L5 mechanization for `family_i` (CONDITIONAL)
+- **Priority:** P2 — **Effort:** S — **Release:** 6.8 — **Wave:** 3 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD.
+- **Status:** Authorized, not started; CONDITIONAL on Card 1 doctrine-risk verdict (if LOW, this card may be SKIPPED → 2-card chain). See `docs/designs/OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK-intent.md`.
+- **Goal:** Append `family_i` + `thread_topology` + highest-risk I classifier key (if MEDIUM+) to `DOCTRINE_RISK_FAMILIES` Set. DATA-only.
+- **Acceptance:** Same shape as H audit-lint card. CONDITIONAL.
+- **Tests:** +10 to +15 net Jest.
+
+### MCP-021C-EDGE-FAMILY-I-ENABLE — production-mode flip for `thread_topology` (9th production family, mixed-source)
+- **Priority:** P2 — **Effort:** S — **Release:** 6.8 — **Wave:** 3 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD.
+- **Status:** Authorized, not started; CONDITIONAL on Cards 1+2 (or 1 alone if Card 2 SKIPPED) smoke PASS. See `docs/designs/MCP-021C-EDGE-FAMILY-I-ENABLE-intent.md`.
+- **Goal:** Flip Family I `productionEnabled: false → true`. Card 3 of the I chain. Production family count 8→9. Subset filter for I STAYS PRESENT (mixed-source).
+- **Acceptance:** One-character flip (HALT 12); subset filter preserved (HALT 13 INVERSE for I); 8-phase smoke; Phase 6 doctrine intensity per Card 2 shipped vs SKIPPED.
+- **Tests:** +15 to +25 net Jest.
+
+### OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — backfill observability for Family G
+- **Priority:** P2 — **Effort:** S — **Release:** 6.8 — **Wave:** 2 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD.
+- **Status:** Queued; should have shipped post-G-enable (2026-05-29). See `docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE-intent.md`.
+- **Goal:** Update per-family SQL files in `scripts/ops/sql/` + manifest + runbook to include Family G alongside A–F. Trivial follow-up.
+- **Acceptance:** SQL CASE statements / family-key-counts include G; manifest references "7 production families"; new `__tests__/opsMcpObservabilityFamilyGCoverage.test.ts` per D/E/F precedent; observability test isolation rules honored (`scripts/ops/sql/` count/ownership conventions).
+- **Tests:** +20 to +50 net Jest.
+
+### OPS-MCP-OBSERVABILITY-FAMILY-H-COVERAGE — backfill observability for Family H
+- **Priority:** P2 — **Effort:** S — **Release:** 6.8 — **Wave:** 3 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD.
+- **Status:** Queued; predecessor = MCP-021C-EDGE-FAMILY-H-ENABLE smoke PASS. See `docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-H-COVERAGE-intent.md`.
+- **Goal:** Update per-family SQL + manifest to include H alongside A–G (8 production families).
+- **Acceptance:** Same shape as G observability card.
+- **Tests:** +20 to +50 net Jest.
+
+### OPS-MCP-OBSERVABILITY-FAMILY-I-COVERAGE — backfill observability for Family I (mixed-source)
+- **Priority:** P2 — **Effort:** M — **Release:** 6.8 — **Wave:** 3 — **Agent:** roadmap-designer → roadmap-implementer → roadmap-reviewer. Issue #TBD.
+- **Status:** Queued; predecessor = MCP-021C-EDGE-FAMILY-I-ENABLE smoke PASS. See `docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-I-COVERAGE-intent.md`.
+- **Goal:** Update per-family SQL + manifest to include I (9 production families). Source-mode breakdown added per D precedent (mixed-source visibility).
+- **Acceptance:** SQL includes I; source-mode breakdown distinguishes MCP-routed vs non-MCP keys.
+- **Tests:** +25 to +55 net Jest.
+
+### OPS-FAMILY-J-SCOPING-AUDIT — audit-only investigation (does J need production-enable cards?)
+- **Priority:** P2 — **Effort:** S — **Release:** 6.8 — **Wave:** 2 — **Agent:** CC main-thread (no subagent delegation required). Issue #TBD.
+- **Status:** Authorized; preliminary Phase 1 finding predicts N=0 production cards needed. See `docs/designs/OPS-FAMILY-J-SCOPING-AUDIT-intent.md`.
+- **Goal:** Walk the composer_only / inspect_only disposition gates for Family J's 5 keys (3 composer_only + 2 inspect_only). Confirm gating + write `docs/audits/OPS-FAMILY-J-SCOPING-AUDIT-<date>.md` with verdict: "Family J needs N production-enable cards" where N ∈ {0, 1, ...}.
+- **Acceptance:** Audit doc carries `Audit-Lint: v1` marker; per-key gate walk across 4 surfaces; integration path verification; test coverage assessment; conclusion + recommendation.
+- **Tests:** none (audit-only; no code change).
 
 ---
 

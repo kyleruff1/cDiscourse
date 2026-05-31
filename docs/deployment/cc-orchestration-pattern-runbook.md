@@ -130,6 +130,66 @@ OUTPUT FORMAT
 {status: 'OK' | 'FAIL' | 'INCONCLUSIVE', evidence: [...], gaps: [...]}
 ```
 
+## 4a. Project-specific delegation mapping (CDiscourse)
+
+The runbook §4 inner template gives a generic "ROLE" line. In this repo, the role often maps to one of three project-specific subagents under `.claude/agents/`. The generic §4 fan-out then runs **around** the subagent's sequential phase — as preflight before delegation, or as adversarial verification of the subagent's verdict.
+
+### Subagents (under `.claude/agents/`)
+
+- **roadmap-designer** — design-only phase. Use BEFORE any implementation, on every new roadmap card. Reads the card's intent brief + the upstream spec; writes `docs/designs/<code>.md` describing data model, file changes, edge cases, test plan, risks. Does NOT write production code.
+- **roadmap-implementer** — implementation phase. Use AFTER a design exists. Creates a worktree on `feat/<code>-<slug>`, follows the design's file-change list, slice commits per OPS-004 recovery cadence (multi-commit slices so a recoverable mid-implementation state survives). Updates `docs/core/current-status.md` on completion.
+- **roadmap-reviewer** — review phase. Use AFTER implementation is committed. Reads the diff, the design doc, and the relevant skills; writes `docs/reviews/<code>.md` with APPROVE / CHANGES-REQUESTED / BLOCK. Carries a HARD migration-bearing-card gate (the QOL-041 / PR-003 / PR-004 / function/trigger/extension precedent — see `.claude/agents/roadmap-reviewer.md` § "Migration-bearing card verification (mandatory)").
+
+### Skills (under `.claude/skills/`)
+
+Skill invocations happen via the `Skill` tool and load the skill's content into context.
+
+**Universal — invoke in every code-touching session:**
+- `cdiscourse-doctrine` — the 10 non-negotiable rules (no verdicts, no truth labels, AI moderator hard limits, secrets policy, RLS, v1 scope guards). Read FIRST.
+- `test-discipline` — where tests live, what counts as required coverage, how to verify "done" (typecheck + lint + test all exit 0).
+
+**Epic-specific — invoke when the card touches the named surface:**
+- `supabase-edge-contract` — Edge Functions, RLS, migrations, storage. Auth/JWT patterns. The no-service-role-in-client rule.
+- `expo-rn-patterns` — Expo + React Native UI cards (most of Epics 1, 2, 4, 5, 7, 8, 9, 11).
+- `evidence-doctrine` — Epic 6 Evidence cards + Epic 11 Gallery source-trail buckets + Epic 12 Rules UX.
+- `point-standing-economy` — Epic 7 Strength/Weakness, Epic 6 evidence scoring, anything touching `argumentScoreModel` or standing bands.
+- `timeline-grammar` — Epic 2 Visual Grammar, Epic 3 Branches, Epic 7 Strength/Weakness, argument node rendering and branch lanes.
+- `accessibility-targets` — any visible-UI card; especially IX-003 (keyboard/a11y nav).
+- `transcript-lang-min` — when transcript language is in scope.
+
+**Manual-only — operator-spawned tools, NEVER model-invoked:**
+- `bot-provocateur`, `bot-revocateur`, `argument-counter-runner`, `argument-fixture-author`, `storyline-narrative-officer`, `diagnostic-inspect-package-operator`. These carry `disable-model-invocation: true` in their frontmatter; the model treats them as operator-only.
+
+### Standard preflight (every session, before any work)
+
+```
+npm run checkpoint
+npm run skills:validate
+git status -sb          # must be clean (tracked); pre-existing untracked is fine
+npm run typecheck && npm run lint && npm run test
+```
+
+Any non-zero exit halts before work begins. Pre-existing untracked operator-territory files (`.tmp/`, prior smoke artifacts, etc.) are noise, not blockers.
+
+### The composition pattern (proven in ARCH-001 Card 3)
+
+Generic §4 fan-out + project subagent + adversarial verification is the canonical structure for non-trivial cards:
+
+1. **Preflight** — main turn runs the standard preflight battery and Phase A read-only fan-out (file existence, source citations, current-state DB confirms).
+2. **Delegate** — invoke the appropriate roadmap-* subagent for the phase.
+3. **Verify** — generic §4 Explore agents in parallel (typecheck, lint, jest, secret scan, doctrine scan, diff scope, invariant preservation, test quality, etc.) confirm the subagent's claimed work.
+4. **Adversarially refute** — 2–8 additional Explore agents try to FAIL the subagent's verdict. Each starts from "assume the subagent is wrong; find evidence." Catches non-blocking doc-drift, off-by-one, edge-case misses.
+5. **Resolve + STOP** — main turn applies §5 convergence rules to the fan-out, then opens the PR and stops at the operator merge gate (CC never auto-merges unless the operator has authorized the merge in the same turn).
+
+Card 3's example: roadmap-implementer wrote the implementation + tests; Phase C 8 Explore agents verified diff scope + invariants + secrets + doctrine + test quality + no drift; roadmap-reviewer wrote `docs/reviews/ARCH-001-CARD3-TUNING-AND-ROLLOUT.md` with APPROVE; 3 adversarial Explore agents tried to refute (Adv 1 found a stale doc comment — non-blocking, fixed in a follow-up commit; Adv 2 and 3 found no refutation). REVIEW_PASS → PR open → operator merge.
+
+### Composition gotchas (banked from this run)
+
+- **Subagents may commit to whichever branch they're on.** If you don't `git checkout -b` before invoking the implementer, it may commit to `main`. Verify the branch before invocation.
+- **Subagents inherit the main turn's CWD but not its branch state knowledge.** Re-state the branch + HEAD SHA in every subagent prompt.
+- **Skill invocations don't persist across subagent invocations.** The main turn invokes; each subagent re-invokes the skills it needs.
+- **Manual-only skills (`disable-model-invocation: true`) must never be invoked by the model.** The skill loader enforces this; the model should not even try.
+
 ## 5. Convergence rules — must be explicit per phase
 
 Every verification phase needs an explicit rule the main turn applies to converge subagent results. Examples observed in Card 2:
