@@ -142,7 +142,7 @@ describe('UX-001.5 — submit path: UX-001.5 surface preserved', () => {
       .filter((line) => line.startsWith('-') && !line.startsWith('---'));
 
     // The set of tokens that mark a line as part of the authorized
-    // classifier dispatch tail (auto-trigger OR ARCH-001 Card 2 routing).
+    // classifier dispatch tail (auto-trigger OR ARCH-001 Card 2/3 routing).
     const DISPATCH_TAIL_TOKENS = [
       'dispatchAutoTriggerForArgument',
       'MCP-021C-AUTO-TRIGGER-FAMILY-A',
@@ -155,7 +155,11 @@ describe('UX-001.5 — submit path: UX-001.5 surface preserved', () => {
       'shouldRouteToQueue',
       'enqueueClassifierJobs',
       'CLASSIFIER_QUEUE_ROUTING_ENABLED',
+      'CLASSIFIER_QUEUE_ROUTING_PERCENTAGE',
+      'parseRoutingPercentage',
       'queueRoutingEnabled',
+      'queueRoutingPercentage',
+      'Card 3',
       'ARCH-001',
     ];
     const isDispatchTailLine = (line: string): boolean => {

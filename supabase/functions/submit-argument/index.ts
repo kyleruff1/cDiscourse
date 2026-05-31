@@ -31,6 +31,8 @@ import {
   shouldRouteToQueue,
   enqueueClassifierJobs,
   CLASSIFIER_QUEUE_ROUTING_ENABLED_ENV,
+  CLASSIFIER_QUEUE_ROUTING_PERCENTAGE_ENV,
+  parseRoutingPercentage,
 } from '../_shared/booleanObservations/classifierQueueRouting.ts';
 
 // EdgeRuntime is a Deno-runtime-provided global for Supabase Edge
@@ -808,11 +810,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // index #4/#5 are the DB backstops). Submit stays nonblocking either way.
   const queueRoutingEnabled =
     Deno.env.get(CLASSIFIER_QUEUE_ROUTING_ENABLED_ENV) === 'true';
+  // Card 3 staged-rollout percentage; default 0 (smoke-tag-only path).
+  const queueRoutingPercentage = parseRoutingPercentage(
+    Deno.env.get(CLASSIFIER_QUEUE_ROUTING_PERCENTAGE_ENV),
+  );
   if (
     shouldRouteToQueue(
       { id: insertedArg.id, debate_id: data.debate_id },
       { id: debate.id, title: debate.title },
       queueRoutingEnabled,
+      queueRoutingPercentage,
     )
   ) {
     // QUEUE path: enqueue A–G jobs; the kick trigger + cron tick drive the

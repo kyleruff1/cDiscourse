@@ -15,11 +15,11 @@ import {
 } from './_helpers/classifierQueueCard2Deno';
 
 describe('ARCH-001 Card 2 — classifyDrainerFailure (§A.9 retry table)', () => {
-  it('RP-1 — MAX_ATTEMPTS is 3 (matches the Card-1 reclaim attempt cap)', () => {
-    expect(DRAINER_MAX_ATTEMPTS).toBe(3);
+  it('RP-1 — MAX_ATTEMPTS is 4 (Card 3 raised 3 → 4 per Card-2 C-calibration signal)', () => {
+    expect(DRAINER_MAX_ATTEMPTS).toBe(4);
   });
 
-  it('RP-2 — backoff schedule is +30s then +120s (design §A.9)', () => {
+  it('RP-2 — default backoff schedule preserves [30, 120] (Card 3 keeps the default exact)', () => {
     expect(DRAINER_RETRY_BACKOFF_SECONDS).toEqual([30, 120]);
   });
 
@@ -37,16 +37,25 @@ describe('ARCH-001 Card 2 — classifyDrainerFailure (§A.9 retry table)', () =>
     expect(d.backoffSeconds).toBe(120);
   });
 
-  it('RP-5 — network_error at the attempt cap (3) → dead_letter (NOT retry)', () => {
+  it('RP-5 — network_error at the attempt cap (4) → dead_letter (NOT retry)', () => {
     const d = classifyDrainerFailure('network_error', DRAINER_MAX_ATTEMPTS, 'provider_network_error');
     expect(d.disposition).toBe('dead_letter');
     expect(d.deadLetterReason).toBe('retry_attempts_exhausted');
     expect(d.backoffSeconds).toBe(0);
   });
 
-  it('RP-6 — rate_limited is retryable (429 → backoff, then dead_letter at cap)', () => {
+  it('RP-6 — rate_limited is retryable (429 → backoff at attempts 1–3, dead_letter at cap=4)', () => {
     expect(classifyDrainerFailure('rate_limited', 1, 'provider_rate_limited').disposition).toBe('retry');
-    expect(classifyDrainerFailure('rate_limited', 3, 'provider_rate_limited').disposition).toBe('dead_letter');
+    expect(classifyDrainerFailure('rate_limited', 3, 'provider_rate_limited').disposition).toBe('retry');
+    expect(classifyDrainerFailure('rate_limited', 4, 'provider_rate_limited').disposition).toBe('dead_letter');
+  });
+
+  it('RP-6b — network_error attempt 3 → retry with clamped +120s backoff (default schedule)', () => {
+    // Card 3: default schedule stays length-2; attempt 3 transition reuses
+    // the last entry via Math.min clamping.
+    const d = classifyDrainerFailure('network_error', 3, 'provider_network_error');
+    expect(d.disposition).toBe('retry');
+    expect(d.backoffSeconds).toBe(120);
   });
 
   it('RP-7 — api_error (covers the provider_server_error {isError} envelope) is retryable', () => {

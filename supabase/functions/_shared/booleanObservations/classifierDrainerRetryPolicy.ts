@@ -22,9 +22,14 @@
  * token. This module is pure TS (no Deno, no fetch, no console, no npm:)
  * so it gets real behavioral unit tests via the Jest bridge.
  *
- * MAX_ATTEMPTS = 3 matches the Card-1 substrate's reclaim cap
- * (reclaim_stale_leases uses `max_attempts CONSTANT int := 3`) so the
- * drainer's own retry exhaustion and the lease-expiry reclaimer agree.
+ * Card 3 raised MAX_ATTEMPTS from 3 → 4 in response to the Card-2 smoke's
+ * C-calibration signal (2.9% provider_server_error dead-letter rate under
+ * the original 30s/120s schedule that exhausted in ~300s). The Card-1
+ * substrate's `reclaim_stale_leases` cap (`max_attempts CONSTANT int := 3`)
+ * is unchanged and operates independently as the lease-expiry backstop —
+ * the drainer's live-retry cap (this constant) and the reclaim cap have
+ * different ceilings by design. See the DRAINER_MAX_ATTEMPTS doc-comment
+ * for the full rationale.
  */
 
 import type { BooleanObservationUnavailableReason } from './booleanObservationMcpAdapterCore.ts';
@@ -32,20 +37,46 @@ import type { BooleanObservationFailureSubreason } from './booleanObservationFai
 
 /**
  * Total attempts allowed for a retryable failure class (including the
- * first). Mirrors the Card-1 reclaim_stale_leases attempt cap (3) so a
- * perpetually-failing job dead-letters from EITHER the drainer's own retry
- * exhaustion OR a lease-expiry reclaim — consistently at 3.
+ * first). Card 3 raised this from 3 → 4 in response to the Card-2 smoke's
+ * C-calibration signal: 2.9% of cells dead-lettered on `provider_server_error`
+ * (Anthropic {isError} overload) after MAX_ATTEMPTS=3 burned through the
+ * 30s/120s backoff schedule in ~300s. The fourth attempt gives the
+ * provider-server-error retry budget a longer tail; combined with the
+ * `[60, 180, 360]` schedule below this brings worst-case retry budget to
+ * ~10 min, ~2× the Anthropic overload-recovery window observed in Card 2.
+ *
+ * Card 1 substrate's `reclaim_stale_leases` cap (3) is its own ceiling — a
+ * lease-expiry reclaim still dead-letters at 3. So the drainer's retry path
+ * and the reclaim path have different caps by design (the reclaim path is
+ * the slower, stuck-row backstop; the drainer is the live retry).
  */
-export const DRAINER_MAX_ATTEMPTS = 3;
+export const DRAINER_MAX_ATTEMPTS = 4;
 
 /**
- * Bounded backoff (seconds) added to `available_at` when scheduling a
- * retry. Index `i` is the backoff applied when transitioning AFTER attempt
- * `i+1` (1-based attempt). design §A.9: attempt 1→2 +30s; 2→3 +120s. The
- * last entry is reused if more retries were ever allowed (they are not —
- * MAX_ATTEMPTS caps at 3).
+ * DEFAULT backoff (seconds) added to `available_at` when scheduling a
+ * retry, used for every retryable failure class EXCEPT
+ * `provider_server_error` (see below). Index `i` is the backoff applied
+ * when transitioning AFTER attempt `i+1` (1-based attempt). design §A.9
+ * preserved exactly: attempt 1→2 +30s; 2→3 +120s. With Card 3's
+ * MAX_ATTEMPTS=4, attempt 3→4 reuses the last entry (+120s) via clamping —
+ * the array stays length 2 to keep the default schedule literally
+ * unchanged from Card 2.
  */
 export const DRAINER_RETRY_BACKOFF_SECONDS: ReadonlyArray<number> = Object.freeze([30, 120]);
+
+/**
+ * Failure-reason-SPECIFIC backoff (seconds) for `provider_server_error`
+ * (the Anthropic {isError} overload class). Card-2 smoke evidence: all 3
+ * dead-letters in the 105-cell burst were this sub-reason, exhausted in
+ * ~300s under the default [30, 120] schedule. The longer [60, 180, 360]
+ * schedule lets the burst window pass before retry attempt 4, giving the
+ * upstream more recovery time. Total worst-case retry budget: 60+180+360
+ * = 600s ≈ 10 min.
+ *
+ * Cardinality matches MAX_ATTEMPTS-1 = 3 retry transitions; no clamping
+ * needed for the documented path.
+ */
+export const DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS: ReadonlyArray<number> = Object.freeze([60, 180, 360]);
 
 /** The lifecycle decision for a failed classify. */
 export type DrainerFailureDisposition = 'retry' | 'failed_terminal' | 'dead_letter';
@@ -162,10 +193,18 @@ export function classifyDrainerFailure(
   // Retryable provider/transport transients.
   if (RETRYABLE_REASONS.has(reason)) {
     if (attemptCount < DRAINER_MAX_ATTEMPTS) {
-      // Index by the just-completed attempt (1-based): attempt 1 → backoff[0]
-      // (+30s); attempt 2 → backoff[1] (+120s). Clamp to the last entry.
-      const idx = Math.min(attemptCount - 1, DRAINER_RETRY_BACKOFF_SECONDS.length - 1);
-      const backoffSeconds = DRAINER_RETRY_BACKOFF_SECONDS[Math.max(0, idx)];
+      // Card 3: `provider_server_error` (Anthropic {isError} overload) gets
+      // its own longer schedule [60, 180, 360]; every other retryable
+      // sub-reason preserves the default [30, 120] schedule exactly. The
+      // selection is by typed sub-reason — never by raw provider body.
+      const schedule = reason === 'api_error' && subReason === 'provider_server_error'
+        ? DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS
+        : DRAINER_RETRY_BACKOFF_SECONDS;
+      // Index by the just-completed attempt (1-based): attempt 1 → schedule[0];
+      // attempt N → schedule[N-1]. Clamp to the last entry (the default
+      // schedule reuses +120s for attempt 3→4 since its array stays length 2).
+      const idx = Math.min(attemptCount - 1, schedule.length - 1);
+      const backoffSeconds = schedule[Math.max(0, idx)];
       return {
         disposition: 'retry',
         failureReason,
