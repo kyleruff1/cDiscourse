@@ -1,11 +1,11 @@
 /**
  * OPS-MCP-OBSERVABILITY — Test fixture.
  *
- * A complete `sectionsData`-shaped object covering all 4 supported
+ * A complete `sectionsData`-shaped object covering the 5 Subset-backfilled
  * families (parent_relation, disagreement_axis, misunderstanding_repair,
- * evidence_source_chain) and both run_modes (production,
- * admin_validation). Drives the stitcher unit tests without invoking
- * `npx supabase db query`.
+ * evidence_source_chain, resolution_progress) and both run_modes
+ * (production, admin_validation). Drives the stitcher unit tests without
+ * invoking `npx supabase db query`.
  *
  * Row shapes mirror the SQL files under `scripts/ops/sql/`. Values are
  * synthetic but consistent (Q1 sums reconcile with Q3; Q5 distinct
@@ -14,8 +14,10 @@
  * The Q11 key is `q11-per-family-per-mode-coverage` after the
  * OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE rename (was
  * `q11-family-bc-admin-validation-check`). New keys
- * `q14-per-family-per-mode-signal-density` and
- * `q15-family-d-subset-coverage` ship alongside.
+ * `q14-per-family-per-mode-signal-density`,
+ * `q15-family-d-subset-coverage`, and
+ * `q16-family-g-subset-coverage` (added by
+ * OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE) ship alongside.
  *
  * Doctrine:
  *   - No body content; no evidence span values; no secrets.
@@ -610,6 +612,22 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       subset_membership: 'ai_classifier_subset',
     }),
   ]),
+  'q16-family-g-subset-coverage': Object.freeze([
+    Object.freeze({
+      raw_key: 'narrows_claim',
+      run_mode: 'admin_validation',
+      positive_count: 2,
+      distinct_arguments: 2,
+      subset_membership: 'ai_classifier_subset',
+    }),
+    Object.freeze({
+      raw_key: 'synthesis_proposed',
+      run_mode: 'production',
+      positive_count: 1,
+      distinct_arguments: 1,
+      subset_membership: 'ai_classifier_subset',
+    }),
+  ]),
 });
 
 /**
@@ -633,4 +651,5 @@ export const FIXTURE_EMPTY_SECTIONS_DATA: Record<string, ReadonlyArray<Record<st
   'q13-over-under-firing-summary': Object.freeze([]),
   'q14-per-family-per-mode-signal-density': Object.freeze([]),
   'q15-family-d-subset-coverage': Object.freeze([]),
+  'q16-family-g-subset-coverage': Object.freeze([]),
 });
