@@ -234,18 +234,18 @@ Deno.test('dispatch: cross-family request (Family C rawKey under disagreement_ax
   });
 });
 
-Deno.test('dispatch: unsupported family H (claim_clarity) returns unsupported_family with full 7-family supportedFamilies list', async () => {
-  // MCP-SERVER-008-FAMILY-G promoted resolution_progress to supported. The
-  // supportedFamilies envelope now includes all seven registered families.
+Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_family with full 8-family supportedFamilies list', async () => {
+  // MCP-SERVER-009-FAMILY-H promoted claim_clarity to supported. The
+  // supportedFamilies envelope now includes all eight registered families.
   // This regression continues to cover the "unsupported family with full
   // supportedFamilies envelope" path.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyCRequest({
-        requestedFamilies: ['claim_clarity'],
+        requestedFamilies: ['thread_topology'],
       }),
-      requestId: 'r-dispatch-h-1',
+      requestId: 'r-dispatch-i-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -255,7 +255,7 @@ Deno.test('dispatch: unsupported family H (claim_clarity) returns unsupported_fa
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['claim_clarity']);
+    assertEquals(sc.requestedFamilies, ['thread_topology']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
@@ -264,6 +264,7 @@ Deno.test('dispatch: unsupported family H (claim_clarity) returns unsupported_fa
       'argument_scheme',
       'critical_question',
       'resolution_progress',
+      'claim_clarity',
     ]);
   });
 });

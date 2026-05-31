@@ -50,9 +50,13 @@ import {
   FAMILY_G_CLASSIFIER_SET_VERSION,
   FAMILY_G_EXCLUDED_DETERMINISTIC_RAW_KEYS,
 } from '../lib/familyGKeys.ts';
+import {
+  FAMILY_H_RAW_KEYS,
+  FAMILY_H_CLASSIFIER_SET_VERSION,
+} from '../lib/familyHKeys.ts';
 
 // Ensure Family A + Family B + Family C + Family D + Family E + Family F +
-// Family G are registered in the production singleton for these tests.
+// Family G + Family H are registered in the production singleton for these tests.
 // familyRegistryInit.ts is the canonical registration site; these guards
 // keep the test self-sufficient and avoid a double-register throw if init
 // happens elsewhere in the module graph.
@@ -96,6 +100,12 @@ if (!isFamilySupported('resolution_progress')) {
   register('resolution_progress', {
     rawKeys: new Set(FAMILY_G_RAW_KEYS),
     classifierSetVersion: FAMILY_G_CLASSIFIER_SET_VERSION,
+  });
+}
+if (!isFamilySupported('claim_clarity')) {
+  register('claim_clarity', {
+    rawKeys: new Set(FAMILY_H_RAW_KEYS),
+    classifierSetVersion: FAMILY_H_CLASSIFIER_SET_VERSION,
   });
 }
 
@@ -234,16 +244,16 @@ Deno.test('validateFamilyBooleanRequest-rejects-oversized-threadContextExcerpt',
 });
 
 Deno.test('validateFamilyBooleanRequest-rejects-unsupported-family-with-byte-equal-envelope', () => {
-  // MCP-SERVER-008-FAMILY-G registered 'resolution_progress'; the test now
-  // exercises an UNREGISTERED family (Family H: claim_clarity). Envelope
+  // MCP-SERVER-009-FAMILY-H registered 'claim_clarity'; the test now
+  // exercises an UNREGISTERED family (Family I: thread_topology). Envelope
   // shape is byte-equal-preserved: kind=unsupported_family, requestedFamilies
   // field echoes the requested array.
   const result = validateFamilyBooleanRequest(
-    validRequest({ requestedFamilies: ['claim_clarity'] }),
+    validRequest({ requestedFamilies: ['thread_topology'] }),
   );
   assertEquals(result.ok, false);
   if (!result.ok && result.kind === 'unsupported_family') {
-    assertEquals(result.requestedFamilies, ['claim_clarity']);
+    assertEquals(result.requestedFamilies, ['thread_topology']);
   } else {
     throw new Error('expected unsupported_family failure');
   }
@@ -411,12 +421,11 @@ Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-b-ra
   }
 });
 
-Deno.test('validateFamilyBooleanRequest-h-i-j-still-rejected-as-unsupported-family', () => {
-  // Regression: Family H/I/J remain unsupported after Family G lands.
-  // (Family G is now supported as of MCP-SERVER-008-FAMILY-G ai_classifier
-  // Subset path; resolution_progress has its own validation block.)
+Deno.test('validateFamilyBooleanRequest-i-j-still-rejected-as-unsupported-family', () => {
+  // Regression: Family I/J remain unsupported after Family H lands.
+  // (Family H is now supported as of MCP-SERVER-009-FAMILY-H uniform
+  // ai_classifier path; claim_clarity has its own validation block.)
   for (const family of [
-    'claim_clarity',
     'thread_topology',
     'sensitive_composer',
   ]) {
@@ -1082,4 +1091,75 @@ Deno.test('validateFamilyBooleanRequest-family-a-b-c-d-e-f-still-pass-after-g-re
     requestedRawKeys: ['consequence_probability_unclear'],
   });
   assertEquals(validateFamilyBooleanRequest(reqF).ok, true);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-009-FAMILY-H additions
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('validateFamilyBooleanRequest-valid-family-h-request-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['claim_clarity'],
+    requestedRawKeys: ['claim_specificity_low', 'reason_missing'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.requestedFamilies, ['claim_clarity']);
+    assertEquals(result.value.requestedRawKeys, ['claim_specificity_low', 'reason_missing']);
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-h-request-with-empty-rawKeys-passes', () => {
+  // Empty requestedRawKeys means "all rawKeys for the requested family" —
+  // the validator accepts; the prompt builder fills in all 12 Family H keys.
+  const req = validRequest({
+    requestedFamilies: ['claim_clarity'],
+    requestedRawKeys: [],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-a-key-under-claim-clarity', () => {
+  const req = validRequest({
+    requestedFamilies: ['claim_clarity'],
+    requestedRawKeys: ['supports_parent'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['supports_parent']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family A key under H');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-h-key-under-resolution-progress', () => {
+  const req = validRequest({
+    requestedFamilies: ['resolution_progress'],
+    requestedRawKeys: ['claim_specificity_low'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['claim_specificity_low']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family H key under G');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-a-b-c-d-e-f-g-still-pass-after-h-registered', () => {
+  // Regression: Family A/B/C/D/E/F/G requests still validate cleanly after
+  // Family H registration.
+  const reqA = validRequest({
+    requestedFamilies: ['parent_relation'],
+    requestedRawKeys: ['supports_parent'],
+  });
+  assertEquals(validateFamilyBooleanRequest(reqA).ok, true);
+  const reqG = validRequest({
+    requestedFamilies: ['resolution_progress'],
+    requestedRawKeys: ['concedes_broader_point'],
+  });
+  assertEquals(validateFamilyBooleanRequest(reqG).ok, true);
 });

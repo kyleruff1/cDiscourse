@@ -794,3 +794,177 @@ Deno.test('registry-getRawKeysForFamily-returns-all-18-for-family-g-Subset', asy
     assertEquals(keys.has(binding), true);
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-009-FAMILY-H additions
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('registry-getSupportedFamilies-preserves-eight-family-order', async () => {
+  // MCP-SERVER-009-FAMILY-H adds the eighth family register() call
+  // (uniform ai_classifier; 12 keys). Insertion order is preserved by the
+  // underlying Map; the getSupportedFamilies() snapshot returns exactly the
+  // eight-family list in registration order.
+  const { FAMILY_D_RAW_KEYS, FAMILY_D_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyDKeys.ts'
+  );
+  const { FAMILY_E_RAW_KEYS, FAMILY_E_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyEKeys.ts'
+  );
+  const { FAMILY_F_RAW_KEYS, FAMILY_F_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyFKeys.ts'
+  );
+  const { FAMILY_G_RAW_KEYS, FAMILY_G_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyGKeys.ts'
+  );
+  const { FAMILY_H_RAW_KEYS, FAMILY_H_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyHKeys.ts'
+  );
+  const registry = createFamilyRegistry();
+  registry.register('parent_relation', {
+    rawKeys: new Set(FAMILY_A_RAW_KEYS),
+    classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('evidence_source_chain', {
+    rawKeys: new Set(FAMILY_D_RAW_KEYS),
+    classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('argument_scheme', {
+    rawKeys: new Set(FAMILY_E_RAW_KEYS),
+    classifierSetVersion: FAMILY_E_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('critical_question', {
+    rawKeys: new Set(FAMILY_F_RAW_KEYS),
+    classifierSetVersion: FAMILY_F_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('resolution_progress', {
+    rawKeys: new Set(FAMILY_G_RAW_KEYS),
+    classifierSetVersion: FAMILY_G_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('claim_clarity', {
+    rawKeys: new Set(FAMILY_H_RAW_KEYS),
+    classifierSetVersion: FAMILY_H_CLASSIFIER_SET_VERSION,
+  });
+  assertEquals(
+    registry.getSupportedFamilies(),
+    [
+      'parent_relation',
+      'disagreement_axis',
+      'misunderstanding_repair',
+      'evidence_source_chain',
+      'argument_scheme',
+      'critical_question',
+      'resolution_progress',
+      'claim_clarity',
+    ],
+  );
+  assertEquals(registry.getRawKeysForFamily('claim_clarity').size, 12);
+  assertEquals(registry.getClassifierSetVersion('claim_clarity'), 'family-h-v1');
+});
+
+Deno.test('registry-isRawKeySupportedForFamily-eight-way-cross-family-rejection', async () => {
+  // With all eight real families registered, cross-family rawKey lookups
+  // must return false across the Family H combinations. Each family
+  // recognizes only its own rawKey set.
+  const { FAMILY_D_RAW_KEYS, FAMILY_D_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyDKeys.ts'
+  );
+  const { FAMILY_E_RAW_KEYS, FAMILY_E_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyEKeys.ts'
+  );
+  const { FAMILY_F_RAW_KEYS, FAMILY_F_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyFKeys.ts'
+  );
+  const { FAMILY_G_RAW_KEYS, FAMILY_G_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyGKeys.ts'
+  );
+  const { FAMILY_H_RAW_KEYS, FAMILY_H_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyHKeys.ts'
+  );
+  const registry = createFamilyRegistry();
+  registry.register('parent_relation', {
+    rawKeys: new Set(FAMILY_A_RAW_KEYS),
+    classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('disagreement_axis', {
+    rawKeys: new Set(FAMILY_B_RAW_KEYS),
+    classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('misunderstanding_repair', {
+    rawKeys: new Set(FAMILY_C_RAW_KEYS),
+    classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('evidence_source_chain', {
+    rawKeys: new Set(FAMILY_D_RAW_KEYS),
+    classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('argument_scheme', {
+    rawKeys: new Set(FAMILY_E_RAW_KEYS),
+    classifierSetVersion: FAMILY_E_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('critical_question', {
+    rawKeys: new Set(FAMILY_F_RAW_KEYS),
+    classifierSetVersion: FAMILY_F_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('resolution_progress', {
+    rawKeys: new Set(FAMILY_G_RAW_KEYS),
+    classifierSetVersion: FAMILY_G_CLASSIFIER_SET_VERSION,
+  });
+  registry.register('claim_clarity', {
+    rawKeys: new Set(FAMILY_H_RAW_KEYS),
+    classifierSetVersion: FAMILY_H_CLASSIFIER_SET_VERSION,
+  });
+
+  // Family A key under Family H → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('claim_clarity', 'supports_parent'),
+    false,
+  );
+  // Family G key under Family H → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('claim_clarity', 'concedes_broader_point'),
+    false,
+  );
+  // Family H key under Family A → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('parent_relation', 'claim_specificity_low'),
+    false,
+  );
+  // Family H key under Family G → false.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('resolution_progress', 'claim_specificity_low'),
+    false,
+  );
+  // Sanity: Family H supports its own keys.
+  assertEquals(
+    registry.isRawKeySupportedForFamily('claim_clarity', 'claim_specificity_low'),
+    true,
+  );
+  assertEquals(
+    registry.isRawKeySupportedForFamily('claim_clarity', 'conclusion_missing'),
+    true,
+  );
+});
+
+Deno.test('registry-getRawKeysForFamily-returns-all-12-for-family-h-uniform', async () => {
+  const { FAMILY_H_RAW_KEYS, FAMILY_H_CLASSIFIER_SET_VERSION } = await import(
+    '../lib/familyHKeys.ts'
+  );
+  const registry = createFamilyRegistry();
+  registry.register('claim_clarity', {
+    rawKeys: new Set(FAMILY_H_RAW_KEYS),
+    classifierSetVersion: FAMILY_H_CLASSIFIER_SET_VERSION,
+  });
+  const keys = registry.getRawKeysForFamily('claim_clarity');
+  assertEquals(keys.size, 12);
+  for (const binding of FAMILY_H_RAW_KEYS) {
+    assertEquals(keys.has(binding), true);
+  }
+});
