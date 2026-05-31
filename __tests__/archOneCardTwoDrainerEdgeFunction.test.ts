@@ -15,7 +15,7 @@ import * as path from 'path';
 import {
   MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS,
   DRAINER_MCP_REQUEST_TIMEOUT_MS,
-} from '../supabase/functions/_shared/booleanObservations/booleanObservationMcpAdapterCore';
+} from './_helpers/classifierQueueCard2Deno';
 
 const REPO = process.cwd();
 const INDEX_PATH = path.join(REPO, 'supabase/functions/classifier-drainer/index.ts');

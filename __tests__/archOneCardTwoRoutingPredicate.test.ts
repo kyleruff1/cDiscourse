@@ -11,9 +11,9 @@ import {
   enqueueClassifierJobs,
   CLASSIFIER_QUEUE_SMOKE_TAG,
   CLASSIFIER_QUEUE_ROUTING_ENABLED_ENV,
-} from '../supabase/functions/_shared/booleanObservations/classifierQueueRouting';
-import { productionEnabledFamilies } from '../supabase/functions/_shared/booleanObservations/familyRegistry';
-import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from '../supabase/functions/_shared/booleanObservations/mcpBooleanObservationSchema';
+  productionEnabledFamilies,
+  MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+} from './_helpers/classifierQueueCard2Deno';
 
 const ARG = { id: 'arg-1', debate_id: 'deb-1' };
 const SMOKE_DEBATE = { id: 'deb-1', title: `${CLASSIFIER_QUEUE_SMOKE_TAG} canary room` };

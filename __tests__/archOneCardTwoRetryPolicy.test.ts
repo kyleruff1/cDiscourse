@@ -11,8 +11,8 @@ import {
   drainerUnavailableReasonToFailureReason,
   DRAINER_MAX_ATTEMPTS,
   DRAINER_RETRY_BACKOFF_SECONDS,
-} from '../supabase/functions/_shared/booleanObservations/classifierDrainerRetryPolicy';
-import { ALL_BOOLEAN_OBSERVATION_UNAVAILABLE_REASONS } from '../supabase/functions/_shared/booleanObservations/booleanObservationMcpAdapterCore';
+  ALL_BOOLEAN_OBSERVATION_UNAVAILABLE_REASONS,
+} from './_helpers/classifierQueueCard2Deno';
 
 describe('ARCH-001 Card 2 — classifyDrainerFailure (§A.9 retry table)', () => {
   it('RP-1 — MAX_ATTEMPTS is 3 (matches the Card-1 reclaim attempt cap)', () => {
