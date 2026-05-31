@@ -4,7 +4,7 @@
 **Date:** 2026-05-31
 **Card type:** Scoping audit — walk the composer-only and inspect-only disposition gates end-to-end for Family J. Determine whether Family J needs ANY production-enable cards or whether the existing disposition gating suffices.
 **Predecessor:** ARCH-001 chain CLOSED. Family H/I chains queued. J is the open question.
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #398.
 
 > **DIFFERENT SHAPE** — not a server / audit-lint / edge-enable card replica. The deliverable IS a `docs/audits/OPS-FAMILY-J-SCOPING-AUDIT-<date>.md` output. No code change; no test change; no migration. Pure investigation + write-up.
 

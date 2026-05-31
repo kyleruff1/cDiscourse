@@ -5,7 +5,7 @@
 **Card type:** MCP-server family ship — `thread_topology` (Family I), admin_validation-only Edge posture. Mixed-source (D precedent applies).
 **Suite:** Card 1 (admin ship) → Gate A → Card 2 (CONDITIONAL: L5 mechanization for `family_i`) → Gate B → Card 3 (production-enable).
 **Predecessor:** Family H chain merged + production. main at TBD-post-H-merge SHA.
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED: capture from Phase 4 of OPS-WORKFLOW-RESTORATION]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #392.
 
 > Phase 0 source-split (verified by OPS-WORKFLOW-RESTORATION Phase 1 Agent 1.2): **21 keys, MIXED source** — 8 `auto_metadata` + 7 `lifecycle` + 6 `ai_classifier`. Family D precedent governs the subset filter pattern.
 

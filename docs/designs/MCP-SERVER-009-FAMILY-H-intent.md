@@ -5,7 +5,7 @@
 **Card type:** MCP-server family ship — `claim_clarity` (Family H), admin_validation-only Edge posture. Doctrine-heavy (clarity↔verdict adjacency).
 **Suite:** Card 1 (admin ship) → Gate A (doctrine-risk determination) → Card 2 (CONDITIONAL: L5 mechanization for `family_h`) → Gate B → Card 3 (production-enable + observability backfill).
 **Predecessor (verified Phase 0):** main at `b974b25` (ARCH-001 Card 3 smoke PASS). A–G production + auto-trigger live; H/I/J unsupported on the MCP server.
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED: capture from Phase 4 of OPS-WORKFLOW-RESTORATION-MCP-FAMILY-TRACK and replace TBD here]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #389.
 
 > Operator Phase 0 findings (§ Phase 0) are guidance to scope this card and anticipate Stage 2B; the designer's 5 Phase-A audits MUST independently confirm them. **A.1 is the gating output: is `claim_clarity` doctrine-risk?** (assumed-YES per the H spec extraction in OPS-WORKFLOW-RESTORATION Phase 1; see §Doctrine).
 
