@@ -22,9 +22,14 @@
  * token. This module is pure TS (no Deno, no fetch, no console, no npm:)
  * so it gets real behavioral unit tests via the Jest bridge.
  *
- * MAX_ATTEMPTS = 3 matches the Card-1 substrate's reclaim cap
- * (reclaim_stale_leases uses `max_attempts CONSTANT int := 3`) so the
- * drainer's own retry exhaustion and the lease-expiry reclaimer agree.
+ * Card 3 raised MAX_ATTEMPTS from 3 → 4 in response to the Card-2 smoke's
+ * C-calibration signal (2.9% provider_server_error dead-letter rate under
+ * the original 30s/120s schedule that exhausted in ~300s). The Card-1
+ * substrate's `reclaim_stale_leases` cap (`max_attempts CONSTANT int := 3`)
+ * is unchanged and operates independently as the lease-expiry backstop —
+ * the drainer's live-retry cap (this constant) and the reclaim cap have
+ * different ceilings by design. See the DRAINER_MAX_ATTEMPTS doc-comment
+ * for the full rationale.
  */
 
 import type { BooleanObservationUnavailableReason } from './booleanObservationMcpAdapterCore.ts';
