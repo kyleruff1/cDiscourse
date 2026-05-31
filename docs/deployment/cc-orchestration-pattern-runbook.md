@@ -180,6 +180,8 @@ These are the specific patterns observed degrading workflow quality. Avoid each:
 - ❌ Workflow prompt without per-agent prompts that include AUTH SURFACES sections (relies on default subagent behavior, which won't match this environment)
 - ❌ Trusting subagent output that says "no rows found" without main-turn confirmation when the table is RLS-protected (anon-key reads return [] silently for RLS-blocked queries)
 - ❌ "Improving" or paraphrasing file content provided verbatim in a prompt (the content IS the artifact)
+- ❌ Parity-only structural checks where you need exact-count checks (e.g. "fence count must be even" passes on 0 fences when 6 are expected — verification check must be "count equals expected N", not "count is even")
+- ❌ Embedding file-content artifacts inside outer triple-backtick code blocks in chat prompts without an escape mechanism (inner fences collide with outer; use heredoc with a single-quoted distinctive sentinel like CCORCHEND, or distinct text delimiters like ═══BEGIN FILE═══ … ═══END FILE═══)
 
 ## 8. How to apply going forward
 
