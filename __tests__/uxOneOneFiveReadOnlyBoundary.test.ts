@@ -117,36 +117,78 @@ describe('UX-001.5 — submit path: UX-001.5 surface preserved', () => {
   // none of UX-001.5's surface-area touches (composer, timeline, brand
   // shell, popouts) are affected.
   //
-  // This test now verifies the diff against main, if any, contains
-  // ONLY the MCP-021C-AUTO-TRIGGER-FAMILY-A bounded additions
-  // (dispatcher import + EdgeRuntime declaration + fire-and-forget
-  // call site) — no edits to auth, validation, the insert, the
-  // notification side-effect, or the response shape.
-  it(`${SUBMIT_PATH_DIR}/ — only MCP-021C-AUTO-TRIGGER-FAMILY-A additions in diff`, () => {
+  // This test verifies the diff against main, if any, is confined to the
+  // post-insert classifier DISPATCH TAIL — first the
+  // MCP-021C-AUTO-TRIGGER-FAMILY-A bounded additions (dispatcher import +
+  // EdgeRuntime declaration + fire-and-forget call site), and now also the
+  // ARCH-001 Card 2 routing change (`docs/designs/ARCH-001-CARD2-DRAINER-ENQUEUE-intent.md`
+  // §A.11), which wraps that same dispatch call in a mutually-exclusive
+  // `if (shouldRouteToQueue) { enqueueClassifierJobs } else { ...the
+  // UNCHANGED direct dispatch... }`. Relocating the original dispatch lines
+  // into the `else` arm makes git report them as REMOVED + re-ADDED (with
+  // indentation), so the boundary is now: every REMOVED line must reference
+  // the classifier dispatch surface (proving the relocation touched ONLY the
+  // dispatch tail — NOT auth, validation, the insert, the notification
+  // side-effect, or the response shape), and the additions must reference
+  // that surface or the Card-2 queue-routing module.
+  it(`${SUBMIT_PATH_DIR}/ — diff confined to the classifier dispatch tail (auto-trigger + ARCH-001 Card 2 routing)`, () => {
     const diff = diffAgainstMain(SUBMIT_PATH_DIR);
     if (diff === '') return; // no diff — test trivially passes.
-    // The diff (if any) must be confined to ADDITIONS (`+` lines)
-    // mentioning the auto-trigger card or its components.
     const addedLines = diff
       .split('\n')
       .filter((line) => line.startsWith('+') && !line.startsWith('+++'));
-    // Removed lines (other than the diff header) would indicate a
-    // non-bounded edit.
     const removedLines = diff
       .split('\n')
       .filter((line) => line.startsWith('-') && !line.startsWith('---'));
-    expect(removedLines).toEqual([]);
-    // The additions must reference the auto-trigger dispatcher / card.
-    const referencesAutoTrigger = addedLines.some(
-      (line) =>
-        line.includes('dispatchAutoTriggerForArgument') ||
-        line.includes('MCP-021C-AUTO-TRIGGER-FAMILY-A') ||
-        line.includes('EdgeRuntime') ||
-        line.includes('autoTriggerPromise') ||
-        line.includes('Boolean Observation') ||
-        line.includes('booleanObservations/autoTriggerDispatcher'),
+
+    // The set of tokens that mark a line as part of the authorized
+    // classifier dispatch tail (auto-trigger OR ARCH-001 Card 2 routing).
+    const DISPATCH_TAIL_TOKENS = [
+      'dispatchAutoTriggerForArgument',
+      'MCP-021C-AUTO-TRIGGER-FAMILY-A',
+      'EdgeRuntime',
+      'autoTriggerPromise',
+      'enqueuePromise',
+      'Boolean Observation',
+      'booleanObservations/autoTriggerDispatcher',
+      'classifierQueueRouting',
+      'shouldRouteToQueue',
+      'enqueueClassifierJobs',
+      'CLASSIFIER_QUEUE_ROUTING_ENABLED',
+      'queueRoutingEnabled',
+      'ARCH-001',
+    ];
+    const isDispatchTailLine = (line: string): boolean => {
+      const body = line.slice(1).trim();
+      // Pure structural lines (braces / blank) and the EXACT relocated
+      // dispatch-call argument lines are part of the relocation. Anything
+      // carrying real identifiers must hit a dispatch-tail token — this is
+      // what keeps an auth/validation/insert/notification/response removal a
+      // FAILURE (those lines match neither the narrow structural set nor a
+      // token).
+      if (body === '' || /^[}{)\];]*$/.test(body)) return true;
+      if (
+        body === 'insertedArg.id,' ||
+        body === 'data.debate_id,' ||
+        body === 'serviceClient,' ||
+        body.startsWith(').catch(')
+      ) {
+        return true;
+      }
+      return DISPATCH_TAIL_TOKENS.some((tok) => line.includes(tok));
+    };
+
+    // BOUNDARY: every removed line is confined to the dispatch-tail relocation
+    // (NOT an edit to auth / validation / insert / notification / response).
+    const offendingRemovals = removedLines.filter((line) => !isDispatchTailLine(line));
+    expect(offendingRemovals).toEqual([]);
+
+    // The additions must reference the classifier dispatch tail (auto-trigger
+    // or the Card-2 queue routing).
+    const referencesDispatchTail = addedLines.some((line) =>
+      DISPATCH_TAIL_TOKENS.some((tok) => line.includes(tok)),
     );
-    expect(referencesAutoTrigger).toBe(true);
+    expect(referencesDispatchTail).toBe(true);
   });
 });
 

@@ -51,9 +51,27 @@ export const MCP_BOOLEAN_OBSERVATION_TOOL_NAME =
 /**
  * Bounded request timeout for the MCP-server fetch — applied in
  * `booleanObservationMcpAdapter.ts` via `AbortSignal.timeout`. Matches
- * the MCP-018 sibling's 15s posture.
+ * the MCP-018 sibling's 15s posture. This is the DEFAULT (submit-path /
+ * direct-dispatch) caller-side abort deadline and is UNCHANGED by ARCH-001
+ * Card 2.
  */
 export const MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS = 15_000;
+
+/**
+ * ARCH-001 Card 2 (design §A.6 — timeout hierarchy correction): the
+ * BACKGROUND DRAINER's caller-side abort deadline for the MCP-server fetch.
+ *
+ * The prior submit-path 15s abort was TIGHTER than the MCP server's own
+ * model budget (`MCP_SERVER_MODEL_TIMEOUT_MS=25000`), so a valid slow
+ * provider call (16-25s, within the server's tolerance) was killed by the
+ * caller — an inverted hierarchy. The drainer runs OFF the user's path, so
+ * it can (and must) be patient: 30s ≥ 25s server model budget + 5s headroom
+ * ⇒ caller patience exceeds callee work budget. Passed by the drainer via
+ * `runBooleanObservationMcpAdapter(request, { timeoutMs:
+ * DRAINER_MCP_REQUEST_TIMEOUT_MS })`. The 15s default above is left
+ * untouched (the submit path is byte-unchanged).
+ */
+export const DRAINER_MCP_REQUEST_TIMEOUT_MS = 30_000;
 
 /**
  * The `serverName` stamped on the response's modelInfo block when the MCP

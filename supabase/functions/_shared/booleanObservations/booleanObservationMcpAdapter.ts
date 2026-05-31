@@ -120,14 +120,55 @@ function isServerErrorEnvelope(
 }
 
 /**
+ * Optional per-call options for {@link runBooleanObservationMcpAdapter}.
+ *
+ * ARCH-001 Card 2 (design §A.6 — timeout hierarchy correction): the
+ * caller-side `AbortSignal.timeout` is now PARAMETERIZABLE. The submit-path
+ * direct-dispatch caller passes the adapter as a 1-arg function reference
+ * (see autoTriggerDispatcher.ts), so it omits `options` entirely and keeps
+ * the existing 15s default (`MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS`) —
+ * its behavior is BYTE-UNCHANGED. The Card-2 background drainer passes
+ * `{ timeoutMs: 30000 }` so caller patience (>=30s) EXCEEDS the MCP
+ * server's own model budget (`MCP_SERVER_MODEL_TIMEOUT_MS=25s`), correcting
+ * the prior inverted hierarchy where the 15s caller abort killed a valid
+ * 16-25s slow call.
+ *
+ * This change is ADDITIVE only: a missing/invalid `timeoutMs` falls back to
+ * the existing module constant, so no existing caller's behavior changes.
+ */
+export interface RunBooleanObservationMcpAdapterOptions {
+  /**
+   * Caller-side abort deadline in ms for the MCP-server fetch. Defaults to
+   * `MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS` (15000) when absent or not
+   * a positive finite number. The Card-2 drainer passes 30000.
+   */
+  timeoutMs?: number;
+}
+
+/**
  * Run the operator-hosted MCP-server's Boolean Observation classifier
  * adapter. Returns a typed `BooleanObservationAdapterResult` — never
  * throws. On `{ kind: 'success' }` the response has already passed the
  * MCP-021A `parseMcpBooleanObservationResponse` validator.
+ *
+ * The optional second argument parameterizes the caller-side timeout
+ * (design §A.6). When omitted (the submit-path direct-dispatch caller), the
+ * existing 15s constant is used unchanged.
  */
 export async function runBooleanObservationMcpAdapter(
   request: McpBooleanObservationRequest,
+  options?: RunBooleanObservationMcpAdapterOptions,
 ): Promise<BooleanObservationAdapterResult> {
+  // Resolve the caller-side abort deadline. ADDITIVE: a missing / non-finite
+  // / non-positive value falls back to the existing 15s constant, so the
+  // submit-path caller (which passes no options) is byte-unchanged.
+  const resolvedTimeoutMs =
+    options !== undefined &&
+    typeof options.timeoutMs === 'number' &&
+    Number.isFinite(options.timeoutMs) &&
+    options.timeoutMs > 0
+      ? options.timeoutMs
+      : MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS;
   // 1. URL read — the ONLY Deno.env.get('SEMANTIC_REFEREE_MCP_URL') in the
   //    booleanObservations tree. Absent, empty, or non-https → url_missing.
   const mcpUrl = Deno.env.get('SEMANTIC_REFEREE_MCP_URL');
@@ -154,7 +195,7 @@ export async function runBooleanObservationMcpAdapter(
         Authorization: `${AUTH_SCHEME_PREFIX}${mcpToken}`,
       },
       body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(resolvedTimeoutMs),
     });
   } catch {
     // A thrown fetch (DNS, TLS, connection reset, or a timeout abort). The
