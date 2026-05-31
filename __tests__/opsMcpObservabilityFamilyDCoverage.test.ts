@@ -426,12 +426,12 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group C: Q15 Family D subs
 /* ------------------------------------------------------------------ */
 
 describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group D: cross-section invariants', () => {
-  it('SECTIONS length is now 16 (was 14 pre-card)', () => {
+  it('SECTIONS length is now 17 (was 16 after this D card; G-coverage appended q16)', () => {
     const lib = require(path.join(REPO, 'scripts', 'ops', 'mcp-observability-report-lib.cjs'));
-    expect((lib.SECTIONS as Array<unknown>).length).toBe(16);
+    expect((lib.SECTIONS as Array<unknown>).length).toBe(17);
   });
 
-  it('SECTIONS section ids are stable, unique, and ordered (q01..q15 with q02b + renamed q11)', () => {
+  it('SECTIONS section ids are stable, unique, and ordered (q01..q16 with q02b + renamed q11)', () => {
     const lib = require(path.join(REPO, 'scripts', 'ops', 'mcp-observability-report-lib.cjs'));
     const ids = (lib.SECTIONS as Array<{ id: string }>).map((s) => s.id);
     expect(ids).toEqual([
@@ -451,6 +451,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group D: cross-section inv
       'q13-over-under-firing-summary',
       'q14-per-family-per-mode-signal-density',
       'q15-family-d-subset-coverage',
+      'q16-family-g-subset-coverage',
     ]);
     // Uniqueness check.
     expect(new Set(ids).size).toBe(ids.length);
@@ -596,7 +597,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group E: fixture compatibi
       generatedAt: FIXTURE_GENERATED_AT,
       defaultTimeWindowDays: 7,
     });
-    expect(json.sections).toHaveLength(16);
+    expect(json.sections).toHaveLength(17);
     const q14 = json.sections.find(
       (s: { id: string }) => s.id === 'q14-per-family-per-mode-signal-density',
     );

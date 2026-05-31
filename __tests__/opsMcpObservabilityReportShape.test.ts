@@ -55,11 +55,11 @@ describe('OPS-MCP-OBSERVABILITY — report shape', () => {
     includeEvidencePreview: false,
   };
 
-  it('exposes exactly 16 sections (Q1, Q2a, Q2b, Q3-Q15)', () => {
-    expect(SECTIONS).toHaveLength(16);
+  it('exposes exactly 17 sections (Q1, Q2a, Q2b, Q3-Q16)', () => {
+    expect(SECTIONS).toHaveLength(17);
   });
 
-  it('section ids are stable anchors q01...q15 plus q02b', () => {
+  it('section ids are stable anchors q01...q16 plus q02b', () => {
     const ids = SECTIONS.map((s) => s.id);
     expect(ids).toEqual([
       'q01-runs-by-run-mode',
@@ -78,6 +78,7 @@ describe('OPS-MCP-OBSERVABILITY — report shape', () => {
       'q13-over-under-firing-summary',
       'q14-per-family-per-mode-signal-density',
       'q15-family-d-subset-coverage',
+      'q16-family-g-subset-coverage',
     ]);
   });
 
@@ -103,7 +104,7 @@ describe('OPS-MCP-OBSERVABILITY — report shape', () => {
     expect(md).toContain('**Schema version:** ops-mcp-observability.report.v1');
   });
 
-  it('includes a Table of contents block with all 16 section links', () => {
+  it('includes a Table of contents block with all 17 section links', () => {
     const md = stitchMarkdownReport(baseStitchArgs);
     expect(md).toContain('## Table of contents');
     for (const s of SECTIONS) {
@@ -164,7 +165,7 @@ describe('OPS-MCP-OBSERVABILITY — report shape', () => {
     expect(json.sourceSixSafety.literalProductionStringPresent).toBe(true);
     expect(json.sourceSixSafety.literalAdminValidationStringAbsent).toBe(true);
     expect(Array.isArray(json.sections)).toBe(true);
-    expect(json.sections).toHaveLength(16);
+    expect(json.sections).toHaveLength(17);
   });
 
   it('JSON artifact preserves section column order and ids', () => {

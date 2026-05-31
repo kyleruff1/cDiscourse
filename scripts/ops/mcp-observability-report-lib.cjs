@@ -263,7 +263,7 @@ const SECTIONS = Object.freeze([
     id: 'q11-per-family-per-mode-coverage',
     title: 'Per-family per-mode coverage',
     question:
-      'Q11 — How are runs distributed across families and run_modes? (4-family state: A+B+C production + admin_validation; D admin_validation only; E-J failed attempts.)',
+      'Q11 — How are runs distributed across families and run_modes? (5-family carrier-forward state: A+B+C+G (resolution_progress) production + admin_validation; D admin_validation only with 18-key Subset for G; E, F production; H Card-1 admin_validation; I, J unsupported.)',
     sqlFile: '11-per-family-per-mode-coverage.sql',
     columns: [
       'requested_family',
@@ -312,7 +312,7 @@ const SECTIONS = Object.freeze([
     id: 'q14-per-family-per-mode-signal-density',
     title: 'Per-family per-mode signal density',
     question:
-      'Q14 — What is the per-(run, possible_key) signal density across all four supported families and both run_modes?',
+      'Q14 — What is the per-(run, possible_key) signal density across all five Subset-backfilled families (A, B, C, D, G) and both run_modes?',
     sqlFile: '14-per-family-per-mode-signal-density.sql',
     columns: [
       'family',
@@ -341,6 +341,22 @@ const SECTIONS = Object.freeze([
     ],
     emptyMessage:
       'No Family D positive results yet. Subset coverage will populate after admin_validation runs produce positives.',
+  },
+  {
+    id: 'q16-family-g-subset-coverage',
+    title: 'Family G 18-key subset coverage',
+    question:
+      'Q16 — Are all observed Family G raw_keys within the 18-key ai_classifier Subset, with zero deterministic-key leaks?',
+    sqlFile: '16-family-g-subset-coverage.sql',
+    columns: [
+      'raw_key',
+      'run_mode',
+      'positive_count',
+      'distinct_arguments',
+      'subset_membership',
+    ],
+    emptyMessage:
+      'No Family G positive results yet. Subset coverage will populate after admin_validation or production runs produce positives.',
   },
 ]);
 

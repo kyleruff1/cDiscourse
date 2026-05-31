@@ -2,12 +2,13 @@
 --
 -- Surfaces run counts and status breakdown across ALL registered families
 -- and both run_modes, providing a single coverage table that captures the
--- 4-family operational state:
+-- 5-family carrier-forward state:
 --   - Family A (parent_relation): production + auto-trigger live + admin_validation
 --   - Family B (disagreement_axis): production + auto-trigger live + admin_validation
 --   - Family C (misunderstanding_repair): production + auto-trigger live + admin_validation
 --   - Family D (evidence_source_chain): admin_validation only (19-key ai_classifier Subset)
---   - Families E-J: unsupported (failed attempts only if any)
+--   - Family G (resolution_progress): production + admin_validation (18-key ai_classifier Subset)
+--   - Families E, F, H-J: see operator notes (E, F production-enabled; H Card-1 admin_validation; I, J unsupported)
 --
 -- Family attribution: unnest(requested_families) so failed runs (which may
 -- have no `results` rows) are still counted under their requested family.
@@ -23,7 +24,8 @@
 --   and run_mode = 'admin_validation'
 -- and read the success_count column.
 --
--- Source-of-truth: docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE.md §2.
+-- Source-of-truth: docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE.md §2;
+--                  docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE.md §3.
 -- Runs standalone via:
 --   npx supabase db query --linked --file scripts/ops/sql/11-per-family-per-mode-coverage.sql
 --
