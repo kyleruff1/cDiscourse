@@ -76,6 +76,19 @@ const DOCTRINE_RISK_FAMILIES = new Set([
   'resolution_progress',
   'family_g',
   'concedes_broader_point',
+  // Family H (claim_clarity). `family_h` is the string detectFamily()
+  // actually emits for a `MCP-SERVER-NNN-FAMILY-H` title (mapFamilyLetterToName
+  // has no H case → default branch → `family_h`); it is the load-bearing alias.
+  // `claim_clarity` is the canonical key name (also covers any doc that
+  // declares `Family: claim_clarity`). `claim_specificity_low` is the H
+  // doctrinal-axis partner key (H's analog of E's `slippery_slope` / F's
+  // `consequence_probability_unclear` / G's `concedes_broader_point` — the
+  // highest verdict-adjacency key: a broad claim is the single H key most
+  // likely to be mis-framed as "weak/vague/lazy/sloppy", per the H Card 1
+  // design § "axis-partner" choice) — added for parallelism.
+  'claim_clarity',
+  'family_h',
+  'claim_specificity_low',
 ]);
 
 /* ------------------------------------------------------------------ */
