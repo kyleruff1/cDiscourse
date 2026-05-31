@@ -57,6 +57,7 @@ export interface RoutingDebate {
 const retryModule = require(`${BO}/classifierDrainerRetryPolicy`) as {
   DRAINER_MAX_ATTEMPTS: number;
   DRAINER_RETRY_BACKOFF_SECONDS: ReadonlyArray<number>;
+  DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS: ReadonlyArray<number>;
   classifyDrainerFailure: (
     reason: BooleanObservationUnavailableReason,
     attemptCount: number,
@@ -67,6 +68,8 @@ const retryModule = require(`${BO}/classifierDrainerRetryPolicy`) as {
 
 export const DRAINER_MAX_ATTEMPTS = retryModule.DRAINER_MAX_ATTEMPTS;
 export const DRAINER_RETRY_BACKOFF_SECONDS = retryModule.DRAINER_RETRY_BACKOFF_SECONDS;
+export const DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS =
+  retryModule.DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS;
 export const classifyDrainerFailure = retryModule.classifyDrainerFailure;
 export const drainerUnavailableReasonToFailureReason =
   retryModule.drainerUnavailableReasonToFailureReason;
@@ -76,10 +79,14 @@ type EnqueueResult = { attemptedFamilies: string[]; ok: boolean };
 const routingModule = require(`${BO}/classifierQueueRouting`) as {
   CLASSIFIER_QUEUE_SMOKE_TAG: string;
   CLASSIFIER_QUEUE_ROUTING_ENABLED_ENV: string;
+  CLASSIFIER_QUEUE_ROUTING_PERCENTAGE_ENV: string;
+  parseRoutingPercentage: (raw: string | null | undefined) => number;
+  stableHashArgumentId: (id: string) => number;
   shouldRouteToQueue: (
     argument: RoutingArgument | null | undefined,
     debate: RoutingDebate | null | undefined,
     enabled: boolean,
+    percentage?: number,
   ) => boolean;
   enqueueClassifierJobs: (
     argumentId: string,
@@ -90,6 +97,10 @@ const routingModule = require(`${BO}/classifierQueueRouting`) as {
 
 export const CLASSIFIER_QUEUE_SMOKE_TAG = routingModule.CLASSIFIER_QUEUE_SMOKE_TAG;
 export const CLASSIFIER_QUEUE_ROUTING_ENABLED_ENV = routingModule.CLASSIFIER_QUEUE_ROUTING_ENABLED_ENV;
+export const CLASSIFIER_QUEUE_ROUTING_PERCENTAGE_ENV =
+  routingModule.CLASSIFIER_QUEUE_ROUTING_PERCENTAGE_ENV;
+export const parseRoutingPercentage = routingModule.parseRoutingPercentage;
+export const stableHashArgumentId = routingModule.stableHashArgumentId;
 export const shouldRouteToQueue = routingModule.shouldRouteToQueue;
 export const enqueueClassifierJobs = routingModule.enqueueClassifierJobs;
 

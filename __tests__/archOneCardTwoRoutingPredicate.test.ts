@@ -69,36 +69,49 @@ describe('ARCH-001 Card 2 — shouldRouteToQueue (DEFAULT DISABLED + smoke-tag)'
   });
 });
 
-describe('ARCH-001 Card 2 — enqueueClassifierJobs (per production family A–G)', () => {
-  /** A stub service client that records every rpc('enqueue_classifier_job') call. */
-  function makeStubClient(opts?: { failOn?: string }) {
-    const calls: Array<{ fn: string; args: Record<string, unknown> }> = [];
+describe('ARCH-001 Card 3 — enqueueClassifierJobs (single multi-row INSERT for A–G)', () => {
+  /**
+   * Stub service client that records `.from(table).insert(rows)` calls. Card 3
+   * replaced 7 sequential `enqueue_classifier_job` RPC calls with a single
+   * multi-row INSERT against `argument_machine_observation_runs` (one
+   * STATEMENT-level trigger fire per submit instead of seven). The stub
+   * deliberately omits `.rpc(...)` so a regression to the per-family RPC
+   * path would throw.
+   */
+  function makeStubClient(opts?: { failOnInsert?: boolean }) {
+    const inserts: Array<{ table: string; rows: ReadonlyArray<Record<string, unknown>> }> = [];
     const client = {
-      rpc(fn: string, args: Record<string, unknown>) {
-        calls.push({ fn, args });
-        if (opts?.failOn && args.p_family === opts.failOn) {
-          return Promise.resolve({ data: null, error: { message: 'boom', code: 'XX000' } });
-        }
-        return Promise.resolve({ data: 'new-run-id', error: null });
+      from(table: string) {
+        return {
+          insert(rows: ReadonlyArray<Record<string, unknown>>) {
+            inserts.push({ table, rows });
+            if (opts?.failOnInsert) {
+              return Promise.resolve({ data: null, error: { message: 'boom', code: 'XX000' } });
+            }
+            return Promise.resolve({ data: null, error: null });
+          },
+        };
       },
     };
-    return { client: client as never, calls };
+    return { client: client as never, inserts };
   }
 
-  it('ENQ-1 — calls enqueue_classifier_job once per production family (A–G), no more', async () => {
-    const { client, calls } = makeStubClient();
+  it('ENQ-1 — calls .from().insert() EXACTLY ONCE (kick coalescing — one statement-level trigger fire)', async () => {
+    const { client, inserts } = makeStubClient();
     const result = await enqueueClassifierJobs('arg-1', 'deb-1', client);
+    expect(inserts.length).toBe(1);
+    expect(inserts[0].table).toBe('argument_machine_observation_runs');
     const families = productionEnabledFamilies();
-    expect(calls.length).toBe(families.length);
+    expect(inserts[0].rows.length).toBe(families.length);
     expect(result.attemptedFamilies).toEqual([...families]);
     expect(result.ok).toBe(true);
   });
 
   it('ENQ-2 — exactly the 7 A–G families are enqueued (no H/I/J)', async () => {
-    const { client, calls } = makeStubClient();
+    const { client, inserts } = makeStubClient();
     await enqueueClassifierJobs('arg-1', 'deb-1', client);
-    const enqueuedFamilies = calls.map((c) => c.args.p_family);
-    expect(enqueuedFamilies.sort()).toEqual(
+    const enqueuedFamilies = inserts[0].rows.map((r) => r.family);
+    expect([...enqueuedFamilies].sort()).toEqual(
       [
         'argument_scheme',
         'critical_question',
@@ -115,30 +128,37 @@ describe('ARCH-001 Card 2 — enqueueClassifierJobs (per production family A–G
     }
   });
 
-  it('ENQ-3 — every enqueue carries run_mode=production + the schema-version constant', async () => {
-    const { client, calls } = makeStubClient();
+  it('ENQ-3 — every inserted row carries argument_id, debate_id, run_mode=production, state=pending, schema_version, and requested_families=[family]', async () => {
+    const { client, inserts } = makeStubClient();
     await enqueueClassifierJobs('arg-1', 'deb-1', client);
-    for (const c of calls) {
-      expect(c.fn).toBe('enqueue_classifier_job');
-      expect(c.args.p_run_mode).toBe('production');
-      expect(c.args.p_schema_version).toBe(MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION);
-      expect(c.args.p_argument_id).toBe('arg-1');
-      expect(c.args.p_debate_id).toBe('deb-1');
+    for (const r of inserts[0].rows) {
+      expect(r.argument_id).toBe('arg-1');
+      expect(r.debate_id).toBe('deb-1');
+      expect(r.run_mode).toBe('production');
+      expect(r.state).toBe('pending');
+      expect(r.schema_version).toBe(MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION);
+      expect(Array.isArray(r.requested_families)).toBe(true);
+      expect((r.requested_families as string[]).length).toBe(1);
+      expect((r.requested_families as string[])[0]).toBe(r.family);
     }
   });
 
-  it('ENQ-4 — a per-family RPC error is swallowed (ok=false) and never throws', async () => {
-    const { client, calls } = makeStubClient({ failOn: 'parent_relation' });
+  it('ENQ-4 — a multi-row INSERT error is swallowed (ok=false) and never throws', async () => {
+    const { client, inserts } = makeStubClient({ failOnInsert: true });
     const result = await enqueueClassifierJobs('arg-1', 'deb-1', client);
     expect(result.ok).toBe(false);
-    // Still attempts every family despite the one error (no early abort).
-    expect(calls.length).toBe(productionEnabledFamilies().length);
+    // Still issues exactly one insert call (no per-family fallback retries).
+    expect(inserts.length).toBe(1);
+    // The diagnostic still reports the families we attempted.
+    expect(result.attemptedFamilies.length).toBe(productionEnabledFamilies().length);
   });
 
-  it('ENQ-5 — calls the SQL function (rpc), never a .from().insert() chain', async () => {
-    // Defensive: enqueue MUST go through the Card-1 SQL function (idempotent
-    // ON CONFLICT), not a raw PostgREST insert. The stub only implements rpc;
-    // if the code tried .from(...), it would throw — assert it does not.
+  it('ENQ-5 — Card 3 INVERTS the prior contract: must use .from().insert(), never per-family .rpc()', async () => {
+    // Defensive: a regression back to 7-call .rpc('enqueue_classifier_job') would
+    // re-introduce the 7-kick fanout the multi-row INSERT is meant to coalesce.
+    // The stub deliberately has NO rpc method — if the code tried .rpc(...), it
+    // would throw and the test would fail with TypeError. Resolve verifies the
+    // code stays on the .from().insert() path.
     const { client } = makeStubClient();
     await expect(enqueueClassifierJobs('arg-1', 'deb-1', client)).resolves.toBeDefined();
   });
