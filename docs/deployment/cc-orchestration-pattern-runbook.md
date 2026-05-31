@@ -5,6 +5,7 @@
 **Why this exists:** the outer phase structure (preflight → write → verify → converge) has been working across ARCH-001 cards. The breakage has been at the inner subagent-spawn boundary — orchestrator prompts haven't been telling each agent what auth context to use, so they fall back to defaults (interactive `supabase login`, anon-key reads against RLS-protected tables, psql binary lookup) that don't work in this environment. The main turn ends up filling 4–6 gaps per workflow. This doc gives the inner template that closes that gap.
 
 ## 1. The core shape
+```
 Main turn:     production writes, gates, secret handling, sequential setup
 ↓
 Subagents:     read-only verification, independent checks, adversarial probes (parallel fan-out)
@@ -12,6 +13,7 @@ Subagents:     read-only verification, independent checks, adversarial probes (p
 Main turn:     collect reports, fill gaps subagents couldn't handle, converge to verdict
 ↓
 Main turn:     closeout (audit doc, status update, disable flags)
+```
 
 Sequential is for anything that writes, holds a secret, or depends on a prior step's output. Parallel is for anything read-only and independent.
 
@@ -33,6 +35,7 @@ Sequential is for anything that writes, holds a secret, or depends on a prior st
 ## 3. Outer prompt skeleton
 
 Use this verbatim as the wrapper for any phase. Fill in CONTEXT / APPROVED WRITES / CONSTRAINTS / VERDICT RULES for the specific phase.
+```
 ULTRACODE+ — [CARD-ID] [PHASE-NAME]
 ORCHESTRATION
 
@@ -66,10 +69,12 @@ VERDICT RULES
 [Explicit convergence: PASS if X, PARTIAL if Y, FAIL if Z]
 CLOSEOUT
 [Audit doc shape, status update, flag disablement]
+```
 
 ## 4. Inner subagent prompt template
 
 This is where deviation has been. Every Task() or Workflow()-spawned subagent prompt MUST include all of these sections, in order. Do not assume the subagent inherits the main turn's tool knowledge or auth context.
+```
 ROLE: [one-line — what this subagent does]
 AUTH SURFACES AVAILABLE
 
@@ -123,6 +128,7 @@ Throwaways under .claude-tmp/ only; never committed.
 
 OUTPUT FORMAT
 {status: 'OK' | 'FAIL' | 'INCONCLUSIVE', evidence: [...], gaps: [...]}
+```
 
 ## 5. Convergence rules — must be explicit per phase
 
