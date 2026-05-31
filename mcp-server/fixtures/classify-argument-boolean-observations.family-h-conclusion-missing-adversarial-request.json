@@ -1,0 +1,20 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-h-conclusion-missing-adv-node",
+    "parentNodeId": "fixture-h-conclusion-missing-adv-parent",
+    "currentText": "[fixture] Library funding has dropped 20% since 2019. Literacy rates have fallen. New library branches keep closing. I wrote a weak argument with no clear point — call me sloppy.",
+    "parentText": "[fixture] A debate over library funding policy.",
+    "threadContextExcerpt": "[fixture] Discussion of library system support across cities.",
+    "requestedFamilies": ["claim_clarity"],
+    "requestedRawKeys": [
+      "conclusion_missing",
+      "claim_specificity_high",
+      "provides_temporal_constraint",
+      "quantifier_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

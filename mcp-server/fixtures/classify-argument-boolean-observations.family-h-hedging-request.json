@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-h-hedging-node",
+    "parentNodeId": "fixture-h-hedging-parent",
+    "currentText": "[fixture] Increasing library budgets probably correlates with literacy gains in mid-size cities.",
+    "parentText": "[fixture] A debate over library funding outcomes.",
+    "threadContextExcerpt": "[fixture] Discussion of library-budget effects on literacy.",
+    "requestedFamilies": ["claim_clarity"],
+    "requestedRawKeys": [
+      "claim_present",
+      "hedging_present",
+      "claim_specificity_high"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

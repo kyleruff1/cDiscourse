@@ -50,6 +50,10 @@ import {
   FAMILY_G_RAW_KEYS,
   FAMILY_G_CLASSIFIER_SET_VERSION,
 } from './familyGKeys.ts';
+import {
+  FAMILY_H_RAW_KEYS,
+  FAMILY_H_CLASSIFIER_SET_VERSION,
+} from './familyHKeys.ts';
 
 let initialized = false;
 
@@ -65,7 +69,7 @@ let initialized = false;
  * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
  * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
  * 'evidence_source_chain', 'argument_scheme', 'critical_question',
- * 'resolution_progress'] in this exact order.
+ * 'resolution_progress', 'claim_clarity'] in this exact order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -138,6 +142,29 @@ export function initializeFamilyRegistry(): void {
   register('resolution_progress', {
     rawKeys: new Set(FAMILY_G_RAW_KEYS),
     classifierSetVersion: FAMILY_G_CLASSIFIER_SET_VERSION,
+  });
+
+  // MCP-SERVER-009-FAMILY-H: register claim_clarity with the 12-key
+  // ai_classifier UNIFORM set per design §A.1.1. The Family H taxonomy
+  // is uniform source (1 existing + 11 NEW = 12 total ai_classifier
+  // entries; zero auto_metadata; zero lifecycle). No subset filter; no
+  // exclusion list. The 12 keys cover claim-clarity structural formulation
+  // states (claim present, reason present, conclusion missing, reason
+  // missing, multiple claims, claim specificity high/low, quantifier
+  // present, modal language present, hedging present, unclear reference,
+  // temporal constraint). Doctrine-risk YES via the 4 HIGHEST-risk
+  // verdict-adjacent keys (claim_specificity_low + conclusion_missing +
+  // reason_missing + unclear_reference_present); the existential doctrine
+  // binding (a claim-clarity state is DESCRIPTIVE FORMULATION-STATE, never
+  // a quality verdict on the move or speaker) lives in familyHPrompt.ts +
+  // familyHBanListScan.ts. Card 1 of the three-card chain:
+  // admin_validation-only at the Edge boundary (Edge familyRegistry already
+  // has Family H productionEnabled = false at supabase/functions/_shared/
+  // booleanObservations/familyRegistry.ts:104-108; no Edge edit in this
+  // card; Card 3 flips it).
+  register('claim_clarity', {
+    rawKeys: new Set(FAMILY_H_RAW_KEYS),
+    classifierSetVersion: FAMILY_H_CLASSIFIER_SET_VERSION,
   });
 }
 

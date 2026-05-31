@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-h-1",
+  "checkedRawKeys": ["claim_specificity_low"],
+  "observations": {
+    "claim_specificity_low": true
+  },
+  "confidence": {
+    "claim_specificity_low": "high"
+  },
+  "evidenceSpan": {
+    "claim_specificity_low": "the claim is weak and the speaker is sloppy"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-h-v1"
+  }
+}

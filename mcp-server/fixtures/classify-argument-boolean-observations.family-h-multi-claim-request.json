@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-h-multi-claim-node",
+    "parentNodeId": "fixture-h-multi-claim-parent",
+    "currentText": "[fixture] EVs reduce pollution AND lower fuel costs.",
+    "parentText": "[fixture] A debate over EV adoption policy.",
+    "threadContextExcerpt": "[fixture] Discussion of EV economic and environmental effects.",
+    "requestedFamilies": ["claim_clarity"],
+    "requestedRawKeys": [
+      "multiple_claims_present",
+      "claim_present",
+      "reason_missing"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

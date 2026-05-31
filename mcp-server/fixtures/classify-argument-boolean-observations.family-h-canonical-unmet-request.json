@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-h-canonical-unmet-node",
+    "parentNodeId": "fixture-h-canonical-unmet-parent",
+    "currentText": "[fixture] Carbon taxes work.",
+    "parentText": "[fixture] A debate over whether carbon taxes reduce emissions generally.",
+    "threadContextExcerpt": "[fixture] Discussion of carbon-tax effectiveness across jurisdictions.",
+    "requestedFamilies": ["claim_clarity"],
+    "requestedRawKeys": [
+      "claim_present",
+      "claim_specificity_low",
+      "reason_missing"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

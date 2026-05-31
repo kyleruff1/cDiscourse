@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H).
 #
-# Verifies the deployed (or locally-running) MCP server against the 21 checks:
+# Verifies the deployed (or locally-running) MCP server against the 23 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -14,6 +14,9 @@
 #   - Checks 20-21: MCP-SERVER-008-FAMILY-G (Family G 18-key ai_classifier
 #                   Subset — resolution_progress; descriptive convergence-state,
 #                   never a verdict)
+#   - Checks 22-23: MCP-SERVER-009-FAMILY-H (Family H 12-key ai_classifier
+#                   uniform set — claim_clarity; descriptive formulation-state,
+#                   never a quality verdict)
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -25,7 +28,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 21 checks passed
+#   0 — all 23 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -38,9 +41,9 @@
 #     boolean tool (Checks 5 + 9), Family B boolean tool (Checks 10 + 11),
 #     Family C boolean tool (Checks 12 + 13), Family D boolean tool
 #     (Checks 14 + 15), Family E boolean tool (Checks 16 + 17), Family F
-#     boolean tool (Checks 18 + 19), AND Family G boolean tool
-#     (Checks 20 + 21) ALSO work against the
-#     fixture provider when the same env is set.
+#     boolean tool (Checks 18 + 19), Family G boolean tool
+#     (Checks 20 + 21), AND Family H boolean tool (Checks 22 + 23) ALSO work
+#     against the fixture provider when the same env is set.
 #     Real Anthropic calls happen ONLY in production (when the env is not
 #     set AND ANTHROPIC_API_KEY is present).
 
@@ -593,6 +596,48 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "Expected real Family G tool result. Got: $RESPONSE"
+fi
+
+# ── Check 22: POST /mcp/adapter-compat boolean classify_argument_boolean_observations (Family H) ──
+# MCP-SERVER-009-FAMILY-H. Mirrors Checks 20+21 but for Family H
+# (claim_clarity). The request body uses a benign claim-clarity move and
+# requests the 4 HIGHEST-risk keys + claim_specificity_high to exercise the
+# doctrine-risky path. The response MUST contain "family-h-v1" in
+# modelInfo.classifierSetVersion.
+CHECK_NAME="22-compat-boolean-family-h"
+BOOLEAN_H_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-h-001","parentNodeId":"fixture-node-parent-h-001","currentText":"[fixture] Carbon taxes reduce emissions in BC and Sweden because the 2015-2020 data show a 12% sustained delta in jurisdictions with stable enforcement.","parentText":"[fixture] A debate over whether carbon taxes reduce emissions generally.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["claim_clarity"],"requestedRawKeys":["claim_specificity_low","conclusion_missing","reason_missing","unclear_reference_present","claim_specificity_high"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family H)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_H_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-h-v1"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family H response shape. Got: $RESPONSE"
+fi
+
+# ── Check 23: POST /mcp tools/call classify_argument_boolean_observations (Family H) ──
+# MCP-SERVER-009-FAMILY-H. Same body + same assertion pattern as Check 22, but via
+# the official MCP /mcp endpoint with JSON-RPC envelope.
+CHECK_NAME="23-mcp-tools-call-boolean-family-h"
+BOOLEAN_H_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-9","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-h-001","parentNodeId":"fixture-node-parent-h-001","currentText":"[fixture] Carbon taxes reduce emissions in BC and Sweden because the 2015-2020 data show a 12% sustained delta in jurisdictions with stable enforcement.","parentText":"[fixture] A debate over whether carbon taxes reduce emissions generally.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["claim_clarity"],"requestedRawKeys":["claim_specificity_low","conclusion_missing","reason_missing","unclear_reference_present","claim_specificity_high"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations Family H)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_H_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-h-v1"' \
+     && contains "$RESPONSE" '"isError":false'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family H tool result. Got: $RESPONSE"
 fi
 
 echo

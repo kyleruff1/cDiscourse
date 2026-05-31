@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-h-malformed-node",
+  "checkedRawKeys": ["claim_specificity_low"],
+  "observations": {
+    "claim_specificity_low": "not-a-boolean"
+  },
+  "confidence": {
+    "claim_specificity_low": "high"
+  },
+  "evidenceSpan": {
+    "claim_specificity_low": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-h-v1"
+  }
+}

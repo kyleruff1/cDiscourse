@@ -1,0 +1,21 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-h-canonical-met-node",
+    "parentNodeId": "fixture-h-canonical-met-parent",
+    "currentText": "[fixture] Carbon taxes reduce emissions in BC and Sweden because the 2015-2020 data show a 12% sustained delta in jurisdictions with stable enforcement.",
+    "parentText": "[fixture] A debate over whether carbon taxes reduce emissions generally.",
+    "threadContextExcerpt": "[fixture] Discussion of carbon-tax effectiveness across jurisdictions.",
+    "requestedFamilies": ["claim_clarity"],
+    "requestedRawKeys": [
+      "claim_present",
+      "reason_present",
+      "claim_specificity_high",
+      "quantifier_present",
+      "provides_temporal_constraint"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

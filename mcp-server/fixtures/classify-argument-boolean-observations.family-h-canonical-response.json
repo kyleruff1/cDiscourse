@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-h-canonical-node",
+  "checkedRawKeys": [
+    "provides_temporal_constraint",
+    "claim_present",
+    "reason_present",
+    "conclusion_missing",
+    "reason_missing",
+    "multiple_claims_present",
+    "claim_specificity_high",
+    "claim_specificity_low",
+    "quantifier_present",
+    "modal_language_present",
+    "hedging_present",
+    "unclear_reference_present"
+  ],
+  "observations": {
+    "provides_temporal_constraint": true,
+    "claim_present": true,
+    "reason_present": true,
+    "conclusion_missing": false,
+    "reason_missing": false,
+    "multiple_claims_present": false,
+    "claim_specificity_high": true,
+    "claim_specificity_low": false,
+    "quantifier_present": true,
+    "modal_language_present": false,
+    "hedging_present": false,
+    "unclear_reference_present": false
+  },
+  "confidence": {
+    "provides_temporal_constraint": "high",
+    "claim_present": "high",
+    "reason_present": "high",
+    "conclusion_missing": "medium",
+    "reason_missing": "medium",
+    "multiple_claims_present": "medium",
+    "claim_specificity_high": "high",
+    "claim_specificity_low": "medium",
+    "quantifier_present": "high",
+    "modal_language_present": "medium",
+    "hedging_present": "medium",
+    "unclear_reference_present": "medium"
+  },
+  "evidenceSpan": {
+    "provides_temporal_constraint": "the 2015-2020 data",
+    "claim_present": "Carbon taxes reduce emissions in BC and Sweden",
+    "reason_present": "because the 2015-2020 data show a 12% sustained delta",
+    "conclusion_missing": null,
+    "reason_missing": null,
+    "multiple_claims_present": null,
+    "claim_specificity_high": "in BC and Sweden",
+    "claim_specificity_low": null,
+    "quantifier_present": "12%",
+    "modal_language_present": null,
+    "hedging_present": null,
+    "unclear_reference_present": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-h-v1"
+  }
+}
