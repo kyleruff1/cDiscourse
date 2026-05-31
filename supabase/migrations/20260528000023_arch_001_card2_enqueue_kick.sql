@@ -278,11 +278,17 @@ COMMENT ON FUNCTION public.arch_001_kick_classifier_drainer() IS
 -- THEN schedule the 60s safety tick (LOCKED 60s interval — design §A.5; the
 -- enqueue-kick gives sub-second latency on the happy path, so the tick need
 -- not be sub-minute). The cron command reads the SAME Vault secrets at run
--- time, so no secret appears in cron.job either:
+-- time, so no secret appears in cron.job either.
+--
+-- pg_cron schedule syntax NOTE: use the standard 5-field cron expression
+-- '* * * * *' (every minute = 60s between ticks). pg_cron's *interval* format
+-- is restricted to '[1-59] seconds' and REJECTS '60 seconds' with
+-- 22023 invalid_schedule. The two forms give the same operational cadence
+-- here; the standard cron form is the locked one.
 --
 --   SELECT cron.schedule(
 --     'arch-001-classifier-drain-tick',
---     '60 seconds',
+--     '* * * * *',
 --     $CRON$
 --       SELECT net.http_post(
 --         url     := (SELECT decrypted_secret FROM vault.decrypted_secrets
