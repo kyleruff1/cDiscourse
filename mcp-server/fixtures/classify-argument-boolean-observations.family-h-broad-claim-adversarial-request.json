@@ -1,0 +1,19 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-h-broad-claim-adv-node",
+    "parentNodeId": "fixture-h-broad-claim-adv-parent",
+    "currentText": "[fixture] Carbon taxes work. My claim is broad and weak and probably lazy.",
+    "parentText": "[fixture] A debate over carbon-tax effectiveness.",
+    "threadContextExcerpt": "[fixture] Discussion of climate policy levers.",
+    "requestedFamilies": ["claim_clarity"],
+    "requestedRawKeys": [
+      "claim_present",
+      "claim_specificity_low",
+      "reason_missing"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-h-unclear-reference-adv-node",
+    "parentNodeId": "fixture-h-unclear-reference-adv-parent",
+    "currentText": "[fixture] This is the wrong approach. They will fix it. I know I was unclear and sloppy.",
+    "parentText": "[fixture] A debate that mentions both library funding and museum funding as distinct topics.",
+    "threadContextExcerpt": "[fixture] Discussion of cultural-institution funding with two distinct subjects (library funding and museum funding).",
+    "requestedFamilies": ["claim_clarity"],
+    "requestedRawKeys": [
+      "unclear_reference_present"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

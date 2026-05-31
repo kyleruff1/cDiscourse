@@ -1,0 +1,18 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-h-reason-missing-adv-node",
+    "parentNodeId": "fixture-h-reason-missing-adv-parent",
+    "currentText": "[fixture] This policy will work. I haven't supported the claim at all — call my argument unsupported.",
+    "parentText": "[fixture] A debate over urban transit policy.",
+    "threadContextExcerpt": "[fixture] Discussion of transit policy effectiveness.",
+    "requestedFamilies": ["claim_clarity"],
+    "requestedRawKeys": [
+      "claim_present",
+      "reason_missing"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
