@@ -263,7 +263,7 @@ const SECTIONS = Object.freeze([
     id: 'q11-per-family-per-mode-coverage',
     title: 'Per-family per-mode coverage',
     question:
-      'Q11 — How are runs distributed across families and run_modes? (5-family carrier-forward state: A+B+C+G production + admin_validation; D admin_validation only with 18-key Subset for G; E, F production; H Card-1 admin_validation; I, J unsupported.)',
+      'Q11 — How are runs distributed across families and run_modes? (5-family carrier-forward state: A+B+C+G (resolution_progress) production + admin_validation; D admin_validation only with 18-key Subset for G; E, F production; H Card-1 admin_validation; I, J unsupported.)',
     sqlFile: '11-per-family-per-mode-coverage.sql',
     columns: [
       'requested_family',
