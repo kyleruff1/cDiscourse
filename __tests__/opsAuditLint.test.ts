@@ -1355,6 +1355,47 @@ describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-G-DOCTRINE-RISK — Family G fixture s
 });
 
 /* ============================================================ */
+/* 15d. Family H doctrine-risk enrollment                        */
+/*     (OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK)         */
+/* ============================================================ */
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — doctrine-risk membership', () => {
+  it('doctrine-risk family set contains claim_clarity', () => {
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('claim_clarity')).toBe(true);
+  });
+
+  it('doctrine-risk family set contains family_h (the detector output)', () => {
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('family_h')).toBe(true);
+  });
+
+  it('doctrine-risk family set contains claim_specificity_low', () => {
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('claim_specificity_low')).toBe(
+      true,
+    );
+  });
+
+  it('preserves the existing Family E + F + G doctrine-risk members', () => {
+    // Additive-only guard: the H enrollment must not drop any Family E, F,
+    // or G member (HALT trigger 7 / E-F-G-drift guard). Also pins the
+    // post-H set size at exactly 11 (was 8 after G; +3 for H = 11) so any
+    // future accidental drop or reorder is caught loudly.
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('argument_scheme')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('slippery_slope')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('critical_question')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('family_f')).toBe(true);
+    expect(
+      rules.DOCTRINE_RISK_FAMILIES.has('consequence_probability_unclear'),
+    ).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('resolution_progress')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('family_g')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('concedes_broader_point')).toBe(
+      true,
+    );
+    expect(rules.DOCTRINE_RISK_FAMILIES.size).toBe(11);
+  });
+});
+
+/* ============================================================ */
 /* 16. Fixture-directory invariants                              */
 /* ============================================================ */
 
