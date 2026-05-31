@@ -6,13 +6,14 @@
 -- Density = total_positive_observations / (run_count × family_key_count)
 --
 -- family_key_count is hardcoded per family from the binding contract
--- in mcp-server/lib/family[ABCD]Keys.ts (Subset path for Family D per
+-- in mcp-server/lib/family[ABCDG]Keys.ts (Subset path for Family D + G per
 -- operator Stage 2B decision):
 --   - parent_relation         16   mcp-server/lib/familyAKeys.ts:49
 --   - disagreement_axis       14   mcp-server/lib/familyBKeys.ts:53
 --   - misunderstanding_repair 17   mcp-server/lib/familyCKeys.ts:61
 --   - evidence_source_chain   19   mcp-server/lib/familyDKeys.ts:85 (Subset; 8 deterministic excluded)
---   - others (E-J)             0   no MCP-supported keys
+--   - resolution_progress     18   mcp-server/lib/familyGKeys.ts:99 (Subset; 12 deterministic excluded)
+--   - others (E, F, H-J)       0   not yet backfilled (E, F coverage cards queued; H Card-1 landed 2026-05-30; I, J no MCP support)
 --
 -- Use cases:
 --   - Compare Family D's 19-key admin_validation density to Family A's
@@ -29,7 +30,8 @@
 -- machine-taxonomy values; the report does NOT label a family as
 -- "over-firing" or "under-firing" (per cdiscourse-doctrine §1).
 --
--- Source-of-truth: docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE.md §3.
+-- Source-of-truth: docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE.md §3;
+--                  docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE.md §4.
 -- Runs standalone via:
 --   npx supabase db query --linked --file scripts/ops/sql/14-per-family-per-mode-signal-density.sql
 with run_to_family as (
@@ -58,6 +60,7 @@ keyed as (
       when 'disagreement_axis' then 14
       when 'misunderstanding_repair' then 17
       when 'evidence_source_chain' then 19
+      when 'resolution_progress' then 18
       else 0
     end as family_key_count
   from run_to_family
