@@ -8,9 +8,9 @@
 
 ## What this is
 
-A read-only operator script that runs 16 SQL queries against the
+A read-only operator script that runs 17 SQL queries against the
 linked Supabase project and emits a doctrine-safe markdown + JSON
-report answering 15 telemetry questions about the multi-family MCP
+report answering 16 telemetry questions about the multi-family MCP
 classifier (`argument_machine_observation_runs` +
 `argument_machine_observation_results`).
 
@@ -78,7 +78,7 @@ node scripts/ops/mcp-observability-report.mjs --help
 
 ## How to interpret the report
 
-The report has 15 sections, one per telemetry question, plus a
+The report has 16 sections, one per telemetry question, plus a
 Source 6 safety summary header, Appendix A (family registry), and
 Appendix B (doctrine scan note).
 
@@ -135,8 +135,11 @@ confidence band counts (high/medium/low).
 
 ### Q6 — Top positive raw_keys by family
 
-Surfaces the concentration of positive signal across the 66 supported
-raw_keys (Family A=16, B=14, C=17, D=19).
+Surfaces the concentration of positive signal across the 84 supported
+raw_keys (Family A=16, B=14, C=17, D=19, G=18). Family E (16 keys), F
+(14 keys), and H (12 keys) are queued behind their respective
+observability backfill cards; until then their density renders as
+`null` and their raw_keys are not counted in the total.
 
 **Healthy state:**
 - Top raw_keys are well-distributed (no single key dominating without
@@ -187,17 +190,21 @@ indicating the auto-trigger is alive.
 
 ### Q11 — Per-family per-mode coverage
 
-Reframed by OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE (Card 1 of 3). The
-section now surfaces run counts and status breakdown across ALL
-registered families and both run_modes, providing a single coverage
-table that captures the 4-family operational state:
+Reframed by OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE (Card 1 of 3) and
+extended by OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE. The section now
+surfaces run counts and status breakdown across ALL registered
+families and both run_modes, providing a single coverage table that
+captures the 5-family carrier-forward state:
 
 - Family A (`parent_relation`): production + auto-trigger + admin_validation
 - Family B (`disagreement_axis`): production + admin_validation
 - Family C (`misunderstanding_repair`): production + admin_validation
 - Family D (`evidence_source_chain`): admin_validation only (19-key
   ai_classifier Subset)
-- Families E-J: unsupported (failed attempts surface as zero-positive runs)
+- Family G (`resolution_progress`): production + admin_validation
+  (18-key ai_classifier Subset)
+- Families E, F, H-J: see operator notes (E, F production-enabled;
+  H Card-1 admin_validation; I, J unsupported)
 
 Columns: `requested_family`, `run_mode`, `run_count`, `success_count`,
 `failed_count`, `fallback_count`.
@@ -245,6 +252,8 @@ Compare `raw_keys_observed` against the expected:
 - Family C (misunderstanding_repair): 17 keys
 - Family D (evidence_source_chain): 19 keys (Subset; 8 deterministic
   excluded)
+- Family G (resolution_progress): 18 keys (Subset; 12 deterministic
+  excluded)
 
 The report does NOT label any family as "over-firing" or "under-firing"
 in its output — the section title mirrors the operator's §6 question
@@ -267,7 +276,8 @@ in `mcp-server/lib/family[ABCD]Keys.ts`:
 | disagreement_axis | 14 | mcp-server/lib/familyBKeys.ts:53 |
 | misunderstanding_repair | 17 | mcp-server/lib/familyCKeys.ts:61 |
 | evidence_source_chain | 19 | mcp-server/lib/familyDKeys.ts:85 (Subset; 8 deterministic excluded) |
-| others (E-J) | 0 | no MCP-supported keys |
+| resolution_progress | 18 | mcp-server/lib/familyGKeys.ts:99 (Subset; 12 deterministic excluded) |
+| others (E, F, H-J) | 0 | not yet backfilled (E/F observability cards queued; H Card 1 landed 2026-05-30) |
 
 `nullif(runs * family_key_count, 0)` handles zero-runs and unsupported
 families gracefully (density renders as `null` / `—`).
@@ -325,6 +335,64 @@ security-adjacent finding lands at the top of the section.
 
 A non-zero `deterministic_excluded_leak` count is a security-adjacent
 finding worth surfacing for operator investigation.
+
+### Q16 — Family G 18-key subset coverage
+
+Added by OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE (sibling card to
+D-COVERAGE). Family-G-scoped query that verifies the Stage-2B
+Subset-path contract holds in the persisted data for
+`resolution_progress`.
+
+**The 18-vs-30 distinction (binding context):**
+
+Family G (`resolution_progress`) has 30 entries in the upstream Edge
+taxonomy registry (`src/features/nodeLabels/machineObservationDefinitions/familyG.ts`):
+
+- **18 ai_classifier-source rawKeys** (the "Subset") — routed to the
+  MCP server per the Stage 2B operator decision.
+- **12 deterministic rawKeys** split across `auto_metadata` (5) and
+  `lifecycle` (7) — intentionally excluded from the MCP path. A future
+  Edge/app-side card will compute these app-side without an Anthropic
+  call.
+
+Source-of-truth files:
+- 18-key list: `mcp-server/lib/familyGKeys.ts:99-118` (`FAMILY_G_RAW_KEYS`)
+- excluded list: `mcp-server/lib/familyGKeys.ts:136-151`
+  (`FAMILY_G_EXCLUDED_DETERMINISTIC_RAW_KEYS`)
+
+**Disambiguation footnote:** Family G has intentional name-pairs
+across sources. `narrows_claim` (ai_classifier, move-intrinsic) is
+distinct from `narrowed` (lifecycle, cluster state).
+`concedes_narrow_point` (ai_classifier) is distinct from `conceded`
+(lifecycle). `ready_for_synthesis` (ai_classifier, move) is distinct
+from `synthesis_ready` (lifecycle, cluster) which is distinct from
+`synthesis_candidate` (auto_metadata). The MCP subset takes ONLY the
+ai_classifier member of each pair.
+
+**`subset_membership` values:** (same 3 values as Q15)
+
+| Value | Meaning |
+| --- | --- |
+| `ai_classifier_subset` | The observed raw_key is in the 18-key Subset — expected and healthy. |
+| `deterministic_excluded_leak` | The observed raw_key is one of the 12 deterministic-excluded strings — would indicate a leak from somewhere outside the MCP path. Expected count: 0. |
+| `unknown_key_outside_taxonomy` | The observed raw_key is neither in the Subset nor in the excluded list — would indicate a registry-vs-DB inconsistency or a stale row. |
+
+**ORDER BY** prioritizes `deterministic_excluded_leak` first so any
+security-adjacent finding lands at the top of the section.
+
+**Healthy state:** all rows have `subset_membership =
+'ai_classifier_subset'`; zero `deterministic_excluded_leak` rows; zero
+`unknown_key_outside_taxonomy` rows.
+
+**Doctrine note (Family G specific):** Family G's concession /
+synthesis / settlement keys (`concedes_broader_point`,
+`concedes_narrow_point`, `accepts_settlement_terms`,
+`synthesis_proposed`, etc.) are SCORING REPAIRS per
+`point-standing-economy`, NEVER defeats. A high positive count for
+`concedes_broader_point` is a structural observation of relinquishment,
+NOT a verdict that one side lost. The report's section title and
+ORDER BY logic carry no verdict overlay; the operator interprets per
+`cdiscourse-doctrine §1`.
 
 ---
 
