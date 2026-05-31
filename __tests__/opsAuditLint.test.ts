@@ -1395,6 +1395,124 @@ describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — doctrine-risk memb
   });
 });
 
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — detectFamily A.1-trap pin', () => {
+  it('a MCP-SERVER-009-FAMILY-H title detects as family_h (NOT claim_clarity)', () => {
+    // Load-bearing: the title letter H has no case in mapFamilyLetterToName,
+    // so it falls through to the default branch -> `family_h`. If a future
+    // refactor adds an H case (changing the emitted string) this pin fails
+    // loudly rather than silently un-arming L5.
+    expect(
+      detectFamily(
+        '# MCP-SERVER-009-FAMILY-H-SMOKE — Post-merge audit',
+        'Phase 4b deferred.',
+      ),
+    ).toBe('family_h');
+  });
+});
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — L5 fires for family_h', () => {
+  it('fires on a family_h audit with verdict PASS and no evidence_span mention', () => {
+    const doc = buildFamilyShipDoc({
+      titleOverride: '# MCP-SERVER-009-FAMILY-H-SMOKE — synthetic',
+      phases: [['Phase 1 — Pre-flight', 'PASS']],
+      verdict: 'PASS',
+    });
+    const result = lintAuditDoc(doc);
+    expect(result.findings.some((f) => f.rule === 'L5')).toBe(true);
+  });
+
+  it('does NOT fire on a family_h audit that inspects evidence_span', () => {
+    const doc = buildFamilyShipDoc({
+      titleOverride: '# MCP-SERVER-009-FAMILY-H-SMOKE — synthetic',
+      phases: [
+        [
+          'Phase 1 — Pre-flight',
+          'PASS',
+          'SELECT raw_key, confidence, evidence_span FROM argument_machine_observation_results;',
+        ],
+      ],
+      verdict: 'PASS',
+    });
+    const result = lintAuditDoc(doc);
+    expect(result.findings.some((f) => f.rule === 'L5')).toBe(false);
+  });
+
+  it('family_h PASS audit that names evidence_span does NOT fail L5 (consistent-PASS regression)', () => {
+    // A doctrine-risk H audit with verdict PASS that names the persisted
+    // evidence_span inspection (either as a SELECT query, a table header, a
+    // `persisted evidence` phrase, or a `direct-output inspection` phrase)
+    // must NOT false-fail L5. L5 is verdict-blind; the mention is what
+    // satisfies hasInspection. This documents the consistent-PASS mechanism
+    // independently of the static fixture.
+    const doc = buildFamilyShipDoc({
+      titleOverride: '# MCP-SERVER-009-FAMILY-H-SMOKE — synthetic',
+      phases: [
+        ['Phase 1 — Pre-flight', 'PASS'],
+        [
+          'Phase 4b — Adversarial doctrine verification',
+          'PASS',
+          'Persisted evidence_span readback re-affirmed clean against the H ban-list.',
+        ],
+      ],
+      verdict: 'PASS',
+    });
+    const result = lintAuditDoc(doc);
+    expect(result.findings.some((f) => f.rule === 'L5')).toBe(false);
+  });
+});
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — Family H fixture self-validation', () => {
+  it('family-h-original-PASS PASSES as exit 0 (Card 1 H smoke baseline; family: null due to title-format quirk)', () => {
+    // Load-bearing on-main-preservation regression guard: the Card 1 H smoke
+    // audit on main uses a non-canonical title format (`# MCP-SERVER-009
+    // Family H smoke — 2026-05-31`, space-separated, lower-case) that does
+    // NOT match the family-letter regex. The detector returns `family: null`
+    // / `auditType: unknown` → L5 is unreachable → exit 0. This fixture pins
+    // that on-main lint outcome verbatim so any future linter/title-format
+    // regression is caught. NOTE: this PASS is NOT a doctrine satisfaction;
+    // it is a title-format-quirk consequence (see README "H title-format
+    // trap" note).
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-h-original-PASS.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+    expect(result.parsed.family).toBe(null);
+    expect(result.parsed.auditType).toBe('unknown');
+  });
+
+  it('family-h-amendment-PASS PASSES (representative H amendment with persisted inspection)', () => {
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-h-amendment-PASS.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+    expect(result.parsed.family).toBe('family_h');
+  });
+
+  it('family-h-IMPROPER-PASS-no-evidence-span FAILS on L5 ONLY (the teeth proof)', () => {
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-h-IMPROPER-PASS-no-evidence-span.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(1);
+    const ruleIds = result.findings.map((f) => f.rule);
+    // L5 is the doctrine-risk teeth: verdict PASS + Family H + no evidence_span.
+    expect(ruleIds).toContain('L5');
+    // Teeth-precision: ONLY L5 trips. The synthetic is amendment-typed (empty
+    // required-phase set -> no L1), has no L2 indirect-proof phrase, and its L6
+    // provenance is intact -> none of L1/L2/L6 fire.
+    expect(ruleIds).not.toContain('L1');
+    expect(ruleIds).not.toContain('L2');
+    expect(ruleIds).not.toContain('L6');
+  });
+});
+
 /* ============================================================ */
 /* 16. Fixture-directory invariants                              */
 /* ============================================================ */
