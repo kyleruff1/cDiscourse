@@ -2,7 +2,7 @@
  * OPS-MCP-OBSERVABILITY — Empty-DB safety test.
  *
  * Drives the stitcher with `rows: []` for every section and asserts:
- *   - The markdown report contains all 16 section headings.
+ *   - The markdown report contains all 17 section headings.
  *   - Each section emits its `emptyMessage` line.
  *   - No `NaN`, `undefined`, or unhandled-promise output appears.
  *   - The JSON artifact has `sections[i].rows: []` for each section.
@@ -47,7 +47,7 @@ describe('OPS-MCP-OBSERVABILITY — empty-DB safety', () => {
     expect(md.length).toBeGreaterThan(100);
   });
 
-  it('markdown contains all 16 section titles even when every section is empty', () => {
+  it('markdown contains all 17 section titles even when every section is empty', () => {
     const md = stitchMarkdownReport(baseArgs);
     for (const s of SECTIONS) {
       expect(md).toContain(`## ${s.title}`);
@@ -90,8 +90,8 @@ describe('OPS-MCP-OBSERVABILITY — empty-DB safety', () => {
     }
   });
 
-  it('JSON artifact still has 16 sections even when all are empty', () => {
+  it('JSON artifact still has 17 sections even when all are empty', () => {
     const json = buildJsonArtifact(baseArgs);
-    expect(json.sections.length).toBe(16);
+    expect(json.sections.length).toBe(17);
   });
 });
