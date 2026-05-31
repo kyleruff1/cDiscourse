@@ -5,7 +5,7 @@
 **Card type:** Edge production-mode flip — ONE boolean character change on Family H's entry in `supabase/functions/_shared/booleanObservations/familyRegistry.ts` (`productionEnabled: false → true`). Closes the Family H chain.
 **Suite:** Card 1 (MCP-SERVER-009-FAMILY-H) → Gate A → Card 2 (audit-lint L5 family_h) → Gate B → **Card 3 (this card, production-enable)** → smoke PASS → 8 production families.
 **Predecessor:** Card 1 merged + smoke PASS; Card 2 merged + smoke PASS. Family H operational on hosted MCP in admin_validation mode; `DOCTRINE_RISK_FAMILIES` Set on main contains `family_h` (L5 CI-mechanical for Card C smoke).
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #391.
 
 ---
 

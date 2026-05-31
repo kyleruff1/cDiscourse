@@ -5,7 +5,7 @@
 **Card type:** Audit-lint DATA-only — append `family_i` (+ `thread_topology` + the highest-doctrine-risk I classifier key, if any) to `DOCTRINE_RISK_FAMILIES` Set in `scripts/ops/audit-lint-rules.cjs`.
 **Suite:** Card 1 (MCP-SERVER-010-FAMILY-I) → Gate A → **Card 2 (this card; CONDITIONAL)** → Gate B → Card 3 (MCP-021C-EDGE-FAMILY-I-ENABLE).
 **Predecessor:** Card 1 smoke PASS. `family_i` MCP server family operational in admin_validation mode.
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #393.
 
 > **CONDITIONAL CARD.** Per Family I server intent §3 + §D11: if Card 1 A.1 finds Family I doctrine-risk = LOW, this card may be SKIPPED (chain reduces to 2 cards). Designer A.1's doctrine-risk verdict drives whether this card ships.
 

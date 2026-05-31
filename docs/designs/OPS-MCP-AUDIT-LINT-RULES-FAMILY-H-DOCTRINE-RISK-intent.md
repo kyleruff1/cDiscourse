@@ -5,7 +5,7 @@
 **Card type:** Audit-lint DATA-only — append `family_h` (+ `claim_clarity` + the highest-doctrine-risk H classifier key) to `DOCTRINE_RISK_FAMILIES` Set in `scripts/ops/audit-lint-rules.cjs` so L5 enforcement fires on every Family H smoke audit doc going forward.
 **Suite:** Card 1 (MCP-SERVER-009-FAMILY-H, admin ship) → Gate A (smoke PASS) → **Card 2 (this card, L5 mechanization)** → Gate B (smoke PASS) → Card 3 (MCP-021C-EDGE-FAMILY-H-ENABLE, production-enable).
 **Predecessor:** Card 1 smoke PASS on main; `family_h` MCP server family operational in admin_validation mode.
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED: capture from Phase 4 of OPS-WORKFLOW-RESTORATION-MCP-FAMILY-TRACK]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #390.
 
 ---
 

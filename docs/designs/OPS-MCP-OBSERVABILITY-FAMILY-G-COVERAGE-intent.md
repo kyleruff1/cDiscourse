@@ -4,7 +4,7 @@
 **Date:** 2026-05-31
 **Card type:** Observability SQL + manifest update — backfill Family G into the `scripts/ops/sql/` per-family observability set. Trivial follow-up to a previously-merged production-enable card.
 **Predecessor:** MCP-021C-EDGE-FAMILY-G-ENABLE merged on main (2026-05-29). Family G is in production; observability is the catch-up.
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED: capture from Phase 4 of OPS-WORKFLOW-RESTORATION]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #395.
 
 > Replicates the `OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE` precedent. The card should have shipped immediately after Family G production-enabled; this brief records the queued state and the work needed when CC resumes implementer work.
 

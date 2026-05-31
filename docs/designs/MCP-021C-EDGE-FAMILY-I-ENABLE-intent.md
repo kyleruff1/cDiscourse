@@ -5,7 +5,7 @@
 **Card type:** Edge production-mode flip — ONE boolean character change on Family I's entry in `supabase/functions/_shared/booleanObservations/familyRegistry.ts`.
 **Suite:** Card 1 (MCP-SERVER-010-FAMILY-I) → Gate A → Card 2 (CONDITIONAL: audit-lint L5) → Gate B → **Card 3 (this card)**.
 **Predecessor:** Card 1 merged + smoke PASS; Card 2 merged + smoke PASS (or SKIPPED if doctrine-risk LOW). Family I operational on hosted MCP in admin_validation mode.
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #394.
 
 ---
 

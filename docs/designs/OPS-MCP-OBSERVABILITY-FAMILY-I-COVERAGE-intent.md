@@ -4,7 +4,7 @@
 **Date:** 2026-05-31
 **Card type:** Observability SQL + manifest update — extend per-family observability set with Family I.
 **Predecessor:** MCP-021C-EDGE-FAMILY-I-ENABLE merged + smoke PASS. Family I production-enabled.
-**Trail:** Umbrella issue # [OPERATOR DECISION NEEDED]. Card issue # TBD.
+**Trail:** Umbrella issue #388. Card issue #397.
 
 > Status: **queued; do not implement until MCP-021C-EDGE-FAMILY-I-ENABLE has merged + smoke PASS.**
 
