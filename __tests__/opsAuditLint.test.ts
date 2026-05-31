@@ -1411,6 +1411,9 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — fixture-directory invariants', ()
     'family-g-original-PARTIAL.md',
     'family-g-amendment-PASS.md',
     'family-g-IMPROPER-PASS-no-evidence-span.md',
+    'family-h-original-PASS.md',
+    'family-h-amendment-PASS.md',
+    'family-h-IMPROPER-PASS-no-evidence-span.md',
   ];
 
   it('README.md exists with required exclusion-contract content', () => {
@@ -1431,11 +1434,11 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — fixture-directory invariants', ()
     }
   });
 
-  it('fixture count is exactly 10', () => {
+  it('fixture count is exactly 13', () => {
     const mdFiles = fs
       .readdirSync(FIXTURE_DIR)
       .filter((n) => n.endsWith('.md') && n !== 'README.md');
-    expect(mdFiles).toHaveLength(10);
+    expect(mdFiles).toHaveLength(13);
     expect(mdFiles.sort()).toEqual([...FIXTURE_FILES].sort());
   });
 });
