@@ -24,12 +24,29 @@
  * Output discipline (cdiscourse-doctrine §6):
  *   - NEVER logs the shared secret, the Authorization header, the
  *     RESEND_API_KEY, or any admin email address. Admin emails are
- *     fetched via service-role inside the email helper and never
- *     returned to the caller.
+ *     fetched via service-role (or the explicit `ADMIN_NOTIFICATION_TO`
+ *     env list, preferred) inside the email helper and never returned
+ *     to the caller.
  *   - Response carries the per-condition verdicts (severity + observed
  *     value + threshold expression + remediation hint) — no raw rows,
  *     no evidence_span text, no argument body, no prompt, no provider
- *     payload.
+ *     payload, NO recipient values.
+ *   - `emailStatus` is granular (8 values) so the operator can diagnose
+ *     alert-delivery configuration without recipient leakage. Branches:
+ *       `sent` — Resend returned 2xx.
+ *       `not_required` — overall severity is not 'alert'; no email
+ *           attempted.
+ *       `not_configured_missing_resend` — `RESEND_API_KEY` missing/empty.
+ *       `not_configured_missing_from` — `ADMIN_NOTIFICATION_FROM`
+ *           missing/empty.
+ *       `not_configured_no_recipients` — `ADMIN_NOTIFICATION_TO` empty
+ *           AND the admin-profile fallback returned zero recipients.
+ *       `failed_recipient_lookup` — the fallback admin lookup threw or
+ *           reported an error.
+ *       `failed_sanitized` — the body scrub
+ *           (`containsForbiddenSubstring`) returned true; email dropped
+ *           rather than leak.
+ *       `failed_resend` — Resend returned non-2xx OR fetch threw.
  *   - The Resend email body is composed from the same safe verdict
  *     fields and is defensively scanned for forbidden substrings via
  *     `containsForbiddenSubstring` (drops the email rather than leak).
@@ -103,7 +120,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ── Best-effort email on ALERT severity ──────────────────────
-  let emailStatus: 'sent' | 'not_configured' | 'failed_sanitized' | 'not_required' = 'not_required';
+  let emailStatus: EmailStatus = 'not_required';
   if (verdict.overallSeverity === 'alert') {
     emailStatus = await maybeSendAlertEmail(verdict);
   }
@@ -121,41 +138,94 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
 // ── Email helper ───────────────────────────────────────────────
 
-type EmailStatus = 'sent' | 'not_configured' | 'failed_sanitized';
+/**
+ * 8 granular email-delivery statuses. The opaque `not_configured`
+ * value was split into 3 separate values (`not_configured_missing_*`,
+ * `not_configured_no_recipients`) and `failed_*` was split into 3
+ * separate values (`failed_recipient_lookup`, `failed_sanitized`,
+ * `failed_resend`) so the operator can diagnose delivery without ever
+ * seeing recipient values in the response.
+ */
+type EmailStatus =
+  | 'sent'
+  | 'not_required'
+  | 'not_configured_missing_resend'
+  | 'not_configured_missing_from'
+  | 'not_configured_no_recipients'
+  | 'failed_recipient_lookup'
+  | 'failed_sanitized'
+  | 'failed_resend';
 
 /**
- * Send a Resend email summarizing the ALERT verdicts. Mirrors
- * request-argument-deletion's maybeSendAdminNotification pattern:
- *   - gated by RESEND_API_KEY + ADMIN_NOTIFICATION_FROM
- *   - recipients = admin profiles' emails (NEVER returned in the response)
- *   - body composed from safe verdict fields + defensive
- *     containsForbiddenSubstring scrub (drops the email rather than leak)
- *   - returns typed status; never throws
+ * Parse `ADMIN_NOTIFICATION_TO` env into a recipient list.
+ * Comma OR semicolon separated. Trim each entry. Drop empty entries.
+ * Pure — no Deno.env, no network, no logging. Returns `[]` when input
+ * is null/undefined/empty/whitespace-only.
+ */
+function parseExplicitRecipients(raw: string | null | undefined): string[] {
+  if (typeof raw !== 'string') return [];
+  return raw
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+/**
+ * Send a Resend email summarizing the ALERT verdicts. Recipient
+ * resolution prefers the explicit `ADMIN_NOTIFICATION_TO` env (the
+ * deterministic ops-alert path); when absent, falls back to the
+ * admin-profile + auth.users.email lookup (the legacy path that
+ * collapsed all configuration failures into `not_configured`).
+ *
+ * Doctrine: recipients NEVER leave this function — not in the response,
+ * not in logs, not in any error envelope.
  */
 async function maybeSendAlertEmail(verdict: CutoverHealthVerdict): Promise<EmailStatus> {
   const apiKey = (Deno.env.get('RESEND_API_KEY') || '').trim();
-  const from = (Deno.env.get('ADMIN_NOTIFICATION_FROM') || '').trim();
-  if (!apiKey || !from) return 'not_configured';
+  if (!apiKey) return 'not_configured_missing_resend';
 
-  // Fetch admin recipients via service role; emails NEVER leave this function.
-  let recipients: string[] = [];
-  try {
-    const svc = createServiceClient();
-    const { data: profilesData, error: profilesErr } = await svc
-      .from('profiles')
-      .select('id')
-      .eq('role', 'admin');
-    if (profilesErr || !Array.isArray(profilesData) || profilesData.length === 0) return 'not_configured';
-    const adminIds = new Set(profilesData.map((r) => String(r.id)));
-    const { data: usersRaw, error: usersErr } = await svc.auth.admin.listUsers({ perPage: 200, page: 1 });
-    if (usersErr || !usersRaw?.users) return 'not_configured';
-    recipients = usersRaw.users
-      .filter((u) => adminIds.has(u.id) && typeof u.email === 'string' && u.email)
-      .map((u) => u.email as string);
-  } catch {
-    return 'failed_sanitized';
+  const from = (Deno.env.get('ADMIN_NOTIFICATION_FROM') || '').trim();
+  if (!from) return 'not_configured_missing_from';
+
+  // 1) Prefer explicit recipients from `ADMIN_NOTIFICATION_TO`. This is
+  //    the deterministic path the operator uses to alert ops/on-call
+  //    addresses that are not necessarily admin-role profiles.
+  const explicitRecipients = parseExplicitRecipients(Deno.env.get('ADMIN_NOTIFICATION_TO'));
+
+  let recipients: string[];
+  if (explicitRecipients.length > 0) {
+    recipients = explicitRecipients;
+  } else {
+    // 2) Fallback: admin-profile + auth.users.email lookup (preserved
+    //    from the original implementation). Each failure mode below
+    //    maps to a distinct EmailStatus so the operator can diagnose.
+    try {
+      const svc = createServiceClient();
+      const { data: profilesData, error: profilesErr } = await svc
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+      if (profilesErr || !Array.isArray(profilesData) || profilesData.length === 0) {
+        // No admin profiles exist — distinct from a lookup failure.
+        return 'not_configured_no_recipients';
+      }
+      const adminIds = new Set(profilesData.map((r) => String(r.id)));
+      const { data: usersRaw, error: usersErr } = await svc.auth.admin.listUsers({ perPage: 200, page: 1 });
+      if (usersErr || !usersRaw?.users) {
+        // auth.users lookup failed — operationally distinct from absent
+        // recipients (could be a rotated key, a network blip, etc.).
+        return 'failed_recipient_lookup';
+      }
+      recipients = usersRaw.users
+        .filter((u) => adminIds.has(u.id) && typeof u.email === 'string' && u.email)
+        .map((u) => u.email as string);
+    } catch {
+      return 'failed_recipient_lookup';
+    }
+    if (recipients.length === 0) {
+      return 'not_configured_no_recipients';
+    }
   }
-  if (recipients.length === 0) return 'not_configured';
 
   const appBase = (Deno.env.get('APP_BASE_URL') || '').trim();
   const subject = `[CDISCOURSE CUTOVER ALERT] ${verdict.alertCount} alert / ${verdict.warnCount} warn`;
@@ -212,10 +282,10 @@ async function maybeSendAlertEmail(verdict: CutoverHealthVerdict): Promise<Email
     });
     if (!res.ok) {
       try { await res.text(); } catch { /* swallow */ }
-      return 'failed_sanitized';
+      return 'failed_resend';
     }
     return 'sent';
   } catch {
-    return 'failed_sanitized';
+    return 'failed_resend';
   }
 }

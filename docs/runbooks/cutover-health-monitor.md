@@ -63,12 +63,36 @@ The function will return 401 to ALL invocations until this secret is set (fail-c
 
 ### Step 3 — Ensure Resend env is configured
 
-The function reuses the existing Resend pattern from `request-argument-deletion` + `room-notifications`. Required env vars:
+The function reuses the existing Resend pattern from `request-argument-deletion` + `room-notifications`.
+
+**Required env vars:**
 - `RESEND_API_KEY` (already configured for existing email pipelines)
 - `ADMIN_NOTIFICATION_FROM` (already configured for existing email pipelines)
-- Optional: `APP_BASE_URL` (used to include a dashboard link in alerts)
+- `ADMIN_NOTIFICATION_TO` — **preferred for ops alerts.** Explicit recipient list, comma OR semicolon separated. Trimmed; empty entries dropped. When at least one recipient is parsed, the function uses this list and skips the admin-profile lookup. Recommended for ops/on-call distribution to addresses that are not necessarily admin-role profiles in the database.
 
-If any required Resend env is missing, the function returns `emailStatus: 'not_configured'` and the operator is notified via the function response only (no email sent).
+**Optional:**
+- `APP_BASE_URL` (used to include a dashboard link in alerts)
+
+**Fallback when `ADMIN_NOTIFICATION_TO` is missing or empty:** the function falls back to the original admin-profile + `auth.users.email` lookup (profiles where `role='admin'`). This preserves backward compatibility.
+
+**Recipient-value handling — operator discipline (mandatory):**
+- Recipient email addresses MUST NEVER be committed to git, pasted into chat, or logged. The function itself never returns or logs recipient values.
+- Set `ADMIN_NOTIFICATION_TO` via the Supabase dashboard (Edge Functions → Environment Variables) OR via `npx supabase secrets set` from a local shell that does not persist the value to a shell history file. Use a long-lived ops-distribution address (e.g. `ops-cutover-alerts@<your-domain>`) rather than per-person addresses where possible.
+
+**Granular `emailStatus` (response field; never includes recipient values):**
+
+| Value | Meaning | Operator action |
+|---|---|---|
+| `sent` | Resend returned 2xx | None — confirm admin actually received the email |
+| `not_required` | Overall severity was not `alert`; no email attempted | None |
+| `not_configured_missing_resend` | `RESEND_API_KEY` env missing or empty | Set the env var |
+| `not_configured_missing_from` | `ADMIN_NOTIFICATION_FROM` env missing or empty | Set the env var |
+| `not_configured_no_recipients` | `ADMIN_NOTIFICATION_TO` empty AND admin-profile fallback returned zero recipients | Set `ADMIN_NOTIFICATION_TO` to an explicit ops address, OR create at least one `profiles` row with `role='admin'` and a valid `auth.users.email` |
+| `failed_recipient_lookup` | Admin-profile fallback threw OR `auth.admin.listUsers` returned an error | Check service-role key validity; check Supabase Auth API availability; consider setting `ADMIN_NOTIFICATION_TO` to bypass the fallback |
+| `failed_sanitized` | Email body tripped the defensive `containsForbiddenSubstring` scrub; email dropped to avoid leaking a forbidden token | Investigate the source of the forbidden substring (likely a classifier remediation regression) |
+| `failed_resend` | Resend returned non-2xx OR the `fetch` call threw | Check Resend API status (https://status.resend.com); verify `RESEND_API_KEY` is not rotated/rate-limited; check from-domain DNS verification |
+
+The granular split deliberately avoids the previous opaque `not_configured` value — each failure mode is now distinguishable from the operator's side without exposing recipient values.
 
 ### Step 4 — Seed the secret into Supabase Vault for cron invocation
 
@@ -164,12 +188,16 @@ curl -sS -X POST \
   | jq '.overallSeverity, .emailStatus'
 ```
 
-Expected: `overallSeverity` in `{pass, warn, alert}` (NOT a parse error / 5xx); `emailStatus` in `{not_required, sent, not_configured}` (NOT `failed_sanitized` repeatedly).
+Expected: `overallSeverity` in `{pass, warn, alert}` (NOT a parse error / 5xx); `emailStatus` is one of the 8 granular values documented in Step 3 (NOT a repeated `failed_*` value).
 
 Failure modes the probe surfaces:
 - 5xx response → Edge Function is broken (TypeScript regression, runtime init failure, DB unreachable).
-- `emailStatus: 'failed_sanitized'` → either the body tripped the defensive scrub OR Resend is rejecting requests. Check `https://status.resend.com` and verify `RESEND_API_KEY` is not rotated/rate-limited.
-- `emailStatus: 'not_configured'` → admin recipient lookup failed (no `role = 'admin'` profiles, or `RESEND_API_KEY` / `ADMIN_NOTIFICATION_FROM` not set in env).
+- `emailStatus: 'failed_sanitized'` → body tripped the defensive forbidden-substring scrub; investigate the classifier remediation source for a regression.
+- `emailStatus: 'failed_resend'` → Resend rejected the request OR the fetch threw. Check `https://status.resend.com` and verify `RESEND_API_KEY` is not rotated/rate-limited.
+- `emailStatus: 'failed_recipient_lookup'` → the admin-profile fallback threw (service-role key rotated, Supabase Auth API unavailable). Set `ADMIN_NOTIFICATION_TO` to bypass the fallback while investigating.
+- `emailStatus: 'not_configured_missing_resend'` → `RESEND_API_KEY` env missing or empty.
+- `emailStatus: 'not_configured_missing_from'` → `ADMIN_NOTIFICATION_FROM` env missing or empty.
+- `emailStatus: 'not_configured_no_recipients'` → `ADMIN_NOTIFICATION_TO` is empty AND no `role = 'admin'` profiles have a valid `auth.users.email`. Set `ADMIN_NOTIFICATION_TO` to an explicit ops distribution address.
 
 ### Layer 3 — Resend pre-flight before alerting goes live
 
