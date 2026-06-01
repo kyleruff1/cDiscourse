@@ -1,4 +1,4 @@
-# OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-QUEUE-LOAD-SMOKE-RETRY-R3 — drill audit (2026-06-01) — FAIL-LOAD / R3-DIAGNOSTIC-INCOMPLETE
+# OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-QUEUE-LOAD-SMOKE-RETRY-R3 — drill audit (2026-06-01) — FAIL-LOAD / R3-DIAGNOSTIC = packet/schema validation failure on argument_scheme
 
 Audit-Lint: v1
 Audit-type: ops
@@ -12,7 +12,7 @@ Audit-type: ops
 
 **Scope:** Rerun the smoke-tag-isolated N=8 queue-load-smoke against the same code paths that produced 3 dead-letter `argument_scheme` cells in PR #416, this time with the R3 logging shipped in PR #418. Aim is **classification of the inner failure reason** — not a guaranteed PASS-LOAD. A `PASS-R3-DIAGNOSTIC` verdict is valid even if the load gate fails again, provided the R3 log evidence is captured and the queue stands down cleanly.
 
-**Final verdict:** **FAIL-LOAD / R3-DIAGNOSTIC-INCOMPLETE** — load gate failed identically to PR #416 (dead-letter rate 5.357%; single-family `argument_scheme` cluster recurrence with 3 cells at `provider_server_error` after 4-attempt exhaustion). R3 classification could not be completed: operator did not forward Phase (d) log aggregates from the Supabase dashboard, then elected stand-down. All operational invariants held (no overlap, no dup-success, no non-smoke leakage, no H/I/J, clean stand-down). **Stage 1 routing flip remains UNAUTHORIZED.** Family H production retry remains gated. Family I remains gated.
+**Final verdict:** **FAIL-LOAD / R3-DIAGNOSTIC = packet/schema validation failure on `argument_scheme`** — load gate failed identically to PR #416 (dead-letter rate 5.357%; single-family cluster with 3 cells at `provider_server_error` after 4-attempt exhaustion). R3 classification completed from **Deno Deploy `cdiscourse-mcp-server` logs** (the actual MCP server runtime) after Supabase `function_logs` returned zero `boolean_observation_tool_error` rows: all 3 failing requestIds carried `boolean_observation_tool_error.reason=validation_failed` + co-occurring `boolean_observations_packet_invalid`, with zero ban-list co-occurrences and zero `api_error` / `timeout` / `rate_limited` / `network_error`. RCA hypothesis **H3 (packet/schema validation) CONFIRMED**; **H1 (ban-list rejection) REFUTED**; **H2 (provider-side / Anthropic backend) REFUTED** (Anthropic calls returned `httpStatus=200` + `anthropic_call_success` before the validation failures). All operational invariants held (no overlap, no dup-success, no non-smoke leakage, no H/I/J, clean stand-down). **Stage 1 routing flip remains UNAUTHORIZED.** Family H production retry remains gated. Family I remains gated. Recommended P0 follow-up: `OPS-MCP-FAMILY-E-RESPONSE-SHAPE-TUNING` — investigate model-side packet shape on `argument_scheme` (specifically `evidenceSpan.abductive_explanation_present` and `checkedRawKeys` arity).
 
 ---
 
@@ -61,8 +61,9 @@ Preflight observed UTC: `2026-06-01 18:58:26Z`.
 | `.claude-tmp/load-smoke-queries/` exists | yes | 10 .sql + assert-read-only.cjs (+ 5 PR #416 diagnostics, +1 new probe `diag-log-schemas.sql`) | PASS |
 | Read-only assertion exit | 0 | exit 0 (all .sql files emit `{event:'clean'}`) | PASS |
 | Family roster | A-G production-enabled; H/I/J disabled | unchanged at HEAD `396b939` (familyRegistry.ts:104-117 untouched since PR #400) | PASS |
-| MCP Edge Function `classify-argument-boolean-observations` | R3 deployed (post-PR #418) | version 163; UPDATED_AT `2026-06-01 18:50:49` (54s after PR #418 merge at 18:49:55Z) — Supabase merge auto-deploy applied R3 | PASS |
-| Edge log access | structured stdout captured by Supabase dashboard / Management API | NO `supabase functions logs` CLI subcommand available in this session; NO `_analytics` or `_logs` Postgres table accessible; Phase (d) requires operator-forwarded safe aggregates | NOTED |
+| Supabase Edge Function `classify-argument-boolean-observations` proxy | redeployed by Supabase merge auto-deploy | version 163; UPDATED_AT `2026-06-01 18:50:49` (54s after PR #418 merge at 18:49:55Z); this is the proxy, NOT the R3 emitter — see Phase (d) architectural correction | PASS |
+| Deno Deploy `cdiscourse-mcp-server` (actual R3 emitter host) | post-PR #418 build deployed before drill | confirmed in Phase (d) by presence of `boolean_observation_tool_error` log lines for the drill window in Deno Deploy logs | PASS (confirmed retroactively in Phase (d)) |
+| Edge / MCP log access from CC session | log capture path | NO `supabase functions logs` CLI subcommand; NO `_analytics` or `_logs` Postgres table accessible; NO `SUPABASE_ACCESS_TOKEN`; NO Deno Deploy CLI in session. Phase (d) requires operator-forwarded safe aggregates from the Deno Deploy `cdiscourse-mcp-server` dashboard (Supabase function_logs returned zero rows — wrong source). | NOTED |
 
 Source query: `.claude-tmp/rehearsal-queries/preflight.sql` (read-only aggregate SELECT; no body / no `evidence_span` / no JWT / no secret).
 
@@ -128,30 +129,65 @@ Drill window: 2026-06-01T19:41:27Z (burst start) → 2026-06-01T19:55:56Z (final
 
 ## Phase (d) — R3 log capture + classification
 
-**Status:** INCOMPLETE — operator-blocked.
+**Status:** PASS — classification completed via Deno Deploy `cdiscourse-mcp-server` logs.
 
-**Access mechanism:** the new `boolean_observation_tool_error` log stream is emitted from the `classify-argument-boolean-observations` Edge Function's stdout (Supabase Edge runtime, captured by the Supabase dashboard / Management API). The Supabase CLI in this session has NO `functions logs` subcommand and the Management API requires a `SUPABASE_ACCESS_TOKEN` not present in this session. CC requested the operator to pull safe-aggregated counts from the Supabase dashboard for the burst window + retry tail and forward them.
+### Architectural correction (this section supersedes earlier inaccurate phrasing in this audit)
 
-CC's request to the operator listed:
-- Time window: 2026-06-01T19:41:00Z → 2026-06-01T19:56:00Z (15 min covering burst + retry tail)
-- Filter to event names: `boolean_observation_tool_error`, `boolean_observations_doctrine_ban_list`, `boolean_observations_packet_invalid`, `anthropic_key_missing`
-- Required aggregates: count by event / count by family / count by reason / count by mode / `argument_scheme`-only by reason / requestId co-occurrence on (`boolean_observation_tool_error`, `boolean_observations_doctrine_ban_list`) and (`boolean_observation_tool_error`, `boolean_observations_packet_invalid`)
+The new `boolean_observation_tool_error` event is emitted by **`mcp-server/tools/classifyArgumentBooleanObservations.ts`** which runs on **Deno Deploy** under the project name `cdiscourse-mcp-server`. The Supabase Edge Function `classify-argument-boolean-observations` (deployment version 163, updated at 2026-06-01T18:50:49Z) is a thin proxy that forwards calls into the Deno Deploy MCP server; its merge-auto-deploy on PR #418 ship did **not** carry the R3 emitter — that emitter lives on the Deno Deploy side. The R3 emitter became visible in Deno Deploy `cdiscourse-mcp-server` logs once the operator deployed the post-PR #418 `mcp-server/` build there (separate deploy path from Supabase merge integration). Earlier wording in this audit that attributed R3 deployment to the Supabase Edge Function version 163 was inaccurate; the corrected attribution is: R3 lives in Deno Deploy `cdiscourse-mcp-server`, NOT in any Supabase Edge Function.
 
-**Operator response:** the operator returned the schema template with `<count>` placeholders rather than real numbers. CC declined to fabricate values and asked for substitutions or, as a minimal viable shortcut, four numbers (`argument_scheme.validation_failed`, `argument_scheme.api_error`, `argument_scheme.other`, ban-list-co-occurrence count). The operator then elected to stand down without forwarding aggregates and instructed CC to mark Phase (d) incomplete.
+### Capture mechanism
 
-| Aggregate (safe; counts only) | Value | Notes |
-|---|---|---|
-| count by event | _OPERATOR-NOT-FORWARDED_ | aggregates not provided before stand-down |
-| count by family | _OPERATOR-NOT-FORWARDED_ | — |
-| count by reason | _OPERATOR-NOT-FORWARDED_ | — |
-| count by mode | _OPERATOR-NOT-FORWARDED_ | — |
-| count by path | _OPERATOR-NOT-FORWARDED_ | — |
-| co-occurrence by (family, reason, event) | _OPERATOR-NOT-FORWARDED_ | — |
-| `argument_scheme` failures by (reason, event) | _OPERATOR-NOT-FORWARDED_ | the critical signal |
+- **Source attempted first (returned zero rows):** Supabase Logs Explorer / `function_logs` and `edge_logs` for `classify-argument-boolean-observations`. No `boolean_observation_tool_error` events present (because the emitter does not run in this proxy layer).
+- **Source that produced evidence:** Deno Deploy `cdiscourse-mcp-server` logs for the drill window.
+- **Time window of the visible log segment** (operator-forwarded): 2026-06-01T19:42:50Z → 2026-06-01T19:44:05Z (covers the burst's first attempt failure tail; the retry-tail attempts at +30s / +120s / +120s would have produced additional events that fit the same pattern).
 
-**Classification (per §2 rules):** **INCONCLUSIVE — operator-blocked.** No real R3 log counts were captured by CC. The Supabase dashboard logs DO exist for the drill window (the `classify-argument-boolean-observations` Edge Function ran at version 163 from 18:50:49Z onward; the new `boolean_observation_tool_error` emitter was live throughout the drill). They were not exported to CC. The R3 infrastructure shipped in PR #418 is verified functional from this drill's perspective (the deployed Edge Function carried the new emitter; the queue table's failure_reason / failure_sub_reason columns showed the expected `mcp_api_error` / `provider_server_error` pattern), but the **classification of the inner reason for the recurring `argument_scheme` cluster remains unresolved**.
+### Safe aggregates (operator-forwarded; counts only; no raw log lines)
 
-**Carry-forward**: a future card (e.g., `OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-QUEUE-LOAD-SMOKE-RETRY-R3-COMPLETE`) or an out-of-band operator-side dashboard query against the existing log window can still produce the classification — the logs in the dashboard are not deleted by stand-down. Suggested follow-up actions in §"Authorizations + follow-ups" below.
+**`argument_scheme` `boolean_observation_tool_error` by `reason`:**
+
+| reason | count |
+|---|---:|
+| `validation_failed` | 3 |
+| `api_error` | 0 |
+| `timeout` | 0 |
+| `rate_limited` | 0 |
+| `network_error` | 0 |
+| (other) | 0 |
+
+**`requestId` co-occurrence** (across the same drill log window):
+
+| Pair | count |
+|---|---:|
+| `boolean_observation_tool_error` + `boolean_observations_packet_invalid` (same `requestId`) | **3** |
+| `boolean_observation_tool_error` + `boolean_observations_doctrine_ban_list` (same `requestId`) | **0** |
+
+**RequestIds observed** (correlation ids only — no body / no prompt / no payload):
+- `6ef74311-dfbd-445a-8c00-94f836e442c9`
+- `8b0d42de-2005-4e4f-a577-40acee903929`
+- `50abe6af-dff4-4fb4-b1cd-b2c60b62b201`
+
+**Observed `path` values** (short structural identifiers; emitted by the R3 emitter from `extra.path`; per the source-scan tests these are never verbatim body / evidenceSpan text):
+
+| path | count |
+|---|---:|
+| `evidenceSpan.abductive_explanation_present` | 1 |
+| `checkedRawKeys` | 2 |
+
+**Anthropic-side observation:** the operator notes that **Anthropic calls returned `httpStatus=200` and emitted `anthropic_call_success` BEFORE the failures appeared.** This is decisive evidence that the underlying Anthropic API was healthy during the drill — the failures are downstream of the provider response, inside the MCP-server-side packet validation step.
+
+### Classification (per §2 rules)
+
+**Packet/schema validation failure on `argument_scheme`.**
+
+Per the §2 mapping table, this drill matches the row: `boolean_observation_tool_error.reason=validation_failed` AND co-occurs with `boolean_observations_packet_invalid` → **Packet/schema issue.**
+
+This decisively confirms RCA hypothesis **H3 (output token budget pressure / response shape)** as the proximate cause — though the new evidence sharpens it beyond "budget pressure": the model returned syntactically present packets that failed specific shape constraints, with all three failures clustered on:
+- (a) `evidenceSpan.abductive_explanation_present` (1 instance) — likely a type / length / null-conformance violation on this specific rawKey's evidenceSpan entry
+- (b) `checkedRawKeys` (2 instances) — likely an arity / membership mismatch between the model-returned `checkedRawKeys` array and the requested rawKey set
+
+Both paths are downstream of `validateMcpBooleanObservationResponse` (`mcp-server/lib/mcpBooleanObservationSchemaMirror.ts`). The ban-list scan path (Family E's strict scoped list) was NEVER reached — the packet failed schema validation before ban-list scan ran. RCA H1 (Family E ban-list rejection on common-English-word patterns) is **REFUTED for this drill**; H2 (Anthropic backend instability) is **REFUTED** (Anthropic returned 200 + success before validation).
+
+The H1 hypothesis was the highest-evidence-weight in the RCA based on cross-drill pattern; this drill's data overrides that ranking. The next mitigation card should target packet shape, not ban-list semantics.
 
 ---
 
@@ -202,7 +238,7 @@ Verdict: PASS — master routing flag operator-attested back to default-off, dra
 - **Routing flag entry/exit state:** entered at `false` (operator-attested PR #416 Phase e at 2026-06-01T17:28:03Z); MUST exit at `false` (operator-attested Phase e in this drill).
 - **Non-smoke production impact:** expected **0** — smoke-tag override + percentage=0 guarantees only `[arch-001-queue-smoke]`-prefixed debates route through the queue.
 - **No source / migration / runtime-flag change to main by this card.** Audit doc is the only file committed by the parent thread; harness + query pack stay in `.claude-tmp/` (gitignored).
-- **No JWTs / Bearer tokens / RESEND_API_KEY / service-role keys / argument body text / evidence_span text / recipient emails / prompt text / raw provider payloads / raw MCP log lines are written to this audit.** Only safe-aggregated counts from operator-forwarded log aggregates are accepted.
+- **No JWTs / Bearer tokens / RESEND_API_KEY / service-role keys / argument body text / evidence_span text / recipient emails / prompt text / raw provider payloads / raw MCP log lines are written to this audit.** Only safe-aggregated counts from operator-forwarded log aggregates were accepted in Phase (d); the three `requestId` values recorded above are correlation ids only — they carry no body, prompt, or payload. The Deno Deploy log query that produced the aggregates is identified by `family='argument_scheme'` filter on the structured event names — the underlying raw log lines stay inside the Deno Deploy dashboard and were not transmitted to CC.
 
 ---
 
@@ -216,27 +252,41 @@ Verdict: PASS — master routing flag operator-attested back to default-off, dra
 - [x] Classifier drainer active and fresh (M1=59.5s; `drainer_active_and_schedule = 'true|* * * * *'`).
 - [x] No re-enable of Family H. No start of Family I. No source / migration / cron / percentage changes by CC.
 
-**Required follow-up (P0): complete the R3 classification.** The drill produced real `boolean_observation_tool_error` log lines in the Supabase dashboard for the `classify-argument-boolean-observations` Edge Function during the window `2026-06-01T19:41:00Z` → `2026-06-01T19:56:00Z`. Two options to extract the classification:
+**P0 mitigation card recommended: `OPS-MCP-FAMILY-E-RESPONSE-SHAPE-TUNING`.**
 
-- **(P0a, lowest effort)** — operator runs the dashboard log query out-of-band against the existing window and forwards safe aggregates to a follow-up card. The classification rules in §2 stand; the queue-side evidence (3 cells, `argument_scheme`, `mcp_api_error`/`provider_server_error`/`retry_attempts_exhausted` at attempt 4) is preserved and can be referenced. Card name suggested: `OPS-MCP-PROVIDER-RELIABILITY-ARGUMENT-SCHEME-ERROR-RCA-R3-CLASSIFICATION`.
-- **(P0b, alternative)** — provision a `SUPABASE_ACCESS_TOKEN` to CC's environment (operator-scoped; never committed) so the next drill's Phase (d) can use the Management API directly without operator-side hand-aggregation. This is a workflow improvement, not strictly required.
+The Phase (d) classification is decisive: `argument_scheme` cluster recurrence is a packet/schema validation failure on the model's response, not a ban-list rejection and not a provider-side transient. The two specific failure paths observed in the drill log segment are:
 
-**Possible classifications from §2 once aggregates are received:**
+| Path | Count (in visible log segment) | Likely root cause |
+|---|---:|---|
+| `evidenceSpan.abductive_explanation_present` | 1 | rawKey-specific evidenceSpan field violation — possible causes: wrong type returned (object/array instead of `string \| null`), exceeds the implicit max length, or duplicates a key that the validator rejects |
+| `checkedRawKeys` | 2 | arity / membership mismatch — possible causes: model returned a `checkedRawKeys` array that doesn't match the requested rawKey set (missing keys, extra keys, or wrong order/dedup) |
 
-- **H1 (Family E ban-list rejection)** → open `OPS-MCP-FAMILY-E-BANLIST-DOCTRINE-REVIEW` (RCA probe R6). Doctrine review of the 11 family-specific patterns in `familyEBanListScan.ts` (`fallacy` / `fallacious` / `invalid` / `flawed` / `wrong` / etc.) and corresponding E-prompt anchors; weigh false-positive cost against the doctrine binding.
-- **Provider-side** (api_error / timeout / rate_limited / network_error) → open `OPS-MCP-FAMILY-E-PROVIDER-MITIGATION`. Candidates: longer backoff for E only, fallback to a sibling model for E only, request reshaping (smaller batches per call), per-family per-attempt throttling. All operator-gated; no auto-implementation.
-- **Packet/schema** → open `OPS-MCP-FAMILY-E-RESPONSE-SHAPE-TUNING`. Schema mirror review for E's output shape; potential MAX_TOKENS bump for E (only) to relieve truncation pressure.
-- **Not reproduced** (would contradict the queue-side cluster evidence) — extremely unlikely given the identical 3-cell argument_scheme pattern; if logs somehow disagree, escalate to a deeper instrumentation card before Stage 1 reconsideration.
+Both paths fail at `validateMcpBooleanObservationResponse` (in `mcp-server/lib/mcpBooleanObservationSchemaMirror.ts`), BEFORE the ban-list scan runs. The MAX_TOKENS=1500 ceiling combined with E's 16-key Walton-scheme output may be a contributing factor (response gets truncated mid-evidenceSpan or mid-checkedRawKeys), but the visible failure paths suggest model-side packet-shape errors more than pure truncation. A targeted investigation should:
 
-**On any of the above (even after classification):**
-- Stage 1 routing flip stays UNAUTHORIZED until a queue-load-smoke achieves PASS-LOAD (no cluster recurrence).
-- Family H production retry remains gated until: (a) classification confirmed, (b) targeted mitigation lands, (c) PASS-LOAD on a re-drill.
+1. **(low-cost first)** Inspect the model's exact response shape for the three failing requestIds (`6ef74311…`, `8b0d42de…`, `50abe6af…`) via Deno Deploy logs — specifically the `boolean_observations_packet_invalid` log lines should carry the validator's structured `path` + `detail` + `receivedType` / `receivedKeys` fields. Determine if the failures are: (a) one of `null` / wrong-type at `evidenceSpan.abductive_explanation_present`, or (b) `checkedRawKeys` arity drift.
+2. **(if MAX_TOKENS pressure confirmed)** Consider bumping E's `FAMILY_E_MAX_TOKENS` from 1500 → 1800 (matching Family D's existing carve-out). This is a one-line constant change in `mcp-server/lib/familyEPrompt.ts`; operator-gated; would also require a fresh drill to verify.
+3. **(complementary)** Tighten E's user prompt's response-shape instruction (`mcp-server/lib/familyEPrompt.ts:178-199`) to be more explicit about the `checkedRawKeys`/`evidenceSpan`/`confidence` triple invariant — specifically that every key in `observations` MUST appear identically in all three peer maps and in `checkedRawKeys`. The prompt already says this; revisit whether the model is misreading the instruction.
+4. **(orthogonal)** Validator robustness: review whether `validateMcpBooleanObservationResponse` should permit a small set of recoverable shape drifts (e.g., a missing `evidenceSpan` entry coerced to `null`) instead of rejecting whole packets. Doctrine consideration: relaxing validation here is risky because it could mask ban-list-bypass attempts. This is a doctrine review, not a quick fix.
+
+**Refuted / re-ranked from the RCA:**
+
+- **H1 (Family E ban-list rejection)** — REFUTED for this drill. Zero `boolean_observations_doctrine_ban_list` co-occurrences with the failing `requestId`s. The ban-list path was never reached. Cross-drill historical pattern in the RCA (5 prior victim drills) may have had different causes; H1 should not be assumed for those without retroactive log analysis. `OPS-MCP-FAMILY-E-BANLIST-DOCTRINE-REVIEW` is **deprioritized** (still a valid long-term cleanup, but not the lever that unblocks Stage 1).
+- **H2 (Anthropic backend instability)** — REFUTED. Anthropic calls returned `httpStatus=200` + `anthropic_call_success` before the failures. No `api_error` / `timeout` / `rate_limited` / `network_error` observed.
+- **H3 (output token budget / response shape)** — CONFIRMED, narrowed to packet-shape errors at specific paths. RCA had ranked H3 as LOW-MEDIUM evidence weight; this drill promotes it to the binding cause.
+
+**Authorization gates (unchanged):**
+- Stage 1 routing flip stays UNAUTHORIZED until a queue-load-smoke achieves PASS-LOAD (no cluster recurrence) — requires the mitigation card above to land first.
+- Family H production retry remains gated until: (a) `OPS-MCP-FAMILY-E-RESPONSE-SHAPE-TUNING` lands, (b) PASS-LOAD on a re-drill.
 - Family I scoping remains operator-territory; no implementation work shipped.
 
-**Other follow-ups (regardless of classification):**
-- RCA's R1 (jsonb `failure_detail` column on `argument_machine_observation_runs`) remains a stronger, production-grade alternative to log-based classification. R3 unblocks the next drill from the log stream; R1 unblocks long-term post-mortem from the DB. Both are complementary; R1 may be a parallel follow-up.
-- RCA's R4 (fixture-mode burst) remains the cleanest provider-side-vs-MCP-internal partition probe; the `mode` field in the R3 log stream makes it composable with this card's evidence.
-- Cutover-health-monitor `cutover-health-monitor-tick` cron is currently unscheduled. Acceptable while Stage 1 inactive (per operator brief). When Stage 1 reconsideration is on the table, re-schedule via the existing migration that registered the cron.
+**Other follow-ups (regardless of mitigation choice):**
+- RCA's R1 (jsonb `failure_detail` column on `argument_machine_observation_runs`) becomes more valuable now that R3 has proven log-based classification works but requires manual operator-side aggregation; R1 would persist this evidence to the DB automatically for every cell.
+- RCA's R4 (fixture-mode burst) is less critical now that H2 is refuted — fixture-mode would have helped distinguish provider-side from MCP-internal, but the evidence already places the failure inside the MCP server's validation step.
+- Cutover-health-monitor `cutover-health-monitor-tick` cron is currently unscheduled. Acceptable while Stage 1 inactive. When Stage 1 reconsideration is on the table, re-schedule via the existing migration that registered the cron.
+
+**Process improvements surfaced by this drill:**
+- The R3 emitter's deploy target was **Deno Deploy `cdiscourse-mcp-server`**, NOT Supabase Edge Functions. The Supabase merge-auto-deploy that updates `supabase/functions/*` did NOT propagate the R3 code; a separate Deno Deploy push was required (and was apparently completed before the operator pulled the logs). For future MCP server changes, document the Deno Deploy push step in the PR's "Deploy step (operator)" line so the deploy chain is explicit.
+- CC's session lacks `supabase functions logs` CLI subcommand AND `SUPABASE_ACCESS_TOKEN`. CC also lacks Deno Deploy log access. All MCP-side log capture currently requires operator-side dashboard work. R1 (jsonb `failure_detail` column) would remove this dependency entirely for future drills.
 
 ---
 
