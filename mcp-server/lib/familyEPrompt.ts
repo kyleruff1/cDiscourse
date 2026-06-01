@@ -223,9 +223,45 @@ Return ONLY a single JSON object — no prose, no markdown, no code fence, no ch
 The object MUST conform to this shape:
 ${responseShape}
 
-Every key in observations MUST also appear in confidence and evidenceSpan (use null in
-evidenceSpan when no anchoring quote exists). Every key in checkedRawKeys MUST appear in
-observations.
+STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every rule below.
+
+1. KEY-SET EQUALITY. The four sets — checkedRawKeys (as a set), observations keys, confidence
+   keys, and evidenceSpan keys — MUST be identical. Same exact rawKey strings, same count, no
+   extras, no omissions, no duplicates. If these four sets differ by even one entry, the
+   packet is rejected and the cell will retry or dead-letter.
+
+2. INCLUDE EVERY REQUESTED RAWKEY EXACTLY ONCE. The argument-scheme questions block above lists
+   the rawKeys you must evaluate. Each of those rawKeys MUST appear exactly once in
+   checkedRawKeys, observations, confidence, AND evidenceSpan. Do NOT silently drop any
+   requested rawKey — including abductive_explanation_present, slippery_slope_reasoning_present,
+   analogy_reasoning_present, or any other scheme. Do NOT introduce a rawKey that was not in
+   the requested set.
+
+3. EVIDENCESPAN VALUE TYPE. Each evidenceSpan[rawKey] value is EITHER:
+   (a) a short string copied or paraphrased from the supplied move/parent/thread-context text,
+       up to 240 characters, OR
+   (b) the JSON literal null.
+   NEVER an object. NEVER an array. NEVER a boolean. NEVER a number. NEVER a missing entry
+   (use null instead). This rule applies uniformly to EVERY rawKey — no scheme has a special
+   nested or structured evidenceSpan shape. abductive_explanation_present uses the same
+   string-or-null shape as every other scheme key.
+
+4. NULL EVIDENCESPAN FOR FALSE OBSERVATIONS. When observations[rawKey] is false, set
+   evidenceSpan[rawKey] to null. A negative observation does not need an anchoring quote.
+   When observations[rawKey] is true, evidenceSpan[rawKey] SHOULD be a concise quote anchored
+   in the input text; if no anchoring text actually exists in the input, set
+   observations[rawKey] back to false and evidenceSpan[rawKey] to null rather than emitting
+   an unanchored or fabricated quote.
+
+5. SELF-CHECK BEFORE EMITTING. Before you return the JSON, verify all of:
+   - The length of checkedRawKeys equals the key count of observations, of confidence, and of
+     evidenceSpan.
+   - The exact rawKey strings in checkedRawKeys appear as keys in observations, in confidence,
+     and in evidenceSpan — no rename, no typo, no case drift.
+   - Every evidenceSpan value is a string (≤ 240 chars) or null — no other type.
+   - No requested rawKey has been silently dropped; no rawKey beyond the requested set has
+     been introduced.
+   If any check fails, regenerate the packet rather than emit it.
 
 Conservative-positives bias: do NOT mark all rawKeys true. Schemes are usually sparse —
 most moves exhibit 0 to 2 schemes; few exhibit more than 4. When unsure, answer false

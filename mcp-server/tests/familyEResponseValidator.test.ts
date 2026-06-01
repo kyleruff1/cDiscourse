@@ -269,3 +269,113 @@ Deno.test('Family E validator: rejects observations field with > 20 keys (flag_c
   const result = validateMcpBooleanObservationResponse(r);
   assertEquals(result.ok, false);
 });
+
+// ── OPS-MCP-FAMILY-E-RESPONSE-SHAPE-TUNING — drill-derived regressions ──
+//
+// The R3 classification from PR #420 logged the two specific validator
+// failure paths the chronic argument_scheme cluster produces under burst:
+// (a) evidenceSpan.abductive_explanation_present with a non-string non-null
+// value (the drill's "evidenceSpan.abductive_explanation_present = 1" path
+// count), and (b) observations carrying a key the model did not include in
+// checkedRawKeys (the drill's "checkedRawKeys = 2" path count). These tests
+// name the specific failure shape so a future regression flips them red.
+
+Deno.test('Family E validator: drill regression — rejects evidenceSpan.abductive_explanation_present when value is a plain object', () => {
+  const r = validFamilyEResponse();
+  r.checkedRawKeys = ['abductive_explanation_present'];
+  r.observations = { abductive_explanation_present: true };
+  r.confidence = { abductive_explanation_present: 'medium' };
+  // Drill-observed shape drift: model returned a structured object instead
+  // of a string-or-null. Validator must reject with path
+  // 'evidenceSpan.abductive_explanation_present'.
+  r.evidenceSpan = {
+    abductive_explanation_present: { quote: 'leads to platform suppression', confidence: 'high' },
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.path, 'evidenceSpan.abductive_explanation_present');
+  }
+});
+
+Deno.test('Family E validator: drill regression — rejects evidenceSpan.abductive_explanation_present when value is an array', () => {
+  const r = validFamilyEResponse();
+  r.checkedRawKeys = ['abductive_explanation_present'];
+  r.observations = { abductive_explanation_present: true };
+  r.confidence = { abductive_explanation_present: 'medium' };
+  // Drill-observed shape drift variant: array instead of string-or-null.
+  r.evidenceSpan = {
+    abductive_explanation_present: ['leads to platform suppression', 'then mainstream'],
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.path, 'evidenceSpan.abductive_explanation_present');
+  }
+});
+
+Deno.test('Family E validator: drill regression — rejects checkedRawKeys when observations contains an extra key the model failed to include', () => {
+  const r = validFamilyEResponse();
+  // Drill-observed checkedRawKeys arity/membership mismatch: model emitted
+  // observations for a key it did not list in checkedRawKeys. Validator
+  // must reject with path 'checkedRawKeys' and the drill-style detail.
+  r.checkedRawKeys = ['slippery_slope_reasoning_present'];
+  r.observations = {
+    slippery_slope_reasoning_present: true,
+    abductive_explanation_present: false,
+  };
+  r.confidence = {
+    slippery_slope_reasoning_present: 'high',
+    abductive_explanation_present: 'medium',
+  };
+  r.evidenceSpan = {
+    slippery_slope_reasoning_present: 'leads to banning Y, then Z',
+    abductive_explanation_present: null,
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.path, 'checkedRawKeys');
+  }
+});
+
+Deno.test('Family E validator: acceptance — packet with strict key-set equality across all four maps and null evidenceSpan for false observations', () => {
+  // This codifies the shape the new STRICT RESPONSE-SHAPE CONTRACT prompt
+  // guardrails (PR for OPS-MCP-FAMILY-E-RESPONSE-SHAPE-TUNING) instruct
+  // the model to emit. Two requested keys, one true with a string
+  // evidenceSpan, one false with null evidenceSpan, identical key sets
+  // across observations / confidence / evidenceSpan / checkedRawKeys.
+  const r = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'node-e-shape-tuning-positive',
+    checkedRawKeys: ['abductive_explanation_present', 'slippery_slope_reasoning_present'],
+    observations: {
+      abductive_explanation_present: false,
+      slippery_slope_reasoning_present: true,
+    },
+    confidence: {
+      abductive_explanation_present: 'medium' as const,
+      slippery_slope_reasoning_present: 'high' as const,
+    },
+    evidenceSpan: {
+      // false observation → null evidenceSpan (per prompt's new convention)
+      abductive_explanation_present: null,
+      // true observation → short anchoring quote within 240 chars
+      slippery_slope_reasoning_present: 'leads to banning Y, then Z, then mainstream',
+    },
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-e-v1',
+    },
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.checkedRawKeys.length, 2);
+    assertEquals(Object.keys(result.value.observations).length, 2);
+    assertEquals(Object.keys(result.value.confidence).length, 2);
+    assertEquals(Object.keys(result.value.evidenceSpan).length, 2);
+    assertEquals(result.value.evidenceSpan.abductive_explanation_present, null);
+  }
+});
