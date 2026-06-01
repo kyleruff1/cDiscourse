@@ -246,11 +246,69 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   );
 }
 
+/**
+ * OPS-MCP-PROVIDER-RELIABILITY-ARGUMENT-SCHEME-ERROR-RCA-R3: safe metadata
+ * the tool may attach when emitting `boolean_observation_tool_error`. NEVER
+ * carries body / prompt / response payload / authorization / secret. Every
+ * field is a short structural identifier already known to the dispatcher.
+ * The unified emission lives in `errorResult(...)`; per-site context is
+ * passed in via this object so the consumer (drainer / Edge / log pipeline)
+ * can partition the typed `provider_server_error` bucket by inner reason.
+ */
+interface BooleanObservationToolErrorLogContext {
+  /** Resolved family ('parent_relation' | … | 'claim_clarity') once known. */
+  family?: string;
+  /** Server-generated correlation id; mirrors per-site existing log fields. */
+  requestId?: string;
+  /** Provider mode: 'fixture' when MCP_SERVER_USE_FIXTURE_PROVIDER=true, else 'anthropic'. */
+  mode?: 'fixture' | 'anthropic';
+  /** Echo of the request's schemaVersion constant (a version string, not data). */
+  schemaVersion?: string;
+  /** Echo of the validated response's `modelInfo.classifierSetVersion`, when present. */
+  classifierSetVersion?: string;
+  /** Echo of the validated response's `modelInfo.serverName`, when present. */
+  serverName?: string;
+}
+
+/**
+ * Emit the unified `boolean_observation_tool_error` log line. Allowlisted
+ * fields only — no body / prompt / response payload / authorization / secret.
+ * The `log()` helper at `mcp-server/lib/logging.ts` applies a defense-in-depth
+ * forbidden-key scrub + secret-shape scan; this emitter additionally hand-
+ * picks each field rather than spreading `extra`.
+ *
+ * `path` is permitted because every call-site path is a short, structural
+ * identifier (`'modelInfo.provider'`, `'observations.<rawKey>'`, etc.) drawn
+ * from the validator / ban-list scan; it is NEVER a verbatim quote of body
+ * or evidenceSpan text.
+ */
+function emitToolErrorLog(
+  reason: string,
+  ctx: BooleanObservationToolErrorLogContext | undefined,
+  path: string | undefined,
+): void {
+  log('warn', 'boolean_observation_tool_error', {
+    tool: 'classify_argument_boolean_observations',
+    reason,
+    family: ctx?.family,
+    requestId: ctx?.requestId,
+    mode: ctx?.mode,
+    schemaVersion: ctx?.schemaVersion,
+    classifierSetVersion: ctx?.classifierSetVersion,
+    serverName: ctx?.serverName,
+    path,
+    status: 'failure',
+  });
+}
+
 function errorResult(
   reason: string,
   message: string,
   extra: Record<string, unknown> = {},
+  logContext?: BooleanObservationToolErrorLogContext,
 ): ToolCallResult {
+  const path = typeof extra.path === 'string' ? extra.path : undefined;
+  emitToolErrorLog(reason, logContext, path);
   return {
     content: [{ type: 'text' as const, text: message }],
     structuredContent: { reason, ...extra },
@@ -378,6 +436,8 @@ export async function handleClassifyArgumentBooleanObservations(
     return errorResult(
       'invalid_params',
       'classify_argument_boolean_observations arguments must be a JSON object',
+      {},
+      { requestId: input.requestId },
     );
   }
 
@@ -399,6 +459,7 @@ export async function handleClassifyArgumentBooleanObservations(
           requestedFamilies: validated.requestedFamilies,
           supportedFamilies: getSupportedFamilies(),
         },
+        { requestId: input.requestId },
       );
     }
     if (validated.kind === 'unsupported_rawKey') {
@@ -415,6 +476,7 @@ export async function handleClassifyArgumentBooleanObservations(
         {
           unsupportedRawKeys: validated.unsupportedRawKeys,
         },
+        { requestId: input.requestId },
       );
     }
     log('warn', 'boolean_observations_invalid_params', {
@@ -424,10 +486,15 @@ export async function handleClassifyArgumentBooleanObservations(
       status: 'rejected',
       httpStatus: 200,
     });
-    return errorResult('invalid_params', 'Input failed schema validation', {
-      path: validated.path,
-      detail: validated.detail,
-    });
+    return errorResult(
+      'invalid_params',
+      'Input failed schema validation',
+      {
+        path: validated.path,
+        detail: validated.detail,
+      },
+      { requestId: input.requestId },
+    );
   }
   const request = validated.value;
 
@@ -458,14 +525,21 @@ export async function handleClassifyArgumentBooleanObservations(
         requestedFamilies: request.requestedFamilies,
         supportedFamilies: getSupportedFamilies(),
       },
+      {
+        requestId: input.requestId,
+        family: resolvedFamily,
+        schemaVersion: request.schemaVersion,
+      },
     );
   }
 
   // Step 3: provider selection (fixture vs Anthropic).
+  const providerMode: 'fixture' | 'anthropic' =
+    Deno.env.get('MCP_SERVER_USE_FIXTURE_PROVIDER') === 'true' ? 'fixture' : 'anthropic';
   let providerResult:
     | { ok: true; packet: Record<string, unknown> }
     | { ok: false; reason: string; detail?: string };
-  if (Deno.env.get('MCP_SERVER_USE_FIXTURE_PROVIDER') === 'true') {
+  if (providerMode === 'fixture') {
     const fixture = await providers.fixture();
     if (fixture.ok) {
       providerResult = { ok: true, packet: fixture.value };
@@ -486,6 +560,12 @@ export async function handleClassifyArgumentBooleanObservations(
       providerResult.reason,
       `Boolean-observation classifier call failed: ${providerResult.reason}`,
       providerResult.detail !== undefined ? { detail: providerResult.detail } : {},
+      {
+        requestId: input.requestId,
+        family: resolvedFamily,
+        mode: providerMode,
+        schemaVersion: request.schemaVersion,
+      },
     );
   }
 
@@ -499,10 +579,20 @@ export async function handleClassifyArgumentBooleanObservations(
       reason: 'validation_failed',
       status: 'failure',
     });
-    return errorResult('validation_failed', 'Model response failed packet schema', {
-      path: responseCheck.path,
-      detail: responseCheck.detail,
-    });
+    return errorResult(
+      'validation_failed',
+      'Model response failed packet schema',
+      {
+        path: responseCheck.path,
+        detail: responseCheck.detail,
+      },
+      {
+        requestId: input.requestId,
+        family: resolvedFamily,
+        mode: providerMode,
+        schemaVersion: request.schemaVersion,
+      },
+    );
   }
 
   // Step 5: doctrine ban-list scan (family-specific).
@@ -516,10 +606,42 @@ export async function handleClassifyArgumentBooleanObservations(
       status: 'failure',
       path: banScanResult.path,
     });
-    return errorResult('validation_failed', 'Model response failed doctrine ban-list scan', {
-      path: banScanResult.path,
-      detail: 'doctrine_ban_list',
-    });
+    // OPS-RCA-R3: ban-list rejection is the H1 candidate for the
+    // argument_scheme cluster. The validated response carries modelInfo
+    // (validation passed at step 4), so we forward serverName +
+    // classifierSetVersion alongside family + mode so downstream log
+    // aggregation can partition `validation_failed` by ban-list-rejection
+    // vs schema-rejection within the same `boolean_observation_tool_error`
+    // event stream.
+    const validatedModelInfo =
+      isPlainObject(responseCheck.value)
+        ? (responseCheck.value as Record<string, unknown>).modelInfo
+        : undefined;
+    const modelInfoServerName =
+      isPlainObject(validatedModelInfo) && typeof validatedModelInfo.serverName === 'string'
+        ? validatedModelInfo.serverName
+        : undefined;
+    const modelInfoClassifierSetVersion =
+      isPlainObject(validatedModelInfo) &&
+      typeof validatedModelInfo.classifierSetVersion === 'string'
+        ? validatedModelInfo.classifierSetVersion
+        : undefined;
+    return errorResult(
+      'validation_failed',
+      'Model response failed doctrine ban-list scan',
+      {
+        path: banScanResult.path,
+        detail: 'doctrine_ban_list',
+      },
+      {
+        requestId: input.requestId,
+        family: resolvedFamily,
+        mode: providerMode,
+        schemaVersion: request.schemaVersion,
+        serverName: modelInfoServerName,
+        classifierSetVersion: modelInfoClassifierSetVersion,
+      },
+    );
   }
 
   // Step 6: return the validated tool result.

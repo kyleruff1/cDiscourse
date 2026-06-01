@@ -107,3 +107,83 @@ Deno.test('boolean tool source: declares the REAL handler name (handleClassifyAr
     throw new Error('Boolean tool source missing handleClassifyArgumentBooleanObservations export');
   }
 });
+
+// ── R3 (OPS-MCP-PROVIDER-RELIABILITY-ARGUMENT-SCHEME-ERROR-RCA) ────────
+// Source-scan invariants for the unified tool-error log emission added by
+// R3. Verifies the emitter exists, uses an allowlisted field set, and
+// never spreads the raw `extra` blob into log output.
+
+Deno.test('R3: boolean tool source declares the unified emitToolErrorLog helper', async () => {
+  const source = await Deno.readTextFile(TOOL_SOURCE_URL);
+  if (!/function\s+emitToolErrorLog\b/.test(source)) {
+    throw new Error('Boolean tool source missing emitToolErrorLog helper');
+  }
+  if (!/'boolean_observation_tool_error'/.test(source)) {
+    throw new Error('Boolean tool source does not emit boolean_observation_tool_error event name');
+  }
+});
+
+Deno.test('R3: emitToolErrorLog body does NOT spread the extra blob or detail field', async () => {
+  const source = await Deno.readTextFile(TOOL_SOURCE_URL);
+  // Locate the emitter and verify its body uses an allowlisted shape only.
+  const match = source.match(
+    /function\s+emitToolErrorLog[\s\S]*?log\('warn',\s*'boolean_observation_tool_error'[\s\S]*?\}\s*\)\s*;/,
+  );
+  if (!match) {
+    throw new Error('Could not locate emitToolErrorLog log() call in source');
+  }
+  const emitterBody = match[0];
+  if (/\.\.\.extra/.test(emitterBody)) {
+    throw new Error('emitToolErrorLog spreads `...extra` — extra may carry detail/payload text');
+  }
+  if (/\bdetail\b/.test(emitterBody)) {
+    throw new Error('emitToolErrorLog references `detail` — detail may carry unsanitized text');
+  }
+  if (/\bcurrentText\b|\bparentText\b|\bthreadContextExcerpt\b/.test(emitterBody)) {
+    throw new Error('emitToolErrorLog references body text fields');
+  }
+  if (/\bobservations\b|\bconfidence\b|\bevidenceSpan\b/.test(emitterBody)) {
+    throw new Error('emitToolErrorLog references response payload fields');
+  }
+  if (/\brawArgs\b|\brawResponse\b|\brawPrompt\b/.test(emitterBody)) {
+    throw new Error('emitToolErrorLog references raw request/response/prompt');
+  }
+  if (/Authorization|x-api-key|ANTHROPIC_API_KEY/i.test(emitterBody)) {
+    throw new Error('emitToolErrorLog references authorization / API key');
+  }
+});
+
+Deno.test('R3: errorResult signature carries optional logContext parameter', async () => {
+  const source = await Deno.readTextFile(TOOL_SOURCE_URL);
+  // Match across newlines so the multi-line signature is captured.
+  if (
+    !/function\s+errorResult\([^)]*logContext\?\s*:\s*BooleanObservationToolErrorLogContext/s.test(
+      source,
+    )
+  ) {
+    throw new Error('errorResult signature missing logContext?: BooleanObservationToolErrorLogContext');
+  }
+});
+
+Deno.test('R3: boolean tool source does NOT add new provider call paths or routing-flag reads', async () => {
+  const source = await Deno.readTextFile(TOOL_SOURCE_URL);
+  // The pre-existing single routing-flag read at MCP_SERVER_USE_FIXTURE_PROVIDER
+  // is the only Deno.env.get call permitted in this handler.
+  const envReads = source.match(/Deno\.env\.get\(/g) ?? [];
+  if (envReads.length !== 1) {
+    throw new Error(
+      `Boolean tool source has ${envReads.length} Deno.env.get(...) calls; expected exactly 1 (MCP_SERVER_USE_FIXTURE_PROVIDER)`,
+    );
+  }
+  if (!/Deno\.env\.get\('MCP_SERVER_USE_FIXTURE_PROVIDER'\)/.test(source)) {
+    throw new Error('Boolean tool source missing the MCP_SERVER_USE_FIXTURE_PROVIDER env read');
+  }
+  if (/CLASSIFIER_QUEUE_ROUTING_ENABLED|CLASSIFIER_QUEUE_ROUTING_PERCENTAGE/.test(source)) {
+    throw new Error('Boolean tool source references a cutover routing flag — out of scope');
+  }
+  // No new fetch() calls — R3 is a log-only change.
+  const fetchCalls = source.match(/\bfetch\(/g) ?? [];
+  if (fetchCalls.length !== 0) {
+    throw new Error(`Boolean tool source has ${fetchCalls.length} fetch() calls; expected 0`);
+  }
+});
