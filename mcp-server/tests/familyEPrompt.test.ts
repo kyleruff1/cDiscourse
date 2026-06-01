@@ -209,8 +209,23 @@ Deno.test('Family E user prompt instructs model to provide confidence on every r
   if (!prompt.includes('low|medium|high')) {
     throw new Error('Family E prompt missing confidence band enumeration');
   }
-  if (!prompt.includes('Every key in observations MUST also appear in confidence')) {
-    throw new Error('Family E prompt missing observations/confidence coordination requirement');
+  // The OPS-MCP-FAMILY-E-RESPONSE-SHAPE-TUNING update replaced the weak
+  // one-way coordination phrase ("Every key in observations MUST also
+  // appear in confidence") with the stronger bidirectional STRICT
+  // RESPONSE-SHAPE CONTRACT block. The intent — that confidence keys
+  // must coordinate with observations — is preserved and strengthened.
+  // This test now asserts the stronger contract.
+  const referencesObservations = /\bobservations\b/.test(prompt);
+  const referencesConfidence = /\bconfidence\b/.test(prompt);
+  const assertsCoordination =
+    /(identical|same\s+exact|exactly\s+the\s+same)/i.test(prompt) &&
+    /(checkedRawKeys|observations|confidence|evidenceSpan)[\s\S]{0,800}?(checkedRawKeys|observations|confidence|evidenceSpan)/i.test(
+      prompt,
+    );
+  if (!(referencesObservations && referencesConfidence && assertsCoordination)) {
+    throw new Error(
+      'Family E prompt missing observations/confidence coordination requirement (expected the STRICT RESPONSE-SHAPE CONTRACT block)',
+    );
   }
 });
 
@@ -477,6 +492,189 @@ Deno.test('Family E prompt template: no scheme-as-fault framing in any per-key p
     if (re.test(prompt)) {
       throw new Error(
         `Family E prompt contains scheme-as-fault framing matching ${re}`,
+      );
+    }
+  }
+});
+
+// ── OPS-MCP-FAMILY-E-RESPONSE-SHAPE-TUNING — packet-shape guardrails ──
+//
+// Source-scan tests for the strict response-shape contract added in response
+// to PR #420 (R3-DIAGNOSTIC = packet/schema validation failure on
+// argument_scheme). These guardrails align the prompt's instructions to the
+// validator contract in mcpBooleanObservationSchemaMirror.ts:218-265
+// (observations.keys = confidence.keys = evidenceSpan.keys bidirectionally;
+// observations.keys ⊆ checkedRawKeys; evidenceSpan values string ≤ 240 chars
+// OR null). The tests are durable: they fail if the key-set-equality
+// guardrail, the evidenceSpan-type guardrail, or the self-check guardrail
+// is removed from the user prompt.
+
+Deno.test('Family E user prompt: declares a strict response-shape contract block', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // The block heading is the anchor; if a future refactor renames the
+  // heading, this test forces the rename to be deliberate.
+  if (!/STRICT\s+RESPONSE-SHAPE\s+CONTRACT/i.test(prompt)) {
+    throw new Error(
+      'Family E user prompt is missing the STRICT RESPONSE-SHAPE CONTRACT block — packet-shape guardrails removed',
+    );
+  }
+});
+
+Deno.test('Family E user prompt: enforces bidirectional key-set equality across the four maps', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // The packet-validation failure path "checkedRawKeys" the R3 drill
+  // surfaced (#420) is the model emitting observations with a key that
+  // is not in checkedRawKeys. The prompt must instruct identical key
+  // sets across all four to prevent this.
+  const referencesAllFour =
+    /checkedRawKeys/.test(prompt) &&
+    /observations/.test(prompt) &&
+    /confidence/.test(prompt) &&
+    /evidenceSpan/.test(prompt);
+  if (!referencesAllFour) {
+    throw new Error(
+      'Family E user prompt does not reference all four packet maps (checkedRawKeys / observations / confidence / evidenceSpan)',
+    );
+  }
+  // Look for the "identical" / "same" / "no extras, no omissions" assertion.
+  const equalityAsserted =
+    /(identical|same\s+exact|key[-\s]set\s+equality|exactly\s+(once|the\s+same))/i.test(
+      prompt,
+    );
+  if (!equalityAsserted) {
+    throw new Error(
+      'Family E user prompt does not assert bidirectional key-set equality across the four packet maps',
+    );
+  }
+  // The "no extras, no omissions" anti-drift phrase is the load-bearing
+  // guardrail against the observed checkedRawKeys-arity drift.
+  if (!/no\s+extras?[,\s]+no\s+omissions?/i.test(prompt)) {
+    throw new Error(
+      'Family E user prompt does not contain the "no extras, no omissions" packet-shape guardrail',
+    );
+  }
+});
+
+Deno.test('Family E user prompt: forbids object / array / boolean / number in evidenceSpan values', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // The packet-validation failure path
+  // "evidenceSpan.abductive_explanation_present" the R3 drill surfaced
+  // (#420) is the model emitting a non-string non-null evidenceSpan
+  // value. The prompt must enumerate the forbidden types.
+  const forbids = (token: string) =>
+    new RegExp(`(NEVER|never|no)\\s+(a\\s+|an\\s+)?${token}`, 'i').test(prompt);
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!forbids(token)) {
+      throw new Error(
+        `Family E user prompt does not forbid evidenceSpan value type "${token}"`,
+      );
+    }
+  }
+  // Also must allow string-or-null explicitly.
+  if (!/string.*null|null.*string/is.test(prompt)) {
+    throw new Error(
+      'Family E user prompt does not enumerate string-or-null as the allowed evidenceSpan value types',
+    );
+  }
+  // The 240-char cap is the validator's published limit (MAX_EVIDENCE_SPAN_CHARS).
+  if (!/240/.test(prompt)) {
+    throw new Error(
+      'Family E user prompt does not cite the 240-character evidenceSpan length cap',
+    );
+  }
+});
+
+Deno.test('Family E user prompt: prescribes null evidenceSpan for false observations', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // Convention reduces accidental object/array emission for negative
+  // observations — when the model has no quote to anchor, it should
+  // emit null rather than improvise a structured shape.
+  const negativeNullRule =
+    /(observations\[\s*rawKey\s*\]|observations\[[^\]]*\])\s+is\s+false[^.]*?null/is.test(
+      prompt,
+    ) || /false[^.]*?evidenceSpan[^.]*?null/is.test(prompt);
+  if (!negativeNullRule) {
+    throw new Error(
+      'Family E user prompt does not prescribe null evidenceSpan for false observations',
+    );
+  }
+});
+
+Deno.test('Family E user prompt: directs a self-check before emitting the JSON', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // The validator runs after the model emits; the prompt should ask the
+  // model to verify the four sets agree before emitting. This is the
+  // load-bearing prevention against the observed shape drift.
+  const selfCheckPresent =
+    /(SELF-CHECK|before\s+you\s+(return|emit|output))/i.test(prompt) &&
+    /(verify|regenerate|each\s+check\s+fails)/i.test(prompt);
+  if (!selfCheckPresent) {
+    throw new Error(
+      'Family E user prompt does not direct a self-check before emitting the JSON',
+    );
+  }
+});
+
+Deno.test('Family E user prompt: names abductive_explanation_present in the no-special-shape rule', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // The specific failure path observed in #420 was
+  // evidenceSpan.abductive_explanation_present being object/array. The
+  // prompt should explicitly call out this rawKey (alongside other
+  // doctrine-risk schemes) in the no-nested-shape guardrail.
+  if (!/abductive_explanation_present/.test(prompt)) {
+    throw new Error(
+      'Family E user prompt does not name abductive_explanation_present in the response-shape guardrail block',
+    );
+  }
+  // Must also name slippery_slope and analogy for symmetry with the
+  // existing doctrine-risk anchors.
+  if (
+    !/slippery_slope_reasoning_present/.test(prompt) ||
+    !/analogy_reasoning_present/.test(prompt)
+  ) {
+    throw new Error(
+      'Family E user prompt does not also name slippery_slope_reasoning_present and analogy_reasoning_present',
+    );
+  }
+});
+
+Deno.test('Family E user prompt: response-shape guardrail block does not introduce banned verdict tokens', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // Doctrine: the new guardrail block must not introduce tokens that
+  // could leak into evidenceSpan or could be misread as inviting verdict
+  // framing. familyEBanListScan enforces 'fallacy' / 'fallacious' /
+  // 'invalid' (standalone) / 'flawed' / 'wrong' / 'weak argument' /
+  // 'bad reasoning' / 'flawed reasoning' / 'logical error' /
+  // 'informal fallacy' / 'proof of'. Existing prompt uses 'fallacy' in
+  // negation form ("never a fallacy" — doctrine-positive). The new block
+  // must not increase the count of any of these standalone or in
+  // positive-assertion form.
+  //
+  // We only check the new STRICT RESPONSE-SHAPE CONTRACT block; the rest
+  // of the prompt is governed by the existing scheme-as-fault test
+  // above.
+  const blockMatch = prompt.match(
+    /STRICT\s+RESPONSE-SHAPE\s+CONTRACT[\s\S]*?(?=Conservative-positives bias)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate the STRICT RESPONSE-SHAPE CONTRACT block for scanning');
+  }
+  const block = blockMatch[0];
+  const bannedPatterns: RegExp[] = [
+    /\bfallacy\b/i,
+    /\bfallacious\b/i,
+    /\binvalid\b/i,
+    /\bflawed\b/i,
+    /\bwrong\b/i,
+    /\bweak\s+argument\b/i,
+    /\bbad\s+reasoning\b/i,
+    /\blogical\s+error\b/i,
+    /\bproof\s+of\b/i,
+  ];
+  for (const re of bannedPatterns) {
+    if (re.test(block)) {
+      throw new Error(
+        `STRICT RESPONSE-SHAPE CONTRACT block introduces banned token matching ${re}`,
       );
     }
   }
