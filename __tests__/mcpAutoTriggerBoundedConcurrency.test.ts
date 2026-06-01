@@ -244,11 +244,11 @@ describe('OPS-MCP-AUTO-TRIGGER-PARALLELIZATION — observed concurrency bound (D
 });
 
 /* ============================================================ */
-/* D6 #3 — A–H dispatch, I/J do not                             */
+/* D6 #3 — A–G dispatch, H/I/J do not                           */
 /* ============================================================ */
 
-describe('OPS-MCP-AUTO-TRIGGER-PARALLELIZATION — all A–H dispatch, I/J do not (D6 #3)', () => {
-  it('drives the runner with edgeProductionEnabledFamilies() (A–H); tasks exactly those 8 in order', async () => {
+describe('OPS-MCP-AUTO-TRIGGER-PARALLELIZATION — all A–G dispatch, H/I/J do not (D6 #3)', () => {
+  it('drives the runner with edgeProductionEnabledFamilies() (A–G); tasks exactly those 7 in order', async () => {
     const families = edgeProductionEnabledFamilies();
     const taskedInOrder: string[] = [];
     const results = await runWithBoundedConcurrency(
@@ -259,9 +259,8 @@ describe('OPS-MCP-AUTO-TRIGGER-PARALLELIZATION — all A–H dispatch, I/J do no
         return family;
       },
     );
-    // Exactly the 8 production families, in registry order
-    // (post MCP-021C-EDGE-FAMILY-H-ENABLE Card 3 of FAMILY-H chain flip).
-    expect(results).toHaveLength(8);
+    // Exactly the 7 production families, in registry order.
+    expect(results).toHaveLength(7);
     const taskedSorted = taskedInOrder.slice().sort();
     expect(taskedSorted).toEqual(
       [
@@ -272,7 +271,6 @@ describe('OPS-MCP-AUTO-TRIGGER-PARALLELIZATION — all A–H dispatch, I/J do no
         'argument_scheme',
         'critical_question',
         'resolution_progress',
-        'claim_clarity',
       ].slice().sort(),
     );
     // The result values preserve INPUT (registry) order regardless of
@@ -285,10 +283,9 @@ describe('OPS-MCP-AUTO-TRIGGER-PARALLELIZATION — all A–H dispatch, I/J do no
       'argument_scheme',
       'critical_question',
       'resolution_progress',
-      'claim_clarity',
     ]);
-    // I/J are NOT tasked.
-    for (const notProduction of ['thread_topology', 'sensitive_composer']) {
+    // H/I/J are NOT tasked.
+    for (const notProduction of ['claim_clarity', 'thread_topology', 'sensitive_composer']) {
       expect(taskedInOrder).not.toContain(notProduction);
     }
   });

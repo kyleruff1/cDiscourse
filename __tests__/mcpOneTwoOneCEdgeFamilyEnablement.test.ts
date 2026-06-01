@@ -1,13 +1,13 @@
 /**
- * MCP-021C-EDGE — Test: family enablement flag (post MCP-021C-EDGE-FAMILY-H-ENABLE is A+B+C+D+E+F+G+H).
+ * MCP-021C-EDGE — Test: family enablement flag (post MCP-021C-EDGE-FAMILY-G-ENABLE is A+B+C+D+E+F+G).
  *
- * Post `MCP-021C-EDGE-FAMILY-H-ENABLE` (Card 3 of the FAMILY-H chain):
- * eight families have `productionEnabled: true` — `parent_relation` (A),
+ * Post `MCP-021C-EDGE-FAMILY-G-ENABLE` (Card 3 of the FAMILY-G chain):
+ * seven families have `productionEnabled: true` — `parent_relation` (A),
  * `disagreement_axis` (B), `misunderstanding_repair` (C),
  * `evidence_source_chain` (D), `argument_scheme` (E), `critical_question`
- * (F), `resolution_progress` (G), and `claim_clarity` (H). This focused
- * test catches any future widening of the production posture that
- * doesn't go through a documented family-enablement card.
+ * (F), and `resolution_progress` (G). This focused test catches any
+ * future widening of the production posture that doesn't go through a
+ * documented family-enablement card.
  *
  * Future family enablement requires:
  *   1. Operator-driven admin validation cycle for the candidate family.
@@ -26,13 +26,13 @@ import {
   edgeAdminValidationEnabledFamilies,
 } from './_helpers/booleanObservationEdgeDeno';
 
-describe('MCP-021C-EDGE — production enablement is binding (post Card 3 of FAMILY-H chain flip: A+B+C+D+E+F+G+H)', () => {
-  it('FE-1 — exactly EIGHT entries have productionEnabled: true (post Card 3 of FAMILY-H chain flip)', () => {
+describe('MCP-021C-EDGE — production enablement is binding (post Card 3 flip: A+B+C+D+E+F+G)', () => {
+  it('FE-1 — exactly SEVEN entries have productionEnabled: true (post Card 3 flip)', () => {
     const productionEntries = EDGE_FAMILY_REGISTRY.filter((e) => e.productionEnabled);
-    expect(productionEntries).toHaveLength(8);
+    expect(productionEntries).toHaveLength(7);
   });
 
-  it('FE-2 — the production-enabled families are A+B+C+D+E+F+G+H (parent_relation, disagreement_axis, misunderstanding_repair, evidence_source_chain, argument_scheme, critical_question, resolution_progress, claim_clarity)', () => {
+  it('FE-2 — the production-enabled families are A+B+C+D+E+F+G (parent_relation, disagreement_axis, misunderstanding_repair, evidence_source_chain, argument_scheme, critical_question, resolution_progress)', () => {
     const productionEntries = EDGE_FAMILY_REGISTRY.filter((e) => e.productionEnabled).map(
       (e) => e.family,
     );
@@ -44,11 +44,10 @@ describe('MCP-021C-EDGE — production enablement is binding (post Card 3 of FAM
       'argument_scheme',
       'critical_question',
       'resolution_progress',
-      'claim_clarity',
     ]);
   });
 
-  it('FE-3 — productionEnabledFamilies() returns exactly ["parent_relation", "disagreement_axis", "misunderstanding_repair", "evidence_source_chain", "argument_scheme", "critical_question", "resolution_progress", "claim_clarity"]', () => {
+  it('FE-3 — productionEnabledFamilies() returns exactly ["parent_relation", "disagreement_axis", "misunderstanding_repair", "evidence_source_chain", "argument_scheme", "critical_question", "resolution_progress"]', () => {
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
@@ -57,12 +56,11 @@ describe('MCP-021C-EDGE — production enablement is binding (post Card 3 of FAM
       'argument_scheme',
       'critical_question',
       'resolution_progress',
-      'claim_clarity',
     ]);
   });
 
-  it('FE-4 — productionEnabledFamilies() has length 8 (post Card 3 of FAMILY-H chain flip)', () => {
-    expect(edgeProductionEnabledFamilies()).toHaveLength(8);
+  it('FE-4 — productionEnabledFamilies() has length 7 (post Card 3 flip)', () => {
+    expect(edgeProductionEnabledFamilies()).toHaveLength(7);
   });
 });
 
@@ -78,10 +76,11 @@ describe('MCP-021C-EDGE — admin validation enablement is all 10 (unchanged)', 
   });
 });
 
-describe('MCP-021C-EDGE — every I–J family is production-disabled (H now production-enabled)', () => {
-  // Post Card 3 of FAMILY-H chain (MCP-021C-EDGE-FAMILY-H-ENABLE): H
-  // (claim_clarity) is PRODUCTION-ENABLED. I–J remain admin-only.
+describe('MCP-021C-EDGE — every H–J family is production-disabled (G now production-enabled)', () => {
+  // Post Card 3 (MCP-021C-EDGE-FAMILY-G-ENABLE): G (resolution_progress)
+  // is PRODUCTION-ENABLED. H–J remain admin-only.
   const NON_PRODUCTION_FAMILIES = [
+    'claim_clarity',
     'thread_topology',
     'sensitive_composer',
   ] as const;
@@ -182,19 +181,6 @@ describe('MCP-021C-EDGE-FAMILY-G-ENABLE — G explicit production flip assertion
 
   it('FE-14 — resolution_progress (G) is productionEnabled: true (Card 3 flip)', () => {
     const entry = EDGE_FAMILY_REGISTRY.find((e) => e.family === 'resolution_progress');
-    expect(entry).toBeDefined();
-    expect(entry!.productionEnabled).toBe(true);
-  });
-});
-
-describe('MCP-021C-EDGE-FAMILY-H-ENABLE — H explicit production flip assertion (Card 3 of FAMILY-H chain)', () => {
-  // This test is added by MCP-021C-EDGE-FAMILY-H-ENABLE to make the H
-  // flip visible in this binding-gate file. If a future card accidentally
-  // reverts the Family H production flag, this assertion fails with a
-  // Family-H-specific message.
-
-  it('FE-15 — claim_clarity (H) is productionEnabled: true (Card 3 of FAMILY-H chain flip)', () => {
-    const entry = EDGE_FAMILY_REGISTRY.find((e) => e.family === 'claim_clarity');
     expect(entry).toBeDefined();
     expect(entry!.productionEnabled).toBe(true);
   });
