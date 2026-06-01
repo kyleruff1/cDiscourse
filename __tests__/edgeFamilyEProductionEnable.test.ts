@@ -46,11 +46,11 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — Family E production-mode flip bindin
     expect(edgeProductionEnabledFamilies()).toContain('argument_scheme');
   });
 
-  it('FEE-4 — edgeProductionEnabledFamilies() has length 8 (post MCP-021C-EDGE-FAMILY-H-ENABLE flip; E entry remains)', () => {
-    expect(edgeProductionEnabledFamilies()).toHaveLength(8);
+  it('FEE-4 — edgeProductionEnabledFamilies() has length 7 (post MCP-021C-EDGE-FAMILY-G-ENABLE flip; E entry remains)', () => {
+    expect(edgeProductionEnabledFamilies()).toHaveLength(7);
   });
 
-  it('FEE-5 — edgeProductionEnabledFamilies() preserves registry A→H order (E remains at index 4)', () => {
+  it('FEE-5 — edgeProductionEnabledFamilies() preserves registry A→G order (E remains at index 4)', () => {
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
@@ -59,7 +59,6 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — Family E production-mode flip bindin
       'argument_scheme',
       'critical_question',
       'resolution_progress',
-      'claim_clarity',
     ]);
   });
 
@@ -70,18 +69,19 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — Family E production-mode flip bindin
   });
 });
 
-describe('MCP-021C-EDGE-FAMILY-E-ENABLE — I–J remain admin-only (no widening past H)', () => {
-  // Post Card 3 of FAMILY-H chain (MCP-021C-EDGE-FAMILY-H-ENABLE), H
-  // (claim_clarity) is production-enabled; I–J remain admin-only. This
-  // describe block's defensive guard updates from "H–J admin-only" to
-  // "I–J admin-only" while preserving the catch-accidental-widening
+describe('MCP-021C-EDGE-FAMILY-E-ENABLE — H–J remain admin-only (no widening past G)', () => {
+  // Post Card 3 of FAMILY-G chain (MCP-021C-EDGE-FAMILY-G-ENABLE), G
+  // (resolution_progress) is production-enabled; H–J remain admin-only.
+  // This describe block's defensive guard updates from "G–J admin-only"
+  // to "H–J admin-only" while preserving the catch-accidental-widening
   // property.
-  const IJ_ADMIN_ONLY = [
+  const HJ_ADMIN_ONLY = [
+    'claim_clarity',
     'thread_topology',
     'sensitive_composer',
   ] as const;
 
-  for (const family of IJ_ADMIN_ONLY) {
+  for (const family of HJ_ADMIN_ONLY) {
     it(`FEE-7:${family} — productionEnabled is false (awaits its own card)`, () => {
       const entry = edgeLookupFamilyRegistryEntry(family);
       expect(entry).not.toBeNull();

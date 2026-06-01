@@ -103,7 +103,7 @@ export const FAMILY_REGISTRY: ReadonlyArray<FamilyRegistryEntry> = Object.freeze
   },
   {
     family: 'claim_clarity',
-    productionEnabled: true,
+    productionEnabled: false,
     adminValidationEnabled: true,
   },
   {

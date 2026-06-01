@@ -107,14 +107,13 @@ describe('ARCH-001 Card 3 — enqueueClassifierJobs (single multi-row INSERT for
     expect(result.ok).toBe(true);
   });
 
-  it('ENQ-2 — exactly the 8 A–H families are enqueued (no I/J) post MCP-021C-EDGE-FAMILY-H-ENABLE flip', async () => {
+  it('ENQ-2 — exactly the 7 A–G families are enqueued (no H/I/J)', async () => {
     const { client, inserts } = makeStubClient();
     await enqueueClassifierJobs('arg-1', 'deb-1', client);
     const enqueuedFamilies = inserts[0].rows.map((r) => r.family);
     expect([...enqueuedFamilies].sort()).toEqual(
       [
         'argument_scheme',
-        'claim_clarity',
         'critical_question',
         'disagreement_axis',
         'evidence_source_chain',
@@ -123,8 +122,8 @@ describe('ARCH-001 Card 3 — enqueueClassifierJobs (single multi-row INSERT for
         'resolution_progress',
       ].sort(),
     );
-    // intent-brief (j): the two non-production families are NEVER enqueued.
-    for (const banned of ['thread_topology', 'sensitive_composer']) {
+    // intent-brief (j): the three non-production families are NEVER enqueued.
+    for (const banned of ['claim_clarity', 'thread_topology', 'sensitive_composer']) {
       expect(enqueuedFamilies).not.toContain(banned);
     }
   });
