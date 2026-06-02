@@ -101,12 +101,20 @@ The fixture-provider mode (`MCP_SERVER_USE_FIXTURE_PROVIDER=true`) bypasses the 
 
 ## Phase 3 — Hosted smoke
 
+**Run from repo root**, not from `mcp-server/`. The smoke script lives at `scripts/mcp-server-001-smoke.sh` (repo root–relative); running from `mcp-server/` will fail to find the fixtures and helpers.
+
 ```bash
+cd ~/cdiscourse/debate-constitution-app
+
 bash scripts/mcp-server-001-smoke.sh \
-  --base-url https://cdiscourse-mcp-server.deno.dev \
-  --token <same-token-as-deno-deploy-env>
-# Expect: 9/9 PASS, exit 0
+  --base-url https://cdiscourse-mcp-server-39aev5ek2c4e.civildiscourse.deno.net \
+  --token "$MCP_SERVER_BEARER_TOKEN"
+# Expect: 23/23 PASS, exit 0 (current build count includes Family A–H tool checks)
 ```
+
+**About the base URL.** Deno Deploy assigns each project a generated subdomain. The example above (`https://cdiscourse-mcp-server-39aev5ek2c4e.civildiscourse.deno.net`) is the current production URL for the `cdiscourse-mcp-server` project. Older docs may refer to a `*.deno.dev` placeholder; that pattern still works for new Deno Deploy projects but the current production project uses the operator's organization-scoped `.civildiscourse.deno.net` subdomain. Always check the Deno Deploy dashboard for the live project URL.
+
+**`GET /` returning 404 is normal.** The server registers `/health` (unauthenticated), `/mcp` (JSON-RPC spec endpoint, Bearer required), and `/mcp/adapter-compat` (simplified envelope endpoint, Bearer required). It does NOT register a root handler. A 404 at `/` indicates the deployment is live and the framework is responding; only `/health` failing or returning a wrong shape indicates a real deployment problem.
 
 Note: the hosted smoke calls REAL Anthropic (no fixture flag). Check 4 + Check 8 verify a real `SemanticRefereePacket` returns from a real `claude-haiku-4-5` invocation.
 
@@ -116,19 +124,38 @@ If a hosted check fails, view Deno Deploy logs (Dashboard → project → Logs).
 
 ## Phase 4 — Supabase secret wiring
 
+**Required: a Supabase account personal access token (PAT)** in `SUPABASE_ACCESS_TOKEN`. The `npx supabase secrets set` / `npx supabase secrets list` commands authenticate against your Supabase account, not the project. The PAT comes from your Supabase dashboard → Account → Access Tokens. **Do not use** the project anon key, the project service-role key, or a database password — none of those work for the secrets CLI.
+
 ```bash
-npx supabase secrets set \
-  SEMANTIC_REFEREE_MCP_URL=https://cdiscourse-mcp-server.deno.dev/mcp/adapter-compat \
+# Pass the account PAT inline so it does not persist in your shell env.
+# Replace YOUR_PAT_HERE with the value from dashboard → Account → Access Tokens.
+# Replace YOUR_DENO_DEPLOY_BASE with the live Deno Deploy URL from Phase 2.
+# Replace YOUR_MCP_SERVER_BEARER_TOKEN with the same value you set in Deno Deploy env.
+
+SUPABASE_ACCESS_TOKEN=YOUR_PAT_HERE npx supabase secrets set \
+  SEMANTIC_REFEREE_MCP_URL=YOUR_DENO_DEPLOY_BASE/mcp/adapter-compat \
   --project-ref qsciikhztvzzohssddrq
 
-npx supabase secrets set \
-  SEMANTIC_REFEREE_MCP_TOKEN=<same-token-as-deno-deploy-env> \
+SUPABASE_ACCESS_TOKEN=YOUR_PAT_HERE npx supabase secrets set \
+  SEMANTIC_REFEREE_MCP_TOKEN=YOUR_MCP_SERVER_BEARER_TOKEN \
   --project-ref qsciikhztvzzohssddrq
 
 # Verify both are set:
-npx supabase secrets list --project-ref qsciikhztvzzohssddrq | grep SEMANTIC_REFEREE_MCP
+SUPABASE_ACCESS_TOKEN=YOUR_PAT_HERE npx supabase secrets list --project-ref qsciikhztvzzohssddrq | grep SEMANTIC_REFEREE_MCP
 # Expected: two lines, both with HASHED values (Supabase never shows raw secrets)
 ```
+
+After running the commands, unset any shell variables that held secret material so they do not persist in the shell or its history:
+
+```bash
+unset SUPABASE_ACCESS_TOKEN MCP_SERVER_BEARER_TOKEN
+```
+
+**Doctrine reminders**:
+- NEVER commit a `.env*` file with real tokens.
+- NEVER print tokens to chat, logs, audits, or PR bodies.
+- NEVER paste tokens to Claude Code — only the operator runs the `secrets set` commands.
+- If a token is leaked, rotate immediately per `Token rotation` below.
 
 **CRITICAL: the URL suffix.** The Supabase Edge Function adapter (MCP-018) sends the simplified `{tool, input}` envelope, NOT a JSON-RPC `tools/call`. The URL MUST point at `/mcp/adapter-compat`, NOT `/mcp`. Setting it to `/mcp` would route the Edge Function's traffic to the official endpoint, which would reject the envelope as invalid JSON-RPC.
 
