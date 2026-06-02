@@ -84,8 +84,11 @@ const SAFETY_PATTERNS = [
   { name: 'authorization_header', re: /Authorization\s*:\s*(?:(?!\[redacted\])[^\n]){12,}/i },
   // Identifiers
   // X handle: @ NOT preceded by an alphanumeric (so it's not the middle of
-  // an email like noreply@anthropic.com), NOT followed by a .TLD suffix.
-  { name: 'x_handle', re: /(?<![A-Za-z0-9_.])@([A-Za-z0-9_]{3,15})(?![\w-]*\.[A-Za-z]{2,})/ },
+  // an email like noreply@anthropic.com), NOT followed by a .TLD suffix
+  // (email/domain), and NOT followed by a `/` (a scoped npm package such as
+  // @testing-library/jest-native or @jest/reporters is a package name, not a
+  // handle — the hyphen/word run before the slash is also excluded).
+  { name: 'x_handle', re: /(?<![A-Za-z0-9_.])@([A-Za-z0-9_]{3,15})(?![\w-]*\.[A-Za-z]{2,})(?![\w-]*\/)/ },
   { name: 'x_url', re: /https?:\/\/(?:x|twitter)\.com\/[A-Za-z0-9_/]+/i },
   { name: 't_co_url', re: /https?:\/\/t\.co\/[A-Za-z0-9_]+/i },
   // Raw post id: 15-20 contiguous digits NOT inside a longer alphanumeric
@@ -131,8 +134,9 @@ const REDACT_REPLACERS = [
   [/\b(?:x|twitter)\.com\/[^\s")\]]+/gi, '<x-link>'],
   [/\bt\.co\/[^\s")\]]+/gi, '<x-link>'],
   // @handle: NOT preceded by alphanum (so it's not the middle of an email
-  // we somehow missed) AND NOT followed by a .TLD.
-  [/(?<![A-Za-z0-9_.])@([A-Za-z0-9_]{1,15})\b(?![\w-]*\.[A-Za-z]{2,})/g, '<x-handle>'],
+  // we somehow missed), NOT followed by a .TLD, AND NOT followed by a `/`
+  // (a scoped npm package name like @scope/pkg is a package, not a handle).
+  [/(?<![A-Za-z0-9_.])@([A-Za-z0-9_]{1,15})\b(?![\w-]*\.[A-Za-z]{2,})(?![\w-]*\/)/g, '<x-handle>'],
   // 15-20 contiguous digits NOT inside a longer alphanumeric token.
   [/(?<![A-Za-z0-9])\d{15,20}(?![A-Za-z0-9])/g, '<x-id>'],
 ];
