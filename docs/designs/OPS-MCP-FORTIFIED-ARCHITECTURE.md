@@ -156,7 +156,7 @@ The pattern that works:
 7. **Add per-rawKey RAWKEY-SHAPE REINFORCEMENT** naming the specific failing path, enumerating allowed (string ≤ 240 OR null) and forbidden (object/array/boolean/number/missing) shapes.
 8. **Test with teeth**: prompt source-scan tests that fail if the block is removed; validator regression tests that pin both `result.ok === false` AND the exact `result.path`.
 9. **Preserve everything else byte-equal**: validator, ban-lists, key files, system prompts, MAX_TOKENS, familyRegistry, drainer constants, retry policy, migrations, runtime flags, package.json.
-10. **Deno Deploy push after merge** before any retry drill.
+10. **Deno Deploy push after merge** before any retry drill, then arm the drill via the **canary-then-burst sequence** (§3.7) so the N=8 evidence is valid.
 
 This procedure is the operational template for any future packet/schema cluster on any family.
 
@@ -171,6 +171,32 @@ Forwarded log aggregates from the operator must be **counts only** with allowlis
 The queue table `public.argument_machine_observation_runs` carries `failure_reason`, `failure_sub_reason`, `dead_letter_reason` as opaque text. The Edge MCP adapter computes a structured `BooleanObservationFailureDetail` (`serverReason`, `path`, `receivedKeys`, `validatorReason`) but discards it before persistence.
 
 Adding a jsonb `failure_detail` column would persist the inner classification automatically per cell, removing the dependency on operator-side Deno Deploy log pulls for every drill. This was scoped as RCA probe R1 (`docs/rca/OPS-MCP-PROVIDER-RELIABILITY-ARGUMENT-SCHEME-ERROR-RCA-2026-06-01.md`); it has not been implemented and is not blocking the current chain.
+
+### 3.7 Canary-then-burst arming discipline (binding for every queue-routing drill).
+
+**Origin.** During the PR #426 confirmatory drill, the operator armed routing (`CLASSIFIER_QUEUE_ROUTING_ENABLED=true`) and reported "arm done", but the first N=8 burst nonetheless took the **legacy direct-dispatch path** — all 58 resulting `argument_machine_observation_runs` rows had `family = NULL` instead of the expected `family IS NOT NULL` queue rows. The routing flag had not actually propagated to the Edge runtime at burst time. The misfire wasted the operator-authorized burst spend (still ~58 Anthropic calls, just on the wrong path) and produced no gate-bearing queue evidence.
+
+The lesson: **Supabase Edge env-var propagation is non-deterministic on the order of a minute or more, and `npx supabase secrets list` confirming the value is set is necessary but not sufficient** to prove the flag is live in the running Edge isolate. A behavioral verification is required before committing the full N=8 spend.
+
+**The binding arming sequence** (applies to queue-load-smoke, confirmatory smoke, AND Stage 1 ramp drills):
+
+1. **Operator sets** the routing env vars with a Supabase **account PAT** (`SUPABASE_ACCESS_TOKEN`, NOT anon, NOT service-role, NOT db password — see §4 + status doc §4):
+   - `CLASSIFIER_QUEUE_ROUTING_ENABLED=true`
+   - `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=<0 for smoke; 1 for Stage-1>`
+2. **Operator verifies** via `npx supabase secrets list` AND **waits ≥ 120 seconds** for Edge propagation.
+3. **CC runs an N=1 canary** burst through the existing smoke-tag harness (`node .claude-tmp/queue-load-smoke-burst.cjs 1`).
+4. **CC inspects the canary's cells** with a read-only query scoped to the canary argId:
+   - PASS condition: exactly 7 A-G queue rows, **all `family IS NOT NULL`** (queue path), **zero H/I/J rows**. (A single cell in `retry_scheduled` at first inspection is an expected transient and recovers — it does not fail the canary.)
+   - HALT condition: any row with `family = NULL` → routing did NOT propagate → **HALT; do NOT run the N=8 burst**. Surface the diagnosis, ask the operator to re-verify/re-set the flag, and re-canary.
+5. **Only after the canary confirms `family IS NOT NULL`** does CC run the gate-bearing N=8 burst.
+6. The canary's cells are **informational, not gate-bearing**. The N=8 burst's cells are the gate-bearing evidence; the canary is purely a routing-path verification gate.
+
+**Two binding clarifications:**
+
+- **The canary is NOT a substitute for N=8.** It is only a routing-path verification gate. PASS-LOAD / PASS-LOAD-CONFIRM / PASS-STAGE-1 verdicts are evaluated against the N=8 burst's 56 cells, never against the canary's 7.
+- **The N=8 burst is gate-bearing only if the canary confirmed `family IS NOT NULL` queue rows.** An N=8 burst that runs without a passing canary first (as the PR #426 first burst did) produces no valid gate evidence and must be discarded.
+
+The canary-then-burst flow has its own dedicated runbook audit: `docs/audits/OPS-MCP-CANARY-THEN-BURST-RUNBOOK-2026-06-02.md`.
 
 ---
 
@@ -203,6 +229,8 @@ PR #420 noted this as an architectural correction after PR #419's first incorrec
 | Family J production | scoping only | NEVER auto-enabled |
 
 `PASS-R3-DIAGNOSTIC` alone is NEVER `PASS-LOAD`. The current chain (PR #422) explicitly distinguishes these. No future card may conflate them.
+
+**Reproducibility note (PR #425 + #426).** PASS-LOAD was first achieved in PR #425 (56/56 queue cells, 0 dead-letter) and confirmed in PR #426 (PASS-LOAD-CONFIRM, second consecutive 56/56). Two consecutive PASS-LOAD drills satisfy the PASS-LOAD prerequisite for Stage 1 *reconsideration* — but reconsideration is still a SEPARATE operator-gated card (`OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-STAGE-1`), and any arming inside it MUST follow the canary-then-burst discipline (§3.7). No audit auto-flips the routing flag.
 
 ---
 

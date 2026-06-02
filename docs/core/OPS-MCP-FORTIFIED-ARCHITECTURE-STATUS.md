@@ -127,31 +127,33 @@ The cluster that motivated this whole chain (PR #407 H Card 3 production-enable 
 | PR #416 (pre-mitigation) | 3 | 0 | 5.357% | `evidenceSpan.abductive_explanation_present` (3×) |
 | PR #419 (re-run pre-mitigation) | 3 | 0 | 5.357% | same |
 | PR #422 (post-PR-#421 E mitigation) | **1** | **1** | **3.571%** | `evidenceSpan.abductive_explanation_present` (3 R3 events on 1 cell); `evidenceSpan.alternative_explanation_available` (2 R3 events on 1 cell) |
+| **PR #425 (post-PR-#423 E+F mitigation)** | **0** | **0** | **0.000%** | none terminal — **PASS-LOAD** (2 transient retries on E + F, both recovered on attempt 2) |
+| **PR #426 (confirmatory)** | **0** | **0** | **0.000%** | none terminal — **PASS-LOAD-CONFIRM** (1 transient retry on `evidence_source_chain`, recovered on attempt 2) |
 
 Mitigation pattern established by PR #421 + #423:
 - **STRICT RESPONSE-SHAPE CONTRACT** block in the family's user prompt (key-set equality across all four maps; evidenceSpan value-type rules; null-for-false convention; pre-emit self-check).
 - **Per-rawKey RAWKEY-SHAPE REINFORCEMENT** for the specific failing path (re-enumerates allowed string-or-null + forbidden object/array/boolean/number).
 
-The pattern is **probabilistic**: PR #421 reduced E from 3 → 1. PR #423 extends to F and adds rule 6 reinforcement on E. The next drill (separate card) measures the residual.
+The pattern is **probabilistic** and **reproducibly successful**: PR #421 reduced E from 3 → 1; PR #423 extended to F and added rule 6 reinforcement on E; PR #425 achieved the first **PASS-LOAD** (0 dead-letter, 56/56); PR #426 **confirmed reproducibility** (PASS-LOAD-CONFIRM, second consecutive 56/56). The packet/schema cluster is **eliminated to terminal**. A residual ~1–2 cells per drill (~2–4% per-attempt) surfaces a transient validation failure on a *varying* family each drill (E+F in #425, D in #426), but the 4-attempt retry budget absorbs every transient before it reaches terminal. The cluster is gone; the transient floor is comfortably within the retry budget.
 
 ---
 
 ## 6. Next operator gates
 
+**Progress as of PR #426 + the canary-then-burst runbook card:** Steps 1–3 below are COMPLETE. The deploy landed (Deno Deploy build `qrvrmvp6qqhn` from `d2d436a`), hosted smoke passed 23/23, and two consecutive PASS-LOAD drills (#425 + #426) eliminated the cluster. The next gate is Stage 1 reconsideration, which is a SEPARATE operator-gated card.
+
 Strict sequence; do NOT skip steps:
 
-1. **Deno Deploy push**: `mcp-server/` post-PR-#423 build must be deployed to `cdiscourse-mcp-server` on Deno Deploy. PR #423's merge alone does NOT do this. Use `deployctl` from `mcp-server/` (or the Deno Deploy GitHub integration if configured at the Deno Deploy dashboard level — operator's choice). Confirm post-deploy via the deployment list in the Deno Deploy dashboard at a commit that includes `9ae3c7a`.
-2. **Hosted MCP smoke**: `bash scripts/mcp-server-001-smoke.sh --base-url <deno-deploy-base> --token "$MCP_SERVER_BEARER_TOKEN"` from repo root. Expect 23/23 PASS, exit 0.
-3. **Queue-load-smoke retry** (separate operator-gated card): `OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-QUEUE-LOAD-SMOKE-RETRY` style; same N=8 harness + same query pack. Compare per-family dead-letter rates against PR #422 baseline (1 E + 1 F = 2/56 = 3.571%). Possible outcomes:
-   - **PASS-LOAD** (zero cluster): operator separately decides on Stage 1 reconsideration.
-   - **Further-reduced FAIL-LOAD**: extend pattern to the next surfaced family, iterate.
-   - **No-change FAIL-LOAD**: revisit token-budget hypothesis (still "possible contributor only" per wording discipline) and/or RCA's R1 jsonb `failure_detail` persistence.
-4. **Stage 1 reconsideration** is gated on PASS-LOAD. NEVER auto-flip from any drill.
-5. **Family H production retry** stays gated until PASS-LOAD on a non-H drill PLUS a separate operator decision.
-6. **Family I and J** stay gated; scoping only.
+1. ~~**Deno Deploy push**~~ — DONE. `mcp-server/` build serving production at `https://cdiscourse-mcp-server.civildiscourse.deno.net`.
+2. ~~**Hosted MCP smoke**~~ — DONE. 23/23 PASS (operator-attested at PR #425/#426).
+3. ~~**Queue-load-smoke retry**~~ — DONE twice. PR #425 PASS-LOAD; PR #426 PASS-LOAD-CONFIRM. Both 56/56, 0 dead-letter.
+4. **Arming discipline (binding for ALL queue-routing drills, including Stage 1):** the **canary-then-burst** sequence (design doc §3.7). Operator sets the routing flag, verifies via `secrets list`, waits ≥ 120s; CC runs an N=1 canary; CC confirms 7 A-G rows with `family IS NOT NULL` and zero H/I/J; ONLY THEN CC runs the N=8 burst. If the canary shows `family = NULL`, HALT — routing did not propagate. The canary is a routing-path verification gate, NOT a substitute for N=8. Codified in `docs/audits/OPS-MCP-CANARY-THEN-BURST-RUNBOOK-2026-06-02.md`.
+5. **Stage 1 reconsideration** (separate operator-gated card `OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-STAGE-1`): the two PASS-LOAD drills MEET the PASS-LOAD prerequisite, but reconsideration is still a deliberate operator decision. Stage 1 at **1% only** (`CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=1`); 5% → 25% → 50% → 100% each require a SEPARATE operator authorization. **NEVER auto-flip from any audit.** Re-enable `cutover-health-monitor-tick` as part of Stage 1, not before.
+6. **Family H production retry** stays gated until a PASS-LOAD on a non-H drill PLUS a separate operator decision (the PR #407 H Card 3 FAIL is the canonical incident).
+7. **Family I and J** stay gated; scoping only.
 
 ---
 
 ## 7. Provenance
 
-This status doc is docs-only codification. Created in PR (TBD via PR #424 — see `docs/audits/OPS-MCP-FORTIFIED-ARCHITECTURE-DOCS-2026-06-02.md`). No runtime change. No env/Vault/cron/familyRegistry/migration/source-6 mutation by Claude.
+This status doc is docs-only codification. Created in PR #424 (`docs/audits/OPS-MCP-FORTIFIED-ARCHITECTURE-DOCS-2026-06-02.md`); extended in the canary-then-burst runbook card (`docs/audits/OPS-MCP-CANARY-THEN-BURST-RUNBOOK-2026-06-02.md`) with the §5 PASS-LOAD/PASS-LOAD-CONFIRM drill rows and §6 gate-progress update. No runtime change. No env/Vault/cron/familyRegistry/migration/source-6 mutation by Claude.
