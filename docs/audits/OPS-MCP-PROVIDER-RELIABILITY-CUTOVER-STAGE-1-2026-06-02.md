@@ -1,4 +1,4 @@
-# OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-STAGE-1 — Stage 1 (1%) audit (2026-06-02) — OBSERVING
+# OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-STAGE-1 — Stage 1 (1%) audit (2026-06-02) — CLOSED: PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME
 
 Audit-Lint: v1
 Audit-type: ops
@@ -15,7 +15,9 @@ Doctrine-risk: false
 
 **Scope:** First production cutover step — queue routing enabled at **1% only** (`CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=1`). No Family H/I/J enablement. No advance above 1%. No source/migration/validator/prompt/retry/drainer change. This is the separate operator authorization card that the PR #425/#426 PASS-LOAD audits explicitly did NOT auto-grant.
 
-**Verdict:** **OBSERVING** — Stage 1 armed at 1%, canary PASS, T0 baseline all-green, observation window OPEN. The terminal verdict (PASS-STAGE-1 / PARTIAL / FAIL) is recorded at window close (≥ 24h), in a follow-up audit update. **PASS-STAGE-1, when reached, does NOT auto-advance to 5% — that requires a separate operator card.**
+**Verdict:** **PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME** (window CLOSED 2026-06-02 by `OPS-MCP-STAGE1-CLOSEOUT`; see § 11). The 1% queue-routing *plumbing* is verified — canary routed 7/7 correctly, drain + monitor crons stayed healthy, rollback was one command away, the system stayed inert/healthy across the window — but organic routed volume was **zero throughout** (`non_smoke_routed_args = 0`), so real-organic-load handling was **not observed and is not claimed**. The window was **closed deliberately and early** because a zero-traffic soak adds no information beyond its first snapshot. Routing was **disarmed to baseline** (`ENABLED=false`/`PERCENTAGE=0`, `UTC_DISARMED_TIMESTAMP=2026-06-02T18:32:26Z`). **5% and higher are NOT advanced by this verdict — the real ramp is a launch-time decision when real traffic exists, not a scheduled percentage ladder.**
+
+> _History: this audit was OBSERVING from arm (2026-06-02T07:50:54Z) until the deliberate early close on 2026-06-02. The § 0 low-traffic interpretation rule (added during the window) anticipated exactly this closeout verdict._
 
 ---
 
@@ -173,6 +175,7 @@ Periodic read-only checks taken during the OPEN Stage-1 1% window via the Card-2
 | UTC | routed since arm (all smoke) | organic (non_smoke) | H/I/J rows | M2 depth | M1 since last drain | monitor (15 min) | note |
 |---|---|---|---|---|---|---|---|
 | 2026-06-02T09:10:42Z | 10 | **0** | **0** | 0 (idle) | ~35 min (idle-empty) | 0 fail / 3 ok (`*/5`) | queue idle post-qualification; ~22.7h to window close |
+| 2026-06-02T18:31:08Z | 10 | **0** | **0** | 0 (idle) | ~9.9h (idle-empty) | 0 fail / 3 ok (`*/5`) | window-close snapshot; no trigger ever fired; deliberate early close (§ 11); routing disarmed 18:32:26Z |
 
 Reading the columns:
 
@@ -182,4 +185,24 @@ Reading the columns:
 - **M1 since last drain is large here precisely because the queue is idle-empty, NOT because the drainer is stuck.** M1 staleness is a rollback signal **only when paired with M2 > 0** (depth present AND drainer not completing). With M2 = 0 and the monitor reporting 0 failures, an old `last completed drain` timestamp is expected and benign.
 - **monitor = 0 fail / 3 ok on `*/5`** — Layer-1 watchdog healthy.
 
-The window stays **OPEN** until ≥ `2026-06-03T07:50:54Z`; the terminal Stage-1 verdict is recorded at close per the §0 closeout-verdict rule (`PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` if organic routed stays zero). Additional checkpoint rows may be appended above as the window progresses.
+The window was **closed deliberately and early on 2026-06-02** (≈10.7h into the ≥24h window) at the **`PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`** verdict per the § 0 closeout-verdict rule — organic routed stayed zero throughout, so the remaining ~13h could not have produced real-load evidence. See § 11.
+
+---
+
+## 11. Closeout — PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME (2026-06-02)
+
+`OPS-MCP-STAGE1-CLOSEOUT` closed the Stage-1 1% window **deliberately and early** — ≈10.7h into the ≥24h window (armed `2026-06-02T07:50:54Z`; window would otherwise have elapsed `2026-06-03T07:50:54Z`). Final read-only snapshot `2026-06-02T18:31:08Z`; routing disarmed `2026-06-02T18:32:26Z`.
+
+**The verdict and what it means.** The 1% queue-routing **plumbing** is verified: the canary routed 7/7 correctly (`family IS NOT NULL`, 0 legacy, 0 H/I/J), the ARCH-001 drainer + `cutover-health-monitor` crons stayed healthy throughout, rollback was one command away (`disarm-stage1.sh`), and the system stayed inert/healthy with the flag on. Organic routed volume was **zero throughout** (`non_smoke_routed_args = 0`), so real-organic-load handling was **not observed and is not claimed** — hence `PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`, explicitly **not** a plain `PASS-STAGE-1`.
+
+**No rollback trigger ever fired** (window-wide read-only sweep, snapshot `2026-06-02T18:31:08Z`): 0 H/I/J rows · 0 `family=NULL` leakage on a routed arg · 0 `duplicate_success` cells · 0 `overlapping_drain_pairs` · M2 drained to 0 · monitor 0-fail / 3-ok on `*/5`. The window's single `dead_letter` (the synthetic `critical_question` provider-side 5xx from the PR #429 burst) is **one isolated cell in one family — not a dead-letter or provider cluster** (`distinct_dead_letter_families = 1`); it was adjudicated within-budget in the PARTIAL synthetic qualification and is **not** a rollback trigger. The disarm was therefore a clean planned standdown, **not** a rollback.
+
+**The early close was deliberate.** The product is pre-launch with no organic traffic and no testers; per the § 0 "Low-traffic interpretation rule" a zero-organic window proves plumbing / observability / rollback / inertness, never real organic load. With `non_smoke_routed_args = 0` and nothing in the pipeline to change that, the window's remaining ~13h could not have produced real-load evidence — the same fact that makes this PLUMBING rather than a plain PASS-STAGE-1. Holding the full ≥24h would have been bookkeeping, not safety; closing early loses no information.
+
+**Where the real load-readiness evidence lives.** The synthetic launch-qualification (PR #429, **PARTIAL** — N=8 burst 55/56 succeeded, `argument_scheme` 8/8 clean, one isolated provider-side `dead_letter`; `docs/audits/OPS-MCP-STAGE1-LOW-TRAFFIC-SYNTHETIC-LAUNCH-QUALIFICATION-2026-06-02.md`) plus the two PASS-LOAD drills (PR #425 56/56 0-dead-letter + #426 PASS-LOAD-CONFIRM, second consecutive 56/56). Organic confirmation will accrue only once real traffic exists.
+
+**5% and higher are NOT advanced.** This verdict closes Stage 1 at the plumbing level only. The real ramp is a **launch-time decision** — route at a measured percentage when real traffic exists, informed by capacity testing — not a scheduled percentage ladder. No audit/doc auto-advances the percentage.
+
+**Disarm to baseline.** Routing set to `CLASSIFIER_QUEUE_ROUTING_ENABLED=false` / `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=0` via `scripts/ops/stage1/disarm-stage1.sh` (`secrets set` exit 0, `UTC_DISARMED_TIMESTAMP=2026-06-02T18:32:26Z`); confirmed inert at `2026-06-02T18:32:44Z` (M2 non-terminal = 0; `arch-001-classifier-drain-tick` + `cutover-health-monitor-tick` crons still active). This is the clean "Stage 1 closed; baseline until launch" production state and makes the upcoming R1 drainer deploy zero-risk (no routing, no traffic). `cutover-health-monitor` may be stood down or left active — operator's call; leaving it is cheap and harmless.
+
+**Open follow-up (non-blocking).** The read-only R3 disambiguation of the lone Family-F `provider_server_error` dead-letter (argId `9ef5aab5…` — provider-side 5xx vs an F packet-shape residual; see `docs/roadmap-expansions/2026-06-02-mcp-A-G-stability-roadmap.md` § Family-F follow-up) remains outstanding. It does not gate this closeout.
