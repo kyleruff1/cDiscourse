@@ -13,6 +13,8 @@ This runbook covers everything the operator does AFTER `feat/MCP-SERVER-001-…`
 
 Bring the audit template at `docs/audits/MCP-SERVER-001-smoke-template.md` into a dated audit doc as you work. Tick the boxes as each phase passes.
 
+> **Related operational discipline — arming queue-routing drills.** When you arm the classifier queue (`CLASSIFIER_QUEUE_ROUTING_ENABLED=true`) for a queue-load-smoke, confirmatory smoke, or Stage 1 ramp drill, follow the **canary-then-burst** sequence: set the flag via `npx supabase secrets set` with a Supabase **account PAT** (Phase 4 below), verify with `secrets list`, wait ≥ 120s for Edge propagation, run an N=1 canary, and confirm the canary's 7 cells are `family IS NOT NULL` (queue path) with zero H/I/J **before** committing the full N=8 burst. If the canary cells are `family = NULL`, routing did not propagate — HALT and re-verify. See `docs/designs/OPS-MCP-FORTIFIED-ARCHITECTURE.md` §3.7 and `docs/audits/OPS-MCP-CANARY-THEN-BURST-RUNBOOK-2026-06-02.md`.
+
 ---
 
 ## What MCP-SERVER-001 shipped
