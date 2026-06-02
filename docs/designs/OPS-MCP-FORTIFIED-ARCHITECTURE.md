@@ -114,6 +114,24 @@ Component summary:
 - **Edge classify-argument-boolean-observations**: thin proxy/adapter; not the host of R3 logging.
 - **MCP server on Deno Deploy**: this is the host of the tool handlers, the family prompts, the validators, the ban-list scanners, and the R3 `boolean_observation_tool_error` emitter. Deployed separately from Supabase Edge.
 
+### Cutover state — 2026-06-02
+
+This dated note records the live cutover posture so the diagram above is read against current reality. It changes no design constraint; the binding contract in §3 is unaffected.
+
+- **Stage 1 is ARMED at 1%.** `CLASSIFIER_QUEUE_ROUTING_ENABLED=true` and `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=1`, armed `2026-06-02T07:50:54Z`. The queue (left) path of the diagram is now live for ~1% of submissions plus all smoke-tagged submissions; the direct-dispatch (right) path remains the route for the other ~99%. Production families on the queue path are A–G only (`parent_relation`, `disagreement_axis`, `misunderstanding_repair`, `evidence_source_chain`, `argument_scheme`, `critical_question`, `resolution_progress`); H/I/J remain `productionEnabled: false` in the family registry and emit zero rows.
+- **The 24h observation window is OPEN.** It closes no earlier than `2026-06-03T07:50:54Z`. This note does NOT assert the window closed and issues no `PASS-STAGE-1` verdict; that determination is reserved for the Stage-1 observing audit after the window elapses.
+- **Organic 1% traffic so far: ZERO.** At the live checkpoint `2026-06-02T09:10:42Z`, routed args since arm = 10 and ALL were smoke-tagged; non-smoke (organic) routed args = 0. H/I/J rows since arm = 0; M2 non-terminal = 0 (idle/empty); M1 staleness is idle-empty, not stuck (M1 staleness is an alert only when paired with M2 > 0). The `cutover-health-monitor` is healthy (0-fail across its recent runs). Gate-bearing organic 1% evidence has therefore not yet accrued.
+- **Synthetic launch-qualification landed PARTIAL** (PR #429, merged `a9602b9` — `OPS-MCP-STAGE1-LOW-TRAFFIC-SYNTHETIC-LAUNCH-QUALIFICATION`). Because organic traffic at 1% is effectively absent at low volume, qualification was proven synthetically under live-1% conditions:
+  - **Canary N=1** (argId `459e9530-…`): 7/7 A–G clean, family-set (`family IS NOT NULL`), 0 legacy `family = NULL` rows, 0 H/I/J, first-attempt. Routing-path verification per §3.7 held.
+  - **Burst N=8** (56 cells): 55 succeeded + 1 `dead_letter`. The single dead_letter is argId `9ef5aab5-…`, family `critical_question` (F), attempt 4, `retry_attempts_exhausted` on a provider-side `provider_server_error` (provider 5xx) — one isolated cell, NOT a packet/schema cluster and NOT a repeat of the §3.4 shape failures.
+  - **`argument_scheme` (E) was 8/8 clean** in this burst — the family that drove the original FAIL-LOAD drill. The PR #421/#423 STRICT RESPONSE-SHAPE CONTRACT mitigation (§3.4) **held under live 1%**.
+  - **All structural gates green**: `duplicate_success = 0`, `overlapping_drain_pairs = 0`, `family = NULL = 0`, H/I/J = 0, M1 < 120s during active drain, M2 drained to 0, monitor healthy.
+- **Predecessor synthetic drills** that gated the arm: PR #425 (PASS-LOAD, 56/56, 0 dead-letter) and PR #426 (PASS-LOAD-CONFIRM, second consecutive 56/56) — the two-consecutive prerequisite of §5.
+- **Production build in service:** Deno Deploy `cdiscourse-mcp-server` build `qrvrmvp6qqhn` from `d2d436a`, carrying the #421/#423 mitigation. Deployment separation per §4 is unchanged (`mcp-server/` → Deno Deploy; `supabase/functions/` + migrations → Supabase auto-deploy).
+- **The single Family-F dead_letter is the open thread.** It is provider-side, not shape — it does NOT trigger the §3.4 packet/schema mitigation template (H2-class, not H3-class). It is tracked as the recommended next card in §6, separately from the observation-window close.
+
+The 5% step is **not** reached by this state. It remains a separate, operator-gated step (§5); no audit or doc advances the percentage.
+
 ---
 
 ## 3. Design principles (binding)
@@ -223,7 +241,9 @@ PR #420 noted this as an architectural correction after PR #419's first incorrec
 |---|---|---|
 | PASS-R3-DIAGNOSTIC | drill produces enough R3 log evidence to classify cluster cause | classify, write mitigation card, NOT Stage 1 |
 | PASS-LOAD | all N·7 cells succeed AND no provider/server cluster recurrence AND queue mechanics gates all PASS | operator separately decides Stage 1 reconsideration |
-| Stage 1 reconsideration | operator decision conditional on PASS-LOAD | small percentage routing ramp via `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE` (NOT in this card chain) |
+| Stage 1 reconsideration | operator decision conditional on PASS-LOAD (PR #425 + #426) | small percentage routing ramp via `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE` (NOT in this card chain) |
+| **Stage 1 arm (1%) — DONE 2026-06-02T07:50:54Z** | operator armed `CLASSIFIER_QUEUE_ROUTING_ENABLED=true` + `…_PERCENTAGE=1` after the two PASS-LOAD drills, then synthetic launch-qualification landed PARTIAL (PR #429) | **Observe the 24h window (closes ≥ 2026-06-03T07:50:54Z), then a Stage-1 observing audit issues PASS/HOLD. NO doc auto-advances from here.** |
+| **5% ramp** | a SEPARATE operator-gated step, NOT auto-advanced by any audit; ideally preceded by real organic 1% evidence (organic routed traffic was still 0 at the 2026-06-02T09:10:42Z checkpoint) AND a clean window-close determination | operator raises `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE` 1 → 5 in its own card; never inside an audit |
 | Family H production retry | PASS-LOAD on a non-H drill PLUS separate operator decision | re-flip `claim_clarity` `productionEnabled: false → true` in `familyRegistry.ts:106` |
 | Family I production | scoping → design → implementation, all gated | NEVER auto-enabled |
 | Family J production | scoping only | NEVER auto-enabled |
@@ -232,9 +252,23 @@ PR #420 noted this as an architectural correction after PR #419's first incorrec
 
 **Reproducibility note (PR #425 + #426).** PASS-LOAD was first achieved in PR #425 (56/56 queue cells, 0 dead-letter) and confirmed in PR #426 (PASS-LOAD-CONFIRM, second consecutive 56/56). Two consecutive PASS-LOAD drills satisfy the PASS-LOAD prerequisite for Stage 1 *reconsideration* — but reconsideration is still a SEPARATE operator-gated card (`OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-STAGE-1`), and any arming inside it MUST follow the canary-then-burst discipline (§3.7). No audit auto-flips the routing flag.
 
+**Arm note (2026-06-02).** That reconsideration card armed Stage 1 at 1% on `2026-06-02T07:50:54Z` following the §3.7 canary-then-burst discipline, and PR #429 then landed a PARTIAL synthetic launch-qualification under live 1% (see §2 "Cutover state — 2026-06-02"). The arm did NOT advance any further: the 24h observation window is OPEN and gate-bearing organic 1% evidence had not yet accrued (organic routed traffic = 0 at the `2026-06-02T09:10:42Z` checkpoint). The next percentage move (1 → 5) is a distinct operator-gated step and is never reached by an audit or a doc — see the **5% ramp** row above.
+
 ---
 
-## 6. Recommended next card (after Deno Deploy push)
+## 6. Recommended next card
+
+**Updated 2026-06-02.** The queue-load-smoke retry that this section previously recommended has since run (PASS-LOAD in PR #425, PASS-LOAD-CONFIRM in PR #426), Stage 1 is now ARMED at 1%, and PR #429 landed a PARTIAL synthetic launch-qualification (see §2 "Cutover state — 2026-06-02"). The two live-state successors are:
+
+1. **Close the 24h Stage-1 observation window.** It is OPEN until ≥ `2026-06-03T07:50:54Z`. After it elapses, a Stage-1 observing audit reads the cutover-health metrics and the routed-row counts and issues PASS/HOLD. Because organic routed traffic was 0 at the `2026-06-02T09:10:42Z` checkpoint, that audit should explicitly note whether any organic 1% evidence accrued before treating the window as informative — this is the gate that precedes any 5% proposal (§5).
+2. **Resolve the open Family-F dead_letter follow-up.** The single isolated `critical_question` (F) dead_letter from the PR #429 burst (argId `9ef5aab5-…`, attempt 4, `retry_attempts_exhausted` on provider-side `provider_server_error`) is a provider-side (H2-class) event, NOT a packet/schema (H3-class) cluster, so it does NOT invoke the §3.4 mitigation template. The follow-up card should confirm via R3 logs that no co-occurring `validation_failed` exists, decide whether one isolated provider 5xx at N=8 is within budget, and — if recurrence appears — consider the fixture-mode partition (RCA's R4) rather than a prompt change.
+
+Two companion roadmap docs authored alongside this catch-up frame the broader forward plan; both describe FUTURE, separately operator-gated steps as proposals, never as done or auto-advancing:
+
+- `docs/roadmap-expansions/2026-06-02-mcp-families-a-g-stability-roadmap.md` — A–G stability hardening proposals (e.g. the RCA R1 `failure_detail` jsonb persistence in §3.6, per-family shape-floor tracking, and the 1% → 5% ramp preconditions).
+- `docs/roadmap-expansions/2026-06-02-mcp-families-h-i-j-integration-roadmap.md` — the gated path to integrating H/I/J (`claim_clarity`, `thread_topology`, `sensitive_composer`), which remain `productionEnabled: false`; this is scoping/design only and re-enables nothing.
+
+If a future packet/schema retry is still needed on A–G, the historical retry harness comparison remains valid:
 
 `OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-QUEUE-LOAD-SMOKE-RETRY` (operator-gated; same N=8 burst harness + same query pack as PR #416 / #419 / #422). Compare per-family dead-letter rates against PR #422 baseline:
 
