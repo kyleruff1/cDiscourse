@@ -209,8 +209,23 @@ Deno.test('Family F user prompt instructs model to provide confidence on every r
   if (!prompt.includes('low|medium|high')) {
     throw new Error('Family F prompt missing confidence band enumeration');
   }
-  if (!prompt.includes('Every key in observations MUST also appear in confidence')) {
-    throw new Error('Family F prompt missing observations/confidence coordination requirement');
+  // The OPS-MCP-FAMILIES-E-F-RESPONSE-SHAPE-TUNING update replaced the
+  // weak one-way coordination phrase ("Every key in observations MUST
+  // also appear in confidence") with the stronger bidirectional STRICT
+  // RESPONSE-SHAPE CONTRACT block. The intent — that confidence keys
+  // must coordinate with observations — is preserved and strengthened.
+  // This test now asserts the stronger contract.
+  const referencesObservations = /\bobservations\b/.test(prompt);
+  const referencesConfidence = /\bconfidence\b/.test(prompt);
+  const assertsCoordination =
+    /(identical|same\s+exact|exactly\s+the\s+same)/i.test(prompt) &&
+    /(checkedRawKeys|observations|confidence|evidenceSpan)[\s\S]{0,800}?(checkedRawKeys|observations|confidence|evidenceSpan)/i.test(
+      prompt,
+    );
+  if (!(referencesObservations && referencesConfidence && assertsCoordination)) {
+    throw new Error(
+      'Family F prompt missing observations/confidence coordination requirement (expected the STRICT RESPONSE-SHAPE CONTRACT block)',
+    );
   }
 });
 
@@ -542,6 +557,209 @@ Deno.test('Family F prompt template: no CQ-as-fault framing in any per-key promp
   for (const re of cqAsFaultPatterns) {
     if (re.test(prompt)) {
       throw new Error(`Family F prompt contains CQ-as-fault framing matching ${re}`);
+    }
+  }
+});
+
+// ── OPS-MCP-FAMILIES-E-F-RESPONSE-SHAPE-TUNING — packet-shape guardrails ──
+//
+// PR #422's retry surfaced an analogous critical_question packet-shape
+// failure at evidenceSpan.alternative_explanation_available — same
+// mechanism the Family E mitigation (PR #421) targeted on
+// evidenceSpan.abductive_explanation_present. These tests mirror the PR
+// #421 prompt source-scan pattern for the Family F user prompt. Durable:
+// they fail if the STRICT RESPONSE-SHAPE CONTRACT block, the key-set-
+// equality guardrail, the evidenceSpan value-type guardrail, the
+// alternative_explanation_available rawKey callout, or the self-check
+// directive is removed.
+
+Deno.test('Family F user prompt: declares a strict response-shape contract block', () => {
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+  if (!/STRICT\s+RESPONSE-SHAPE\s+CONTRACT/i.test(prompt)) {
+    throw new Error(
+      'Family F user prompt is missing the STRICT RESPONSE-SHAPE CONTRACT block — packet-shape guardrails removed',
+    );
+  }
+});
+
+Deno.test('Family F user prompt: enforces bidirectional key-set equality across the four maps', () => {
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+  // The validator (mcpBooleanObservationSchemaMirror.ts:218-265) enforces
+  // observations/confidence/evidenceSpan bidirectional equality + a
+  // one-way observations ⊆ checkedRawKeys check. The prompt must
+  // instruct identical key sets across all four to prevent the
+  // checkedRawKeys arity drift R3 surfaced on the analogous E path.
+  const referencesAllFour =
+    /checkedRawKeys/.test(prompt) &&
+    /observations/.test(prompt) &&
+    /confidence/.test(prompt) &&
+    /evidenceSpan/.test(prompt);
+  if (!referencesAllFour) {
+    throw new Error(
+      'Family F user prompt does not reference all four packet maps (checkedRawKeys / observations / confidence / evidenceSpan)',
+    );
+  }
+  const equalityAsserted =
+    /(identical|same\s+exact|key[-\s]set\s+equality|exactly\s+(once|the\s+same))/i.test(
+      prompt,
+    );
+  if (!equalityAsserted) {
+    throw new Error(
+      'Family F user prompt does not assert bidirectional key-set equality across the four packet maps',
+    );
+  }
+  if (!/no\s+extras?[,\s]+no\s+omissions?/i.test(prompt)) {
+    throw new Error(
+      'Family F user prompt does not contain the "no extras, no omissions" packet-shape guardrail',
+    );
+  }
+});
+
+Deno.test('Family F user prompt: forbids object / array / boolean / number in evidenceSpan values', () => {
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+  const forbids = (token: string) =>
+    new RegExp(`(NEVER|never|no|Not\\s+allowed)\\s+(a\\s+|an\\s+)?${token}`, 'i').test(prompt);
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!forbids(token)) {
+      throw new Error(
+        `Family F user prompt does not forbid evidenceSpan value type "${token}"`,
+      );
+    }
+  }
+  if (!/string.*null|null.*string/is.test(prompt)) {
+    throw new Error(
+      'Family F user prompt does not enumerate string-or-null as the allowed evidenceSpan value types',
+    );
+  }
+  if (!/240/.test(prompt)) {
+    throw new Error(
+      'Family F user prompt does not cite the 240-character evidenceSpan length cap',
+    );
+  }
+});
+
+Deno.test('Family F user prompt: prescribes null evidenceSpan for false observations', () => {
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+  const negativeNullRule =
+    /(observations\[\s*rawKey\s*\]|observations\[[^\]]*\])\s+is\s+false[^.]*?null/is.test(
+      prompt,
+    ) || /false[^.]*?evidenceSpan[^.]*?null/is.test(prompt);
+  if (!negativeNullRule) {
+    throw new Error(
+      'Family F user prompt does not prescribe null evidenceSpan for false observations',
+    );
+  }
+});
+
+Deno.test('Family F user prompt: directs a self-check before emitting the JSON', () => {
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+  const selfCheckPresent =
+    /(SELF-CHECK|before\s+you\s+(return|emit|output))/i.test(prompt) &&
+    /(verify|regenerate|each\s+check\s+fails)/i.test(prompt);
+  if (!selfCheckPresent) {
+    throw new Error(
+      'Family F user prompt does not direct a self-check before emitting the JSON',
+    );
+  }
+});
+
+Deno.test('Family F user prompt: names alternative_explanation_available in the no-special-shape rule', () => {
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+  // The specific failure path observed in PR #422 was
+  // evidenceSpan.alternative_explanation_available being object/array.
+  // The prompt must explicitly call out this rawKey alongside other
+  // doctrine-risk CQs in the no-nested-shape guardrail.
+  if (!/alternative_explanation_available/.test(prompt)) {
+    throw new Error(
+      'Family F user prompt does not name alternative_explanation_available in the response-shape guardrail block',
+    );
+  }
+  // Must also name consequence_probability_unclear, analogy_mapping_missing,
+  // and missing_warrant for symmetry with the existing doctrine-risk
+  // anchors in F's system prompt.
+  if (
+    !/consequence_probability_unclear/.test(prompt) ||
+    !/analogy_mapping_missing/.test(prompt) ||
+    !/missing_warrant/.test(prompt)
+  ) {
+    throw new Error(
+      'Family F user prompt does not also name consequence_probability_unclear, analogy_mapping_missing, and missing_warrant in the response-shape block',
+    );
+  }
+});
+
+Deno.test('Family F user prompt: declares per-rawKey shape reinforcement for alternative_explanation_available', () => {
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+  if (!/RAWKEY-SHAPE\s+REINFORCEMENT/i.test(prompt)) {
+    throw new Error(
+      'Family F user prompt is missing the RAWKEY-SHAPE REINFORCEMENT section heading',
+    );
+  }
+  if (!/evidenceSpan\.alternative_explanation_available/.test(prompt)) {
+    throw new Error(
+      'Family F user prompt RAWKEY-SHAPE REINFORCEMENT does not name evidenceSpan.alternative_explanation_available',
+    );
+  }
+  const allowsStringAndNull =
+    /(string\s+up\s+to\s+240|≤\s*240\s*char|<=\s*240\s*char|up\s+to\s+240\s+character)/i.test(
+      prompt,
+    ) && /\bnull\b/.test(prompt);
+  if (!allowsStringAndNull) {
+    throw new Error(
+      'Family F user prompt RAWKEY-SHAPE REINFORCEMENT does not enumerate the allowed string-or-null shape',
+    );
+  }
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT[\s\S]*?(?=Conservative-positives bias|Answer each|Input to classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate RAWKEY-SHAPE REINFORCEMENT block for scanning');
+  }
+  const block = blockMatch[0];
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(
+        `RAWKEY-SHAPE REINFORCEMENT for alternative_explanation_available does not list "${token}" as not allowed`,
+      );
+    }
+  }
+});
+
+Deno.test('Family F user prompt: response-shape guardrail block does not introduce banned verdict tokens', () => {
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+  // The existing F prompt uses doctrine-risk tokens (fallacy, fallacious,
+  // weak, invalid, flawed, wrong, bad reasoning, proves wrong, refutes,
+  // invalidates, unmet-means-fallacy) only in NEGATION form ("never a
+  // fallacy", "NEVER means", etc.). The new STRICT RESPONSE-SHAPE
+  // CONTRACT block must not introduce any of these in standalone or
+  // positive-assertion form.
+  const blockMatch = prompt.match(
+    /STRICT\s+RESPONSE-SHAPE\s+CONTRACT[\s\S]*?(?=Conservative-positives bias|Answer each|Input to classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate the STRICT RESPONSE-SHAPE CONTRACT block for scanning');
+  }
+  const block = blockMatch[0];
+  const bannedPatterns: RegExp[] = [
+    /\bfallacy\b/i,
+    /\bfallacious\b/i,
+    /\binvalid\b/i,
+    /\bflawed\b/i,
+    /\bwrong\b/i,
+    /\bweak\s+argument\b/i,
+    /\bbad\s+reasoning\b/i,
+    /\blogical\s+error\b/i,
+    /\bproof\s+of\b/i,
+    /\bproves\s+wrong\b/i,
+    /\brefutes\b/i,
+    /\binvalidates\b/i,
+    /\bunmet-means-fallacy\b/i,
+  ];
+  for (const re of bannedPatterns) {
+    if (re.test(block)) {
+      throw new Error(
+        `STRICT RESPONSE-SHAPE CONTRACT block introduces banned token matching ${re}`,
+      );
     }
   }
 });
