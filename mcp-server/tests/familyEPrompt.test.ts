@@ -679,3 +679,75 @@ Deno.test('Family E user prompt: response-shape guardrail block does not introdu
     }
   }
 });
+
+// ── OPS-MCP-FAMILIES-E-F-RESPONSE-SHAPE-TUNING — E per-key reinforcement ──
+//
+// PR #422's retry showed that PR #421's STRICT RESPONSE-SHAPE CONTRACT block
+// reduced argument_scheme dead-letters from 3 → 1 but did NOT eliminate the
+// specific drift at evidenceSpan.abductive_explanation_present. This card
+// adds rule 6 — a per-rawKey shape reinforcement with allowed / not-allowed
+// enumeration tied to the validator's exact rejection path. The test asserts
+// the reinforcement section names abductive_explanation_present, lists the
+// allowed shape (string ≤ 240 chars OR null), and the not-allowed shapes
+// (object, array, boolean, number, missing entry).
+
+Deno.test('Family E user prompt: declares per-rawKey shape reinforcement for abductive_explanation_present (rule 6)', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // Must announce the per-rawKey reinforcement section.
+  if (!/RAWKEY-SHAPE\s+REINFORCEMENT/i.test(prompt)) {
+    throw new Error(
+      'Family E user prompt is missing the RAWKEY-SHAPE REINFORCEMENT section heading',
+    );
+  }
+  // Must specifically anchor the path the R3 drill surfaced.
+  if (!/evidenceSpan\.abductive_explanation_present/.test(prompt)) {
+    throw new Error(
+      'Family E user prompt RAWKEY-SHAPE REINFORCEMENT does not name evidenceSpan.abductive_explanation_present',
+    );
+  }
+  // Must explicitly enumerate the allowed string-or-null shape.
+  const allowsStringAndNull =
+    /(string\s+up\s+to\s+240|≤\s*240\s*char|<=\s*240\s*char|up\s+to\s+240\s+character)/i.test(
+      prompt,
+    ) && /\bnull\b/.test(prompt);
+  if (!allowsStringAndNull) {
+    throw new Error(
+      'Family E user prompt RAWKEY-SHAPE REINFORCEMENT does not enumerate the allowed string-or-null shape',
+    );
+  }
+  // Must enumerate the not-allowed shapes (defense-in-depth versus the
+  // rule-3 enumeration; this rule 6 re-states for the specific rawKey).
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT[\s\S]*?(?=Conservative-positives bias|Answer each|Input to classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate RAWKEY-SHAPE REINFORCEMENT block for scanning');
+  }
+  const block = blockMatch[0];
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(
+        `RAWKEY-SHAPE REINFORCEMENT for abductive_explanation_present does not list "${token}" as not allowed`,
+      );
+    }
+  }
+  // Must not introduce banned verdict tokens in this new section.
+  const bannedPatterns: RegExp[] = [
+    /\bfallacy\b/i,
+    /\bfallacious\b/i,
+    /\binvalid\b/i,
+    /\bflawed\b/i,
+    /\bwrong\b/i,
+    /\bweak\s+argument\b/i,
+    /\bbad\s+reasoning\b/i,
+    /\blogical\s+error\b/i,
+    /\bproof\s+of\b/i,
+  ];
+  for (const re of bannedPatterns) {
+    if (re.test(block)) {
+      throw new Error(
+        `RAWKEY-SHAPE REINFORCEMENT for abductive_explanation_present introduces banned token matching ${re}`,
+      );
+    }
+  }
+});

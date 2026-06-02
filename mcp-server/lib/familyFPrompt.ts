@@ -256,9 +256,60 @@ prose, no markdown, no code fence, no chain-of-thought.
 The object MUST conform to this shape:
 ${responseShape}
 
-Every key in observations MUST also appear in confidence and evidenceSpan (use null in
-evidenceSpan when no anchoring quote exists). Every key in checkedRawKeys MUST appear in
-observations.
+STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every rule below.
+
+1. KEY-SET EQUALITY. The four sets — checkedRawKeys (as a set), observations keys, confidence
+   keys, and evidenceSpan keys — MUST be identical. Same exact rawKey strings, same count, no
+   extras, no omissions, no duplicates. If these four sets differ by even one entry, the
+   packet is rejected and the cell will retry or dead-letter.
+
+2. INCLUDE EVERY REQUESTED RAWKEY EXACTLY ONCE. The critical-question questions block above
+   lists the rawKeys you must probe. Each of those rawKeys MUST appear exactly once in
+   checkedRawKeys, observations, confidence, AND evidenceSpan. Do NOT silently drop any
+   requested rawKey — including alternative_explanation_available,
+   consequence_probability_unclear, analogy_mapping_missing, missing_warrant, or any other
+   critical question. Do NOT introduce a rawKey that was not in the requested set.
+
+3. EVIDENCESPAN VALUE TYPE. Each evidenceSpan[rawKey] value is EITHER:
+   (a) a short string copied or paraphrased from the supplied move/parent/thread-context text,
+       up to 240 characters, OR
+   (b) the JSON literal null.
+   NEVER an object. NEVER an array. NEVER a boolean. NEVER a number. NEVER a missing entry
+   (use null instead). This rule applies uniformly to EVERY rawKey — no critical question has
+   a special nested or structured evidenceSpan shape. alternative_explanation_available uses
+   the same string-or-null shape as every other CQ rawKey.
+
+4. NULL EVIDENCESPAN FOR FALSE OBSERVATIONS. When observations[rawKey] is false, set
+   evidenceSpan[rawKey] to null. A CQ that is met or not applicable does not need an
+   anchoring quote. When observations[rawKey] is true, evidenceSpan[rawKey] SHOULD be a
+   concise quote anchored on the structural gap in the input text; if no anchoring text
+   actually exists in the input, set observations[rawKey] back to false and
+   evidenceSpan[rawKey] to null rather than emitting an unanchored or fabricated quote.
+
+5. SELF-CHECK BEFORE EMITTING. Before you return the JSON, verify all of:
+   - The length of checkedRawKeys equals the key count of observations, of confidence, and of
+     evidenceSpan.
+   - The exact rawKey strings in checkedRawKeys appear as keys in observations, in confidence,
+     and in evidenceSpan — no rename, no typo, no case drift.
+   - Every evidenceSpan value is a string (≤ 240 chars) or null — no other type.
+   - No requested rawKey has been silently dropped; no rawKey beyond the requested set has
+     been introduced.
+   If any check fails, regenerate the packet rather than emit it.
+
+6. RAWKEY-SHAPE REINFORCEMENT — alternative_explanation_available.
+   The evidenceSpan entry for alternative_explanation_available uses EXACTLY the same
+   string-or-null shape as every other CQ rawKey. Allowed values for
+   evidenceSpan.alternative_explanation_available:
+   (a) a JSON string up to 240 characters quoting or paraphrasing the move text that
+       anchors the alternative-explanation gap; OR
+   (b) the JSON literal null.
+   Not allowed: a nested JSON object such as { "quote": "…", "band": "high" }; an array
+   such as [ "…", "…" ]; a boolean; a number; a missing entry. This shape rule holds whether
+   observations.alternative_explanation_available is true or false. When false, the value
+   MUST be null. When true, the value MUST be a single string ≤ 240 chars (or null if no
+   anchor text exists, in which case set the observation back to false). The validator
+   rejects every non-string non-null value at the exact path
+   evidenceSpan.alternative_explanation_available.
 
 Conservative-positives bias: do NOT mark all rawKeys true. CQ probes are usually sparse —
 most moves exhibit 0 to 2 unmet CQs; few exhibit more than 4. When unsure, answer false

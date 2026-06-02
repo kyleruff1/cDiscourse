@@ -263,6 +263,20 @@ STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every
      been introduced.
    If any check fails, regenerate the packet rather than emit it.
 
+6. RAWKEY-SHAPE REINFORCEMENT — abductive_explanation_present.
+   The evidenceSpan entry for abductive_explanation_present uses EXACTLY the same
+   string-or-null shape as every other rawKey. Allowed values for
+   evidenceSpan.abductive_explanation_present:
+   (a) a JSON string up to 240 characters quoting or paraphrasing the move text that
+       anchors the inferred best explanation pattern; OR
+   (b) the JSON literal null.
+   Not allowed: a nested JSON object such as { "quote": "…", "band": "high" }; an array
+   such as [ "…", "…" ]; a boolean; a number; a missing entry. This shape rule holds whether
+   observations.abductive_explanation_present is true or false. When false, the value MUST be
+   null. When true, the value MUST be a single string ≤ 240 chars (or null if no anchor text
+   exists, in which case set the observation back to false). The validator rejects every
+   non-string non-null value at the exact path evidenceSpan.abductive_explanation_present.
+
 Conservative-positives bias: do NOT mark all rawKeys true. Schemes are usually sparse —
 most moves exhibit 0 to 2 schemes; few exhibit more than 4. When unsure, answer false
 with low or medium confidence. Tone alone is not a scheme; substantive inferential weight
