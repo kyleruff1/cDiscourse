@@ -36,6 +36,12 @@ describe('safety patterns', () => {
   it('flags @handle', () => {
     expect(builder.scanText('Look at @someuser today.').length).toBeGreaterThan(0);
   });
+  it('does NOT flag scoped npm package names (pkg names, not handles)', () => {
+    expect(builder.scanText('remove @testing-library/jest-native dep')).not.toContain('x_handle');
+    expect(builder.scanText('bump @jest/reporters and @expo/config-plugins')).not.toContain('x_handle');
+    // a real handle (no scoped-pkg slash) still flags
+    expect(builder.scanText('ping @realuser please')).toContain('x_handle');
+  });
   it('flags x.com URLs', () => {
     expect(builder.scanText('See https://x.com/user/status/123456789012345678').length).toBeGreaterThan(0);
   });
@@ -57,6 +63,14 @@ describe('sanitiseLine', () => {
   it('replaces @handles with <x-handle>', () => {
     expect(builder.sanitiseLine('Posted by @someone')).toContain('<x-handle>');
     expect(builder.sanitiseLine('Posted by @someone')).not.toContain('@someone');
+  });
+  it('leaves scoped npm package names intact (pkg names, not handles)', () => {
+    const out = builder.sanitiseLine('upgrade @testing-library/react-native and @jest/globals');
+    expect(out).toContain('@testing-library/react-native');
+    expect(out).toContain('@jest/globals');
+    expect(out).not.toContain('<x-handle>');
+    // a real handle is still replaced
+    expect(builder.sanitiseLine('thanks @realuser')).toContain('<x-handle>');
   });
   it('replaces x.com URLs with <x-link>', () => {
     expect(builder.sanitiseLine('See https://x.com/user/status/1')).toContain('<x-link>');
