@@ -195,7 +195,7 @@ The window was **closed deliberately and early on 2026-06-02** (≈10.7h into th
 
 **The verdict and what it means.** The 1% queue-routing **plumbing** is verified: the canary routed 7/7 correctly (`family IS NOT NULL`, 0 legacy, 0 H/I/J), the ARCH-001 drainer + `cutover-health-monitor` crons stayed healthy throughout, rollback was one command away (`disarm-stage1.sh`), and the system stayed inert/healthy with the flag on. Organic routed volume was **zero throughout** (`non_smoke_routed_args = 0`), so real-organic-load handling was **not observed and is not claimed** — hence `PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`, explicitly **not** a plain `PASS-STAGE-1`.
 
-**No rollback trigger ever fired** (window-wide read-only sweep, snapshot `2026-06-02T18:31:08Z`): 0 H/I/J rows · 0 `family=NULL` leakage on a routed arg · 0 `duplicate_success` cells · 0 `overlapping_drain_pairs` · M2 drained to 0 · monitor 0-fail / 3-ok on `*/5`. The window's single `dead_letter` (the synthetic `critical_question` provider-side 5xx from the PR #429 burst) is **one isolated cell in one family — not a dead-letter or provider cluster** (`distinct_dead_letter_families = 1`); it was adjudicated within-budget in the PARTIAL synthetic qualification and is **not** a rollback trigger. The disarm was therefore a clean planned standdown, **not** a rollback.
+**No rollback trigger ever fired** (window-wide read-only sweep, snapshot `2026-06-02T18:31:08Z`): 0 H/I/J rows · 0 `family=NULL` leakage on a routed arg · 0 `duplicate_success` cells · 0 `overlapping_drain_pairs` · M2 drained to 0 · monitor 0-fail / 3-ok on `*/5`. The window's single `dead_letter` (the synthetic `critical_question` cell from the PR #429 burst — characterized as a provider-side 5xx at closeout, **later corrected to a packet-shape residual by the R3 disambiguation; see § 12**) is **one isolated cell in one family — not a dead-letter or provider cluster** (`distinct_dead_letter_families = 1`); it was adjudicated within-budget in the PARTIAL synthetic qualification and is **not** a rollback trigger. The disarm was therefore a clean planned standdown, **not** a rollback.
 
 **The early close was deliberate.** The product is pre-launch with no organic traffic and no testers; per the § 0 "Low-traffic interpretation rule" a zero-organic window proves plumbing / observability / rollback / inertness, never real organic load. With `non_smoke_routed_args = 0` and nothing in the pipeline to change that, the window's remaining ~13h could not have produced real-load evidence — the same fact that makes this PLUMBING rather than a plain PASS-STAGE-1. Holding the full ≥24h would have been bookkeeping, not safety; closing early loses no information.
 
@@ -205,4 +205,36 @@ The window was **closed deliberately and early on 2026-06-02** (≈10.7h into th
 
 **Disarm to baseline.** Routing set to `CLASSIFIER_QUEUE_ROUTING_ENABLED=false` / `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=0` via `scripts/ops/stage1/disarm-stage1.sh` (`secrets set` exit 0, `UTC_DISARMED_TIMESTAMP=2026-06-02T18:32:26Z`); confirmed inert at `2026-06-02T18:32:44Z` (M2 non-terminal = 0; `arch-001-classifier-drain-tick` + `cutover-health-monitor-tick` crons still active). This is the clean "Stage 1 closed; baseline until launch" production state and makes the upcoming R1 drainer deploy zero-risk (no routing, no traffic). `cutover-health-monitor` may be stood down or left active — operator's call; leaving it is cheap and harmless.
 
-**Open follow-up (non-blocking).** The read-only R3 disambiguation of the lone Family-F `provider_server_error` dead-letter (argId `9ef5aab5…` — provider-side 5xx vs an F packet-shape residual; see `docs/roadmap-expansions/2026-06-02-mcp-A-G-stability-roadmap.md` § Family-F follow-up) remains outstanding. It does not gate this closeout.
+**Open follow-up (non-blocking) — NOW RESOLVED (see § 12).** The read-only R3 disambiguation of the lone Family-F `provider_server_error` dead-letter (argId `9ef5aab5…` — provider-side 5xx vs an F packet-shape residual; see `docs/roadmap-expansions/2026-06-02-mcp-A-G-stability-roadmap.md` § Family-F follow-up) **was completed on 2026-06-02** via the Deno Deploy R3 logs. Result: **packet-shape residual** (`validation_failed` on `evidenceSpan.unstated_assumption`), **not** provider-side. It did not gate this closeout and does not change the verdict — see § 12.
+
+## 12. R3 disambiguation of the lone dead-letter — packet-shape residual, not provider-side (resolves § 11 open follow-up) (2026-06-02)
+
+Run under incident-triage discipline (read-only, metadata-only; **no argument body / evidence_span text / prompt / raw provider payload was queried or recorded** — only structural aggregates below).
+
+**Phase 0 — classification: `9ef5aab5` is SYNTHETIC, not organic.** Four converging signals (signals 1 and 4 are logically *coupled* by the routing predicate — a smoke-tagged arg is by construction excluded from the organic count, which only **strengthens** the synthetic conclusion):
+
+| Signal | Result |
+|---|---|
+| Debate smoke-tag (DB) | `is_smoke_tagged = true` — its debate carries the `[arch-001-queue-smoke]` prefix |
+| Synthetic artifact files | present in `.claude-tmp/stage1-qual-burst-N8.jsonl` (the PR #429 N=8 qualification burst) |
+| PR #429 qualification audit | a recorded burst argId — listed among the 8 burst argIds (§3) and typed in the dead-letter analysis (§5); 4 textual mentions of the **one** cell |
+| Organic routed traffic since arm | `organic_non_smoke_routed_args = 0` (all 10 routed args since arm `2026-06-02T07:50:54Z` were smoke-tagged; `organic_terminal_failure_args = 0`) |
+
+There has been **zero organic routed traffic** in the entire window, so the dead-letter **cannot** be organic. This is fully consistent with the § 11 `PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` verdict.
+
+**R3 evidence (Deno Deploy `boolean_observation_tool_error` logs, 2026-06-02T08:32–08:48Z; safe aggregates only):**
+- **5 tool-error events** in the window; **5/5 `reason = validation_failed`** — **0 × `provider_server_error`** in the R3 log.
+- **5/5 co-occurred with `boolean_observations_packet_invalid`** (the packet-shape signature).
+- **0 `doctrine_ban_list` co-occurrences** (not a ban-list issue).
+- **61 `anthropic_call_success` / `httpStatus=200`**, the earliest (08:32:02) **preceding** the first failure (08:33:40) — the provider was healthy; the failure is downstream MCP-021A packet validation.
+- `critical_question` path = **`evidenceSpan.unstated_assumption`, count 4** (= `9ef5aab5`'s four attempts, all failing on the same rawKey → deterministic, not a transient the 4-attempt budget can absorb).
+- `argument_scheme` path = `evidenceSpan.abductive_explanation_present`, count 1 — failed once then **recovered on retry** (E finished 8/8), because PR #421/#423 added per-rawKey rule-6 reinforcement for that key. `unstated_assumption` has **no** such reinforcement (`familyFPrompt.ts:299-312` names only `alternative_explanation_available`) → the residual.
+
+**Correction to the closeout characterization.** § 0 / § 10 / § 11 described this cell as a "provider-side 5xx" because the **queue row** recorded `failure_sub_reason = provider_server_error` — the Edge adapter buckets *any* MCP `{isError}` envelope (including a packet-validation failure) under `provider_server_error`, stuffing the real inner reason into `detail.serverReason` / `detail.path`. The R3 disambiguation corrects the inner cause: it was a **deterministic Family-F packet-shape residual** on `critical_question.evidenceSpan.unstated_assumption`, **not** a transient Anthropic 5xx. (Going forward, PR #432's `failure_detail` column persists this distinguisher directly to the queue row; `9ef5aab5` predates that deploy, so the Deno R3 log was required.)
+
+**Phase 1 — decision: SYNTHETIC branch. No verdict change, no new mutation.**
+- The dead-letter was **synthetic**, so it is **not** a Stage-1 organic-rollback trigger. The § 11 verdict (`PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`, `organic_non_smoke_routed_args = 0`) **stands unchanged** — only the *inner cause* of the synthetic dead-letter is corrected.
+- Routing is **already disarmed to baseline** (§ 11; `UTC_DISARMED_TIMESTAMP=2026-06-02T18:32:26Z`) and confirmed still inert at this triage (M2 non-terminal = 0; drainer + monitor crons active; env vars survive the PR #432 redeploy). **No new disarm action is required or taken.**
+- **Not advancing to 5%. Family H/I/J remain `productionEnabled:false`.** No validator/ban-list relaxation, no prompt change in this triage.
+
+**Phase 2 — hardening plan filed (design-only).** `docs/designs/OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING.md` extends the proven PR #421/#423 rule-6 RAWKEY-SHAPE REINFORCEMENT pattern to `evidenceSpan.unstated_assumption`. Implementation is a **separate operator-authorized mitigation card** (requires a `mcp-server/` → Deno Deploy push, which the merge-auto-deploy does not cover).
