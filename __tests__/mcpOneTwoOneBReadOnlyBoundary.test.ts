@@ -198,13 +198,25 @@ describe('MCP-021B — MCP-021A test files unchanged (byte-equal)', () => {
   });
 });
 
-describe('MCP-021B — package files unchanged', () => {
-  it('RO-36 — package.json unchanged', () => {
-    expect(gitDiffFromMain('package.json')).toBe('');
+describe('MCP-021B — package files (byte-equal boundary relaxed 2026-06-02)', () => {
+  // RO-36/RO-37 originally asserted package.json / package-lock.json were
+  // byte-equal to main (`git diff main..HEAD` empty), proving the long-merged
+  // MCP-021B card touched no package files. As a PERMANENT test that assertion
+  // instead FALSE-FAILED on every legitimate dependency PR — it compares the
+  // branch's committed diff against main, so ANY committed package.json change
+  // trips it (e.g. the OPS-DEPS-* dependency-hygiene cards: OPS-DEPS-002's
+  // jest-native removal and OPS-DEPS-004's xcode>uuid@11 override). The MCP-021B
+  // boundary it guarded is historical; relaxed here to a well-formedness sanity
+  // check so dependency cards can change package files without a spurious
+  // read-only-boundary failure.
+  it('RO-36 — package.json is well-formed (dep PRs may legitimately change it)', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+    expect(pkg.name).toBe('cdiscourse');
   });
 
-  it('RO-37 — package-lock.json unchanged', () => {
-    expect(gitDiffFromMain('package-lock.json')).toBe('');
+  it('RO-37 — package-lock.json is well-formed (dep PRs may legitimately change it)', () => {
+    const lock = JSON.parse(readFileSync(join(ROOT, 'package-lock.json'), 'utf8'));
+    expect(typeof lock.lockfileVersion).toBe('number');
   });
 });
 

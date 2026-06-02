@@ -103,6 +103,11 @@
     "typescript": "~5.9.2"
   },
   "private": true,
+  "overrides": {
+    "xcode": {
+      "uuid": "^11.0.0"
+    }
+  },
   "jest": {
     "preset": "jest-expo",
     "transformIgnorePatterns": [
