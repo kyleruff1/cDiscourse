@@ -19,6 +19,24 @@ Doctrine-risk: false
 
 ---
 
+## 0. Low-traffic interpretation rule (added by OPS-MCP-STAGE1-LOW-TRAFFIC-SYNTHETIC-LAUNCH-QUALIFICATION)
+
+**The Stage-1 1% window is observing ZERO organic routed traffic.** As of 2026-06-02T08:28:29Z, read-only metrics show `routed_args_since_arm_total = 1`, of which `smoke_routed_args = 1` (the #428 canary `d3133d7f-…`) and **`non_smoke_routed_args = 0`**. No organic submit has hashed into the 1% bucket (`hash(argument_id) % 100 < 1`) because the product is pre-launch / low-volume — organic submit volume is effectively zero.
+
+This shapes how the 24h closeout verdict must be read:
+
+1. **What the canary proves:** the queue path is live and routes correctly at `PERCENTAGE=1` (7 A-G cells, `family IS NOT NULL`, zero H/I/J, zero `family=NULL` leakage). This is *plumbing liveness*, not load.
+2. **What a zero-organic 24h window proves:** the routing flag is live, the drainer drains, the cutover-health-monitor watchdog ticks and alerts, rollback is one command away, and the system stays inert/healthy with the flag on. It proves **plumbing + observability + rollback + inertness** — NOT real organic load handling.
+3. **What it does NOT prove:** how the queue behaves under real organic traffic mix, timing, and concurrency. With `non_smoke_routed_args = 0`, the window has observed exactly zero organic cells.
+4. **Where the real load-readiness evidence lives:** the synthetic N=8 PASS-LOAD drills — PR #425 (PASS-LOAD, 56/56, 0 dead-letter) and PR #426 (PASS-LOAD-CONFIRM, second consecutive 56/56) — are the actual concurrent-load-handling evidence. Stage-1 organic observation supplements them; it does not replace them.
+5. **5% remains separately gated** regardless of this window's outcome.
+
+**Closeout-verdict rule:** if organic routed traffic remains zero (`non_smoke_routed_args = 0`) through the ≥ 24h window, the honest closeout verdict is **`PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`** — explicitly **not** a plain `PASS-STAGE-1` (which would imply real organic load was observed and handled). A plain `PASS-STAGE-1` requires that organic routed cells actually appeared and were handled within budget. This audit's overall status stays **OBSERVING**; the window is NOT closed by this rule.
+
+**Synthetic launch-qualification result (2026-06-02):** the named synthetic qualification ran a fresh N=1 canary + N=8 burst against the live 1% config and landed **`PARTIAL-SYNTHETIC-LAUNCH-QUALIFICATION`** — canary 7/7 clean, burst 55/56 succeeded + 1 isolated provider-side `dead_letter` (`critical_question`, `provider_server_error`), with the historically-failing `argument_scheme` family **8/8 clean** and every structural gate green (dup=0, overlap=0, M1<120s, M2=0, 0 H/I/J, 0 `family=NULL`, monitor healthy). See `docs/audits/OPS-MCP-STAGE1-LOW-TRAFFIC-SYNTHETIC-LAUNCH-QUALIFICATION-2026-06-02.md`. This is synthetic launch confidence; it does NOT close this window, issue `PASS-STAGE-1`, or advance to 5%.
+
+---
+
 ## 1. Phase 1 — observability/alerting (PASS)
 
 Per `docs/audits/OPS-MCP-CANARY-THEN-BURST-RUNBOOK-2026-06-02.md` predecessor + `docs/runbooks/cutover-health-monitor.md`:
