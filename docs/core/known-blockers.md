@@ -576,13 +576,13 @@ Stage 1 (1% routing) is **CLOSED at `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANI
 
 ### 3. Residual transient provider-failure floor + the lone Family-F dead-letter
 
-**Status:** Non-blocking; one open read-only follow-up.
-A low transient floor (~2–4% per-attempt `provider_server_error`, provider-side 5xx) is absorbed by the 4-attempt retry budget — except ONE isolated Family-F (`critical_question`) cell (argId `9ef5aab5…`) in the Stage-1 qualification burst exhausted all 4 attempts → 1 within-budget dead_letter (isolated, NOT a cluster). Open: a **read-only R3 `boolean_observation_tool_error` log disambiguation** (provider-side 5xx vs an F packet-shape residual). The `failure_detail` persistence in item 4 makes this DB-readable for the next investigation.
+**Status:** Non-blocking; R3 disambiguation **RESOLVED 2026-06-02** → the remaining follow-up is a design-filed F-hardening implementation card.
+A low transient floor (~2–4% per-attempt `provider_server_error`) is absorbed by the 4-attempt retry budget. The ONE isolated Family-F (`critical_question`) cell (argId `9ef5aab5…`, a **synthetic** smoke-tagged qualification-burst arg — `organic_non_smoke_routed_args = 0`) that exhausted all 4 attempts was disambiguated via the Deno Deploy R3 `boolean_observation_tool_error` log: it is a **deterministic packet-shape residual** (`validation_failed` on `evidenceSpan.unstated_assumption`; 5/5 `packet_invalid`, 0 ban-list, 61 healthy Anthropic 200s), **NOT** a provider-side 5xx — the queue's `provider_server_error` sub_reason is an Edge-adapter bucketing artifact. It did **not** change the `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` verdict (organic = 0). **Remaining follow-up:** the design `docs/designs/OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING.md` (PR #441) extends the PR #421/#423 rule-6 RAWKEY-SHAPE REINFORCEMENT to `unstated_assumption`; implementation is a **separate operator-authorized `mcp-server` → Deno Deploy card, REQUIRED before any 5% ramp.** Full evidence: § 12 of the Stage-1 cutover audit.
 
-### 4. `failure_detail` persistence — operator-gated deploy pending (PR #432)
+### 4. `failure_detail` persistence — DEPLOYED + MERGED (PR #432, `c90e1a5`)
 
-**Status:** Implemented + reviewed (Approve); merge is operator-gated because it deploys the live drainer.
-`OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE` (PR #432, branch `feat/OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE`) adds a leak-safe `failure_detail jsonb` so failures are self-describing (no more Deno-log pulls for triage). **Deploy ordering is mandatory:** apply the migration FIRST (`npx supabase db push --linked` from the branch, routing disarmed), verify the column + 9-arg `finalize_classifier_job` exist, THEN merge (Edge auto-deploys the drainer). Not auto-merged.
+**Status:** **RESOLVED 2026-06-02.**
+`OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE` (PR #432) shipped a leak-safe `failure_detail jsonb` so classifier failures are self-describing (no more Deno-log pulls for triage). The mandatory deploy ordering was followed: migration applied FIRST via `npx supabase db push --linked` (routing disarmed) and verified (`failure_detail` column + 9-arg `finalize_classifier_job` present, 8-arg gone), THEN merged (Edge auto-deployed the drainer). Future `critical_question` `provider_server_error` cells now persist `detail.serverReason` + `validator_path` straight to the DB row — the next recurrence of the § 3 packet-shape residual is a one-query read, no R3 log pull needed.
 
 ### 5. Deprecated build/test dependencies — tracked (OPS-DEPS-001..004, issues #433–#436)
 
