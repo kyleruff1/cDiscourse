@@ -1,6 +1,6 @@
 # CDiscourse — Known Blockers
 
-_Last updated: 2026-05-26 (Post-MCP-021A docs cleanup)_
+_Last updated: 2026-06-02 (MCP provider-reliability cutover arc + Stage-1 closeout; dependency-deprecation tracking). Live sources of truth: `docs/core/current-status.md`, `docs/core/OPS-MCP-FORTIFIED-ARCHITECTURE-STATUS.md`, the `docs/audits/OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-*` audits, and the 2026-06-02 roadmaps. This file is a curated index, not the manifest._
 
 ---
 
@@ -547,73 +547,63 @@ Stale-Worktree-Branch-Claim (2026-05-25)") remain as the historical
 record of each individual incident; OPS-004 is the consolidated
 strengthening response that closes all four gaps with one card.
 
----
+### ✅ MCP Provider-Reliability Cutover — the chronic `argument_scheme` cluster (2026-06-02)
 
-## ACTIVE BLOCKERS
+**Incident.** Family H's production-enable smoke FAIL'd at the 8-family load (PR #407 → rollback PR #408): `mcp_api_error` / `provider_server_error` holes across multiple family cells under burst. Root cause (#371, #373): a per-isolate in-memory provider-concurrency semaphore (`mcp-server/lib/providerConcurrency.ts`) is structurally incapable of bounding GLOBAL Anthropic concurrency under Deno Deploy's dynamic multi-isolate fan-in (cap=5 PARTIAL, cap=2 FAIL → the 15s Edge→MCP timeout fires). A SEPARATE packet/schema response-shape cluster (Family E `argument_scheme` + F `critical_question`, on the `evidenceSpan.*` rawKey paths) compounded it.
 
-### 1. ANTHROPIC_API_KEY Must Be Rotated
+**Resolution (the arc, PR #411→#432).** Two coherent fixes:
 
-**Status:** Security — requires manual action  
-**Impact:** The ANTHROPIC_API_KEY that was set during the 2026-05-16 session was exposed in conversation. It should be rotated before the AI language-processing feature is enabled.
+1. **Capacity/concurrency → the ARCH-001 Postgres async classifier queue** (chosen over the rejected Deno-KV limiter #373). Classification moved OFF the synchronous 15s submit path; linearizable; bounded drainer concurrency `C=3`, `MAX_ATTEMPTS=4`, backoff `[30,120]s`.
+2. **Packet/schema cluster → the STRICT RESPONSE-SHAPE CONTRACT** (PR #421/#423): key-set equality + null-for-false + per-rawKey reinforcement in the Family E/F prompts. Eliminated to terminal — two consecutive PASS-LOAD drills (#425/#426, 56/56, 0 dead-letter).
 
-**Resolution (manual — do not paste key into chat):**
-1. Go to `console.anthropic.com` → API Keys → revoke the exposed key
-2. Create a new key
-3. Update the Supabase secret:
-   ```bash
-   npx supabase secrets set ANTHROPIC_API_KEY=<new-key>
-   ```
-
-This blocker does NOT affect the MVP demo — `AI_LANGUAGE_PROCESSING_ENABLED=false` by default and no client-side Anthropic calls exist.
+**Outcome.** Stage 1 (1% routing) armed (#428) → synthetic launch-qualification PARTIAL (#429) → **CLOSED at `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`** (#431), routing disarmed to baseline. The mechanism is synthetically qualified; real-organic-load handling is deferred to a launch-time ramp decision (zero organic traffic, pre-launch). See `docs/core/OPS-MCP-FORTIFIED-ARCHITECTURE-STATUS.md`, the `OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-*` audits, and the 2026-06-02 A-G / H-I-J roadmaps. **The remaining family gates + the residual transient floor are tracked under ACTIVE BLOCKERS below (items 1–4), not as resolved.**
 
 ---
 
-### 2. Docker Unavailable — Supabase Local Never Validated
+## ACTIVE BLOCKERS — current state (2026-06-02)
 
-**Status:** Informational — not MVP blocking  
-**Impact:** Migrations have been applied to hosted project (resolved), but local Supabase stack has never been validated with Docker.
+> This section is a curated index of what is genuinely open. The per-card detail lives in the live sources named at the top of this file; do not duplicate it here.
 
-If Docker Desktop becomes available:
-```bash
-npx supabase start
-npx supabase db reset
-npx supabase db status
-npx supabase db lint
-```
+### 1. MCP queue routing above 1% — GATED (launch-time decision)
+
+**Status:** Gated resting state, not a defect.
+Stage 1 (1% routing) is **CLOSED at `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`**; routing is **disarmed to baseline** (`CLASSIFIER_QUEUE_ROUTING_ENABLED=false` / `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=0`). The queue is synthetically qualified but has handled **zero organic routed cells** (pre-launch). 5% → 25% → 50% → 100% each require real organic evidence + a SEPARATE operator authorization. **No audit auto-advances the percentage; the real ramp is a launch-time decision, not a scheduled ladder.** Re-arming requires re-scheduling `cutover-health-monitor-tick` first and the canary-then-burst discipline. See the A-G stability roadmap.
+
+### 2. Family H / I / J production — FROZEN
+
+**Status:** Gated on provider reliability proven at higher load + per-family operator cards.
+`supabase/functions/_shared/booleanObservations/familyRegistry.ts` H/I/J `productionEnabled: false` (lines 106/111/116). **H (`claim_clarity`)** failed its production-enable smoke at the 8-family load (PR #407 → rollback #408 — the canonical incident); the now-qualified queue is the substrate that should eventually unblock it, but H needs a real higher-load reliability proof. **I (`thread_topology`)** is chained behind H and is mixed-source — it needs its `MCP_SERVER_SUPPORTED_FAMILY_SOURCES` Edge entry or admin_validation/production fails `mcp_validation_failed`. **J (`sensitive_composer`)** is dormant by design (`docs/audits/OPS-FAMILY-J-SCOPING-AUDIT-2026-05-31.md`: N=0 production cards under current disposition). Do NOT flip any flag without a separate operator card. See the H-I-J integration roadmap.
+
+### 3. Residual transient provider-failure floor + the lone Family-F dead-letter
+
+**Status:** Non-blocking; one open read-only follow-up.
+A low transient floor (~2–4% per-attempt `provider_server_error`, provider-side 5xx) is absorbed by the 4-attempt retry budget — except ONE isolated Family-F (`critical_question`) cell (argId `9ef5aab5…`) in the Stage-1 qualification burst exhausted all 4 attempts → 1 within-budget dead_letter (isolated, NOT a cluster). Open: a **read-only R3 `boolean_observation_tool_error` log disambiguation** (provider-side 5xx vs an F packet-shape residual). The `failure_detail` persistence in item 4 makes this DB-readable for the next investigation.
+
+### 4. `failure_detail` persistence — operator-gated deploy pending (PR #432)
+
+**Status:** Implemented + reviewed (Approve); merge is operator-gated because it deploys the live drainer.
+`OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE` (PR #432, branch `feat/OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE`) adds a leak-safe `failure_detail jsonb` so failures are self-describing (no more Deno-log pulls for triage). **Deploy ordering is mandatory:** apply the migration FIRST (`npx supabase db push --linked` from the branch, routing disarmed), verify the column + 9-arg `finalize_classifier_job` exist, THEN merge (Edge auto-deploys the drainer). Not auto-merged.
+
+### 5. Deprecated build/test dependencies — tracked (OPS-DEPS-001..004, issues #433–#436)
+
+**Status:** Dev/test/build-time only — NOT in the production runtime.
+The Netlify deploy log warns on 8 deprecated transitive build/test packages (from jest@29 / jsdom@20 / RN dev-middleware / Expo config / xcode). `inflight@1.0.6`'s "leaks memory" is a **CI/test-process** leak, not user-facing; `glob@7.2.3` carries real CVEs. Tracked, grouped by fix: **#433** (jest→v30, p1 — clears the leak + CVEs + 3 jsdom deprecations in one bump), **#434** (remove `@testing-library/jest-native`, the only direct dep), **#435** (`rimraf`), **#436** (`uuid`).
+
+### 6. ANTHROPIC_API_KEY rotation — verify
+
+**Status:** Security — verify; manual only.
+A key exposed in the 2026-05-16 session should have been rotated. The current production key lives in **Deno Deploy env vars** (server-side only; the MCP server runs there — see `OPS-MCP-FORTIFIED-ARCHITECTURE-STATUS.md` §4). Confirm the 2026-05-16-exposed key was revoked. NEVER paste a key into chat; the operator rotates via the Deno Deploy dashboard (and `SEMANTIC_REFEREE_MCP_TOKEN` / `MCP_SERVER_BEARER_TOKEN` if rotating the bearer).
+
+### 7. Docker unavailable — migration verification is textual
+
+**Status:** Informational — affects migration-bearing review rigor.
+Docker Desktop is unavailable, so migration-bearing cards get the OPS-001 heightened TEXTUAL review (four issue classes) instead of `npx supabase db reset --linked=false`. Live apply still surfaces privilege/ordering issues the textual review can miss (see the PR-003 / PR-004 incidents in the RESOLVED section). If Docker becomes available, run `npx supabase start && db reset && db status && db lint`.
+
+### 8. Deno mirror risk for Edge Functions
+
+**Status:** Informational.
+Edge Function deps are URL-imported in `supabase/functions/`. If an import URL/mirror breaks, pin to a specific version tag.
 
 ---
 
-### 3. Live Manual Smoke Test Pending
-
-**Status:** Partially unblocked — RLS recursion fixed; full walkthrough still needed  
-**Impact:** The hosted backend is configured. Migration 0006 fixed the `debates` RLS recursion that caused the "infinite recursion" error in the browser.
-
-**Resolution:** Run `npm run web -- --clear` and walk through `docs/browser-visual-test.md` sections A–K.
-
-Items expected to work after migration 0006:
-- Debates tab loads without policy error
-- Auth sign-up / sign-in / sign-out
-- Debate create / join / list
-- Composer: type picker, side picker, body, validation preview
-- Submit: submitArgumentDraft → Edge Function → argument row → success
-- Post-submit: tree auto-refreshes via refreshRef (Stage 5.5.5)
-- Server 422: error shown, draft preserved
-- Idempotency: duplicate client_submission_id rejected
-
----
-
-### 4. npm Install Peer Dependency Caveats
-
-**Status:** Informational  
-**Impact:** `npm install` may fail with peer dependency conflicts involving `jest-expo` and React 19
-
-Use `--legacy-peer-deps` if needed. Do not use `--force`.
-
----
-
-### 5. Deno Mirror Risk for Edge Functions
-
-**Status:** Informational  
-**Impact:** Edge Function URL imports may break if a mirror goes down
-
-All Edge Function dependencies are imported by URL in `supabase/functions/`. If an import URL breaks, pin to a specific version tag.
+_Obsolete (resolved by progress, removed from ACTIVE in the 2026-06-02 refresh): the former "Live Manual Smoke Test Pending" (a Stage-5 migration-0006 RLS-recursion item) and the "npm peer-dependency `--legacy-peer-deps`" caveat — the app is at Stage 6.4+ and `npm ci` installs cleanly in the production Netlify deploy._
