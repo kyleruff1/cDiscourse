@@ -58,6 +58,11 @@ import {
 import { runWithBoundedConcurrency } from './boundedConcurrencyRunner.ts';
 import type { MachineObservationFamily } from './nodeLabelTypes.ts';
 import type { MachineObservationRunMode } from './runModeConstants.ts';
+import {
+  buildRunRowFailureDetail,
+  type RunRowFailureDetail,
+} from './classifierRunRowFailureDetail.ts';
+import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from './mcpBooleanObservationSchema.ts';
 
 // ── LOCKED operating parameters (design §A.5 / §A.7 / operator-confirmed) ──
 
@@ -315,6 +320,14 @@ async function processOneJob(
         failureSubReason: null,
         deadLetterReason: null,
         observations: null,
+        // No adapter result exists on this branch; minimal self-describing
+        // detail (no validator_path / attempt_count). Leak-safe by construction.
+        failureDetail: buildRunRowFailureDetail({
+          reason: 'argument_not_found',
+          family: job.family,
+          correlationId: job.id,
+          runMode: job.run_mode,
+        }),
       });
       return finalized ? 'failed_terminal' : 'lost_lease';
     }
@@ -329,6 +342,21 @@ async function processOneJob(
       classify.adapterResult.subReason,
     );
 
+    // Leak-safe diagnostic detail for this failure, built ONCE from the
+    // allow-list helper and reused by both the retry and terminal branches.
+    // `detail?.path` is the structural validator path (already allow-listed
+    // upstream by the adapter); the helper re-scrubs + caps. No body / prompt /
+    // evidenceSpan value / payload has an entry point (structural deny-list).
+    const failureDetail = buildRunRowFailureDetail({
+      validatorPath: classify.adapterResult.detail?.path,
+      reason: decision.failureReason,
+      family: job.family,
+      correlationId: job.id,
+      attemptCount,
+      runMode: job.run_mode,
+      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    });
+
     if (decision.disposition === 'retry') {
       // Run-row-ONLY UPDATE to retry_scheduled (NOT a finalize, NOT an
       // in-request wait): set available_at = now()+backoff, record the typed
@@ -341,6 +369,7 @@ async function processOneJob(
         backoffSeconds: decision.backoffSeconds,
         failureReason: decision.failureReason,
         failureSubReason: decision.failureSubReason ?? null,
+        failureDetail,
       });
       return rescheduled ? 'retry' : 'lost_lease';
     }
@@ -356,6 +385,7 @@ async function processOneJob(
       failureSubReason: decision.failureSubReason ?? null,
       deadLetterReason: decision.deadLetterReason,
       observations: null,
+      failureDetail,
     });
     if (!finalized) return 'lost_lease';
     return decision.disposition === 'dead_letter' ? 'dead_letter' : 'failed_terminal';
@@ -372,6 +402,14 @@ async function processOneJob(
         failureSubReason: null,
         deadLetterReason: null,
         observations: null,
+        // No adapter result here (we are in the defensive catch); minimal
+        // self-describing detail. Leak-safe by construction.
+        failureDetail: buildRunRowFailureDetail({
+          reason: 'drainer_unexpected_error',
+          family: job.family,
+          correlationId: job.id,
+          runMode: job.run_mode,
+        }),
       });
       return finalized ? 'failed_terminal' : 'lost_lease';
     } catch {
@@ -439,6 +477,13 @@ interface FinalizeJobInput {
     confidence: string;
     evidence_span: string | null;
   }> | null;
+  /**
+   * OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE: the leak-safe diagnostic
+   * object for a terminal-failure finalize. ADDITIVE; absent/undefined on
+   * success (→ the RPC receives NULL and the success branch never assigns it,
+   * so a succeeded row's failure_detail stays NULL).
+   */
+  failureDetail?: RunRowFailureDetail | null;
 }
 
 /**
@@ -462,6 +507,7 @@ async function finalizeJob(
       p_failure_sub_reason: input.failureSubReason,
       p_dead_letter_reason: input.deadLetterReason,
       p_observations: input.observations ?? [],
+      p_failure_detail: input.failureDetail ?? null,
     });
     if (error) return false;
     return data === true;
@@ -477,6 +523,8 @@ interface ScheduleRetryInput {
   backoffSeconds: number;
   failureReason: string;
   failureSubReason: string | null;
+  /** OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE: leak-safe diagnostic object (ADDITIVE). */
+  failureDetail?: RunRowFailureDetail | null;
 }
 
 /**
@@ -510,6 +558,7 @@ async function scheduleRetry(
         available_at: availableAt,
         failure_reason: input.failureReason,
         failure_sub_reason: input.failureSubReason,
+        failure_detail: input.failureDetail ?? null,
         lease_owner: null,
         lease_expires_at: null,
       })
