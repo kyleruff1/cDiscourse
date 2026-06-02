@@ -163,3 +163,23 @@ Verified: both `opsMcpObservability*` tests (which recursively scan `scripts/ops
 - **CC writes (file system):** the 4 `scripts/ops/stage1/*.sh` automation scripts; this audit doc; read-only diagnostic SQL probes under `.claude-tmp/` (gitignored).
 - **Secrets discipline:** no SUPABASE_ACCESS_TOKEN / MCP_SERVER_BEARER_TOKEN / CUTOVER_MONITOR_SHARED_SECRET / RESEND_API_KEY / service-role / JWT / Bearer / recipient-email value printed to chat, logs, scripts, or this audit. The `.claude-tmp/operator-secrets.env` is gitignored and never committed.
 - **No H/I/J enablement. No advance above 1%. No prompt/validator/migration/familyRegistry change.**
+
+---
+
+## 10. Live observation window checkpoints (read-only)
+
+Periodic read-only checks taken during the OPEN Stage-1 1% window via the Card-2 observation pack (`scripts/ops/stage1/stage1-snapshot.sh`, `stage1-routed-volume.sh`, `stage1-hij-leakage.sh`, `stage1-window-close-readonly.sh` → read-only `supabase db query --linked` against `scripts/ops-stage1-sql/`). These are observation only: **none of them close the window, issue `PASS-STAGE-1`, or change the percentage.** See `docs/runbooks/stage1-observation.md`.
+
+| UTC | routed since arm (all smoke) | organic (non_smoke) | H/I/J rows | M2 depth | M1 since last drain | monitor (15 min) | note |
+|---|---|---|---|---|---|---|---|
+| 2026-06-02T09:10:42Z | 10 | **0** | **0** | 0 (idle) | ~35 min (idle-empty) | 0 fail / 3 ok (`*/5`) | queue idle post-qualification; ~22.7h to window close |
+
+Reading the columns:
+
+- **routed since arm = 10, all smoke-tagged** (the #428 canary + the Card-1 qualification canary + the 8-thesis burst). **organic (`non_smoke_routed_args`) = 0** — no organic submit has hashed into the 1% bucket yet (pre-launch volume; the §0 low-traffic rule governs the closeout verdict).
+- **H/I/J rows = 0** — no dormant-family leakage on the routed path.
+- **M2 depth = 0** — the queue is fully drained / idle.
+- **M1 since last drain is large here precisely because the queue is idle-empty, NOT because the drainer is stuck.** M1 staleness is a rollback signal **only when paired with M2 > 0** (depth present AND drainer not completing). With M2 = 0 and the monitor reporting 0 failures, an old `last completed drain` timestamp is expected and benign.
+- **monitor = 0 fail / 3 ok on `*/5`** — Layer-1 watchdog healthy.
+
+The window stays **OPEN** until ≥ `2026-06-03T07:50:54Z`; the terminal Stage-1 verdict is recorded at close per the §0 closeout-verdict rule (`PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` if organic routed stays zero). Additional checkpoint rows may be appended above as the window progresses.
