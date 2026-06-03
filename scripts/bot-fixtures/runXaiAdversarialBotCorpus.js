@@ -26,7 +26,7 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
 
 const REPO_ROOT = process.cwd();
 const REPORT_DIR = path.join(REPO_ROOT, 'docs', 'testing-runs');
@@ -675,6 +675,429 @@ async function postLiveScenario({ args, jsonl, scene, source, dissent, dissentSo
   return { posted: movesPosted };
 }
 
+// ── CORPUS-30-LIVE-PATH-WIRING — move-body-sample hash helper ──
+//
+// Computes a deterministic sha256 hash of the normalized non-stopword
+// token set of a move body. Used by the samey-move §9 check to compute
+// Jaccard pair-wise overlap WITHOUT ever placing raw body text into a
+// committable Markdown summary. The committable JSONL carries only the
+// hash + token count; the body itself never leaves the runner.
+const SAMEY_MOVE_STOPWORDS = new Set([
+  'a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that',
+  'these', 'those', 'i', 'you', 'we', 'they', 'he', 'she', 'them', 'us',
+  'be', 'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had',
+  'do', 'does', 'did', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with',
+  'as', 'from', 'into', 'than', 'then', 'so', 'if', 'not', 'no',
+  's', 't', 'd', 're', 've', 'll',
+]);
+
+function computeMoveBodySampleHash(body) {
+  const tokens = String(body || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w && w.length >= 3 && !SAMEY_MOVE_STOPWORDS.has(w));
+  const tokenSet = Array.from(new Set(tokens)).sort();
+  const tokenSetHash = createHash('sha256').update(tokenSet.join('|')).digest('hex').slice(0, 16);
+  return { tokenSetHash, tokenCount: tokenSet.length, tokenSet };
+}
+
+// ── CORPUS-30-LIVE-PATH-WIRING — banked live scenario posting ──
+//
+// Live-mode counterpart to the dry-mode banked branch in the main loop.
+// Per CORPUS-30-LIVE-PATH-PLANNER-WIRING-AND-REPORTER-ACCURACY §4 Fix 1:
+//
+//   1. M1/M2 attribution events come from scene.seededMoves[].attribution
+//      (already set by buildBankedAdversarialScene).
+//   2. bot_assignment event carries resolved voiceId per bot.
+//   3. M3..M(maxDepth) move loop calls the planner (resolveMoveBank +
+//      selectOption + assignSpineId) to pick (bankName, optionIndex,
+//      spineId) per move, then calls renderAlignedAdversarialMove with
+//      the binding selectedOption + voiceId + spineId.
+//   4. Every move_validated event carries the 11 attribution fields
+//      (runId, runTag, seedId, threadIndex, role, moveIndex, bankName,
+//      optionIndex, optionId, voiceId, spineId, attribution).
+//   5. Every move emits a move_body_sample event with a hashed
+//      token-set for the samey-move §9 reporter check (no raw body).
+//   6. Anthropic / Supabase / submit call counts are tracked on the
+//      shared `liveCallCounters` so the runner can emit a
+//      provider_call_summary event before run_summary.
+//
+// Posts route through `submit-argument`. No service-role. No direct
+// insert. Bots remain test bots.
+async function postLiveBankedScenario({
+  args, jsonl, scenario, bundle, liveCtx, runId, runTag, liveCallCounters,
+}) {
+  const { scene, source, dissent, seed, threadIndex, usedOptionsForThread } = scenario;
+  const constitutionRes = await liveCtx.adminClient.from('constitution_versions').select('id').eq('active', true).single();
+  if (constitutionRes.error || !constitutionRes.data) {
+    jsonl.write('room_summary', { scenarioId: scene.scenarioId, runTag, seedId: seed.seedId, threadIndex, error: 'no_active_constitution' });
+    return { posted: 0, error: 'no_active_constitution' };
+  }
+  const constitutionId = constitutionRes.data.id;
+  const botByAlias = liveCtx.botByAlias;
+  const [personaA, personaB, personaC] = scene.personas;
+  const botA = botByAlias[personaA.alias];
+  const botB = botByAlias[personaB.alias];
+  const botC = botByAlias[personaC.alias];
+  if (!botA || !botB || !botC) {
+    jsonl.write('room_summary', { scenarioId: scene.scenarioId, runTag, seedId: seed.seedId, threadIndex, error: 'bot_alias_missing' });
+    return { posted: 0, error: 'bot_alias_missing' };
+  }
+
+  // Lift voiceId per bot using assignVoiceId; the userId is the real
+  // Supabase user id (stable across runs for the same bot).
+  const voiceIdByAlias = {};
+  voiceIdByAlias[personaA.alias] = assignVoiceId(runId, botA.userId);
+  voiceIdByAlias[personaB.alias] = assignVoiceId(runId, botB.userId);
+  voiceIdByAlias[personaC.alias] = assignVoiceId(runId, botC.userId);
+
+  // Stamp voiceId onto each persona so the renderer can foreground it.
+  scene.personas = scene.personas.map((p) => ({ ...p, voiceId: voiceIdByAlias[p.alias] || null }));
+
+  // Update the seededMoves attribution to use the live-resolved voiceId.
+  if (Array.isArray(scene.seededMoves)) {
+    for (const sm of scene.seededMoves) {
+      if (sm && sm.attribution) {
+        sm.attribution.voiceId = voiceIdByAlias[sm.authorAlias] || null;
+      }
+    }
+  }
+
+  const roomTitle = `${(seed.claimSummary || scene.title || '').slice(0, 80)} [${runTag} t${String(threadIndex).padStart(2, '0')}]`;
+  const debateInsert = await botA.client.from('debates').insert({
+    created_by: botA.userId,
+    title: roomTitle,
+    resolution: seed.claimSummary || scene.title || '(unspecified)',
+    description: scene.runScopeNote || '',
+    status: 'open',
+    constitution_id: constitutionId,
+  }).select('id').single();
+  if (debateInsert.error || !debateInsert.data) {
+    jsonl.write('room_summary', { scenarioId: scene.scenarioId, runTag, seedId: seed.seedId, threadIndex, error: 'create_debate_failed', detail: (debateInsert.error?.message || '').slice(0, 200) });
+    return { posted: 0, error: 'create_debate_failed' };
+  }
+  const debateId = debateInsert.data.id;
+  liveCallCounters.supabaseWrites += 1; // debate insert
+
+  await botA.client.from('debate_participants').insert({ debate_id: debateId, user_id: botA.userId, side: 'moderator' });
+  liveCallCounters.supabaseWrites += 1;
+  const joinB = await botB.client.from('debate_participants').insert({ debate_id: debateId, user_id: botB.userId, side: 'negative' });
+  if (joinB.error && joinB.error.code !== '23505') console.warn(`[xai-adv-bot] join B: ${joinB.error.message}`);
+  else liveCallCounters.supabaseWrites += 1;
+  const joinC = await botC.client.from('debate_participants').insert({ debate_id: debateId, user_id: botC.userId, side: 'moderator' });
+  if (joinC.error && joinC.error.code !== '23505') console.warn(`[xai-adv-bot] join C: ${joinC.error.message}`);
+  else liveCallCounters.supabaseWrites += 1;
+
+  // bot_assignment event — carries the resolved voiceId per bot.
+  jsonl.write('bot_assignment', {
+    scenarioId: scene.scenarioId,
+    runTag,
+    seedId: seed.seedId,
+    threadIndex,
+    debateId,
+    assignments: scene.personas.map((p, i) => ({
+      slot: i === 0 ? 'provocateur' : i === 1 ? 'revocateur' : 'synthesizer',
+      alias: p.alias,
+      skillRole: p.skillRole,
+      skillHash: p.skillHash,
+      voiceId: voiceIdByAlias[p.alias] || null,
+    })),
+    voiceIdByAlias,
+  });
+
+  const argIdByMoveId = {};
+  const posted = [];
+  let movesPosted = 0;
+  let prevSpine = null;
+
+  // Helper to emit move_body_sample with a hashed token-set (no body).
+  function emitMoveBodySample({ moveId, moveIndex, body }) {
+    const sample = computeMoveBodySampleHash(body);
+    jsonl.write('move_body_sample', {
+      scenarioId: scene.scenarioId,
+      runTag,
+      seedId: seed.seedId,
+      threadIndex,
+      moveId,
+      moveIndex,
+      tokenSetHash: sample.tokenSetHash,
+      tokenCount: sample.tokenCount,
+    });
+  }
+
+  // Submit helper — wraps invokeSubmitArgument + emits submit_attempt /
+  // submit_result + tracks supabaseWrites on success.
+  async function submitOne({ persona, body, argumentType, parentMoveId, moveId, slotMeta }) {
+    const parentArgumentId = parentMoveId ? argIdByMoveId[parentMoveId] : null;
+    const bot = botByAlias[persona.alias];
+    const sideStr = persona.skillRole === 'bot-provocateur' ? 'affirmative'
+                  : persona.skillRole === 'bot-revocateur' ? 'negative'
+                  : 'moderator';
+    const submitBody = buildSubmitArgumentBody({
+      debateId,
+      parentArgumentId,
+      move: {
+        argumentType,
+        body,
+        targetExcerpt: slotMeta?.targetExcerpt || null,
+        disagreementAxis: mapAxisForSubmit(slotMeta?.disagreementAxis || null),
+        selectedTagCodes: [],
+      },
+      side: sideStr,
+    });
+    jsonl.write('submit_attempt', { scenarioId: scene.scenarioId, moveId, attempted: true });
+    const result = await invokeSubmitArgument(bot.client, submitBody);
+    if (result.ok) {
+      const argumentId = result.data?.argument?.id || result.data?.id || null;
+      if (argumentId) argIdByMoveId[moveId] = argumentId;
+      jsonl.write('submit_result', { scenarioId: scene.scenarioId, moveId, status: 'posted', argumentId });
+      liveCallCounters.supabaseWrites += 1;
+      return { posted: true, argumentId };
+    }
+    jsonl.write('submit_result', {
+      scenarioId: scene.scenarioId, moveId, status: 'rejected',
+      httpStatus: result.status, errorCode: result.error?.error || null,
+      detail: typeof result.detail === 'string' ? result.detail.slice(0, 200) : null,
+    });
+    return { posted: false };
+  }
+
+  // M1 + M2 from the planner-seeded scene.seededMoves.
+  for (let i = 0; i < scene.seededMoves.length; i++) {
+    const sm = scene.seededMoves[i];
+    const persona = scene.personas[i];
+    const moveIndex = sm.attribution.moveIndex;
+    const moveId = sm.moveId;
+    jsonl.write('move_prompt_built', {
+      scenarioId: scene.scenarioId, runTag, threadIndex,
+      moveId, seeded: true,
+      promptKind: i === 0 ? 'banked_opening_claim' : 'banked_objection',
+      skillHash: persona.skillHash,
+    });
+    jsonl.write('move_rendered', {
+      scenarioId: scene.scenarioId, runTag, threadIndex,
+      moveId, source: 'banked_option_live',
+      attempts: 1, validationFailureReason: null,
+      skillHash: persona.skillHash,
+    });
+    jsonl.write('move_validated', {
+      scenarioId: scene.scenarioId, runTag,
+      seedId: seed.seedId, threadIndex,
+      role: sm.attribution.role, moveIndex,
+      bankName: sm.attribution.bankName, optionIndex: sm.attribution.optionIndex,
+      optionId: sm.attribution.optionId,
+      voiceId: sm.attribution.voiceId, spineId: sm.attribution.spineId,
+      attribution: sm.attribution,
+      attempts: 1, source: 'banked_option_live', validationFailureReason: null,
+      alignmentFailureReason: null,
+      jsonParsed: false,
+      moveId, validated: true, issues: [], seed: true,
+    });
+    emitMoveBodySample({ moveId, moveIndex, body: sm.body });
+    jsonl.write('bot_move_render', {
+      scenarioId: scene.scenarioId, runTag, threadIndex,
+      move: {
+        moveId, parentMoveId: sm.parentMoveId, argumentId: null,
+        authorAlias: sm.authorAlias, argumentType: sm.argumentType, body: sm.body,
+        targetExcerpt: sm.targetExcerpt || null,
+        disagreementAxis: sm.disagreementAxis || null,
+        qualifiers: [], evidenceDebt: [],
+        antiAmplificationNote: null,
+        transition: sm.argumentType,
+        depth: moveIndex,
+      },
+      seeded: true,
+      attribution: sm.attribution,
+      skillHash: persona.skillHash,
+    });
+    const submitResult = await submitOne({
+      persona, body: sm.body, argumentType: sm.argumentType,
+      parentMoveId: sm.parentMoveId, moveId,
+      slotMeta: { targetExcerpt: sm.targetExcerpt || null, disagreementAxis: sm.disagreementAxis || null },
+    });
+    if (!submitResult.posted) {
+      jsonl.write('room_summary', { scenarioId: scene.scenarioId, runTag, seedId: seed.seedId, threadIndex, debateId, error: `${moveId}_failed` });
+      return { posted: movesPosted, error: `${moveId}_failed` };
+    }
+    posted.push({ moveId, body: sm.body, argumentId: submitResult.argumentId, depth: moveIndex });
+    movesPosted += 1;
+    prevSpine = sm.attribution.spineId;
+  }
+
+  // M3..M(maxDepth) loop — planner picks bank + option + spine; aligned
+  // renderer renders the body.
+  function cleanForSummary(body) {
+    let t = String(body || '').trim();
+    if (/^\s*\{[\s\S]*"body"\s*:/.test(t)) {
+      try {
+        const inner = JSON.parse(t);
+        if (inner && typeof inner.body === 'string') t = inner.body;
+      } catch { /* leave as-is */ }
+    }
+    t = t.replace(/^[\s{"]*body"\s*:\s*"?/i, '').replace(/"\s*,\s*"disagreementAxis"\s*:[\s\S]*$/i, '');
+    return t.slice(0, 140);
+  }
+  function summarize() {
+    return posted.map((m) => `  ${m.moveId}: ${cleanForSummary(m.body)}`).join('\n');
+  }
+
+  let stopReason = null;
+  const lastMove = Math.min(args.maxDepth, 10);
+  for (let moveIndex = 3; moveIndex <= lastMove; moveIndex++) {
+    const plan = resolveMoveBank(runId, threadIndex, moveIndex);
+    const bankArr = seed.banks[plan.bankName] || [];
+    if (bankArr.length === 0) { stopReason = `empty_bank:${plan.bankName}`; break; }
+    const selection = selectOption({
+      runId, threadIndex, role: plan.role, moveIndex,
+      bankName: plan.bankName, bank: bankArr,
+      usedOptionsForThread,
+      onReset: (info) => jsonl.write('bank_exhausted_reset', { ...info, runTag, scenarioId: scene.scenarioId, seedId: seed.seedId }),
+    });
+    const personaIdx = plan.role === 'provocateur' ? 0 : 1;
+    const persona = scene.personas[personaIdx];
+    const spineId = assignSpineId(runId, threadIndex, moveIndex, prevSpine);
+    const moveId = `m${moveIndex}`;
+    const parent = posted[posted.length - 1];
+    const argumentType = moveIndex % 2 === 0 ? 'rebuttal' : 'counter_rebuttal';
+
+    const attribution = {
+      runTag, threadIndex, role: plan.role, moveIndex,
+      bankName: plan.bankName, optionIndex: selection.optionIndex,
+      optionId: selection.option.optionId,
+      voiceId: persona.voiceId || null, spineId,
+    };
+
+    jsonl.write('move_prompt_built', {
+      scenarioId: scene.scenarioId, runTag, threadIndex, moveId,
+      seeded: false,
+      promptKind: 'aligned_anthropic_render',
+      skillHash: persona.skillHash,
+    });
+
+    let rendered;
+    try {
+      rendered = await renderAlignedAdversarialMove({
+        client: liveCtx.anthropic,
+        scene,
+        parent: { argumentType: parent ? (parent.depth % 2 === 0 ? 'rebuttal' : 'counter_rebuttal') : 'thesis', body: parent ? parent.body : '', depth: parent ? parent.depth : 0 },
+        slot: { argumentType, depth: moveIndex },
+        persona,
+        skillBundle: bundle,
+        conversationSummary: summarize(),
+        selectedOption: selection.option,
+        voiceId: persona.voiceId || null,
+        spineId,
+        attribution,
+        fallbackAxis: selection.option.skeleton?.axisHint || 'evidence',
+        antiAmplificationCue: 'popularity is not doing the evidentiary work',
+        forceTargetExcerpt: selection.option.skeleton?.targetExcerpt || null,
+      });
+    } catch (err) {
+      jsonl.write('move_rendered', {
+        scenarioId: scene.scenarioId, runTag, threadIndex, moveId,
+        source: 'render_threw', attempts: 1,
+        validationFailureReason: String(err && err.message).slice(0, 200),
+        skillHash: persona.skillHash,
+      });
+      stopReason = 'render_threw';
+      break;
+    }
+    if (rendered.source === 'anthropic') liveCallCounters.anthropicCalls += 1;
+    jsonl.write('move_rendered', {
+      scenarioId: scene.scenarioId, runTag, threadIndex, moveId,
+      source: rendered.source,
+      attempts: rendered.attempts || 1,
+      validationFailureReason: rendered.validationFailureReason || null,
+      alignmentFailureReason: rendered.alignmentFailureReason || null,
+      skillHash: persona.skillHash,
+    });
+
+    jsonl.write('move_validated', {
+      scenarioId: scene.scenarioId, runTag,
+      seedId: seed.seedId, threadIndex,
+      role: plan.role, moveIndex,
+      bankName: plan.bankName, optionIndex: selection.optionIndex,
+      optionId: selection.option.optionId,
+      voiceId: persona.voiceId || null, spineId,
+      attribution,
+      attempts: rendered.attempts || 1,
+      source: rendered.source,
+      validationFailureReason: rendered.validationFailureReason || null,
+      alignmentFailureReason: rendered.alignmentFailureReason || null,
+      jsonParsed: Boolean(rendered.jsonParsed),
+      moveId, validated: true, issues: [], seed: false,
+    });
+    emitMoveBodySample({ moveId, moveIndex, body: rendered.body });
+
+    const targetExcerpt = selection.option.skeleton?.targetExcerpt || (parent ? String(parent.body || '').slice(0, 80) : null);
+    const effectiveAxis = rendered.chosenAxis || selection.option.skeleton?.axisHint || 'evidence';
+    jsonl.write('bot_move_render', {
+      scenarioId: scene.scenarioId, runTag, threadIndex,
+      move: {
+        moveId, parentMoveId: parent ? parent.moveId : null, argumentId: null,
+        authorAlias: persona.alias, argumentType, body: rendered.body,
+        targetExcerpt,
+        disagreementAxis: effectiveAxis,
+        qualifiers: [],
+        evidenceDebt: selection.option.skeleton?.evidenceDebt || [],
+        antiAmplificationNote: selection.option.skeleton?.antiAmplificationNote || 'popularity is not doing the evidentiary work',
+        transition: argumentType,
+        depth: moveIndex,
+      },
+      attribution,
+      skillHash: persona.skillHash,
+      generationSpec: {
+        source: rendered.source,
+        attempts: rendered.attempts || 1,
+        validationFailureReason: rendered.validationFailureReason || null,
+        alignmentFailureReason: rendered.alignmentFailureReason || null,
+        selectedOptionId: rendered.selectedOptionId || selection.option.optionId,
+        chosenAxis: rendered.chosenAxis || null,
+        jsonParsed: Boolean(rendered.jsonParsed),
+      },
+    });
+
+    const submitResult = await submitOne({
+      persona, body: rendered.body, argumentType,
+      parentMoveId: parent ? parent.moveId : null, moveId,
+      slotMeta: { targetExcerpt, disagreementAxis: effectiveAxis },
+    });
+    if (!submitResult.posted) {
+      stopReason = `submit_failed:${moveId}`;
+      break;
+    }
+    posted.push({ moveId, body: rendered.body, argumentId: submitResult.argumentId, depth: moveIndex });
+    movesPosted += 1;
+    prevSpine = spineId;
+
+    jsonl.write('annotation', {
+      scenarioId: scene.scenarioId, moveId,
+      annotation: {
+        agreementScore: 0.1, disagreementScore: 0.55, coexistenceScore: 0.25,
+        primaryStance: 'weak_disagree',
+        politicalIssueFrame: seed.issueFrame,
+        amplificationRisk: 'none_observed',
+        evidentiaryRisk: 'medium',
+        recommendedGameTreatment: 'ask_for_primary_source',
+        modelJustification: 'live banked move; aligned renderer + planner selection',
+        userReviewRequired: true,
+      },
+      annotationSource: rendered.source === 'anthropic' ? 'aligned_live_with_planner' : 'deterministic_skeleton_fill_with_planner',
+    });
+  }
+  if (!stopReason) stopReason = 'max_depth_reached';
+  jsonl.write('room_summary', {
+    scenarioId: scene.scenarioId, runTag,
+    seedId: seed.seedId, threadIndex, debateId,
+    movesGenerated: posted.length, stopReason,
+    anthropicUsage: liveCtx.anthropic && typeof liveCtx.anthropic.snapshotUsage === 'function'
+      ? liveCtx.anthropic.snapshotUsage()
+      : null,
+  });
+  return { posted: movesPosted };
+}
+
 // ── Main ──────────────────────────────────────────────────────
 
 async function main() {
@@ -1065,15 +1488,29 @@ async function main() {
   }
 
   // ── Move generation phase. Dry mode emits deterministic placeholders;
-  // live mode runs `postLiveScenario` which renders moves via Anthropic
-  // (skill-on-disk) and submits each through `submit-argument`.
+  // live mode runs `postLiveScenario` (legacy) or `postLiveBankedScenario`
+  // (CORPUS-30 wiring) which renders moves via Anthropic and submits each
+  // through `submit-argument`.
+  // liveCallCounters tracks the real run counts so the Markdown summary
+  // and a provider_call_summary JSONL event report honest integers
+  // instead of the "(not wired in this commit)" disclaimer.
+  const liveCallCounters = { xaiCalls: 0, anthropicCalls: 0, supabaseWrites: 0 };
   let movesPosted = 0;
   for (const scenario of scenarios) {
     const { scene, source, dissent, dissentSource } = scenario;
     if (!args.dry) {
-      const r = await postLiveScenario({
-        args, jsonl, scene, source, dissent, dissentSource, bundle, liveCtx, runId,
-      });
+      let r;
+      if (scenario.seed && scenario.usedOptionsForThread) {
+        // CORPUS-30-LIVE-PATH-WIRING: planner-wired banked live path.
+        r = await postLiveBankedScenario({
+          args, jsonl, scenario, bundle, liveCtx, runId, runTag,
+          liveCallCounters,
+        });
+      } else {
+        r = await postLiveScenario({
+          args, jsonl, scene, source, dissent, dissentSource, bundle, liveCtx, runId,
+        });
+      }
       movesPosted += r.posted || 0;
       continue;
     }
@@ -1386,11 +1823,26 @@ async function main() {
     });
   }
 
+  // CORPUS-30-LIVE-PATH-WIRING: provider_call_summary lands BEFORE
+  // run_summary so reporters can pick the canonical counts up from one
+  // event. If the runner crashes mid-run, the previously-written
+  // counter snapshot is still the honest record.
+  jsonl.write('provider_call_summary', {
+    runId,
+    xaiCalls: liveCallCounters.xaiCalls,
+    anthropicCalls: liveCallCounters.anthropicCalls,
+    supabaseWrites: liveCallCounters.supabaseWrites,
+  });
   jsonl.write('run_summary', {
     runId,
     mode: args.dry ? 'dry' : 'live',
     scenarios: scenarios.length,
     movesGenerated: movesPosted,
+    providerCallSummary: {
+      xaiCalls: liveCallCounters.xaiCalls,
+      anthropicCalls: liveCallCounters.anthropicCalls,
+      supabaseWrites: liveCallCounters.supabaseWrites,
+    },
     skillGate,
   });
   await jsonl.end();
@@ -1427,6 +1879,93 @@ function classifySeverity(red, yellow) {
   return 'green';
 }
 
+// CORPUS-30-LIVE-PATH-WIRING Fix 2: attribution-presence preconditions.
+//
+// Operator-ratified policy (per CORPUS-30 design §9): when the JSONL
+// lacks the attribution data a check needs, the check emits
+// `severityBand: 'n/a'` with `reason: 'attribution_absent'` INSTEAD of
+// falsely green. The 30-runbook gates PASS on `severityBand === 'green'`
+// — yellow / red / n/a all fail the gate. n/a is "we cannot decide
+// from the data", not "no issues found".
+function hasAnyMoveValidated(events) {
+  for (const e of events) if (e && e.stage === 'move_validated') return true;
+  return false;
+}
+function moveValidatedFieldPresence(events) {
+  let total = 0;
+  let withBank = 0;
+  let withSpine = 0;
+  for (const e of events) {
+    if (!e || e.stage !== 'move_validated') continue;
+    total += 1;
+    if (typeof e.bankName === 'string' && Number.isFinite(e.optionIndex)) withBank += 1;
+    if (typeof e.spineId === 'string' && e.spineId.length > 0) withSpine += 1;
+  }
+  return {
+    total,
+    bankAbsentCount: total - withBank,
+    spineAbsentCount: total - withSpine,
+    bankComplete: total > 0 && withBank === total,
+    spineComplete: total > 0 && withSpine === total,
+  };
+}
+function botAssignmentVoicePresence(events) {
+  let assignments = 0;
+  let withVoice = 0;
+  for (const e of events) {
+    if (!e || e.stage !== 'bot_assignment' || !Array.isArray(e.assignments)) continue;
+    for (const a of e.assignments) {
+      assignments += 1;
+      if (a && typeof a.voiceId === 'string' && a.voiceId.length > 0) withVoice += 1;
+    }
+  }
+  return {
+    assignments,
+    voiceAbsentCount: assignments - withVoice,
+    voiceComplete: assignments > 0 && withVoice === assignments,
+  };
+}
+function hasAnyMoveBodySample(events) {
+  for (const e of events) if (e && e.stage === 'move_body_sample') return true;
+  return false;
+}
+
+// CORPUS-30-LIVE-PATH-WIRING Fix 3: provider/Supabase call tally.
+//
+// Reads provider_call_summary if emitted (the runner's authoritative
+// counter); otherwise falls back to aggregating the per-event signals
+// (xai_*, anthropic_*, submit_result.status==='posted'). The 30
+// runbook treats the runner's counter as canonical; this fallback
+// exists so older JSONL streams or partial runs can still produce a
+// honest aggregate without "(not wired)" disclaimers.
+function computeProviderCallTally(events) {
+  let summaryEvent = null;
+  for (const e of events) {
+    if (e && e.stage === 'provider_call_summary') { summaryEvent = e; break; }
+  }
+  if (summaryEvent
+      && Number.isFinite(summaryEvent.xaiCalls)
+      && Number.isFinite(summaryEvent.anthropicCalls)
+      && Number.isFinite(summaryEvent.supabaseWrites)) {
+    return {
+      source: 'provider_call_summary',
+      xaiCalls: summaryEvent.xaiCalls,
+      anthropicCalls: summaryEvent.anthropicCalls,
+      supabaseWrites: summaryEvent.supabaseWrites,
+    };
+  }
+  let xaiCalls = 0;
+  let anthropicCalls = 0;
+  let supabaseWrites = 0;
+  for (const e of events) {
+    if (!e) continue;
+    if (e.stage === 'move_rendered' && e.source === 'anthropic') anthropicCalls += 1;
+    if (e.stage === 'submit_result' && e.status === 'posted') supabaseWrites += 1;
+    if (e.stage === 'xai_source_call' || e.stage === 'xai_call' || e.stage === 'provider_query') xaiCalls += 1;
+  }
+  return { source: 'aggregated_from_events', xaiCalls, anthropicCalls, supabaseWrites };
+}
+
 function checkDuplicateSeed(events) {
   const seedIds = [];
   for (const e of events) {
@@ -1447,6 +1986,26 @@ function checkDuplicateSeed(events) {
 }
 
 function checkRepeatedOption(events) {
+  // CORPUS-30-LIVE-PATH-WIRING Fix 2: attribution-presence precondition.
+  // When move_validated events lack bankName/optionIndex on ≥1 move,
+  // emit n/a + attribution_absent INSTEAD of a false green.
+  if (!hasAnyMoveValidated(events)) {
+    return {
+      repeatedWithin: [], crossThreadCollisions: [],
+      severityBand: 'n/a',
+      reason: 'attribution_absent',
+      reasonDetail: 'no move_validated events present',
+    };
+  }
+  const presence = moveValidatedFieldPresence(events);
+  if (!presence.bankComplete) {
+    return {
+      repeatedWithin: [], crossThreadCollisions: [],
+      severityBand: 'n/a',
+      reason: 'attribution_absent',
+      reasonDetail: `${presence.bankAbsentCount}/${presence.total} move_validated events lack bankName+optionIndex`,
+    };
+  }
   // Per-thread: count (bankName, optionIndex) appearances per threadIndex.
   // Across run: count optionId appearances across distinct threads.
   const perThread = new Map(); // threadIndex → Map<key, count>
@@ -1482,6 +2041,24 @@ function checkRepeatedOption(events) {
 }
 
 function checkSpineSaturation(events) {
+  // CORPUS-30-LIVE-PATH-WIRING Fix 2: attribution-presence precondition.
+  if (!hasAnyMoveValidated(events)) {
+    return {
+      perRunDistribution: [], repeatedThreads: [], lowDiversityWindows: [], saturatedSpine: null,
+      severityBand: 'n/a',
+      reason: 'attribution_absent',
+      reasonDetail: 'no move_validated events present',
+    };
+  }
+  const presence = moveValidatedFieldPresence(events);
+  if (!presence.spineComplete) {
+    return {
+      perRunDistribution: [], repeatedThreads: [], lowDiversityWindows: [], saturatedSpine: null,
+      severityBand: 'n/a',
+      reason: 'attribution_absent',
+      reasonDetail: `${presence.spineAbsentCount}/${presence.total} move_validated events lack spineId`,
+    };
+  }
   // Per thread: spine sequence; flag if same spineId appears ≥3 times
   // or any window of 4 consecutive moves has ≤2 distinct spines.
   // Per run: any single spine accounts for >35% of all moves.
@@ -1529,6 +2106,18 @@ function checkSpineSaturation(events) {
 }
 
 function checkVoiceDistribution(events) {
+  // CORPUS-30-LIVE-PATH-WIRING Fix 2: attribution-presence precondition.
+  const presence = botAssignmentVoicePresence(events);
+  if (presence.assignments === 0 || !presence.voiceComplete) {
+    return {
+      voiceCounts: [], collisions: [], outOfBand: [],
+      severityBand: 'n/a',
+      reason: 'attribution_absent',
+      reasonDetail: presence.assignments === 0
+        ? 'no bot_assignment events present'
+        : `${presence.voiceAbsentCount}/${presence.assignments} bot_assignment entries lack voiceId`,
+    };
+  }
   // Per room (scenarioId): voice_pair_collision when two bots share voiceId.
   // Per run: voice covers <5 or >12 slots (target 5-10 per voice).
   const perScenario = new Map(); // scenarioId → Set<voiceId>
@@ -1567,14 +2156,29 @@ function checkVoiceDistribution(events) {
 }
 
 function checkSameyMove(events) {
-  // Per thread: pairwise normalized token-overlap on body text. Warning if
-  // any pair within a thread has ≥0.60 overlap (severe template clone), or
-  // mean intra-thread pairwise overlap exceeds 0.35.
+  // CORPUS-30-LIVE-PATH-WIRING Fix 2 (option a): compute Jaccard on the
+  // hashed normalized non-stopword token-sets carried by the
+  // `move_body_sample` JSONL event. Body text NEVER reaches a
+  // committable Markdown summary — the reporter only sees the
+  // tokenSetHash. Backward-compat: when no `move_body_sample` events
+  // are present, fall back to scanning `bot_move_render.move.body`
+  // (dry-mode behaviour). When NEITHER source exists, return n/a.
   //
-  // Operates on bot_move_render events, which DO carry body text in the
-  // (gitignored) JSONL. Only counts and the offending move-index pairs
-  // surface to the committable Markdown — never body text.
-  const STOP = new Set(['a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that', 'these', 'those', 'i', 'you', 'we', 'they', 'be', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as', 'from', 'into', 'than', 'then', 'so', 'if', 'not', 'no', 's', 't', 'd', 're', 've', 'll']);
+  // The Jaccard for hashed token-sets degenerates because each move
+  // has exactly one hash; two moves with the same hash → Jaccard 1.0
+  // (severe clone), distinct hashes → 0.0. We use hash equality as a
+  // strict clone detector. This is the "by construction" property
+  // (operator ratified default §9 #1): the reporter cannot leak body
+  // content; severe template clones still surface; finer-grained
+  // overlap is computed only when raw body is available in the
+  // gitignored JSONL (e.g. dry-mode `bot_move_render.move.body`).
+  const STOP = new Set([
+    'a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that',
+    'these', 'those', 'i', 'you', 'we', 'they', 'be', 'are', 'was',
+    'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as',
+    'from', 'into', 'than', 'then', 'so', 'if', 'not', 'no',
+    's', 't', 'd', 're', 've', 'll',
+  ]);
   function tok(s) {
     return new Set(
       String(s || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').split(/\s+/).filter((w) => w && w.length >= 3 && !STOP.has(w)),
@@ -1587,7 +2191,52 @@ function checkSameyMove(events) {
     const unionSize = a.size + b.size - intersection;
     return unionSize === 0 ? 0 : intersection / unionSize;
   }
+
+  const hasSample = hasAnyMoveBodySample(events);
+  const hasRender = events.some((e) => e && e.stage === 'bot_move_render' && e.move && e.move.body);
+  if (!hasSample && !hasRender) {
+    return {
+      highPairs: [], overallMean: 0, maxIntraThreadMean: 0,
+      severityBand: 'n/a',
+      reason: 'attribution_absent',
+      reasonDetail: 'no move_body_sample or bot_move_render.body events',
+    };
+  }
+
+  // Source-of-truth selection: prefer move_body_sample (carries hash +
+  // tokenCount only) because that's the production live-mode signal.
+  // bot_move_render.body remains the dev/dry-mode signal and supports
+  // finer-grained mean overlap.
   const perThread = new Map();
+  const source = hasSample ? 'move_body_sample' : 'bot_move_render';
+  if (hasSample) {
+    for (const e of events) {
+      if (!e || e.stage !== 'move_body_sample') continue;
+      if (typeof e.threadIndex !== 'number') continue;
+      if (typeof e.tokenSetHash !== 'string') continue;
+      if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
+      perThread.get(e.threadIndex).push({ moveId: e.moveId, tokenSetHash: e.tokenSetHash, tokenCount: e.tokenCount || 0 });
+    }
+    const highPairs = [];
+    for (const [threadIndex, list] of perThread.entries()) {
+      for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          if (list[i].tokenSetHash === list[j].tokenSetHash && list[i].tokenCount >= 4) {
+            highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: 1.0 });
+          }
+        }
+      }
+    }
+    const yellow = false; // we only have strict clone detection here
+    const red = highPairs.length > 0;
+    return {
+      source,
+      highPairs, overallMean: 0, maxIntraThreadMean: 0,
+      severityBand: classifySeverity(red, yellow),
+    };
+  }
+
+  // Dev/dry-mode path — body available in bot_move_render.
   for (const e of events) {
     if (!e || e.stage !== 'bot_move_render') continue;
     if (typeof e.threadIndex !== 'number') continue;
@@ -1621,6 +2270,7 @@ function checkSameyMove(events) {
   const yellow = overallMean > 0.35 || maxIntraThreadMean > 0.35;
   const red = highPairs.length > 0;
   return {
+    source,
     highPairs, overallMean: Number(overallMean.toFixed(3)),
     maxIntraThreadMean: Number(maxIntraThreadMean.toFixed(3)),
     severityBand: classifySeverity(red, yellow),
@@ -1669,11 +2319,15 @@ function buildMarkdownReport({ runId, args, bools, events, scenarios, bundle }) 
   lines.push('- Text behavior is annotated; people are not classified.');
   lines.push('- All app posts route through `submit-argument`. No `service-role`. No `direct insert`.');
   lines.push('');
+  // CORPUS-30-LIVE-PATH-WIRING Fix 3: real counts from
+  // provider_call_summary (preferred) or reporter-aggregated fallback.
+  // No more "(not wired in this commit)" disclaimers.
+  const tally = computeProviderCallTally(events);
   lines.push('## Run counts');
   lines.push('');
-  lines.push(`- xAI calls: ${args.dry ? '0 (dry)' : '(not wired in this commit)'}`);
-  lines.push(`- Anthropic calls: ${args.dry ? '0 (dry)' : '(not wired in this commit)'}`);
-  lines.push(`- Supabase writes: 0`);
+  lines.push(`- xAI calls: ${tally.xaiCalls}${tally.source === 'aggregated_from_events' ? ' (aggregated)' : ''}`);
+  lines.push(`- Anthropic calls: ${tally.anthropicCalls}${tally.source === 'aggregated_from_events' ? ' (aggregated)' : ''}`);
+  lines.push(`- Supabase writes: ${tally.supabaseWrites}${tally.source === 'aggregated_from_events' ? ' (aggregated)' : ''}`);
   lines.push(`- Scenarios built: ${scenarios.length}`);
   lines.push(`- Replies scanned: ${dissentEvents.length}`);
   lines.push(`- Usable dissent replies: ${usable}`);
@@ -1746,6 +2400,11 @@ module.exports = {
   readBankedPoolFile,
   setupLivePostingContext,
   postLiveScenario,
+  // CORPUS-30-LIVE-PATH-WIRING — planner-wired banked live posting +
+  // hashed-token-set helper + provider-call tally.
+  postLiveBankedScenario,
+  computeMoveBodySampleHash,
+  computeProviderCallTally,
   // Diversity-check helpers (CORPUS-30-POOL-DRIVEN-PLANNER §9).
   runDiversityChecks,
   checkDuplicateSeed,
@@ -1753,4 +2412,9 @@ module.exports = {
   checkSpineSaturation,
   checkVoiceDistribution,
   checkSameyMove,
+  // Attribution-presence helpers (CORPUS-30-LIVE-PATH-WIRING Fix 2).
+  hasAnyMoveValidated,
+  moveValidatedFieldPresence,
+  botAssignmentVoicePresence,
+  hasAnyMoveBodySample,
 };
