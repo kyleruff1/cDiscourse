@@ -61,6 +61,10 @@ import { buildArtifactsByMessageId } from './argumentGameSurfaceEvidence';
 // change.
 import { buildPointLifecycleMap } from '../lifecycle';
 import { buildMoveMetadataLedger, getManualTagPlainLabel } from '../metadata';
+// META-1E — Cards-detail metadata diff inspector. Imported directly by path
+// (the `../metadata` barrel stays React-free). Mounts as a sibling overlay
+// beside NodeLabelInspectGroups when Inspect is open on a selected move.
+import { MetadataDiffInspector } from '../metadata/MetadataDiffInspector';
 import {
   applyManualTag,
   removeManualTag,
@@ -1642,6 +1646,21 @@ export function ArgumentGameSurface({
             persistedObservationsByArgumentId?.[activeMessageId] ?? []
           }
           testID="ux001-5a-inspect-groups-overlay"
+        />
+      ) : null}
+      {/* META-1E — Cards-detail metadata diff inspector. Mounted the SAME
+          way as the NodeLabelInspectGroups overlay above: a self-contained
+          read-only sibling overlay, gated on Inspect being open AND an
+          active selected message. Zero modification to InspectPopout.tsx or
+          inspectContentBuilder.ts. Fed entirely from data the host already
+          holds (`metadataLedger.metadataEvents` + `activeMessageId`). It
+          renders a one-line empty state when the move has no recorded
+          changes (never a blank panel). */}
+      {inspectVisible && activeMessageId ? (
+        <MetadataDiffInspector
+          messageId={activeMessageId}
+          events={metadataLedger.metadataEvents}
+          testID="metadata-diff-inspector"
         />
       ) : null}
 

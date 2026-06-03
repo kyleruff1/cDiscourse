@@ -63,3 +63,23 @@ export type {
   ComputeLifecycleCausationForMoveInput,
   DiffLedgersInput,
 } from './metadataEvents';
+
+// META-1E — Cards-detail metadata diff inspector (pure view-model). The
+// React component (`MetadataDiffInspector.tsx`) is imported directly by its
+// path, NOT through this barrel, to keep the barrel React-free (asserted by
+// `metadataForbiddenImports.test.ts`).
+export {
+  ALL_METADATA_DIFF_FILTERS,
+  METADATA_DIFF_FILTER_LABEL,
+  METADATA_DIFF_FILTER_ACCESSIBILITY_LABEL,
+  deriveMetadataDiffRows,
+  filterIdsForEvent,
+  buildMetadataDiffInspectorModel,
+} from './metadataDiffInspectorModel';
+
+export type {
+  MetadataDiffFilterId,
+  MetadataDiffRow,
+  MetadataDiffFilterState,
+  MetadataDiffInspectorModel,
+} from './metadataDiffInspectorModel';
