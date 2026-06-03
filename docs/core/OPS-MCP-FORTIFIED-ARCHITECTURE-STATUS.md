@@ -1,5 +1,7 @@
 # OPS-MCP-FORTIFIED-ARCHITECTURE — current status (2026-06-02)
 
+> **Superseded for gate/pass/ramp semantics (2026-06-03).** The canonical reference for every pass / PASS-LOAD / PASS-LOAD-CONFIRM / Stage-1 / plumbing-vs-organic / ramp / dead-letter / cluster definition is `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md` (operator-ratified). Any pass/load/ramp/threshold language below is historical; where it differs from the canonical doc, the canonical doc governs.
+
 Snapshot of the cutover/MCP/queue/deployment posture after PR #423. Codifies operational knowledge so the next queue-load-smoke retry can proceed from a single source of truth without re-derivation. Companion design doc: `docs/designs/OPS-MCP-FORTIFIED-ARCHITECTURE.md`. Codification audit: `docs/audits/OPS-MCP-FORTIFIED-ARCHITECTURE-DOCS-2026-06-02.md`.
 
 This document is **status, not authorization**. It does NOT authorize Stage 1, H production retry, or any new family. Authorization is operator-territory and lives in a separate prompt per gate.

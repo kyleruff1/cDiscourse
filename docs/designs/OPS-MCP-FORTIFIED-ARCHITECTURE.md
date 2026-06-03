@@ -1,5 +1,7 @@
 # OPS-MCP-FORTIFIED-ARCHITECTURE — design (2026-06-02)
 
+> **Superseded for gate/pass/ramp semantics (2026-06-03).** The canonical reference for every pass / PASS-LOAD / PASS-LOAD-CONFIRM / Stage-1 / plumbing-vs-organic / ramp / dead-letter / cluster definition is `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md` (operator-ratified). Any pass/load/ramp/threshold language below is historical; where it differs from the canonical doc, the canonical doc governs.
+
 Sibling to `docs/core/OPS-MCP-FORTIFIED-ARCHITECTURE-STATUS.md`. This document is the **design rationale** for the architecture as it stands at HEAD `9ae3c7a` (PR #423). The status doc is "what is true today"; this is "why it is true and what the design constraints are".
 
 This is not a roadmap. It does not propose new work. It codifies the contract every future card in this area must honor.
