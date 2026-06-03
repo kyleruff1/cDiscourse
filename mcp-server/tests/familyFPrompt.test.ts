@@ -725,6 +725,110 @@ Deno.test('Family F user prompt: declares per-rawKey shape reinforcement for alt
   }
 });
 
+Deno.test('Family F user prompt: declares per-rawKey shape reinforcement for unstated_assumption (rule 7)', () => {
+  // OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING. The R3 logs proved
+  // evidenceSpan.unstated_assumption was the one uncovered Family-F rawKey
+  // that deterministically dead-lettered argId 9ef5aab5 (4/4 attempts,
+  // validation_failed + packet_invalid). This mirrors the proven rule-6
+  // RAWKEY-SHAPE REINFORCEMENT pattern for one more rawKey. Durable: fails
+  // if rule 7 is removed or its allowed/forbidden enumeration is dropped.
+  const prompt = buildFamilyFUserPrompt(buildRequest());
+
+  // The rule-7 heading must name unstated_assumption explicitly.
+  if (!/RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+unstated_assumption/i.test(prompt)) {
+    throw new Error(
+      'Family F user prompt is missing the rule-7 RAWKEY-SHAPE REINFORCEMENT — unstated_assumption heading',
+    );
+  }
+  if (!/evidenceSpan\.unstated_assumption/.test(prompt)) {
+    throw new Error(
+      'Family F user prompt rule-7 RAWKEY-SHAPE REINFORCEMENT does not name evidenceSpan.unstated_assumption',
+    );
+  }
+
+  // Isolate ONLY the rule-7 block (from its own heading to the
+  // Conservative-positives bias prose / Answer-each directive / Input).
+  const blockMatch = prompt.match(
+    /7\.\s+RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+unstated_assumption[\s\S]*?(?=Conservative-positives bias|Answer each|Input to classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate the rule-7 unstated_assumption block for scanning');
+  }
+  const block = blockMatch[0];
+
+  // Allowed values: a string up to 240 chars OR null.
+  const allowsStringAndNull =
+    /(string\s+up\s+to\s+240|≤\s*240\s*char|<=\s*240\s*char|up\s+to\s+240\s+character)/i.test(
+      block,
+    ) && /\bnull\b/.test(block);
+  if (!allowsStringAndNull) {
+    throw new Error(
+      'Family F user prompt rule-7 RAWKEY-SHAPE REINFORCEMENT does not enumerate the allowed string-≤240-or-null shape',
+    );
+  }
+
+  // Forbidden value types: object / array / boolean / number.
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(
+        `RAWKEY-SHAPE REINFORCEMENT for unstated_assumption does not list "${token}" as not allowed`,
+      );
+    }
+  }
+
+  // The rule-7 block must anchor the unstated-assumption GAP, never the alternative-explanation
+  // gap (proves it is a genuine mirror, not an accidental duplicate of rule 6's anchor wording).
+  if (!/unstated-assumption gap/i.test(block)) {
+    throw new Error(
+      'Family F user prompt rule-7 block does not anchor the unstated-assumption gap',
+    );
+  }
+
+  // The rule-7 block must restate the false→null / true→string convention and the validator path.
+  if (!/When\s+false,\s+the\s+value\s+MUST\s+be\s+null/i.test(block)) {
+    throw new Error(
+      'Family F user prompt rule-7 block does not restate the false→null convention',
+    );
+  }
+  if (
+    !/validator[\s\S]*?evidenceSpan\.unstated_assumption/i.test(block)
+  ) {
+    throw new Error(
+      'Family F user prompt rule-7 block does not close with the validator-path sentence at evidenceSpan.unstated_assumption',
+    );
+  }
+
+  // DOCTRINE (shape-only): the rule-7 clause is JSON-type-shape reinforcement ONLY.
+  // It MUST NOT introduce any quality / verdict / fallacy framing. This is an
+  // isolated banned-token scan over the new clause alone (mirrors the
+  // STRICT-RESPONSE-SHAPE-CONTRACT block scan below but scoped to rule 7).
+  const bannedPatterns: RegExp[] = [
+    /\bfallacy\b/i,
+    /\bfallacious\b/i,
+    /\bweak\b/i,
+    /\binvalid\b/i,
+    /\bflawed\b/i,
+    /\bwrong\b/i,
+    /\bbad\s+reasoning\b/i,
+    /\blogical\s+error\b/i,
+    /\bproves\s+wrong\b/i,
+    /\brefutes\b/i,
+    /\binvalidates\b/i,
+    /\bunmet-means-fallacy\b/i,
+    /\bwinner\b/i,
+    /\bloser\b/i,
+    /\bliar\b/i,
+    /\bdishonest\b/i,
+  ];
+  for (const re of bannedPatterns) {
+    if (re.test(block)) {
+      throw new Error(
+        `rule-7 unstated_assumption RAWKEY-SHAPE REINFORCEMENT introduces banned doctrine token matching ${re}`,
+      );
+    }
+  }
+});
+
 Deno.test('Family F user prompt: response-shape guardrail block does not introduce banned verdict tokens', () => {
   const prompt = buildFamilyFUserPrompt(buildRequest());
   // The existing F prompt uses doctrine-risk tokens (fallacy, fallacious,

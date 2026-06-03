@@ -180,3 +180,141 @@ Deno.test('Family F validator: acceptance — packet with strict key-set equalit
     assertEquals(result.value.evidenceSpan.alternative_explanation_available, null);
   }
 });
+
+// ── OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING — rule-7 regressions ──
+//
+// The R3 logs (2026-06-02) proved evidenceSpan.unstated_assumption was the
+// one uncovered Family-F rawKey that deterministically dead-lettered argId
+// 9ef5aab5 (4/4 attempts, validation_failed + boolean_observations_packet_invalid).
+// rule 7 in familyFPrompt.ts now reinforces the correct shape model-side;
+// the validator already rejected the malformed shape (that is WHY the cell
+// dead-lettered — NO validator relaxation in this card). These regressions
+// name the exact failure path so a future relaxation flips them red, and
+// pin the accepted string-≤240 / null shapes the rule-7 prompt instructs.
+
+Deno.test('Family F validator: rule-7 regression — rejects evidenceSpan.unstated_assumption when value is a plain object', () => {
+  const r = validFamilyFResponse();
+  r.checkedRawKeys = ['unstated_assumption'];
+  r.observations = { unstated_assumption: true };
+  r.confidence = { unstated_assumption: 'medium' };
+  // Same shape drift the R3 logs surfaced on unstated_assumption: model
+  // returned a structured object instead of a string-or-null at this exact
+  // path. Validator must reject with path 'evidenceSpan.unstated_assumption'.
+  r.evidenceSpan = {
+    unstated_assumption: {
+      quote: 'assumes the grid powering the EVs is cleaner',
+      band: 'high',
+    },
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.path, 'evidenceSpan.unstated_assumption');
+  }
+});
+
+Deno.test('Family F validator: rule-7 regression — rejects evidenceSpan.unstated_assumption when value is an array', () => {
+  const r = validFamilyFResponse();
+  r.checkedRawKeys = ['unstated_assumption'];
+  r.observations = { unstated_assumption: true };
+  r.confidence = { unstated_assumption: 'medium' };
+  r.evidenceSpan = {
+    unstated_assumption: ['grid is cleaner', 'charging is off-peak'],
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.path, 'evidenceSpan.unstated_assumption');
+  }
+});
+
+Deno.test('Family F validator: rule-7 regression — rejects evidenceSpan.unstated_assumption when value is a boolean', () => {
+  const r = validFamilyFResponse();
+  r.checkedRawKeys = ['unstated_assumption'];
+  r.observations = { unstated_assumption: true };
+  r.confidence = { unstated_assumption: 'medium' };
+  r.evidenceSpan = {
+    unstated_assumption: true,
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.path, 'evidenceSpan.unstated_assumption');
+  }
+});
+
+Deno.test('Family F validator: rule-7 regression — rejects evidenceSpan.unstated_assumption when value is a number', () => {
+  const r = validFamilyFResponse();
+  r.checkedRawKeys = ['unstated_assumption'];
+  r.observations = { unstated_assumption: true };
+  r.confidence = { unstated_assumption: 'medium' };
+  r.evidenceSpan = {
+    unstated_assumption: 7,
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.path, 'evidenceSpan.unstated_assumption');
+  }
+});
+
+Deno.test('Family F validator: rule-7 acceptance — accepts evidenceSpan.unstated_assumption as a string ≤ 240 chars (true observation)', () => {
+  const r = validFamilyFResponse();
+  r.checkedRawKeys = ['unstated_assumption'];
+  r.observations = { unstated_assumption: true };
+  r.confidence = { unstated_assumption: 'high' };
+  // true observation → short anchoring quote within 240 chars (the shape rule 7 instructs).
+  r.evidenceSpan = {
+    unstated_assumption: 'EVs reduce pollution because they are electric',
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(
+      result.value.evidenceSpan.unstated_assumption,
+      'EVs reduce pollution because they are electric',
+    );
+  }
+});
+
+Deno.test('Family F validator: rule-7 acceptance — accepts evidenceSpan.unstated_assumption as null (false observation)', () => {
+  const r = validFamilyFResponse();
+  r.checkedRawKeys = ['unstated_assumption'];
+  r.observations = { unstated_assumption: false };
+  r.confidence = { unstated_assumption: 'medium' };
+  // false observation → null evidenceSpan (per the rule-7 false→null convention).
+  r.evidenceSpan = {
+    unstated_assumption: null,
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.evidenceSpan.unstated_assumption, null);
+  }
+});
+
+Deno.test('Family F validator: rule-7 boundary — accepts evidenceSpan.unstated_assumption at exactly 240 chars and rejects at 241', () => {
+  // Pins the 240-char cap the rule-7 prompt cites: the validator enforces
+  // MAX_EVIDENCE_SPAN_CHARS = 240 at evidenceSpan.unstated_assumption.
+  const at240 = 'a'.repeat(240);
+  const at241 = 'a'.repeat(241);
+
+  const ok = validFamilyFResponse();
+  ok.checkedRawKeys = ['unstated_assumption'];
+  ok.observations = { unstated_assumption: true };
+  ok.confidence = { unstated_assumption: 'low' };
+  ok.evidenceSpan = { unstated_assumption: at240 };
+  const okResult = validateMcpBooleanObservationResponse(ok);
+  assertEquals(okResult.ok, true);
+
+  const bad = validFamilyFResponse();
+  bad.checkedRawKeys = ['unstated_assumption'];
+  bad.observations = { unstated_assumption: true };
+  bad.confidence = { unstated_assumption: 'low' };
+  bad.evidenceSpan = { unstated_assumption: at241 };
+  const badResult = validateMcpBooleanObservationResponse(bad);
+  assertEquals(badResult.ok, false);
+  if (!badResult.ok) {
+    assertEquals(badResult.path, 'evidenceSpan.unstated_assumption');
+  }
+});
