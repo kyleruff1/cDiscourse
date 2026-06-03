@@ -6,6 +6,8 @@
 
 **Scope boundary (binding on this doc):** This roadmap covers **only** the A-G queue-routing percentage ramp (1% → 5% → higher). It does **not** cover, propose advancing, or describe enabling families **H/I/J** (`claim_clarity`, `thread_topology`, `sensitive_composer`) — those remain `productionEnabled: false` in the family registry and are out of scope for this track entirely (§9). It does not close the Stage-1 observation window, does not issue `PASS-STAGE-1`, and does not advance the percentage.
 
+> **Canonical gate semantics:** the binding pass/load/ramp definitions are normalized in **`docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md`** (2026-06-03). Key invariants this roadmap must respect: PASS-LOAD = **0 terminal dead-letters at N=56**; the 62/63 Family-F run is a **target-mitigation pass, not a global PASS-LOAD**; **no targeted-mitigation / PASS-LOAD / launch-qual / PLUMBING pass authorizes 5% — only an organic Stage-1 pass does**; `#432 failure_detail` is the canonical residual-classification source; H/I/J stay gated. Where this roadmap's older wording conflicts, the canonical doc controls.
+
 ---
 
 ## Companion documents
@@ -226,7 +228,7 @@ The line between "advance is still on the table" and "roll back now" is **isolat
 
 | Signal | Disposition |
 |---|---|
-| A single isolated, clearly-typed provider-side 5xx dead-letter (e.g. the §7 `9ef5aab5` cell), the rest of the burst clean, mitigated family E clean | **Within tolerance.** The 4-attempt retry budget + dead-letter safety net absorbing a transient provider hiccup is the queue working as designed. Note it; do not roll back on it alone. |
+| A single isolated, clearly-typed provider-side 5xx dead-letter (`validator_path = null` per `failure_detail` — e.g. the PR #445 `argument_scheme` verification-burst transient; **NOT** the §7 `9ef5aab5` cell, which the §7 DISPOSITION confirms was a *packet-shape* residual), the rest of the burst clean, mitigated family E clean | **Within tolerance for the disarm decision only** (not a PASS-LOAD admission — see `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md` §B/§F-1). The 4-attempt retry budget + dead-letter safety net absorbing a transient provider hiccup is the queue working as designed. Note it; do not roll back on it alone. |
 | A **cluster** of dead-letters (multiple cells failing the same way), especially same-family or same-input | **HALT + roll back.** This is the original FAIL-LOAD signature (3 E dead-letters, deterministic same-input = the packet-shape bug). |
 | Any packet/schema **cluster** recurrence in any family | **HALT + roll back.** |
 | Any `family = NULL` leakage on a routed arg | **HALT + roll back.** Routing isolation breach. |

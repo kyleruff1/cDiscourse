@@ -556,7 +556,14 @@ strengthening response that closes all four gaps with one card.
 1. **Capacity/concurrency → the ARCH-001 Postgres async classifier queue** (chosen over the rejected Deno-KV limiter #373). Classification moved OFF the synchronous 15s submit path; linearizable; bounded drainer concurrency `C=3`, `MAX_ATTEMPTS=4`, backoff `[30,120]s`.
 2. **Packet/schema cluster → the STRICT RESPONSE-SHAPE CONTRACT** (PR #421/#423): key-set equality + null-for-false + per-rawKey reinforcement in the Family E/F prompts. Eliminated to terminal — two consecutive PASS-LOAD drills (#425/#426, 56/56, 0 dead-letter).
 
-**Outcome.** Stage 1 (1% routing) armed (#428) → synthetic launch-qualification PARTIAL (#429) → **CLOSED at `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`** (#431), routing disarmed to baseline. The mechanism is synthetically qualified; real-organic-load handling is deferred to a launch-time ramp decision (zero organic traffic, pre-launch). See `docs/core/OPS-MCP-FORTIFIED-ARCHITECTURE-STATUS.md`, the `OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-*` audits, and the 2026-06-02 A-G / H-I-J roadmaps. **The remaining family gates + the residual transient floor are tracked under ACTIVE BLOCKERS below (items 1–4), not as resolved.**
+**Outcome.** Stage 1 (1% routing) armed (#428) → synthetic launch-qualification PARTIAL (#429) → **CLOSED at `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`** (#431), routing disarmed to baseline. The mechanism is synthetically qualified; real-organic-load handling is deferred to a launch-time ramp decision (zero organic traffic, pre-launch). See `docs/core/OPS-MCP-FORTIFIED-ARCHITECTURE-STATUS.md`, the `OPS-MCP-PROVIDER-RELIABILITY-CUTOVER-*` audits, and the 2026-06-02 A-G / H-I-J roadmaps. **The remaining family gates (routing-ramp item 1 + H/I/J item 2) are tracked under ACTIVE BLOCKERS below; the residual transient floor + the lone Family-F dead-letter + `failure_detail` persistence are now RESOLVED — see the subsection immediately below.**
+
+### ✅ Recently resolved cutover residues (2026-06-03)
+
+Two items previously tracked under ACTIVE BLOCKERS are resolved; substance preserved here. Gate semantics for all of this are normalized in `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md`.
+
+- **Residual transient floor + the lone Family-F dead-letter — RESOLVED 2026-06-03 (deployed + verified).** The lone PR #429 `critical_question` dead-letter (`9ef5aab5`) was a **deterministic packet-shape residual** on `evidenceSpan.unstated_assumption` (`validation_failed` / `packet_invalid`; the `provider_server_error` queue sub_reason was an Edge-adapter bucketing artifact), **not** a provider 5xx, and was **synthetic** (smoke-tagged; organic = 0) so it did not change the `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` verdict. The fix (rule-7 RAWKEY-SHAPE REINFORCEMENT for `unstated_assumption`, PR #443 `f529edb`) was deployed to Deno Deploy and **production-verified 2026-06-03**: hosted smoke 23/23; smoke-only canary-then-burst → 9/9 `critical_question` first-attempt, 0 `unstated_assumption` dead-letter. The lone burst dead-letter was a within-budget provider-side Family-E (`argument_scheme`) transient (`validator_path = null` per `failure_detail`). The ~2–4% **per-attempt** transient floor remains a documented within-budget reality (absorbed by the 4-attempt budget), not a blocker. Evidence: §§ 12–13 of the Stage-1 cutover audit + `docs/reviews/OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING.md`.
+- **`failure_detail` persistence — RESOLVED 2026-06-02 (deployed + merged).** `OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE` (PR #432, `c90e1a5`) shipped a leak-safe `failure_detail jsonb` (migration-first, verified, then merged). It is the **canonical residual-classification source** — `detail.serverReason` + `validator_path` are DB-readable, so the next residual is a one-query read with no Deno-log R3 pull.
 
 ---
 
@@ -574,32 +581,22 @@ Stage 1 (1% routing) is **CLOSED at `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANI
 **Status:** Gated on provider reliability proven at higher load + per-family operator cards.
 `supabase/functions/_shared/booleanObservations/familyRegistry.ts` H/I/J `productionEnabled: false` (lines 106/111/116). **H (`claim_clarity`)** failed its production-enable smoke at the 8-family load (PR #407 → rollback #408 — the canonical incident); the now-qualified queue is the substrate that should eventually unblock it, but H needs a real higher-load reliability proof. **I (`thread_topology`)** is chained behind H and is mixed-source — it needs its `MCP_SERVER_SUPPORTED_FAMILY_SOURCES` Edge entry or admin_validation/production fails `mcp_validation_failed`. **J (`sensitive_composer`)** is dormant by design (`docs/audits/OPS-FAMILY-J-SCOPING-AUDIT-2026-05-31.md`: N=0 production cards under current disposition). Do NOT flip any flag without a separate operator card. See the H-I-J integration roadmap.
 
-### 3. Residual transient provider-failure floor + the lone Family-F dead-letter
-
-**Status:** **RESOLVED 2026-06-03 — deployed + verified in production.** R3 disambiguation done 2026-06-02; F-hardening implemented + merged (PR #443, `f529edb`); deployed to Deno Deploy + production-verified 2026-06-03 (hosted smoke 23/23; smoke-only canary-then-burst → 9/9 `critical_question` first-attempt, **0** `unstated_assumption` dead-letter). The residual transient floor remains a documented within-budget reality, not a blocker.
-A low transient floor (~2–4% per-attempt `provider_server_error`) is absorbed by the 4-attempt retry budget. The ONE isolated Family-F (`critical_question`) cell (argId `9ef5aab5…`, a **synthetic** smoke-tagged qualification-burst arg — `organic_non_smoke_routed_args = 0`) that exhausted all 4 attempts was disambiguated via the Deno Deploy R3 `boolean_observation_tool_error` log: it is a **deterministic packet-shape residual** (`validation_failed` on `evidenceSpan.unstated_assumption`; 5/5 `packet_invalid`, 0 ban-list, 61 healthy Anthropic 200s), **NOT** a provider-side 5xx — the queue's `provider_server_error` sub_reason is an Edge-adapter bucketing artifact. It did **not** change the `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` verdict (organic = 0). **Resolution:** the fix (design `docs/designs/OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING.md`, PR #441) extends the PR #421/#423 rule-6 RAWKEY-SHAPE REINFORCEMENT to `unstated_assumption`; implemented + merged (PR #443, `f529edb`), deployed to Deno Deploy, and **production-verified 2026-06-03** (§ 13 of the Stage-1 cutover audit): hosted smoke 23/23; smoke-only (`PERCENTAGE=0`, 0% organic) canary-then-burst → **9/9 `critical_question` first-attempt, 0 `unstated_assumption` dead-letter**; the lone burst dead-letter was a within-budget provider-side Family-E (`argument_scheme`) transient (`validator_path = null` per `failure_detail`, so no Deno-log pull needed). Routing disarmed to baseline (`2026-06-03T03:04:54Z`). A 5% ramp remains a separate launch-time decision. Full evidence: §§ 12–13 of the Stage-1 cutover audit + `docs/reviews/OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING.md`.
-
-### 4. `failure_detail` persistence — DEPLOYED + MERGED (PR #432, `c90e1a5`)
-
-**Status:** **RESOLVED 2026-06-02.**
-`OPS-MCP-CLASSIFIER-FAILURE-DETAIL-PERSISTENCE` (PR #432) shipped a leak-safe `failure_detail jsonb` so classifier failures are self-describing (no more Deno-log pulls for triage). The mandatory deploy ordering was followed: migration applied FIRST via `npx supabase db push --linked` (routing disarmed) and verified (`failure_detail` column + 9-arg `finalize_classifier_job` present, 8-arg gone), THEN merged (Edge auto-deployed the drainer). Future `critical_question` `provider_server_error` cells now persist `detail.serverReason` + `validator_path` straight to the DB row — the next recurrence of the § 3 packet-shape residual is a one-query read, no R3 log pull needed.
-
-### 5. Deprecated build/test dependencies — tracked (OPS-DEPS-001..004, issues #433–#436)
+### 3. Deprecated build/test dependencies — tracked (OPS-DEPS-001..004, issues #433–#436)
 
 **Status:** Dev/test/build-time only — NOT in the production runtime.
 The Netlify deploy log warns on 8 deprecated transitive build/test packages (from jest@29 / jsdom@20 / RN dev-middleware / Expo config / xcode). `inflight@1.0.6`'s "leaks memory" is a **CI/test-process** leak, not user-facing; `glob@7.2.3` carries real CVEs. Tracked, grouped by fix: **#433** (jest→v30, p1 — clears the leak + CVEs + 3 jsdom deprecations in one bump), **#434** (remove `@testing-library/jest-native`, the only direct dep), **#435** (`rimraf`), **#436** (`uuid`).
 
-### 6. ANTHROPIC_API_KEY rotation — verify
+### 4. ANTHROPIC_API_KEY rotation — verify
 
 **Status:** Security — verify; manual only.
 A key exposed in the 2026-05-16 session should have been rotated. The current production key lives in **Deno Deploy env vars** (server-side only; the MCP server runs there — see `OPS-MCP-FORTIFIED-ARCHITECTURE-STATUS.md` §4). Confirm the 2026-05-16-exposed key was revoked. NEVER paste a key into chat; the operator rotates via the Deno Deploy dashboard (and `SEMANTIC_REFEREE_MCP_TOKEN` / `MCP_SERVER_BEARER_TOKEN` if rotating the bearer).
 
-### 7. Docker unavailable — migration verification is textual
+### 5. Docker unavailable — migration verification is textual
 
 **Status:** Informational — affects migration-bearing review rigor.
 Docker Desktop is unavailable, so migration-bearing cards get the OPS-001 heightened TEXTUAL review (four issue classes) instead of `npx supabase db reset --linked=false`. Live apply still surfaces privilege/ordering issues the textual review can miss (see the PR-003 / PR-004 incidents in the RESOLVED section). If Docker becomes available, run `npx supabase start && db reset && db status && db lint`.
 
-### 8. Deno mirror risk for Edge Functions
+### 6. Deno mirror risk for Edge Functions
 
 **Status:** Informational.
 Edge Function deps are URL-imported in `supabase/functions/`. If an import URL/mirror breaks, pin to a specific version tag.
