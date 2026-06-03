@@ -76,3 +76,15 @@ The canonical reference is **`docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLI
 **PARTIAL** — 21 contradictions normalized **upward** (tighten/preserve/clarify; no bar lowered) and encoded in the canonical doc; **5 bar-lowering-risk items surfaced for an explicit operator (GATE-C) decision** rather than settled unilaterally. The consolidation changes no threshold's strictness and **authorizes nothing** (no 5% advance, no H/I/J enablement, no runtime change). PARTIAL (not PASS) because closing those 5 items — and encoding a precise minimum-organic-sample for the organic Stage-1 gate — requires an operator policy call this docs card deliberately does not make.
 
 **Operator next step (GATE C):** read the canonical doc §F, confirm the five stricter-bar readings (default: confirm), and direct correction of the looser source wording in the un-edited docs (FORTIFIED, H-I-J roadmap, SMOKE drill audits) if desired.
+
+## Post-merge — GATE C ratified (2026-06-03)
+
+PR #446 was merged (`068ac7e`) **after** the operator completed the GATE-C read and **ratified all five §F items** — the stricter reading confirmed on each (see the canonical §F ratification banner). The PARTIAL verdict's open operator-policy items are therefore **resolved**:
+
+1. Dead-letter budget **stays strict at 0 terminal for N=56** (`≤1%` is not interpreted as allowing `1/56` = 1.79%).
+2. Provider-cluster gate **stays single-family ≥2**; the looser cross-family SQL is **superseded unless a separate card redesigns and re-approves it**.
+3. **H production stays gated behind the real-organic Stage-1 precondition**; synthetic-only evidence does not authorize H.
+4. The early close **stays PLUMBING-only** and does not become a completed organic 24h Stage-1 pass.
+5. PARTIAL / PLUMBING / target-mitigation PASS **do not authorize 5%**; a 5% ramp needs a **separate operator card** with **either real organic Stage-1 evidence or an explicitly named launch-time override + risk acceptance**.
+
+**Post-merge state confirmed:** docs-only merge (0 runtime files changed); routing remains **baseline/off** (`CLASSIFIER_QUEUE_ROUTING_ENABLED` digest = SHA256("false"), `_PERCENTAGE` digest = SHA256("0")); no smoke armed, no deploy, no 5% advance, no H/I/J enablement. The at-merge **PARTIAL** verdict above is preserved as the honest record of the card's state when it stopped at PR; this addendum records the subsequent ratification, which completes the consolidation.
