@@ -1,0 +1,66 @@
+{
+  "description": "CORPUS-30 canonical fixture for option-bank derivation tests. Pure synthetic; no raw X content; no handles; no URLs; no post IDs. Two scenarios: rich (bike-lane civic policy) + sparse (pitch-clock sports).",
+  "events": [
+    {
+      "stage": "scenario_build",
+      "sourceMode": "dry_fixture",
+      "sourceHash": "canonical-001",
+      "sourcePost": {
+        "redactedText": "Cities that add a continuous bike lane reduce car traffic on the parallel arterial; the mechanism is mode shift.",
+        "issueFrame": "civic_policy",
+        "popularityBucket": "medium",
+        "sourceChainRisk": "unknown",
+        "platformSupportWarning": false
+      },
+      "candidateReplies": [
+        {"rank": 1, "redactedText": "Where is the primary source for the mode-shift number? Quote the page.", "replyFunction": "ask_source", "disagreementType": "evidence"},
+        {"rank": 2, "redactedText": "Quote the exact sentence the report uses to attribute traffic to bike-lane mode shift.", "replyFunction": "ask_quote", "disagreementType": "evidence"},
+        {"rank": 3, "redactedText": "Counterexample: a corridor where lane addition coincided with population growth; mode shift fits less cleanly there.", "replyFunction": "counterexample", "disagreementType": "causal"},
+        {"rank": 4, "redactedText": "Narrow the scope: this is plausible for downtown arterials, not for suburban collectors.", "replyFunction": "narrow_scope", "disagreementType": "scope"},
+        {"rank": 5, "redactedText": "Rebut on logic: traffic counts can fall for population reasons, not mode shift.", "replyFunction": "rebut", "disagreementType": "logic"},
+        {"rank": 6, "redactedText": "Define mode shift in this scope; trips moved or trips removed?", "replyFunction": "ask_definition", "disagreementType": "definition"},
+        {"rank": 7, "redactedText": "Fair caveat: the effect may be conditional on weather and on parking pricing.", "replyFunction": "caveat", "disagreementType": "scope"}
+      ],
+      "selectedDissent": {
+        "rank": 1,
+        "redactedText": "Where is the primary source for the mode-shift number? Quote the page.",
+        "dissentSource": "dry_fixture",
+        "playableSkeleton": {
+          "targetExcerpt": "Cities that add a continuous bike lane reduce car traffic on the parallel arterial",
+          "disagreementAxis": "evidence",
+          "mechanism": "mode-shift from car to bike on the parallel arterial",
+          "evidenceDebt": ["primary source for the mode-shift number", "quote anchor for the broad form", "before/after traffic counts"],
+          "antiAmplificationNote": "viral civic infographics are not primary records"
+        }
+      }
+    },
+    {
+      "stage": "scenario_build",
+      "sourceMode": "dry_fixture",
+      "sourceHash": "canonical-002",
+      "sourcePost": {
+        "redactedText": "The pitch clock made baseball better; average game length dropped twenty-four minutes.",
+        "issueFrame": "sports",
+        "popularityBucket": "low",
+        "sourceChainRisk": "unknown",
+        "platformSupportWarning": false
+      },
+      "candidateReplies": [
+        {"rank": 1, "redactedText": "Schedule, weather, and the bigger bases were changed the same year; causal isolation is missing.", "replyFunction": "rebut", "disagreementType": "causal"},
+        {"rank": 2, "redactedText": "What about a counterexample where late-inning games still drag?", "replyFunction": "counterexample", "disagreementType": "logic"}
+      ],
+      "selectedDissent": {
+        "rank": 1,
+        "redactedText": "Schedule, weather, and the bigger bases were changed the same year; causal isolation is missing.",
+        "dissentSource": "dry_fixture",
+        "playableSkeleton": {
+          "targetExcerpt": "average game length dropped twenty-four minutes",
+          "disagreementAxis": "causal",
+          "mechanism": "causal isolation of the clock vs other rule changes",
+          "evidenceDebt": ["before/after comparison isolated to clock"],
+          "antiAmplificationNote": "engagement spikes are not causal isolation"
+        }
+      }
+    }
+  ]
+}
