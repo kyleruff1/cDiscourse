@@ -589,6 +589,49 @@ export const OBSERVER_COPY = {
   askQuoteHelp: 'Ask the speaker to quote the exact passage.',
 } as const;
 
+// ── META-1E — Cards-detail metadata diff inspector copy ─────────
+//
+// The only user-facing strings the metadata diff inspector authors. Per
+// the META-1E design (Open question 2, operator-decided), the four filter
+// chip labels + the empty-state line + the per-kind connective verbs live
+// here so the plain-language coverage + ban-list tests own them — the
+// component and the pure model never embed a raw string.
+//
+// Doctrine (§9 / §10a / §1–§3): every value describes WHAT CHANGED ON THE
+// MOVE (a machine Observation), never a person, never a verdict, never
+// heat / popularity. Zero verdict / amplification / person-attribution
+// tokens (enforced by `_forbiddenMetadataTokens` in the META-1E tests).
+// No snake_case / internal-code shape (enforced by `looksLikeInternalCode`).
+//
+// `panelTitle` is the panel header (sourced, not a new primitive).
+// `header*` strip is the per-kind connective verb assembled around an
+// already-plain label by the model's `signalDescription`. `transitionArrow`
+// is the fixed connective for a lifecycle transition's `from → to` render.
+export const METADATA_DIFF_INSPECTOR_COPY = {
+  // Panel chrome.
+  panelTitle: 'What changed on this move',
+  emptyState: 'No recorded changes on this move yet.',
+  // Filter chip labels (issue #80 scope, verbatim).
+  chipAddedTag: 'Added tag',
+  chipRemovedTag: 'Removed tag',
+  chipResolvedRequest: 'Resolved request',
+  chipTriggeredTransition: 'Triggered transition',
+  // Verbose screen-reader labels for each chip (≤ 80 chars).
+  chipAddedTagA11y: 'Show only moves where a tag was added',
+  chipRemovedTagA11y: 'Show only moves where a tag was removed',
+  chipResolvedRequestA11y: 'Show only moves that resolved a source or quote request',
+  chipTriggeredTransitionA11y: 'Show only moves that triggered a state change',
+  // Per-kind connective verbs for the signal description. The label that
+  // follows is always an already-plain label; these verbs are the ONLY
+  // authored fragments in a row sentence.
+  signalTagAdded: 'Tag added',
+  signalTagRemoved: 'Tag removed',
+  signalObserved: 'Observed',
+  signalRequestResolved: 'Request resolved',
+  // Fixed connective for a lifecycle transition `from → to` line.
+  transitionArrow: '→',
+} as const;
+
 // ── GAL-001 — Section headlines for the gallery entry (10 play lanes) ──
 //
 // Stage 6.4 shipped a 6-entry catalogue (`jump_in` / `needs_rebuttal` /
