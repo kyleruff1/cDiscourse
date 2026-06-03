@@ -209,6 +209,56 @@ function buildAdversarialCorpusReport({ runId, mode, sourceMode, bundle, events 
   return lines.join('\n');
 }
 
+// ── CORPUS-30-POOL-DRIVEN-PLANNER — diversity checks (§9) ─────────
+//
+// Lightweight aggregate over the runner's `move_validated` /
+// `seed_assignment` events. Counts only — never body text.
+// Mirrors the canonical implementation in xaiAdversarialReport.js so
+// reporter consumers in either entry point can surface the same chips.
+
+function corpus30DiversityChecks(events) {
+  const seedIds = [];
+  for (const ev of events) {
+    if (ev && ev.stage === 'seed_assignment' && Array.isArray(ev.assignedSeedIds)) {
+      for (const id of ev.assignedSeedIds) seedIds.push(id);
+    }
+  }
+  const seen = new Set();
+  const dups = [];
+  for (const id of seedIds) {
+    if (seen.has(id)) dups.push(id);
+    else seen.add(id);
+  }
+  const optionIdThreads = new Map();
+  const perThreadOpt = new Map();
+  let repeatedWithin = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_validated') continue;
+    if (typeof ev.threadIndex !== 'number') continue;
+    const key = `${ev.bankName}::${ev.optionIndex}`;
+    if (!perThreadOpt.has(ev.threadIndex)) perThreadOpt.set(ev.threadIndex, new Map());
+    const inner = perThreadOpt.get(ev.threadIndex);
+    const next = (inner.get(key) || 0) + 1;
+    inner.set(key, next);
+    if (next === 2) repeatedWithin += 1;
+    if (ev.optionId) {
+      if (!optionIdThreads.has(ev.optionId)) optionIdThreads.set(ev.optionId, new Set());
+      optionIdThreads.get(ev.optionId).add(ev.threadIndex);
+    }
+  }
+  let crossThreadCollisions = 0;
+  for (const set of optionIdThreads.values()) if (set.size >= 3) crossThreadCollisions += 1;
+  const duplicateSeed = {
+    total: seedIds.length, unique: seen.size, duplicates: dups,
+    severityBand: dups.length > 0 ? 'red' : 'green',
+  };
+  const repeatedOption = {
+    repeatedWithin, crossThreadCollisions,
+    severityBand: crossThreadCollisions > 0 ? 'red' : repeatedWithin > 0 ? 'yellow' : 'green',
+  };
+  return { duplicateSeed, repeatedOption };
+}
+
 module.exports = {
   buildAdversarialCorpusReport,
   countByKey,
@@ -220,4 +270,5 @@ module.exports = {
   gameRecommendationsFromEvents,
   topExhibits,
   fmtExhibit,
+  corpus30DiversityChecks,
 };

@@ -240,7 +240,94 @@ function buildAdversarialReportMarkdown({ runId, dateIso, mode, providerLabel, a
   return lines.join('\n');
 }
 
+// ── CORPUS-30-POOL-DRIVEN-PLANNER — diversity checks (§9) ─────────
+//
+// Operate on the runner's JSONL attribution events; never body text.
+// `aggregateDiversityChecks` returns counts + severityBand per category;
+// `renderDiversityChecksSection` formats them as a Markdown subsection.
+
+function aggregateDiversityChecks(events) {
+  const seedIds = [];
+  for (const ev of events) {
+    if (ev && ev.stage === 'seed_assignment' && Array.isArray(ev.assignedSeedIds)) {
+      for (const id of ev.assignedSeedIds) seedIds.push(id);
+    }
+  }
+  const seenSeeds = new Set();
+  const dupSeeds = [];
+  for (const id of seedIds) {
+    if (seenSeeds.has(id)) dupSeeds.push(id);
+    else seenSeeds.add(id);
+  }
+
+  const perThreadOpt = new Map(); // threadIndex → Map(bankName::optionIndex, count)
+  const optionIdThreads = new Map(); // optionId → Set<threadIndex>
+  const perThreadSpine = new Map(); // threadIndex → array of spineIds
+  const spineCounts = new Map();
+  let totalMoves = 0;
+
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_validated') continue;
+    if (typeof ev.threadIndex !== 'number') continue;
+    const key = `${ev.bankName}::${ev.optionIndex}`;
+    if (!perThreadOpt.has(ev.threadIndex)) perThreadOpt.set(ev.threadIndex, new Map());
+    const inner = perThreadOpt.get(ev.threadIndex);
+    inner.set(key, (inner.get(key) || 0) + 1);
+    if (ev.optionId) {
+      if (!optionIdThreads.has(ev.optionId)) optionIdThreads.set(ev.optionId, new Set());
+      optionIdThreads.get(ev.optionId).add(ev.threadIndex);
+    }
+    if (ev.spineId) {
+      if (!perThreadSpine.has(ev.threadIndex)) perThreadSpine.set(ev.threadIndex, []);
+      perThreadSpine.get(ev.threadIndex).push(ev.spineId);
+      spineCounts.set(ev.spineId, (spineCounts.get(ev.spineId) || 0) + 1);
+      totalMoves += 1;
+    }
+  }
+
+  let crossThreadCollisions = 0;
+  for (const set of optionIdThreads.values()) if (set.size >= 3) crossThreadCollisions += 1;
+  let repeatedWithin = 0;
+  for (const inner of perThreadOpt.values()) {
+    for (const count of inner.values()) if (count >= 2) repeatedWithin += 1;
+  }
+  let spineSaturatedAt = null;
+  if (totalMoves > 0) {
+    for (const [k, v] of spineCounts.entries()) {
+      if (v / totalMoves > 0.35) { spineSaturatedAt = { spineId: k, fraction: v / totalMoves }; break; }
+    }
+  }
+
+  const duplicateSeed = {
+    total: seedIds.length, unique: seenSeeds.size,
+    duplicates: dupSeeds, severityBand: dupSeeds.length > 0 ? 'red' : 'green',
+  };
+  const repeatedOption = {
+    repeatedWithin, crossThreadCollisions,
+    severityBand: crossThreadCollisions > 0 ? 'red' : repeatedWithin > 0 ? 'yellow' : 'green',
+  };
+  const spineSaturation = {
+    saturatedAt: spineSaturatedAt,
+    severityBand: spineSaturatedAt ? 'red' : 'green',
+  };
+  return { duplicateSeed, repeatedOption, spineSaturation };
+}
+
+function renderDiversityChecksSection(events) {
+  const d = aggregateDiversityChecks(events);
+  const lines = [];
+  lines.push('## Diversity checks (CORPUS-30 §9)');
+  lines.push('');
+  lines.push(`- Duplicate-seed: severityBand=\`${d.duplicateSeed.severityBand}\` · total=${d.duplicateSeed.total} · unique=${d.duplicateSeed.unique} · duplicates=${d.duplicateSeed.duplicates.length}`);
+  lines.push(`- Repeated-option: severityBand=\`${d.repeatedOption.severityBand}\` · repeated within thread=${d.repeatedOption.repeatedWithin} · cross-thread collisions=${d.repeatedOption.crossThreadCollisions}`);
+  lines.push(`- Spine saturation: severityBand=\`${d.spineSaturation.severityBand}\`${d.spineSaturation.saturatedAt ? ` · saturated=\`${d.spineSaturation.saturatedAt.spineId}\` (${Math.round(d.spineSaturation.saturatedAt.fraction * 100)}%)` : ''}`);
+  lines.push('');
+  return lines.join('\n');
+}
+
 module.exports = {
   buildAdversarialReportMarkdown,
   aggregateRun,
+  aggregateDiversityChecks,
+  renderDiversityChecksSection,
 };

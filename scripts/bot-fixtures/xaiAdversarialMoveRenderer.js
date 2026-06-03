@@ -421,8 +421,350 @@ async function renderAdversarialMove({
   };
 }
 
+// ── CORPUS-30-POOL-DRIVEN-PLANNER — option-alignment + spine-alignment ──
+//
+// The runner can now supply a BINDING `selectedOption` (plus voiceId,
+// spineId, attribution metadata) to `renderAdversarialMove`. When
+// supplied, two additional validators run before the existing set:
+//
+//   1. Option-alignment: the rendered body must overlap with
+//      selectedOption.skeleton.summary on ≥ OPTION_ALIGNMENT_THRESHOLD
+//      fraction of non-stopword tokens, OR contain the targetExcerpt
+//      verbatim when non-null.
+//   2. Spine-alignment: the body's opening matches the spine's
+//      regex pattern (lightweight check; see SPINE_OPENING_PATTERNS).
+//
+// On failure: one regenerate retry (existing renderer policy), then
+// the deterministic skeleton-fill fallback. All existing validators
+// (banned phrases, forbidden labels, length, target excerpt, concession
+// marker) STILL fire.
+
+const STOPWORDS = new Set([
+  'a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that',
+  'these', 'those', 'i', 'you', 'we', 'they', 'he', 'she', 'them', 'us',
+  'be', 'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had',
+  'do', 'does', 'did', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with',
+  'as', 'from', 'into', 'than', 'then', 'so', 'if', 'not', 'no',
+  's', 't', 'd', 're', 've', 'll',
+]);
+
+const OPTION_ALIGNMENT_THRESHOLD = 0.40;
+
+const SPINE_OPENING_PATTERNS = {
+  // quote-led: must include a quote in the first 80 chars.
+  'quote-led': /^[\s\S]{0,80}["“][^"”]{2,}["”]/,
+  // counterexample-led: must mention counterexample / one example / edge case in the first 80 chars.
+  'counterexample-led': /^[\s\S]{0,120}(counterexample|counter-example|edge case|one example|what about)/i,
+  // definition-led: defines or names a term explicitly early.
+  'definition-led': /^[\s\S]{0,120}(define|definition|what (?:counts|do you mean)|narrowly:)/i,
+  // mechanism-led: names the mechanism / how-it-works pressure early.
+  'mechanism-led': /^[\s\S]{0,140}(mechanism|the part|the way|press on)/i,
+  // scope-led: narrows the claim or talks about subset / scope.
+  'scope-led': /^[\s\S]{0,140}(narrow|scope|subset|edge case|broad form)/i,
+  // concession-then-pivot: must contain a concession marker reasonably early.
+  'concession-then-pivot': /^[\s\S]{0,180}(concede|grant|fair point|you'?re right|i acknowledge|i agree)/i,
+  // question-led: ends a sentence with a `?` or starts with an interrogative.
+  'question-led': /^[\s\S]{0,160}(what|which|where|why|how|when)\b[\s\S]{0,160}\?/i,
+  // analogy-led: uses 'like', 'as if', 'similar to', 'analogous'.
+  'analogy-led': /^[\s\S]{0,160}(like|as if|similar to|analogous|comparable to|equally consistent)/i,
+  // second-order-effect-led: looks one step out from the immediate frame.
+  'second-order-effect-led': /^[\s\S]{0,180}(second-order|downstream|follow-on|knock-on|the next move|burden|synthesize|branch)/i,
+};
+
+function tokenize(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t && !STOPWORDS.has(t) && t.length >= 3);
+}
+
+/**
+ * Validate that the rendered body picks up the selected option's
+ * structural summary. Returns null on pass, or a string reason on fail.
+ *
+ * Pass criteria (either is sufficient):
+ *   - Verbatim presence of targetExcerpt (when non-null), OR
+ *   - ≥ OPTION_ALIGNMENT_THRESHOLD fraction of summary non-stopword
+ *     tokens appear in the body (case-insensitive).
+ *
+ * The body MAY contain additional voice/spine flavor — that's the
+ * renderer's job; only structural overlap is required.
+ */
+function validateOptionAlignment(body, selectedOption) {
+  if (!selectedOption || !selectedOption.skeleton) return null; // not enabled
+  const sum = selectedOption.skeleton.summary || '';
+  const tgt = selectedOption.skeleton.targetExcerpt || '';
+  if (tgt) {
+    if (lower(body).includes(lower(tgt))) return null;
+  }
+  const sumTokens = tokenize(sum);
+  if (sumTokens.length === 0) return null; // nothing to align to
+  const bodyTokens = new Set(tokenize(body));
+  let hits = 0;
+  for (const t of sumTokens) if (bodyTokens.has(t)) hits += 1;
+  const ratio = hits / sumTokens.length;
+  if (ratio >= OPTION_ALIGNMENT_THRESHOLD) return null;
+  return `option_alignment_below_threshold:${ratio.toFixed(2)}<${OPTION_ALIGNMENT_THRESHOLD}`;
+}
+
+function validateSpineAlignment(body, spineId) {
+  if (!spineId) return null;
+  const pattern = SPINE_OPENING_PATTERNS[spineId];
+  if (!pattern) return null;
+  if (pattern.test(body)) return null;
+  return `spine_alignment_failed:${spineId}`;
+}
+
+/**
+ * Deterministic skeleton-fill fallback when validation fails after
+ * retry. Produces a body that ALWAYS satisfies the option-alignment
+ * validator (it includes the summary) and the spine-alignment validator
+ * (it constructs the opening to match the spine pattern).
+ */
+function deterministicSkeletonFill({ selectedOption, voiceId, spineId, parent }) {
+  const opt = selectedOption || {};
+  const sk = (opt.skeleton) || {};
+  const summary = clamp(sk.summary || 'Press on the asserted mechanism.', 200);
+  const tgt = sk.targetExcerpt || (parent && String(parent.body || '').slice(0, 80).replace(/\s+/g, ' ').trim());
+  const voice = voiceId ? ` (${voiceId} voice)` : '';
+  let opening;
+  switch (spineId) {
+    case 'quote-led':
+      opening = tgt ? `"${clamp(tgt, 60)}".` : `"${clamp(summary, 50)}".`;
+      break;
+    case 'counterexample-led':
+      opening = 'Counterexample worth pressing on:';
+      break;
+    case 'definition-led':
+      opening = 'Define the key term first:';
+      break;
+    case 'mechanism-led':
+      opening = 'The mechanism is what we should press on:';
+      break;
+    case 'scope-led':
+      opening = 'Narrow the scope to where the evidence fits:';
+      break;
+    case 'concession-then-pivot':
+      opening = 'Fair point on the narrow case — pivoting now:';
+      break;
+    case 'question-led':
+      opening = 'What exactly is the receipt here?';
+      break;
+    case 'analogy-led':
+      opening = 'Like the comparable case:';
+      break;
+    case 'second-order-effect-led':
+      opening = 'The second-order effect to settle:';
+      break;
+    default:
+      opening = 'Pressing on the asserted mechanism:';
+  }
+  return ensureLengthBounds(`${opening} ${summary}${voice}`.trim());
+}
+
+function clamp(s, n) {
+  s = String(s || '');
+  if (s.length <= n) return s;
+  return s.slice(0, n - 1).trim() + '…';
+}
+
+/**
+ * Render a move ALIGNED to a banked option. Wraps `renderAdversarialMove`
+ * additively: the existing validator stack runs FIRST (banned phrases,
+ * forbidden labels, length, target excerpt, concession marker), then the
+ * new option-alignment + spine-alignment validators. Retry once on any
+ * failure; on a second failure, fall back to deterministic skeleton fill.
+ *
+ * Inputs (additions vs renderAdversarialMove):
+ *   - selectedOption  (BINDING): the option the planner picked
+ *   - voiceId         : per-bot voice for the run
+ *   - spineId         : per-move spine
+ *   - attribution     : { runTag, threadIndex, role, moveIndex,
+ *                         bankName, optionIndex }
+ *
+ * Output adds:
+ *   - alignmentFailureReason: string | null (separate from the existing
+ *     validationFailureReason; populated when alignment validators fired)
+ */
+async function renderAlignedAdversarialMove(props) {
+  const {
+    selectedOption,
+    voiceId,
+    spineId,
+    attribution,
+    parent,
+    persona,
+    scene,
+    slot,
+    skillBundle,
+    conversationSummary,
+    client,
+    fallbackAxis,
+    forceTargetExcerpt,
+    antiAmplificationCue,
+    maxRetries = 1,
+  } = props;
+
+  if (!selectedOption || !selectedOption.skeleton) {
+    // No option provided — defer to the legacy renderer untouched.
+    return renderAdversarialMove(props);
+  }
+
+  const summary = selectedOption.skeleton.summary || '';
+  const targetExcerpt = forceTargetExcerpt || selectedOption.skeleton.targetExcerpt || null;
+  // The axis hint flows in as the renderer's `axis` so Anthropic
+  // does not have to guess.
+  const axisHint = selectedOption.skeleton.axisHint || fallbackAxis || 'evidence';
+
+  if (!client || typeof client.generate !== 'function') {
+    return {
+      source: 'deterministic_fallback',
+      body: deterministicSkeletonFill({ selectedOption, voiceId, spineId, parent }),
+      chosenAxis: axisHint,
+      mechanism: null,
+      attempts: 0,
+      validationFailureReason: 'no_anthropic_client',
+      alignmentFailureReason: null,
+      skillHash: persona.skillHash,
+      jsonParsed: false,
+      attribution: attribution || null,
+      voiceId: voiceId || null,
+      spineId: spineId || null,
+      selectedOptionId: selectedOption.optionId,
+    };
+  }
+
+  const skillRole = persona.skillRole === 'bot-provocateur' ? 'bot-provocateur'
+                  : persona.skillRole === 'bot-revocateur' ? 'bot-revocateur'
+                  : 'bot-synthesizer';
+  const skillBodyText = skillRole === 'bot-provocateur' ? skillBundle.provocateurText
+                      : skillRole === 'bot-revocateur' ? skillBundle.revocateurText
+                      : skillBundle.provocateurText;
+  const systemPrompt = buildAdversarialSystemPrompt({
+    skillRole,
+    skillBodyText,
+    skillHash: persona.skillHash,
+    scenarioCategory: scene.category || 'xai_adversarial',
+  });
+  const needsConcession = slot.argumentType === 'concession' || slot.argumentType === 'synthesis';
+
+  let lastAlignmentReason = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Build the user payload with the BINDING SELECTED_OPTION block.
+    const baseUserPayload = buildAdversarialUserPayload({
+      scene,
+      parent,
+      slot,
+      conversationSummary,
+      forceTargetExcerpt: targetExcerpt,
+      forceConcessionMarker: needsConcession,
+      axis: axisHint,
+      antiAmplificationCue: attempt === 0 ? antiAmplificationCue : `${antiAmplificationCue || ''} (retry: render the selected option more closely; do NOT substitute)`,
+    });
+    const bindingBlock = [
+      '',
+      'SELECTED_OPTION (binding — render this exact option in your assigned voice; do NOT substitute your own):',
+      `  bank:           ${selectedOption.bankName}`,
+      `  summary:        ${clamp(summary, 240)}`,
+      `  axis:           ${axisHint}`,
+      `  targetExcerpt:  ${targetExcerpt ? `"${clamp(targetExcerpt, 200)}"` : '(none)'}`,
+      `  evidenceDebt:   ${(selectedOption.skeleton.evidenceDebt || []).join(' / ') || '(none)'}`,
+      `  antiAmplificationNote: ${selectedOption.skeleton.antiAmplificationNote || '(none)'}`,
+      `Assigned voice:    ${voiceId || '(none)'}`,
+      `Spine to foreground: ${spineId || '(none)'}`,
+    ].join('\n');
+    const userPayload = `${baseUserPayload}\n${bindingBlock}`;
+
+    let raw;
+    try {
+      const result = await client.generate({
+        systemPrompt,
+        userPayload,
+        maxTokens: 460,
+        temperature: needsConcession ? 0.5 : 0.7,
+      });
+      raw = result.text;
+    } catch (err) {
+      return {
+        source: 'deterministic_fallback',
+        body: deterministicSkeletonFill({ selectedOption, voiceId, spineId, parent }),
+        chosenAxis: axisHint,
+        mechanism: null,
+        attempts: attempt + 1,
+        validationFailureReason: `ai_call_failed: ${sanitizeError(String(err && err.message)).slice(0, 200)}`,
+        alignmentFailureReason: null,
+        skillHash: persona.skillHash,
+        jsonParsed: false,
+        attribution: attribution || null,
+        voiceId: voiceId || null,
+        spineId: spineId || null,
+        selectedOptionId: selectedOption.optionId,
+      };
+    }
+
+    const parsed = parseModelResponse(raw);
+    const body = ensureLengthBounds(parsed.body);
+    const chosenAxis = parsed.axis || axisHint;
+    const mechanism = parsed.mechanism;
+
+    // Existing validators FIRST.
+    const issues = [];
+    const cannedHit = hasBannedCannedPhrase(body);
+    if (cannedHit) issues.push('banned_canned_phrase');
+    const labelHit = hasForbiddenUserLabel(body);
+    if (labelHit) issues.push(`forbidden_user_label:${labelHit}`);
+    if (needsConcession && !hasConcessionMarker(body)) issues.push('missing_concession_marker');
+    if (targetExcerpt && !lower(body).includes(lower(targetExcerpt))) issues.push('missing_target_excerpt');
+    if (body.length < 40) issues.push('too_short');
+
+    // NEW alignment validators second.
+    const optionAlignmentReason = validateOptionAlignment(body, selectedOption);
+    if (optionAlignmentReason) issues.push(optionAlignmentReason);
+    const spineAlignmentReason = validateSpineAlignment(body, spineId);
+    if (spineAlignmentReason) issues.push(spineAlignmentReason);
+
+    if (issues.length === 0) {
+      return {
+        source: 'anthropic',
+        body,
+        chosenAxis,
+        mechanism,
+        attempts: attempt + 1,
+        validationFailureReason: null,
+        alignmentFailureReason: null,
+        skillHash: persona.skillHash,
+        jsonParsed: parsed.jsonParsed,
+        attribution: attribution || null,
+        voiceId: voiceId || null,
+        spineId: spineId || null,
+        selectedOptionId: selectedOption.optionId,
+      };
+    }
+    // Remember the most recent alignment-specific reason for telemetry.
+    lastAlignmentReason = optionAlignmentReason || spineAlignmentReason || null;
+  }
+
+  return {
+    source: 'deterministic_fallback',
+    body: deterministicSkeletonFill({ selectedOption, voiceId, spineId, parent }),
+    chosenAxis: axisHint,
+    mechanism: null,
+    attempts: maxRetries + 1,
+    validationFailureReason: 'validation_failed_after_retries',
+    alignmentFailureReason: lastAlignmentReason,
+    skillHash: persona.skillHash,
+    jsonParsed: false,
+    attribution: attribution || null,
+    voiceId: voiceId || null,
+    spineId: spineId || null,
+    selectedOptionId: selectedOption.optionId,
+  };
+}
+
 module.exports = {
   renderAdversarialMove,
+  renderAlignedAdversarialMove,
   buildAdversarialSystemPrompt,
   buildAdversarialUserPayload,
   parseModelResponse,
@@ -431,6 +773,13 @@ module.exports = {
   hasBannedCannedPhrase,
   hasForbiddenUserLabel,
   deterministicAdversarialFallback,
+  deterministicSkeletonFill,
+  validateOptionAlignment,
+  validateSpineAlignment,
+  tokenize,
+  OPTION_ALIGNMENT_THRESHOLD,
+  SPINE_OPENING_PATTERNS,
+  STOPWORDS,
   CONCESSION_MARKERS,
   BANNED_CANNED_PHRASES,
   FORBIDDEN_USER_LABELS,
