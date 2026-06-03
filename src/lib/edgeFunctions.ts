@@ -306,7 +306,7 @@ export type AdminUsersAction =
  * whether switching to `anthropic` will reach the live provider.
  */
 export interface SemanticRefereeConfigView {
-  /** The four config slots; `mcp` is reserved (MCP-018) and not settable. */
+  /** The four config slots; all four are settable as of 2026-06-03 (MCP server up). */
   providerMode: 'anthropic' | 'mock' | 'fixture' | 'mcp';
   enabled: boolean;
   updatedAt: string | null;
@@ -319,12 +319,14 @@ export interface SemanticRefereeConfigView {
 /**
  * ADMIN-AI-001 — the `set_semantic_config` action input.
  *
- * `providerMode` excludes `mcp` — the slot is reserved for MCP-018.
- * `confirmAnthropic` must be `true` to switch to `anthropic`; the Edge
- * Function's zod `.refine()` is the server-side wall.
+ * As of 2026-06-03, `providerMode` includes `mcp` — the operator-hosted MCP
+ * server is configured + reachable, so the slot is no longer
+ * reserved-but-disabled. `confirmAnthropic` must be `true` to switch to
+ * `anthropic`; the Edge Function's zod `.refine()` is the server-side wall.
+ * `mock` / `fixture` / `mcp` are all one-click.
  */
 export interface SetSemanticRefereeConfigInput {
-  providerMode: 'anthropic' | 'mock' | 'fixture';
+  providerMode: 'anthropic' | 'mock' | 'fixture' | 'mcp';
   enabled: boolean;
   reason?: string;
   confirmAnthropic?: boolean;

@@ -37,11 +37,12 @@ import { SURFACE_TOKENS, CONTROL, STATUS } from '../../lib/designTokens';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-/** The modes a row can show. `mcp` is shown disabled. */
+/** The modes a row can show. All four are selectable as of 2026-06-03. */
 const SELECTABLE_MODES: SemanticRefereeConfigView['providerMode'][] = [
   'anthropic',
   'mock',
   'fixture',
+  'mcp',
 ];
 
 /** A one-line plain description of what each mode does. */
@@ -49,7 +50,7 @@ const MODE_DESCRIPTIONS: Record<SemanticRefereeConfigView['providerMode'], strin
   anthropic: 'Live provider. May use provider credits.',
   mock: 'Deterministic built-in responder. No provider calls, no credits.',
   fixture: 'Canned fixtures for development and testing.',
-  mcp: 'Reserved for a future operator-hosted adapter. Not available yet.',
+  mcp: 'Operator-hosted MCP server adapter. Routes through the configured MCP URL + bearer.',
 };
 
 export function AdminSemanticRefereeTab() {
@@ -104,7 +105,6 @@ export function AdminSemanticRefereeTab() {
   const onSelectMode = useCallback(
     (mode: SemanticRefereeConfigView['providerMode']) => {
       if (!config || saving) return;
-      if (mode === 'mcp') return; // disabled — reserved for MCP-018.
       if (requiresProviderConfirmation(mode)) {
         setPendingAnthropic({ enabled: config.enabled });
         return;
@@ -132,23 +132,20 @@ export function AdminSemanticRefereeTab() {
 
   /**
    * Toggle the runtime enabled flag, keeping the current provider mode.
-   * Disabled when the current mode is `mcp` — `mcp` is not a settable value,
-   * so a write that keeps it is impossible; the admin must pick a real mode
-   * first. (`mcp` only ever appears via a manual SQL edit.)
+   * All four modes (anthropic / mock / fixture / mcp) are now settable, so
+   * the toggle is always available when a config row exists.
    */
-  const enabledToggleAvailable =
-    config != null && config.providerMode !== 'mcp';
+  const enabledToggleAvailable = config != null;
 
   const onToggleEnabled = useCallback(() => {
     if (!config || saving) return;
-    if (config.providerMode === 'mcp') return; // not a settable mode.
     if (requiresProviderConfirmation(config.providerMode)) {
       // Toggling while Anthropic is the mode still routes through the confirm
       // panel — any write that keeps `anthropic` needs the confirmation flag.
       setPendingAnthropic({ enabled: !config.enabled });
       return;
     }
-    // config.providerMode is now 'mock' | 'fixture' — both settable.
+    // config.providerMode is now 'mock' | 'fixture' | 'mcp' — all three are settable.
     void applyChange({
       providerMode: config.providerMode,
       enabled: !config.enabled,
@@ -273,20 +270,7 @@ export function AdminSemanticRefereeTab() {
             </Pressable>
           );
         })}
-        {/* mcp — shown disabled, labelled "Coming later". */}
-        <View
-          style={[styles.modeRow, styles.modeRowDisabled]}
-          accessibilityLabel="admin-semantic-referee-mode-mcp"
-          accessibilityState={{ disabled: true }}
-        >
-          <View style={styles.modeRowMain}>
-            <Text style={styles.modeNameDisabled}>
-              ○ {PROVIDER_MODE_LABELS.mcp}
-            </Text>
-            <Text style={styles.modeDesc}>{MODE_DESCRIPTIONS.mcp}</Text>
-          </View>
-          <Text style={styles.modeDisabledTag}>Not available</Text>
-        </View>
+        {/* mcp is now in SELECTABLE_MODES — no separate disabled row. */}
       </View>
 
       {/* Runtime enabled toggle. */}
@@ -452,10 +436,8 @@ const styles = StyleSheet.create({
   modeRowMain: { flex: 1, gap: 2, marginRight: 8 },
   modeName: { fontSize: 13, fontWeight: '600', color: SURFACE_TOKENS.textPrimary },
   modeNameActive: { color: STATUS.info.fg },
-  modeNameDisabled: { fontSize: 13, fontWeight: '600', color: SURFACE_TOKENS.textMuted },
   modeDesc: { fontSize: 11, color: SURFACE_TOKENS.textSecondary },
   modeActiveTag: { fontSize: 10, fontWeight: '700', color: STATUS.info.fg },
-  modeDisabledTag: { fontSize: 10, fontWeight: '700', color: SURFACE_TOKENS.textMuted },
   toggleRow: {
     paddingVertical: 10,
     paddingHorizontal: 10,

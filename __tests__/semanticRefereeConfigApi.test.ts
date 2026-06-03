@@ -138,7 +138,7 @@ describe('PROVIDER_MODE_LABELS — plain-language vocabulary', () => {
     expect(PROVIDER_MODE_LABELS.anthropic).toBe('Anthropic');
     expect(PROVIDER_MODE_LABELS.mock).toBe('Mock');
     expect(PROVIDER_MODE_LABELS.fixture).toBe('Fixture (dev/test)');
-    expect(PROVIDER_MODE_LABELS.mcp).toBe('Coming later (MCP-018)');
+    expect(PROVIDER_MODE_LABELS.mcp).toBe('CD - MCP Server');
   });
 
   it('no label contains an internal snake_case code', () => {
