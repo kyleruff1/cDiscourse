@@ -311,6 +311,21 @@ STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every
    rejects every non-string non-null value at the exact path
    evidenceSpan.alternative_explanation_available.
 
+7. RAWKEY-SHAPE REINFORCEMENT — unstated_assumption.
+   The evidenceSpan entry for unstated_assumption uses EXACTLY the same
+   string-or-null shape as every other CQ rawKey. Allowed values for
+   evidenceSpan.unstated_assumption:
+   (a) a JSON string up to 240 characters quoting or paraphrasing the move text that
+       anchors the unstated-assumption gap; OR
+   (b) the JSON literal null.
+   Not allowed: a nested JSON object such as { "quote": "…", "band": "high" }; an array
+   such as [ "…", "…" ]; a boolean; a number; a missing entry. This shape rule holds whether
+   observations.unstated_assumption is true or false. When false, the value
+   MUST be null. When true, the value MUST be a single string ≤ 240 chars (or null if no
+   anchor text exists, in which case set the observation back to false). The validator
+   rejects every non-string non-null value at the exact path
+   evidenceSpan.unstated_assumption.
+
 Conservative-positives bias: do NOT mark all rawKeys true. CQ probes are usually sparse —
 most moves exhibit 0 to 2 unmet CQs; few exhibit more than 4. When unsure, answer false
 with low or medium confidence. The CQ MUST be clearly absent or clearly inadequate to
