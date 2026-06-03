@@ -238,3 +238,28 @@ There has been **zero organic routed traffic** in the entire window, so the dead
 - **Not advancing to 5%. Family H/I/J remain `productionEnabled:false`.** No validator/ban-list relaxation, no prompt change in this triage.
 
 **Phase 2 — hardening plan filed (design-only).** `docs/designs/OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING.md` extends the proven PR #421/#423 rule-6 RAWKEY-SHAPE REINFORCEMENT pattern to `evidenceSpan.unstated_assumption`. Implementation is a **separate operator-authorized mitigation card** (requires a `mcp-server/` → Deno Deploy push, which the merge-auto-deploy does not cover).
+
+## 13. Post-deploy verification of the Family-F `unstated_assumption` fix — **PASS** (2026-06-03)
+
+The § 12 hardening was implemented (rule 7 RAWKEY-SHAPE REINFORCEMENT for `evidenceSpan.unstated_assumption`, **PR #443 `f529edb`**; roadmap-reviewer Approve), the operator deployed `cdiscourse-mcp-server` to Deno Deploy, and this verification confirms the fix in production under canary-then-burst discipline. Read-only, metadata-only DB analysis (no argument body / evidence_span / prompt / provider payload queried).
+
+**Attestation timeline (UTC):**
+- Operator hosted-MCP smoke attestation: **`2026-06-03T02:34:49Z`** — `MCP-SERVER-001 smoke: 23 PASSES, 0 FAILS` (operator-run, exit 0).
+- Smoke-only arm: **`2026-06-03T02:42:33Z`** — `CLASSIFIER_QUEUE_ROUTING_ENABLED=true`, `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=0` (digest-verified: ENABLED=SHA256("true"), PERCENTAGE=SHA256("0")). **0% organic — smoke-tag override only; not a 5% advance.**
+- Disarm to baseline: **`2026-06-03T03:04:54Z`** — `ENABLED=false` (digest-verified SHA256("false")), `PERCENTAGE=0`. Inert confirmed (`system_non_terminal = 0`, `smoke_non_terminal = 0`).
+
+**Result (63 classifier cells = N=1 canary + N=8 burst, each × 7 A–G families):**
+
+| Metric | Value |
+|---|---|
+| `critical_question` (Family F) cells | **9 / 9 succeeded on first attempt** (`max_attempts = 1`) |
+| **dead_letter on `critical_question` / `evidenceSpan.unstated_assumption`** | **0** ✅ |
+| Total cells succeeded | 62 / 63 |
+| Canary gate | 7/7 succeeded first-attempt → PASS → proceeded to burst |
+| Submit success | canary 1/1, burst 8/8 posted, 0 submit failures |
+
+**The single dead-letter is orthogonal and within budget.** One `argument_scheme` (Family **E**) cell exhausted its 4-attempt budget on `provider_server_error`. Its persisted `failure_detail` (now live, PR #432) shows **`validator_path = null` / `serverReason = null` / `reason = mcp_api_error`** — i.e. a **genuine provider-side transient**, NOT a packet-shape validation failure. This is the documented ~2–4% transient floor (known-blockers § 3) and a single isolated provider-side 5xx dead-letter is **within the dead-letter budget** (roadmap § 6.2), not a rollback trigger or a regression.
+
+**This is the decisive contrast.** The original incident `9ef5aab5` was `critical_question` with `validator_path = evidenceSpan.unstated_assumption` (**packet-shape**). Post-fix, that class is **eliminated** (0/9 cq dead-letters, all first-attempt), and the only residual is a **different, provider-side class** that `failure_detail` distinguishes by `validator_path = null` — so **no Deno-log pull was needed** (the operator constraint held). Both the rule-7 prompt fix **and** the #432 `failure_detail` observability are validated by this run.
+
+**Boundaries held:** 0% organic (PCT=0 smoke-only, no 5% advance); no Family H/I/J enablement; no runtime/validator/ban-list change in the verification; canary-then-burst discipline; routing disarmed back to baseline; `failure_detail` (not Deno logs) used for the residual.
