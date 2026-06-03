@@ -4,6 +4,7 @@
 **Reviewer agent run:** 2026-06-02
 **Branch:** feat/OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING (single commit `3ba3801`)
 **Design:** docs/designs/OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING.md
+**Gate semantics (2026-06-03):** the fix's production verification is a **target-mitigation pass, not a global PASS-LOAD** and authorizes no ramp — see `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md`.
 
 ## Summary
 

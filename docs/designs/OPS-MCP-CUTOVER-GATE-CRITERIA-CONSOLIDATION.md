@@ -1,0 +1,112 @@
+# OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION — canonical gate-criteria reference (2026-06-03)
+
+**Status:** Canonical reference. Docs-only normalization; **authorizes nothing** (no ramp, no H/I/J, no threshold change).
+**HEAD:** `a65f4b8`. **Epic:** Epic 12 / MCP semantic-referee cutover.
+
+**Purpose.** One canonical definition of the cutover's verification/ramp gates, so the project stops carrying ambiguous or contradictory "pass" language before any future ramp or H/I/J reconsideration. The single most important distinction: **a target-specific mitigation pass (the 62/63 Family-F run) is NOT a clean global PASS-LOAD and is NOT ramp-readiness.**
+
+> **Bar-integrity rule (binding — governance contract §4-T as restated in the authoring card).** This consolidation may **tighten, preserve, or clarify** a gate bar. It may **never lower** a bar, loosen a threshold, or reclassify a previously non-passing run as passing. Every normalization in §E is upward (tighten/preserve/clarify); every place where a looser reading exists in the docs is **surfaced for an operator decision in §F**, not silently adopted.
+>
+> `pipeline-governance-contract.md` is referenced by the authoring card but is **not present in the repo at HEAD `a65f4b8`** (verified by glob in Phase 0); this doc follows the card's inline restatement of the contract's §3 (HALT), §4 (never-self-approve), §4-T (no bar lowered), and GATE C (operator read before merge).
+
+**Acceptance invariant (unchanged).** AI/MCP classifiers are never the submission acceptance gate; the pure rules engine `src/lib/constitution/engine.ts` is the sole gate; classifiers run *after* a post is stored. This doc changes no code and no gate behavior — it normalizes how the project *describes* its verification/ramp gates.
+
+---
+
+## A. Gate taxonomy — what kind of pass, and what it authorizes
+
+| Gate | Definition | Pass condition | Does **NOT** authorize |
+|---|---|---|---|
+| **Targeted mitigation verification** | a run scoped to a specific prior failure path (e.g. Family-F `unstated_assumption`) | the **target** family/path does not reproduce terminal failure (scoped to the target path **only** — the full A–G burst is judged separately by PASS-LOAD); an orthogonal, differently-typed transient may be recorded separately and **does not invalidate the target fix iff `failure_detail` proves it unrelated** | a ramp; **it is not a global PASS-LOAD** |
+| **Synthetic PASS-LOAD** | a full A–G synthetic N=8 burst = 56 cells (8 args × 7 families) | **0 terminal dead-letters across all 56 cells** (see threshold note) + structural gates green (dup=0, overlap=0, family=NULL=0, 0 H/I/J, M1<120s while M2>0, M2→0, monitor healthy) | an automatic ramp |
+| **PASS-LOAD-CONFIRM** | a **second consecutive independent** N=56 drill meeting **all** PASS-LOAD gates | same as PASS-LOAD, reproduced once | an automatic ramp |
+| **Synthetic launch qualification** | a low-traffic pre-launch proxy under live-1% conditions | **PASS** (56/56) / **PARTIAL** (one isolated within-budget anomaly, 55/56 — strictly below PASS) / **FAIL**, per its own audit | conflation with organic load; PARTIAL/PASS do not advance 5% |
+| **Stage-1 plumbing pass** | 1% enabled, **no organic routed traffic** | monitor + queue + canary + rollback + routing-isolation green; verdict `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` | organic real-load handling; **strictly weaker than PASS-STAGE-1** |
+| **Organic Stage-1 pass** | real **non-smoke** routed args exist and are handled within budget over the 1% window | organic routed cells actually appeared **and** were handled within budget (see minimum-organic note) | — *this is the **only** gate that honestly supports percentage-ramp confidence from real traffic* |
+
+**Threshold note (≤1% vs 0 — resolved once, canonically).** At the canonical burst size N=56, `1/56 = 1.79% > 1%`, so a "≤ 1% dead-letter" rule and a "0 preferred" rule **reconcile to the same bar: 0 terminal dead-letters at N=56.** PASS-LOAD is stated as **0 terminal dead-letters at N=56**; the historical "≤1%" / "≤1.79%" band phrasing is satisfied only by 0 at this N and is **non-operative for PASS-LOAD admission** (it may describe, never widen, the bar). **No non-zero numeric dead-letter budget is introduced** — that would lower the bar; see §F-1.
+
+**Minimum-organic note (Organic Stage-1 pass).** The docs do not encode a concrete minimum-organic-N. The honest operative floor is **≥1 organic (non-smoke) routed arg observed and handled within budget over the defined observation window** (nominal ≥24h). A precise minimum-organic-sample is an **operator policy choice not yet encoded** (§F-5); this doc does not invent one.
+
+---
+
+## B. Failure taxonomy — how to type a dead-letter, and cluster thresholds
+
+- **Provider-side transient** — `failure_detail.validator_path = null` and `serverReason` / `path` do not indicate packet/schema validation (e.g. `reason = mcp_api_error` / `provider_server_error`). Treatment: record as provider/transient. A single isolated, clearly-typed transient that exhausts the 4-attempt budget in a 56-cell run is **noted, not a rollback**, and **does NOT by itself convert a run into a PASS-LOAD** (the run is still below the 56/56 bar).
+- **Packet/schema residual** — `validation_failed` + `packet_invalid` + an `evidenceSpan.*` path; deterministic across all 4 attempts (cannot be absorbed by retry). Treatment: a targeted prompt-side mitigation is **required** (STRICT RESPONSE-SHAPE CONTRACT + per-rawKey RAWKEY-SHAPE REINFORCEMENT; the validator gate is **never** relaxed). Confirmed precedent: `critical_question.evidenceSpan.unstated_assumption` (`9ef5aab5`, PR #443).
+- **Canonical residual-classification source:** **PR #432 persisted `failure_detail`** (`detail.serverReason` + `validator_path`), DB-readable. Deno-log R3 pull is **fallback only** for rows predating #432 or when `failure_detail` is unexpectedly null.
+- **Cluster thresholds** (per-family / per-path / per-window):
+  - **(i) one isolated provider transient** (`validator_path=null`) → noted, within the ~2–4% *per-attempt* transient floor that the 4-attempt budget absorbs; not a rollback, **not** a PASS-LOAD;
+  - **(ii) a deterministic same-path packet/schema failure** → targeted mitigation required before the affected family's share is ramped (the Family-F precedent);
+  - **(iii) repeated terminal failures** (same family/path across attempts or windows) → HALT / investigate;
+  - **(iv) a provider/server CLUSTER** — **a single family with ≥2 `provider_*` terminal failures** (the binding operator gate; the `load-provider-error-cluster.sql` "AND >1 family" condition is **superseded** — a single-family recurrence is sufficient to FAIL, see §F-2) → FAIL / roll back. The original FAIL-LOAD signature was `argument_scheme = 3` (5.36%).
+
+---
+
+## C. The cross-cutting authorization rule (load-bearing)
+
+**No targeted-mitigation pass, synthetic PASS-LOAD, PASS-LOAD-CONFIRM, synthetic launch qualification (PASS or PARTIAL), or Stage-1 plumbing pass authorizes a 5% ramp.** Only an **organic Stage-1 pass** — or a separate, explicitly operator-accepted synthetic soak with a stated provider-transient budget — supports ramp confidence.
+
+The `1 → 5 → 25 → 50 → 100` percentage sequence is an **allowed operator order, not an automatic ladder**: each step independently requires real organic evidence at the prior percentage **and** a separate operator authorization card. No audit, doc, schedule, or timer auto-advances the percentage.
+
+`#432 failure_detail` is the **canonical source for residual classification**; Deno logs are fallback only.
+
+---
+
+## D. Application to the current state (HEAD `a65f4b8`) — required wording
+
+- **Family-F `unstated_assumption` target fix: production-verified PASS (for its target path)** — `critical_question` 9/9 first-attempt, 0 `unstated_assumption` dead-letters (PR #443; Stage-1 audit §13).
+- **Global load-ramp readiness: still separately gated.**
+- The **62/63** Family-F verification run is **NOT a clean global PASS-LOAD**: the one orthogonal `argument_scheme` (Family-E) provider-side dead-letter (`failure_detail.validator_path = null`) is a recorded provider transient, not a packet-shape residual, and **does not make the run a PASS-LOAD** (a global PASS-LOAD still requires 0 terminal dead-letters across the full N=56 A–G burst — the #425/#426 bar).
+- **5% remains not authorized. Family H/I/J remain `productionEnabled:false` (gated)** at `familyRegistry.ts:106/111/116`.
+- **`#432 failure_detail` is the canonical residual-classification source;** Deno logs are fallback only.
+
+---
+
+## E. Contradiction table (normalized **upward only** — tighten / preserve / clarify)
+
+> Source: the read-only Understand scan of 14 docs (this card's workflow). Every `normalizedWording` keeps the **stricter** bar; none lowers one. Items whose *looser* reading would lower a bar are additionally surfaced in §F.
+
+| # | Contradiction (text · file:line) | Conflict | Normalized wording (upward) | Dir |
+|---|---|---|---|---|
+| 1 | Operator-brief dead-letter bands "PASS ≤1%; PARTIAL 1–3%; >3%" vs skeleton "PASS ≤1.79%; PARTIAL 1.79–5%; FAIL >5%" in the same drill — `QUEUE-LOAD-SMOKE-2026-06-01.md:23 vs :187/:265` | a 2.0% run would be PARTIAL under one, PASS under the other | PASS-LOAD = **0 terminal dead-letters at N=56**; both band sets superseded for admission; any nonzero terminal dead-letter is below the PASS bar (1/56=1.79%>1%) | tighten |
+| 2 | PASS-LOAD criterion 4 "all 56 succeed (dead_letter=0)" vs criterion 5 "rate ≤1%" — `RETRY-FAMILIES-E-F-...:29 vs :127` | 1/56 passes the ≤1% framing but fails "all 56 succeed" | **Criterion 4 controls**: 0 terminal dead-letters at N=56; the ≤1% band is non-operative for admission | tighten |
+| 3 | PASS-LOAD-CONFIRM "8 gate criteria" (headline) vs "ALL 15 gates" (body) — `...CONFIRM-2026-06-02.md:16 vs :30` | unclear whether 8 or 15 conditions bind | Requires **all 15** carry-forward gates on a fresh independent N=56 drill; "8" is a result-summary headline, not the gate count | clarify |
+| 4 | Lone N=8 dead-letter `9ef5aab5` typed "isolated provider-side 5xx" (§0/§10/§11) then corrected to "packet-shape residual" (§12) — `STAGE-1 audit:38/:198/:202 vs :227/:233/:236` | §11 reader records a provider transient; §12 reader records a packet bug | **§12 controls** (per #432 `failure_detail`): `9ef5aab5` is a packet/schema residual on `evidenceSpan.unstated_assumption` (`validation_failed`, deterministic 4/4), NOT a provider 5xx; the §0/§10/§11 "provider-side" label is superseded | clarify |
+| 5 | "Window ≥24h before any 5%" vs deliberate early close at ~10.7h still issuing PLUMBING — `STAGE-1 audit:122/:36 vs :188/:194` | literal ≥24h hold unmet, yet the ≥24h-window verdict label issued at 10.7h | **Preserve** the ≥24h nominal window; early close admissible ONLY because organic=0 the entire window; verdict stays the weaker `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`; does NOT count as a full ≥24h hold, does NOT advance 5%; any closeout must record actual-elapsed ~10.7h + organic=0 | preserve |
+| 6 | Ramp as scheduled ladder `0→1→5→25→100, each step one secrets set + window` (ARCH-001 Card 3) vs "5%+ is a launch-time decision, NOT a scheduled ladder" — `current-status.md:12 vs :3` | ladder reads as auto-advancing on a clean window | The 2026-06-02 closeout **supersedes** the ladder: percentage advances ONLY by a separate operator card per step, gated on real organic evidence; the sequence is an allowed order, not an automatic ladder | tighten |
+| 7 | Family-H retry "blocked on PASS-LOAD" (1 condition) vs "non-H PASS-LOAD AND a separate operator decision" (2) — `FORTIFIED-...-STATUS.md:20 vs :152` | two non-H PASS-LOADs recorded reads line 20 as satisfied → would unblock H | H retry requires **all of**: (a) non-H PASS-LOAD, (b) separate operator decision, (c) provider/server reliability proven at higher (8-family) load + clean Card-3 re-run smoke; the non-H PASS-LOAD alone does NOT unblock H | tighten |
+| 8 | "Isolated provider-side 5xx (e.g. the §7 `9ef5aab5` cell) … within tolerance, do not roll back" vs §7 DISPOSITION confirming `9ef5aab5` was packet-shape, 0 provider 5xx — `A-G roadmap:229 vs :258` | citing `9ef5aab5` as tolerated provider-5xx would let 5% proceed with no F fix | `9ef5aab5` is a **packet/schema residual** (#432/R3: 5/5 `validation_failed`+`packet_invalid`, 0 provider 5xx); it is **not** the tolerated-provider-5xx exemplar (that needs a `validator_path=null` cell); the §7.2 Family-F mitigation is **required** before Gate 2 (5%) | tighten |
+| 9 | F mitigation "REQUIRED before Gate 2" vs conditional "only if Option 1 confirms a residual" — `A-G roadmap:258 vs :116/:276` | confirmation already occurred; conditional phrasing reads as optional | Condition already satisfied (residual confirmed) → §7.2 mitigation is **required** before 5%; "if confirmed" wording superseded | tighten |
+| 10 | H production smoke built on synthetic canary-then-burst vs P1 requiring real organic evidence — `H-I-J roadmap:152 vs :125/:108` | synthetic-only reading could authorize the H flip, bypassing P1 | **Both required and ordered**: P1 (A–G stable at higher % with **real organic** evidence) is a precondition that must precede the H synthetic smoke; synthetic PASS is necessary-but-not-sufficient | tighten |
+| 11 | H-I-J "zero terminal provider holes" vs cutover "~2–4% transient floor / isolated 5xx within budget" — `H-I-J roadmap:125/:152 vs STAGE-1 audit:261` | applying the cutover tolerance to the H/I/J smoke would pass a burst with one provider hole | Reconcile to the stricter **terminal-zero** bar for both: terminal dead-letters/holes = 0 at burst level; the ~2–4% is a **per-attempt** floor absorbed by the 4-attempt budget before terminal; isolated-5xx tolerance applies only to an already-armed window's disarm decision, never to burst/PASS-LOAD admission | tighten |
+| 12 | Provider-cluster FAIL: SQL "≥2 in one family AND >1 family" vs operator gate "no family has ≥2 `provider_*` terminal failures" — `QUEUE-LOAD-SMOKE-2026-06-01.md:220 vs :218` | `argument_scheme=3` single-family cluster is NOT a FAIL by the SQL but IS by the operator gate | **Operator gate binds**: any family with ≥2 `provider_*` terminal failures = cluster = FAIL; the SQL "AND >1 family" is superseded (single-family recurrence suffices) | tighten |
+| 13 | Provider-cluster rule labeled "gate-5" (brief) and "gate-12" (skeleton) for the identical rule — `QUEUE-LOAD-SMOKE-2026-06-01.md:26 vs :218/:272` | ordinal cross-refs are ambiguous | Refer to gates **by name** ("dead-letter-rate gate", "provider/server-cluster-recurrence gate"), not ordinal; both rolls FAIL at 5.36% / `argument_scheme=3` | clarify |
+| 14 | 62/63 Family-F run sits adjacent to PASS-LOAD "56/56" language — `known-blockers.md:580 vs :557` | could read as a global PASS-LOAD | The 9/9 `critical_question` / 0 `unstated_assumption` result is a **TARGET mitigation pass only**; a global PASS-LOAD still requires 0 terminal dead-letters across the full N=56 A–G burst | clarify |
+| 15 | Stage-1 dead-letter tolerance: categorical "isolated tolerated" vs numeric "<1% (0.893%)" vs "0 dead-letter" — `current-status.md:3 vs :12 vs :5` | an operator could pick <1% / isolated to admit a nonzero-DL drill to PASS-LOAD | Single binding gate: **PASS-LOAD = 0 terminal dead-letters at N=56**; the <1% is a historical observation; "isolated tolerated / families=1" governs ONLY the rollback (disarm) decision for an already-armed organic window, never PASS-LOAD admission — three distinct decisions, not to be conflated | tighten |
+| 16 | Retry backoff: skeleton `[60,180,360]s` vs code `[30,120]s` — `QUEUE-LOAD-SMOKE-2026-06-01.md:69 vs FORTIFIED-...-STATUS.md:45` | auditor checking the skeleton mis-evaluates retry timing | **Code authoritative**: `DRAINER_RETRY_BACKOFF_SECONDS=[30,120]s` clamped/repeated for attempts 3→4, `MAX_ATTEMPTS=4`; the skeleton `[60,180,360]s` is doc-drift, superseded (4-attempt budget unchanged) | clarify |
+| 17 | "PERCENTAGE=0 always" (steady-state) vs "Stage 1 at 1%" entry; PCT=0 ENABLED=true called both "arm" and "not a 5% advance" — `FORTIFIED-...-STATUS.md:33 vs :151; STAGE-1 audit:248` | "0 always" can read as forbidding the 1% entry; "arm" overloaded | **Preserve**: percentage rests at 0 outside an authorized Stage-1 window; 1% entry only under a separate operator card; `PERCENTAGE=0 ENABLED=true` is a **smoke-tag-override arm** (routes only `[arch-001-queue-smoke]` args, 0% organic) and is NOT any percentage advance | preserve |
+| 18 | Canary cells gate-bearing ("T0 canary pass 7/7") vs "canary informational, not gate-bearing; the 56 burst cells are gate-bearing" — `STAGE-1 audit:94 vs FORTIFIED.md:214` | a clean 7-cell canary could substitute for 56-cell load proof | **Clarify**: the canary is a routing-path verification gate only (PASS = 7 A–G rows `family IS NOT NULL`, 0 H/I/J; HALT on any `family=NULL`); all load/stage verdicts are scored on the N=56 burst; an N=8 burst without a preceding passing canary yields no valid gate evidence and is discarded | clarify |
+| 19 | Plain "PASS-STAGE-1" used where the actual verdict is the weaker "PASS-STAGE-1-PLUMBING" — `current-status.md:4 vs :3; STAGE-1 audit:18/:36` | a reader could treat the PLUMBING close as a plain Stage-1 pass and advance 5% | **Preserve** the two-tier distinction: plain `PASS-STAGE-1` requires organic routed cells handled within budget; with organic=0 the verdict is the strictly weaker `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME`; only a plain (organic) PASS-STAGE-1 may precede a 5% proposal | preserve |
+| 20 | PARTIAL-SYNTHETIC-LAUNCH-QUALIFICATION (55/56 + 1 isolated DL) could read as a partial Stage-1 pass — `LOW-TRAFFIC-...-QUALIFICATION.md:21 vs :188` | reading PARTIAL as partial-Stage-1 would advance toward 5% on synthetic evidence | PARTIAL is a **synthetic launch-confidence tier strictly weaker than PASS-STAGE-1**: 55/56 is explicitly below the 56/56 PASS bar; does not close the window, issue PASS-STAGE-1, or authorize 5% | preserve |
+| 21 | Full synthetic-qual "requires 56/56" vs realized PARTIAL at 55/56 "tolerated, isolated" with no numeric rule — `LOW-TRAFFIC-...-QUALIFICATION.md:25 vs :121/:139` | 1.79% tolerated cell could be cited as "≤~2% passes", collapsing PASS/PARTIAL tiers | Tiers stay distinct, PASS bar at zero: PASS-SYNTHETIC-LAUNCH-QUAL = 56/56 (0 dead_letter, provider-failing-families=0); 1.79% isolated DL is tolerated **only** at the lesser PARTIAL tier and never establishes a numeric PASS budget | tighten |
+
+---
+
+## F. Flagged for operator (GATE C) — looser readings NOT auto-adopted (would lower a bar)
+
+Per §4-T, the following were **not** resolved by picking the looser side. The canonical doc keeps the **stricter** bar; the operator should confirm (and direct correction of the looser source wording) before any ramp / H reconsideration:
+
+1. **Dead-letter budget.** Several docs state a nonzero tolerance (operator-brief "PASS ≤1%", skeleton "PASS ≤1.79%", PASS-LOAD criterion-5/roll-up "rate ≤1%", "isolated provider-side dead_letter tolerated / `distinct_dead_letter_families=1` = NOT a cluster"). Adopting any as the **PASS-LOAD admission** bar would lower it below 0 terminal dead-letters. **Kept at 0 terminal dead-letters at N=56.** The isolated-tolerated rule is retained ONLY for the already-armed-window **rollback (disarm)** decision (a separate, non-PASS decision). *Operator confirm: no doc intends a nonzero terminal-dead-letter PASS budget (default: NO).*
+2. **Provider-cluster single-family.** `load-provider-error-cluster.sql`'s "≥2 in one family AND >1 family" does not FAIL a single-family cluster; the operator gate does. Adopting the SQL threshold would let a recurring single-family provider cluster (the original `argument_scheme=3` FAIL signature) pass. **Kept the operator gate (single-family ≥2 = FAIL).** *Operator confirm: the SQL query is corrected to match, or the operator gate explicitly overrides it.*
+3. **Synthetic-only H authorization.** The H re-attempt smoke is defined purely on a synthetic canary-then-burst, while P1 requires real organic evidence above 1%. A synthetic-only reading would lower the H un-freeze bar and re-expose the 8-family surface that already failed (PR #407/#408). **Kept both: P1 real-organic precondition must precede the H synthetic smoke.** *Operator confirm: the ordering is binding before any H flip.*
+4. **Early-close as ≥24h hold.** The Stage-1 window closed at ~10.7h while the rule requires ≥24h. Treating the early close as a satisfied ≥24h hold for a future 5% precondition would lower the hold requirement. **Kept: the early close is admissible only as the weaker PLUMBING verdict (organic=0) and does not advance 5%.** *Operator confirm: any 5% proposal records actual-elapsed and does not cite a full ≥24h hold.*
+5. **PARTIAL / PLUMBING / target-mitigation → 5%.** Several clean-but-synthetic/partial passes (PARTIAL-SYNTHETIC-LAUNCH-QUALIFICATION, PASS-STAGE-1-PLUMBING, the Family-F 9/9 target-mitigation pass, PASS-LOAD/PASS-LOAD-CONFIRM) could be read as ramp-authorizing. Per §C, **none authorizes 5%; only an organic PASS-STAGE-1 does.** *Operator confirm: 5% stays gated to an organic Stage-1 pass + a separate operator card; a precise minimum-organic-sample (§A minimum-organic note) is an operator policy choice not yet encoded.*
+
+---
+
+## G. Consolidated operative gate inventory (reference)
+
+The deduped set of operative gate definitions found across the 14 docs (the authority for each, normalized upward) is recorded in the consolidation audit `docs/audits/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION-2026-06-03.md`. The load-bearing entries: PASS-LOAD (0 terminal DL at N=56), PASS-LOAD-CONFIRM (second consecutive, all 15 gates), the canary (routing-path gate only, never load evidence), PASS-STAGE-1 vs PASS-STAGE-1-PLUMBING (organic vs plumbing), the provider-cluster operator gate (single-family ≥2), the packet/schema residual definition + #432 canonical source, the drainer/retry constants (`C=3`, `MAX_ATTEMPTS=4`, `[30,120]s`), and the H/I/J registry invariant (`productionEnabled:false`, out-of-scope to flip).
+
+**This document supersedes the conflicting pass/load/ramp wording in the docs cited in §E** for purposes of describing the gates. It changes no threshold's strictness and authorizes nothing.

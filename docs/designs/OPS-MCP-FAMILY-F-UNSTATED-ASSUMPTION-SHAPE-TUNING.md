@@ -1,6 +1,8 @@
 # OPS-MCP-FAMILY-F-UNSTATED-ASSUMPTION-SHAPE-TUNING — design (2026-06-02)
 
 **Status:** Design draft — **DESIGN ONLY. No runtime source change in this card.**
+
+> **Update (2026-06-03):** implemented + merged (PR #443) and **production-verified for its target path** (`critical_question` 9/9 first-attempt, 0 `unstated_assumption` dead-letter). That verification is a **target-mitigation pass, NOT a global PASS-LOAD**, and does **not** authorize a ramp; global load-ramp readiness is **separately gated** — see the canonical gate doc `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md`.
 **Epic:** Epic 12 / MCP semantic-referee track (ARCH-001 + OPS-MCP provider-reliability hardening)
 **Trail:** #373 (cutover umbrella); PR #421/#423 (the STRICT RESPONSE-SHAPE CONTRACT + rule-6 mitigation pattern this card extends); PR #429 (Stage-1 synthetic launch-qualification — the burst that surfaced the residual); PR #432 (`failure_detail` persistence — makes future recurrences DB-readable); the R3 disambiguation of dead-letter `9ef5aab5`.
 
