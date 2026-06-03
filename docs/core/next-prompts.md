@@ -13,6 +13,42 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
+## Prompt OPS-MCP-STAGE-2-5PCT — Launch-time 5% queue-routing ramp (⚠️ GATED — do NOT start until the precondition holds)
+
+> **This card authorizes nothing by existing.** It is the paste-ready template for the FUTURE 5% ramp, bound by the operator-ratified gate semantics in `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md` (§C + §F-5, ratified 2026-06-03). As of 2026-06-03 the cutover state is `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` with **0 organic** routed args and routing **disarmed to baseline** — so precondition (a) below is **NOT yet met** and this card waits.
+
+**Hard precondition (GATE-C §F-5 — exactly one must hold BEFORE this card runs):**
+- **(a) Real organic Stage-1 evidence** — an *organic* `PASS-STAGE-1` (NOT `PASS-STAGE-1-PLUMBING`): real **non-smoke** routed args actually appeared at 1% and were handled within budget over the observation window; **or**
+- **(b) A named launch-time override** — the operator explicitly names the override and records an explicit risk acceptance (who · why · what risk) in this card's audit.
+
+> A synthetic PASS-LOAD, a PARTIAL launch-qualification, a PLUMBING pass, and a target-mitigation pass each **do NOT** satisfy this (per the ratified §F-5). If neither (a) nor (b) holds → **HALT, do not proceed.**
+
+**Boundary line (verbatim):** `Operator runs every mutation (arm, secrets set, any deploy, the N=8 synthetic spend). Claude Code does NOT arm routing, does NOT run the burst, does NOT call any provider, does NOT push Deno Deploy. Claude does ONLY: read-only metadata SQL verification, canary/burst RESULT analysis from the DB (failure_detail — never Deno logs unless failure_detail is unexpectedly null), and the audit. NO H/I/J enablement. NO percentage beyond 5. NO validator / ban-list / prompt / familyRegistry / retry-policy change.`
+
+**Paste-ready prompt (operator-driven; Claude verifies):**
+
+```
+Run OPS-MCP-STAGE-2-5PCT (launch-time 5% ramp). Binding authority: docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md.
+
+Phase 0 (Claude, read-only): re-confirm the §F-5 precondition — either an ORGANIC PASS-STAGE-1 (real non-smoke routed args handled within budget; NOT PLUMBING) exists, OR I have given you a named launch-time override + risk acceptance to record. Also confirm: routing currently disarmed; queue inert (M2=0); drainer + monitor crons active; 0 H/I/J rows; HEAD clean. If the precondition is not met → HALT and tell me.
+
+Phase 1 (OPERATOR): I arm at 5% — CLASSIFIER_QUEUE_ROUTING_ENABLED=true + CLASSIFIER_QUEUE_ROUTING_PERCENTAGE=5 via supabase secrets set; re-schedule cutover-health-monitor-tick as part of activation; wait >=120s for Edge propagation. (Claude verifies the secret digests: printf 'true'|sha256sum, printf '5'|sha256sum — values never printed.)
+
+Phase 2 (canary-then-burst, OPERATOR runs spend / Claude verifies): one behavioral canary first — PASS = routing propagated (family IS NOT NULL, 0 H/I/J); HALT on any family=NULL. Then observe organic routed cells at 5% over the window.
+
+Phase 3 (Claude, read-only analysis): PASS-LOAD discipline for any synthetic drill = 0 terminal dead-letters at N=56. For organic, judge within-budget per the failure taxonomy: a provider transient (failure_detail.validator_path=null) is tolerated for the disarm decision only; a packet/schema residual OR a single-family >=2 provider cluster = HALT + disarm. Classify every residual from failure_detail (PR #432), not Deno logs.
+
+Phase 4 (Claude): a NAMED verdict + audit — record actual-elapsed, organic vs smoke counts, every residual + its failure_detail classification. Do NOT advance beyond 5% (25% is a separate later card). 
+
+Phase 5 (OPERATOR): disarm or hold per the verdict.
+```
+
+**Rollback (immediate disarm) triggers:** any FAIL-LOAD structural trigger · a single-family ≥2 provider cluster · a packet/schema residual recurrence · `family=NULL` leakage on a routed arg · any H/I/J row · M2 climbing / not draining · monitor Layer-1 FAIL · organic routed volume materially exceeding the 5% expectation · operator request.
+
+**Boundaries held:** no H/I/J; no advance beyond 5%; no validator/ban-list/prompt/registry change; `failure_detail` (not Deno logs) for residuals; canary-then-burst discipline; the canonical gate doc is the binding authority. The `25% → 50% → 100%` steps are each their own separate, later operator card (allowed order, not an automatic ladder).
+
+---
+
 ## Prompt A — Timeline Tree Game Board: BR-001 design
 
 > Run after the Timeline Tree Game Board roadmap commit (`docs: expand timeline tree game board roadmap`) is in `main`. See [`docs/roadmap-timeline-tree-game-board.md`](roadmap-timeline-tree-game-board.md) for the master plan.
