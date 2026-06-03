@@ -1,5 +1,7 @@
 # CDiscourse — MCP Families H / I / J production-integration roadmap (2026-06-02)
 
+> **Superseded for gate/pass/ramp semantics (2026-06-03).** The canonical reference for every pass / PASS-LOAD / PASS-LOAD-CONFIRM / Stage-1 / plumbing-vs-organic / ramp / dead-letter / cluster definition is `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md` (operator-ratified). Any pass/load/ramp/threshold language below is historical; where it differs from the canonical doc, the canonical doc governs.
+
 **Type:** Design-only roadmap. No production code, no migration, no Edge Function deploy, no provider/MCP/network call, no Supabase mutation, no secret read, no registry flip.
 **Authoring card:** OPS-MCP-STAGE1-DOCS-AND-ROADMAP-CATCHUP.
 **Purpose:** Document the path to productionize the three Machine-Observation families that are currently dormant — **H (`claim_clarity`)**, **I (`thread_topology`)**, **J (`sensitive_composer`)** — and to make plain the prerequisites, the per-family sequence, and the hard rule that all three stay OFF until each is explicitly operator-gated.
