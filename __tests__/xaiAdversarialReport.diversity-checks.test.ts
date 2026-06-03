@@ -121,11 +121,15 @@ describe('CORPUS-30 reporter diversity checks', () => {
   });
 
   it('corpusReportLib.corpus30DiversityChecks matches', () => {
+    // CORPUS-30-LIVE-PATH-WIRING Fix 2: when move_validated events are
+    // absent, repeated-option emits n/a + attribution_absent (NOT a false
+    // green). Duplicate-seed still computes on seed_assignment events.
     const events: Event[] = [
       { stage: 'seed_assignment', assignedSeedIds: ['a', 'b', 'c'] },
     ];
     const d = corpusReportLib.corpus30DiversityChecks(events);
     expect(d.duplicateSeed.severityBand).toBe('green');
-    expect(d.repeatedOption.severityBand).toBe('green');
+    expect(d.repeatedOption.severityBand).toBe('n/a');
+    expect(d.repeatedOption.reason).toBe('attribution_absent');
   });
 });
