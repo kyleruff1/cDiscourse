@@ -728,11 +728,12 @@ async function handleGetSemanticConfig(
  * Update the semantic-referee runtime config singleton.
  *
  * Validation (the zod `.refine()` in `adminSemanticConfigSchemas.ts`) has
- * already enforced: `providerMode` is one of `anthropic | mock | fixture`
- * (`mcp` is not settable), and `confirmAnthropic === true` when switching to
- * `anthropic`. This handler reads the previous row for the audit "previous"
- * fields, performs the single-row atomic update, appends the dedicated
- * config-audit row, and writes the generic admin-traffic audit row.
+ * already enforced: `providerMode` is one of `anthropic | mock | fixture | mcp`
+ * (`mcp` is settable as of 2026-06-03 — MCP server is up and configured),
+ * and `confirmAnthropic === true` when switching to `anthropic`. This
+ * handler reads the previous row for the audit "previous" fields, performs
+ * the single-row atomic update, appends the dedicated config-audit row,
+ * and writes the generic admin-traffic audit row.
  */
 async function handleSetSemanticConfig(
   body: Req<'set_semantic_config'>,

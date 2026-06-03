@@ -28,7 +28,7 @@ export const PROVIDER_MODE_LABELS: Record<
   anthropic: 'Anthropic',
   mock: 'Mock',
   fixture: 'Fixture (dev/test)',
-  mcp: 'Coming later (MCP-018)',
+  mcp: 'CD - MCP Server',
 };
 
 /**

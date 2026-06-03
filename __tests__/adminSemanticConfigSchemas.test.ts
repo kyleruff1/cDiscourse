@@ -11,7 +11,7 @@
  */
 import { z } from 'zod';
 
-const SEMANTIC_PROVIDER_WRITE_MODES = ['anthropic', 'mock', 'fixture'] as const;
+const SEMANTIC_PROVIDER_WRITE_MODES = ['anthropic', 'mock', 'fixture', 'mcp'] as const;
 
 const GetSemanticConfigSchema = z.object({
   action: z.literal('get_semantic_config'),
@@ -19,7 +19,7 @@ const GetSemanticConfigSchema = z.object({
 
 const SetSemanticConfigSchema = z.object({
   action: z.literal('set_semantic_config'),
-  // 'mcp' is intentionally NOT settable — reserved for MCP-018.
+  // 'mcp' is settable as of 2026-06-03 (MCP server up and configured).
   providerMode: z.enum(SEMANTIC_PROVIDER_WRITE_MODES),
   enabled: z.boolean(),
   reason: z.string().max(500).optional(),
@@ -57,11 +57,11 @@ describe('SetSemanticConfigSchema — provider mode enum', () => {
     expect(r.success).toBe(true);
   });
 
-  it('rejects providerMode: "mcp" on the write path (the slot is reserved)', () => {
+  it('accepts providerMode: "mcp" on the write path (MCP server is up as of 2026-06-03)', () => {
     const r = SetSemanticConfigSchema.safeParse({
       action: 'set_semantic_config', providerMode: 'mcp', enabled: true,
     });
-    expect(r.success).toBe(false);
+    expect(r.success).toBe(true);
   });
 
   it('rejects an unknown providerMode', () => {

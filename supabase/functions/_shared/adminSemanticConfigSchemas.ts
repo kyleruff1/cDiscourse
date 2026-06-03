@@ -7,15 +7,16 @@
  * `AdminUsersRequestSchema` discriminated union by importing these two schemas.
  *
  * Doctrine:
- *   - `mcp` is NOT settable on the write path — the slot is reserved for
- *     MCP-018. The write enum is the three live modes only. (The DB `CHECK`
- *     constraint allows `mcp` so MCP-018 needs no migration; the write schema
- *     is the gate, mirroring `adminSchemas.ts`'s `InviteUser`, where `'admin'`
- *     is excluded from the invite-role enum.)
+ *   - `mcp` IS settable on the write path as of 2026-06-03 (post-MCP-server-up).
+ *     The operator-hosted MCP server is configured + reachable
+ *     (SEMANTIC_REFEREE_MCP_URL + SEMANTIC_REFEREE_MCP_TOKEN secrets present).
+ *     The slot is no longer reserved-but-disabled; admins can pick it
+ *     one-click like mock/fixture. (The DB `CHECK` constraint always allowed
+ *     `mcp`; the write enum is what changed.)
  *   - The Anthropic confirmation step is enforced server-side by `.refine()`
  *     (the UI dialog is the UX; this refine is the wall — doctrine
- *     constraint #7). Switching to `mock` / `fixture` needs no confirmation
- *     flag (constraint #8 — Mock is one-click).
+ *     constraint #7). Switching to `mock` / `fixture` / `mcp` needs no
+ *     confirmation flag (constraint #8 — those are one-click).
  */
 import { z } from 'npm:zod@4';
 
@@ -27,10 +28,13 @@ import { z } from 'npm:zod@4';
 export const SEMANTIC_PROVIDER_MODES = ['anthropic', 'mock', 'fixture', 'mcp'] as const;
 
 /**
- * The modes an admin can SET. `mcp` is intentionally excluded — the slot is
- * reserved for MCP-018; only that card enables it (by adding `'mcp'` here).
+ * The modes an admin can SET. As of 2026-06-03, `mcp` is included — the
+ * operator-hosted MCP server is configured + reachable, so the slot is no
+ * longer reserved-but-disabled. Switching INTO `anthropic` still requires
+ * `confirmAnthropic: true` (see `.refine()` below); `mock` / `fixture` / `mcp`
+ * are all one-click.
  */
-export const SEMANTIC_PROVIDER_WRITE_MODES = ['anthropic', 'mock', 'fixture'] as const;
+export const SEMANTIC_PROVIDER_WRITE_MODES = ['anthropic', 'mock', 'fixture', 'mcp'] as const;
 
 /** Read the current semantic-referee runtime config. No parameters. */
 export const GetSemanticConfigSchema = z.object({
@@ -40,13 +44,13 @@ export const GetSemanticConfigSchema = z.object({
 /**
  * Write the semantic-referee runtime config.
  *
- * - `providerMode` is the three-mode write enum — `mcp` cannot be set.
+ * - `providerMode` is the four-mode write enum (`mcp` added 2026-06-03).
  * - `confirmAnthropic` MUST be `true` when `providerMode === 'anthropic'`
- *   (the `.refine()` below). Switching to `mock` / `fixture` ignores it.
+ *   (the `.refine()` below). Switching to `mock` / `fixture` / `mcp`
+ *   ignores it (those are one-click).
  */
 export const SetSemanticConfigSchema = z.object({
   action: z.literal('set_semantic_config'),
-  // 'mcp' is intentionally NOT settable — the slot is reserved for MCP-018.
   providerMode: z.enum(SEMANTIC_PROVIDER_WRITE_MODES),
   enabled: z.boolean(),
   reason: z.string().max(500).optional(),

@@ -57,26 +57,24 @@ describe('AdminSemanticRefereeTab — Anthropic key status is a boolean only', (
   });
 });
 
-// ── 3. Provider selector — anthropic/mock/fixture; mcp disabled ──
+// ── 3. Provider selector — anthropic/mock/fixture/mcp all selectable ──
 
 describe('AdminSemanticRefereeTab — provider mode selector', () => {
-  it('renders a selectable row for each mode via the SELECTABLE_MODES map', () => {
-    // The anthropic / mock / fixture rows are rendered in a `.map()` over
-    // SELECTABLE_MODES, so the accessibilityLabel is a template literal.
-    expect(TAB_SRC).toMatch(/SELECTABLE_MODES.*=.*\[\s*'anthropic',\s*'mock',\s*'fixture',?\s*\]/s);
+  it('renders a selectable row for each of the four modes via SELECTABLE_MODES', () => {
+    // All four modes are rendered in a `.map()` over SELECTABLE_MODES, so the
+    // accessibilityLabel is a template literal. mcp was added 2026-06-03 (MCP
+    // server is up; the slot is no longer reserved-but-disabled).
+    expect(TAB_SRC).toMatch(/SELECTABLE_MODES.*=.*\[\s*'anthropic',\s*'mock',\s*'fixture',\s*'mcp',?\s*\]/s);
     expect(TAB_SRC).toMatch(/accessibilityLabel=\{`admin-semantic-referee-mode-\$\{mode\}`\}/);
   });
 
-  it('renders the mcp row DISABLED with the "Coming later (MCP-018)" label', () => {
-    expect(TAB_SRC).toContain('admin-semantic-referee-mode-mcp');
-    expect(TAB_SRC).toContain('PROVIDER_MODE_LABELS.mcp');
-    // The mcp row carries no onPress handler — it is a plain disabled View.
-    expect(TAB_SRC).toMatch(/modeRowDisabled/);
-    expect(TAB_SRC).toMatch(/accessibilityState=\{\{ disabled: true \}\}/);
-  });
-
-  it('selecting mcp is a no-op (the slot is reserved for MCP-018)', () => {
-    expect(TAB_SRC).toMatch(/if \(mode === 'mcp'\) return;/);
+  it('the mcp slot is settable (no separate disabled row, no early-return guard)', () => {
+    // No standalone disabled mcp row — it is rendered via the SELECTABLE_MODES map.
+    expect(TAB_SRC).not.toMatch(/{\s*\/\*\s*mcp\s*—\s*shown disabled/);
+    // No early-return guard that blocks selecting mcp.
+    expect(TAB_SRC).not.toMatch(/if \(mode === 'mcp'\) return;/);
+    // No early-return guard that blocks the enabled toggle on mcp.
+    expect(TAB_SRC).not.toMatch(/if \(config\.providerMode === 'mcp'\) return;/);
   });
 });
 
@@ -117,9 +115,10 @@ describe('AdminSemanticRefereeTab — runtime enabled toggle', () => {
     expect(TAB_SRC).toMatch(/accessibilityRole="switch"/);
   });
 
-  it('the toggle is disabled when the current mode is mcp (mcp is not settable)', () => {
-    expect(TAB_SRC).toMatch(/enabledToggleAvailable/);
-    expect(TAB_SRC).toMatch(/config\.providerMode !== 'mcp'/);
+  it('the toggle is always available when a config row exists (all four modes are settable)', () => {
+    expect(TAB_SRC).toMatch(/enabledToggleAvailable\s*=\s*config != null/);
+    // No mode-specific exclusion — mcp was added 2026-06-03.
+    expect(TAB_SRC).not.toMatch(/config\.providerMode !== 'mcp'/);
   });
 });
 
