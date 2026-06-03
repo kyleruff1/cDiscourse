@@ -146,7 +146,14 @@ function buildAdversarialReportMarkdown({ runId, dateIso, mode, providerLabel, a
   lines.push(`- Rooms created: **${agg.rooms}**`);
   lines.push(`- Moves posted: **${agg.movesPosted}**  ·  Failed: ${agg.movesFailed}  ·  Skipped: ${agg.movesSkipped}`);
   lines.push(`- Rooms resolved: ${agg.resolved}  ·  Stalemates: ${agg.stalemate}  ·  Max-depth reached: ${agg.maxDepthReached}`);
-  lines.push(`- xAI calls: ${agg.xaiCalls}  ·  Anthropic calls: ${agg.anthropicCalls}`);
+  // CORPUS-30-LIVE-PATH-WIRING Fix 3: prefer provider_call_summary; fall
+  // back to the per-event aggregator. "(not wired)" disclaimers retired.
+  const tally = computeProviderCallTally(events);
+  if (tally.source === 'provider_call_summary') {
+    lines.push(`- xAI calls: ${tally.xaiCalls}  ·  Anthropic calls: ${tally.anthropicCalls}  ·  Supabase writes: ${tally.supabaseWrites}`);
+  } else {
+    lines.push(`- xAI calls: ${tally.xaiCalls} (aggregated)  ·  Anthropic calls: ${tally.anthropicCalls} (aggregated)  ·  Supabase writes: ${tally.supabaseWrites} (aggregated)`);
+  }
   lines.push(`- Anthropic input tokens: ${agg.inputTokens}  ·  output tokens: ${agg.outputTokens}`);
   lines.push(`- Source citation refs surfaced: ${agg.sourceCitationCount}  ·  Reply citation refs: ${agg.replyCitationCount}`);
   lines.push(`- platformSupportWarning=true moves: **${agg.platformSupportWarningTrue}** / ${agg.platformSupportWarningTrue + agg.platformSupportWarningFalse}`);
@@ -246,6 +253,14 @@ function buildAdversarialReportMarkdown({ runId, dateIso, mode, providerLabel, a
 // `aggregateDiversityChecks` returns counts + severityBand per category;
 // `renderDiversityChecksSection` formats them as a Markdown subsection.
 
+// CORPUS-30-LIVE-PATH-WIRING Fix 2 — attribution-presence preconditions.
+//
+// Each §9 check that depends on per-move attribution emits
+// `severityBand: 'n/a'` with `reason: 'attribution_absent'` when the
+// underlying attribution fields are missing on ≥1 move. Operator-
+// ratified default (CORPUS-30 §9 #2): `n/a` is the explicit "cannot
+// decide from the data" signal; the 30 runbook gates PASS on green
+// only (yellow / red / n/a all fail).
 function aggregateDiversityChecks(events) {
   const seedIds = [];
   for (const ev of events) {
@@ -258,6 +273,17 @@ function aggregateDiversityChecks(events) {
   for (const id of seedIds) {
     if (seenSeeds.has(id)) dupSeeds.push(id);
     else seenSeeds.add(id);
+  }
+
+  // Attribution-presence introspection.
+  let moveValidatedTotal = 0;
+  let bankAbsent = 0;
+  let spineAbsent = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_validated') continue;
+    moveValidatedTotal += 1;
+    if (typeof ev.bankName !== 'string' || !Number.isFinite(ev.optionIndex)) bankAbsent += 1;
+    if (typeof ev.spineId !== 'string' || ev.spineId.length === 0) spineAbsent += 1;
   }
 
   const perThreadOpt = new Map(); // threadIndex → Map(bankName::optionIndex, count)
@@ -302,15 +328,186 @@ function aggregateDiversityChecks(events) {
     total: seedIds.length, unique: seenSeeds.size,
     duplicates: dupSeeds, severityBand: dupSeeds.length > 0 ? 'red' : 'green',
   };
-  const repeatedOption = {
-    repeatedWithin, crossThreadCollisions,
-    severityBand: crossThreadCollisions > 0 ? 'red' : repeatedWithin > 0 ? 'yellow' : 'green',
+  const repeatedOption = (moveValidatedTotal === 0 || bankAbsent > 0)
+    ? {
+        repeatedWithin: 0, crossThreadCollisions: 0,
+        severityBand: 'n/a',
+        reason: 'attribution_absent',
+        reasonDetail: moveValidatedTotal === 0
+          ? 'no move_validated events present'
+          : `${bankAbsent}/${moveValidatedTotal} move_validated events lack bankName+optionIndex`,
+      }
+    : {
+        repeatedWithin, crossThreadCollisions,
+        severityBand: crossThreadCollisions > 0 ? 'red' : repeatedWithin > 0 ? 'yellow' : 'green',
+      };
+  const spineSaturation = (moveValidatedTotal === 0 || spineAbsent > 0)
+    ? {
+        saturatedAt: null,
+        severityBand: 'n/a',
+        reason: 'attribution_absent',
+        reasonDetail: moveValidatedTotal === 0
+          ? 'no move_validated events present'
+          : `${spineAbsent}/${moveValidatedTotal} move_validated events lack spineId`,
+      }
+    : {
+        saturatedAt: spineSaturatedAt,
+        severityBand: spineSaturatedAt ? 'red' : 'green',
+      };
+
+  // Voice distribution (operates on bot_assignment events).
+  let voiceAssignments = 0;
+  let voiceAbsent = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'bot_assignment' || !Array.isArray(ev.assignments)) continue;
+    for (const a of ev.assignments) {
+      voiceAssignments += 1;
+      if (!a || typeof a.voiceId !== 'string' || a.voiceId.length === 0) voiceAbsent += 1;
+    }
+  }
+  const voiceDistribution = (voiceAssignments === 0 || voiceAbsent > 0)
+    ? {
+        voiceCounts: [], collisions: [], outOfBand: [],
+        severityBand: 'n/a',
+        reason: 'attribution_absent',
+        reasonDetail: voiceAssignments === 0
+          ? 'no bot_assignment entries present'
+          : `${voiceAbsent}/${voiceAssignments} bot_assignment entries lack voiceId`,
+      }
+    : voiceDistributionFromEvents(events);
+
+  // Samey-move via tokenSetHash (preferred) or bot_move_render.body fallback.
+  const sameyMove = sameyMoveFromEvents(events);
+
+  return { duplicateSeed, repeatedOption, spineSaturation, voiceDistribution, sameyMove };
+}
+
+function voiceDistributionFromEvents(events) {
+  const voiceCounts = new Map();
+  const collisions = [];
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'bot_assignment' || !Array.isArray(ev.assignments)) continue;
+    const seen = new Set();
+    for (const a of ev.assignments) {
+      if (!a || typeof a.voiceId !== 'string' || a.voiceId.length === 0) continue;
+      voiceCounts.set(a.voiceId, (voiceCounts.get(a.voiceId) || 0) + 1);
+      if (seen.has(a.voiceId)) collisions.push({ scenarioId: ev.scenarioId, voiceId: a.voiceId });
+      seen.add(a.voiceId);
+    }
+  }
+  const outOfBand = [];
+  for (const [voiceId, count] of voiceCounts.entries()) {
+    if (count < 5 || count > 12) outOfBand.push({ voiceId, count });
+  }
+  return {
+    voiceCounts: [...voiceCounts.entries()].sort((a, b) => b[1] - a[1]),
+    collisions, outOfBand,
+    severityBand: collisions.length > 0 || outOfBand.length > 0 ? 'yellow' : 'green',
   };
-  const spineSaturation = {
-    saturatedAt: spineSaturatedAt,
-    severityBand: spineSaturatedAt ? 'red' : 'green',
+}
+
+function sameyMoveFromEvents(events) {
+  const hasSample = events.some((e) => e && e.stage === 'move_body_sample');
+  const hasRender = events.some((e) => e && e.stage === 'bot_move_render' && e.move && e.move.body);
+  if (!hasSample && !hasRender) {
+    return {
+      highPairs: [], severityBand: 'n/a',
+      reason: 'attribution_absent',
+      reasonDetail: 'no move_body_sample or bot_move_render.body events',
+    };
+  }
+  if (hasSample) {
+    const perThread = new Map();
+    for (const e of events) {
+      if (!e || e.stage !== 'move_body_sample') continue;
+      if (typeof e.threadIndex !== 'number') continue;
+      if (typeof e.tokenSetHash !== 'string') continue;
+      if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
+      perThread.get(e.threadIndex).push({ moveId: e.moveId, tokenSetHash: e.tokenSetHash, tokenCount: e.tokenCount || 0 });
+    }
+    const highPairs = [];
+    for (const [threadIndex, list] of perThread.entries()) {
+      for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          if (list[i].tokenSetHash === list[j].tokenSetHash && list[i].tokenCount >= 4) {
+            highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: 1.0 });
+          }
+        }
+      }
+    }
+    return {
+      source: 'move_body_sample',
+      highPairs,
+      severityBand: highPairs.length > 0 ? 'red' : 'green',
+    };
+  }
+  // Fallback to body-on-render Jaccard.
+  const STOP = new Set(['a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that', 'these', 'those', 'i', 'you', 'we', 'they', 'be', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as', 'from', 'into', 'than', 'then', 'so', 'if', 'not', 'no', 's', 't', 'd', 're', 've', 'll']);
+  function tok(s) {
+    return new Set(String(s || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').split(/\s+/).filter((w) => w && w.length >= 3 && !STOP.has(w)));
+  }
+  const perThread = new Map();
+  for (const e of events) {
+    if (!e || e.stage !== 'bot_move_render') continue;
+    if (typeof e.threadIndex !== 'number') continue;
+    if (!e.move || !e.move.body) continue;
+    if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
+    perThread.get(e.threadIndex).push({ moveId: e.move.moveId, tokens: tok(e.move.body) });
+  }
+  const highPairs = [];
+  for (const [threadIndex, list] of perThread.entries()) {
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i].tokens;
+        const b = list[j].tokens;
+        if (a.size === 0 || b.size === 0) continue;
+        let intersection = 0;
+        for (const x of a) if (b.has(x)) intersection += 1;
+        const u = a.size + b.size - intersection;
+        const j2 = u === 0 ? 0 : intersection / u;
+        if (j2 >= 0.60) highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: Number(j2.toFixed(3)) });
+      }
+    }
+  }
+  return {
+    source: 'bot_move_render',
+    highPairs,
+    severityBand: highPairs.length > 0 ? 'red' : 'green',
   };
-  return { duplicateSeed, repeatedOption, spineSaturation };
+}
+
+// CORPUS-30-LIVE-PATH-WIRING Fix 3 — provider-call tally.
+// Mirrors the runner's computeProviderCallTally: prefers
+// provider_call_summary, falls back to per-event aggregation. The
+// reporter consumes the same shape so the Markdown summary lands on
+// real integers when the runner emitted the canonical event, or on a
+// best-effort aggregate otherwise. Either way, "(not wired)" is gone.
+function computeProviderCallTally(events) {
+  let summaryEvent = null;
+  for (const e of events) {
+    if (e && e.stage === 'provider_call_summary') { summaryEvent = e; break; }
+  }
+  if (summaryEvent
+      && Number.isFinite(summaryEvent.xaiCalls)
+      && Number.isFinite(summaryEvent.anthropicCalls)
+      && Number.isFinite(summaryEvent.supabaseWrites)) {
+    return {
+      source: 'provider_call_summary',
+      xaiCalls: summaryEvent.xaiCalls,
+      anthropicCalls: summaryEvent.anthropicCalls,
+      supabaseWrites: summaryEvent.supabaseWrites,
+    };
+  }
+  let xaiCalls = 0;
+  let anthropicCalls = 0;
+  let supabaseWrites = 0;
+  for (const e of events) {
+    if (!e) continue;
+    if (e.stage === 'move_rendered' && e.source === 'anthropic') anthropicCalls += 1;
+    if (e.stage === 'submit_result' && e.status === 'posted') supabaseWrites += 1;
+    if (e.stage === 'xai_source_call' || e.stage === 'xai_call' || e.stage === 'provider_query') xaiCalls += 1;
+  }
+  return { source: 'aggregated_from_events', xaiCalls, anthropicCalls, supabaseWrites };
 }
 
 function renderDiversityChecksSection(events) {
@@ -319,8 +516,26 @@ function renderDiversityChecksSection(events) {
   lines.push('## Diversity checks (CORPUS-30 §9)');
   lines.push('');
   lines.push(`- Duplicate-seed: severityBand=\`${d.duplicateSeed.severityBand}\` · total=${d.duplicateSeed.total} · unique=${d.duplicateSeed.unique} · duplicates=${d.duplicateSeed.duplicates.length}`);
-  lines.push(`- Repeated-option: severityBand=\`${d.repeatedOption.severityBand}\` · repeated within thread=${d.repeatedOption.repeatedWithin} · cross-thread collisions=${d.repeatedOption.crossThreadCollisions}`);
-  lines.push(`- Spine saturation: severityBand=\`${d.spineSaturation.severityBand}\`${d.spineSaturation.saturatedAt ? ` · saturated=\`${d.spineSaturation.saturatedAt.spineId}\` (${Math.round(d.spineSaturation.saturatedAt.fraction * 100)}%)` : ''}`);
+  const repOpt = d.repeatedOption.severityBand === 'n/a'
+    ? `- Repeated-option: severityBand=\`n/a\` · reason=\`${d.repeatedOption.reason}\` · ${d.repeatedOption.reasonDetail}`
+    : `- Repeated-option: severityBand=\`${d.repeatedOption.severityBand}\` · repeated within thread=${d.repeatedOption.repeatedWithin} · cross-thread collisions=${d.repeatedOption.crossThreadCollisions}`;
+  lines.push(repOpt);
+  const spine = d.spineSaturation.severityBand === 'n/a'
+    ? `- Spine saturation: severityBand=\`n/a\` · reason=\`${d.spineSaturation.reason}\` · ${d.spineSaturation.reasonDetail}`
+    : `- Spine saturation: severityBand=\`${d.spineSaturation.severityBand}\`${d.spineSaturation.saturatedAt ? ` · saturated=\`${d.spineSaturation.saturatedAt.spineId}\` (${Math.round(d.spineSaturation.saturatedAt.fraction * 100)}%)` : ''}`;
+  lines.push(spine);
+  if (d.voiceDistribution) {
+    const v = d.voiceDistribution.severityBand === 'n/a'
+      ? `- Voice distribution: severityBand=\`n/a\` · reason=\`${d.voiceDistribution.reason}\` · ${d.voiceDistribution.reasonDetail}`
+      : `- Voice distribution: severityBand=\`${d.voiceDistribution.severityBand}\` · collisions=${d.voiceDistribution.collisions.length} · out-of-band voices=${d.voiceDistribution.outOfBand.length}`;
+    lines.push(v);
+  }
+  if (d.sameyMove) {
+    const sm = d.sameyMove.severityBand === 'n/a'
+      ? `- Samey-move (text distance): severityBand=\`n/a\` · reason=\`${d.sameyMove.reason}\` · ${d.sameyMove.reasonDetail}`
+      : `- Samey-move (text distance): severityBand=\`${d.sameyMove.severityBand}\` · high-overlap pairs=${d.sameyMove.highPairs.length}${d.sameyMove.source ? ` · source=${d.sameyMove.source}` : ''}`;
+    lines.push(sm);
+  }
   lines.push('');
   return lines.join('\n');
 }
@@ -330,4 +545,9 @@ module.exports = {
   aggregateRun,
   aggregateDiversityChecks,
   renderDiversityChecksSection,
+  // CORPUS-30-LIVE-PATH-WIRING — provider/Supabase call tally helper.
+  computeProviderCallTally,
+  // Internal samey-move + voice helpers exported for unit-test access.
+  voiceDistributionFromEvents,
+  sameyMoveFromEvents,
 };

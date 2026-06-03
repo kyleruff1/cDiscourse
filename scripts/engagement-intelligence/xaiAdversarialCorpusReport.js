@@ -216,6 +216,7 @@ function buildAdversarialCorpusReport({ runId, mode, sourceMode, bundle, events 
 // Mirrors the canonical implementation in xaiAdversarialReport.js so
 // reporter consumers in either entry point can surface the same chips.
 
+// CORPUS-30-LIVE-PATH-WIRING Fix 2 — attribution-presence preconditions.
 function corpus30DiversityChecks(events) {
   const seedIds = [];
   for (const ev of events) {
@@ -228,6 +229,14 @@ function corpus30DiversityChecks(events) {
   for (const id of seedIds) {
     if (seen.has(id)) dups.push(id);
     else seen.add(id);
+  }
+  // Attribution-presence introspection on move_validated events.
+  let moveValidatedTotal = 0;
+  let bankAbsent = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_validated') continue;
+    moveValidatedTotal += 1;
+    if (typeof ev.bankName !== 'string' || !Number.isFinite(ev.optionIndex)) bankAbsent += 1;
   }
   const optionIdThreads = new Map();
   const perThreadOpt = new Map();
@@ -252,11 +261,50 @@ function corpus30DiversityChecks(events) {
     total: seedIds.length, unique: seen.size, duplicates: dups,
     severityBand: dups.length > 0 ? 'red' : 'green',
   };
-  const repeatedOption = {
-    repeatedWithin, crossThreadCollisions,
-    severityBand: crossThreadCollisions > 0 ? 'red' : repeatedWithin > 0 ? 'yellow' : 'green',
-  };
+  const repeatedOption = (moveValidatedTotal === 0 || bankAbsent > 0)
+    ? {
+        repeatedWithin: 0, crossThreadCollisions: 0,
+        severityBand: 'n/a',
+        reason: 'attribution_absent',
+        reasonDetail: moveValidatedTotal === 0
+          ? 'no move_validated events present'
+          : `${bankAbsent}/${moveValidatedTotal} move_validated events lack bankName+optionIndex`,
+      }
+    : {
+        repeatedWithin, crossThreadCollisions,
+        severityBand: crossThreadCollisions > 0 ? 'red' : repeatedWithin > 0 ? 'yellow' : 'green',
+      };
   return { duplicateSeed, repeatedOption };
+}
+
+// CORPUS-30-LIVE-PATH-WIRING Fix 3 — provider-call tally, mirroring
+// the runner + xaiAdversarialReport implementations.
+function computeProviderCallTally(events) {
+  let summaryEvent = null;
+  for (const e of events) {
+    if (e && e.stage === 'provider_call_summary') { summaryEvent = e; break; }
+  }
+  if (summaryEvent
+      && Number.isFinite(summaryEvent.xaiCalls)
+      && Number.isFinite(summaryEvent.anthropicCalls)
+      && Number.isFinite(summaryEvent.supabaseWrites)) {
+    return {
+      source: 'provider_call_summary',
+      xaiCalls: summaryEvent.xaiCalls,
+      anthropicCalls: summaryEvent.anthropicCalls,
+      supabaseWrites: summaryEvent.supabaseWrites,
+    };
+  }
+  let xaiCalls = 0;
+  let anthropicCalls = 0;
+  let supabaseWrites = 0;
+  for (const e of events) {
+    if (!e) continue;
+    if (e.stage === 'move_rendered' && e.source === 'anthropic') anthropicCalls += 1;
+    if (e.stage === 'submit_result' && e.status === 'posted') supabaseWrites += 1;
+    if (e.stage === 'xai_source_call' || e.stage === 'xai_call' || e.stage === 'provider_query') xaiCalls += 1;
+  }
+  return { source: 'aggregated_from_events', xaiCalls, anthropicCalls, supabaseWrites };
 }
 
 module.exports = {
@@ -271,4 +319,5 @@ module.exports = {
   topExhibits,
   fmtExhibit,
   corpus30DiversityChecks,
+  computeProviderCallTally,
 };
