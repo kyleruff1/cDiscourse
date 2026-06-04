@@ -23,6 +23,13 @@ export interface LoadAdminArgumentsOptions {
   authorId?: string | null;
   /** When true, includes soft-deleted rows. Off by default. */
   includeDeleted?: boolean;
+  /**
+   * ADMIN-ARGS-INACTIVE-001 — when true, includes inactive rows
+   * (`inactive_at IS NOT NULL`). Default `false`. The admin Show-inactives
+   * toggle drives this; admin posture is already gated by RLS
+   * (`is_moderator_or_admin()`).
+   */
+  includeInactives?: boolean;
   /** Sort column. Defaults to `updated_at`. */
   sortField?: AdminArgumentsSortField;
   /** Sort direction. Defaults to `desc` (newest first). */
@@ -48,6 +55,12 @@ interface RawArgumentRow {
   server_validation: Record<string, unknown> | null;
   debates: { title: string | null } | { title: string | null }[] | null;
   profiles: { display_name: string | null } | { display_name: string | null }[] | null;
+  // ADMIN-ARGS-INACTIVE-001 — lifecycle visibility columns. All nullable.
+  // `inactive_reason` is admin-only; the row carries it but the UI MUST
+  // gate rendering on admin row detail (doctrine §10a sensitive composer-only).
+  inactive_at: string | null;
+  inactive_by: string | null;
+  inactive_reason: string | null;
 }
 
 function asTitle(j: RawArgumentRow['debates']): string | null {
@@ -97,6 +110,7 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
         'id', 'debate_id', 'author_id', 'argument_type', 'side', 'body', 'status',
         'created_at', 'updated_at', 'disagreement_axis', 'argument_tags(tag_code)',
         'target_excerpt', 'server_validation',
+        'inactive_at', 'inactive_by', 'inactive_reason',
         'debates(title)', 'profiles(display_name)',
       ].join(','),
     )
@@ -108,6 +122,11 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
   // There is no `is_deleted` column on the table — schema has only the
   // status enum (draft/posted/deleted/...), per Stage 6.1.8.
   if (!options.includeDeleted) q = q.neq('status', 'deleted');
+  // ADMIN-ARGS-INACTIVE-001 — Show-inactives toggle. Default OFF: SQL-layer
+  // exclusion of `inactive_at IS NOT NULL` rows. Admin RLS already permits
+  // SELECTing inactive rows; this predicate is the loader-side filter that
+  // backs the Show-inactives toggle.
+  if (!options.includeInactives) q = q.is('inactive_at', null);
 
   const { data, error } = await q;
   if (error) throw new Error(`loadAdminArguments failed: ${error.message}`);
@@ -129,6 +148,9 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
     targetExcerpt: r.target_excerpt,
     hasFlags: false, // populated by a follow-up query below if needed
     topicSatisfactionScore: extractTopicScore(r.server_validation),
+    inactiveAt: r.inactive_at,
+    inactiveBy: r.inactive_by,
+    inactiveReason: r.inactive_reason,
   }));
 }
 

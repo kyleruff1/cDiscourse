@@ -147,4 +147,17 @@ export interface AdminArgumentRow {
   targetExcerpt: string | null;
   hasFlags: boolean;
   topicSatisfactionScore: number | null;
+  /**
+   * ADMIN-ARGS-INACTIVE-001 — lifecycle visibility. NULL = active. NOT NULL
+   * = inactive (hidden from default views). Reversible.
+   */
+  inactiveAt: string | null;
+  /** Admin profile id that performed the most recent inactivation transition. */
+  inactiveBy: string | null;
+  /**
+   * Admin-only free text. The row carries this value for admin row-detail;
+   * the UI MUST gate rendering on admin row detail and MUST NOT render this
+   * on any user-facing argument surface (doctrine §10a — composer-only).
+   */
+  inactiveReason: string | null;
 }

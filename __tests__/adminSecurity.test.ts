@@ -174,7 +174,17 @@ describe('ADMIN-AI-001 — admin-users wires the semantic-config actions', () =>
   });
 
   it('the set handler writes to the dedicated config-audit table, never to public.arguments', () => {
-    const handlerBlock = indexSrc.slice(indexSrc.indexOf('async function handleSetSemanticConfig'));
+    // Slice from handleSetSemanticConfig to the next non-semantic-config
+    // section marker. The semantic-config concern spans the handler plus
+    // its private `writeConfigAudit` helper; both belong to ADMIN-AI-001.
+    // The ADMIN-ARGS-INACTIVE-001 section follows with its own marker
+    // comment ("ADMIN-ARGS-INACTIVE-001 — per-argument inactive"), so we
+    // cut there to keep the assertion scoped to the semantic-config region.
+    const startIdx = indexSrc.indexOf('async function handleSetSemanticConfig');
+    expect(startIdx).toBeGreaterThan(-1);
+    const tail = indexSrc.slice(startIdx);
+    const inactiveMarkerIdx = tail.indexOf('ADMIN-ARGS-INACTIVE-001 — per-argument inactive');
+    const handlerBlock = inactiveMarkerIdx === -1 ? tail : tail.slice(0, inactiveMarkerIdx);
     expect(handlerBlock).toContain("from('semantic_referee_config_audit')");
     expect(handlerBlock).not.toMatch(/from\('arguments'\)/);
   });

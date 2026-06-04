@@ -24,6 +24,9 @@ export const WHITELISTED_ACTIONS = [
   // ADMIN-AI-001 — semantic-referee runtime provider-mode config.
   'get_semantic_config',
   'set_semantic_config',
+  // ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility state.
+  'set_argument_inactive',
+  'bulk_set_argument_inactive',
 ] as const;
 
 export type AdminAuditAction = typeof WHITELISTED_ACTIONS[number];

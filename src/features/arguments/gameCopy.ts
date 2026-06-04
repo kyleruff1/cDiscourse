@@ -196,6 +196,14 @@ export const PLAIN_LANGUAGE_COPY = {
   // Participant / role
   observer: 'Watching',
   moderator: 'Observer',
+  // ADMIN-ARGS-INACTIVE-001 — admin-only lifecycle visibility state codes.
+  // Surfaced in admin row detail + audit; NEVER on a target argument's
+  // public-facing node (doctrine §10a sensitive composer-only). Plain
+  // English, no snake_case leak, ban-list clean.
+  inactive: 'Inactive (hidden from default views)',
+  inactive_at: 'Marked inactive at',
+  inactive_by: 'Marked inactive by',
+  inactive_reason: 'Admin note (admin-only)',
   affirmative: 'For',
   negative: 'Against',
   neutral: 'Neutral',

@@ -201,7 +201,13 @@ describe('AdminArgumentsTab — Stage 6.1.6b table layout', () => {
   });
 
   it('passes sortField + sortDirection through to loadAdminArguments', () => {
-    expect(src).toMatch(/loadAdminArguments\(\{\s*limit,\s*sortField,\s*sortDirection\s*\}\)/);
+    // ADMIN-ARGS-INACTIVE-001 extended the call with `includeInactives`.
+    // The assertion accepts the original 3-field shape OR the extended
+    // 4-field shape so the contract is "sortField + sortDirection flow
+    // through to the loader" without re-locking the exact field order.
+    expect(src).toMatch(
+      /loadAdminArguments\(\{[\s\S]{0,200}?limit,[\s\S]{0,200}?sortField,[\s\S]{0,200}?sortDirection/,
+    );
   });
 
   it('falls back to createdAt display when updatedAt is missing', () => {

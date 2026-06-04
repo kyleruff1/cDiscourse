@@ -25,6 +25,10 @@ interface RawArgument {
   rail_payload: Record<string, unknown>; client_validation: Record<string, unknown>;
   server_validation: Record<string, unknown>; client_submission_id: string | null;
   created_at: string; updated_at: string;
+  // ADMIN-ARGS-INACTIVE-001 — nullable lifecycle column. Non-admin viewers
+  // should never see a non-null value here (RLS + loader predicate); the
+  // belt-and-braces pure-TS filters compare against null defensively.
+  inactive_at: string | null;
 }
 
 interface RawTag { argument_id: string; tag_code: string; created_at: string; }
@@ -71,6 +75,7 @@ function mapArgument(r: RawArgument): ArgumentRow {
     serverValidation: r.server_validation ?? {},
     clientSubmissionId: r.client_submission_id,
     createdAt: r.created_at, updatedAt: r.updated_at,
+    inactiveAt: r.inactive_at ?? null,
   };
 }
 
@@ -133,7 +138,7 @@ function mapPersistedObservationRow(r: RawPersistedObservationRow): MachineObser
 const ARG_SELECT =
   'id,debate_id,parent_id,author_id,argument_type,side,body,depth,status,' +
   'target_excerpt,disagreement_axis,rail_payload,client_validation,server_validation,' +
-  'client_submission_id,created_at,updated_at';
+  'client_submission_id,created_at,updated_at,inactive_at';
 
 // ── API ───────────────────────────────────────────────────────
 
@@ -150,6 +155,11 @@ export async function listRootArguments(
     .eq('debate_id', debateId)
     .is('parent_id', null)
     .eq('status', 'posted')
+    // ADMIN-ARGS-INACTIVE-001 — belt-and-braces filter. RLS already excludes
+    // inactive rows for non-admin viewers; this predicate is an explicit
+    // SQL-layer anchor so the loader matches the policy and the partial
+    // index `arguments_inactive_at_null_idx` is used.
+    .is('inactive_at', null)
     .order('created_at', { ascending: true })
     .limit(limit);
 
@@ -187,6 +197,11 @@ export async function listArgumentsForDebateIds(
     .select(ARG_SELECT)
     .in('debate_id', ids)
     .eq('status', 'posted')
+    // ADMIN-ARGS-INACTIVE-001 — belt-and-braces filter. RLS already excludes
+    // inactive rows for non-admin viewers; this predicate is an explicit
+    // SQL-layer anchor so the loader matches the policy and the partial
+    // index `arguments_inactive_at_null_idx` is used.
+    .is('inactive_at', null)
     .order('debate_id', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(Math.max(1, Math.min(limit, 5000)));
@@ -218,6 +233,11 @@ export async function listArgumentsForDebate(
     .select(ARG_SELECT)
     .eq('debate_id', debateId)
     .eq('status', 'posted')
+    // ADMIN-ARGS-INACTIVE-001 — belt-and-braces filter. RLS already excludes
+    // inactive rows for non-admin viewers; this predicate is an explicit
+    // SQL-layer anchor so the loader matches the policy and the partial
+    // index `arguments_inactive_at_null_idx` is used.
+    .is('inactive_at', null)
     .order('created_at', { ascending: true })
     .limit(Math.max(1, Math.min(limit, 5000)));
 
@@ -242,6 +262,11 @@ export async function listChildArguments(
     .eq('debate_id', debateId)
     .eq('parent_id', parentId)
     .eq('status', 'posted')
+    // ADMIN-ARGS-INACTIVE-001 — belt-and-braces filter. RLS already excludes
+    // inactive rows for non-admin viewers; this predicate is an explicit
+    // SQL-layer anchor so the loader matches the policy and the partial
+    // index `arguments_inactive_at_null_idx` is used.
+    .is('inactive_at', null)
     .order('created_at', { ascending: true })
     .limit(limit);
 

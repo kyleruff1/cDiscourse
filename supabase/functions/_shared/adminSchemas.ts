@@ -9,6 +9,10 @@ import {
   GetSemanticConfigSchema,
   SetSemanticConfigSchema,
 } from './adminSemanticConfigSchemas.ts';
+import {
+  SetArgumentInactiveSchema,
+  BulkSetArgumentInactiveSchema,
+} from './adminInactiveSchemas.ts';
 
 const Role = z.enum(['user', 'moderator', 'admin']);
 
@@ -164,6 +168,9 @@ export const AdminUsersRequestSchema = z.discriminatedUnion('action', [
   // ADMIN-AI-001 — semantic-referee runtime provider-mode config.
   GetSemanticConfigSchema,
   SetSemanticConfigSchema,
+  // ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility state.
+  SetArgumentInactiveSchema,
+  BulkSetArgumentInactiveSchema,
 ]);
 
 export type AdminUsersRequest = z.infer<typeof AdminUsersRequestSchema>;
