@@ -2225,6 +2225,99 @@ function checkSpineSaturation(events) {
   };
 }
 
+// CORPUS-30-DIVERSITY-001: voice-distribution band recalibrated to
+// PLANNER REALITY (operator-decided axis (ii) — reporter-only; the
+// planner `assignVoiceId` is byte-equal). The old hardcoded band
+// `count < 5 || count > 12` was tuned for a per-slot distribution the
+// per-bot-account planner never emits: with B fixed bot accounts over
+// N rooms, `assignVoiceId(runId, botUserId)` deterministically yields B
+// distinct voices, each at count = N — so all B voices landed
+// out-of-band → a false YELLOW on a healthy planner.
+//
+// The recalibrated band derives its expectation FROM THE STREAM, not
+// from any hardcoded slot count:
+//   expectedPerVoice       = totalVoiceAssignments / distinctVoiceCount
+//   expectedDistinctVoices = max voice-bearing assignments seen in any
+//                            single room (the room's bot cardinality)
+// The synthesizer IS a real voice-bearing bot account (one of the 3
+// personas provocateur/revocateur/synthesizer, each assigned a voice via
+// assignVoiceId(runId, botUserId)); it therefore COUNTS as a voice in
+// the band math. We do not hardcode "3" — distinctVoiceCount and the
+// per-room cardinality are both derived from the actual stream. If a
+// CDISCOURSE_DIVERSITY_SYNTH_SLOT knob is ever referenced, the default
+// is "synthesizer counts"; deriving from the data supersedes any knob.
+//
+// §4-T BAND-RECALIBRATION, NOT BAND-REMOVAL — two independent teeth so
+// the band stays GREEN on the planner's honest distribution (B voices
+// each ≈ N) yet still fires on a genuinely degenerate distribution:
+//   Tooth A — per-voice MATERIAL deviation: a voice whose count falls
+//     below expectedPerVoice * VOICE_BAND_LOW_FACTOR (0.5) or above
+//     expectedPerVoice * VOICE_BAND_HIGH_FACTOR (2.0). Catches a wildly
+//     imbalanced split (one voice hogs the run; others starve).
+//   Tooth B — DISTINCT-VOICE COLLAPSE: distinctVoiceCount falls below
+//     expectedDistinctVoices (the per-room bot cardinality). Catches a
+//     uniform collapse to ≤1 voice that Tooth A is structurally blind to
+//     (when every assignment shares one voice, expectedPerVoice is
+//     recomputed off the collapsed total so the lone voice sits exactly
+//     "at expected" — only the distinct-count floor catches it).
+//   Severity: collapse to a single distinct voice while rooms exhibit
+//     ≥2 voice slots → RED; a partial collapse (distinct ≥2 but below
+//     room cardinality) or any per-voice deviation or same-room
+//     collision → YELLOW.
+// Factors chosen so 3 voices × 30 rooms (expected=30, each at 30, room
+// cardinality=3, distinct=3) reads GREEN, but a 90→1-voice collapse
+// (distinct=1 < cardinality 3) reads RED. The honest band is anchored
+// to the planner's actual N/B expectation, never reverse-fit to make the
+// last run green.
+const VOICE_BAND_LOW_FACTOR = 0.5;
+const VOICE_BAND_HIGH_FACTOR = 2.0;
+
+function recalibrateVoiceBand(voiceCounts, collisions, maxRoomVoiceCardinality, voiceRoomCount) {
+  let totalVoiceAssignments = 0;
+  for (const c of voiceCounts.values()) totalVoiceAssignments += c;
+  const distinctVoiceCount = voiceCounts.size;
+  // n/a-on-empty backstop (mirrors attribution_absent → n/a): never green
+  // by absence. The caller already gates on bot_assignment presence, but
+  // this keeps the helper itself honest on an empty/degenerate-zero map.
+  if (totalVoiceAssignments === 0 || distinctVoiceCount === 0) {
+    return {
+      outOfBand: [], degenerateCollapse: null,
+      expectedPerVoice: 0, expectedDistinctVoices: maxRoomVoiceCardinality,
+      distinctVoiceCount,
+      severityBand: 'n/a',
+      reason: 'attribution_absent',
+      reasonDetail: 'no voice-bearing bot_assignment entries present',
+    };
+  }
+  const expectedPerVoice = totalVoiceAssignments / distinctVoiceCount;
+  const lowBound = expectedPerVoice * VOICE_BAND_LOW_FACTOR;
+  const highBound = expectedPerVoice * VOICE_BAND_HIGH_FACTOR;
+  const outOfBand = [];
+  for (const [voiceId, count] of voiceCounts.entries()) {
+    if (count < lowBound || count > highBound) outOfBand.push({ voiceId, count });
+  }
+  // Tooth B — distinct-voice collapse vs the per-room bot cardinality.
+  // A RUN-WIDE collapse to a single voice (rooms exhibit ≥2 voice slots
+  // yet the whole run uses ≤1 voice across ≥2 rooms) is systemic → RED.
+  // A single-room collapse is just that room's same-room collision (the
+  // collision tooth already flags YELLOW) and must NOT escalate to RED on
+  // a 1-room sample — so RED requires ≥2 voice-bearing rooms.
+  const expectedDistinctVoices = maxRoomVoiceCardinality;
+  let degenerateCollapse = null;
+  if (expectedDistinctVoices >= 2 && distinctVoiceCount < expectedDistinctVoices) {
+    const severity = (distinctVoiceCount <= 1 && voiceRoomCount >= 2) ? 'red' : 'yellow';
+    degenerateCollapse = { distinctVoiceCount, expectedDistinctVoices, severity };
+  }
+  const red = degenerateCollapse !== null && degenerateCollapse.severity === 'red';
+  const yellow = collisions.length > 0 || outOfBand.length > 0 || degenerateCollapse !== null;
+  return {
+    outOfBand, degenerateCollapse,
+    expectedPerVoice: Number(expectedPerVoice.toFixed(2)),
+    expectedDistinctVoices, distinctVoiceCount,
+    severityBand: classifySeverity(red, yellow),
+  };
+}
+
 function checkVoiceDistribution(events) {
   // CORPUS-30-LIVE-PATH-WIRING Fix 2: attribution-presence precondition.
   const presence = botAssignmentVoicePresence(events);
@@ -2239,14 +2332,19 @@ function checkVoiceDistribution(events) {
     };
   }
   // Per room (scenarioId): voice_pair_collision when two bots share voiceId.
-  // Per run: voice covers <5 or >12 slots (target 5-10 per voice).
+  // Per run: CORPUS-30-DIVERSITY-001 recalibrated band (expected ≈
+  // totalAssignments / distinctVoices per voice; see recalibrateVoiceBand).
   const perScenario = new Map(); // scenarioId → Set<voiceId>
   const voiceCounts = new Map();
+  let maxRoomVoiceCardinality = 0;
+  let voiceRoomCount = 0; // rooms carrying ≥1 voice-bearing assignment
   for (const e of events) {
     if (!e || e.stage !== 'bot_assignment' || !Array.isArray(e.assignments)) continue;
     const set = new Set();
+    let roomVoiceCount = 0;
     for (const a of e.assignments) {
       if (a && a.voiceId) {
+        roomVoiceCount += 1;
         voiceCounts.set(a.voiceId, (voiceCounts.get(a.voiceId) || 0) + 1);
         if (set.has(a.voiceId)) {
           set.add(`__collision__:${a.voiceId}`);
@@ -2255,6 +2353,8 @@ function checkVoiceDistribution(events) {
         }
       }
     }
+    if (roomVoiceCount > 0) voiceRoomCount += 1;
+    if (roomVoiceCount > maxRoomVoiceCardinality) maxRoomVoiceCardinality = roomVoiceCount;
     perScenario.set(e.scenarioId, set);
   }
   const collisions = [];
@@ -2263,15 +2363,15 @@ function checkVoiceDistribution(events) {
       collisions.push({ scenarioId, voiceId: v.slice('__collision__:'.length) });
     }
   }
-  const outOfBand = [];
-  for (const [voiceId, count] of voiceCounts.entries()) {
-    if (count < 5 || count > 12) outOfBand.push({ voiceId, count });
-  }
-  const yellow = collisions.length > 0 || outOfBand.length > 0;
+  const band = recalibrateVoiceBand(voiceCounts, collisions, maxRoomVoiceCardinality, voiceRoomCount);
   return {
     voiceCounts: [...voiceCounts.entries()].sort((a, b) => b[1] - a[1]),
-    collisions, outOfBand,
-    severityBand: classifySeverity(false, yellow),
+    collisions, outOfBand: band.outOfBand,
+    expectedPerVoice: band.expectedPerVoice,
+    expectedDistinctVoices: band.expectedDistinctVoices,
+    distinctVoiceCount: band.distinctVoiceCount,
+    degenerateCollapse: band.degenerateCollapse,
+    severityBand: band.severityBand,
   };
 }
 
@@ -2696,7 +2796,26 @@ function buildMarkdownReport({ runId, args, bools, events, scenarios, bundle }) 
   lines.push(`- Duplicate-seed: severityBand=\`${diversity.duplicateSeed.severityBand}\` · total=${diversity.duplicateSeed.total} · unique=${diversity.duplicateSeed.unique} · duplicates=${diversity.duplicateSeed.duplicates.length}`);
   lines.push(`- Repeated-option (within thread): severityBand=\`${diversity.repeatedOption.severityBand}\` · repeated within=${diversity.repeatedOption.repeatedWithin.length} · cross-thread collisions=${diversity.repeatedOption.crossThreadCollisions.length}`);
   lines.push(`- Spine saturation: severityBand=\`${diversity.spineSaturation.severityBand}\` · repeated-threads=${diversity.spineSaturation.repeatedThreads.length} · low-diversity windows=${diversity.spineSaturation.lowDiversityWindows.length}${diversity.spineSaturation.saturatedSpine ? ` · saturated=\`${diversity.spineSaturation.saturatedSpine.spineId}\` (${Math.round(diversity.spineSaturation.saturatedSpine.fraction * 100)}%)` : ''}`);
-  lines.push(`- Voice distribution: severityBand=\`${diversity.voiceDistribution.severityBand}\` · collisions=${diversity.voiceDistribution.collisions.length} · out-of-band voices=${diversity.voiceDistribution.outOfBand.length}`);
+  // CORPUS-30-DIVERSITY-001 spine reframe (documentation only — no band
+  // change): spine is STRICTER than voices on purpose. With 9 spines and
+  // ~10 moves per thread, some within-thread repeats are unavoidable by
+  // the pigeonhole principle; the per-thread repeated-thread YELLOW is an
+  // expected artifact, NOT a planner regression. Run-wide spread stays
+  // healthy (max share well under the 0.35 saturation threshold). Any
+  // future widening of the spine catalogue is a separate follow-up
+  // (CORPUS-SPINE-CATALOG-EXPANSION), not part of this card.
+  lines.push('  - _Spine note: spines are stricter than voices — within-thread repeats are expected by pigeonhole (9 spines × ~10 moves/thread); not a regression._');
+  // CORPUS-30-DIVERSITY-001 recalibrated voice band: expected ≈
+  // totalAssignments / distinctVoices per voice (the synthesizer counts
+  // as its own voice slot); GREEN on the planner's honest B-voices-each-N
+  // distribution, YELLOW/RED only on material per-voice deviation, a
+  // same-room collision, or a distinct-voice collapse. `n/a` (never
+  // green) when no voice-bearing bot_assignment events are present.
+  lines.push(
+    diversity.voiceDistribution.severityBand === 'n/a'
+      ? `- Voice distribution: severityBand=\`n/a\` · reason=\`${diversity.voiceDistribution.reason}\`${diversity.voiceDistribution.reasonDetail ? ` · ${diversity.voiceDistribution.reasonDetail}` : ''}`
+      : `- Voice distribution: severityBand=\`${diversity.voiceDistribution.severityBand}\` · collisions=${diversity.voiceDistribution.collisions.length} · out-of-band voices=${diversity.voiceDistribution.outOfBand.length} · expected≈${diversity.voiceDistribution.expectedPerVoice}/voice (N/botCount) · distinct=${diversity.voiceDistribution.distinctVoiceCount}/${diversity.voiceDistribution.expectedDistinctVoices}${diversity.voiceDistribution.degenerateCollapse ? ' · COLLAPSE' : ''}`,
+  );
   lines.push(
     diversity.sameyMove.severityBand === 'n/a'
       ? `- Samey-move (text distance): severityBand=\`n/a\` · reason=\`${diversity.sameyMove.reason}\`${diversity.sameyMove.reasonDetail ? ` · ${diversity.sameyMove.reasonDetail}` : ''}`
