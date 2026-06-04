@@ -73,6 +73,14 @@ function parseArgs(argv) {
     reportName: null,
     postToDevSupabase: false,
     allowSyntheticDissent: true,
+    // CORPUS-QUEUE-SMOKE-TAG-001: opt-in smoke-tag prefix for debate
+    // titles. Default OFF — when off, produced titles are byte-identical
+    // to today's. `--smoke-tag` enables the literal default; valued
+    // `--queue-smoke-tag <literal>` overrides the literal and implies
+    // enable. The runner NEVER reads CLASSIFIER_QUEUE_ROUTING_ENABLED;
+    // arming routing is an operator action on the submit-argument Edge fn.
+    smokeTag: false,
+    queueSmokeTag: null,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -93,8 +101,70 @@ function parseArgs(argv) {
     else if (a === '--report-name' && argv[i + 1]) args.reportName = String(argv[++i]);
     else if (a === '--post-to-dev-supabase') args.postToDevSupabase = true;
     else if (a === '--no-synthetic-dissent') args.allowSyntheticDissent = false;
+    // CORPUS-QUEUE-SMOKE-TAG-001: smoke-tag opt-in. `--smoke-tag` enables
+    // the contract literal; `--queue-smoke-tag <literal>` overrides the
+    // literal AND implies enable (so a bare override never silently
+    // produces an unprefixed title).
+    else if (a === '--smoke-tag') args.smokeTag = true;
+    else if (a === '--queue-smoke-tag' && argv[i + 1]) { args.queueSmokeTag = String(argv[++i]); args.smokeTag = true; }
   }
   return args;
+}
+
+// ── CORPUS-QUEUE-SMOKE-TAG-001 — queue smoke-tag prefix resolver ──
+//
+// The Edge routing predicate routes a stored argument's classifier
+// fan-out to the ARCH-001 async queue when
+// `debate.title.startsWith(CLASSIFIER_QUEUE_SMOKE_TAG)`
+// (`supabase/functions/_shared/booleanObservations/classifierQueueRouting.ts:174`).
+// The contract literal is pinned at `classifierQueueRouting.ts:51`.
+//
+// This is the RUNNER's OWN copy of that literal — the runner is Node and
+// cannot import the Deno-side const. The drift guard in
+// `__tests__/corpusSmokeTagPrefix.test.ts` fails if this literal diverges
+// from the Edge contract, so the two cannot silently drift apart.
+//
+// IMPORTANT: this resolver only changes the synthetic-corpus debate TITLE
+// the runner writes. It NEVER arms routing, NEVER reads
+// CLASSIFIER_QUEUE_ROUTING_ENABLED, and NEVER changes whether a post is
+// accepted (the deterministic rules engine remains the sole acceptance
+// gate; classifiers run after an argument is stored).
+const CORPUS_SMOKE_TAG_DEFAULT = '[arch-001-queue-smoke]';
+
+// Pure resolver: returns '' when smoke-tagging is disabled, or
+// '<tag> ' (tag literal + single trailing space) when enabled. Enable
+// sources (any one suffices): the `--smoke-tag` flag, a `--queue-smoke-tag`
+// override (which sets args.smokeTag), or the `CORPUS_SMOKE_TAG=true` env
+// opt-in. The tag literal default is CORPUS_SMOKE_TAG_DEFAULT; it can be
+// overridden by `--queue-smoke-tag <literal>` (highest precedence) or the
+// non-empty `CLASSIFIER_QUEUE_SMOKE_TAG` env var. Default OFF.
+function resolveSmokeTagPrefix(args, env = process.env) {
+  const a = args || {};
+  const e = env || {};
+  const envEnabled = String(e.CORPUS_SMOKE_TAG || '').toLowerCase() === 'true';
+  const enabled = a.smokeTag === true || envEnabled;
+  if (!enabled) return '';
+  // Tag literal precedence: explicit CLI override > env literal > default.
+  let tag = CORPUS_SMOKE_TAG_DEFAULT;
+  if (typeof e.CLASSIFIER_QUEUE_SMOKE_TAG === 'string' && e.CLASSIFIER_QUEUE_SMOKE_TAG.trim() !== '') {
+    tag = e.CLASSIFIER_QUEUE_SMOKE_TAG;
+  }
+  if (typeof a.queueSmokeTag === 'string' && a.queueSmokeTag.trim() !== '') {
+    tag = a.queueSmokeTag;
+  }
+  return `${tag} `;
+}
+
+// Single titling helper used at BOTH live title sites (legacy + banked)
+// so the two paths cannot diverge (the §467/§468 twin-divergence lesson).
+// `prefix` is the resolved smoke-tag prefix ('' when off). The claim is
+// sliced to 80 chars; the prefix is applied OUTSIDE that slice so the
+// produced title `startsWith(tag)` at position 0. When prefix === '' the
+// returned title is byte-identical to the pre-change construction.
+function buildRoomTitle({ prefix, claim, runTag, threadIndex }) {
+  const safeClaim = String(claim || '').slice(0, 80);
+  const nn = String(threadIndex).padStart(2, '0');
+  return `${prefix}${safeClaim} [${runTag} t${nn}]`;
 }
 
 function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
@@ -453,7 +523,15 @@ async function postLiveScenario({ args, jsonl, scene, source, dissent, dissentSo
   // without args.runTag fall back to a re-derived tag.
   const runTag = scene.runTag || buildRunTag(runId, 'corpus-dev-synthetic');
   const threadIndex = typeof scene.threadIndex === 'number' ? scene.threadIndex : 0;
-  const roomTitle = `${(source.sourceClaimSummary || scene.title || '').slice(0, 80)} [${runTag} t${String(threadIndex).padStart(2, '0')}]`;
+  // CORPUS-QUEUE-SMOKE-TAG-001: prefix the contract smoke tag OUTSIDE the
+  // 80-char claim slice when opt-in is set; '' (byte-identical) otherwise.
+  const smokeTagPrefix = resolveSmokeTagPrefix(args);
+  const roomTitle = buildRoomTitle({
+    prefix: smokeTagPrefix,
+    claim: source.sourceClaimSummary || scene.title || '',
+    runTag,
+    threadIndex,
+  });
   const debateInsert = await botA.client.from('debates').insert({
     created_by: botA.userId,
     title: roomTitle,
@@ -764,7 +842,16 @@ async function postLiveBankedScenario({
     }
   }
 
-  const roomTitle = `${(seed.claimSummary || scene.title || '').slice(0, 80)} [${runTag} t${String(threadIndex).padStart(2, '0')}]`;
+  // CORPUS-QUEUE-SMOKE-TAG-001: same single titling helper + resolver as
+  // the legacy site so the two paths cannot diverge. '' prefix (default
+  // off) → byte-identical to the pre-change title.
+  const smokeTagPrefix = resolveSmokeTagPrefix(args);
+  const roomTitle = buildRoomTitle({
+    prefix: smokeTagPrefix,
+    claim: seed.claimSummary || scene.title || '',
+    runTag,
+    threadIndex,
+  });
   const debateInsert = await botA.client.from('debates').insert({
     created_by: botA.userId,
     title: roomTitle,
@@ -1833,11 +1920,18 @@ async function main() {
     anthropicCalls: liveCallCounters.anthropicCalls,
     supabaseWrites: liveCallCounters.supabaseWrites,
   });
+  // CORPUS-QUEUE-SMOKE-TAG-001: surface whether the run produced
+  // smoke-taggable titles so a reviewer can confirm at a glance. The tag
+  // is a public literal (no secret). When off, smokeTagApplied is false
+  // and resolvedSmokeTag is null.
+  const runSmokeTagPrefix = resolveSmokeTagPrefix(args);
   jsonl.write('run_summary', {
     runId,
     mode: args.dry ? 'dry' : 'live',
     scenarios: scenarios.length,
     movesGenerated: movesPosted,
+    smokeTagApplied: runSmokeTagPrefix !== '',
+    resolvedSmokeTag: runSmokeTagPrefix !== '' ? runSmokeTagPrefix.trimEnd() : null,
     providerCallSummary: {
       xaiCalls: liveCallCounters.xaiCalls,
       anthropicCalls: liveCallCounters.anthropicCalls,
@@ -2391,6 +2485,12 @@ module.exports = {
   parseArgs,
   envBooleans,
   refuseLive,
+  // CORPUS-QUEUE-SMOKE-TAG-001 — smoke-tag prefix resolver + titling
+  // helper + the runner's own copy of the contract literal (drift-guarded
+  // by __tests__/corpusSmokeTagPrefix.test.ts).
+  CORPUS_SMOKE_TAG_DEFAULT,
+  resolveSmokeTagPrefix,
+  buildRoomTitle,
   readDryFixture,
   shapeFixtureSource,
   buildSyntheticDissent,
