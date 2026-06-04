@@ -295,7 +295,52 @@ export type AdminUsersAction =
   | 'view_as_snapshot'
   // ADMIN-AI-001 — semantic-referee runtime provider-mode config.
   | 'get_semantic_config'
-  | 'set_semantic_config';
+  | 'set_semantic_config'
+  // ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility state.
+  | 'set_argument_inactive'
+  | 'bulk_set_argument_inactive';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility state types.
+//
+// The Edge handler stamps `inactive_at` server-side. The client never picks
+// a timestamp on the wire. Result types are mirrored verbatim from the
+// shared zod-derived types in
+// `supabase/functions/_shared/adminInactiveSchemas.ts` (which is Deno-only
+// and therefore not importable from the client bundle).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Hard cap mirrored from BULK_INACTIVE_ID_CAP in the Edge schemas file. */
+export const ADMIN_BULK_INACTIVE_ID_CAP = 100;
+
+export interface SetArgumentInactiveInput {
+  argumentId: string;
+  inactive: boolean;
+  reason?: string;
+}
+
+export interface BulkSetArgumentInactiveInput {
+  argumentIds: string[];
+  inactive: boolean;
+  reason?: string;
+}
+
+export interface PerIdInactiveResult {
+  argumentId: string;
+  ok: boolean;
+  /** Canonical errorCodes: not_found, read_failed, update_failed, audit_write_failed. */
+  errorCode?: string;
+}
+
+export interface SetArgumentInactiveResponse {
+  result: PerIdInactiveResult;
+}
+
+export interface BulkInactiveResponse {
+  results: PerIdInactiveResult[];
+  appliedCount: number;
+  failedCount: number;
+}
 
 /**
  * ADMIN-AI-001 — the semantic-referee runtime provider-mode config, as the
