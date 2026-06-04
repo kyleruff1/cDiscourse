@@ -139,6 +139,14 @@ export interface RoomArgumentInput {
   createdAt: string;
   /** Optional — true when the row is a bot fixture move. */
   isBot?: boolean | null;
+  /**
+   * ADMIN-ARGS-INACTIVE-001 — lifecycle visibility column. NULL = active,
+   * NOT NULL = inactive (hidden from default views). Belt-and-braces:
+   * filter expressions in this model exclude rows with a non-null value.
+   * Optional so existing callers (e.g. tests with synthetic fixtures) keep
+   * compiling; absence is treated as `null` (active).
+   */
+  inactiveAt?: string | null;
 }
 
 /**
@@ -304,7 +312,11 @@ function resolveOpeningArgumentId(
   argumentsList: ReadonlyArray<RoomArgumentInput>,
 ): string | null {
   const roots = sortedChronologically(
-    argumentsList.filter((a) => a.parentId === null && a.status === 'posted'),
+    // ADMIN-ARGS-INACTIVE-001 — exclude inactive rows from the opening
+    // argument resolution. Absence of the field is treated as active.
+    argumentsList.filter(
+      (a) => a.parentId === null && a.status === 'posted' && (a.inactiveAt ?? null) === null,
+    ),
   );
   return roots.length > 0 ? roots[0].id : null;
 }
@@ -456,9 +468,12 @@ function latestMainlineAuthor(
     seatHolders.add(contract.primaryOpponentUserId);
   }
   const chronological = sortedChronologically(
+    // ADMIN-ARGS-INACTIVE-001 — exclude inactive rows from the seat-holder
+    // lookback. Absence of the field is treated as active.
     argumentsList.filter(
       (a) =>
         a.status === 'posted' &&
+        (a.inactiveAt ?? null) === null &&
         a.authorId !== null &&
         seatHolders.has(a.authorId),
     ),

@@ -62,6 +62,13 @@ export interface GalleryArgumentInput {
     sourceText?: string | null;
     quote?: string | null;
   }> | null;
+  /**
+   * ADMIN-ARGS-INACTIVE-001 — lifecycle visibility column. NULL = active,
+   * NOT NULL = inactive (hidden from default views). Belt-and-braces:
+   * `buildGallery` excludes rows with a non-null value. Optional; absence
+   * is treated as `null` (active).
+   */
+  inactiveAt?: string | null;
 }
 
 export interface GalleryFlagInput {
@@ -858,7 +865,13 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
   const cards: ConversationGalleryCard[] = [];
 
   for (const debate of input.debates) {
-    const messages = (argsByDebate[debate.id] || []).filter((m) => m.status !== 'deleted');
+    // ADMIN-ARGS-INACTIVE-001 — pure-TS belt-and-braces: exclude inactive
+    // rows from the gallery. RLS + SQL predicate already exclude them for
+    // non-admin viewers; this is defense-in-depth. Absence of inactiveAt
+    // is treated as active.
+    const messages = (argsByDebate[debate.id] || []).filter(
+      (m) => m.status !== 'deleted' && (m.inactiveAt ?? null) === null,
+    );
     const stats = deriveMessageStats(messages, flagsById, tagsById);
 
     // EV-003 — derive the room's evidence debts from the SAME already-fetched

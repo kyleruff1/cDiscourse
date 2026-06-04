@@ -8,6 +8,12 @@ import {
   type AdminArgumentsSortField,
   type AdminArgumentsSortDirection,
 } from './adminArgumentsApi';
+import {
+  markArgumentInactive,
+  markArgumentActive,
+  bulkMarkArgumentInactive,
+  bulkMarkArgumentActive,
+} from './adminArgumentsInactiveApi';
 import type { AdminArgumentRow } from './types';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
 import {
@@ -17,6 +23,7 @@ import {
   formatQualifierLabel,
   getQualifierUiNudge,
 } from '../arguments/messageQualifiers';
+import { ADMIN_BULK_INACTIVE_ID_CAP } from '../../lib/edgeFunctions';
 import { SURFACE_TOKENS, CONTROL, STATUS, ARGUMENT } from '../../lib/designTokens';
 
 type LoadState = 'idle' | 'loading' | 'error';
@@ -35,7 +42,9 @@ const SORT_COLUMN_LABEL: Record<AdminArgumentsSortField, string> = {
 
 // ── Column widths. The table is wrapped in a horizontal ScrollView so the
 //    columns never collapse into "card metadata" on narrow viewports.
+//    ADMIN-ARGS-INACTIVE-001 — adds `select` (checkbox) and `inactive` cols.
 const COL = {
+  select: 48,
   status: 80,
   side: 64,
   type: 130,
@@ -43,10 +52,12 @@ const COL = {
   cat: 170,
   created: 170,
   updated: 170,
-  action: 120,
+  inactive: 150,
+  action: 160,
 };
 const TABLE_WIDTH =
-  COL.status + COL.side + COL.type + COL.debate + COL.cat + COL.created + COL.updated + COL.action;
+  COL.select + COL.status + COL.side + COL.type + COL.debate + COL.cat +
+  COL.created + COL.updated + COL.inactive + COL.action;
 
 function shortenId(id: string | null | undefined, prefix = 6): string {
   if (!id) return '—';
@@ -128,23 +139,100 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
   const [limit, setLimit] = useState(50);
   const [sortField, setSortField] = useState<AdminArgumentsSortField>('updated_at');
   const [sortDirection, setSortDirection] = useState<AdminArgumentsSortDirection>('desc');
+  // ADMIN-ARGS-INACTIVE-001 — Show-inactives toggle + selection state.
+  // includeInactives drives the loader's SQL filter; selected drives bulk.
+  const [includeInactives, setIncludeInactives] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  // Bulk dialog state. `null` when closed; { kind, ids } when open.
+  const [bulkDialog, setBulkDialog] = useState<
+    | { kind: 'inactive' | 'active'; ids: string[]; reason: string }
+    | null
+  >(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const fetchRows = useCallback(async () => {
     setState('loading');
     setError(null);
     try {
-      const fresh = await loadAdminArguments({ limit, sortField, sortDirection });
+      const fresh = await loadAdminArguments({
+        limit,
+        sortField,
+        sortDirection,
+        includeInactives,
+      });
       setRows(fresh);
       const counts = await countArgumentFlags(fresh.map((r) => r.id));
       setFlagsByArgId(counts);
+      // Selection state should be pruned to rows still present after a reload.
+      setSelectedIds((prev) => {
+        const visible = new Set(fresh.map((r) => r.id));
+        const next = new Set<string>();
+        for (const id of prev) if (visible.has(id)) next.add(id);
+        return next;
+      });
       setState('idle');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setState('error');
     }
-  }, [limit, sortField, sortDirection]);
+  }, [limit, sortField, sortDirection, includeInactives]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const openBulkDialog = useCallback((kind: 'inactive' | 'active') => {
+    const ids = Array.from(selectedIds).slice(0, ADMIN_BULK_INACTIVE_ID_CAP);
+    setBulkDialog({ kind, ids, reason: '' });
+  }, [selectedIds]);
+
+  const submitBulkDialog = useCallback(async () => {
+    if (!bulkDialog) return;
+    setBulkBusy(true);
+    try {
+      const reason = bulkDialog.reason.trim() ? bulkDialog.reason.trim() : undefined;
+      if (bulkDialog.kind === 'inactive') {
+        await bulkMarkArgumentInactive(bulkDialog.ids, reason);
+      } else {
+        await bulkMarkArgumentActive(bulkDialog.ids, reason);
+      }
+      setBulkDialog(null);
+      setSelectedIds(new Set());
+      await fetchRows();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [bulkDialog, fetchRows]);
+
+  const handleRowMarkInactive = useCallback(async (argumentId: string) => {
+    try {
+      await markArgumentInactive(argumentId);
+      await fetchRows();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [fetchRows]);
+
+  const handleRowMarkActive = useCallback(async (argumentId: string) => {
+    try {
+      await markArgumentActive(argumentId);
+      await fetchRows();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [fetchRows]);
 
   const toggleSort = useCallback((field: AdminArgumentsSortField) => {
     if (field === sortField) {
@@ -209,6 +297,98 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
         </Pressable>
       </View>
 
+      {/* ADMIN-ARGS-INACTIVE-001 — Show-inactives toggle + bulk toolbar. */}
+      <View style={styles.subToolbar} accessibilityLabel="admin-arguments-sub-toolbar">
+        <Pressable
+          style={[styles.toggle, includeInactives && styles.toggleOn]}
+          onPress={() => setIncludeInactives((v) => !v)}
+          accessibilityRole="switch"
+          accessibilityLabel="admin-arguments-show-inactives-toggle"
+          accessibilityState={{ checked: includeInactives }}
+          testID="admin-arguments-show-inactives-toggle"
+        >
+          <Text style={[styles.toggleText, includeInactives && styles.toggleTextOn]}>
+            {includeInactives ? 'Hiding inactives off' : 'Hiding inactives on'} ({includeInactives ? 'showing all' : 'active only'})
+          </Text>
+        </Pressable>
+        {selectedIds.size > 0 && (
+          <View style={styles.bulkToolbar} testID="admin-arguments-bulk-toolbar">
+            <Text style={styles.bulkSelectedText}>
+              Selected: {selectedIds.size} of {rows.length}
+            </Text>
+            <Pressable
+              style={styles.bulkBtn}
+              onPress={() => openBulkDialog('inactive')}
+              accessibilityRole="button"
+              accessibilityLabel="admin-arguments-bulk-action-mark-inactive"
+              testID="admin-arguments-bulk-action-mark-inactive"
+            >
+              <Text style={styles.bulkBtnText}>Mark inactive</Text>
+            </Pressable>
+            <Pressable
+              style={styles.bulkBtn}
+              onPress={() => openBulkDialog('active')}
+              accessibilityRole="button"
+              accessibilityLabel="admin-arguments-bulk-action-mark-active"
+              testID="admin-arguments-bulk-action-mark-active"
+            >
+              <Text style={styles.bulkBtnText}>Mark active</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+
+      {bulkDialog && (
+        <View
+          style={styles.bulkDialog}
+          accessibilityLabel="admin-arguments-bulk-confirm-dialog"
+          testID="admin-arguments-bulk-confirm-dialog"
+        >
+          <Text style={styles.bulkDialogTitle}>
+            {bulkDialog.kind === 'inactive'
+              ? `Mark ${bulkDialog.ids.length} argument(s) inactive?`
+              : `Mark ${bulkDialog.ids.length} argument(s) active?`}
+          </Text>
+          <Text style={styles.bulkDialogBody}>
+            {bulkDialog.kind === 'inactive'
+              ? 'These rows will be hidden from default views. Reversible.'
+              : 'These rows will return to default views.'}
+          </Text>
+          <TextInput
+            style={styles.bulkReasonInput}
+            placeholder="Admin note (optional, admin-only)"
+            placeholderTextColor={SURFACE_TOKENS.placeholder}
+            value={bulkDialog.reason}
+            onChangeText={(t) => setBulkDialog((d) => (d ? { ...d, reason: t } : d))}
+            maxLength={500}
+            multiline
+            accessibilityLabel="admin-arguments-bulk-reason-input"
+            testID="admin-arguments-bulk-reason-input"
+          />
+          <View style={styles.bulkDialogActions}>
+            <Pressable
+              style={[styles.bulkBtn, bulkBusy && styles.bulkBtnDisabled]}
+              onPress={submitBulkDialog}
+              disabled={bulkBusy}
+              accessibilityRole="button"
+              accessibilityLabel="admin-arguments-bulk-confirm"
+              testID="admin-arguments-bulk-confirm"
+            >
+              <Text style={styles.bulkBtnText}>{bulkBusy ? 'Working…' : 'Confirm'}</Text>
+            </Pressable>
+            <Pressable
+              style={styles.bulkBtnCancel}
+              onPress={() => setBulkDialog(null)}
+              accessibilityRole="button"
+              accessibilityLabel="admin-arguments-bulk-cancel"
+              testID="admin-arguments-bulk-cancel"
+            >
+              <Text style={styles.bulkBtnCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       <Text style={styles.sortStatus} accessibilityLabel="admin-arguments-sort-status">
         Sorted by: {sortStatusColumn} ({sortStatusHuman})
       </Text>
@@ -251,6 +431,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
       >
         <View style={styles.table} accessibilityLabel="admin-arguments-table" testID="admin-arguments-table">
           <View style={styles.headerRow} accessibilityLabel="admin-arguments-header-row">
+            <PlainHeader label="" width={COL.select} />
             <PlainHeader label="Status" width={COL.status} />
             <PlainHeader label="Side" width={COL.side} />
             <PlainHeader label="Type" width={COL.type} />
@@ -274,6 +455,13 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
               width={COL.updated}
               testID="admin-arguments-header-updated"
             />
+            <View
+              style={[styles.headerCell, { width: COL.inactive }]}
+              accessibilityLabel="admin-arguments-header-inactive"
+              testID="admin-arguments-header-inactive"
+            >
+              <Text style={styles.headerCellText}>Inactive</Text>
+            </View>
             <PlainHeader label="Action" width={COL.action} />
           </View>
 
@@ -297,12 +485,26 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
               const flagCount = flagsByArgId[r.id] || 0;
               const hasUpdated = Boolean(r.updatedAt);
               const updatedDisplay = hasUpdated ? r.updatedAt : r.createdAt;
+              const isSelected = selectedIds.has(r.id);
+              const isInactive = r.inactiveAt !== null;
               return (
                 <View
                   key={r.id}
                   style={styles.row}
                   accessibilityLabel={`admin-argument-${r.id}`}
                 >
+                  <View style={[styles.cell, { width: COL.select }]}>
+                    <Pressable
+                      style={[styles.checkbox, isSelected && styles.checkboxChecked]}
+                      onPress={() => toggleSelect(r.id)}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={`Select argument ${r.id}`}
+                      accessibilityState={{ checked: isSelected }}
+                      testID={`admin-arguments-checkbox-${r.id}`}
+                    >
+                      <Text style={styles.checkboxMark}>{isSelected ? '✓' : ''}</Text>
+                    </Pressable>
+                  </View>
                   <View style={[styles.cell, { width: COL.status }]}>
                     <Badge label={r.status} variant="status" />
                   </View>
@@ -378,6 +580,25 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                       <Text style={styles.fallbackHint}>same as created</Text>
                     )}
                   </View>
+                  {/* ADMIN-ARGS-INACTIVE-001 — Inactive column. Renders the
+                       boolean chip + relative timestamp when set. The
+                       inactive_reason field is NEVER rendered here (§10a). */}
+                  <View
+                    style={[styles.cell, { width: COL.inactive }]}
+                    accessibilityLabel={`admin-arguments-cell-inactive-${r.id}`}
+                    testID="admin-arguments-cell-inactive"
+                  >
+                    {isInactive ? (
+                      <>
+                        <Badge label="Inactive" variant="flag" />
+                        <Text style={styles.timeRelative}>
+                          {formatRelativeShort(r.inactiveAt!)}
+                        </Text>
+                      </>
+                    ) : (
+                      <Badge label="Active" variant="status" />
+                    )}
+                  </View>
                   <View style={[styles.cell, { width: COL.action }]}>
                     {onOpenArgumentTimeline ? (
                       <Pressable
@@ -391,6 +612,28 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                       </Pressable>
                     ) : (
                       <Text style={styles.actionId}>{shortenId(r.id, 8)}</Text>
+                    )}
+                    {/* ADMIN-ARGS-INACTIVE-001 — per-row Mark inactive/active. */}
+                    {isInactive ? (
+                      <Pressable
+                        style={styles.rowInactiveBtn}
+                        onPress={() => handleRowMarkActive(r.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Mark argument ${r.id} active`}
+                        testID={`admin-arguments-row-mark-active-${r.id}`}
+                      >
+                        <Text style={styles.rowInactiveBtnText}>Mark active</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        style={styles.rowInactiveBtn}
+                        onPress={() => handleRowMarkInactive(r.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Mark argument ${r.id} inactive`}
+                        testID={`admin-arguments-row-mark-inactive-${r.id}`}
+                      >
+                        <Text style={styles.rowInactiveBtnText}>Mark inactive</Text>
+                      </Pressable>
                     )}
                   </View>
                 </View>
@@ -561,6 +804,96 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   nudge: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontStyle: 'italic', marginTop: 4 },
+  // ADMIN-ARGS-INACTIVE-001 — sub-toolbar / bulk / checkbox / dialog styles.
+  subToolbar: {
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: SURFACE_TOKENS.raised,
+    borderBottomWidth: 1,
+    borderBottomColor: SURFACE_TOKENS.divider,
+    alignItems: 'center',
+    gap: 8,
+  },
+  toggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: SURFACE_TOKENS.raised,
+    borderWidth: 1,
+    borderColor: SURFACE_TOKENS.divider,
+  },
+  toggleOn: {
+    backgroundColor: STATUS.info.bg,
+    borderColor: STATUS.info.fg,
+  },
+  toggleText: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
+  toggleTextOn: { color: STATUS.info.fg },
+  bulkToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 8,
+  },
+  bulkSelectedText: { fontSize: 11, color: SURFACE_TOKENS.textPrimary, fontWeight: '600' },
+  bulkBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: CONTROL.primary.bg,
+  },
+  bulkBtnText: { color: CONTROL.primary.fg, fontSize: 11, fontWeight: '700' },
+  bulkBtnDisabled: { opacity: 0.5 },
+  bulkBtnCancel: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: SURFACE_TOKENS.raised,
+  },
+  bulkBtnCancelText: { color: SURFACE_TOKENS.textSecondary, fontSize: 11, fontWeight: '600' },
+  bulkDialog: {
+    padding: 12,
+    backgroundColor: SURFACE_TOKENS.elevated,
+    borderBottomWidth: 1,
+    borderBottomColor: SURFACE_TOKENS.border,
+    gap: 6,
+  },
+  bulkDialogTitle: { fontSize: 13, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
+  bulkDialogBody: { fontSize: 11, color: SURFACE_TOKENS.textSecondary },
+  bulkReasonInput: {
+    minHeight: 40,
+    backgroundColor: SURFACE_TOKENS.inputBg,
+    color: SURFACE_TOKENS.textPrimary,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 4,
+    fontSize: 12,
+  },
+  bulkDialogActions: { flexDirection: 'row', gap: 8 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: SURFACE_TOKENS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: SURFACE_TOKENS.inputBg,
+  },
+  checkboxChecked: {
+    backgroundColor: STATUS.info.bg,
+    borderColor: STATUS.info.fg,
+  },
+  checkboxMark: { color: STATUS.info.fg, fontSize: 14, fontWeight: '700' },
+  rowInactiveBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: SURFACE_TOKENS.raised,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  rowInactiveBtnText: { color: SURFACE_TOKENS.textSecondary, fontSize: 10, fontWeight: '600' },
   footnote: {
     padding: 8,
     fontSize: 10,

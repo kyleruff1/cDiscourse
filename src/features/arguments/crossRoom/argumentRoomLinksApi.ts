@@ -300,11 +300,14 @@ export async function loadPriorRoomContext(
 
   // Read 2 — the prior room's posted argument rows. RLS returns rows ONLY
   // to an authorized reader; a non-authorized reader gets zero rows.
+  // ADMIN-ARGS-INACTIVE-001 — belt-and-braces filter; RLS already excludes
+  // inactive rows for non-admin viewers.
   const argsRes = await supabase
     .from('arguments')
     .select('id')
     .eq('debate_id', targetDebateId)
-    .eq('status', 'posted');
+    .eq('status', 'posted')
+    .is('inactive_at', null);
 
   if (argsRes.error) {
     return { ok: false, error: `loadPriorRoomContext failed: ${sanitizeError(argsRes.error)}` };

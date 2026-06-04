@@ -40,6 +40,20 @@ export interface ArgumentRow {
   clientSubmissionId: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * ADMIN-ARGS-INACTIVE-001 — lifecycle visibility state. NULL = active
+   * (default views include it). NOT NULL = inactive (default views exclude
+   * it). Pure-TS belt-and-braces filters compare against NULL.
+   *
+   * For non-admin viewers, this should ALWAYS be `null` because the RLS
+   * policy + SQL predicate at the loader excludes inactive rows. The
+   * pure-TS belt-and-braces check is defense-in-depth against future
+   * loader refactors.
+   *
+   * Optional so existing test fixtures (predate this column) keep
+   * compiling; absence is treated as `null` (active) at every filter site.
+   */
+  inactiveAt?: string | null;
 }
 
 export interface ArgumentTag {

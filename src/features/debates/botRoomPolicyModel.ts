@@ -235,7 +235,11 @@ function resolveRootArgument(
   argumentsList: ReadonlyArray<RoomArgumentInput>,
 ): RoomArgumentInput | null {
   const roots = sortedChronologically(
-    argumentsList.filter((a) => a.parentId === null && a.status === 'posted'),
+    // ADMIN-ARGS-INACTIVE-001 — exclude inactive rows from root resolution.
+    // Absence of the field is treated as active.
+    argumentsList.filter(
+      (a) => a.parentId === null && a.status === 'posted' && (a.inactiveAt ?? null) === null,
+    ),
   );
   return roots.length > 0 ? roots[0] : null;
 }
