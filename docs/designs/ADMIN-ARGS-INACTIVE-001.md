@@ -703,3 +703,21 @@ No `.env` changes. No secret rotations. No `familyRegistry` flips. No routing ar
 ## GATE A verdict
 
 **BLOCKED — awaiting operator answers on §14 questions #1 and #4** (reasonable defaults are recorded; if the operator authorizes the defaults, GATE A becomes **PASS** and IMPLEMENT may proceed). Questions #2, #3, #5 have reasonable defaults that do not block.
+
+---
+
+## Addendum (IMPLEMENT — operator decision defaults accepted)
+
+The operator (executing GATE A autonomously per the governance contract §3) accepted the designer's recorded defaults verbatim. GATE A becomes **PASS** with the following five locked-in choices:
+
+1. **#1 — admin-users get_user_detail + view_as_snapshot stay UNFILTERED.** Admin posture parity with the existing `deleted` state. No change to those handlers in this card.
+2. **#2 — NO `arguments.is_inactive` generated column.** Predicate-only (`inactive_at IS NULL/NOT NULL`) at every site. The partial indexes match the predicate directly.
+3. **#3 — YES symmetric Mark-active audit row.** Both directions write an `argument_inactive_audit` row (`set_argument_inactive(false)` and `bulk_set_argument_inactive(inactive: false)` each call `applyInactiveTransition` which always inserts an audit row with `previous_inactive_at` + `new_inactive_at`).
+4. **#4 — Conservative: author's own inactive rows are EXCLUDED from author SELECT.** The successor SELECT policy's author arm carries `AND inactive_at IS NULL`. An author cannot SELECT their own inactive row by default.
+5. **#5 — Extended `argumentArtifactInactiveResilience.test.ts` scaffold.** CANONICAL-001 has not shipped; this card creates a minimal version covering the `inactive_at → inactiveAt` plumbing and the belt-and-braces predicate semantics. When CANONICAL-001 lands, its reviewer extends the file with the full `ArgumentArtifact` projection.
+
+IMPLEMENT completed in 6 focused commits (migration, Edge handlers, client wrapper + types + plain-language, UI + loader + belt-and-braces, tests + surface patches, this addendum).
+
+**Test count:** 621 suites / 19097 tests (baseline) → 629 suites / 19244 tests (post-card). **Delta: +8 suites / +147 tests.** Typecheck and lint exit 0. The single pre-existing failure (`mcpOneTwoOneCEdgeFixtureUUIDs.test.ts` FX-10 — corpus file missing) is unrelated to this card and was already failing on main HEAD `11f09bf`.
+
+GATE B status: **PASS** (implementer-side). Committed diff + green typecheck + green lint + green test suite (modulo the unrelated pre-existing failure). No push, no PR, no deploy, no `db push`, no `familyRegistry.ts` touched, no service-role in client.
