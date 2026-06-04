@@ -27,6 +27,10 @@ import { AdminUsersRequestSchema, normalizeBlockValue } from '../_shared/adminSc
 import type { AdminUsersRequest } from '../_shared/adminSchemas.ts';
 import type { createServiceClient } from '../_shared/supabaseClients.ts';
 import { buildInviteAuditPayload, buildInviteResponse } from '../_shared/adminInvitePayload.ts';
+import type {
+  PerIdInactiveResult,
+  BulkInactiveResponse,
+} from '../_shared/adminInactiveSchemas.ts';
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
@@ -97,6 +101,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return await handleGetSemanticConfig(body, caller, serviceClient);
       case 'set_semantic_config':
         return await handleSetSemanticConfig(body, caller, serviceClient);
+      case 'set_argument_inactive':
+        return await handleSetArgumentInactive(body, caller, serviceClient);
+      case 'bulk_set_argument_inactive':
+        return await handleBulkSetArgumentInactive(body, caller, serviceClient);
     }
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -816,4 +824,169 @@ async function writeConfigAudit(
     // eslint-disable-next-line no-console
     console.error('semantic_config_audit_write_failed', err);
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility handlers.
+//
+// Doctrine:
+//   - The Edge handler computes `inactive_at = (inactive ? now() : NULL)`
+//     server-side. The client NEVER picks a timestamp on the wire.
+//   - `inactive: false` (Mark active) records a symmetric audit row with
+//     `previous_inactive_at = <old timestamp>` and `new_inactive_at = NULL`.
+//   - The argument body is NEVER stored in the audit row.
+//   - The response NEVER returns the argument body. Only per-id ok/error.
+//   - Logging strips body / reason / argumentId at info level — only the
+//     action name + counts are logged (defense-in-depth; the body never
+//     reaches log destinations).
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Per-id transition. Reads previous_inactive_at, updates the row, inserts
+ * one argument_inactive_audit row. Returns a PerIdInactiveResult.
+ *
+ * Atomicity contract: the audit insert references the same `inactive_at`
+ * the handler just stamped. If the UPDATE returns zero rows (id not found),
+ * the handler short-circuits to `{ok: false, errorCode: 'not_found'}` and
+ * the audit row is NOT inserted. There is no partial state.
+ */
+async function applyInactiveTransition(
+  sc: SC,
+  argumentId: string,
+  inactive: boolean,
+  reason: string | null,
+  actorUserId: string,
+): Promise<PerIdInactiveResult> {
+  // Read previous state for the audit row.
+  const { data: prev, error: readErr } = await sc
+    .from('arguments')
+    .select('id, inactive_at')
+    .eq('id', argumentId)
+    .maybeSingle();
+  if (readErr) {
+    return { argumentId, ok: false, errorCode: 'read_failed' };
+  }
+  if (!prev) {
+    return { argumentId, ok: false, errorCode: 'not_found' };
+  }
+
+  const newInactiveAt = inactive ? new Date().toISOString() : null;
+  const newInactiveBy = inactive ? actorUserId : null;
+  const newInactiveReason = inactive ? reason : null;
+
+  // UPDATE arguments. Service-role bypasses RLS; the admin boundary was
+  // already enforced by `requireAdmin` at the entry point.
+  const { error: updErr } = await sc
+    .from('arguments')
+    .update({
+      inactive_at: newInactiveAt,
+      inactive_by: newInactiveBy,
+      inactive_reason: newInactiveReason,
+    })
+    .eq('id', argumentId);
+  if (updErr) {
+    return { argumentId, ok: false, errorCode: 'update_failed' };
+  }
+
+  // Insert the argument-scoped audit row. The body is NEVER stored here.
+  const { error: auditErr } = await sc
+    .from('argument_inactive_audit')
+    .insert({
+      actor_user_id: actorUserId,
+      argument_id: argumentId,
+      previous_inactive_at: (prev as { inactive_at: string | null }).inactive_at,
+      new_inactive_at: newInactiveAt,
+      reason,
+    });
+  if (auditErr) {
+    // The column mutation already landed; an audit-write failure here would
+    // leave history incomplete. Surface the failure rather than silently
+    // succeeding so the operator can investigate.
+    // eslint-disable-next-line no-console
+    console.error('argument_inactive_audit_write_failed', auditErr.message);
+    return { argumentId, ok: false, errorCode: 'audit_write_failed' };
+  }
+
+  return { argumentId, ok: true };
+}
+
+async function handleSetArgumentInactive(
+  body: Req<'set_argument_inactive'>,
+  caller: Caller,
+  sc: SC,
+): Promise<Response> {
+  const reason = body.reason ?? null;
+  const result = await applyInactiveTransition(
+    sc,
+    body.argumentId,
+    body.inactive,
+    reason,
+    caller.userId,
+  );
+
+  // Defense-in-depth: also write the generic admin-traffic audit row. The
+  // payload carries the action shape but NOT the body (body never touches
+  // the audit log anywhere on this path).
+  await writeAdminAudit({
+    actorUserId: caller.userId,
+    action: 'set_argument_inactive',
+    reason: body.reason ?? null,
+    payload: {
+      argumentId: body.argumentId,
+      inactive: body.inactive,
+      ok: result.ok,
+      errorCode: result.errorCode,
+    },
+  });
+
+  if (!result.ok) {
+    return validationFailed({ error: 'argument_inactive_transition_failed', detail: result.errorCode ?? 'unknown' });
+  }
+  return ok({ result });
+}
+
+async function handleBulkSetArgumentInactive(
+  body: Req<'bulk_set_argument_inactive'>,
+  caller: Caller,
+  sc: SC,
+): Promise<Response> {
+  const reason = body.reason ?? null;
+  const results: PerIdInactiveResult[] = [];
+  for (const argumentId of body.argumentIds) {
+    const r = await applyInactiveTransition(
+      sc,
+      argumentId,
+      body.inactive,
+      reason,
+      caller.userId,
+    );
+    results.push(r);
+  }
+  const appliedCount = results.filter((r) => r.ok).length;
+  const failedCount = results.length - appliedCount;
+
+  // The batch-level admin audit row carries counts and an aggregated
+  // error-code summary — NEVER the argument bodies. The reason is also
+  // recorded at the batch level.
+  const errorCodeSummary: Record<string, number> = {};
+  for (const r of results) {
+    if (!r.ok && r.errorCode) {
+      errorCodeSummary[r.errorCode] = (errorCodeSummary[r.errorCode] ?? 0) + 1;
+    }
+  }
+  await writeAdminAudit({
+    actorUserId: caller.userId,
+    action: 'bulk_set_argument_inactive',
+    reason: body.reason ?? null,
+    payload: {
+      inactive: body.inactive,
+      requestedCount: body.argumentIds.length,
+      appliedCount,
+      failedCount,
+      errorCodeSummary,
+    },
+  });
+
+  const response: BulkInactiveResponse = { results, appliedCount, failedCount };
+  return ok(response);
 }
