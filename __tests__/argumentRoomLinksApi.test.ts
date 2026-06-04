@@ -61,6 +61,13 @@ jest.mock('../src/lib/supabase', () => {
           call.eqArgs.push([col, val]);
           return builder;
         };
+        // ADMIN-ARGS-INACTIVE-001 — argumentRoomLinksApi now chains
+        // .is('inactive_at', null) on the arguments read. The mock
+        // accepts and discards `.is(col, val)` so the chain still settles.
+        builder.is = (col: string, val: unknown) => {
+          call.eqArgs.push([col, val]);
+          return builder;
+        };
         builder.order = () => builder;
         builder.single = () => settle();
         builder.maybeSingle = () => settle();
