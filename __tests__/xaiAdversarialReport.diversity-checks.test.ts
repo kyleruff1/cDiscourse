@@ -75,17 +75,20 @@ describe('CORPUS-30 reporter diversity checks', () => {
     expect(checks.spineSaturation.saturatedSpine?.spineId).toBe('quote-led');
   });
 
-  it('detects samey-move pair when intra-thread Jaccard ≥0.60 (red)', () => {
-    const events: Event[] = [
-      mkRender({ threadIndex: 0, moveId: 'm3', body: 'primary source mechanism mode shift parallel arterial' }),
-      mkRender({ threadIndex: 0, moveId: 'm4', body: 'primary source mechanism mode shift parallel arterial demand' }),
-    ];
+  it('detects samey-move pair when intra-thread Jaccard ≥0.60 (red) — >=50 samples', () => {
+    // CORPUS-30-QUALITY-001 (b): 60 identical bodies → Jaccard 1.0; the
+    // metric needs >= 50 non-empty samples before it reads any band.
+    const events: Event[] = [];
+    for (let i = 0; i < 60; i++) {
+      events.push(mkRender({ threadIndex: 0, moveId: `m${i}`, body: 'primary source mechanism mode shift parallel arterial demand' }));
+    }
     const checks = runner.runDiversityChecks(events);
     expect(checks.sameyMove.severityBand).toBe('red');
     expect(checks.sameyMove.highPairs.length).toBeGreaterThan(0);
+    expect(checks.sameyMove.overallMean).toBeGreaterThan(0);
   });
 
-  it('returns green when no anomalies present', () => {
+  it('returns green when no anomalies present (>=50 disjoint samples)', () => {
     // Spread spineIds across 9 distinct values so no spine exceeds 35%.
     const spinesPool = ['quote-led', 'counterexample-led', 'definition-led', 'mechanism-led', 'scope-led', 'concession-then-pivot', 'question-led', 'analogy-led', 'second-order-effect-led'];
     const events: Event[] = [
@@ -94,8 +97,11 @@ describe('CORPUS-30 reporter diversity checks', () => {
     for (let i = 0; i < 9; i++) {
       events.push(mkMove({ threadIndex: i, moveIndex: 3, bankName: 'evidence_pressure_options', optionIndex: i, optionId: `opt-${i}`, spineId: spinesPool[i] }));
     }
-    events.push(mkRender({ threadIndex: 0, moveId: 'm3', body: 'specific mechanism press primary source' }));
-    events.push(mkRender({ threadIndex: 0, moveId: 'm4', body: 'distinct counterexample about analogy and definition narrowing' }));
+    // 60 lexically-disjoint bodies → samey reads green with enough data.
+    // Each body uses a unique vocabulary so no pair shares tokens.
+    for (let i = 0; i < 60; i++) {
+      events.push(mkRender({ threadIndex: i % 9, moveId: `m${i}`, body: `wordaaa${i} wordbbb${i} wordccc${i} wordddd${i} wordeee${i}` }));
+    }
     const checks = runner.runDiversityChecks(events);
     expect(checks.duplicateSeed.severityBand).toBe('green');
     expect(checks.repeatedOption.severityBand).toBe('green');

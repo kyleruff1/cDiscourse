@@ -769,6 +769,15 @@ const SAMEY_MOVE_STOPWORDS = new Set([
   's', 't', 'd', 're', 've', 'll',
 ]);
 
+// CORPUS-30-QUALITY-001 (b): hash a single normalized token to an 8-hex
+// sha256 prefix. The set of these per-token hashes is body-free
+// (non-reversible to readable text; order destroyed by set-dedupe+sort)
+// yet supports set-intersection Jaccard — unlike the single 16-hex
+// `tokenSetHash`, which can only detect exact clones.
+function hashToken(token) {
+  return createHash('sha256').update(String(token)).digest('hex').slice(0, 8);
+}
+
 function computeMoveBodySampleHash(body) {
   const tokens = String(body || '')
     .toLowerCase()
@@ -777,7 +786,15 @@ function computeMoveBodySampleHash(body) {
     .filter((w) => w && w.length >= 3 && !SAMEY_MOVE_STOPWORDS.has(w));
   const tokenSet = Array.from(new Set(tokens)).sort();
   const tokenSetHash = createHash('sha256').update(tokenSet.join('|')).digest('hex').slice(0, 16);
-  return { tokenSetHash, tokenCount: tokenSet.length, tokenSet };
+  // CORPUS-30-QUALITY-001 (b): body-free hashed-shingle fingerprint.
+  // Each token hashed independently to an 8-hex prefix; the SET (deduped
+  // + sorted) is emitted, never the readable tokens. Supports real
+  // Jaccard on the committable live path.
+  const tokenHashes = Array.from(new Set(tokenSet.map(hashToken))).sort();
+  // CORPUS-30-QUALITY-001 (c): a single POSITIONAL hash of the first body
+  // token (pre-sort) for the opening-phrase band — body-free, one hash.
+  const openingTokenHash = tokens.length > 0 ? hashToken(tokens[0]) : null;
+  return { tokenSetHash, tokenCount: tokenSet.length, tokenSet, tokenHashes, openingTokenHash };
 }
 
 // ── CORPUS-30-LIVE-PATH-WIRING — banked live scenario posting ──
@@ -910,6 +927,11 @@ async function postLiveBankedScenario({
       moveIndex,
       tokenSetHash: sample.tokenSetHash,
       tokenCount: sample.tokenCount,
+      // CORPUS-30-QUALITY-001 (b)/(c): body-free hashed-shingle
+      // fingerprint (set of 8-hex per-token hashes) + one positional
+      // opening-token hash. No readable token / no raw body is emitted.
+      tokenHashes: sample.tokenHashes,
+      openingTokenHash: sample.openingTokenHash,
     });
   }
 
@@ -1113,7 +1135,11 @@ async function postLiveBankedScenario({
       validationFailureReason: rendered.validationFailureReason || null,
       alignmentFailureReason: rendered.alignmentFailureReason || null,
       jsonParsed: Boolean(rendered.jsonParsed),
-      moveId, validated: true, issues: [], seed: false,
+      // CORPUS-30-QUALITY-001 (a): populate the per-issue fallback tokens
+      // (was emitted empty). Only non-empty on deterministic_fallback
+      // moves; the reporter buckets on each token's PREFIX so no label
+      // value / option-spine id payload reaches committable output.
+      moveId, validated: true, issues: rendered.fallbackIssues || [], seed: false,
     });
     emitMoveBodySample({ moveId, moveIndex, body: rendered.body });
 
@@ -2249,23 +2275,73 @@ function checkVoiceDistribution(events) {
   };
 }
 
+// CORPUS-30-QUALITY-001 (b)/(c): minimum non-empty body samples below
+// which the samey-move metric MUST emit `n/a (insufficient_samples)`
+// and NEVER read green. Absence of evidence is not evidence of
+// cleanliness (§4-T HARD GUARD — reading green on absent data is a
+// silent bar of zero).
+const SAMEY_MOVE_SAMPLE_FLOOR = 50;
+// High-overlap pair threshold (Jaccard) and yellow mean threshold —
+// the same constants the legacy dev/dry Jaccard path already used.
+const SAMEY_MOVE_HIGH_PAIR_THRESHOLD = 0.60;
+const SAMEY_MOVE_YELLOW_MEAN_THRESHOLD = 0.35;
+
+function jaccardSets(a, b) {
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const x of a) if (b.has(x)) intersection += 1;
+  const unionSize = a.size + b.size - intersection;
+  return unionSize === 0 ? 0 : intersection / unionSize;
+}
+
+// Compute high-overlap pairs + real means over a per-thread map whose
+// entries are { moveId, tokens:Set }. Shared by the hashed-shingle live
+// path and the dev/dry body path so both twins compute identically.
+function sameyMovePairwise(perThread) {
+  const highPairs = [];
+  let meanSum = 0;
+  let meanCount = 0;
+  let maxIntraThreadMean = 0;
+  for (const [threadIndex, list] of perThread.entries()) {
+    let threadSum = 0;
+    let threadCount = 0;
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const j2 = jaccardSets(list[i].tokens, list[j].tokens);
+        threadSum += j2; threadCount += 1;
+        if (j2 >= SAMEY_MOVE_HIGH_PAIR_THRESHOLD) {
+          highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: Number(j2.toFixed(3)) });
+        }
+      }
+    }
+    if (threadCount > 0) {
+      const tm = threadSum / threadCount;
+      meanSum += threadSum; meanCount += threadCount;
+      if (tm > maxIntraThreadMean) maxIntraThreadMean = tm;
+    }
+  }
+  const overallMean = meanCount > 0 ? meanSum / meanCount : 0;
+  return {
+    highPairs,
+    overallMean: Number(overallMean.toFixed(3)),
+    maxIntraThreadMean: Number(maxIntraThreadMean.toFixed(3)),
+  };
+}
+
 function checkSameyMove(events) {
-  // CORPUS-30-LIVE-PATH-WIRING Fix 2 (option a): compute Jaccard on the
-  // hashed normalized non-stopword token-sets carried by the
+  // CORPUS-30-QUALITY-001 (b): compute a REAL token-set Jaccard on the
+  // body-free hashed-shingle fingerprint (`tokenHashes`) carried by the
   // `move_body_sample` JSONL event. Body text NEVER reaches a
-  // committable Markdown summary — the reporter only sees the
-  // tokenSetHash. Backward-compat: when no `move_body_sample` events
-  // are present, fall back to scanning `bot_move_render.move.body`
-  // (dry-mode behaviour). When NEITHER source exists, return n/a.
+  // committable Markdown summary — the reporter only sees per-token
+  // sha256 prefixes. When `tokenHashes` is absent (legacy JSONL), fall
+  // back to strict-clone detection on `tokenSetHash`. When no
+  // `move_body_sample` events are present, fall back to scanning
+  // `bot_move_render.move.body` (dev/dry mode). When NEITHER source
+  // exists, return n/a (attribution_absent).
   //
-  // The Jaccard for hashed token-sets degenerates because each move
-  // has exactly one hash; two moves with the same hash → Jaccard 1.0
-  // (severe clone), distinct hashes → 0.0. We use hash equality as a
-  // strict clone detector. This is the "by construction" property
-  // (operator ratified default §9 #1): the reporter cannot leak body
-  // content; severe template clones still surface; finer-grained
-  // overlap is computed only when raw body is available in the
-  // gitignored JSONL (e.g. dry-mode `bot_move_render.move.body`).
+  // §4-T HARD GUARD: when fewer than SAMEY_MOVE_SAMPLE_FLOOR (50)
+  // non-empty body samples exist, emit `n/a (insufficient_samples)` and
+  // DO NOT compute a green/yellow/red band — never green by absence.
   const STOP = new Set([
     'a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that',
     'these', 'those', 'i', 'you', 'we', 'they', 'be', 'are', 'was',
@@ -2277,13 +2353,6 @@ function checkSameyMove(events) {
     return new Set(
       String(s || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').split(/\s+/).filter((w) => w && w.length >= 3 && !STOP.has(w)),
     );
-  }
-  function jaccard(a, b) {
-    if (a.size === 0 || b.size === 0) return 0;
-    let intersection = 0;
-    for (const x of a) if (b.has(x)) intersection += 1;
-    const unionSize = a.size + b.size - intersection;
-    return unionSize === 0 ? 0 : intersection / unionSize;
   }
 
   const hasSample = hasAnyMoveBodySample(events);
@@ -2297,78 +2366,259 @@ function checkSameyMove(events) {
     };
   }
 
-  // Source-of-truth selection: prefer move_body_sample (carries hash +
-  // tokenCount only) because that's the production live-mode signal.
-  // bot_move_render.body remains the dev/dry-mode signal and supports
-  // finer-grained mean overlap.
   const perThread = new Map();
   const source = hasSample ? 'move_body_sample' : 'bot_move_render';
   if (hasSample) {
+    // Count non-empty samples for the floor; detect whether the
+    // fingerprint (tokenHashes) is present on EVERY non-empty sample.
+    let nonEmptySamples = 0;
+    let fingerprintComplete = true;
     for (const e of events) {
       if (!e || e.stage !== 'move_body_sample') continue;
+      const tokenCount = typeof e.tokenCount === 'number' ? e.tokenCount : 0;
+      const hashes = Array.isArray(e.tokenHashes) ? e.tokenHashes : null;
+      const nonEmpty = tokenCount > 0 || (hashes && hashes.length > 0);
+      if (nonEmpty) nonEmptySamples += 1;
+      if (nonEmpty && !hashes) fingerprintComplete = false;
       if (typeof e.threadIndex !== 'number') continue;
-      if (typeof e.tokenSetHash !== 'string') continue;
       if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
-      perThread.get(e.threadIndex).push({ moveId: e.moveId, tokenSetHash: e.tokenSetHash, tokenCount: e.tokenCount || 0 });
+      perThread.get(e.threadIndex).push({
+        moveId: e.moveId,
+        tokenSetHash: typeof e.tokenSetHash === 'string' ? e.tokenSetHash : null,
+        tokenCount,
+        tokens: hashes ? new Set(hashes) : null,
+      });
     }
+
+    // §4-T HARD GUARD: below the sample floor → n/a, never green.
+    if (nonEmptySamples < SAMEY_MOVE_SAMPLE_FLOOR) {
+      return {
+        source,
+        highPairs: [], overallMean: 0, maxIntraThreadMean: 0,
+        severityBand: 'n/a',
+        reason: 'insufficient_samples',
+        reasonDetail: `${nonEmptySamples}/${SAMEY_MOVE_SAMPLE_FLOOR} non-empty body samples`,
+        sampleCount: nonEmptySamples,
+      };
+    }
+
+    if (fingerprintComplete) {
+      // Real Jaccard over the hashed-shingle sets.
+      const { highPairs, overallMean, maxIntraThreadMean } = sameyMovePairwise(perThread);
+      const yellow = overallMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD || maxIntraThreadMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD;
+      const red = highPairs.length > 0;
+      return {
+        source, highPairs, overallMean, maxIntraThreadMean,
+        sampleCount: nonEmptySamples,
+        severityBand: classifySeverity(red, yellow),
+      };
+    }
+
+    // Legacy JSONL without tokenHashes — strict-clone detection only,
+    // but STILL gated by the n/a floor above (never green by absence).
     const highPairs = [];
     for (const [threadIndex, list] of perThread.entries()) {
       for (let i = 0; i < list.length; i++) {
         for (let j = i + 1; j < list.length; j++) {
-          if (list[i].tokenSetHash === list[j].tokenSetHash && list[i].tokenCount >= 4) {
+          if (list[i].tokenSetHash && list[i].tokenSetHash === list[j].tokenSetHash && list[i].tokenCount >= 4) {
             highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: 1.0 });
           }
         }
       }
     }
-    const yellow = false; // we only have strict clone detection here
     const red = highPairs.length > 0;
     return {
-      source,
-      highPairs, overallMean: 0, maxIntraThreadMean: 0,
-      severityBand: classifySeverity(red, yellow),
+      source, highPairs, overallMean: 0, maxIntraThreadMean: 0,
+      sampleCount: nonEmptySamples,
+      fingerprint: 'legacy_clone_only',
+      severityBand: classifySeverity(red, false),
     };
   }
 
   // Dev/dry-mode path — body available in bot_move_render.
+  let renderSamples = 0;
   for (const e of events) {
     if (!e || e.stage !== 'bot_move_render') continue;
     if (typeof e.threadIndex !== 'number') continue;
     if (!e.move || !e.move.body) continue;
+    const tokens = tok(e.move.body);
+    if (tokens.size > 0) renderSamples += 1;
     if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
-    perThread.get(e.threadIndex).push({ moveId: e.move.moveId, tokens: tok(e.move.body) });
+    perThread.get(e.threadIndex).push({ moveId: e.move.moveId, tokens });
   }
-  const highPairs = [];
-  let meanSum = 0;
-  let meanCount = 0;
-  let maxIntraThreadMean = 0;
-  for (const [threadIndex, list] of perThread.entries()) {
-    let threadSum = 0;
-    let threadCount = 0;
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const j2 = jaccard(list[i].tokens, list[j].tokens);
-        threadSum += j2; threadCount += 1;
-        if (j2 >= 0.60) {
-          highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: Number(j2.toFixed(3)) });
-        }
-      }
-    }
-    if (threadCount > 0) {
-      const tm = threadSum / threadCount;
-      meanSum += threadSum; meanCount += threadCount;
-      if (tm > maxIntraThreadMean) maxIntraThreadMean = tm;
-    }
+  // §4-T HARD GUARD applies equally to the dev/dry path.
+  if (renderSamples < SAMEY_MOVE_SAMPLE_FLOOR) {
+    return {
+      source,
+      highPairs: [], overallMean: 0, maxIntraThreadMean: 0,
+      severityBand: 'n/a',
+      reason: 'insufficient_samples',
+      reasonDetail: `${renderSamples}/${SAMEY_MOVE_SAMPLE_FLOOR} non-empty body samples`,
+      sampleCount: renderSamples,
+    };
   }
-  const overallMean = meanCount > 0 ? meanSum / meanCount : 0;
-  const yellow = overallMean > 0.35 || maxIntraThreadMean > 0.35;
+  const { highPairs, overallMean, maxIntraThreadMean } = sameyMovePairwise(perThread);
+  const yellow = overallMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD || maxIntraThreadMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD;
   const red = highPairs.length > 0;
   return {
-    source,
-    highPairs, overallMean: Number(overallMean.toFixed(3)),
-    maxIntraThreadMean: Number(maxIntraThreadMean.toFixed(3)),
+    source, highPairs, overallMean, maxIntraThreadMean,
+    sampleCount: renderSamples,
     severityBand: classifySeverity(red, yellow),
   };
+}
+
+// CORPUS-30-QUALITY-001 (a): per-fallback-reason histogram.
+//
+// Buckets each move's fallback issue token on its PREFIX (the substring
+// before the first ':'), so `forbidden_user_label:troll` →
+// `forbidden_user_label` and `option_drift:opt-3` → `option_drift`.
+// Plain tokens (`too_short`) bucket as themselves. The prefix rule
+// guarantees no user-label value, body excerpt, or option/spine id
+// payload reaches the committable Markdown (doctrine §1/§9/§10a). The
+// full `<reason>:<id>` strings remain only in the gitignored JSONL.
+function fallbackReasonPrefix(token) {
+  const s = String(token || '');
+  const colon = s.indexOf(':');
+  return colon === -1 ? s : s.slice(0, colon);
+}
+
+function fallbackReasonHistogram(events) {
+  const counts = new Map();
+  let totalFallback = 0;
+  let nonSeedMoveCount = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_validated') continue;
+    if (ev.seed === true) continue; // seed (M1/M2) moves are not fallbacks
+    nonSeedMoveCount += 1;
+    if (ev.source !== 'deterministic_fallback') continue;
+    totalFallback += 1;
+    const issues = Array.isArray(ev.issues) ? ev.issues : [];
+    if (issues.length === 0) {
+      // A fallback with no surfaced issue tokens still counts under a
+      // coarse bucket so the total reconciles.
+      counts.set('unspecified', (counts.get('unspecified') || 0) + 1);
+      continue;
+    }
+    for (const tok of issues) {
+      const prefix = fallbackReasonPrefix(tok);
+      if (!prefix) continue;
+      counts.set(prefix, (counts.get(prefix) || 0) + 1);
+    }
+  }
+  const histogram = [...counts.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+  return {
+    histogram, // [reasonPrefix, count][] sorted desc by count, then name
+    totalFallback,
+    nonSeedMoveCount,
+    dominantReason: histogram.length > 0 ? histogram[0][0] : null,
+  };
+}
+
+// CORPUS-30-QUALITY-001 (c): reporter thresholds with attribution-presence
+// gates. Each metric emits `n/a` when its signal is absent or under the
+// sample floor — NEVER green-by-absence (§4-T HARD GUARD). Thresholds are
+// constants (not env-tunable in this card).
+const QUALITY_THRESHOLDS = {
+  deterministicFallbackPct: { yellow: 20, red: 40 }, // green <=20, yellow 20-40, red >40
+  topOpeningPhrasePct: { yellow: 8, red: 15 },       // green <8, yellow 8-15, red >15
+};
+
+// Body-free opening-phrase distribution: bucket the positional
+// openingTokenHash carried by move_body_sample. No readable opening
+// phrase reaches committable output.
+function openingPhraseTopShare(events) {
+  const counts = new Map();
+  let total = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_body_sample') continue;
+    if (typeof ev.openingTokenHash !== 'string' || ev.openingTokenHash.length === 0) continue;
+    counts.set(ev.openingTokenHash, (counts.get(ev.openingTokenHash) || 0) + 1);
+    total += 1;
+  }
+  if (total === 0) return { present: false, topShare: null, total: 0 };
+  let topCount = 0;
+  for (const c of counts.values()) if (c > topCount) topCount = c;
+  return { present: true, topShare: (topCount / total) * 100, total };
+}
+
+function qualityThresholds(events) {
+  // deterministicFallbackPct — fallback share of non-seed (M3+) moves.
+  const fb = fallbackReasonHistogram(events);
+  let deterministicFallbackPct;
+  if (fb.nonSeedMoveCount === 0) {
+    deterministicFallbackPct = {
+      severityBand: 'n/a', reason: 'attribution_absent',
+      reasonDetail: 'no non-seed move_validated events present',
+      attributionPresent: false, value: null,
+    };
+  } else {
+    const pct = (fb.totalFallback / fb.nonSeedMoveCount) * 100;
+    const t = QUALITY_THRESHOLDS.deterministicFallbackPct;
+    const band = pct > t.red ? 'red' : pct > t.yellow ? 'yellow' : 'green';
+    deterministicFallbackPct = {
+      severityBand: band, attributionPresent: true,
+      value: Number(pct.toFixed(2)),
+      fallback: fb.totalFallback, nonSeed: fb.nonSeedMoveCount,
+    };
+  }
+
+  // topOpeningPhrasePct — most-common opening (positional hash) share.
+  const op = openingPhraseTopShare(events);
+  let topOpeningPhrasePct;
+  if (!op.present) {
+    topOpeningPhrasePct = {
+      severityBand: 'n/a', reason: 'attribution_absent',
+      reasonDetail: 'no opening-phrase signal present',
+      attributionPresent: false, value: null,
+    };
+  } else {
+    const t = QUALITY_THRESHOLDS.topOpeningPhrasePct;
+    const band = op.topShare > t.red ? 'red' : op.topShare >= t.yellow ? 'yellow' : 'green';
+    topOpeningPhrasePct = {
+      severityBand: band, attributionPresent: true,
+      value: Number(op.topShare.toFixed(2)), total: op.total,
+    };
+  }
+
+  // sameyMoveMean — derived from checkSameyMove (already n/a-floored).
+  const samey = checkSameyMove(events);
+  let sameyMoveMean;
+  if (samey.severityBand === 'n/a') {
+    sameyMoveMean = {
+      severityBand: 'n/a',
+      reason: samey.reason || 'insufficient_samples',
+      reasonDetail: samey.reasonDetail || null,
+      attributionPresent: false, value: null,
+      sampleCount: typeof samey.sampleCount === 'number' ? samey.sampleCount : 0,
+    };
+  } else {
+    sameyMoveMean = {
+      severityBand: samey.severityBand, attributionPresent: true,
+      value: samey.overallMean,
+      maxIntraThreadMean: samey.maxIntraThreadMean,
+      highPairs: samey.highPairs.length,
+      sampleCount: typeof samey.sampleCount === 'number' ? samey.sampleCount : 0,
+    };
+  }
+
+  return { deterministicFallbackPct, topOpeningPhrasePct, sameyMoveMean };
+}
+
+// Render the three quality-threshold rows. Shared shape so both reporter
+// twins emit identical Markdown. `n/a` rows print the reason, never a
+// green fold-in.
+function renderQualityThresholdRows(qt) {
+  function row(label, m, unit) {
+    if (m.severityBand === 'n/a') {
+      return `- ${label}: severityBand=\`n/a\` · reason=\`${m.reason}\`${m.reasonDetail ? ` · ${m.reasonDetail}` : ''}`;
+    }
+    return `- ${label}: severityBand=\`${m.severityBand}\` · value=${m.value}${unit}`;
+  }
+  return [
+    row('Deterministic fallback %', qt.deterministicFallbackPct, '%'),
+    row('Top opening-phrase %', qt.topOpeningPhrasePct, '%'),
+    row('Samey-move mean', qt.sameyMoveMean, ''),
+  ];
 }
 
 function runDiversityChecks(events) {
@@ -2447,7 +2697,11 @@ function buildMarkdownReport({ runId, args, bools, events, scenarios, bundle }) 
   lines.push(`- Repeated-option (within thread): severityBand=\`${diversity.repeatedOption.severityBand}\` · repeated within=${diversity.repeatedOption.repeatedWithin.length} · cross-thread collisions=${diversity.repeatedOption.crossThreadCollisions.length}`);
   lines.push(`- Spine saturation: severityBand=\`${diversity.spineSaturation.severityBand}\` · repeated-threads=${diversity.spineSaturation.repeatedThreads.length} · low-diversity windows=${diversity.spineSaturation.lowDiversityWindows.length}${diversity.spineSaturation.saturatedSpine ? ` · saturated=\`${diversity.spineSaturation.saturatedSpine.spineId}\` (${Math.round(diversity.spineSaturation.saturatedSpine.fraction * 100)}%)` : ''}`);
   lines.push(`- Voice distribution: severityBand=\`${diversity.voiceDistribution.severityBand}\` · collisions=${diversity.voiceDistribution.collisions.length} · out-of-band voices=${diversity.voiceDistribution.outOfBand.length}`);
-  lines.push(`- Samey-move (text distance): severityBand=\`${diversity.sameyMove.severityBand}\` · high-overlap pairs=${diversity.sameyMove.highPairs.length} · overall mean=${diversity.sameyMove.overallMean} · max intra-thread mean=${diversity.sameyMove.maxIntraThreadMean}`);
+  lines.push(
+    diversity.sameyMove.severityBand === 'n/a'
+      ? `- Samey-move (text distance): severityBand=\`n/a\` · reason=\`${diversity.sameyMove.reason}\`${diversity.sameyMove.reasonDetail ? ` · ${diversity.sameyMove.reasonDetail}` : ''}`
+      : `- Samey-move (text distance): severityBand=\`${diversity.sameyMove.severityBand}\` · high-overlap pairs=${diversity.sameyMove.highPairs.length} · overall mean=${diversity.sameyMove.overallMean} · max intra-thread mean=${diversity.sameyMove.maxIntraThreadMean}`,
+  );
   lines.push('');
   if (diversity.spineSaturation.perRunDistribution.length > 0) {
     lines.push('### Spine distribution (per-run)');
@@ -2461,6 +2715,27 @@ function buildMarkdownReport({ runId, args, bools, events, scenarios, bundle }) 
     for (const [k, v] of diversity.voiceDistribution.voiceCounts) lines.push(`- \`${k}\` — ${v}`);
     lines.push('');
   }
+
+  // CORPUS-30-QUALITY-001 (a): per-fallback-reason histogram (prefix-only
+  // buckets — never a label value / option-spine id payload).
+  const fbHist = fallbackReasonHistogram(events);
+  lines.push('### Fallback reason histogram');
+  lines.push('');
+  lines.push(`- Deterministic-fallback moves: **${fbHist.totalFallback}** / ${fbHist.nonSeedMoveCount} non-seed moves${fbHist.dominantReason ? ` · dominant cause=\`${fbHist.dominantReason}\`` : ''}`);
+  if (fbHist.histogram.length === 0) {
+    lines.push('- _(no deterministic-fallback moves)_');
+  } else {
+    for (const [reason, count] of fbHist.histogram) lines.push(`- \`${reason}\` — ${count}`);
+  }
+  lines.push('');
+
+  // CORPUS-30-QUALITY-001 (c): quality thresholds with attribution gates.
+  // n/a is rendered literally, never folded into green.
+  const qt = qualityThresholds(events);
+  lines.push('### Quality thresholds');
+  lines.push('');
+  lines.push(...renderQualityThresholdRows(qt));
+  lines.push('');
 
   lines.push('## Compliance');
   lines.push('');
@@ -2512,6 +2787,13 @@ module.exports = {
   checkSpineSaturation,
   checkVoiceDistribution,
   checkSameyMove,
+  // CORPUS-30-QUALITY-001 (a) per-fallback-reason histogram.
+  fallbackReasonHistogram,
+  fallbackReasonPrefix,
+  // CORPUS-30-QUALITY-001 (c) reporter quality thresholds.
+  qualityThresholds,
+  renderQualityThresholdRows,
+  openingPhraseTopShare,
   // Attribution-presence helpers (CORPUS-30-LIVE-PATH-WIRING Fix 2).
   hasAnyMoveValidated,
   moveValidatedFieldPresence,
