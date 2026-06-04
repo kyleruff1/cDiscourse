@@ -2275,23 +2275,73 @@ function checkVoiceDistribution(events) {
   };
 }
 
+// CORPUS-30-QUALITY-001 (b)/(c): minimum non-empty body samples below
+// which the samey-move metric MUST emit `n/a (insufficient_samples)`
+// and NEVER read green. Absence of evidence is not evidence of
+// cleanliness (§4-T HARD GUARD — reading green on absent data is a
+// silent bar of zero).
+const SAMEY_MOVE_SAMPLE_FLOOR = 50;
+// High-overlap pair threshold (Jaccard) and yellow mean threshold —
+// the same constants the legacy dev/dry Jaccard path already used.
+const SAMEY_MOVE_HIGH_PAIR_THRESHOLD = 0.60;
+const SAMEY_MOVE_YELLOW_MEAN_THRESHOLD = 0.35;
+
+function jaccardSets(a, b) {
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const x of a) if (b.has(x)) intersection += 1;
+  const unionSize = a.size + b.size - intersection;
+  return unionSize === 0 ? 0 : intersection / unionSize;
+}
+
+// Compute high-overlap pairs + real means over a per-thread map whose
+// entries are { moveId, tokens:Set }. Shared by the hashed-shingle live
+// path and the dev/dry body path so both twins compute identically.
+function sameyMovePairwise(perThread) {
+  const highPairs = [];
+  let meanSum = 0;
+  let meanCount = 0;
+  let maxIntraThreadMean = 0;
+  for (const [threadIndex, list] of perThread.entries()) {
+    let threadSum = 0;
+    let threadCount = 0;
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const j2 = jaccardSets(list[i].tokens, list[j].tokens);
+        threadSum += j2; threadCount += 1;
+        if (j2 >= SAMEY_MOVE_HIGH_PAIR_THRESHOLD) {
+          highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: Number(j2.toFixed(3)) });
+        }
+      }
+    }
+    if (threadCount > 0) {
+      const tm = threadSum / threadCount;
+      meanSum += threadSum; meanCount += threadCount;
+      if (tm > maxIntraThreadMean) maxIntraThreadMean = tm;
+    }
+  }
+  const overallMean = meanCount > 0 ? meanSum / meanCount : 0;
+  return {
+    highPairs,
+    overallMean: Number(overallMean.toFixed(3)),
+    maxIntraThreadMean: Number(maxIntraThreadMean.toFixed(3)),
+  };
+}
+
 function checkSameyMove(events) {
-  // CORPUS-30-LIVE-PATH-WIRING Fix 2 (option a): compute Jaccard on the
-  // hashed normalized non-stopword token-sets carried by the
+  // CORPUS-30-QUALITY-001 (b): compute a REAL token-set Jaccard on the
+  // body-free hashed-shingle fingerprint (`tokenHashes`) carried by the
   // `move_body_sample` JSONL event. Body text NEVER reaches a
-  // committable Markdown summary — the reporter only sees the
-  // tokenSetHash. Backward-compat: when no `move_body_sample` events
-  // are present, fall back to scanning `bot_move_render.move.body`
-  // (dry-mode behaviour). When NEITHER source exists, return n/a.
+  // committable Markdown summary — the reporter only sees per-token
+  // sha256 prefixes. When `tokenHashes` is absent (legacy JSONL), fall
+  // back to strict-clone detection on `tokenSetHash`. When no
+  // `move_body_sample` events are present, fall back to scanning
+  // `bot_move_render.move.body` (dev/dry mode). When NEITHER source
+  // exists, return n/a (attribution_absent).
   //
-  // The Jaccard for hashed token-sets degenerates because each move
-  // has exactly one hash; two moves with the same hash → Jaccard 1.0
-  // (severe clone), distinct hashes → 0.0. We use hash equality as a
-  // strict clone detector. This is the "by construction" property
-  // (operator ratified default §9 #1): the reporter cannot leak body
-  // content; severe template clones still surface; finer-grained
-  // overlap is computed only when raw body is available in the
-  // gitignored JSONL (e.g. dry-mode `bot_move_render.move.body`).
+  // §4-T HARD GUARD: when fewer than SAMEY_MOVE_SAMPLE_FLOOR (50)
+  // non-empty body samples exist, emit `n/a (insufficient_samples)` and
+  // DO NOT compute a green/yellow/red band — never green by absence.
   const STOP = new Set([
     'a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that',
     'these', 'those', 'i', 'you', 'we', 'they', 'be', 'are', 'was',
@@ -2303,13 +2353,6 @@ function checkSameyMove(events) {
     return new Set(
       String(s || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').split(/\s+/).filter((w) => w && w.length >= 3 && !STOP.has(w)),
     );
-  }
-  function jaccard(a, b) {
-    if (a.size === 0 || b.size === 0) return 0;
-    let intersection = 0;
-    for (const x of a) if (b.has(x)) intersection += 1;
-    const unionSize = a.size + b.size - intersection;
-    return unionSize === 0 ? 0 : intersection / unionSize;
   }
 
   const hasSample = hasAnyMoveBodySample(events);
@@ -2323,76 +2366,103 @@ function checkSameyMove(events) {
     };
   }
 
-  // Source-of-truth selection: prefer move_body_sample (carries hash +
-  // tokenCount only) because that's the production live-mode signal.
-  // bot_move_render.body remains the dev/dry-mode signal and supports
-  // finer-grained mean overlap.
   const perThread = new Map();
   const source = hasSample ? 'move_body_sample' : 'bot_move_render';
   if (hasSample) {
+    // Count non-empty samples for the floor; detect whether the
+    // fingerprint (tokenHashes) is present on EVERY non-empty sample.
+    let nonEmptySamples = 0;
+    let fingerprintComplete = true;
     for (const e of events) {
       if (!e || e.stage !== 'move_body_sample') continue;
+      const tokenCount = typeof e.tokenCount === 'number' ? e.tokenCount : 0;
+      const hashes = Array.isArray(e.tokenHashes) ? e.tokenHashes : null;
+      const nonEmpty = tokenCount > 0 || (hashes && hashes.length > 0);
+      if (nonEmpty) nonEmptySamples += 1;
+      if (nonEmpty && !hashes) fingerprintComplete = false;
       if (typeof e.threadIndex !== 'number') continue;
-      if (typeof e.tokenSetHash !== 'string') continue;
       if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
-      perThread.get(e.threadIndex).push({ moveId: e.moveId, tokenSetHash: e.tokenSetHash, tokenCount: e.tokenCount || 0 });
+      perThread.get(e.threadIndex).push({
+        moveId: e.moveId,
+        tokenSetHash: typeof e.tokenSetHash === 'string' ? e.tokenSetHash : null,
+        tokenCount,
+        tokens: hashes ? new Set(hashes) : null,
+      });
     }
+
+    // §4-T HARD GUARD: below the sample floor → n/a, never green.
+    if (nonEmptySamples < SAMEY_MOVE_SAMPLE_FLOOR) {
+      return {
+        source,
+        highPairs: [], overallMean: 0, maxIntraThreadMean: 0,
+        severityBand: 'n/a',
+        reason: 'insufficient_samples',
+        reasonDetail: `${nonEmptySamples}/${SAMEY_MOVE_SAMPLE_FLOOR} non-empty body samples`,
+        sampleCount: nonEmptySamples,
+      };
+    }
+
+    if (fingerprintComplete) {
+      // Real Jaccard over the hashed-shingle sets.
+      const { highPairs, overallMean, maxIntraThreadMean } = sameyMovePairwise(perThread);
+      const yellow = overallMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD || maxIntraThreadMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD;
+      const red = highPairs.length > 0;
+      return {
+        source, highPairs, overallMean, maxIntraThreadMean,
+        sampleCount: nonEmptySamples,
+        severityBand: classifySeverity(red, yellow),
+      };
+    }
+
+    // Legacy JSONL without tokenHashes — strict-clone detection only,
+    // but STILL gated by the n/a floor above (never green by absence).
     const highPairs = [];
     for (const [threadIndex, list] of perThread.entries()) {
       for (let i = 0; i < list.length; i++) {
         for (let j = i + 1; j < list.length; j++) {
-          if (list[i].tokenSetHash === list[j].tokenSetHash && list[i].tokenCount >= 4) {
+          if (list[i].tokenSetHash && list[i].tokenSetHash === list[j].tokenSetHash && list[i].tokenCount >= 4) {
             highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: 1.0 });
           }
         }
       }
     }
-    const yellow = false; // we only have strict clone detection here
     const red = highPairs.length > 0;
     return {
-      source,
-      highPairs, overallMean: 0, maxIntraThreadMean: 0,
-      severityBand: classifySeverity(red, yellow),
+      source, highPairs, overallMean: 0, maxIntraThreadMean: 0,
+      sampleCount: nonEmptySamples,
+      fingerprint: 'legacy_clone_only',
+      severityBand: classifySeverity(red, false),
     };
   }
 
   // Dev/dry-mode path — body available in bot_move_render.
+  let renderSamples = 0;
   for (const e of events) {
     if (!e || e.stage !== 'bot_move_render') continue;
     if (typeof e.threadIndex !== 'number') continue;
     if (!e.move || !e.move.body) continue;
+    const tokens = tok(e.move.body);
+    if (tokens.size > 0) renderSamples += 1;
     if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
-    perThread.get(e.threadIndex).push({ moveId: e.move.moveId, tokens: tok(e.move.body) });
+    perThread.get(e.threadIndex).push({ moveId: e.move.moveId, tokens });
   }
-  const highPairs = [];
-  let meanSum = 0;
-  let meanCount = 0;
-  let maxIntraThreadMean = 0;
-  for (const [threadIndex, list] of perThread.entries()) {
-    let threadSum = 0;
-    let threadCount = 0;
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const j2 = jaccard(list[i].tokens, list[j].tokens);
-        threadSum += j2; threadCount += 1;
-        if (j2 >= 0.60) {
-          highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: Number(j2.toFixed(3)) });
-        }
-      }
-    }
-    if (threadCount > 0) {
-      const tm = threadSum / threadCount;
-      meanSum += threadSum; meanCount += threadCount;
-      if (tm > maxIntraThreadMean) maxIntraThreadMean = tm;
-    }
+  // §4-T HARD GUARD applies equally to the dev/dry path.
+  if (renderSamples < SAMEY_MOVE_SAMPLE_FLOOR) {
+    return {
+      source,
+      highPairs: [], overallMean: 0, maxIntraThreadMean: 0,
+      severityBand: 'n/a',
+      reason: 'insufficient_samples',
+      reasonDetail: `${renderSamples}/${SAMEY_MOVE_SAMPLE_FLOOR} non-empty body samples`,
+      sampleCount: renderSamples,
+    };
   }
-  const overallMean = meanCount > 0 ? meanSum / meanCount : 0;
-  const yellow = overallMean > 0.35 || maxIntraThreadMean > 0.35;
+  const { highPairs, overallMean, maxIntraThreadMean } = sameyMovePairwise(perThread);
+  const yellow = overallMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD || maxIntraThreadMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD;
   const red = highPairs.length > 0;
   return {
-    source,
-    highPairs, overallMean: Number(overallMean.toFixed(3)),
-    maxIntraThreadMean: Number(maxIntraThreadMean.toFixed(3)),
+    source, highPairs, overallMean, maxIntraThreadMean,
+    sampleCount: renderSamples,
     severityBand: classifySeverity(red, yellow),
   };
 }
@@ -2442,6 +2512,113 @@ function fallbackReasonHistogram(events) {
     nonSeedMoveCount,
     dominantReason: histogram.length > 0 ? histogram[0][0] : null,
   };
+}
+
+// CORPUS-30-QUALITY-001 (c): reporter thresholds with attribution-presence
+// gates. Each metric emits `n/a` when its signal is absent or under the
+// sample floor — NEVER green-by-absence (§4-T HARD GUARD). Thresholds are
+// constants (not env-tunable in this card).
+const QUALITY_THRESHOLDS = {
+  deterministicFallbackPct: { yellow: 20, red: 40 }, // green <=20, yellow 20-40, red >40
+  topOpeningPhrasePct: { yellow: 8, red: 15 },       // green <8, yellow 8-15, red >15
+};
+
+// Body-free opening-phrase distribution: bucket the positional
+// openingTokenHash carried by move_body_sample. No readable opening
+// phrase reaches committable output.
+function openingPhraseTopShare(events) {
+  const counts = new Map();
+  let total = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_body_sample') continue;
+    if (typeof ev.openingTokenHash !== 'string' || ev.openingTokenHash.length === 0) continue;
+    counts.set(ev.openingTokenHash, (counts.get(ev.openingTokenHash) || 0) + 1);
+    total += 1;
+  }
+  if (total === 0) return { present: false, topShare: null, total: 0 };
+  let topCount = 0;
+  for (const c of counts.values()) if (c > topCount) topCount = c;
+  return { present: true, topShare: (topCount / total) * 100, total };
+}
+
+function qualityThresholds(events) {
+  // deterministicFallbackPct — fallback share of non-seed (M3+) moves.
+  const fb = fallbackReasonHistogram(events);
+  let deterministicFallbackPct;
+  if (fb.nonSeedMoveCount === 0) {
+    deterministicFallbackPct = {
+      severityBand: 'n/a', reason: 'attribution_absent',
+      reasonDetail: 'no non-seed move_validated events present',
+      attributionPresent: false, value: null,
+    };
+  } else {
+    const pct = (fb.totalFallback / fb.nonSeedMoveCount) * 100;
+    const t = QUALITY_THRESHOLDS.deterministicFallbackPct;
+    const band = pct > t.red ? 'red' : pct > t.yellow ? 'yellow' : 'green';
+    deterministicFallbackPct = {
+      severityBand: band, attributionPresent: true,
+      value: Number(pct.toFixed(2)),
+      fallback: fb.totalFallback, nonSeed: fb.nonSeedMoveCount,
+    };
+  }
+
+  // topOpeningPhrasePct — most-common opening (positional hash) share.
+  const op = openingPhraseTopShare(events);
+  let topOpeningPhrasePct;
+  if (!op.present) {
+    topOpeningPhrasePct = {
+      severityBand: 'n/a', reason: 'attribution_absent',
+      reasonDetail: 'no opening-phrase signal present',
+      attributionPresent: false, value: null,
+    };
+  } else {
+    const t = QUALITY_THRESHOLDS.topOpeningPhrasePct;
+    const band = op.topShare > t.red ? 'red' : op.topShare >= t.yellow ? 'yellow' : 'green';
+    topOpeningPhrasePct = {
+      severityBand: band, attributionPresent: true,
+      value: Number(op.topShare.toFixed(2)), total: op.total,
+    };
+  }
+
+  // sameyMoveMean — derived from checkSameyMove (already n/a-floored).
+  const samey = checkSameyMove(events);
+  let sameyMoveMean;
+  if (samey.severityBand === 'n/a') {
+    sameyMoveMean = {
+      severityBand: 'n/a',
+      reason: samey.reason || 'insufficient_samples',
+      reasonDetail: samey.reasonDetail || null,
+      attributionPresent: false, value: null,
+      sampleCount: typeof samey.sampleCount === 'number' ? samey.sampleCount : 0,
+    };
+  } else {
+    sameyMoveMean = {
+      severityBand: samey.severityBand, attributionPresent: true,
+      value: samey.overallMean,
+      maxIntraThreadMean: samey.maxIntraThreadMean,
+      highPairs: samey.highPairs.length,
+      sampleCount: typeof samey.sampleCount === 'number' ? samey.sampleCount : 0,
+    };
+  }
+
+  return { deterministicFallbackPct, topOpeningPhrasePct, sameyMoveMean };
+}
+
+// Render the three quality-threshold rows. Shared shape so both reporter
+// twins emit identical Markdown. `n/a` rows print the reason, never a
+// green fold-in.
+function renderQualityThresholdRows(qt) {
+  function row(label, m, unit) {
+    if (m.severityBand === 'n/a') {
+      return `- ${label}: severityBand=\`n/a\` · reason=\`${m.reason}\`${m.reasonDetail ? ` · ${m.reasonDetail}` : ''}`;
+    }
+    return `- ${label}: severityBand=\`${m.severityBand}\` · value=${m.value}${unit}`;
+  }
+  return [
+    row('Deterministic fallback %', qt.deterministicFallbackPct, '%'),
+    row('Top opening-phrase %', qt.topOpeningPhrasePct, '%'),
+    row('Samey-move mean', qt.sameyMoveMean, ''),
+  ];
 }
 
 function runDiversityChecks(events) {
@@ -2520,7 +2697,11 @@ function buildMarkdownReport({ runId, args, bools, events, scenarios, bundle }) 
   lines.push(`- Repeated-option (within thread): severityBand=\`${diversity.repeatedOption.severityBand}\` · repeated within=${diversity.repeatedOption.repeatedWithin.length} · cross-thread collisions=${diversity.repeatedOption.crossThreadCollisions.length}`);
   lines.push(`- Spine saturation: severityBand=\`${diversity.spineSaturation.severityBand}\` · repeated-threads=${diversity.spineSaturation.repeatedThreads.length} · low-diversity windows=${diversity.spineSaturation.lowDiversityWindows.length}${diversity.spineSaturation.saturatedSpine ? ` · saturated=\`${diversity.spineSaturation.saturatedSpine.spineId}\` (${Math.round(diversity.spineSaturation.saturatedSpine.fraction * 100)}%)` : ''}`);
   lines.push(`- Voice distribution: severityBand=\`${diversity.voiceDistribution.severityBand}\` · collisions=${diversity.voiceDistribution.collisions.length} · out-of-band voices=${diversity.voiceDistribution.outOfBand.length}`);
-  lines.push(`- Samey-move (text distance): severityBand=\`${diversity.sameyMove.severityBand}\` · high-overlap pairs=${diversity.sameyMove.highPairs.length} · overall mean=${diversity.sameyMove.overallMean} · max intra-thread mean=${diversity.sameyMove.maxIntraThreadMean}`);
+  lines.push(
+    diversity.sameyMove.severityBand === 'n/a'
+      ? `- Samey-move (text distance): severityBand=\`n/a\` · reason=\`${diversity.sameyMove.reason}\`${diversity.sameyMove.reasonDetail ? ` · ${diversity.sameyMove.reasonDetail}` : ''}`
+      : `- Samey-move (text distance): severityBand=\`${diversity.sameyMove.severityBand}\` · high-overlap pairs=${diversity.sameyMove.highPairs.length} · overall mean=${diversity.sameyMove.overallMean} · max intra-thread mean=${diversity.sameyMove.maxIntraThreadMean}`,
+  );
   lines.push('');
   if (diversity.spineSaturation.perRunDistribution.length > 0) {
     lines.push('### Spine distribution (per-run)');
@@ -2546,6 +2727,14 @@ function buildMarkdownReport({ runId, args, bools, events, scenarios, bundle }) 
   } else {
     for (const [reason, count] of fbHist.histogram) lines.push(`- \`${reason}\` — ${count}`);
   }
+  lines.push('');
+
+  // CORPUS-30-QUALITY-001 (c): quality thresholds with attribution gates.
+  // n/a is rendered literally, never folded into green.
+  const qt = qualityThresholds(events);
+  lines.push('### Quality thresholds');
+  lines.push('');
+  lines.push(...renderQualityThresholdRows(qt));
   lines.push('');
 
   lines.push('## Compliance');
@@ -2601,6 +2790,10 @@ module.exports = {
   // CORPUS-30-QUALITY-001 (a) per-fallback-reason histogram.
   fallbackReasonHistogram,
   fallbackReasonPrefix,
+  // CORPUS-30-QUALITY-001 (c) reporter quality thresholds.
+  qualityThresholds,
+  renderQualityThresholdRows,
+  openingPhraseTopShare,
   // Attribution-presence helpers (CORPUS-30-LIVE-PATH-WIRING Fix 2).
   hasAnyMoveValidated,
   moveValidatedFieldPresence,

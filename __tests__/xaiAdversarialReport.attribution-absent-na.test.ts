@@ -138,9 +138,16 @@ describe('CORPUS-30 reporter — attribution-absent n/a (NOT false green)', () =
         bankName: 'evidence_pressure_options', optionIndex: i,
         optionId: `opt-${i}`, spineId: spines[i], voiceId: 'empiricist',
       });
+    }
+    // CORPUS-30-QUALITY-001 (b): the samey-move metric needs >= 50
+    // non-empty body samples to read a band (§4-T floor). Provide 60
+    // disjoint body-free fingerprints so samey legitimately reads green.
+    for (let i = 0; i < 60; i++) {
       events.push({
-        stage: 'move_body_sample', threadIndex: i, moveIndex: 3,
-        moveId: `m3-${i}`, tokenSetHash: `hash-${i}`, tokenCount: 8,
+        stage: 'move_body_sample', threadIndex: i % 9, moveIndex: 3,
+        moveId: `m3-${i}`, tokenSetHash: `hash-${i}`, tokenCount: 5,
+        tokenHashes: [`q${i}a`, `q${i}b`, `q${i}c`, `q${i}d`, `q${i}e`],
+        openingTokenHash: `op${i}`,
       });
     }
     const d = reportLib.aggregateDiversityChecks(events);

@@ -179,6 +179,9 @@ function buildAdversarialReportMarkdown({ runId, dateIso, mode, providerLabel, a
   // annotation-derived table above). Prefix-only buckets — no payload.
   lines.push(renderFallbackReasonHistogramSection(events));
 
+  // CORPUS-30-QUALITY-001 (c): quality thresholds with attribution gates.
+  lines.push(renderQualityThresholdsSection(events));
+
   // Sample sections (capped + redacted).
   function renderSamples(label, list) {
     const out = [`## ${label}`, ''];
@@ -411,73 +414,172 @@ function voiceDistributionFromEvents(events) {
   };
 }
 
+// CORPUS-30-QUALITY-001 (b)/(c): samey-move constants — TWIN of the
+// runner's. The sample floor below which the metric MUST emit
+// `n/a (insufficient_samples)` and NEVER read green (§4-T HARD GUARD).
+const SAMEY_MOVE_SAMPLE_FLOOR = 50;
+const SAMEY_MOVE_HIGH_PAIR_THRESHOLD = 0.60;
+const SAMEY_MOVE_YELLOW_MEAN_THRESHOLD = 0.35;
+
+function sameyJaccardSets(a, b) {
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const x of a) if (b.has(x)) intersection += 1;
+  const unionSize = a.size + b.size - intersection;
+  return unionSize === 0 ? 0 : intersection / unionSize;
+}
+
+function sameyPairwise(perThread) {
+  const highPairs = [];
+  let meanSum = 0;
+  let meanCount = 0;
+  let maxIntraThreadMean = 0;
+  for (const [threadIndex, list] of perThread.entries()) {
+    let threadSum = 0;
+    let threadCount = 0;
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const j2 = sameyJaccardSets(list[i].tokens, list[j].tokens);
+        threadSum += j2; threadCount += 1;
+        if (j2 >= SAMEY_MOVE_HIGH_PAIR_THRESHOLD) {
+          highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: Number(j2.toFixed(3)) });
+        }
+      }
+    }
+    if (threadCount > 0) {
+      const tm = threadSum / threadCount;
+      meanSum += threadSum; meanCount += threadCount;
+      if (tm > maxIntraThreadMean) maxIntraThreadMean = tm;
+    }
+  }
+  const overallMean = meanCount > 0 ? meanSum / meanCount : 0;
+  return {
+    highPairs,
+    overallMean: Number(overallMean.toFixed(3)),
+    maxIntraThreadMean: Number(maxIntraThreadMean.toFixed(3)),
+  };
+}
+
+function classifySeverity(red, yellow) {
+  if (red) return 'red';
+  if (yellow) return 'yellow';
+  return 'green';
+}
+
+// TWIN of runner `checkSameyMove`. MUST return an identical
+// severityBand/overallMean/maxIntraThreadMean for the same event stream
+// (twin-lockstep test).
 function sameyMoveFromEvents(events) {
+  const STOP = new Set(['a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that', 'these', 'those', 'i', 'you', 'we', 'they', 'be', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as', 'from', 'into', 'than', 'then', 'so', 'if', 'not', 'no', 's', 't', 'd', 're', 've', 'll']);
+  function tok(s) {
+    return new Set(String(s || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').split(/\s+/).filter((w) => w && w.length >= 3 && !STOP.has(w)));
+  }
+
   const hasSample = events.some((e) => e && e.stage === 'move_body_sample');
   const hasRender = events.some((e) => e && e.stage === 'bot_move_render' && e.move && e.move.body);
   if (!hasSample && !hasRender) {
     return {
-      highPairs: [], severityBand: 'n/a',
+      highPairs: [], overallMean: 0, maxIntraThreadMean: 0,
+      severityBand: 'n/a',
       reason: 'attribution_absent',
       reasonDetail: 'no move_body_sample or bot_move_render.body events',
     };
   }
+
+  const perThread = new Map();
+  const source = hasSample ? 'move_body_sample' : 'bot_move_render';
   if (hasSample) {
-    const perThread = new Map();
+    let nonEmptySamples = 0;
+    let fingerprintComplete = true;
     for (const e of events) {
       if (!e || e.stage !== 'move_body_sample') continue;
+      const tokenCount = typeof e.tokenCount === 'number' ? e.tokenCount : 0;
+      const hashes = Array.isArray(e.tokenHashes) ? e.tokenHashes : null;
+      const nonEmpty = tokenCount > 0 || (hashes && hashes.length > 0);
+      if (nonEmpty) nonEmptySamples += 1;
+      if (nonEmpty && !hashes) fingerprintComplete = false;
       if (typeof e.threadIndex !== 'number') continue;
-      if (typeof e.tokenSetHash !== 'string') continue;
       if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
-      perThread.get(e.threadIndex).push({ moveId: e.moveId, tokenSetHash: e.tokenSetHash, tokenCount: e.tokenCount || 0 });
+      perThread.get(e.threadIndex).push({
+        moveId: e.moveId,
+        tokenSetHash: typeof e.tokenSetHash === 'string' ? e.tokenSetHash : null,
+        tokenCount,
+        tokens: hashes ? new Set(hashes) : null,
+      });
     }
+
+    // §4-T HARD GUARD: below the sample floor → n/a, never green.
+    if (nonEmptySamples < SAMEY_MOVE_SAMPLE_FLOOR) {
+      return {
+        source,
+        highPairs: [], overallMean: 0, maxIntraThreadMean: 0,
+        severityBand: 'n/a',
+        reason: 'insufficient_samples',
+        reasonDetail: `${nonEmptySamples}/${SAMEY_MOVE_SAMPLE_FLOOR} non-empty body samples`,
+        sampleCount: nonEmptySamples,
+      };
+    }
+
+    if (fingerprintComplete) {
+      const { highPairs, overallMean, maxIntraThreadMean } = sameyPairwise(perThread);
+      const yellow = overallMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD || maxIntraThreadMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD;
+      const red = highPairs.length > 0;
+      return {
+        source, highPairs, overallMean, maxIntraThreadMean,
+        sampleCount: nonEmptySamples,
+        severityBand: classifySeverity(red, yellow),
+      };
+    }
+
+    // Legacy JSONL without tokenHashes — strict-clone detection only,
+    // still gated by the n/a floor above.
     const highPairs = [];
     for (const [threadIndex, list] of perThread.entries()) {
       for (let i = 0; i < list.length; i++) {
         for (let j = i + 1; j < list.length; j++) {
-          if (list[i].tokenSetHash === list[j].tokenSetHash && list[i].tokenCount >= 4) {
+          if (list[i].tokenSetHash && list[i].tokenSetHash === list[j].tokenSetHash && list[i].tokenCount >= 4) {
             highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: 1.0 });
           }
         }
       }
     }
+    const red = highPairs.length > 0;
     return {
-      source: 'move_body_sample',
-      highPairs,
-      severityBand: highPairs.length > 0 ? 'red' : 'green',
+      source, highPairs, overallMean: 0, maxIntraThreadMean: 0,
+      sampleCount: nonEmptySamples,
+      fingerprint: 'legacy_clone_only',
+      severityBand: classifySeverity(red, false),
     };
   }
-  // Fallback to body-on-render Jaccard.
-  const STOP = new Set(['a', 'an', 'and', 'or', 'but', 'the', 'is', 'it', 'this', 'that', 'these', 'those', 'i', 'you', 'we', 'they', 'be', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as', 'from', 'into', 'than', 'then', 'so', 'if', 'not', 'no', 's', 't', 'd', 're', 've', 'll']);
-  function tok(s) {
-    return new Set(String(s || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').split(/\s+/).filter((w) => w && w.length >= 3 && !STOP.has(w)));
-  }
-  const perThread = new Map();
+
+  // Dev/dry-mode path — body available in bot_move_render.
+  let renderSamples = 0;
   for (const e of events) {
     if (!e || e.stage !== 'bot_move_render') continue;
     if (typeof e.threadIndex !== 'number') continue;
     if (!e.move || !e.move.body) continue;
+    const tokens = tok(e.move.body);
+    if (tokens.size > 0) renderSamples += 1;
     if (!perThread.has(e.threadIndex)) perThread.set(e.threadIndex, []);
-    perThread.get(e.threadIndex).push({ moveId: e.move.moveId, tokens: tok(e.move.body) });
+    perThread.get(e.threadIndex).push({ moveId: e.move.moveId, tokens });
   }
-  const highPairs = [];
-  for (const [threadIndex, list] of perThread.entries()) {
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const a = list[i].tokens;
-        const b = list[j].tokens;
-        if (a.size === 0 || b.size === 0) continue;
-        let intersection = 0;
-        for (const x of a) if (b.has(x)) intersection += 1;
-        const u = a.size + b.size - intersection;
-        const j2 = u === 0 ? 0 : intersection / u;
-        if (j2 >= 0.60) highPairs.push({ threadIndex, a: list[i].moveId, b: list[j].moveId, overlap: Number(j2.toFixed(3)) });
-      }
-    }
+  if (renderSamples < SAMEY_MOVE_SAMPLE_FLOOR) {
+    return {
+      source,
+      highPairs: [], overallMean: 0, maxIntraThreadMean: 0,
+      severityBand: 'n/a',
+      reason: 'insufficient_samples',
+      reasonDetail: `${renderSamples}/${SAMEY_MOVE_SAMPLE_FLOOR} non-empty body samples`,
+      sampleCount: renderSamples,
+    };
   }
+  const { highPairs, overallMean, maxIntraThreadMean } = sameyPairwise(perThread);
+  const yellow = overallMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD || maxIntraThreadMean > SAMEY_MOVE_YELLOW_MEAN_THRESHOLD;
+  const red = highPairs.length > 0;
   return {
-    source: 'bot_move_render',
-    highPairs,
-    severityBand: highPairs.length > 0 ? 'red' : 'green',
+    source, highPairs, overallMean, maxIntraThreadMean,
+    sampleCount: renderSamples,
+    severityBand: classifySeverity(red, yellow),
   };
 }
 
@@ -534,6 +636,111 @@ function renderFallbackReasonHistogramSection(events) {
   } else {
     for (const [reason, count] of fbHist.histogram) lines.push(`- \`${reason}\` — ${count}`);
   }
+  lines.push('');
+  return lines.join('\n');
+}
+
+// CORPUS-30-QUALITY-001 (c): reporter thresholds with attribution gates —
+// TWIN of runner `qualityThresholds`. Identical shape for the same event
+// stream. n/a is never folded into green (§4-T HARD GUARD).
+const QUALITY_THRESHOLDS = {
+  deterministicFallbackPct: { yellow: 20, red: 40 },
+  topOpeningPhrasePct: { yellow: 8, red: 15 },
+};
+
+function openingPhraseTopShare(events) {
+  const counts = new Map();
+  let total = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_body_sample') continue;
+    if (typeof ev.openingTokenHash !== 'string' || ev.openingTokenHash.length === 0) continue;
+    counts.set(ev.openingTokenHash, (counts.get(ev.openingTokenHash) || 0) + 1);
+    total += 1;
+  }
+  if (total === 0) return { present: false, topShare: null, total: 0 };
+  let topCount = 0;
+  for (const c of counts.values()) if (c > topCount) topCount = c;
+  return { present: true, topShare: (topCount / total) * 100, total };
+}
+
+function qualityThresholds(events) {
+  const fb = fallbackReasonHistogram(events);
+  let deterministicFallbackPct;
+  if (fb.nonSeedMoveCount === 0) {
+    deterministicFallbackPct = {
+      severityBand: 'n/a', reason: 'attribution_absent',
+      reasonDetail: 'no non-seed move_validated events present',
+      attributionPresent: false, value: null,
+    };
+  } else {
+    const pct = (fb.totalFallback / fb.nonSeedMoveCount) * 100;
+    const t = QUALITY_THRESHOLDS.deterministicFallbackPct;
+    const band = pct > t.red ? 'red' : pct > t.yellow ? 'yellow' : 'green';
+    deterministicFallbackPct = {
+      severityBand: band, attributionPresent: true,
+      value: Number(pct.toFixed(2)),
+      fallback: fb.totalFallback, nonSeed: fb.nonSeedMoveCount,
+    };
+  }
+
+  const op = openingPhraseTopShare(events);
+  let topOpeningPhrasePct;
+  if (!op.present) {
+    topOpeningPhrasePct = {
+      severityBand: 'n/a', reason: 'attribution_absent',
+      reasonDetail: 'no opening-phrase signal present',
+      attributionPresent: false, value: null,
+    };
+  } else {
+    const t = QUALITY_THRESHOLDS.topOpeningPhrasePct;
+    const band = op.topShare > t.red ? 'red' : op.topShare >= t.yellow ? 'yellow' : 'green';
+    topOpeningPhrasePct = {
+      severityBand: band, attributionPresent: true,
+      value: Number(op.topShare.toFixed(2)), total: op.total,
+    };
+  }
+
+  const samey = sameyMoveFromEvents(events);
+  let sameyMoveMean;
+  if (samey.severityBand === 'n/a') {
+    sameyMoveMean = {
+      severityBand: 'n/a',
+      reason: samey.reason || 'insufficient_samples',
+      reasonDetail: samey.reasonDetail || null,
+      attributionPresent: false, value: null,
+      sampleCount: typeof samey.sampleCount === 'number' ? samey.sampleCount : 0,
+    };
+  } else {
+    sameyMoveMean = {
+      severityBand: samey.severityBand, attributionPresent: true,
+      value: samey.overallMean,
+      maxIntraThreadMean: samey.maxIntraThreadMean,
+      highPairs: samey.highPairs.length,
+      sampleCount: typeof samey.sampleCount === 'number' ? samey.sampleCount : 0,
+    };
+  }
+
+  return { deterministicFallbackPct, topOpeningPhrasePct, sameyMoveMean };
+}
+
+function renderQualityThresholdRows(qt) {
+  function row(label, m, unit) {
+    if (m.severityBand === 'n/a') {
+      return `- ${label}: severityBand=\`n/a\` · reason=\`${m.reason}\`${m.reasonDetail ? ` · ${m.reasonDetail}` : ''}`;
+    }
+    return `- ${label}: severityBand=\`${m.severityBand}\` · value=${m.value}${unit}`;
+  }
+  return [
+    row('Deterministic fallback %', qt.deterministicFallbackPct, '%'),
+    row('Top opening-phrase %', qt.topOpeningPhrasePct, '%'),
+    row('Samey-move mean', qt.sameyMoveMean, ''),
+  ];
+}
+
+function renderQualityThresholdsSection(events) {
+  const qt = qualityThresholds(events);
+  const lines = ['### Quality thresholds', ''];
+  for (const r of renderQualityThresholdRows(qt)) lines.push(r);
   lines.push('');
   return lines.join('\n');
 }
@@ -616,4 +823,9 @@ module.exports = {
   fallbackReasonHistogram,
   fallbackReasonPrefix,
   renderFallbackReasonHistogramSection,
+  // CORPUS-30-QUALITY-001 (c) quality-threshold twin.
+  qualityThresholds,
+  renderQualityThresholdRows,
+  renderQualityThresholdsSection,
+  openingPhraseTopShare,
 };
