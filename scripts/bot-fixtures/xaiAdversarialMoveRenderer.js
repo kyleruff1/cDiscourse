@@ -626,6 +626,11 @@ async function renderAlignedAdversarialMove(props) {
       attempts: 0,
       validationFailureReason: 'no_anthropic_client',
       alignmentFailureReason: null,
+      // CORPUS-30-QUALITY-001 (a): surface the finest-grained fallback
+      // cause the renderer already knows so the reporter can build a
+      // per-reason histogram. No client → the cause IS the missing
+      // client. The histogram buckets on the token prefix only.
+      fallbackIssues: ['no_anthropic_client'],
       skillHash: persona.skillHash,
       jsonParsed: false,
       attribution: attribution || null,
@@ -650,6 +655,11 @@ async function renderAlignedAdversarialMove(props) {
   const needsConcession = slot.argumentType === 'concession' || slot.argumentType === 'synthesis';
 
   let lastAlignmentReason = null;
+  // CORPUS-30-QUALITY-001 (a): retain the per-attempt validation/alignment
+  // issue tokens so the terminal fallback return can surface them on
+  // `fallbackIssues` for the reporter's per-reason histogram. The loop
+  // body rebuilds `issues` each attempt; we keep the last attempt's set.
+  let lastIssues = [];
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     // Build the user payload with the BINDING SELECTED_OPTION block.
     const baseUserPayload = buildAdversarialUserPayload({
@@ -694,6 +704,10 @@ async function renderAlignedAdversarialMove(props) {
         attempts: attempt + 1,
         validationFailureReason: `ai_call_failed: ${sanitizeError(String(err && err.message)).slice(0, 200)}`,
         alignmentFailureReason: null,
+        // CORPUS-30-QUALITY-001 (a): coarse prefix only — the sanitized
+        // error tail stays on validationFailureReason; the histogram
+        // buckets on `ai_call_failed` and never echoes the tail.
+        fallbackIssues: ['ai_call_failed'],
         skillHash: persona.skillHash,
         jsonParsed: false,
         attribution: attribution || null,
@@ -724,6 +738,11 @@ async function renderAlignedAdversarialMove(props) {
     const spineAlignmentReason = validateSpineAlignment(body, spineId);
     if (spineAlignmentReason) issues.push(spineAlignmentReason);
 
+    // CORPUS-30-QUALITY-001 (a): snapshot this attempt's issue tokens so
+    // the terminal fallback (validation_failed_after_retries) can surface
+    // the cause on `fallbackIssues`.
+    lastIssues = issues.slice();
+
     if (issues.length === 0) {
       return {
         source: 'anthropic',
@@ -753,6 +772,15 @@ async function renderAlignedAdversarialMove(props) {
     attempts: maxRetries + 1,
     validationFailureReason: 'validation_failed_after_retries',
     alignmentFailureReason: lastAlignmentReason,
+    // CORPUS-30-QUALITY-001 (a): the per-issue tokens from the last
+    // attempt (banned_canned_phrase / forbidden_user_label:<label> /
+    // missing_concession_marker / missing_target_excerpt / too_short /
+    // <option-or-spine-reason>:<id>). The reporter buckets on the token
+    // PREFIX only, so no label value or option/spine id reaches the
+    // committable Markdown. If every attempt's issue array was empty (the
+    // loop still fell through, e.g. retries exhausted on an edge), this
+    // is [] and the histogram records `validation_failed_after_retries`.
+    fallbackIssues: lastIssues.length > 0 ? lastIssues : ['validation_failed_after_retries'],
     skillHash: persona.skillHash,
     jsonParsed: false,
     attribution: attribution || null,

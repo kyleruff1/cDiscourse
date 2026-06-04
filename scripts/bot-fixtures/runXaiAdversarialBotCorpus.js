@@ -769,6 +769,15 @@ const SAMEY_MOVE_STOPWORDS = new Set([
   's', 't', 'd', 're', 've', 'll',
 ]);
 
+// CORPUS-30-QUALITY-001 (b): hash a single normalized token to an 8-hex
+// sha256 prefix. The set of these per-token hashes is body-free
+// (non-reversible to readable text; order destroyed by set-dedupe+sort)
+// yet supports set-intersection Jaccard — unlike the single 16-hex
+// `tokenSetHash`, which can only detect exact clones.
+function hashToken(token) {
+  return createHash('sha256').update(String(token)).digest('hex').slice(0, 8);
+}
+
 function computeMoveBodySampleHash(body) {
   const tokens = String(body || '')
     .toLowerCase()
@@ -777,7 +786,15 @@ function computeMoveBodySampleHash(body) {
     .filter((w) => w && w.length >= 3 && !SAMEY_MOVE_STOPWORDS.has(w));
   const tokenSet = Array.from(new Set(tokens)).sort();
   const tokenSetHash = createHash('sha256').update(tokenSet.join('|')).digest('hex').slice(0, 16);
-  return { tokenSetHash, tokenCount: tokenSet.length, tokenSet };
+  // CORPUS-30-QUALITY-001 (b): body-free hashed-shingle fingerprint.
+  // Each token hashed independently to an 8-hex prefix; the SET (deduped
+  // + sorted) is emitted, never the readable tokens. Supports real
+  // Jaccard on the committable live path.
+  const tokenHashes = Array.from(new Set(tokenSet.map(hashToken))).sort();
+  // CORPUS-30-QUALITY-001 (c): a single POSITIONAL hash of the first body
+  // token (pre-sort) for the opening-phrase band — body-free, one hash.
+  const openingTokenHash = tokens.length > 0 ? hashToken(tokens[0]) : null;
+  return { tokenSetHash, tokenCount: tokenSet.length, tokenSet, tokenHashes, openingTokenHash };
 }
 
 // ── CORPUS-30-LIVE-PATH-WIRING — banked live scenario posting ──
@@ -910,6 +927,11 @@ async function postLiveBankedScenario({
       moveIndex,
       tokenSetHash: sample.tokenSetHash,
       tokenCount: sample.tokenCount,
+      // CORPUS-30-QUALITY-001 (b)/(c): body-free hashed-shingle
+      // fingerprint (set of 8-hex per-token hashes) + one positional
+      // opening-token hash. No readable token / no raw body is emitted.
+      tokenHashes: sample.tokenHashes,
+      openingTokenHash: sample.openingTokenHash,
     });
   }
 
@@ -1113,7 +1135,11 @@ async function postLiveBankedScenario({
       validationFailureReason: rendered.validationFailureReason || null,
       alignmentFailureReason: rendered.alignmentFailureReason || null,
       jsonParsed: Boolean(rendered.jsonParsed),
-      moveId, validated: true, issues: [], seed: false,
+      // CORPUS-30-QUALITY-001 (a): populate the per-issue fallback tokens
+      // (was emitted empty). Only non-empty on deterministic_fallback
+      // moves; the reporter buckets on each token's PREFIX so no label
+      // value / option-spine id payload reaches committable output.
+      moveId, validated: true, issues: rendered.fallbackIssues || [], seed: false,
     });
     emitMoveBodySample({ moveId, moveIndex, body: rendered.body });
 
@@ -2371,6 +2397,53 @@ function checkSameyMove(events) {
   };
 }
 
+// CORPUS-30-QUALITY-001 (a): per-fallback-reason histogram.
+//
+// Buckets each move's fallback issue token on its PREFIX (the substring
+// before the first ':'), so `forbidden_user_label:troll` →
+// `forbidden_user_label` and `option_drift:opt-3` → `option_drift`.
+// Plain tokens (`too_short`) bucket as themselves. The prefix rule
+// guarantees no user-label value, body excerpt, or option/spine id
+// payload reaches the committable Markdown (doctrine §1/§9/§10a). The
+// full `<reason>:<id>` strings remain only in the gitignored JSONL.
+function fallbackReasonPrefix(token) {
+  const s = String(token || '');
+  const colon = s.indexOf(':');
+  return colon === -1 ? s : s.slice(0, colon);
+}
+
+function fallbackReasonHistogram(events) {
+  const counts = new Map();
+  let totalFallback = 0;
+  let nonSeedMoveCount = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_validated') continue;
+    if (ev.seed === true) continue; // seed (M1/M2) moves are not fallbacks
+    nonSeedMoveCount += 1;
+    if (ev.source !== 'deterministic_fallback') continue;
+    totalFallback += 1;
+    const issues = Array.isArray(ev.issues) ? ev.issues : [];
+    if (issues.length === 0) {
+      // A fallback with no surfaced issue tokens still counts under a
+      // coarse bucket so the total reconciles.
+      counts.set('unspecified', (counts.get('unspecified') || 0) + 1);
+      continue;
+    }
+    for (const tok of issues) {
+      const prefix = fallbackReasonPrefix(tok);
+      if (!prefix) continue;
+      counts.set(prefix, (counts.get(prefix) || 0) + 1);
+    }
+  }
+  const histogram = [...counts.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+  return {
+    histogram, // [reasonPrefix, count][] sorted desc by count, then name
+    totalFallback,
+    nonSeedMoveCount,
+    dominantReason: histogram.length > 0 ? histogram[0][0] : null,
+  };
+}
+
 function runDiversityChecks(events) {
   return {
     duplicateSeed: checkDuplicateSeed(events),
@@ -2462,6 +2535,19 @@ function buildMarkdownReport({ runId, args, bools, events, scenarios, bundle }) 
     lines.push('');
   }
 
+  // CORPUS-30-QUALITY-001 (a): per-fallback-reason histogram (prefix-only
+  // buckets — never a label value / option-spine id payload).
+  const fbHist = fallbackReasonHistogram(events);
+  lines.push('### Fallback reason histogram');
+  lines.push('');
+  lines.push(`- Deterministic-fallback moves: **${fbHist.totalFallback}** / ${fbHist.nonSeedMoveCount} non-seed moves${fbHist.dominantReason ? ` · dominant cause=\`${fbHist.dominantReason}\`` : ''}`);
+  if (fbHist.histogram.length === 0) {
+    lines.push('- _(no deterministic-fallback moves)_');
+  } else {
+    for (const [reason, count] of fbHist.histogram) lines.push(`- \`${reason}\` — ${count}`);
+  }
+  lines.push('');
+
   lines.push('## Compliance');
   lines.push('');
   lines.push('- [x] Skill gate validated before any harvest, dissent detection, or move rendering.');
@@ -2512,6 +2598,9 @@ module.exports = {
   checkSpineSaturation,
   checkVoiceDistribution,
   checkSameyMove,
+  // CORPUS-30-QUALITY-001 (a) per-fallback-reason histogram.
+  fallbackReasonHistogram,
+  fallbackReasonPrefix,
   // Attribution-presence helpers (CORPUS-30-LIVE-PATH-WIRING Fix 2).
   hasAnyMoveValidated,
   moveValidatedFieldPresence,

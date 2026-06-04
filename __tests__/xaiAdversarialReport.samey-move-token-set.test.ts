@@ -117,21 +117,26 @@ describe('CORPUS-30 samey-move via hashed token-set', () => {
     expect(result.severityBand).toBe('green');
   });
 
-  it('move_body_sample JSONL emission carries hash + count only (no body / no tokenSet array in committed event keys)', () => {
-    // Sanity: the test above already exercised the field names the
-    // runner emits — { tokenSetHash, tokenCount, moveId, moveIndex,
-    // threadIndex, runTag, seedId }. There is no "body" / "tokens" /
-    // "tokenSet" key on the emitted event.
+  it('move_body_sample JSONL emission carries hashes + count only (no body / no readable tokenSet/tokens key in committed event keys)', () => {
+    // The runner emits { tokenSetHash, tokenCount, tokenHashes,
+    // openingTokenHash, moveId, moveIndex, threadIndex, runTag, seedId }.
+    // CORPUS-30-QUALITY-001 (b)/(c) added the body-free hashed-shingle
+    // fingerprint (tokenHashes) + one positional opening-token hash. There
+    // is STILL no "body" / readable "tokens" / readable "tokenSet" key.
     // This is a contract assertion against the runner's emit shape.
     const src = require('fs').readFileSync(require('path').join(process.cwd(), 'scripts/bot-fixtures/runXaiAdversarialBotCorpus.js'), 'utf8');
-    // Find the emitMoveBodySample helper definition and verify it only
-    // writes tokenSetHash + tokenCount + structural metadata.
-    const m = src.match(/function emitMoveBodySample[\s\S]{0,500}?jsonl\.write\(['"]move_body_sample['"][\s\S]{0,400}?\}\);/);
+    // Window widened from 400→800: the emit block now also carries the
+    // fingerprint fields. The leak guarantee is UNCHANGED.
+    const m = src.match(/function emitMoveBodySample[\s\S]{0,500}?jsonl\.write\(['"]move_body_sample['"][\s\S]{0,800}?\}\);/);
     expect(m).toBeTruthy();
     if (!m) return;
     expect(m[0]).toContain('tokenSetHash');
     expect(m[0]).toContain('tokenCount');
-    // Forbidden keys in the emitted event.
+    expect(m[0]).toContain('tokenHashes');
+    expect(m[0]).toContain('openingTokenHash');
+    // Forbidden keys in the emitted event (raw body / readable tokens).
+    // `tokenHashes:` and `openingTokenHash:` are body-free hash sets and
+    // do NOT match these patterns.
     expect(m[0]).not.toMatch(/\bbody\s*:/);
     expect(m[0]).not.toMatch(/\btokenSet\s*:/);
     expect(m[0]).not.toMatch(/\btokens\s*:/);

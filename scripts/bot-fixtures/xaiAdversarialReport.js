@@ -174,6 +174,11 @@ function buildAdversarialReportMarkdown({ runId, dateIso, mode, providerLabel, a
   for (const r of table('Submit errors', agg.submitErrors)) lines.push(r);
   for (const r of table('Deterministic fallback reasons (top)', agg.fallbackReasons)) lines.push(r);
 
+  // CORPUS-30-QUALITY-001 (a): per-fallback-reason histogram over the
+  // move_validated.issues prefix tokens (distinct from the coarse
+  // annotation-derived table above). Prefix-only buckets — no payload.
+  lines.push(renderFallbackReasonHistogramSection(events));
+
   // Sample sections (capped + redacted).
   function renderSamples(label, list) {
     const out = [`## ${label}`, ''];
@@ -476,6 +481,63 @@ function sameyMoveFromEvents(events) {
   };
 }
 
+// CORPUS-30-QUALITY-001 (a): per-fallback-reason histogram — TWIN of
+// runXaiAdversarialBotCorpus.js `fallbackReasonHistogram`. MUST produce
+// an identical shape for the same event stream (twin-lockstep test).
+// Buckets each move's fallback issue token on its PREFIX (before the
+// first ':'), so no user-label value / option-spine id payload reaches
+// committable Markdown (doctrine §1/§9/§10a).
+function fallbackReasonPrefix(token) {
+  const s = String(token || '');
+  const colon = s.indexOf(':');
+  return colon === -1 ? s : s.slice(0, colon);
+}
+
+function fallbackReasonHistogram(events) {
+  const counts = new Map();
+  let totalFallback = 0;
+  let nonSeedMoveCount = 0;
+  for (const ev of events) {
+    if (!ev || ev.stage !== 'move_validated') continue;
+    if (ev.seed === true) continue;
+    nonSeedMoveCount += 1;
+    if (ev.source !== 'deterministic_fallback') continue;
+    totalFallback += 1;
+    const issues = Array.isArray(ev.issues) ? ev.issues : [];
+    if (issues.length === 0) {
+      counts.set('unspecified', (counts.get('unspecified') || 0) + 1);
+      continue;
+    }
+    for (const tok of issues) {
+      const prefix = fallbackReasonPrefix(tok);
+      if (!prefix) continue;
+      counts.set(prefix, (counts.get(prefix) || 0) + 1);
+    }
+  }
+  const histogram = [...counts.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+  return {
+    histogram,
+    totalFallback,
+    nonSeedMoveCount,
+    dominantReason: histogram.length > 0 ? histogram[0][0] : null,
+  };
+}
+
+function renderFallbackReasonHistogramSection(events) {
+  const fbHist = fallbackReasonHistogram(events);
+  const lines = [];
+  lines.push('### Fallback reason histogram');
+  lines.push('');
+  lines.push(`- Deterministic-fallback moves: **${fbHist.totalFallback}** / ${fbHist.nonSeedMoveCount} non-seed moves${fbHist.dominantReason ? ` · dominant cause=\`${fbHist.dominantReason}\`` : ''}`);
+  if (fbHist.histogram.length === 0) {
+    lines.push('- _(no deterministic-fallback moves)_');
+  } else {
+    for (const [reason, count] of fbHist.histogram) lines.push(`- \`${reason}\` — ${count}`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
 // CORPUS-30-LIVE-PATH-WIRING Fix 3 — provider-call tally.
 // Mirrors the runner's computeProviderCallTally: prefers
 // provider_call_summary, falls back to per-event aggregation. The
@@ -550,4 +612,8 @@ module.exports = {
   // Internal samey-move + voice helpers exported for unit-test access.
   voiceDistributionFromEvents,
   sameyMoveFromEvents,
+  // CORPUS-30-QUALITY-001 (a) per-fallback-reason histogram twin.
+  fallbackReasonHistogram,
+  fallbackReasonPrefix,
+  renderFallbackReasonHistogramSection,
 };
