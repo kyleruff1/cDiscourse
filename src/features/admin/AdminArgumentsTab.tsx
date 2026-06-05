@@ -15,6 +15,11 @@ import {
   bulkMarkArgumentActive,
 } from './adminArgumentsInactiveApi';
 import type { AdminArgumentRow } from './types';
+import {
+  groupArgumentsIntoArtifacts,
+  type ArtifactSourceRow,
+  type ArgumentArtifact,
+} from '../arguments/argumentArtifactModel';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
 import {
   deriveMessageCategory,
@@ -255,6 +260,53 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
     );
   }, [rows, search]);
 
+  // ADMIN-ARGS-CANONICAL-001 — group the filtered rows into one clickable
+  // artifact per logical argument (duplicate runs / updates collapse into a
+  // single row with structural badges + a "show update history" expansion).
+  // Each artifact's primary row is the latest revision's source AdminArgumentRow,
+  // so every existing per-row literal (`r.id`, `r.inactiveAt`, the timestamp
+  // cells, the checkbox / mark-inactive / open-timeline affordances) renders
+  // exactly as before — routing is unchanged because the route key is the
+  // argument id and `artifactId` IS that id for the option-a primary key.
+  // The inactive reason free text is NEVER read here (§10a); `isInactive`
+  // flows from `artifact.isInactive` (OR-folded from `inactiveAt` only).
+  const artifactRows = useMemo<Array<{ artifact: ArgumentArtifact; primaryRow: AdminArgumentRow }>>(() => {
+    const sourceRows: ArtifactSourceRow[] = filtered.map((r) => ({
+      id: r.id,
+      debateId: r.debateId,
+      debateTitle: r.debateTitle,
+      authorId: r.authorId,
+      body: r.body,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      inactiveAt: r.inactiveAt,
+      selectedTagCodes: r.selectedTagCodes,
+    }));
+    const byId = new Map(filtered.map((r) => [r.id, r] as const));
+    const artifacts = groupArgumentsIntoArtifacts(sourceRows);
+    return artifacts.map((artifact) => {
+      // Primary row = the latest revision's source row (falls back to the
+      // first revision present in the loaded set). Always an AdminArgumentRow.
+      const latestRev = artifact.revisions[artifact.revisions.length - 1];
+      const primaryRow =
+        byId.get(latestRev.revisionId)
+        ?? artifact.revisions.map((rev) => byId.get(rev.revisionId)).find(Boolean)
+        ?? filtered[0];
+      return { artifact, primaryRow: primaryRow as AdminArgumentRow };
+    });
+  }, [filtered]);
+
+  // Per-artifact "show update history" expansion state.
+  const [expandedArtifacts, setExpandedArtifacts] = useState<ReadonlySet<string>>(new Set());
+  const toggleArtifactExpanded = useCallback((artifactId: string) => {
+    setExpandedArtifacts((prev) => {
+      const next = new Set(prev);
+      if (next.has(artifactId)) next.delete(artifactId);
+      else next.add(artifactId);
+      return next;
+    });
+  }, []);
+
   const sortStatusKey = `${sortField}:${sortDirection}` as keyof typeof SORT_HUMAN_LABEL;
   const sortStatusHuman = SORT_HUMAN_LABEL[sortStatusKey];
   const sortStatusColumn = `${SORT_COLUMN_LABEL[sortField]}${sortArrow(true, sortDirection)}`;
@@ -466,7 +518,16 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
           </View>
 
           <ScrollView style={styles.bodyScroller} accessibilityLabel="admin-arguments-list">
-            {filtered.map((r) => {
+            {artifactRows.map(({ artifact, primaryRow: r }) => {
+              // ADMIN-ARGS-CANONICAL-001 — structural artifact badges. All are
+              // counts, never verdicts. `observationCount` renders "n/a" when
+              // coverage is absent (never a fabricated count). The inactive
+              // badge flows from `artifact.isInactive` (derived from
+              // `inactiveAt` only); the inactive reason free text is NEVER rendered.
+              const isExpanded = expandedArtifacts.has(artifact.artifactId);
+              const observationLabel = artifact.observationCount.total > 0
+                ? `${artifact.observationCount.covered}/${artifact.observationCount.total} observations`
+                : 'observations n/a';
               const category = deriveMessageCategory({
                 argumentType: r.argumentType,
                 side: r.side,
@@ -486,12 +547,16 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
               const hasUpdated = Boolean(r.updatedAt);
               const updatedDisplay = hasUpdated ? r.updatedAt : r.createdAt;
               const isSelected = selectedIds.has(r.id);
-              const isInactive = r.inactiveAt !== null;
+              // OR-fold over the artifact's revisions (derived from inactiveAt
+              // only); never resurrects an inactive child via an active
+              // primary row. The inactive reason free text is never consulted.
+              const isInactive = artifact.isInactive || r.inactiveAt !== null;
               return (
                 <View
-                  key={r.id}
+                  key={artifact.artifactId}
                   style={styles.row}
                   accessibilityLabel={`admin-argument-${r.id}`}
+                  testID={`admin-arguments-artifact-${r.id}`}
                 >
                   <View style={[styles.cell, { width: COL.select }]}>
                     <Pressable
@@ -549,6 +614,54 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                       <Text style={styles.nudge} numberOfLines={2}>
                         Nudge: {getQualifierUiNudge(qualifier)}
                       </Text>
+                    )}
+                    {/* ADMIN-ARGS-CANONICAL-001 — structural artifact badges +
+                         show-update-history expansion. All counts, no verdicts.
+                         The inactive reason free text is never rendered. */}
+                    <View
+                      style={styles.artifactBadgeRow}
+                      accessibilityLabel={`admin-arguments-artifact-badges-${r.id}`}
+                      testID={`admin-arguments-artifact-badges-${r.id}`}
+                    >
+                      <Badge label={`${artifact.updateCount} updates`} variant="status" />
+                      <Badge label={observationLabel} variant="status" />
+                      <Badge
+                        label={`${artifact.duplicateRunCount} duplicate runs collapsed`}
+                        variant="status"
+                      />
+                    </View>
+                    {artifact.revisions.length > 1 && (
+                      <Pressable
+                        style={styles.historyToggle}
+                        onPress={() => toggleArtifactExpanded(artifact.artifactId)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Show update history for argument ${r.id}`}
+                        accessibilityState={{ expanded: isExpanded }}
+                        testID={`admin-arguments-history-toggle-${r.id}`}
+                      >
+                        <Text style={styles.historyToggleText}>
+                          {isExpanded ? 'Hide update history' : 'Show update history'}
+                        </Text>
+                      </Pressable>
+                    )}
+                    {isExpanded && (
+                      <View
+                        style={styles.historyList}
+                        accessibilityLabel={`admin-arguments-history-${r.id}`}
+                        testID={`admin-arguments-history-${r.id}`}
+                      >
+                        {artifact.revisions.map((rev, idx) => (
+                          <View key={rev.revisionId} style={styles.historyItem}>
+                            <Text style={styles.historyItemMeta}>
+                              #{idx + 1} · {formatDateTime(rev.updatedAt)}
+                              {rev.isInactive ? ' · inactive' : ''}
+                            </Text>
+                            <Text style={styles.historyItemBody} numberOfLines={3}>
+                              {shortenBody(rev.body)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
                     )}
                   </View>
                   <View style={[styles.cell, { width: COL.cat }]}>
@@ -644,7 +757,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
       </ScrollView>
 
       <Text style={styles.footnote}>
-        Showing {filtered.length} of {rows.length}. Outputs are advisory; the app does not declare any verdict on speakers.
+        Showing {artifactRows.length} grouped argument(s) from {filtered.length} of {rows.length} rows. Outputs are advisory; the app does not declare any verdict on speakers.
       </Text>
     </View>
   );
@@ -804,6 +917,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   nudge: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontStyle: 'italic', marginTop: 4 },
+  // ADMIN-ARGS-CANONICAL-001 — structural artifact badge cluster + history.
+  artifactBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  historyToggle: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: SURFACE_TOKENS.raised,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  historyToggleText: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
+  historyList: { marginTop: 4, gap: 4, paddingLeft: 6, borderLeftWidth: 2, borderLeftColor: SURFACE_TOKENS.divider },
+  historyItem: { gap: 1 },
+  historyItemMeta: { fontSize: 9, color: SURFACE_TOKENS.textMuted, fontVariant: ['tabular-nums'] as ['tabular-nums'] },
+  historyItemBody: { fontSize: 10, color: SURFACE_TOKENS.textSecondary },
   // ADMIN-ARGS-INACTIVE-001 — sub-toolbar / bulk / checkbox / dialog styles.
   subToolbar: {
     flexDirection: 'row',
