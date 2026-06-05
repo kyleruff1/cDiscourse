@@ -69,9 +69,32 @@ describe('adminArgumentsApi — safety + shape', () => {
     expect(src).toContain('created_at');
   });
 
-  it('joins debates(title) and profiles(display_name)', () => {
+  it('joins debates(title) and the author-FK-pinned profiles(display_name)', () => {
     expect(src).toContain('debates(title)');
-    expect(src).toContain('profiles(display_name)');
+    // OPS-ADMIN-ARGS-PROFILES-EMBED-001 — the profiles embed MUST be pinned to
+    // the author FK. `arguments` has two FKs to `profiles` (author_id +
+    // inactive_by from #480); a bare `profiles(display_name)` embed is
+    // ambiguous and PostgREST rejects it, breaking the whole tab.
+    expect(src).toContain('profiles!arguments_author_id_fkey(display_name)');
+  });
+
+  // OPS-ADMIN-ARGS-PROFILES-EMBED-001 — regression guard. Fails against the
+  // pre-fix code (bare embed) and passes after (FK-pinned embed). The bare
+  // `profiles(display_name)` embed must NOT reappear, or the dual-FK
+  // ambiguity from #480 will break the Admin Arguments tab again.
+  it('pins the author FK in the profiles embed and never uses the bare ambiguous embed', () => {
+    // Require the FK-pinned embed.
+    expect(src).toContain('profiles!arguments_author_id_fkey(display_name)');
+    // Forbid the bare embed shape that PostgREST rejects under dual FKs.
+    // (The FK-pinned form contains `profiles!...` so it does NOT match this
+    // bare substring — the assertion is precise.)
+    expect(src).not.toContain('profiles(display_name)');
+    // The JSON key stays `profiles`, so the mapper read is unchanged.
+    expect(src).toContain('asDisplayName(r.profiles)');
+    // We must NOT embed the inactivator's profile (doctrine §10a — never
+    // surface who inactivated a row). `inactive_by` stays a scalar column,
+    // so there is no `profiles!arguments_inactive_by_fkey(...)` embed.
+    expect(src).not.toContain('profiles!arguments_inactive_by_fkey');
   });
 
   // QOL-026: the loader must not select columns that do not exist on
