@@ -108,7 +108,8 @@
   "overrides": {
     "xcode": {
       "uuid": "^11.0.0"
-    }
+    },
+    "rimraf": "^4.4.1"
   },
   "jest": {
     "preset": "jest-expo",
