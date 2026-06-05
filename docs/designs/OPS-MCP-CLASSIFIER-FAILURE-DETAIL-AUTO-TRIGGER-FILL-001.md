@@ -670,3 +670,93 @@ Read before implementing (all at HEAD `37ccd9e`):
 10. `docs/core/pipeline-governance-contract.md` §2/§4/§5 — stage machine,
     never-self-approve, merge=deploy.
 ```
+
+---
+
+## Implementer note: blocked — pre-existing test THR-4 pins the `failureSubReason:` occurrence count (operator adjudication required)
+
+**Status: BLOCKED at GATE B.** The two SUT edits, the new test file, and the
+current-status manifest are implemented exactly per the design + GATE-A answers,
+and they are committed on `feat/ops-mcp-classifier-failure-detail-fill-001`
+(2 feature commits + this note). `npm run typecheck` and `npm run lint` exit 0.
+The new suite `__tests__/opsMcpClassifierFailureDetailAutoTriggerFill.test.ts`
+passes (21/21). **One pre-existing test regresses and cannot be resolved inside
+the HARD allowlist this card was given.**
+
+### The conflict
+
+`__tests__/mcpOneTwoOneCFailureSubreasonThreading.test.ts` **THR-4** asserts:
+
+```
+expect((coreText.match(/failureSubReason:/g) ?? []).length).toBe(1);
+expect((coreText.match(/failureDetail:/g) ?? []).length).toBe(1);
+```
+
+with the stated rationale *"Exactly ONE return sets each new field — the
+adapter-unavailable branch."* That test was written for
+`OPS-MCP-RESULT-VALIDATION-BURST-HARDENING`, when `failureSubReason` /
+`failureDetail` appeared ONLY on the `PerArgumentSummary` **return** value
+(`classifyArgumentCore.ts:297-298`) and in **no** `persistRun` call.
+
+This card's whole point is to ALSO write those two values into the
+**failed-branch `persistRun` INSERT**. My change adds a second
+`failureSubReason:` token (`failureSubReason: adapterResult.subReason ?? null`
+in the failed-branch persistRun call), so THR-4's first assertion now sees
+`2`, not `1`, and fails. (The `failureDetail:` assertion still passes — I pass
+the built detail as the shorthand `failureDetail,`, not `failureDetail:`.)
+
+Full-suite impact: exactly ONE regressed test (THR-4); everything else green.
+Captured: `Test Suites: 1 failed, 637 passed, 638 total / Tests: 1 failed,
+1 skipped, 19392 passed, 19394 total` (the new suite is the +1; the new tests
+are the +21).
+
+### Why I did not self-resolve
+
+THR-4's file is **not in this card's HARD allowlist**
+(`persistenceWriter.ts` + `classifyArgumentCore.ts` + ONE new test file +
+`docs/core/current-status.md`). Editing it is an out-of-allowlist edit, which
+the spawn prompt classifies as a HALT. The two in-allowlist "fixes" are both
+unacceptable:
+
+1. **Game the regex** — introduce `const failureSubReason = adapterResult.subReason ?? null;`
+   and pass it by shorthand (`failureSubReason,`) so the colon-count stays `1`.
+   Rejected: that keeps a now-FALSE test green (the field really IS set in two
+   places) — dishonest test-passing, an explicit anti-pattern.
+2. **Ship the red test.** Rejected — "Don't ship red tests."
+
+This is also NOT one of the design's enumerated HALT triggers (H-1..H-6); it is
+an unforeseen test-coupling the design did not anticipate. THR-4's *semantic
+intent* ("success / persist / not-found summaries do NOT set these fields") is
+still satisfied by my change — only its *occurrence-count implementation* is now
+too strict.
+
+### Recommended resolution (operator GATE-A addendum / one-line allowlist widen)
+
+Authorize a minimal, intent-preserving update to THR-4 in
+`__tests__/mcpOneTwoOneCFailureSubreasonThreading.test.ts`. The honest assertion
+is "these fields are set ONLY within the unavailable branch (on its persistRun
+call and its return), and the success / persist-failure / not-found returns do
+NOT set them." Concretely, scope the count to the unavailable branch, e.g.:
+
+```
+const branch = coreText.slice(
+  coreText.indexOf("adapterResult.kind === 'unavailable'"),
+  coreText.indexOf('// Success path'),
+);
+// both new fields appear ONLY inside the unavailable branch
+expect((branch.match(/failureSubReason/g) ?? []).length).toBeGreaterThanOrEqual(2); // persistRun + return
+expect((branch.match(/failureDetail/g) ?? []).length).toBeGreaterThanOrEqual(2);
+// and they appear NOWHERE in the success / not-found return tails
+const afterSuccess = coreText.slice(coreText.indexOf('// Success path'));
+expect(afterSuccess).not.toMatch(/failureSubReason|failureDetail/);
+```
+
+(Exact wording is the operator's call.) Once THR-4 is authorized for update —
+either by adding that one file to the allowlist, or by the operator editing it
+directly — the full suite goes green at `638 suites / 19393 passing / 1 skipped`
+and the card is GATE-B ready. **No production behavior changes; the only thing
+that moves is the stale occurrence-count assertion in one source-scan test.**
+
+The two feature commits and the new test suite remain on the branch (they are
+correct and complete); they are NOT reverted, because the implementation itself
+is right — the blocker is purely the out-of-allowlist stale test.
