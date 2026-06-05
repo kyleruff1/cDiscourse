@@ -1,5 +1,10 @@
 # OPS-MCP-SERVER-CAPACITY-INVESTIGATION — Per-isolate bounded provider-concurrency cap
 
+> **SUPERSEDED for the active fix axis (pointer, body preserved).** The per-isolate
+> synchronous-capacity cap this doc prescribes was superseded by the canonical Postgres
+> async classifier queue in [`ARCH-001-CIVIL-DISCOURSE-CLASSIFIER-QUEUE-ARCHITECTURE.md`](./ARCH-001-CIVIL-DISCOURSE-CLASSIFIER-QUEUE-ARCHITECTURE.md)
+> §"Goal (one paragraph)". This record is preserved byte-equal as the durable #371 card-intent; it is not a current prescription.
+
 **Status:** Design draft
 **Epic:** Epic 12 / MCP semantic-referee track (server-runtime capacity control)
 **Release:** Stage 2B (server-runtime change; APPROVED in the intent brief)
