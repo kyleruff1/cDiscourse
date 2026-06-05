@@ -96,6 +96,22 @@ function summarizeConversation(history) {
   return history.map((h, i) => `  m${i + 1} (${h.persona}/${h.argumentType}): ${h.body.slice(0, 140)}`).join('\n');
 }
 
+// CORPUS-30-RUNTAG-PERSIST: the durable, parseable run identifier written to
+// public.debates.run_tag (additive column) AND embedded in the room title for
+// back-compat. Format mirrors the long-standing title bracket exactly so the
+// operator backfill recipe can parse legacy titles into the new column:
+//   run_tag === `ai-corpus ${runId.slice(0,8)} #${scenarioId}`
+//   title   === `${seedTitle} [${run_tag}]`
+// Keeping both in one place means the title bracket and the column value can
+// never drift.
+function buildRunTag(runId, scenarioId) {
+  return `ai-corpus ${String(runId).slice(0, 8)} #${scenarioId}`;
+}
+
+function buildRoomTitle(seedTitle, runId, scenarioId) {
+  return `${seedTitle} [${buildRunTag(runId, scenarioId)}]`;
+}
+
 function buildSceneFromSeed(seed, template) {
   const personas = [
     { alias: 'Alex', side: 'affirmative', tone: 'calm' },
@@ -293,10 +309,12 @@ async function runLiveBatch({ args, scenarios, runId, client, jsonlStream, annot
     }
 
     const botA = botByAlias[botAliases[0]];
-    const roomTitle = `${s.title} [ai-corpus ${runId.slice(0, 8)} #${s.scenarioId}]`;
+    const runTag = buildRunTag(runId, s.scenarioId);
+    const roomTitle = buildRoomTitle(s.title, runId, s.scenarioId);
     const debateInsert = await botA.client.from('debates').insert({
       created_by: botA.userId,
       title: roomTitle,
+      run_tag: runTag,
       resolution: s.resolution,
       description: '',
       status: 'open',
@@ -523,4 +541,6 @@ module.exports = {
   renderScenarioMoves,
   annotateRoomMoves,
   buildThreadEntriesUpTo,
+  buildRunTag,
+  buildRoomTitle,
 };
