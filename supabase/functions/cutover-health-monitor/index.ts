@@ -63,7 +63,7 @@ import {
   containsForbiddenSubstring,
   type CutoverHealthInputs,
   type CutoverHealthVerdict,
-} from '../../../src/features/cutoverHealthAlerts/cutoverHealthAlertModel.ts';
+} from '../_shared/cutoverHealthAlertModel.ts';
 
 // ── Auth scheme (split-literal to keep the secret-literal scan green;
 // same convention as booleanObservationMcpAdapter.ts + classifier-drainer).
