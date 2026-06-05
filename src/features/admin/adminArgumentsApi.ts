@@ -111,7 +111,15 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
         'created_at', 'updated_at', 'disagreement_axis', 'argument_tags(tag_code)',
         'target_excerpt', 'server_validation',
         'inactive_at', 'inactive_by', 'inactive_reason',
-        'debates(title)', 'profiles(display_name)',
+        // OPS-ADMIN-ARGS-PROFILES-EMBED-001 — `arguments` has TWO FKs to
+        // `profiles` (`author_id` → `arguments_author_id_fkey` from the initial
+        // schema, and `inactive_by` → `arguments_inactive_by_fkey` added by
+        // #480). A bare `profiles(...)` embed is now ambiguous and PostgREST
+        // refuses it. Pin the author FK so the relationship resolves; the
+        // returned JSON key stays `profiles`, so `asDisplayName(r.profiles)`
+        // below is unchanged. We intentionally do NOT embed the inactivator's
+        // profile (doctrine §10a — never surface who inactivated a row).
+        'debates(title)', 'profiles!arguments_author_id_fkey(display_name)',
       ].join(','),
     )
     .order(sortField, { ascending: sortDirection === 'asc' })
