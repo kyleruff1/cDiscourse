@@ -288,6 +288,11 @@ describe('committed fixture files', () => {
     { path: '../fixtures/argument-scenarios/pop-culture-trailers.json', id: 'pop-culture-trailers' },
     { path: '../fixtures/argument-scenarios/light-civic-bike-lanes.json', id: 'light-civic-bike-lanes' },
     { path: '../fixtures/argument-scenarios/everyday-remote-work.json', id: 'everyday-remote-work' },
+    // MCP-CAT-001-FIXTURE-002 (#453) — runnable under-exercised-id coverage fixture.
+    {
+      path: '../fixtures/argument-scenarios/catalog-coverage-satire-popularity-routing.json',
+      id: 'catalog-coverage-satire-popularity-routing',
+    },
   ];
 
   for (const { path, id } of files) {
