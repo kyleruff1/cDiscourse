@@ -8,6 +8,7 @@ import { AdminBotUsersTab } from './AdminBotUsersTab';
 import { AdminArgumentsTab } from './AdminArgumentsTab';
 import { AdminMetadataEventsTab } from './AdminMetadataEventsTab';
 import { AdminSemanticRefereeTab } from './AdminSemanticRefereeTab';
+import { AdminClassifierHealthTab } from './AdminClassifierHealthTab';
 import type { AdminTab } from './types';
 import { ADMIN_TAB_LABELS } from './types';
 import { SURFACE_TOKENS, CONTROL } from '../../lib/designTokens';
@@ -21,6 +22,7 @@ const TABS: AdminTab[] = [
   'arguments',
   'metadata_events',
   'semantic_referee',
+  'classifier_health',
 ];
 
 export interface AdminScreenProps {
@@ -65,6 +67,7 @@ export function AdminScreen({ onOpenArgumentTimeline }: AdminScreenProps = {}) {
         )}
         {tab === 'metadata_events' && <AdminMetadataEventsTab />}
         {tab === 'semantic_referee' && <AdminSemanticRefereeTab />}
+        {tab === 'classifier_health' && <AdminClassifierHealthTab />}
       </View>
     </View>
   );

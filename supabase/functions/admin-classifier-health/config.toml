@@ -1,0 +1,15 @@
+# OPS-MCP-OBSERVABILITY-002 — admin-classifier-health.
+#
+# verify_jwt = true: this endpoint is invoked by an authenticated admin from
+# the admin panel. The function ADDITIONALLY enforces the admin role check via
+# requireAdmin(req) inside the handler (Authorization -> auth.getUser() ->
+# profiles.role = 'admin' via service-role). Missing/invalid token -> 401;
+# non-admin -> 403.
+#
+# This is a READ-ONLY operational diagnostic. No write path, no re-trigger, no
+# routing control, no productionEnabled flip. It cannot block/route/delay any
+# user post (the acceptance gate is the deterministic rules engine only). The
+# SELECT is column-explicit (never SELECT *, never body, never evidence_span,
+# never a join to argument_machine_observation_results). The only write op is
+# the admin_audit_events insert recording WHICH admin + the filter params.
+verify_jwt = true

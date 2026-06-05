@@ -112,7 +112,9 @@ export type AdminTab =
   | 'bot_users'
   | 'arguments'
   | 'metadata_events'
-  | 'semantic_referee';
+  | 'semantic_referee'
+  // OPS-MCP-OBSERVABILITY-002 — read-only classifier-health diagnostic panel.
+  | 'classifier_health';
 
 export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   users: 'Users',
@@ -123,6 +125,7 @@ export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   arguments: 'Arguments',
   metadata_events: 'Metadata Events',
   semantic_referee: 'Semantic Referee',
+  classifier_health: 'Classifier Health',
 };
 
 /**
