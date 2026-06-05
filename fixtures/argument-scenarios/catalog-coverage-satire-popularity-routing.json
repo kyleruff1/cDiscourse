@@ -1,0 +1,268 @@
+{
+  "scenarioId": "catalog-coverage-satire-popularity-routing",
+  "title": "Streaming-era TV finales (MCP classifier coverage exhibit)",
+  "resolution": "Streaming-era TV finales are written more sloppily than the finales of the boxed-DVD era, because release-schedule pressure and per-season renewal uncertainty leave less room for a planned ending.",
+  "category": "smoke_test_mcp",
+  "personas": [
+    { "alias": "Reel", "side": "affirmative", "tone": "playful" },
+    { "alias": "Binge", "side": "negative", "tone": "skeptical" },
+    { "alias": "Cuts", "side": "neutral", "tone": "conciliatory" }
+  ],
+  "moves": [
+    {
+      "moveId": "m1",
+      "authorAlias": "Reel",
+      "parentMoveId": null,
+      "moveKind": "start_thesis",
+      "qualifierCode": null,
+      "argumentType": "thesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Streaming-era TV finales are written more sloppily than the finales of the boxed-DVD era. When a show was built to be owned on a shelf, the writers' room planned the ending years out and earned it. Now the release calendar and the renewal coin-flip mean the last episode often feels assembled the week it shipped, not designed seasons in advance.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 0 },
+        { "id": "provides_evidence", "value": 0 }
+      ],
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "displayMeta": {
+        "quoteAnchorCandidate": "assembled the week it shipped, not designed seasons in advance"
+      }
+    },
+    {
+      "moveId": "m2",
+      "authorAlias": "Binge",
+      "parentMoveId": "m1",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "scope",
+      "targetExcerpt": "assembled the week it shipped, not designed seasons in advance",
+      "body": "That paints with a very broad brush. Plenty of streaming shows had their endings mapped before the first episode aired, and plenty of boxed-DVD shows limped to a finale nobody planned. 'Assembled the week it shipped, not designed seasons in advance' describes a few notorious cases, not the whole era. The pattern you are naming is real for some titles and absent for many others.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "quote_anchors_parent", "value": 1 }
+      ],
+      "displayMeta": {
+        "quoteAnchorCandidate": "describes a few notorious cases, not the whole era"
+      }
+    },
+    {
+      "moveId": "m3",
+      "authorAlias": "Reel",
+      "parentMoveId": "m2",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "counter_rebuttal",
+      "disagreementAxis": "scope",
+      "targetExcerpt": "describes a few notorious cases, not the whole era",
+      "body": "A few notorious cases? The notorious cases ARE the era — that is the whole point. Every other streaming finale is just a less famous version of the same rushed ending, and I will plant my flag exactly there. This room was set up as a calm, evidence-first comparison, and I am happily ignoring that and swinging for the fences instead. Come at me.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedConfidence": "medium",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "quote_anchors_parent", "value": 1 },
+        { "id": "contains_playable_hot_take", "value": 1 },
+        { "id": "fits_selected_debate_mode", "value": 0 }
+      ],
+      "displayMeta": {
+        "quoteAnchorCandidate": "Every other streaming finale is just a less famous version of the same rushed ending"
+      }
+    },
+    {
+      "moveId": "m4",
+      "authorAlias": "Binge",
+      "parentMoveId": "m3",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "evidence",
+      "targetExcerpt": "Every other streaming finale is just a less famous version of the same rushed ending",
+      "body": "Here, watch this fan-made parody trailer that re-cuts a streaming finale into a dumpster fire set to circus music. Settled, then? Obviously not. That clip is plainly a joke, and I am offering it as if it decided the question on purpose — to show how thin the move is. A parody re-cut is not a finding about how the finale was actually written; it is a bit. Leaning on it would be using a gag as if it were a source.",
+      "selectedTagCodes": [],
+      "evidence": {
+        "label": "Fan-made parody re-cut of a streaming finale",
+        "sourceText": "A parody trailer that re-edits a finale into a comic montage set to circus music."
+      },
+      "expectedStatus": "posted",
+      "expectedConfidence": "medium",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "is_satire_or_parody", "value": 1 },
+        { "id": "uses_satire_as_evidence", "value": 1 }
+      ],
+      "displayMeta": {
+        "quoteAnchorCandidate": "using a gag as if it were a source"
+      }
+    },
+    {
+      "moveId": "m5",
+      "authorAlias": "Reel",
+      "parentMoveId": "m4",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "rebuttal",
+      "disagreementAxis": "evidence",
+      "targetExcerpt": "using a gag as if it were a source",
+      "body": "Forget the gag clip — look at the numbers. The angry finale recap has tens of millions of views, the thread roasting it is the most-liked post in the fandom, and basically everyone I follow agrees the ending was a mess. When that many people land on the same verdict, the count itself is the argument. Popularity at that scale has to mean something.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedConfidence": "medium",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "uses_popularity_as_evidence", "value": 1 }
+      ],
+      "displayMeta": {
+        "quoteAnchorCandidate": "the count itself is the argument"
+      }
+    },
+    {
+      "moveId": "m6",
+      "authorAlias": "Binge",
+      "parentMoveId": "m5",
+      "moveKind": "ask_clarification",
+      "qualifierCode": null,
+      "argumentType": "clarification_request",
+      "disagreementAxis": "definition",
+      "targetExcerpt": "the count itself is the argument",
+      "body": "Before I answer the popularity point, what exactly do you mean by 'sloppily written'? Pacing of the last act? Setups that never pay off? Characters acting against their established arcs? Those are different complaints and they do not rise and fall together. Also, the question of whether view counts track writing quality is really its own topic — that belongs on a side branch so it does not swallow the finale comparison we started with.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "requests_clarification", "value": 1 },
+        { "id": "suggests_side_branch", "value": 1 }
+      ],
+      "displayMeta": {
+        "quoteAnchorCandidate": "that belongs on a side branch"
+      }
+    },
+    {
+      "moveId": "m7",
+      "authorAlias": "Reel",
+      "parentMoveId": "m6",
+      "moveKind": "add_evidence",
+      "qualifierCode": null,
+      "argumentType": "evidence",
+      "disagreementAxis": null,
+      "targetExcerpt": "that belongs on a side branch",
+      "body": "By 'sloppily written' I mean setups that never pay off in the final act — that is the definition I am defending. As support, here is a recap blog post that lists three dropped setups from one finale. I will be honest that the blog cites a now-deleted forum thread for its key claim, so the chain does not reach a primary source. And one more thing: it is wild how the credits music on these shows got so much better even as the endings got worse — somebody should compare composers across the eras.",
+      "selectedTagCodes": [],
+      "evidence": {
+        "label": "Recap blog post listing dropped setups in a finale",
+        "sourceText": "A fan recap blog that lists three setups it says never paid off, citing a now-deleted forum thread for the central claim."
+      },
+      "expectedStatus": "posted",
+      "expectedConfidence": "medium",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "answers_clarification", "value": 1 },
+        { "id": "provides_evidence", "value": 1 },
+        { "id": "evidence_supports_claim", "value": 0 },
+        { "id": "creates_source_chain_gap", "value": 1 },
+        { "id": "suggests_diagonal_tangent", "value": 1 },
+        { "id": "cites_retraction", "value": 1 }
+      ],
+      "displayMeta": {
+        "quoteAnchorCandidate": "the chain does not reach a primary source"
+      }
+    },
+    {
+      "moveId": "m8",
+      "authorAlias": "Binge",
+      "parentMoveId": "m7",
+      "moveKind": "challenge_parent",
+      "qualifierCode": null,
+      "argumentType": "counter_rebuttal",
+      "disagreementAxis": "logic",
+      "targetExcerpt": "the chain does not reach a primary source",
+      "body": "I want to keep this on the writing, but I notice the move is starting to lean on what you imagine the showrunner secretly wanted rather than on the episodes. Let us pin it back to the text on the screen. I am pausing before I send a sharper version of this, because the sharper version would be about the person and not the work, and that is not the move I want on the board.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedConfidence": "medium",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "shifts_to_person_or_intent", "value": 1 },
+        { "id": "contains_unplayable_insult_only", "value": 1 },
+        { "id": "needs_pre_send_pause", "value": 1 }
+      ],
+      "displayMeta": {
+        "quoteAnchorCandidate": "pin it back to the text on the screen"
+      }
+    },
+    {
+      "moveId": "m9",
+      "authorAlias": "Cuts",
+      "parentMoveId": "m8",
+      "moveKind": "concede_or_narrow",
+      "qualifierCode": null,
+      "argumentType": "concession",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Stepping in as a neutral here. I concede the original 'whole era is sloppier' framing was too broad — that is a fair point from Binge. I acknowledge a narrower version is the one worth keeping: a handful of high-profile streaming finales had dropped setups. I also want to flag that the recap blog quietly posted a correction retracting one of its three examples, so that one should come off the board.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "concedes_narrow_point", "value": 1 }
+      ],
+      "displayMeta": {
+        "playfulLabel": "Narrowed to a handful of finales"
+      }
+    },
+    {
+      "moveId": "m10",
+      "authorAlias": "Cuts",
+      "parentMoveId": "m9",
+      "moveKind": "synthesize_thread",
+      "qualifierCode": null,
+      "argumentType": "synthesis",
+      "disagreementAxis": null,
+      "targetExcerpt": null,
+      "body": "Pulling the threads together. Fair point that the strong universal claim did not hold, and the narrower claim — some high-profile streaming finales dropped setups — is the one both sides can live with. The popularity-of-the-recap question and the credits-music tangent are separate topics that deserve their own rooms. I grant there is shared ground here, and the room is settled for now on the narrower comparison.",
+      "selectedTagCodes": [],
+      "evidence": null,
+      "expectedStatus": "posted",
+      "expectedConfidence": "high",
+      "expectedOverrideTrigger": "none",
+      "expectedClassifierSignal": [
+        { "id": "responds_to_parent", "value": 1 },
+        { "id": "ready_for_synthesis", "value": 1 }
+      ],
+      "displayMeta": {
+        "branchCandidate": true,
+        "playfulLabel": "Synthesis on the narrowed comparison"
+      }
+    }
+  ],
+  "expectedFlags": [],
+  "expectedTopicChecks": ["resolution_match"],
+  "expectedTurnStatuses": ["replied", "replied", "replied", "replied", "replied", "replied", "replied", "replied", "replied", "synthesized"],
+  "expectedFinalRestingStatus": "peace_treaty_ish",
+  "expectedFinalClaimStanding": "settled_for_now",
+  "hasBranchCandidate": true,
+  "notes": "MCP-CAT-001-FIXTURE-002 deliverable B (#453). A runnable 10-move coverage exhibit that positively exercises the under-exercised catalog ids the band-space-rent fixture never fires: contains_playable_hot_take + fits_selected_debate_mode=0 (m3), is_satire_or_parody + uses_satire_as_evidence (m4), uses_popularity_as_evidence (m5), requests_clarification + suggests_side_branch (m6), answers_clarification + creates_source_chain_gap + suggests_diagonal_tangent + cites_retraction (m7), shifts_to_person_or_intent + contains_unplayable_insult_only + needs_pre_send_pause (m8). Every classifier signal is a STRUCTURAL detector, never a verdict: the m8 body that carries shifts_to_person_or_intent / contains_unplayable_insult_only is itself written clean — no insult and no flagged term — because the composer-only friction Observations mark the drift, never the text (cdiscourse-doctrine section 10a). The popularity and satire moves frame the appeal as something being flagged, never as the claim being upheld by view counts (section 3) or by a joke. No move asserts a verdict of any kind. The fixture is replayed through the already-shipped composeVisualState (COMP-001) by __tests__/compositionLayerCatalogCoverage.test.ts; no runtime change is expected or made."
+}

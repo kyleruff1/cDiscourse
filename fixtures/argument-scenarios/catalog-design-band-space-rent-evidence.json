@@ -583,8 +583,7 @@
         { "id": "quote_anchors_parent", "value": 1, "source": "current_catalog" },
         { "id": "provides_evidence", "value": 1, "source": "current_catalog" },
         { "id": "evidence_supports_claim", "value": 1, "source": "current_catalog" },
-        { "id": "disputes_specific_amount", "value": 1, "source": "PROPOSED_new_id" },
-        { "id": "cites_temporal_boundary", "value": 1, "source": "PROPOSED_new_id" },
+        { "id": "provides_temporal_constraint", "value": 1, "source": "current_catalog" },
         { "id": "supplies_corroborating_document", "value": 1, "source": "PROPOSED_new_id" },
         { "id": "ready_for_synthesis", "value": 1, "source": "current_catalog" }
       ],
@@ -594,8 +593,7 @@
         "input": [
           "provides_evidence=1",
           "evidence_supports_claim=1",
-          "disputes_specific_amount=1",
-          "cites_temporal_boundary=1",
+          "provides_temporal_constraint=1",
           "ready_for_synthesis=1"
         ],
         "compositionRuleApplied": "evidence_backed_sub_axis_resolution_ready_for_synthesis",
@@ -776,18 +774,6 @@
       "binarySignal": "Does this move pair a concession on one axis with a new dispute on a different axis?",
       "rationaleForAddition": "A common move shape in real disputes; the catalog handles concession but not the paired concede-and-open pattern. Could be a composition rule rather than a new id; flagged for reviewer.",
       "exampleMoveInScenario": "m7 — A concedes applicability AND opens the amount sub-dispute in the same move."
-    },
-    {
-      "candidateId": "disputes_specific_amount",
-      "binarySignal": "Does this move challenge a specific numeric amount (price, quantity, count) named in the parent?",
-      "rationaleForAddition": "Distinct from generic applicability dispute or generic evidence challenge. Amount disputes are common and the deterministic composition layer can produce specific UI affordances for them (number-anchored evidence pill).",
-      "exampleMoveInScenario": "m8 — B disputes the $140 figure A introduced at m7."
-    },
-    {
-      "candidateId": "cites_temporal_boundary",
-      "binarySignal": "Does this move cite a specific boundary date (the rent increase started in April; the deadline was March 10) that demarcates one period from another?",
-      "rationaleForAddition": "Similar to provides_temporal_constraint but BOUNDARY-shaped (X started; Y ended). Reviewers should consider whether to merge with provides_temporal_constraint.",
-      "exampleMoveInScenario": "m8 — 'rent increase started in April'."
     }
   ],
   "compositionRules": [
@@ -859,8 +845,7 @@
       "inputPattern": {
         "provides_evidence": 1,
         "evidence_supports_claim": 1,
-        "disputes_specific_amount": 1,
-        "cites_temporal_boundary": 1,
+        "provides_temporal_constraint": 1,
         "ready_for_synthesis": 1
       },
       "outputBanner": "Sub-dispute evidence supplied; ready for synthesis",
