@@ -40,6 +40,7 @@ import {
   buildBooleanObservationInputHash,
 } from './booleanObservationRequestBuilder.ts';
 import { filterFamiliesForMode } from './familyRegistry.ts';
+import { buildRunRowFailureDetail } from './classifierRunRowFailureDetail.ts';
 import {
   MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
   sanitizeMcpBooleanObservationResponse,
@@ -244,6 +245,24 @@ export async function classifyOneArgumentCore(
   // Branch on adapter result.
   if (adapterResult.kind === 'unavailable') {
     const failureReason = unavailableReasonToFailureReason(adapterResult.reason);
+    // OPS-MCP-CLASSIFIER-FAILURE-DETAIL-AUTO-TRIGGER-FILL-001 — build the
+    // leak-safe diagnostic projection for the direct-dispatch failed run row,
+    // reusing the SAME builder the queue drainer uses. Inputs are
+    // allow-listed structural strings only: the controlled `mcp_*` enum
+    // (failureReason), the structural validator PATH (never the span text),
+    // the single auto-trigger family, the run mode, and the schema-version
+    // constant. correlation_id is omitted (Open Q1): the run row's own PK
+    // already correlates and `runId` is not known until after the INSERT.
+    // The PERSISTED `failure_detail` is the builder OUTPUT (matching the
+    // drainer path); the raw `adapterResult.detail` rides the RETURN value
+    // below unchanged.
+    const failureDetail = buildRunRowFailureDetail({
+      validatorPath: adapterResult.detail?.path,
+      reason: failureReason,
+      family: eligibleFamilies[0],
+      runMode: mode,
+      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    }) ?? null;
     const runWrite = await persistRun({
       debateId: context.debateId,
       argumentId,
@@ -255,6 +274,11 @@ export async function classifyOneArgumentCore(
       runMode: mode,
       status: 'failed',
       failureReason,
+      // Q2/Q3: pass the typed BooleanObservationFailureSubreason enum string
+      // through to the text column; write null (no synthetic value) when the
+      // adapter left it unset (e.g. url_missing / token_missing).
+      failureSubReason: adapterResult.subReason ?? null,
+      failureDetail,
       startedAt,
       completedAt,
     });

@@ -43,6 +43,19 @@ export interface PersistRunInput {
   runMode: MachineObservationRunMode;
   status: 'success' | 'failed' | 'fallback';
   failureReason: string | null;
+  /**
+   * OPS-MCP-CLASSIFIER-FAILURE-DETAIL-AUTO-TRIGGER-FILL-001 — ADDITIVE,
+   * optional direct-dispatch failed-branch diagnostics. Omitted on the
+   * success path (and by any caller that does not set them) → the
+   * conditional spread below leaves the columns absent from the INSERT
+   * payload, so they stay NULL and the serialized INSERT is byte-equal to
+   * today. The leak-safe `failureDetail` object is produced by
+   * `buildRunRowFailureDetail` at the call site; the writer adds no
+   * sanitization of its own (sanitization lives in the builder, exactly as
+   * on the drainer path).
+   */
+  failureSubReason?: string | null; // → failure_sub_reason (text)
+  failureDetail?: Record<string, unknown> | null; // → failure_detail (jsonb)
   /** ISO-8601 timestamp. */
   startedAt: string;
   /** ISO-8601 timestamp; nullable while run is in-flight. */
@@ -91,6 +104,16 @@ export async function persistRun(input: PersistRunInput): Promise<PersistRunResu
     run_mode: input.runMode,
     status: input.status,
     failure_reason: input.failureReason,
+    // OPS-MCP-CLASSIFIER-FAILURE-DETAIL-AUTO-TRIGGER-FILL-001 — write the two
+    // diagnostic columns ONLY WHEN the caller supplies them, so callers that
+    // omit them (the success path; the queue path) produce a BYTE-EQUAL
+    // INSERT payload to today and the columns stay at their NULL default.
+    ...(input.failureSubReason !== undefined
+      ? { failure_sub_reason: input.failureSubReason }
+      : {}),
+    ...(input.failureDetail !== undefined
+      ? { failure_detail: input.failureDetail }
+      : {}),
     started_at: input.startedAt,
     completed_at: input.completedAt,
   };

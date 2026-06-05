@@ -93,11 +93,43 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — PerArgumentSummary surfa
   });
 
   it('THR-4 — only the unavailable branch sets the sub-reason fields (success / persist / not-found do not)', () => {
-    // Exactly ONE return sets each new field — the adapter-unavailable
-    // branch. The success / persist-run-failed / persist-results-failed /
-    // argument_not_found summaries must leave them absent.
-    expect((coreText.match(/failureSubReason:/g) ?? []).length).toBe(1);
-    expect((coreText.match(/failureDetail:/g) ?? []).length).toBe(1);
+    // The adapter-unavailable branch is the ONLY place that sets these
+    // fields. As of OPS-MCP-CLASSIFIER-FAILURE-DETAIL-AUTO-TRIGGER-FILL-001
+    // (#485) it sets each TWICE — once on the failed-branch persistRun INSERT
+    // (so the run row's failure_detail / failure_sub_reason columns are
+    // populated, not NULL) and once on the RETURN'd PerArgumentSummary (the
+    // pre-existing Phase-1 threading). Both sites live inside the single
+    // `if (adapterResult.kind === 'unavailable')` block; the success /
+    // persist-run-failed / persist-results-failed / argument_not_found
+    // summaries must STILL leave them absent. The count moved 1 → 2 by design;
+    // the invariant (confined to the unavailable branch; success path clean)
+    // is what this test now asserts directly, not the incidental count.
+    // Match the property key in either object form: explicit `name:` OR ES6
+    // shorthand `name,` (the failed-branch persistRun passes `failureDetail,`
+    // off a local const of the same name).
+    expect((coreText.match(/failureSubReason[,:]/g) ?? []).length).toBe(2);
+    expect((coreText.match(/failureDetail[,:]/g) ?? []).length).toBe(2);
+
+    // Both occurrences of each field are inside the unavailable branch block
+    // (from the branch guard to the `// Success path` marker that follows it).
+    // Anchored on the literal markers (not exact whitespace) so it is robust
+    // to CRLF / LF line endings.
+    const unavailableBlock = coreText.match(
+      /adapterResult\.kind === 'unavailable'[\s\S]*?\/\/ Success path/,
+    );
+    expect(unavailableBlock).not.toBeNull();
+    expect((unavailableBlock![0].match(/failureSubReason[,:]/g) ?? []).length).toBe(2);
+    expect((unavailableBlock![0].match(/failureDetail[,:]/g) ?? []).length).toBe(2);
+
+    // The success-path persistRun (status: 'success') sets NEITHER field, so
+    // success rows keep failure_detail / failure_sub_reason NULL (byte-equal
+    // to pre-#485). Extract the success persistRun call and assert it is clean.
+    const successPersist = coreText.match(
+      /\/\/ Success path[\s\S]*?await persistRun\(\{[\s\S]*?status: 'success',[\s\S]*?\}\);/,
+    );
+    expect(successPersist).not.toBeNull();
+    expect(successPersist![0]).not.toMatch(/failureSubReason[,:]/);
+    expect(successPersist![0]).not.toMatch(/failureDetail[,:]/);
   });
 });
 
