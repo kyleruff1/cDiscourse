@@ -1,5 +1,10 @@
 # OPS-MCP-SERVER-CAPACITY-INVESTIGATION — Intent brief (server-cap-only fix)
 
+> **SUPERSEDED for the active fix axis (pointer, body preserved).** The per-isolate
+> synchronous-capacity cap approved in this intent brief was superseded by the canonical Postgres
+> async classifier queue in [`ARCH-001-CIVIL-DISCOURSE-CLASSIFIER-QUEUE-ARCHITECTURE.md`](./ARCH-001-CIVIL-DISCOURSE-CLASSIFIER-QUEUE-ARCHITECTURE.md)
+> §"Goal (one paragraph)". This brief is preserved byte-equal as the durable #371 card-intent; it is not a current prescription.
+
 **Operator:** Kyler · **Date:** 2026-05-30 · **Issue:** #371
 **Card type:** root-cause server-side fix — a per-isolate bounded provider-concurrency cap in `mcp-server/`. **Stage 2B APPROVED** (server-runtime change). Server-cap ONLY this card: NO retry-after protocol, NO Edge change, NO Family H. NO prompt/taxonomy/family-key/schema-mirror/Source-6/Edge-flag/audit-lint change; NO migration; no `package.json` change unless an existing test/script pattern requires it + operator approval.
 
