@@ -14,8 +14,23 @@
  *     `inactiveAt !== null`.
  *   - The pure-TS belt-and-braces filters correctly exclude rows whose
  *     `inactiveAt` is set.
+ *
+ * ADMIN-ARGS-CANONICAL-001 extension (design §3/§15 slice 2 — ADDITIVE):
+ * the full `ArgumentArtifact` projection is now exercised. Every assertion
+ * below is *added*; none of the original assertions above is removed or
+ * relaxed (THR-4 / §4-T discipline). The extension proves:
+ *   - `isInactive` derives from `inactiveAt` ONLY (via `deriveRevisionIsInactive`).
+ *   - The no-resurrect invariant: an active sibling never clears an inactive
+ *     child's state.
+ *   - `inactiveReason` NEVER appears in any artifact/revision output — even
+ *     when fed poisoned reason values on the source rows.
  */
 import type { ArgumentRow } from '../src/features/arguments/types';
+import {
+  groupArgumentsIntoArtifacts,
+  deriveRevisionIsInactive,
+  type ArtifactSourceRow,
+} from '../src/features/arguments/argumentArtifactModel';
 
 // A pure-TS helper that mimics the belt-and-braces check used by
 // conversationGalleryModel.buildGallery + roomContractModel +
@@ -86,5 +101,77 @@ describe('ADMIN-ARGS-INACTIVE-001 — isVisibleToNonAdmin contract', () => {
       inactiveAt: undefined as unknown as null,
     };
     expect(isVisibleToNonAdmin(partial)).toBe(true);
+  });
+});
+
+// ── ADMIN-ARGS-CANONICAL-001 — full ArgumentArtifact projection (ADDITIVE) ──
+
+function makeArtifactRow(overrides: Partial<ArtifactSourceRow> = {}): ArtifactSourceRow {
+  const base: ArtifactSourceRow = {
+    id: 'arg-1',
+    debateId: 'd1',
+    debateTitle: 'A structural debate title',
+    authorId: 'u1',
+    body: 'An on-topic structural claim body.',
+    createdAt: '2026-06-04T00:00:00Z',
+    updatedAt: '2026-06-04T00:00:00Z',
+    inactiveAt: null,
+  };
+  return { ...base, ...overrides };
+}
+
+describe('CANONICAL-001 — isInactive derives from inactiveAt only', () => {
+  it('deriveRevisionIsInactive uses inactiveAt, not any reason field', () => {
+    expect(deriveRevisionIsInactive({ inactiveAt: null })).toBe(false);
+    expect(deriveRevisionIsInactive({ inactiveAt: '2026-06-05T00:00:00Z' })).toBe(true);
+  });
+
+  it('artifact + revision isInactive flow from inactiveAt', () => {
+    const out = groupArgumentsIntoArtifacts([
+      makeArtifactRow({ id: 'active', body: 'active body', inactiveAt: null }),
+      makeArtifactRow({ id: 'inactive', debateTitle: 'Other title', body: 'inactive body', inactiveAt: '2026-06-05T00:00:00Z' }),
+    ]);
+    const active = out.find((a) => a.revisions.some((r) => r.revisionId === 'active'))!;
+    const inactive = out.find((a) => a.revisions.some((r) => r.revisionId === 'inactive'))!;
+    expect(active.isInactive).toBe(false);
+    expect(inactive.isInactive).toBe(true);
+  });
+});
+
+describe('CANONICAL-001 — no-resurrect invariant', () => {
+  it('an active sibling revision never clears an inactive child revision', () => {
+    // Same logical argument (same id), two revisions: an earlier inactive one
+    // and a later active one. The inactive child must keep its state; the
+    // artifact OR-folds to inactive.
+    const rows: ArtifactSourceRow[] = [
+      makeArtifactRow({ id: 'arg-x', createdAt: '2026-06-04T00:00:00Z', updatedAt: '2026-06-04T06:00:00Z', inactiveAt: '2026-06-05T00:00:00Z', body: 'inactive rev' }),
+      makeArtifactRow({ id: 'arg-x', createdAt: '2026-06-04T00:00:00Z', updatedAt: '2026-06-04T12:00:00Z', inactiveAt: null, body: 'active rev' }),
+    ];
+    const out = groupArgumentsIntoArtifacts(rows);
+    expect(out).toHaveLength(1);
+    expect(out[0].isInactive).toBe(true);
+    const inactiveChild = out[0].revisions.find((r) => r.isInactive);
+    const activeChild = out[0].revisions.find((r) => !r.isInactive);
+    expect(inactiveChild).toBeDefined();
+    expect(activeChild).toBeDefined();
+  });
+});
+
+describe('CANONICAL-001 — inactiveReason NEVER appears in any output (§10a)', () => {
+  it('serialized artifacts carry neither the reason key nor poisoned reason values', () => {
+    // Poisoned reason fields fed via a widened cast; they are NOT on the
+    // input type, so the model can never read or echo them.
+    const poisoned = [
+      {
+        ...makeArtifactRow({ id: 'arg-p', inactiveAt: '2026-06-05T00:00:00Z' }),
+        inactiveReason: 'policy_violation',
+        inactive_reason: 'spam',
+      } as unknown as ArtifactSourceRow,
+    ];
+    const serialized = JSON.stringify(groupArgumentsIntoArtifacts(poisoned));
+    expect(serialized).not.toContain('inactiveReason');
+    expect(serialized).not.toContain('inactive_reason');
+    expect(serialized).not.toContain('policy_violation');
+    expect(serialized).not.toContain('spam');
   });
 });
