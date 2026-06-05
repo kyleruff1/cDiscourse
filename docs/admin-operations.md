@@ -90,3 +90,45 @@ Audit rows cannot be edited or deleted by admins. Service-role bypass exists for
 2. Enter reason
 3. Tap Disable user → Supabase Auth sets `banned_until`
 4. To re-enable: same flow, tap Enable user
+
+## Admin Arguments table — room-source filter + view prefs (ADMIN-ARGUMENTS-003, #469)
+
+The Admin → Arguments tab has a **Room source** filter row and persistable view
+preferences. Both are pure-client (AsyncStorage); there is no server change, no
+Edge Function, and no migration.
+
+### Room-source filter
+
+The chip row (`All rooms · xAI adversarial · AI corpus · Stress batch · Scenario ·
+Seed · Human / untagged`) filters the table by **where a room came from**. It is a
+**navigation / diagnostic aid, not a verdict** — it tells you a room was produced
+by a corpus run, never anything about whether its content is correct or popular.
+
+How it works: the corpus runners append a suffix to the debate title
+(`[xai-adv …]`, `[ai-corpus … #scenario]`, `[stress …]`, `[scenario-…]`,
+`[seed-…]` / `[ai-seed-…]`). `classifyRunFamily` in
+`src/features/admin/adminArgumentsRunTagModel.ts` reads that suffix off the
+**existing `debates(title)` JOIN** the loader already performs — no new column, no
+new query. A plain title with no suffix classifies as `Human / untagged`.
+
+When #476 (CORPUS-30-RUNTAG-PERSIST) lands a durable indexed `run_tag` column, the
+swap is a one-line change at the single call site in the `filtered` memo; the
+filter UI and the family set do not change.
+
+### Persistable view preferences (v1)
+
+Density, sort field + direction, the room-source filter, participant kind, and the
+row limit persist to AsyncStorage (`cdiscourse:admin-arguments-prefs:admin`) and
+restore on the next mount. The blob is cosmetic device-local view state only — no
+auth, secret, or role data. Density (`Comfortable` / `Compact`) tightens row
+spacing.
+
+### Deferred (pending operator decisions)
+
+- **Classifier-coverage column** — blocked on PHASE7-OBSERVATION-001 / Blocker B3
+  (client-RLS read vs. a new Edge action).
+- **Bot / human filter** — blocked on Blocker B1 (confirm the `profiles.is_bot`
+  column name). `participantKind` is already in the persisted prefs schema and the
+  toolbar shows honest "Bot / human filter coming later." copy, but it drives no
+  active filter in v1.
+- **Coverage band thresholds** — Blocker B4.

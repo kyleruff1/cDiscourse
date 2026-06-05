@@ -214,13 +214,19 @@ describe('AdminArgumentsTab — Stage 6.1.6b table layout', () => {
   });
 
   it('default sort state is updated_at + desc', () => {
-    expect(src).toMatch(/useState<AdminArgumentsSortField>\('updated_at'\)/);
-    expect(src).toMatch(/useState<AdminArgumentsSortDirection>\('desc'\)/);
+    // ADMIN-ARGUMENTS-003 — sort state now lives in the persisted prefs blob
+    // (`useAdminArgumentsPrefs`) instead of local useState, so the default is
+    // sourced from `prefs.sortField` / `prefs.sortDirection`. The canonical
+    // default (updated_at / desc) is pinned in adminArgumentsPrefsModel.test.ts.
+    expect(src).toMatch(/const sortField = prefs\.sortField/);
+    expect(src).toMatch(/const sortDirection = prefs\.sortDirection/);
   });
 
   it('clicking a sort column toggles direction; switching column resets to desc', () => {
-    expect(src).toMatch(/setSortDirection\(\(d\)\s*=>\s*\(d\s*===\s*'desc'\s*\?\s*'asc'\s*:\s*'desc'\)\)/);
-    expect(src).toMatch(/setSortField\(field\);\s*setSortDirection\('desc'\)/);
+    // ADMIN-ARGUMENTS-003 — same toggle semantics, now routed through the
+    // persisted prefs setter so the choice survives a remount.
+    expect(src).toMatch(/updatePref\('sortDirection', sortDirection === 'desc' \? 'asc' : 'desc'\)/);
+    expect(src).toMatch(/updatePref\('sortField', field\);\s*updatePref\('sortDirection', 'desc'\)/);
   });
 
   it('passes sortField + sortDirection through to loadAdminArguments', () => {

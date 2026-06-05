@@ -30,6 +30,15 @@ import {
 } from '../arguments/messageQualifiers';
 import { ADMIN_BULK_INACTIVE_ID_CAP } from '../../lib/edgeFunctions';
 import { SURFACE_TOKENS, CONTROL, STATUS, ARGUMENT } from '../../lib/designTokens';
+import {
+  classifyRunFamily,
+  runFamilyMatchesFilter,
+  RUN_TAG_FILTER_VALUES,
+  RUN_TAG_FILTER_LABELS,
+  RUN_TAG_FILTER_HINTS,
+} from './adminArgumentsRunTagModel';
+import { densityToCellPaddingY } from './adminArgumentsPrefsModel';
+import { useAdminArgumentsPrefs } from './useAdminArgumentsPrefs';
 
 type LoadState = 'idle' | 'loading' | 'error';
 
@@ -141,9 +150,21 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
   const [state, setState] = useState<LoadState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [limit, setLimit] = useState(50);
-  const [sortField, setSortField] = useState<AdminArgumentsSortField>('updated_at');
-  const [sortDirection, setSortDirection] = useState<AdminArgumentsSortDirection>('desc');
+  // ADMIN-ARGUMENTS-003 — persistable view prefs (density / sort / runTag /
+  // participantKind / limit) restored from AsyncStorage on mount and saved on
+  // every change. Pure-client; no server write. The loader / sort / chip
+  // controls below read from `prefs.*` and write via `updatePref(...)`, so the
+  // restored values flow straight into the table on next mount.
+  const { prefs, updatePref } = useAdminArgumentsPrefs();
+  const limit = prefs.limit;
+  const sortField = prefs.sortField;
+  const sortDirection = prefs.sortDirection;
+  const runTagFilter = prefs.runTagFilter;
+  const density = prefs.density;
+  const setLimit = useCallback(
+    (n: 50 | 100 | 200) => updatePref('limit', n),
+    [updatePref],
+  );
   // ADMIN-ARGS-INACTIVE-001 — Show-inactives toggle + selection state.
   // includeInactives drives the loader's SQL filter; selected drives bulk.
   const [includeInactives, setIncludeInactives] = useState(false);
@@ -240,25 +261,40 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
   }, [fetchRows]);
 
   const toggleSort = useCallback((field: AdminArgumentsSortField) => {
+    // ADMIN-ARGUMENTS-003 — route sort changes through the persisted prefs so
+    // the choice survives a remount. Same toggle semantics as before: tapping
+    // the active column flips direction; tapping a new column selects it desc.
     if (field === sortField) {
-      setSortDirection((d) => (d === 'desc' ? 'asc' : 'desc'));
+      updatePref('sortDirection', sortDirection === 'desc' ? 'asc' : 'desc');
     } else {
-      setSortField(field);
-      setSortDirection('desc');
+      updatePref('sortField', field);
+      updatePref('sortDirection', 'desc');
     }
-  }, [sortField]);
+  }, [sortField, sortDirection, updatePref]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
     const needle = search.trim().toLowerCase();
-    return rows.filter((r) =>
-      r.body.toLowerCase().includes(needle)
-      || (r.debateTitle ?? '').toLowerCase().includes(needle)
-      || (r.authorDisplayName ?? '').toLowerCase().includes(needle)
-      || r.argumentType.toLowerCase().includes(needle)
-      || (r.disagreementAxis ?? '').toLowerCase().includes(needle),
-    );
-  }, [rows, search]);
+    return rows.filter((r) => {
+      // ADMIN-ARGUMENTS-003 — runTag family filter. A diagnostic / navigation
+      // aid: it classifies a room by the corpus suffix the runners append to
+      // the debate title (the EXISTING `debates(title)` JOIN — no new column,
+      // no new query). The `all` filter is a no-op. This is a navigation aid,
+      // not a verdict — it only tells an admin WHERE a room came from, never
+      // whether its content is correct or popular. When #476's durable
+      // `run_tag` column lands, swap `classifyRunFamily({ debateTitle })` for a
+      // column read at this one call site — the filter UI does not change.
+      const family = classifyRunFamily({ debateTitle: r.debateTitle });
+      if (!runFamilyMatchesFilter(family, runTagFilter)) return false;
+      if (!needle) return true;
+      return (
+        r.body.toLowerCase().includes(needle)
+        || (r.debateTitle ?? '').toLowerCase().includes(needle)
+        || (r.authorDisplayName ?? '').toLowerCase().includes(needle)
+        || r.argumentType.toLowerCase().includes(needle)
+        || (r.disagreementAxis ?? '').toLowerCase().includes(needle)
+      );
+    });
+  }, [rows, search, runTagFilter]);
 
   // ADMIN-ARGS-CANONICAL-001 — group the filtered rows into one clickable
   // artifact per logical argument (duplicate runs / updates collapse into a
@@ -310,6 +346,10 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
   const sortStatusKey = `${sortField}:${sortDirection}` as keyof typeof SORT_HUMAN_LABEL;
   const sortStatusHuman = SORT_HUMAN_LABEL[sortStatusKey];
   const sortStatusColumn = `${SORT_COLUMN_LABEL[sortField]}${sortArrow(true, sortDirection)}`;
+
+  // ADMIN-ARGUMENTS-003 — density override applied to every body cell. Pure
+  // cosmetic spacing; `comfortable` reproduces the existing 6px padding.
+  const densityCellStyle = { paddingVertical: densityToCellPaddingY(density) };
 
   return (
     <View style={styles.container}>
@@ -388,6 +428,78 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
             </Pressable>
           </View>
         )}
+      </View>
+
+      {/* ADMIN-ARGUMENTS-003 — runTag (room source) filter row. A diagnostic /
+           navigation aid, not a verdict: it filters by where a room came from
+           (the corpus suffix on the debate title), never by whether its content
+           is correct or popular. */}
+      <View style={styles.subToolbar} accessibilityLabel="admin-arguments-runtag-toolbar">
+        <Text style={styles.filterGroupLabel}>Room source:</Text>
+        {RUN_TAG_FILTER_VALUES.map((value) => {
+          const active = runTagFilter === value;
+          return (
+            <Pressable
+              key={value}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => updatePref('runTagFilter', value)}
+              accessibilityRole="button"
+              accessibilityLabel={`Filter rooms by ${RUN_TAG_FILTER_LABELS[value]}`}
+              accessibilityState={{ selected: active }}
+              accessibilityHint={RUN_TAG_FILTER_HINTS[value]}
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+              testID={`admin-arguments-runtag-${value}`}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {RUN_TAG_FILTER_LABELS[value]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={styles.filterHint} accessibilityLabel="admin-arguments-runtag-hint">
+        {RUN_TAG_FILTER_HINTS[runTagFilter]} The room-source filter is a navigation aid, not a verdict on any room.
+      </Text>
+
+      {/* ADMIN-ARGUMENTS-003 — density control + deferred participant-kind
+           control. Density is cosmetic row spacing. The participant-kind
+           (bot / human) FILTER is deferred (Blocker B1 — confirm the bot
+           column name); the choice is persisted but inert in v1, shown with
+           honest "coming later" copy. */}
+      <View style={styles.subToolbar} accessibilityLabel="admin-arguments-view-toolbar">
+        <Text style={styles.filterGroupLabel}>Density:</Text>
+        <Pressable
+          style={[styles.chip, density === 'comfortable' && styles.chipActive]}
+          onPress={() => updatePref('density', 'comfortable')}
+          accessibilityRole="button"
+          accessibilityLabel="Comfortable row density"
+          accessibilityState={{ selected: density === 'comfortable' }}
+          hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+          testID="admin-arguments-density-comfortable"
+        >
+          <Text style={[styles.chipText, density === 'comfortable' && styles.chipTextActive]}>
+            Comfortable
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.chip, density === 'compact' && styles.chipActive]}
+          onPress={() => updatePref('density', 'compact')}
+          accessibilityRole="button"
+          accessibilityLabel="Compact row density"
+          accessibilityState={{ selected: density === 'compact' }}
+          hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+          testID="admin-arguments-density-compact"
+        >
+          <Text style={[styles.chipText, density === 'compact' && styles.chipTextActive]}>
+            Compact
+          </Text>
+        </Pressable>
+        <Text
+          style={styles.deferredHint}
+          accessibilityLabel="admin-arguments-participant-kind-deferred"
+        >
+          Bot / human filter coming later.
+        </Text>
       </View>
 
       {bulkDialog && (
@@ -558,7 +670,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                   accessibilityLabel={`admin-argument-${r.id}`}
                   testID={`admin-arguments-artifact-${r.id}`}
                 >
-                  <View style={[styles.cell, { width: COL.select }]}>
+                  <View style={[styles.cell, densityCellStyle, { width: COL.select }]}>
                     <Pressable
                       style={[styles.checkbox, isSelected && styles.checkboxChecked]}
                       onPress={() => toggleSelect(r.id)}
@@ -570,19 +682,19 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                       <Text style={styles.checkboxMark}>{isSelected ? '✓' : ''}</Text>
                     </Pressable>
                   </View>
-                  <View style={[styles.cell, { width: COL.status }]}>
+                  <View style={[styles.cell, densityCellStyle, { width: COL.status }]}>
                     <Badge label={r.status} variant="status" />
                   </View>
-                  <View style={[styles.cell, { width: COL.side }]}>
+                  <View style={[styles.cell, densityCellStyle, { width: COL.side }]}>
                     <Badge label={r.side} variant="side" />
                   </View>
-                  <View style={[styles.cell, { width: COL.type }]}>
+                  <View style={[styles.cell, densityCellStyle, { width: COL.type }]}>
                     <Badge label={r.argumentType} variant="type" />
                     {r.disagreementAxis && (
                       <Text style={styles.subtle}>axis: {r.disagreementAxis}</Text>
                     )}
                   </View>
-                  <View style={[styles.cell, styles.cellDebate, { width: COL.debate }]}>
+                  <View style={[styles.cell, densityCellStyle, styles.cellDebate, { width: COL.debate }]}>
                     <Text style={styles.metaTitle} numberOfLines={1}>
                       {r.debateTitle ?? `Room ${shortenId(r.debateId)}`}
                     </Text>
@@ -664,7 +776,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                       </View>
                     )}
                   </View>
-                  <View style={[styles.cell, { width: COL.cat }]}>
+                  <View style={[styles.cell, densityCellStyle, { width: COL.cat }]}>
                     <Badge label={formatCategoryLabel(category)} variant="category" />
                     {qualifier && (
                       <Badge label={formatQualifierLabel(qualifier)} variant="qualifier" />
@@ -675,7 +787,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                     )}
                   </View>
                   <View
-                    style={[styles.cell, { width: COL.created }]}
+                    style={[styles.cell, densityCellStyle, { width: COL.created }]}
                     accessibilityLabel={`admin-arguments-cell-created-${r.id}`}
                     testID="admin-arguments-cell-created"
                   >
@@ -683,7 +795,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                     <Text style={styles.timeRelative}>{formatRelativeShort(r.createdAt)}</Text>
                   </View>
                   <View
-                    style={[styles.cell, { width: COL.updated }]}
+                    style={[styles.cell, densityCellStyle, { width: COL.updated }]}
                     accessibilityLabel={`admin-arguments-cell-updated-${r.id}`}
                     testID="admin-arguments-cell-updated"
                   >
@@ -697,7 +809,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                        boolean chip + relative timestamp when set. The
                        inactive_reason field is NEVER rendered here (§10a). */}
                   <View
-                    style={[styles.cell, { width: COL.inactive }]}
+                    style={[styles.cell, densityCellStyle, { width: COL.inactive }]}
                     accessibilityLabel={`admin-arguments-cell-inactive-${r.id}`}
                     testID="admin-arguments-cell-inactive"
                   >
@@ -712,7 +824,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                       <Badge label="Active" variant="status" />
                     )}
                   </View>
-                  <View style={[styles.cell, { width: COL.action }]}>
+                  <View style={[styles.cell, densityCellStyle, { width: COL.action }]}>
                     {onOpenArgumentTimeline ? (
                       <Pressable
                         style={styles.openTimelineBtn}
@@ -816,6 +928,27 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: STATUS.neutral.bg },
   chipText: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
   chipTextActive: { color: SURFACE_TOKENS.textPrimary },
+  // ADMIN-ARGUMENTS-003 — filter / view toolbar copy.
+  filterGroupLabel: {
+    fontSize: 11,
+    color: SURFACE_TOKENS.textSecondary,
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  filterHint: {
+    fontSize: 10,
+    color: SURFACE_TOKENS.textMuted,
+    paddingHorizontal: 10,
+    paddingBottom: 4,
+    backgroundColor: SURFACE_TOKENS.base,
+    fontStyle: 'italic',
+  },
+  deferredHint: {
+    fontSize: 10,
+    color: SURFACE_TOKENS.textMuted,
+    fontStyle: 'italic',
+    marginLeft: 8,
+  },
   refreshBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
