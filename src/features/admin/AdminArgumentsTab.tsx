@@ -25,6 +25,7 @@ import {
   type AdminArgumentRoomGroup,
 } from './adminArgumentsRoomGroupingModel';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
+import { tableFillContentContainerStyle, flexTableColumnStyle } from '../../lib/responsiveTable';
 import {
   deriveMessageCategory,
   derivePrimaryQualifier,
@@ -127,10 +128,14 @@ function SortableHeader({ label, field, sortField, sortDirection, onPress, width
   );
 }
 
-interface PlainHeaderProps { label: string; width: number; flex?: number }
-function PlainHeader({ label, width }: PlainHeaderProps) {
+interface PlainHeaderProps { label: string; width: number; flexFill?: boolean }
+function PlainHeader({ label, width, flexFill }: PlainHeaderProps) {
+  // OPS-ADMIN-ARGS-WEB-WIDTH-001 — when `flexFill` is set this header cell uses
+  // the flexible-column style (grow to absorb wide-viewport slack, never shrink
+  // below `width`). The SAME flex fragment is applied to the matching body cell
+  // so the header and body column widths stay identical.
   return (
-    <View style={[styles.headerCell, { width }]}>
+    <View style={[styles.headerCell, flexFill ? flexTableColumnStyle(width) : { width }]}>
       <Text style={styles.headerCellText}>{label}</Text>
     </View>
   );
@@ -656,11 +661,16 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
       )}
 
       {/* Horizontally scrollable table. Columns never collapse into card
-          metadata on narrow viewports — they stay as scannable columns. */}
+          metadata on narrow viewports — they stay as scannable columns. On a
+          wide web viewport the content container grows to fill the available
+          width (flexGrow: 1) instead of pinning to TABLE_WIDTH and leaving a
+          dead gap on the right; the flexible Debate / Argument column absorbs
+          the slack (see styles.headerCellDebateFlex / styles.cellDebateFlex).
+          OPS-ADMIN-ARGS-WEB-WIDTH-001. */}
       <ScrollView
         horizontal
         style={styles.tableWrap}
-        contentContainerStyle={{ minWidth: TABLE_WIDTH }}
+        contentContainerStyle={tableFillContentContainerStyle(TABLE_WIDTH)}
         accessibilityLabel="admin-arguments-table-scroller"
       >
         <View style={styles.table} accessibilityLabel="admin-arguments-table" testID="admin-arguments-table">
@@ -669,7 +679,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
             <PlainHeader label="Status" width={COL.status} />
             <PlainHeader label="Side" width={COL.side} />
             <PlainHeader label="Type" width={COL.type} />
-            <PlainHeader label="Debate / Argument" width={COL.debate} />
+            <PlainHeader label="Debate / Argument" width={COL.debate} flexFill />
             <PlainHeader label="Category / Qualifier" width={COL.cat} />
             <SortableHeader
               label="Created"
@@ -837,7 +847,7 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                       <Text style={styles.subtle}>axis: {r.disagreementAxis}</Text>
                     )}
                   </View>
-                  <View style={[styles.cell, densityCellStyle, styles.cellDebate, { width: COL.debate }]}>
+                  <View style={[styles.cell, densityCellStyle, styles.cellDebate, flexTableColumnStyle(COL.debate)]}>
                     <Text style={styles.metaTitle} numberOfLines={1}>
                       {r.debateTitle ?? `Room ${shortenId(r.debateId)}`}
                     </Text>
