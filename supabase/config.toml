@@ -387,6 +387,21 @@ verify_jwt = true
 [functions.admin-users]
 verify_jwt = true
 
+# OPS-ADMIN-CLASSIFIER-HEALTH-CONFIG-001 — admin-classifier-health.
+# Shipped in #500 (OPS-MCP-OBSERVABILITY-002) with a function-local
+# supabase/functions/admin-classifier-health/config.toml, but WITHOUT a root
+# [functions.admin-classifier-health] block. The deploy path (Supabase GitHub
+# integration / bulk `functions deploy`) keys off these ROOT blocks, so the
+# function never deployed → client `functions.invoke('admin-classifier-health')`
+# threw FunctionsFetchError → the admin panel showed `network_error`
+# (src/features/admin/adminClassifierHealthApi.ts). verify_jwt = true mirrors
+# admin-users: the function ADDITIONALLY enforces requireAdmin(req) internally
+# (Authorization -> auth.getUser() -> profiles.role = 'admin' via service-role);
+# missing/invalid token -> 401, non-admin -> 403. Read-only diagnostic; no write
+# path, no provider spend, cannot block/route/delay any user post.
+[functions.admin-classifier-health]
+verify_jwt = true
+
 [functions.request-argument-deletion]
 verify_jwt = true
 

@@ -55,14 +55,14 @@ import {
 import { requireAdmin } from '../_shared/adminAuth.ts';
 import type { createServiceClient } from '../_shared/supabaseClients.ts';
 import { AdminClassifierHealthRequestSchema } from '../_shared/adminClassifierHealthSchemas.ts';
-import { aggregateClassifierHealth } from '../../../src/features/adminClassifierHealth/classifierHealthModel.ts';
-import { buildClassifierHealthCsv } from '../../../src/features/adminClassifierHealth/classifierHealthCsv.ts';
-import { containsForbiddenSubstring } from '../../../src/features/cutoverHealthAlerts/cutoverHealthAlertModel.ts';
+import { aggregateClassifierHealth } from '../_shared/adminClassifierHealth/classifierHealthModel.ts';
+import { buildClassifierHealthCsv } from '../_shared/adminClassifierHealth/classifierHealthCsv.ts';
+import { containsForbiddenSubstring } from '../_shared/cutoverHealthAlertModel.ts';
 import type {
   ClassifierHealthRunRow,
   ClassifierHealthFailureDetail,
   ClassifierHealthFilter,
-} from '../../../src/features/adminClassifierHealth/types.ts';
+} from '../_shared/adminClassifierHealth/types.ts';
 
 /**
  * The EXPLICIT column allow-list for the aggregate read. NEVER `*`. NEVER
