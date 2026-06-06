@@ -12,6 +12,7 @@ import {
   getStackTransformForIndex,
   type ArgumentBubbleViewModel,
 } from './argumentGameSurfaceModel';
+import type { CardDetailViewModel } from './cardView/cardDetailModel';
 
 interface Props {
   viewModels: ArgumentBubbleViewModel[];
@@ -20,6 +21,14 @@ interface Props {
   onPrevious: () => void;
   onNext: () => void;
   onToggleMode?: () => void;
+  /**
+   * CARD-VIEW-DATA-001 — pre-built exploded-detail model for the active
+   * card. The Stack computes nothing; it forwards this to the active card
+   * only. Memoization stays at the surface keyed on activeMessageId.
+   */
+  activeCardDetail?: CardDetailViewModel | null;
+  /** CARD-VIEW-DATA-001 — re-activates the step-ref ancestor on token tap. */
+  onActivateAncestor?: (messageId: string) => void;
 }
 
 export function ArgumentBubbleStack({
@@ -29,6 +38,8 @@ export function ArgumentBubbleStack({
   onPrevious,
   onNext,
   onToggleMode,
+  activeCardDetail,
+  onActivateAncestor,
 }: Props) {
   const activeIndex = useMemo(() => {
     const i = viewModels.findIndex((v) => v.messageId === activeMessageId);
@@ -75,6 +86,10 @@ export function ArgumentBubbleStack({
                 onActivate={onActivate}
                 onToggleMode={onToggleMode}
                 compact={!t.isActive}
+                // CARD-VIEW-DATA-001 — forward the exploded detail model to
+                // the active card only; the card also gates on vm.isActive.
+                cardDetail={t.isActive ? activeCardDetail : null}
+                onActivateAncestor={onActivateAncestor}
               />
             </View>
           );
