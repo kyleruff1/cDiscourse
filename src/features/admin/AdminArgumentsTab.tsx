@@ -20,6 +20,10 @@ import {
   type ArtifactSourceRow,
   type ArgumentArtifact,
 } from '../arguments/argumentArtifactModel';
+import {
+  groupArtifactsByRoom,
+  type AdminArgumentRoomGroup,
+} from './adminArgumentsRoomGroupingModel';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
 import {
   deriveMessageCategory,
@@ -343,6 +347,49 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
     });
   }, []);
 
+  // #508 — group the per-argument artifacts into one collapsible header per
+  // room/conversation. This is the core fix: the tab previously rendered every
+  // message as its own top-level row; it now shows one header per room and
+  // reveals that room's messages only when the header is expanded. The
+  // grouping is presentation-only — it reuses the SAME `artifactRows` (no new
+  // query, no model change) and is a NAVIGATION AID, never a verdict on any
+  // room. `inactiveReason` is NEVER read; group `isInactive` AND-folds each
+  // artifact's already-derived `isInactive` (from `inactiveAt` only). The
+  // room groups honor the active sort direction, so flipping Created/Updated
+  // sort re-orders the headers too.
+  const roomGroups = useMemo<AdminArgumentRoomGroup[]>(
+    () => groupArtifactsByRoom(artifactRows.map(({ artifact }) => artifact), sortDirection),
+    [artifactRows, sortDirection],
+  );
+  // Lookup from artifactId → the latest revision's source AdminArgumentRow, so
+  // each room group's artifacts re-hydrate to the exact `{ artifact, primaryRow }`
+  // pairs the existing per-artifact row renderer consumes. Route keys and
+  // per-row literals are unchanged.
+  const primaryRowByArtifactId = useMemo(() => {
+    const m = new Map<string, AdminArgumentRow>();
+    for (const { artifact, primaryRow } of artifactRows) m.set(artifact.artifactId, primaryRow);
+    return m;
+  }, [artifactRows]);
+
+  // #508 — per-room collapse/expand. DEFAULT = all collapsed (one row per
+  // conversation), which is the fix the operator asked for. Only rooms whose
+  // id is in `expandedRooms` reveal their message rows.
+  const [expandedRooms, setExpandedRooms] = useState<ReadonlySet<string>>(new Set());
+  const toggleRoomExpanded = useCallback((roomId: string) => {
+    setExpandedRooms((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) next.delete(roomId);
+      else next.add(roomId);
+      return next;
+    });
+  }, []);
+  const expandAllRooms = useCallback(() => {
+    setExpandedRooms(new Set(roomGroups.map((g) => g.roomId)));
+  }, [roomGroups]);
+  const collapseAllRooms = useCallback(() => {
+    setExpandedRooms(new Set());
+  }, []);
+
   const sortStatusKey = `${sortField}:${sortDirection}` as keyof typeof SORT_HUMAN_LABEL;
   const sortStatusHuman = SORT_HUMAN_LABEL[sortStatusKey];
   const sortStatusColumn = `${SORT_COLUMN_LABEL[sortField]}${sortArrow(true, sortDirection)}`;
@@ -500,6 +547,29 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
         >
           Bot / human filter coming later.
         </Text>
+        {/* #508 — room-group expand / collapse. Rooms are collapsed by default
+             (one row per conversation); these control every group at once. */}
+        <Text style={styles.filterGroupLabel}>Rooms:</Text>
+        <Pressable
+          style={styles.chip}
+          onPress={expandAllRooms}
+          accessibilityRole="button"
+          accessibilityLabel="Expand all rooms"
+          hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+          testID="admin-arguments-expand-all"
+        >
+          <Text style={styles.chipText}>Expand all</Text>
+        </Pressable>
+        <Pressable
+          style={styles.chip}
+          onPress={collapseAllRooms}
+          accessibilityRole="button"
+          accessibilityLabel="Collapse all rooms"
+          hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+          testID="admin-arguments-collapse-all"
+        >
+          <Text style={styles.chipText}>Collapse all</Text>
+        </Pressable>
       </View>
 
       {bulkDialog && (
@@ -630,7 +700,80 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
           </View>
 
           <ScrollView style={styles.bodyScroller} accessibilityLabel="admin-arguments-list">
-            {artifactRows.map(({ artifact, primaryRow: r }) => {
+            {/* #508 — one collapsible header per room/conversation. The header
+                is a real button (Pressable + accessibilityRole="button" +
+                ≥44px hit target). Rooms are COLLAPSED by default — the message
+                rows below render only when the room is expanded. The header
+                shows the cleaned room title, a message-count badge, the latest
+                activity timestamp, an Inactive badge (text only — NEVER a
+                reason) when the whole room is inactive, and a muted body
+                preview line. */}
+            {roomGroups.map((group) => {
+              const roomExpanded = expandedRooms.has(group.roomId);
+              // Re-hydrate this room's artifacts to the exact
+              // `{ artifact, primaryRow }` pairs the per-artifact renderer
+              // consumes. Route keys + per-row literals are unchanged — the
+              // render below still maps `{ artifact, primaryRow: r }` pairs,
+              // now scoped to this room group. Named `artifactRows` (room-
+              // scoped) so the existing per-artifact render body is reused
+              // verbatim. (The outer `artifactRows` is the full set used by the
+              // memos + footnote; this block-scoped binding is the room slice.)
+              const artifactRows = group.artifacts
+                .map((artifact) => {
+                  const primaryRow = primaryRowByArtifactId.get(artifact.artifactId);
+                  return primaryRow ? { artifact, primaryRow } : null;
+                })
+                .filter((x): x is { artifact: ArgumentArtifact; primaryRow: AdminArgumentRow } => x !== null);
+              return (
+                <View
+                  key={group.roomId}
+                  style={styles.roomGroup}
+                  accessibilityLabel={`admin-arguments-room-group-${group.roomId}`}
+                  testID={`admin-arguments-room-group-${group.roomId}`}
+                >
+                  <Pressable
+                    style={styles.roomGroupHeader}
+                    onPress={() => toggleRoomExpanded(group.roomId)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${roomExpanded ? 'Collapse' : 'Expand'} room ${group.roomTitle ?? group.roomId} (${group.messageCount} messages)`}
+                    accessibilityState={{ expanded: roomExpanded }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    testID={`admin-arguments-room-group-header-${group.roomId}`}
+                  >
+                    <Text style={styles.roomGroupCaret}>{roomExpanded ? '▾' : '▸'}</Text>
+                    <View style={styles.roomGroupMain}>
+                      <View style={styles.roomGroupTitleRow}>
+                        <Text style={styles.roomGroupTitle} numberOfLines={1}>
+                          {group.roomTitle ?? `Room ${shortenId(group.roomId)}`}
+                        </Text>
+                        <View
+                          style={styles.roomGroupCountBadge}
+                          accessibilityLabel={`admin-arguments-room-group-count-${group.roomId}`}
+                          testID={`admin-arguments-room-group-count-${group.roomId}`}
+                        >
+                          <Text style={styles.roomGroupCountText}>
+                            {group.messageCount} {group.messageCount === 1 ? 'message' : 'messages'}
+                          </Text>
+                        </View>
+                        {group.isInactive && (
+                          <View style={styles.roomGroupInactiveBadge}>
+                            <Text style={styles.roomGroupInactiveText}>Inactive</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.roomGroupMetaRow}>
+                        <Text style={styles.timeAbsolute}>{formatDateTime(group.latestUpdatedAt)}</Text>
+                        <Text style={styles.timeRelative}>{formatRelativeShort(group.latestUpdatedAt)}</Text>
+                      </View>
+                      {group.latestBodyExcerpt.length > 0 && (
+                        <Text style={styles.roomGroupPreview} numberOfLines={1}>
+                          {group.latestBodyExcerpt}
+                        </Text>
+                      )}
+                    </View>
+                  </Pressable>
+                  {roomExpanded && (
+            artifactRows.map(({ artifact, primaryRow: r }) => {
               // ADMIN-ARGS-CANONICAL-001 — structural artifact badges. All are
               // counts, never verdicts. `observationCount` renders "n/a" when
               // coverage is absent (never a fabricated count). The inactive
@@ -863,13 +1006,17 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                   </View>
                 </View>
               );
+            })
+                  )}
+                </View>
+              );
             })}
           </ScrollView>
         </View>
       </ScrollView>
 
       <Text style={styles.footnote}>
-        Showing {artifactRows.length} grouped argument(s) from {filtered.length} of {rows.length} rows. Outputs are advisory; the app does not declare any verdict on speakers.
+        Showing {roomGroups.length} room(s) · {artifactRows.length} grouped argument(s) from {filtered.length} of {rows.length} rows. Grouping is a navigation aid; outputs are advisory and the app does not declare any verdict on speakers.
       </Text>
     </View>
   );
@@ -1050,6 +1197,55 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   nudge: { fontSize: 10, color: SURFACE_TOKENS.textSecondary, fontStyle: 'italic', marginTop: 4 },
+  // #508 — collapsible room/conversation group header + container.
+  roomGroup: {
+    borderBottomWidth: 2,
+    borderBottomColor: SURFACE_TOKENS.border,
+  },
+  roomGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    minHeight: 44,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: SURFACE_TOKENS.raised,
+    gap: 8,
+  },
+  roomGroupCaret: {
+    fontSize: 14,
+    color: SURFACE_TOKENS.textSecondary,
+    width: 16,
+    textAlign: 'center',
+    marginTop: 1,
+  },
+  roomGroupMain: { flex: 1, gap: 2 },
+  roomGroupTitleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  roomGroupTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: SURFACE_TOKENS.textPrimary,
+    flexShrink: 1,
+  },
+  roomGroupCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: STATUS.neutral.bg,
+  },
+  roomGroupCountText: { fontSize: 10, fontWeight: '600', color: STATUS.neutral.fg },
+  roomGroupInactiveBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: ARGUMENT.challenge.bg,
+  },
+  roomGroupInactiveText: { fontSize: 10, fontWeight: '600', color: ARGUMENT.challenge.fg },
+  roomGroupMetaRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  roomGroupPreview: {
+    fontSize: 11,
+    color: SURFACE_TOKENS.textMuted,
+    fontStyle: 'italic',
+  },
   // ADMIN-ARGS-CANONICAL-001 — structural artifact badge cluster + history.
   artifactBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
   historyToggle: {
