@@ -46,6 +46,7 @@ import type { MoveDraftPatch } from './conversationMoves';
 import type { ArgumentType } from '../../domain/constitution/types';
 import {
   deriveEvidenceDebts,
+  getNodeEvidenceDebtChip,
   getNodeEvidenceDebtSummary,
   getTimelineEvidenceContract,
   type EvidenceArtifact,
@@ -54,6 +55,14 @@ import {
   type TimelineEvidenceContract,
 } from '../evidence';
 import { buildArtifactsByMessageId } from './argumentGameSurfaceEvidence';
+// CARD-VIEW-DATA-001 — exploded-detail builder for the active Cards-view
+// card. Pure-TS; memoized below keyed on `activeMessageId` (+ upstream
+// maps). The component is imported by ArgumentBubbleCard. No new fetch, no
+// service-role, no AI — it consumes data the surface already holds.
+import {
+  artifactsToEvidenceSources,
+  buildCardDetailViewModel,
+} from './cardView/cardDetailModel';
 // SC-004 — Build the dock model + thread selection state into the
 // timeline map. Lifecycle + metadata maps are built once per render and
 // memoized by their inputHashes; the dock model is cheap (O(cluster
@@ -73,7 +82,7 @@ import {
 } from '../metadata/pointTagsApi';
 import { diffPointTagSets, pickLatestChange } from '../metadata/pointTagsRealtime';
 import type { ManualTagCode } from '../metadata';
-import { ROOM_REALTIME_COPY } from './gameCopy';
+import { ROOM_REALTIME_COPY, looksLikeInternalCode } from './gameCopy';
 import type { PersistedPointTag, MachineObservationResultRow } from './types';
 import {
   buildTimelineNodeActionDockModel,
@@ -738,6 +747,118 @@ export function ArgumentGameSurface({
     [sidecarViewModel, timelineMap, activeMessageId, selectionStatus],
   );
 
+  // ── CARD-VIEW-DATA-001 — active-card exploded detail model ──
+  //
+  // Built ONCE per `activeMessageId` change (plus its upstream maps), NOT
+  // per stack item. The Stack forwards it to the active card only, which
+  // renders it inline BY DEFAULT (no tap) — the Cards page is the
+  // "data readily loaded and visible by default" surface. No new fetch,
+  // no service-role, no AI.
+  const cardDetailOrdinalOf = useCallback((id: string): number | null => {
+    const vm = viewModels.find((v) => v.messageId === id);
+    return vm ? vm.ordinal : null;
+  }, [viewModels]);
+  const cardDetailKindLabelOf = useCallback((id: string): string => {
+    const vm = viewModels.find((v) => v.messageId === id);
+    return vm ? vm.kindLabel : 'move';
+  }, [viewModels]);
+  const cardDetailParentIdOf = useCallback((id: string): string | null => {
+    const msg = sorted.find((m) => m.id === id);
+    return msg ? (msg.parentId ?? null) : null;
+  }, [sorted]);
+
+  const activeCardDetail = useMemo(() => {
+    if (!activeMessageId) return null;
+    // Zone 5 — evidence sources + a plain-language debt summary. The debt
+    // chip contract is locked plain-language copy (never a raw code).
+    const debtSummary = getNodeEvidenceDebtSummary(activeMessageId, evidenceDebts);
+    const debtChip = getNodeEvidenceDebtChip(debtSummary);
+    const evidenceDebtSummary =
+      debtChip.isVisible
+        ? [debtChip.label, debtChip.helper].filter((s) => s && s.length > 0).join(' — ')
+        : null;
+    // Zone 8 — semantic-flag labels: reuse the sidecar's semantic_flags
+    // section chip labels (already plain-language, §10a-safe).
+    const flagSection = sidecarViewModel.sections.find(
+      (s) => s.kind === 'semantic_flags',
+    );
+    const flagLabels =
+      flagSection && flagSection.kind === 'semantic_flags'
+        ? flagSection.chips.map((c) => c.label)
+        : [];
+
+    // ── CARD-VIEW-DETAIL-HUB-001 (Slice 2) — new threaded hub inputs ──
+    //
+    // ask i — parent quote: resolve the parent node's bodyPreview off the
+    // ALREADY-COMPUTED `timelineMap` (no fetch; replicates the sidecar's
+    // parent lookup at argumentReplySidecarModel.ts). null when the parent
+    // is soft-deleted / RLS-hidden / out-of-slice → neutral degrade.
+    const activeNode =
+      timelineMap.nodes.find((n) => n.messageId === activeMessageId) ?? null;
+    const parentNode =
+      activeNode && activeNode.parentId
+        ? timelineMap.nodes.find((n) => n.messageId === activeNode.parentId) ?? null
+        : null;
+    const parentBodyPreview = parentNode ? parentNode.bodyPreview ?? null : null;
+
+    // ask ii — structural labels: the node's dropped-tag qualifiers, already
+    // plain-language on the timeline node. Defensive: drop any value that
+    // still looks like an internal code (never echo a raw code).
+    const structuralTagLabels = (activeNode?.droppedTags ?? [])
+      .map((t) => t.label)
+      .filter((label) => label.length > 0 && !looksLikeInternalCode(label));
+
+    return buildCardDetailViewModel({
+      activeMessageId,
+      chronologicalIds,
+      ordinalOf: cardDetailOrdinalOf,
+      kindLabelOf: cardDetailKindLabelOf,
+      parentIdOf: cardDetailParentIdOf,
+      categoryLabel: _categoryLabelById?.[activeMessageId] ?? null,
+      qualifierLabels: activeViewModel?.qualifierBadges ?? [],
+      persistedClassifierRows:
+        persistedObservationsByArgumentId?.[activeMessageId] ?? [],
+      manualTagEntries: manualTagsByMessageId.get(activeMessageId) ?? [],
+      autoMetadataCodes:
+        metadataLedger.byMessage
+          .get(activeMessageId)
+          ?.autoDerivedMetadata.map((entry) => entry.code) ?? [],
+      clusterState:
+        lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? 'open',
+      messageContribution:
+        lifecycleMap.byMessage.get(activeMessageId)?.messageContribution ?? null,
+      evidenceSources: artifactsToEvidenceSources(artifactsByMessageId[activeMessageId]),
+      evidenceDebtSummary,
+      standingHint: activeViewModel?.pointStandingHint ?? null,
+      lifecycleState:
+        lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? null,
+      flagLabels,
+      // CVDH-001 Slice 2 — hub asks i / ii / iii / v.
+      parentBodyPreview,
+      standingToneHeatNode: activeNode,
+      standingToneHeatViewModel: activeViewModel ?? null,
+      structuralTagLabels,
+      semanticFlagsSection:
+        flagSection && flagSection.kind === 'semantic_flags' ? flagSection : null,
+    });
+  }, [
+    activeMessageId,
+    chronologicalIds,
+    cardDetailOrdinalOf,
+    cardDetailKindLabelOf,
+    cardDetailParentIdOf,
+    _categoryLabelById,
+    activeViewModel,
+    persistedObservationsByArgumentId,
+    manualTagsByMessageId,
+    metadataLedger,
+    lifecycleMap,
+    artifactsByMessageId,
+    evidenceDebts,
+    sidecarViewModel,
+    timelineMap,
+  ]);
+
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
   //
   // The three mounts below consume already-resident client state. None
@@ -1314,6 +1435,12 @@ export function ArgumentGameSurface({
               onPrevious={handlePrev}
               onNext={handleNext}
               onToggleMode={handleToggleMode}
+              // CARD-VIEW-DATA-001 — exploded detail for the active card,
+              // built once per activeMessageId above. The step-ref ancestor
+              // tap reuses the single shared selection path (handleActivate),
+              // so card + timeline selection never desync.
+              activeCardDetail={activeCardDetail}
+              onActivateAncestor={handleActivate}
             />
             {/* Stage 6.4: legacy chip cluster is hidden in observer mode;
                 the action rail below is the single entry point for both

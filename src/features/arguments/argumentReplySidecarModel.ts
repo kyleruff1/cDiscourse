@@ -54,16 +54,32 @@ import type {
 import type {
   AutoMetadataCode,
   ClusterMetadataSummary,
-  ManualTagCode,
   MoveLinkageRecord,
   MoveMetadataLedger,
 } from '../metadata';
 import {
   getAutoMetadataUx,
   getLifecycleUx,
-  getManualTagUx,
 } from '../rulesUx/lifecycleUxMap';
 import type { SuggestedMove } from './suggestedMovesModel';
+import {
+  buildSectionSemanticFlags as buildSharedSectionSemanticFlags,
+  formatHeatLine as formatSharedHeatLine,
+  formatStandingLine as formatSharedStandingLine,
+  formatToneLine as formatSharedToneLine,
+  PARENT_BODY_PREVIEW_CAP,
+  type DetailSemanticFlagChip,
+  type DetailSemanticFlagsSection,
+} from './detail/argumentDetailModel';
+
+// ── Shared semantic-flag chip types (re-exported from the shared module) ──
+//
+// The semantic-flag chip + section types live in `detail/argumentDetailModel.ts`
+// (the single source both surfaces consume). The sidecar re-exports them
+// under its established names so its public type surface is unchanged.
+
+export type SidecarSemanticFlagChip = DetailSemanticFlagChip;
+export type SidecarSection_SemanticFlags = DetailSemanticFlagsSection;
 
 // ── View mode ────────────────────────────────────────────────
 
@@ -196,29 +212,8 @@ export interface SidecarSection_SuggestedNextMove {
   placeholderLine: string;
 }
 
-export interface SidecarSemanticFlagChip {
-  /** Stable id for keying. Equal to `${family}:${code}`. */
-  id: string;
-  family: 'manual_tag' | 'auto_metadata';
-  /** Plain-language label, from RULE-003. */
-  label: string;
-  /** Plain-language helper line, from RULE-003. */
-  helperLine: string;
-  /** RULE-003 icon hint. */
-  iconHint: string;
-  /** Internal code. NEVER rendered. */
-  sourceCode: ManualTagCode | AutoMetadataCode;
-}
-
-export interface SidecarSection_SemanticFlags {
-  kind: 'semantic_flags';
-  /** True in Timeline mode. Consumer renders only a count + "Show details". */
-  isCondensed: boolean;
-  /** Chip count (same in both modes — only `isCondensed` flips). */
-  totalCount: number;
-  /** Full chip list. Consumer chooses condensation behavior. */
-  chips: ReadonlyArray<SidecarSemanticFlagChip>;
-}
+// (SidecarSemanticFlagChip / SidecarSection_SemanticFlags are re-exported
+//  from the shared module — see the top of this file.)
 
 // ── Top-level view model ─────────────────────────────────────
 
@@ -271,7 +266,6 @@ export interface BuildSidecarViewModelInput {
 // ── Constants ────────────────────────────────────────────────
 
 const DEFAULT_BODY_EXCERPT_CAP = 280;
-const PARENT_BODY_PREVIEW_CAP = 120;
 const ELLIPSIS = '…';
 
 const EMPTY_STATE_MESSAGE = 'Pick a message on the timeline to see details.';
@@ -330,21 +324,10 @@ export function truncateAtWordBoundary(
   return { excerpt: slice + ELLIPSIS, truncated: true };
 }
 
-function formatStandingLine(viewModel: ArgumentBubbleViewModel, node: ArgumentTimelineMapNode): string {
-  // formatStandingBandShort would also work, but the bubble VM already
-  // carries the band; for stability we mirror the shape here without
-  // pulling a separate helper into the model layer.
-  void viewModel;
-  return `Standing: ${node.standingBand}`;
-}
-
-function formatToneLine(node: ArgumentTimelineMapNode): string {
-  return `Tone: ${node.toneBand}`;
-}
-
-function formatHeatLine(node: ArgumentTimelineMapNode): string {
-  return `Heat: ${node.temperatureBand}`;
-}
+// Band formatters live in the shared `detail/argumentDetailModel.ts` module
+// (the single source both the Timeline and the Cards surface consume). They
+// are imported as `formatSharedStandingLine` / `formatSharedToneLine` /
+// `formatSharedHeatLine` at the top of this file.
 
 function getClusterSummary(
   lifecycleMap: PointLifecycleMap | null,
@@ -408,9 +391,9 @@ function buildSectionWhatThisMoveSays(
     kindLabel: viewModel.kindLabel,
     isHidden,
     hiddenNotice: isHidden ? HIDDEN_NOTICE : null,
-    standingLine: formatStandingLine(viewModel, node),
-    toneLine: formatToneLine(node),
-    heatLine: formatHeatLine(node),
+    standingLine: formatSharedStandingLine(viewModel, node),
+    toneLine: formatSharedToneLine(node),
+    heatLine: formatSharedHeatLine(node),
   };
 }
 
@@ -530,82 +513,10 @@ function buildSectionSuggestedNextMove(): SidecarSection_SuggestedNextMove {
   };
 }
 
-function buildSectionSemanticFlags(
-  ledger: MoveMetadataLedger | null,
-  clusterId: string | null,
-  lifecycleLabel: string,
-  viewMode: SidecarViewMode,
-): SidecarSection_SemanticFlags {
-  if (!ledger || !clusterId) {
-    return {
-      kind: 'semantic_flags',
-      isCondensed: viewMode === 'timeline',
-      totalCount: 0,
-      chips: [],
-    };
-  }
-  const clusterMeta = getMetadataForCluster(ledger, clusterId);
-  if (!clusterMeta) {
-    return {
-      kind: 'semantic_flags',
-      isCondensed: viewMode === 'timeline',
-      totalCount: 0,
-      chips: [],
-    };
-  }
-
-  // Manual-tag chips first (explicit participant annotations beat auto).
-  const manualChips: SidecarSemanticFlagChip[] = [];
-  const seenManualCodes = new Set<ManualTagCode>();
-  for (const code of clusterMeta.manualTagCodes) {
-    if (seenManualCodes.has(code)) continue;
-    seenManualCodes.add(code);
-    const ux = getManualTagUx(code);
-    manualChips.push({
-      id: `manual_tag:${code}`,
-      family: 'manual_tag',
-      label: ux.label,
-      helperLine: ux.helperLine,
-      iconHint: ux.iconHint,
-      sourceCode: code,
-    });
-  }
-
-  // Auto-metadata chips with COPY-001 R2 dedup against manual tags and
-  // the cluster lifecycle label.
-  const manualLabels = new Set<string>(manualChips.map((c) => c.label));
-  const autoChips: SidecarSemanticFlagChip[] = [];
-  const seenAutoCodes = new Set<AutoMetadataCode>();
-  for (const code of clusterMeta.autoMetadataCodes) {
-    if (seenAutoCodes.has(code)) continue;
-    seenAutoCodes.add(code);
-    const ux = getAutoMetadataUx(code);
-    // Dedup: manual tag wins over auto with the same label.
-    if (manualLabels.has(ux.label)) continue;
-    // Dedup against the cluster lifecycle label — the "Why it matters"
-    // section already surfaces it.
-    if (ux.label === lifecycleLabel) continue;
-    autoChips.push({
-      id: `auto_metadata:${code}`,
-      family: 'auto_metadata',
-      label: ux.label,
-      helperLine: ux.helperLine,
-      iconHint: ux.iconHint,
-      sourceCode: code,
-    });
-  }
-
-  // Also dedup manual-tag chips against the cluster lifecycle label.
-  const dedupedManual = manualChips.filter((c) => c.label !== lifecycleLabel);
-
-  const chips = [...dedupedManual, ...autoChips];
-  return {
-    kind: 'semantic_flags',
-    isCondensed: viewMode === 'timeline',
-    totalCount: chips.length,
-    chips,
-  };
-}
+// The semantic-flag chip builder lives in the shared
+// `detail/argumentDetailModel.ts` module (the single source both surfaces
+// consume). It is imported as `buildSharedSectionSemanticFlags` at the top
+// of this file and called from `buildSidecarViewModel` below.
 
 function buildEmptyViewModel(viewMode: SidecarViewMode): SidecarViewModel {
   return {
@@ -653,7 +564,7 @@ export function buildSidecarViewModel(input: BuildSidecarViewModelInput): Sideca
   );
   const whereItSits = buildSectionWhereItSits(node, input.totalCount, input.activePathIds);
   const suggested = buildSectionSuggestedNextMove();
-  const semanticFlags = buildSectionSemanticFlags(
+  const semanticFlags = buildSharedSectionSemanticFlags(
     input.metadataLedger,
     clusterId,
     whyMatters.lifecycleLabel,

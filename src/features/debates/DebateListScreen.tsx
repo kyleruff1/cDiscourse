@@ -13,6 +13,7 @@ import { CreateDebateForm } from './CreateDebateForm';
 import { JoinDebatePanel } from './JoinDebatePanel';
 import type { Debate, CreateDebateInput, ParticipantSide } from './types';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
+import { tableFillContentContainerStyle, flexTableColumnStyle } from '../../lib/responsiveTable';
 
 type DebateSortField = 'updated_at' | 'created_at';
 type DebateSortDirection = 'desc' | 'asc';
@@ -105,10 +106,14 @@ function SortableHeader({ label, field, sortField, sortDirection, onPress, width
   );
 }
 
-interface PlainHeaderProps { label: string; width: number }
-function PlainHeader({ label, width }: PlainHeaderProps) {
+interface PlainHeaderProps { label: string; width: number; flexFill?: boolean }
+function PlainHeader({ label, width, flexFill }: PlainHeaderProps) {
+  // OPS-ADMIN-ARGS-WEB-WIDTH-001 — when `flexFill` is set this header cell uses
+  // the flexible-column style (grow to absorb wide-viewport slack, never shrink
+  // below `width`). The matching body cell uses the SAME fragment so header and
+  // body column widths stay identical.
   return (
-    <View style={[styles.headerCell, { width }]}>
+    <View style={[styles.headerCell, flexFill ? flexTableColumnStyle(width) : { width }]}>
       <Text style={styles.headerCellText}>{label}</Text>
     </View>
   );
@@ -141,7 +146,7 @@ function DebateRow({ debate, onPress }: DebateRowProps) {
       <View style={[styles.cell, { width: COL.side }]}>
         <Text style={styles.sideText}>{sideText}</Text>
       </View>
-      <View style={[styles.cell, styles.cellDebate, { width: COL.debate }]}>
+      <View style={[styles.cell, styles.cellDebate, flexTableColumnStyle(COL.debate)]}>
         <Text style={styles.title} numberOfLines={1}>{debate.title}</Text>
         <Text style={styles.resolution} numberOfLines={2}>{debate.resolution}</Text>
       </View>
@@ -284,17 +289,21 @@ export function DebateListScreen({
         Use Last Updated to find active conversations. Use Created to find newest rooms.
       </Text>
 
+      {/* OPS-ADMIN-ARGS-WEB-WIDTH-001 — content container grows to fill a wide
+          web viewport (flexGrow: 1) instead of pinning to TABLE_WIDTH and
+          leaving a dead gap on the right; the flexible Debate column absorbs the
+          slack. minWidth retains horizontal scroll on narrow viewports. */}
       <ScrollView
         horizontal
         style={styles.tableWrap}
-        contentContainerStyle={{ minWidth: TABLE_WIDTH }}
+        contentContainerStyle={tableFillContentContainerStyle(TABLE_WIDTH)}
         accessibilityLabel="debates-table-scroller"
       >
         <View style={styles.table} accessibilityLabel="debates-table" testID="debates-table">
           <View style={styles.headerRow} accessibilityLabel="debates-header-row">
             <PlainHeader label="Status" width={COL.status} />
             <PlainHeader label="My Side" width={COL.side} />
-            <PlainHeader label="Debate" width={COL.debate} />
+            <PlainHeader label="Debate" width={COL.debate} flexFill />
             <SortableHeader
               label="Created"
               field="created_at"

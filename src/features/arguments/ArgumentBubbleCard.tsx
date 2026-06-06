@@ -11,20 +11,45 @@
  *   - point-standing/resting-status hint
  *
  * Never exposes message-body editing. Own bubbles never show edit affordances.
+ *
+ * CARD-VIEW-DATA-001 — the ACTIVE card becomes the data-rich centerpiece.
+ * When `vm.isActive` AND a `cardDetail` model is supplied, the exploded
+ * Inspect detail (`CardDetailPanel`) renders inline BY DEFAULT (no tap):
+ * step reference, category/qualifier, classifier observations, evidence,
+ * standing, lifecycle, and semantic-flag labels. Non-active stacked cards
+ * stay compact (3-line) and ignore the prop. The prop is optional → older
+ * callers (Timeline expanded-marker use, tests) render byte-equivalently.
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ArgumentBubbleViewModel } from './argumentGameSurfaceModel';
+import { CardDetailPanel } from './cardView/CardDetailPanel';
+import type { CardDetailViewModel } from './cardView/cardDetailModel';
 
 interface Props {
   viewModel: ArgumentBubbleViewModel;
   onActivate?: (messageId: string) => void;
   onToggleMode?: () => void;
   compact?: boolean;
+  /** CARD-VIEW-DATA-001 — exploded detail model; rendered only when isActive. */
+  cardDetail?: CardDetailViewModel | null;
+  /** CARD-VIEW-DATA-001 — re-activates the step-ref ancestor on token tap. */
+  onActivateAncestor?: (messageId: string) => void;
 }
 
-export function ArgumentBubbleCard({ viewModel: vm, onActivate, onToggleMode, compact }: Props) {
+export function ArgumentBubbleCard({
+  viewModel: vm,
+  onActivate,
+  onToggleMode,
+  compact,
+  cardDetail,
+  onActivateAncestor,
+}: Props) {
   const isOwn = vm.actor === 'self';
+  // CARD-VIEW-DATA-001 — the exploded detail renders only on the active
+  // card, visible by default. Stacked (non-active) cards stay 3-line
+  // compact and ignore the detail prop.
+  const showCardDetail = vm.isActive && cardDetail != null;
 
   return (
     <Pressable
@@ -50,7 +75,10 @@ export function ArgumentBubbleCard({ viewModel: vm, onActivate, onToggleMode, co
         )}
       </View>
 
-      {vm.parentHint && (
+      {/* CARD-VIEW-DATA-001 — the step-reference header (inside the detail
+          panel) supersedes the terse legacy parentHint on the active card.
+          Non-active cards keep the legacy hint. */}
+      {!showCardDetail && vm.parentHint && (
         <Text style={styles.parentHint} numberOfLines={1} testID={`bubble-parent-hint-${vm.messageId}`}>
           {vm.parentHint}
         </Text>
@@ -60,19 +88,30 @@ export function ArgumentBubbleCard({ viewModel: vm, onActivate, onToggleMode, co
         {vm.body}
       </Text>
 
-      {(vm.qualifierBadges.length > 0 || vm.pointStandingHint) && (
-        <View style={styles.badgeRow}>
-          {vm.qualifierBadges.map((b, i) => (
-            <View key={`${b}-${i}`} style={styles.badge}>
-              <Text style={styles.badgeText}>{b}</Text>
-            </View>
-          ))}
-          {vm.pointStandingHint && (
-            <View style={[styles.badge, styles.badgePointStanding]}>
-              <Text style={styles.badgeText}>{vm.pointStandingHint}</Text>
-            </View>
-          )}
-        </View>
+      {/* CARD-VIEW-DATA-001 — exploded Inspect detail, visible by default on
+          the active card. Its category/qualifier + standing zones supersede
+          the legacy badge row (rendered only when the panel is absent). */}
+      {showCardDetail ? (
+        <CardDetailPanel
+          model={cardDetail!}
+          onActivateAncestor={onActivateAncestor}
+          testID={`card-detail-panel-${vm.messageId}`}
+        />
+      ) : (
+        (vm.qualifierBadges.length > 0 || vm.pointStandingHint) && (
+          <View style={styles.badgeRow}>
+            {vm.qualifierBadges.map((b, i) => (
+              <View key={`${b}-${i}`} style={styles.badge}>
+                <Text style={styles.badgeText}>{b}</Text>
+              </View>
+            ))}
+            {vm.pointStandingHint && (
+              <View style={[styles.badge, styles.badgePointStanding]}>
+                <Text style={styles.badgeText}>{vm.pointStandingHint}</Text>
+              </View>
+            )}
+          </View>
+        )
       )}
 
       <View style={styles.timeBlock} accessibilityLabel={`bubble-time-${vm.messageId}`}>
