@@ -150,7 +150,7 @@ view-model extension* exercise, not a data-fetch exercise.
 | **Heat / temperature band** | display-only | `timelineMap.nodes[].temperatureBand` (`:666`); `inferTemperatureBand` (`:1022`). **NOT threaded into Cards today** |
 | Category | display-only | `_categoryLabelById[id]` → Zone 2 |
 | Qualifier(s) | display-only | `activeViewModel.qualifierBadges` → Zone 2 |
-| Classifier marks (machine observations) | display-only | `persistedObservationsByArgumentId[id]` (`ArgumentGameSurface.tsx:189`) → `buildCardClassifierStrip` (`cardClassifierStripModel.ts`); family on the parallel registry via `lookupMachineObservationDefinitionByRawKey(rawKey).family` |
+| Classifier marks (machine observations) | display-only | `persistedObservationsByArgumentId[id]` (`ArgumentGameSurface.tsx:189`) → `buildCardClassifierStrip` (`cardClassifierStripModel.ts`); family on the parallel registry via `lookupMachineObservationDefinitionByCompoundKey(source, rawKey).family` (`machineObservationDefinitions.ts:149`). **Hub gating is by family allow-list (A–G `productionEnabled:true`), NOT disposition alone — see §6.5 step 1b** |
 | Evidence sources | display-only | `artifactsByMessageId[id]` → `artifactsToEvidenceSources` (Zone 5) |
 | Evidence debt | display-only | `evidenceDebts` → `getNodeEvidenceDebtSummary`/`getNodeEvidenceDebtChip` (Zone 5) |
 | Lifecycle (cluster state) | display-only | `lifecycleMap.byMessage.get(id).clusterState` → `toPlainLanguageOrSuppress` (Zone 7) |
@@ -434,17 +434,39 @@ Today `formatToneLine`/`formatHeatLine` emit the raw band token (e.g.
 1. Build per-node marks exactly as `buildCardClassifierStrip` does through step 4
    (`adaptAllSourcesForNode({ surface: 'selected_context' })` →
    `combinePerNodeMarks` → `filterMarksBySurface(_, 'selected_context')` →
-   `dedupePerNodeMarks`). **Keep the §10a gate intact** — `filterMarksBySurface`
-   at `selected_context` drops `composer_only` (Family J), `inspect_only`,
-   `future_source` (Families H, I). This is why "all families" resolves to
-   **A–G only** without any special-casing: H/I/J are excluded by their
-   disposition, not by a hand-maintained allow-list.
+   `dedupePerNodeMarks`). `filterMarksBySurface` at `selected_context` drops
+   `composer_only` (Family J — all entries) and `inspect_only`, and Family H
+   (`claim_clarity` — entirely `future_source`). **⚠️ Disposition filtering alone
+   is NOT sufficient to exclude Family I.** Verified against
+   `machineObservationDefinitions/familyI.ts`: Family I (`thread_topology`,
+   `productionEnabled:false`) has **3 entries dispositioned `rendered_now`** —
+   `no_response_after_n_turns` (:160), `repeated_axis_pressure` (:186),
+   `ignored_by_both` (:355) — which WOULD pass `filterMarksBySurface(_,
+   'selected_context')`. The cap-lift (step 2) *amplifies* this by removing the
+   ≤3 ceiling that today only incidentally hides them. There is **no upstream
+   `productionEnabled` family gate** in the cardView / classifier-strip path
+   (confirmed: zero `productionEnabled` / `familyRegistry` reference in
+   `src/features/arguments/cardView/` or `nodeLabelPresentationModel.ts`).
+1b. **Add an EXPLICIT family allow-list gate — the authoritative §10a hub gate.**
+   After disposition filtering, drop any mark whose family is not in the
+   `productionEnabled:true` set **A–G** (`parent_relation`, `disagreement_axis`,
+   `misunderstanding_repair`, `evidence_source_chain`, `argument_scheme`,
+   `critical_question`, `resolution_progress`). Derive the allow-list from the
+   family registry's `productionEnabled` flag (single source of truth) — do NOT
+   hard-code codes that could drift. This makes the hub provably H/I/J-free
+   **regardless of per-entry disposition or future family enablement**: note
+   that #392 / #394 are in-flight cards that ENABLE Family I — if they land,
+   disposition-only filtering would silently start leaking Family I's three
+   `rendered_now` entries to participants; the family gate prevents that.
+   "All relevant families" = A–G, enforced **by family**, backstopped by
+   disposition.
 2. Replace step 5 (`enforceSelectedContextDisplayCap`, the ≤3 cap) with
    `enforceInspectGroupedView` (unbounded) **for the hub surface only**. The
    Timeline node strip and the existing ≤3 selected-context cap are unchanged.
 3. **Add per-family grouping** (new): for each surviving Observation mark, look
-   up its family via `lookupMachineObservationDefinitionByRawKey(mark.rawKey)?.family`
-   (the family lives on the parallel registry `MachineObservationDefinition`,
+   up its family via `lookupMachineObservationDefinitionByCompoundKey(mark.source, mark.rawKey)?.family`
+   (the ACTUAL registry export, verified in `machineObservationDefinitions.ts:149` —
+   NOT the non-existent `…ByRawKey`; the family lives on the parallel registry `MachineObservationDefinition`,
    not on `NodeLabelMark`). Group chips under plain-language **family headings**
    (A parent_relation → "How it relates to the parent", B disagreement_axis →
    "What the disagreement is about", etc. — exact plain-language family labels
@@ -618,10 +640,15 @@ The implementer MUST add a test for each:
    the timeline projection and the cards projection consume the same shared
    builder/model; the narrative derivation appears in exactly one module (no
    forked detail logic).
-7. **H/I/J never on the hub** — Families H (claim_clarity, future_source),
-   I (thread_topology, future_source), J (sensitive_composer, composer_only) are
-   absent from the hub classifier output (dropped by `filterMarksBySurface` at
-   `selected_context`); a fixture seeding H/I/J marks proves they do not render.
+7. **H/I/J never on the hub — by FAMILY GATE, not disposition alone** — Families
+   H (claim_clarity), I (thread_topology), J (sensitive_composer) are absent from
+   the hub classifier output. **The test MUST seed a Family I `rendered_now` mark**
+   (e.g. `no_response_after_n_turns`) — not only `future_source` / `composer_only`
+   marks — and assert it does NOT render, proving the explicit family allow-list
+   gate (§6.5 step 1b); disposition filtering alone lets those 3 Family I entries
+   through. Also seed H and J marks and assert absence. (A regression here is the
+   exact leak the family gate exists to stop, especially once #392/#394 enable
+   Family I.)
 8. **No migration / Edge / `supabase/**`** — `git diff` for the build touches
    only `src/**` and `__tests__/**`; no `supabase/`, no migration file.
 9. **No provider call** — no Anthropic/xAI/X/AI call introduced in `src/**`
@@ -700,6 +727,17 @@ The implementer MUST add a test for each:
   the parent (matches the one-node-per-card + shared `activeMessageId`
   contract), with the italic parent quote giving the gist without a jump.
   Confirm switch vs inline overlay.
+- **OQ-fam — latent `familyI.ts` disposition inconsistency (FYI + follow-on).**
+  Family I (`thread_topology`) is `productionEnabled:false` at the registry
+  level, yet 3 of its entries are dispositioned `rendered_now`
+  (`familyI.ts:160/186/355`). This card's hub is made safe by the explicit family
+  allow-list gate (§6.5 step 1b) regardless. **But the same disposition-only
+  filter is used by the EXISTING #516 Cards strip and the Timeline node strip** —
+  so if Family I is enabled (#392/#394), those surfaces would begin showing the 3
+  `rendered_now` entries to participants. Recommend a **separate follow-on** to
+  either reconcile those 3 dispositions to `future_source` or formalize the
+  family-`productionEnabled` gate repo-wide. **NOT this card's fix** — flagged for
+  operator awareness because it intersects the in-flight Family I enablement work.
 
 ---
 
