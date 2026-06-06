@@ -1,6 +1,6 @@
 # CARD-VIEW-DETAIL-HUB-001 — Cards screen as the canonical per-node DETAIL HUB
 
-**Status:** Proposed (design draft)
+**Status:** **Ratified** (operator design-review 2026-06-06; visibility clarification + all OQ resolutions folded in)
 **Date:** 2026-06-06
 **Owner:** roadmap-designer (orchestrator-spawned)
 **Extends:** CARD-VIEW-DATA-001 / #516 (the display-only Cards detail panel this card builds on)
@@ -11,6 +11,52 @@
 > **This is a DESIGN-ONLY artifact.** It describes the change a later implementer
 > card will build. No production code is written by this card. Every file path,
 > shape, and builder name below is a *plan*, not an implementation.
+
+---
+
+## 0. Ratification (operator design-review, 2026-06-06)
+
+**RATIFIED with one binding clarification:** on the **Card page, "Full details"
+is NOT a collapsed / tap-gated disclosure** — the Card is the read-everything
+surface where details are **always rendered and visible by default** (lower in
+visual hierarchy / below fold / in columns is fine; hidden behind a tap is not).
+**Tap-to-reveal belongs only to the Timeline page.** Fork 5 / §7.1 are updated to
+encode this, and a new adversarial check (#14) locks "Card-visible vs
+Timeline-disclosed."
+
+- **Fork 2 approved** — share the pure detail model, project separate Cards +
+  Timeline renderers; do NOT merge render components. `argumentDetailModel.ts` is
+  the shared derivation layer; the two renderers keep their different disclosure
+  postures.
+- **Explicit A–G family display gate is required** and must NOT trust
+  `rendered_now` alone; the seeded Family I (`thread_topology`) negative test is a
+  hard adversarial test.
+
+**Open Question resolutions (operator):**
+- **OQ-iv** — display-expansion ONLY; **do not use the label "Add Classifier"**
+  (implies mutation) → neutral heading e.g. "Classifier observations" / "All
+  classifier observations (A–G)" / "Classifier evidence". Any write / recompute /
+  pin action = a SEPARATE Edge/Admin card.
+- **OQ-i** — 120-char parent quote; use the already-computed parent excerpt if
+  available, else a neutral placeholder ("Parent unavailable" / "Parent not
+  loaded"); no fetch.
+- **OQ-ii** — group tags by doctrine category (Observations / Allegations /
+  structural labels / status chips); neutral language; never author judgments.
+- **OQ-iii** — A–G only (regardless of `rendered_now` from H/I/J); family-grouped;
+  uncapped within the allowed set; visible evidence spans/details on the Card;
+  seeded Family I negative test required.
+- **OQ-3** — accept the three-section narrative spine; #516's flat panel becomes a
+  prior data slice, not the final IA.
+- **OQ-4** — buttons-only Prev/Next; chronological; no wrap; disabled at
+  boundaries; no overlay carousel.
+- **OQ-5** — visual hierarchy ONLY, not disclosure on the Card (see clarification
+  above).
+- **OQ-5b** — 3 columns ≥1024; stacked below; same content + same order
+  discipline; never drop sections on mobile, only reflow.
+- **OQ-7** — parent token switches the active card (no inline overlay).
+- **OQ-fam** — real follow-on: gate the new hub now; then file/update a follow-on
+  to apply the same family display gate to #516's existing strip (latent
+  inconsistency exists *before* Family I enablement — do not wait for #392/#394).
 
 ---
 
@@ -302,27 +348,31 @@ inherits this for free.
 recommendation: keep the existing buttons; do not add swipe in this card
 (swipe + multi-column scroll can conflict; defer).
 
-### Fork 5 — default-visible vs expandable — **RESOLVED**
+### Fork 5 — visual hierarchy, NOT disclosure — **RATIFIED (operator 2026-06-06)**
 
-**Decision.** Two-tier on the Cards hub:
+**Decision.** On the **Card page, ALL detail is always rendered and visible by
+default** — the Card is the read-everything surface. "PRIMARY vs SECONDARY" is a
+**visual-hierarchy** distinction ONLY (primary = top / above-fold; secondary =
+lower sections/columns, possibly below the fold) — it is **NOT** a collapsed
+tap-to-reveal disclosure, and there is **no "Full details" expand button on the
+Card.**
 
-- **PRIMARY block (always visible, no tap):** move type/side, body, why-it-
-  matters one-liner, unresolved status, `isInactive` badge, and the
-  **Standing / Tone / Heat strip**.
-- **SECONDARY detail (behind a "Full details" expand):** the full replied-to
-  parent quote, the all-families advisory classifier feedback, the full semantic
-  tag set, and lifecycle minutiae.
+- **PRIMARY (top / above-fold):** move type/side, body, why-it-matters
+  one-liner, unresolved status, `isInactive` badge, **Standing / Tone / Heat
+  strip**.
+- **SECONDARY (lower sections/columns — still visible by default, NO tap):** the
+  full replied-to parent quote, the all-families advisory classifier feedback
+  (with visible evidence spans/details), the full semantic-tag set, and lifecycle
+  minutiae.
 
-This mirrors the markup's "Hide full details" toggle and keeps the default card
-scannable while honoring "expose everything."
-
-**Open-Question flag:** the exact PRIMARY/SECONDARY split is operator-discretion
-→ **OQ-5**. Recommendation as above. Note: #516's current Cards panel is
-*fully* default-visible; introducing a SECONDARY expand is a behavior change for
-the existing zones — the operator should confirm which zones move behind the
-expand vs stay always-on. (If the operator prefers "everything always visible
-on the wide hub," the design degrades cleanly: drop the expand, render all
-blocks in the columns.)
+**Tap-to-reveal belongs ONLY to the Timeline page.** The Timeline projection
+(`ArgumentReplySidecar`) keeps its existing "Hide full details" collapsed
+disclosure unchanged. The two surfaces differ precisely in disclosure posture —
+**Card = visible-by-default; Timeline = tap-to-reveal** — which is the core
+invariant the shared-model / projected-view split (Fork 2) exists to support
+(same derivation, different disclosure). This aligns with the standing project
+doctrine: "card page = readily loaded and visible by default; timeline page =
+tap-to-reveal."
 
 **Responsive multi-column layout** is part of this fork — see §7.
 
@@ -399,7 +449,8 @@ parent," not "peek."
   Timeline detail. Est. delta ~40–80 LOC (swap the model source; keep the JSX).
 - **`CardDetailPanel` → Cards hub component (cards projection):** consumes the
   shared model (`surface:'cards'`). Renders the narrative spine + detail blocks
-  in the multi-column layout (§7), with the PRIMARY/SECONDARY expand (Fork 5).
+  in the multi-column layout (§7), with the PRIMARY/SECONDARY *visual hierarchy*
+  (Fork 5 — always visible by default, **NO Card expand**).
   Est. delta ~150–250 LOC (new parent-quote zone, S/T/H strip, family-grouped
   classifier rendering, full-tags rendering, responsive column wrapper). The
   existing #516 zones are reused, not rewritten.
@@ -531,18 +582,23 @@ builder with `'timeline'`. No new fetch; the new inputs are read off
 
 ---
 
-## 7. Default/expand behavior + responsive multi-column layout
+## 7. Visual hierarchy (always-visible on Card) + responsive multi-column layout
 
-### 7.1 Default/expand (Fork 5)
+### 7.1 Visual hierarchy — NOT disclosure (Fork 5, RATIFIED)
 
-- **PRIMARY** (always visible): type/side, body, why-it-matters one-liner,
+On the **Card page every section is rendered and visible by default — no tap, no
+collapsed disclosure.** PRIMARY/SECONDARY is purely visual ordering:
+
+- **PRIMARY (top / above-fold):** type/side, body, why-it-matters one-liner,
   unresolved status, `isInactive` badge, Standing/Tone/Heat strip.
-- **SECONDARY** (behind "Full details ▾"): full parent quote, all-families
-  family-grouped classifiers, full semantic tags, lifecycle minutiae.
-- The expand is a real `Pressable` (`accessibilityRole="button"`,
-  `accessibilityState={{ expanded }}`, ≥44×44 / `hitSlop`). Reduce-motion:
-  snap, no animated height (or `LayoutAnimation` gated on
-  `AccessibilityInfo.isReduceMotionEnabled()`).
+- **SECONDARY (lower sections/columns — visible by default, NO tap):** full
+  parent quote, all-families family-grouped classifiers (with evidence
+  spans/details), full semantic tags, lifecycle minutiae.
+- **The Card has NO "Full details" expand.** The only Card `Pressable`s are
+  navigation (parent token, Prev/Next, spine). Reduce-motion is a non-issue for
+  always-visible content (no toggle animation exists).
+- **Tap-to-reveal is the TIMELINE page's posture only** — `ArgumentReplySidecar`
+  keeps its "Hide full details" collapsed disclosure unchanged.
 
 ### 7.2 Responsive multi-column (the operator's wide-layout signal)
 
@@ -603,9 +659,10 @@ Rough forecast (final count confirmed by the implementer's captured
   duplicated; identical inputs → identical shared-slice output across surfaces.
 - **`CardDetailPanel.test.tsx` / new `ArgumentDetailHub.test.tsx`** — ~12–18
   tests: parent-quote italic zone renders + degrades; S/T/H strip renders
-  plain-language; family-grouped classifiers render with PIPS; PRIMARY/SECONDARY
-  expand is the only non-nav button; responsive 3-col ≥1024 vs stacked; grayscale
-  snapshot legible; reduce-motion path.
+  plain-language; family-grouped classifiers render with PIPS; **the Card renders
+  ALL sections visible-by-default with NO expand/disclosure — the only Card
+  buttons are navigation** (check #14); responsive 3-col ≥1024 vs stacked (same
+  content, same order); grayscale snapshot legible; reduce-motion path.
 - **Ban-list + doctrine tests** (extend the existing suites, do not relax):
   verdict-token ban-list recursive over every output string of the new model and
   every rendered string of the new component; `inactive_reason` poisoned-fixture
@@ -628,9 +685,10 @@ The implementer MUST add a test for each:
    no/absent reason yields `isInactive: true`; the model never reads or surfaces
    any reason field.
 3. **No mutation handler / no moderation action** — the hub has no
-   moderate/reactivate/re-classify/flag-mutation/"Add Classifier"-as-write
-   handler; the only Pressables are navigation (parent token, prev/next, spine)
-   and the Full-details expand. Test asserts no `onPress` on detail labels.
+   moderate/reactivate/re-classify/"add classifier"-as-write/flag-mutation
+   handler; the only Card Pressables are navigation (parent token, prev/next,
+   spine). **No "Full details" expand exists on the Card** (see check #14). Test
+   asserts no `onPress` on any detail label.
 4. **Classifier advisory, not verdict** — the advisory caption is present; no
    verdict token in any chip/group/strip string; group/family labels are
    structural, never judgments.
@@ -664,6 +722,13 @@ The implementer MUST add a test for each:
 13. **No snake_case internal-code leak** — every label routes through
     `toPlainLanguageOrSuppress` / the definition registry; unknown codes
     suppressed; no rendered string matches an internal-code pattern.
+14. **Card-visible vs Timeline-disclosed (RATIFIED invariant)** — a test asserts
+    the **Card** detail renders ALL sections (parent quote, classifiers, full
+    tags, lifecycle) **without any tap/expand** — no collapsed disclosure, **no
+    "Full details" Pressable on the Card** — while the **Timeline** projection
+    retains its tap-to-reveal "Hide full details" disclosure. Card =
+    visible-by-default; Timeline = tap-to-reveal. (Regression guard for the
+    operator's binding ratification clarification.)
 
 ---
 
@@ -679,10 +744,11 @@ The implementer MUST add a test for each:
   the S/T/H strip (shared formatters), the full-tags block, and the
   family-grouped uncapped classifier (`buildHubClassifierGroups`). Add the
   classifier + tags + doctrine/ban-list tests.
-- **Slice 3 — default/expand + responsive multi-column layout + navigation.**
-  Add the PRIMARY/SECONDARY "Full details" expand, the responsive 3-col/stacked
-  layout (`hubColumnLayout`), and confirm navigation (Prev/Next + spine jump).
-  Add the layout + reduce-motion + grayscale + a11y tests.
+- **Slice 3 — visual-hierarchy layout + responsive multi-column + navigation.**
+  Add the always-visible PRIMARY/SECONDARY visual hierarchy (**NO Card expand**),
+  the responsive 3-col/stacked layout (`hubColumnLayout`, same content + same
+  order), and confirm navigation (Prev/Next + spine jump). Add the layout +
+  card-visible-vs-timeline-disclosed (check #14) + grayscale + a11y tests.
 - **FAST-FOLLOW (NOT this card):** propagate the shared detail model to the
   OTHER surfaces — `DebateListScreen`, the Conversation Gallery, "View as", and
   `UserDetail`. Explicit follow-on; out of this card's scope.
@@ -691,8 +757,12 @@ The implementer MUST add a test for each:
 
 ## 12. Open Questions for operator (each with a recommended answer)
 
-- **OQ-iv — "Add Classifier" (HALT / disambiguate).** The markup's
-  bottom-center "Add Classifier" box is ambiguous: (a) a label marking the
+- **OQ-iv — "Add Classifier" — RESOLVED (operator 2026-06-06): display-expansion
+  ONLY; do NOT use the label "Add Classifier" (implies mutation). Use a neutral
+  heading e.g. "Classifier observations" / "All classifier observations (A–G)" /
+  "Classifier evidence". Any write / recompute / pin action is a SEPARATE
+  Edge/Admin card.** (Original framing retained below for context.) The markup's
+  bottom-center "Add Classifier" box was ambiguous: (a) a label marking the
   classifier zone that should render the all-families feedback (display
   expansion — **in scope**), or (b) a literal "add a classifier" **mutation
   action** (FORBIDDEN here — it would require an Edge write-path + RLS + an actor
@@ -717,10 +787,11 @@ The implementer MUST add a test for each:
   proceed (it matches the Timeline north star). Confirm the visual reframe.
 - **OQ-4 — Prev/Next gesture (Fork 4).** Recommend buttons-only (no swipe in
   this card; swipe + multi-column scroll conflict). Confirm.
-- **OQ-5 — PRIMARY/SECONDARY split (Fork 5).** Recommend the split in §7.1.
-  Confirm which zones stay always-on vs move behind "Full details" — or whether
-  the operator prefers everything always-visible on the wide hub (the design
-  degrades cleanly to that).
+- **OQ-5 — PRIMARY/SECONDARY split (Fork 5) — RESOLVED (operator):** visual
+  hierarchy ONLY, NOT disclosure on the Card. On the Card everything is visible
+  by default (**no "Full details" expand**); secondary detail sits lower / in
+  columns. Mobile reflows the same content in the same order. Tap-to-reveal is
+  Timeline-only. (See §7.1 + adversarial check #14.)
 - **OQ-5b — responsive breakpoint (Fork 5/§7).** Recommend 3-col at ≥1024 (reuse
   the existing boundary), stacked below. Confirm.
 - **OQ-7 — parent-jump model (Fork 7).** Recommend **switch the active card** to
