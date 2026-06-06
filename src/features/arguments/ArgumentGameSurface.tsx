@@ -82,7 +82,7 @@ import {
 } from '../metadata/pointTagsApi';
 import { diffPointTagSets, pickLatestChange } from '../metadata/pointTagsRealtime';
 import type { ManualTagCode } from '../metadata';
-import { ROOM_REALTIME_COPY } from './gameCopy';
+import { ROOM_REALTIME_COPY, looksLikeInternalCode } from './gameCopy';
 import type { PersistedPointTag, MachineObservationResultRow } from './types';
 import {
   buildTimelineNodeActionDockModel,
@@ -786,6 +786,28 @@ export function ArgumentGameSurface({
       flagSection && flagSection.kind === 'semantic_flags'
         ? flagSection.chips.map((c) => c.label)
         : [];
+
+    // ── CARD-VIEW-DETAIL-HUB-001 (Slice 2) — new threaded hub inputs ──
+    //
+    // ask i — parent quote: resolve the parent node's bodyPreview off the
+    // ALREADY-COMPUTED `timelineMap` (no fetch; replicates the sidecar's
+    // parent lookup at argumentReplySidecarModel.ts). null when the parent
+    // is soft-deleted / RLS-hidden / out-of-slice → neutral degrade.
+    const activeNode =
+      timelineMap.nodes.find((n) => n.messageId === activeMessageId) ?? null;
+    const parentNode =
+      activeNode && activeNode.parentId
+        ? timelineMap.nodes.find((n) => n.messageId === activeNode.parentId) ?? null
+        : null;
+    const parentBodyPreview = parentNode ? parentNode.bodyPreview ?? null : null;
+
+    // ask ii — structural labels: the node's dropped-tag qualifiers, already
+    // plain-language on the timeline node. Defensive: drop any value that
+    // still looks like an internal code (never echo a raw code).
+    const structuralTagLabels = (activeNode?.droppedTags ?? [])
+      .map((t) => t.label)
+      .filter((label) => label.length > 0 && !looksLikeInternalCode(label));
+
     return buildCardDetailViewModel({
       activeMessageId,
       chronologicalIds,
@@ -811,6 +833,13 @@ export function ArgumentGameSurface({
       lifecycleState:
         lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? null,
       flagLabels,
+      // CVDH-001 Slice 2 — hub asks i / ii / iii / v.
+      parentBodyPreview,
+      standingToneHeatNode: activeNode,
+      standingToneHeatViewModel: activeViewModel ?? null,
+      structuralTagLabels,
+      semanticFlagsSection:
+        flagSection && flagSection.kind === 'semantic_flags' ? flagSection : null,
     });
   }, [
     activeMessageId,
@@ -827,6 +856,7 @@ export function ArgumentGameSurface({
     artifactsByMessageId,
     evidenceDebts,
     sidecarViewModel,
+    timelineMap,
   ]);
 
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──

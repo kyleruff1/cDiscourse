@@ -36,11 +36,14 @@ import {
 } from '../../../lib/designTokens';
 import { CARD_CLASSIFIER_EVIDENCE_PREFIX } from './cardClassifierStripModel';
 import { CardStepReferenceHeader } from './CardStepReferenceHeader';
-import type {
-  CardClassifierChip,
-  CardClassifierStripModel,
-} from './cardClassifierStripModel';
+import type { CardClassifierChip } from './cardClassifierStripModel';
 import type { CardDetailViewModel } from './cardDetailModel';
+import type {
+  DetailFullTagsModel,
+  DetailParentQuoteSlice,
+  DetailStandingToneHeatStrip,
+  HubClassifierGroupsModel,
+} from '../detail/argumentDetailModel';
 
 export interface CardDetailPanelProps {
   model: CardDetailViewModel;
@@ -110,26 +113,167 @@ function ClassifierLabel({ chip }: { chip: CardClassifierChip }): React.ReactEle
   );
 }
 
-function ClassifierZone({ strip }: { strip: CardClassifierStripModel }): React.ReactElement {
+/**
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 2, ask iii) — the all-families,
+ * family-grouped, UNCAPPED classifier zone for the Cards hub. Display-only.
+ *
+ * The heading is NEUTRAL ("Classifier observations") — never "Add Classifier"
+ * (that implies a mutation). The advisory caption stays "What the referee
+ * noticed — advisory, not a verdict." Each group has a plain-language family
+ * heading; chips keep confidence PIPS + evidence spans. Only A–G families
+ * survive the model's explicit family gate, so H/I/J never render here.
+ */
+function HubClassifierZone({
+  model,
+}: {
+  model: HubClassifierGroupsModel;
+}): React.ReactElement {
   return (
     <View style={styles.zone} testID="card-detail-classifier-zone">
-      <Text style={styles.zoneCaption} accessibilityRole="text">
-        {strip.advisoryCaption}
+      <Text style={styles.zoneHeading} accessibilityRole="text">
+        Classifier observations
       </Text>
-      {strip.hasSignals ? (
-        <>
-          {strip.chips.map((chip) => (
-            <ClassifierLabel key={chip.id} chip={chip} />
-          ))}
-          {strip.overflowCount > 0 ? (
-            <Text style={styles.muted} testID="card-detail-classifier-overflow">
-              {`+${strip.overflowCount} more on this move`}
+      <Text style={styles.zoneCaption} accessibilityRole="text">
+        {model.advisoryCaption}
+      </Text>
+      {model.hasSignals ? (
+        model.groups.map((group) => (
+          <View
+            key={group.familyCode}
+            style={styles.zone}
+            testID={`card-detail-classifier-group-${group.familyCode}`}
+          >
+            <Text
+              style={styles.classifierFamilyHeading}
+              accessibilityRole="text"
+              testID={`card-detail-classifier-family-${group.familyCode}`}
+            >
+              {group.familyLabel}
             </Text>
-          ) : null}
-        </>
+            {group.chips.map((chip) => (
+              <ClassifierLabel key={chip.id} chip={chip} />
+            ))}
+          </View>
+        ))
       ) : (
         <Text style={styles.muted} testID="card-detail-classifier-empty">
-          {strip.emptyStateCopy}
+          {model.emptyStateCopy}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 2, ask i) — the italic replied-to parent
+ * quote. Display-only. Graceful degrade: when the parent is unresolvable the
+ * neutral placeholder renders — NEVER an invented quote, NEVER a
+ * "hidden because…" reason.
+ */
+function ParentQuoteZone({
+  slice,
+}: {
+  slice: DetailParentQuoteSlice;
+}): React.ReactElement {
+  return (
+    <View style={styles.zone} testID="card-detail-parent-quote-zone">
+      <Text style={styles.zoneHeading} accessibilityRole="text">
+        Replied to
+      </Text>
+      {slice.isAvailable && slice.quote ? (
+        <Text
+          style={styles.parentQuote}
+          accessibilityRole="text"
+          testID="card-detail-parent-quote"
+        >
+          {slice.quote}
+        </Text>
+      ) : (
+        <Text
+          style={styles.muted}
+          accessibilityRole="text"
+          testID="card-detail-parent-quote-unavailable"
+        >
+          {slice.unavailableLabel}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 2, ask v) — the Standing / Tone / Heat
+ * strip. Display-only, plain-language. The caption frames the strip as a
+ * reading of the TEXT, not a judgment of the author.
+ */
+function StandingToneHeatZone({
+  strip,
+}: {
+  strip: DetailStandingToneHeatStrip;
+}): React.ReactElement {
+  return (
+    <View style={styles.zone} testID="card-detail-sth-zone">
+      <Text style={styles.zoneHeading} accessibilityRole="text">
+        {strip.caption}
+      </Text>
+      <View style={styles.bandRow}>
+        <View style={styles.bandChip} testID="card-detail-standing-band">
+          <Text style={styles.bandValue}>{strip.standingLine}</Text>
+        </View>
+        <View style={styles.bandChip} testID="card-detail-tone-band">
+          <Text style={styles.bandValue}>{strip.toneLine}</Text>
+        </View>
+        <View style={styles.bandChip} testID="card-detail-heat-band">
+          <Text style={styles.bandValue}>{strip.heatLine}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 2, ask ii) — the full semantic-tag block,
+ * grouped by the §10a doctrine categories (Observations / Allegations /
+ * Structural labels / Status). Display-only labels; neutral language.
+ */
+function FullTagsZone({
+  model,
+}: {
+  model: DetailFullTagsModel;
+}): React.ReactElement {
+  return (
+    <View style={styles.zone} testID="card-detail-full-tags-zone">
+      <Text style={styles.zoneHeading} accessibilityRole="text">
+        Tags
+      </Text>
+      {model.hasTags ? (
+        model.groups.map((group) => (
+          <View
+            key={group.groupCode}
+            style={styles.zone}
+            testID={`card-detail-tags-group-${group.groupCode}`}
+          >
+            <Text
+              style={styles.tagsGroupHeading}
+              accessibilityRole="text"
+              testID={`card-detail-tags-group-heading-${group.groupCode}`}
+            >
+              {group.groupLabel}
+            </Text>
+            <View style={styles.chipRow}>
+              {group.tags.map((tag) => (
+                <LabelChip
+                  key={tag.id}
+                  text={tag.label}
+                  testID={`card-detail-tag-${tag.id}`}
+                />
+              ))}
+            </View>
+          </View>
+        ))
+      ) : (
+        <Text style={styles.muted} testID="card-detail-full-tags-empty">
+          {model.emptyStateCopy}
         </Text>
       )}
     </View>
@@ -175,8 +319,20 @@ export function CardDetailPanel({
         </View>
       ) : null}
 
-      {/* Zone 4 — classifier strip (Zone 3 body is rendered by the card). */}
-      <ClassifierZone strip={model.classifierStrip} />
+      {/* CVDH-001 Slice 2, ask i — italic replied-to parent quote (PRIMARY,
+          visible by default; neutral degrade when unresolvable). */}
+      <ParentQuoteZone slice={model.parentQuote} />
+
+      {/* CVDH-001 Slice 2, ask v — Standing / Tone / Heat strip (PRIMARY,
+          visible by default; plain-language; describes the TEXT). */}
+      {model.standingToneHeat ? (
+        <StandingToneHeatZone strip={model.standingToneHeat} />
+      ) : null}
+
+      {/* CVDH-001 Slice 2, ask iii — all-families family-grouped classifier
+          observations (A–G gated, uncapped). Replaces the ≤3 capped strip on
+          the hub. Zone 3 body is rendered by the card itself. */}
+      <HubClassifierZone model={model.hubClassifier} />
 
       {/* Zone 5 — evidence sources + debt summary. */}
       <View style={styles.zone} testID="card-detail-evidence-zone">
@@ -221,7 +377,10 @@ export function CardDetailPanel({
         </View>
       ) : null}
 
-      {/* Zone 8 — semantic flags (display-only labels). */}
+      {/* Zone 8 — semantic flags (display-only labels). Retained for
+          backwards-compatible behavior; the CVDH-001 full-tags block below
+          is the doctrine-grouped superset (Observations / Allegations /
+          Structural / Status). */}
       {model.flagLabels.length > 0 ? (
         <View style={styles.zone} testID="card-detail-flags-zone">
           <Text style={styles.zoneHeading} accessibilityRole="text">
@@ -234,6 +393,10 @@ export function CardDetailPanel({
           </View>
         </View>
       ) : null}
+
+      {/* CVDH-001 Slice 2, ask ii — full semantic tags, doctrine-grouped
+          (SECONDARY, visible by default). */}
+      <FullTagsZone model={model.fullTags} />
     </View>
   );
 }
@@ -259,6 +422,43 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.popoutBody.fontSize,
     lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
     fontStyle: 'italic',
+  },
+  classifierFamilyHeading: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '600',
+  },
+  tagsGroupHeading: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '600',
+  },
+  parentQuote: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    fontStyle: 'italic',
+  },
+  bandRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  bandChip: {
+    backgroundColor: SURFACE_TOKENS.elevated,
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDER_WIDTH.sm,
+    borderColor: SURFACE_TOKENS.border,
+    paddingHorizontal: SPACING.s,
+    paddingVertical: 2,
+  },
+  bandValue: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: TYPOGRAPHY.chipLabel.fontWeight,
   },
   bodyText: {
     color: SURFACE_TOKENS.textPrimary,

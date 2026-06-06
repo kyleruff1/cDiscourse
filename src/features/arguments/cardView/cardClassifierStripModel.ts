@@ -154,7 +154,13 @@ function readEvidenceSpan(mark: NodeLabelMark): string | null {
   return null;
 }
 
-function markToChip(mark: NodeLabelMark): CardClassifierChip {
+/**
+ * Map a single visible Machine Observation `NodeLabelMark` → display chip.
+ * Pure. Exported so the hub's all-families builder
+ * (`detail/argumentDetailModel.ts#buildHubClassifierGroups`) produces chips
+ * BYTE-IDENTICALLY to the capped Cards strip (no second chip derivation).
+ */
+export function markToChip(mark: NodeLabelMark): CardClassifierChip {
   const taxonomy: 'observation' | 'allegation' =
     mark.kind === 'machine_observation' ? 'observation' : 'allegation';
   const confidence = mark.confidence ?? null;
@@ -252,4 +258,47 @@ export function buildCardClassifierStrip(
     emptyStateCopy: CARD_CLASSIFIER_EMPTY_STATE,
     hasSignals: true,
   };
+}
+
+/**
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 2) — surface-filtered + deduped Machine
+ * Observation marks for the active message, at the `selected_context`
+ * surface, WITHOUT the ≤3 display cap. Pure.
+ *
+ * This is exactly steps 1–4 of `buildCardClassifierStrip`
+ * (`adaptAllSourcesForNode` → `combinePerNodeMarks` →
+ * `filterMarksBySurface(_, 'selected_context')` → `dedupePerNodeMarks`) —
+ * the §10a disposition gate (composer_only / inspect_only / future_source
+ * dropped) is applied; the cap (step 5) is NOT. The hub builder
+ * (`buildHubClassifierGroups`) then applies the EXPLICIT A–G family gate +
+ * per-family grouping on top of these marks.
+ *
+ * Returns `[]` for every degenerate input (missing active id, no marks).
+ */
+export function buildHubClassifierMarks(
+  input: BuildCardClassifierStripInput,
+): NodeLabelMark[] {
+  if (
+    !input ||
+    typeof input.activeMessageId !== 'string' ||
+    input.activeMessageId.length === 0
+  ) {
+    return [];
+  }
+  const perNode = adaptAllSourcesForNode({
+    manualTagEntries: input.manualTagEntries ?? [],
+    autoMetadataCodes: input.autoMetadataCodes ?? [],
+    clusterState: input.clusterState,
+    messageContribution: input.messageContribution,
+    messageId: input.activeMessageId,
+    persistedClassifierRows: input.persistedClassifierRows ?? [],
+    surface: 'selected_context',
+  });
+  const combined = combinePerNodeMarks(perNode);
+  // §10a SUPPRESSION GATE — composer_only / inspect_only / future_source
+  // dropped; only rendered_now reaches here. (Family I's rendered_now
+  // entries PASS this gate — the family allow-list gate in the hub builder
+  // is what keeps them off the hub.)
+  const surfaceFiltered = filterMarksBySurface(combined, 'selected_context');
+  return dedupePerNodeMarks(surfaceFiltered);
 }

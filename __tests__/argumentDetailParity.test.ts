@@ -224,6 +224,22 @@ describe('CVDH-001 Slice 1 — shared detail model (Fork 2 DRY proof)', () => {
       expect(typeof detailModel.buildSectionSemanticFlags).toBe('function');
       expect(detailModel.PARENT_BODY_PREVIEW_CAP).toBe(120);
     });
+
+    it('exposes the Slice-2 shared hub builders from the one canonical module', () => {
+      expect(typeof detailModel.buildStandingToneHeatStrip).toBe('function');
+      expect(typeof detailModel.buildParentQuoteSlice).toBe('function');
+      expect(typeof detailModel.buildHubClassifier).toBe('function');
+      expect(typeof detailModel.buildHubClassifierGroups).toBe('function');
+      expect(typeof detailModel.buildFullTags).toBe('function');
+      expect(typeof detailModel.standingBandPlainLabel).toBe('function');
+    });
+
+    it('re-exports markToChip as the SAME reference as the classifier module', () => {
+      // The hub builder reuses the capped strip's chip derivation — no second
+      // chip mapper exists.
+      expect(detailModel.buildHubClassifier).toBeDefined();
+      expect(classifierModule.markToChip).toBeDefined();
+    });
   });
 
   describe('2. both consumers import from the ONE canonical module (fork-guard)', () => {
@@ -248,9 +264,14 @@ describe('CVDH-001 Slice 1 — shared detail model (Fork 2 DRY proof)', () => {
     });
 
     // The fork-guard: neither consumer may re-DEFINE a shared builder
-    // locally. A `function <name>(` definition in a consumer file is exactly
-    // the fork this card exists to prevent. (Re-exports `export { name }`
-    // and aliased imports are not definitions and do not match.)
+    // locally. A `function <name>(` definition OR an arrow re-definition
+    // (`const <name> = (...) =>`) in a consumer file is exactly the fork
+    // this card exists to prevent. (Re-exports `export { name }` and aliased
+    // imports are not definitions and do not match.)
+    //
+    // CVDH-001 Slice 2 — the list grows as Slice 2 adds shared builders, and
+    // the guard now ALSO catches arrow re-definitions per the Slice-1
+    // reviewer's note.
     const SHARED_BUILDER_NAMES = [
       'buildStepReferenceLine',
       'buildCardClassifierStrip',
@@ -259,17 +280,28 @@ describe('CVDH-001 Slice 1 — shared detail model (Fork 2 DRY proof)', () => {
       'formatStandingLine',
       'formatToneLine',
       'formatHeatLine',
+      // Slice 2 additions:
+      'buildStandingToneHeatStrip',
+      'buildParentQuoteSlice',
+      'buildHubClassifier',
+      'buildHubClassifierGroups',
+      'buildFullTags',
+      'standingBandPlainLabel',
     ];
 
     for (const name of SHARED_BUILDER_NAMES) {
-      it(`the sidecar does NOT locally define function ${name}`, () => {
-        const localDef = new RegExp(`function\\s+${name}\\s*\\(`);
-        expect(localDef.test(sidecarSrc)).toBe(false);
+      it(`the sidecar does NOT locally re-define ${name} (function or arrow)`, () => {
+        const fnDef = new RegExp(`function\\s+${name}\\s*\\(`);
+        const arrowDef = new RegExp(`(?:const|let|var)\\s+${name}\\s*=\\s*(?:async\\s*)?(?:\\([^)]*\\)|[A-Za-z0-9_$]+)\\s*=>`);
+        expect(fnDef.test(sidecarSrc)).toBe(false);
+        expect(arrowDef.test(sidecarSrc)).toBe(false);
       });
 
-      it(`the card-detail model does NOT locally define function ${name}`, () => {
-        const localDef = new RegExp(`function\\s+${name}\\s*\\(`);
-        expect(localDef.test(cardDetailSrc)).toBe(false);
+      it(`the card-detail model does NOT locally re-define ${name} (function or arrow)`, () => {
+        const fnDef = new RegExp(`function\\s+${name}\\s*\\(`);
+        const arrowDef = new RegExp(`(?:const|let|var)\\s+${name}\\s*=\\s*(?:async\\s*)?(?:\\([^)]*\\)|[A-Za-z0-9_$]+)\\s*=>`);
+        expect(fnDef.test(cardDetailSrc)).toBe(false);
+        expect(arrowDef.test(cardDetailSrc)).toBe(false);
       });
     }
 

@@ -23,6 +23,10 @@ import {
 import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from '../src/features/nodeLabels/mcpBooleanObservationSchema';
 import type { MachineObservationResultRow } from '../src/features/nodeLabels/machineObservationPersistenceTypes';
 import type { EvidenceArtifact } from '../src/features/evidence/evidenceModel';
+import type {
+  ArgumentBubbleViewModel,
+  ArgumentTimelineMapNode,
+} from '../src/features/arguments/argumentGameSurfaceModel';
 
 const ACTIVE = 'msg-active';
 const PARENT = 'msg-parent';
@@ -305,6 +309,175 @@ describe('CARD-VIEW-DATA-001 — determinism + non-mutation', () => {
     expect(input.qualifierLabels).toBe(quals);
     expect(input.flagLabels).toBe(flags);
     expect(input.qualifierLabels).toEqual(['Scope challenge']);
+  });
+});
+
+describe('CVDH-001 Slice 2 — buildCardDetailViewModel hub slices', () => {
+  function hubNode(
+    over: Partial<ArgumentTimelineMapNode> = {},
+  ): ArgumentTimelineMapNode {
+    return {
+      messageId: ACTIVE,
+      parentId: PARENT,
+      ordinal: 4,
+      createdAt: '2026-05-26T12:00:00.000Z',
+      createdAtLabel: '2026-05-26 12:00',
+      relativeLabel: '2h ago',
+      actorLabel: 'Other side',
+      kindLabel: 'rebuttal',
+      sideLabel: 'Neg',
+      bodyPreview: 'preview',
+      badges: [],
+      droppedTags: [],
+      depth: 1,
+      lane: 1,
+      siblingIndex: 0,
+      replyCount: 0,
+      descendantCount: 0,
+      branchId: 'branch-1',
+      branchRootMessageId: ACTIVE,
+      junctionGroupId: null,
+      isJunction: false,
+      junctionChildCount: 0,
+      isActive: true,
+      isLatest: true,
+      isDetached: false,
+      isActivePath: true,
+      isRoot: false,
+      isFirstRebuttal: false,
+      standingBand: 'pretty_right',
+      toneBand: 'calm',
+      temperatureBand: 'cool',
+      kindColor: '#000',
+      kindColorFamily: 'challenge',
+      x: 0,
+      y: 0,
+      accessibilityLabel: 'rebuttal',
+      ...over,
+    };
+  }
+  function hubVm(): ArgumentBubbleViewModel {
+    return {
+      messageId: ACTIVE,
+      ordinal: 4,
+      createdAtLabel: '2026-05-26 12:00',
+      relativeLabel: '2h ago',
+      body: 'body',
+      kindLabel: 'rebuttal',
+      actor: 'other',
+      sideLabel: 'Neg',
+      isLatest: true,
+      isActive: true,
+      parentHint: null,
+      qualifierBadges: [],
+      pointStandingHint: null,
+      allowedControls: [],
+      deletionRequested: false,
+    };
+  }
+
+  it('ask i — surfaces the parent quote when a preview is threaded', () => {
+    const m = buildCardDetailViewModel(
+      baseInput({ parentBodyPreview: 'We should narrow the scope.' }),
+    );
+    expect(m.parentQuote.isAvailable).toBe(true);
+    expect(m.parentQuote.quote).toBe('We should narrow the scope.');
+  });
+
+  it('ask i — truncates the parent quote to 120 chars', () => {
+    const m = buildCardDetailViewModel(
+      baseInput({ parentBodyPreview: 'y'.repeat(250) }),
+    );
+    expect(m.parentQuote.quote).toHaveLength(120);
+  });
+
+  it('ask i — degrades to a neutral placeholder when the parent is unresolvable', () => {
+    const m = buildCardDetailViewModel(baseInput({ parentBodyPreview: null }));
+    expect(m.parentQuote.isAvailable).toBe(false);
+    expect(m.parentQuote.quote).toBeNull();
+    expect(m.parentQuote.unavailableLabel).toBe('Parent unavailable');
+  });
+
+  it('ask v — the S/T/H strip uses plain-language band labels', () => {
+    const m = buildCardDetailViewModel(
+      baseInput({
+        standingToneHeatNode: hubNode({
+          standingBand: 'pretty_right',
+          toneBand: 'heated',
+          temperatureBand: 'warm',
+        }),
+        standingToneHeatViewModel: hubVm(),
+      }),
+    );
+    expect(m.standingToneHeat).not.toBeNull();
+    expect(m.standingToneHeat!.standingLine).toBe('Standing: Well supported');
+    expect(m.standingToneHeat!.toneLine).toBe('Tone: Heated');
+    expect(m.standingToneHeat!.heatLine).toBe('Heat: Warm');
+  });
+
+  it('ask v — the strip is null when no node/view-model is threaded (degenerate)', () => {
+    const m = buildCardDetailViewModel(baseInput());
+    expect(m.standingToneHeat).toBeNull();
+  });
+
+  it('ask iii — the hub classifier is A–G gated (drops a Family I rendered_now code)', () => {
+    const m = buildCardDetailViewModel(
+      baseInput({
+        // Neutral cluster + no persisted rows so the ONLY candidate is the
+        // Family I auto-metadata code under test.
+        persistedClassifierRows: [],
+        clusterState: 'open',
+        lifecycleState: 'open',
+        autoMetadataCodes: ['no_response_after_n_turns'], // Family I, rendered_now
+      }),
+    );
+    // The Family I rendered_now mark is dropped by the explicit family gate.
+    expect(JSON.stringify(m.hubClassifier)).not.toContain('No follow-up');
+    expect(JSON.stringify(m.hubClassifier)).not.toContain('no_response_after_n_turns');
+  });
+
+  it('ask iii — the hub classifier surfaces an A-family persisted observation', () => {
+    const m = buildCardDetailViewModel(baseInput());
+    expect(m.hubClassifier.hasSignals).toBe(true);
+    const families = m.hubClassifier.groups.map((g) => g.familyCode);
+    expect(families).toContain('parent_relation');
+  });
+
+  it('the new hub slices are covered by the inactive_reason poisoned fixture', () => {
+    const m = buildCardDetailViewModel(
+      baseInput({
+        lifecycleState: 'inactive_reason' as never,
+        parentBodyPreview: 'parent body',
+        standingToneHeatNode: hubNode(),
+        standingToneHeatViewModel: hubVm(),
+      }),
+    );
+    const json = JSON.stringify(m);
+    expect(json).not.toContain('inactive_reason');
+    expect(json.toLowerCase()).not.toContain('admin note');
+  });
+
+  it('the new hub slices emit no verdict tokens', () => {
+    const m = buildCardDetailViewModel(
+      baseInput({
+        parentBodyPreview: 'parent body',
+        standingToneHeatNode: hubNode(),
+        standingToneHeatViewModel: hubVm(),
+        structuralTagLabels: ['Side branch'],
+      }),
+    );
+    const strings = collectStrings({
+      parentQuote: m.parentQuote,
+      standingToneHeat: m.standingToneHeat,
+      hubClassifier: m.hubClassifier,
+      fullTags: m.fullTags,
+    });
+    for (const s of strings) {
+      const lower = ` ${s.toLowerCase()} `;
+      for (const banned of BANNED) {
+        expect(lower).not.toContain(banned);
+      }
+    }
   });
 });
 
