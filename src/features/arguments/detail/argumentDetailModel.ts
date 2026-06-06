@@ -37,6 +37,9 @@
 import type {
   ArgumentBubbleViewModel,
   ArgumentTimelineMapNode,
+  TimelineStandingBand,
+  TimelineTemperatureBand,
+  TimelineToneBand,
 } from '../argumentGameSurfaceModel';
 import type {
   AutoMetadataCode,
@@ -45,10 +48,23 @@ import type {
   MoveMetadataLedger,
 } from '../../metadata';
 import type { EvidenceArtifact } from '../../evidence/evidenceModel';
+import type { NodeLabelMark } from '../../nodeLabels/nodeLabelTypes';
+import {
+  ALL_MACHINE_OBSERVATION_FAMILIES,
+  type MachineObservationFamily,
+} from '../../nodeLabels/nodeLabelTypes';
+import { lookupMachineObservationDefinitionByCompoundKey } from '../../nodeLabels/machineObservationDefinitions';
 import {
   getAutoMetadataUx,
   getManualTagUx,
 } from '../../rulesUx/lifecycleUxMap';
+import { STANDING_BAND_SOFT_LABEL } from '../standingBandCopy';
+import {
+  buildHubClassifierMarks,
+  markToChip,
+  type BuildCardClassifierStripInput,
+  type CardClassifierChip,
+} from '../cardView/cardClassifierStripModel';
 
 // ── Re-exported named pure builders (the ONE import surface) ──────────
 //
@@ -66,10 +82,13 @@ export {
 
 export {
   buildCardClassifierStrip,
-  type BuildCardClassifierStripInput,
-  type CardClassifierChip,
   type CardClassifierStripModel,
 } from '../cardView/cardClassifierStripModel';
+
+// `BuildCardClassifierStripInput` + `CardClassifierChip` are imported above
+// for local use (the hub builder) and re-exported here so the shared module
+// remains the one canonical import surface.
+export type { BuildCardClassifierStripInput, CardClassifierChip };
 
 // ── Evidence sources (shared) ────────────────────────────────────────
 //
@@ -147,35 +166,397 @@ export function artifactsToEvidenceSources(
  */
 export const PARENT_BODY_PREVIEW_CAP = 120;
 
-// ── Shared band formatters ───────────────────────────────────────────
+// ── Shared band formatters (Slice 2 — plain-language) ─────────────────
 //
-// Slice 1: byte-equal with the sidecar's prior private formatters — they
-// emit the raw band token (e.g. "Tone: calm"). Slice 2 introduces the
-// plain-language band maps (design §6.4) on top of these shared formatters
-// so the Cards strip and the Timeline strip can never diverge.
+// Design §6.4: the Standing / Tone / Heat strip describes the TEXT, not
+// the author. The maps below are the single source of truth used by BOTH
+// the Cards hub strip and the Timeline sidecar strip, so the two can
+// never diverge. Slice 1 emitted the raw band token (e.g. "Tone: calm");
+// Slice 2 routes every band through a plain-language map.
+//
+// Doctrine (cdiscourse-doctrine §1/§2/§3 + timeline-grammar):
+//   - Standing reuses the SW-001 soft labels (`STANDING_BAND_SOFT_LABEL`)
+//     — never "Correct"/"True"; the band is a game-standing reading.
+//   - Tone describes the message's REGISTER (how it reads), never a
+//     judgment of the person. "Heated"/"Hostile" are text-register words.
+//   - Heat is an activity/friction descriptor (heat ≠ truth, heat ≠
+//     popularity). "Hot" means recent friction, not "correct" or "trending".
+//   - The unknown band collapses to the neutral "—" placeholder.
+//   - Every label is verdict-token-clean (locked-constant; ban-list test).
+
+/** Plain-language tone-band labels. Describe the TEXT's register, not the
+ *  author. Unknown → neutral em-dash placeholder. */
+export const TONE_BAND_PLAIN_LABEL: Record<TimelineToneBand, string> = {
+  calm: 'Calm',
+  measured: 'Measured',
+  heated: 'Heated',
+  hostile: 'Hostile',
+  unknown: '—',
+};
+
+/** Plain-language heat/temperature-band labels. Activity/friction
+ *  descriptors of the text — never correctness or popularity. Unknown →
+ *  neutral em-dash placeholder. */
+export const HEAT_BAND_PLAIN_LABEL: Record<TimelineTemperatureBand, string> = {
+  cool: 'Cool',
+  mild: 'Mild',
+  warm: 'Warm',
+  hot: 'Hot',
+  unknown: '—',
+};
+
+/** Plain-language standing-band label (reuses the SW-001 soft labels).
+ *  Pure lookup; total over the band union. */
+export function standingBandPlainLabel(band: TimelineStandingBand): string {
+  return STANDING_BAND_SOFT_LABEL[band];
+}
 
 /**
- * Pre-formatted standing band line, e.g. "Standing: well_supported".
- * Slice 1 keeps the raw band token for byte-equality with the prior
- * sidecar behavior. The `viewModel` arg is retained for signature
- * stability (Slice 2 may route the standing band through plain-language).
+ * Pre-formatted standing band line, e.g. "Standing: Well supported".
+ * Plain-language (SW-001 soft label). The `viewModel` arg is retained for
+ * signature stability with existing callers.
  */
 export function formatStandingLine(
   viewModel: ArgumentBubbleViewModel,
   node: ArgumentTimelineMapNode,
 ): string {
   void viewModel;
-  return `Standing: ${node.standingBand}`;
+  return `Standing: ${standingBandPlainLabel(node.standingBand)}`;
 }
 
-/** Pre-formatted tone band line, e.g. "Tone: calm". */
+/** Pre-formatted tone band line, e.g. "Tone: Calm". Plain-language. */
 export function formatToneLine(node: ArgumentTimelineMapNode): string {
-  return `Tone: ${node.toneBand}`;
+  return `Tone: ${TONE_BAND_PLAIN_LABEL[node.toneBand]}`;
 }
 
-/** Pre-formatted heat / temperature band line, e.g. "Heat: cool". */
+/** Pre-formatted heat / temperature band line, e.g. "Heat: Cool".
+ *  Plain-language. */
 export function formatHeatLine(node: ArgumentTimelineMapNode): string {
-  return `Heat: ${node.temperatureBand}`;
+  return `Heat: ${HEAT_BAND_PLAIN_LABEL[node.temperatureBand]}`;
+}
+
+/**
+ * The accessibility / caption framing for the Standing / Tone / Heat strip.
+ * Doctrine §6.4: the strip describes how the MESSAGE reads, never how the
+ * person is. Display-only locked copy.
+ */
+export const STANDING_TONE_HEAT_CAPTION = 'How this message reads';
+
+// ── Standing / Tone / Heat strip slice (Slice 2 — ask v) ─────────────
+
+/**
+ * The Standing / Tone / Heat strip view-model. Pre-formatted plain-language
+ * lines + raw band tokens (the latter for tests / a11y, NEVER rendered).
+ * Display-only.
+ */
+export interface DetailStandingToneHeatStrip {
+  /** Pre-formatted plain-language standing line, e.g. "Standing: Well supported". */
+  standingLine: string;
+  /** Pre-formatted plain-language tone line, e.g. "Tone: Calm". */
+  toneLine: string;
+  /** Pre-formatted plain-language heat line, e.g. "Heat: Cool". */
+  heatLine: string;
+  /** Locked caption / a11y framing — describes the TEXT, not the author. */
+  caption: string;
+  /** Raw band tokens — reserved for tests + a11y. NEVER rendered as text. */
+  standingBandCode: TimelineStandingBand;
+  toneBandCode: TimelineToneBand;
+  heatBandCode: TimelineTemperatureBand;
+}
+
+/**
+ * Build the Standing / Tone / Heat strip from the active node + view-model.
+ * Pure. Uses the shared plain-language formatters so the Cards strip and the
+ * Timeline strip can never diverge.
+ */
+export function buildStandingToneHeatStrip(
+  viewModel: ArgumentBubbleViewModel,
+  node: ArgumentTimelineMapNode,
+): DetailStandingToneHeatStrip {
+  return {
+    standingLine: formatStandingLine(viewModel, node),
+    toneLine: formatToneLine(node),
+    heatLine: formatHeatLine(node),
+    caption: STANDING_TONE_HEAT_CAPTION,
+    standingBandCode: node.standingBand,
+    toneBandCode: node.toneBand,
+    heatBandCode: node.temperatureBand,
+  };
+}
+
+// ── Parent-quote zone (Slice 2 — ask i) ──────────────────────────────
+
+/**
+ * Plain-language fallback shown when the parent move cannot be resolved
+ * (soft-deleted / RLS-hidden / out-of-slice). Doctrine §10a: NEVER an
+ * invented quote, NEVER a "hidden because…" reason — the absence of the
+ * quote is the entire signal.
+ */
+export const PARENT_QUOTE_UNAVAILABLE = 'Parent unavailable';
+
+/**
+ * The parent-quote slice. `quote` is the italic replied-to excerpt
+ * (≤ `PARENT_BODY_PREVIEW_CAP` chars) when resolvable; `null` when the
+ * parent is not loaded / not in slice — in which case `isAvailable` is
+ * false and the consumer renders the neutral placeholder (or omits the box).
+ */
+export interface DetailParentQuoteSlice {
+  /** Italic replied-to quote, ≤ 120 chars, or null when unresolvable. */
+  quote: string | null;
+  /** False when the parent could not be resolved (degrade path). */
+  isAvailable: boolean;
+  /** Neutral placeholder copy for the degrade path. Never a "why hidden". */
+  unavailableLabel: string;
+}
+
+/** Truncate a parent body to the shared cap. Pure; never throws. */
+function truncateParentQuote(s: string | null | undefined): string {
+  const input = typeof s === 'string' ? s : '';
+  if (input.length <= PARENT_BODY_PREVIEW_CAP) return input;
+  return input.slice(0, PARENT_BODY_PREVIEW_CAP);
+}
+
+/**
+ * Build the parent-quote slice from an already-resolved parent body preview.
+ * Pure. The CALLER resolves the parent body off `timelineMap` (no fetch) and
+ * passes it in; a `null`/empty preview is the degrade signal.
+ */
+export function buildParentQuoteSlice(
+  parentBodyPreview: string | null | undefined,
+): DetailParentQuoteSlice {
+  const cleaned =
+    typeof parentBodyPreview === 'string' ? parentBodyPreview.trim() : '';
+  if (cleaned.length === 0) {
+    return {
+      quote: null,
+      isAvailable: false,
+      unavailableLabel: PARENT_QUOTE_UNAVAILABLE,
+    };
+  }
+  return {
+    quote: truncateParentQuote(cleaned),
+    isAvailable: true,
+    unavailableLabel: PARENT_QUOTE_UNAVAILABLE,
+  };
+}
+
+// ── All-families classifier — A–G family gate + grouping (ask iii) ───
+//
+// Design §6.5: the hub renders the UNCAPPED classifier set, but ONLY for
+// families that are `productionEnabled: true` (the A–G set). Family H
+// (`claim_clarity`), I (`thread_topology`), and J (`sensitive_composer`)
+// are `productionEnabled: false` and are dropped by an EXPLICIT family
+// allow-list gate — NOT by disposition alone. Verified leak: three Family I
+// entries (`no_response_after_n_turns`, `repeated_axis_pressure`,
+// `ignored_by_both`) are dispositioned `rendered_now`, so they pass
+// `filterMarksBySurface(_, 'selected_context')`; the family gate is the
+// authoritative §10a hub gate that keeps them off the hub regardless of
+// per-entry disposition or future family enablement (#392 / #394).
+
+/**
+ * The FROZEN `productionEnabled: false` family set (Families H / I / J).
+ * Mirrors the Deno `supabase/functions/_shared/booleanObservations/
+ * familyRegistry.ts` `productionEnabled: false` entries — the canonical
+ * registry lives in the Edge runtime (Deno, `.ts`-extension imports) and
+ * cannot be imported into `src/**`, so it is mirrored here as a locked
+ * constant, exactly as `adminClassifierHealth/classifierHealthModel.ts`
+ * (`FROZEN_NON_PRODUCTION_FAMILIES`) does. A test pins both this set AND
+ * its A–G complement to `ALL_MACHINE_OBSERVATION_FAMILIES`, so a registry
+ * rename / new family forces this constant to be re-verified.
+ */
+export const HUB_NON_PRODUCTION_FAMILIES: ReadonlyArray<MachineObservationFamily> =
+  Object.freeze(['claim_clarity', 'thread_topology', 'sensitive_composer']);
+
+/**
+ * The hub's family ALLOW-LIST: the `productionEnabled: true` families
+ * (A–G), DERIVED as the complement of `HUB_NON_PRODUCTION_FAMILIES` over
+ * `ALL_MACHINE_OBSERVATION_FAMILIES` (single canonical family enumeration).
+ * It is NOT a hard-coded list of A–G codes — adding a family to the
+ * canonical enumeration automatically excludes it from the hub UNTIL it is
+ * removed from `HUB_NON_PRODUCTION_FAMILIES`, mirroring the registry's
+ * `productionEnabled` flip. This is the §6.5 step-1b explicit family gate.
+ */
+export const HUB_PRODUCTION_ENABLED_FAMILIES: ReadonlyArray<MachineObservationFamily> =
+  Object.freeze(
+    ALL_MACHINE_OBSERVATION_FAMILIES.filter(
+      (f) => !HUB_NON_PRODUCTION_FAMILIES.includes(f),
+    ),
+  );
+
+const HUB_PRODUCTION_ENABLED_FAMILY_SET: ReadonlySet<MachineObservationFamily> =
+  new Set(HUB_PRODUCTION_ENABLED_FAMILIES);
+
+/**
+ * Plain-language family headings (design §6.5 step 3). NEVER a raw family
+ * code. The map is total over the A–G allow-list; the H/I/J headings are
+ * present for completeness/tests but those families never reach the hub.
+ * Verdict-token-clean (locked constant; ban-list test).
+ */
+export const HUB_CLASSIFIER_FAMILY_HEADING: Record<MachineObservationFamily, string> = {
+  parent_relation: 'How it relates to the parent',
+  disagreement_axis: 'What the disagreement is about',
+  misunderstanding_repair: 'Where it clears up confusion',
+  evidence_source_chain: 'Evidence and sources',
+  argument_scheme: 'The shape of the argument',
+  critical_question: 'Questions worth asking',
+  resolution_progress: 'Progress toward resolution',
+  claim_clarity: 'How clear the claim is',
+  thread_topology: 'How the thread is shaped',
+  sensitive_composer: 'Composer-only notes',
+};
+
+/** Heading for marks whose rawKey has no registry entry. Never a raw code. */
+export const HUB_CLASSIFIER_OTHER_HEADING = 'Other observations';
+
+/** One family-grouped block of classifier chips on the hub. Display-only. */
+export interface HubClassifierGroup {
+  /** Stable key — the family code (or 'other'). NEVER rendered as text. */
+  familyCode: MachineObservationFamily | 'other';
+  /** Plain-language family heading. */
+  familyLabel: string;
+  /** Chips in this family (uncapped). */
+  chips: ReadonlyArray<CardClassifierChip>;
+}
+
+/** The hub's all-families classifier view-model (uncapped, A–G gated). */
+export interface HubClassifierGroupsModel {
+  /** Family-grouped chips (A–G only; H/I/J gated out). */
+  groups: ReadonlyArray<HubClassifierGroup>;
+  /** Fixed advisory caption — locked copy. */
+  advisoryCaption: string;
+  /** Empty-state copy when no group has a chip. */
+  emptyStateCopy: string;
+  /** True when at least one chip survives the gate. */
+  hasSignals: boolean;
+}
+
+/** Locked advisory caption — identical to the capped Cards strip. */
+export const HUB_CLASSIFIER_ADVISORY_CAPTION =
+  'What the referee noticed — advisory, not a verdict.';
+
+/** Teaching empty state — never "clean" / "no issues" (a verdict). */
+export const HUB_CLASSIFIER_EMPTY_STATE =
+  'No classifier signals yet on this move.';
+
+/**
+ * Resolve a mark's family via the parallel definition registry. Returns
+ * `'other'` when the (source, rawKey) pair has no registry entry — never the
+ * raw code.
+ */
+function resolveMarkFamily(
+  mark: NodeLabelMark,
+): MachineObservationFamily | 'other' {
+  const def = lookupMachineObservationDefinitionByCompoundKey(mark.source, mark.rawKey);
+  return def ? def.family : 'other';
+}
+
+/** True when a mark's family is in the hub's A–G allow-list. */
+function isHubAllowedFamily(mark: NodeLabelMark): boolean {
+  const family = resolveMarkFamily(mark);
+  if (family === 'other') return true; // unknown rawKey → kept, grouped under "Other"
+  return HUB_PRODUCTION_ENABLED_FAMILY_SET.has(family);
+}
+
+export interface BuildHubClassifierGroupsInput {
+  /** Surface-filtered + deduped Machine Observation marks (rendered_now at
+   *  selected_context). The builder applies the family gate + grouping. */
+  marks: ReadonlyArray<NodeLabelMark>;
+  /** Maps a surviving mark to its display chip. Injected so the chip
+   *  derivation stays identical to the capped strip's `markToChip`. */
+  markToChip: (mark: NodeLabelMark) => CardClassifierChip;
+}
+
+/**
+ * Build the hub's all-families family-grouped classifier view-model. Pure.
+ *
+ * Pipeline (the caller has ALREADY run disposition filtering + dedupe at
+ * `selected_context`):
+ *   1. Drop any mark whose family is NOT in the A–G allow-list (the
+ *      EXPLICIT §6.5 step-1b family gate — the authoritative hub gate).
+ *   2. Group surviving marks by family; unknown rawKey → "Other observations".
+ *   3. Order groups by the canonical family enumeration; "Other" last.
+ *
+ * Confidence stays PIPS (via `markToChip`); the advisory caption is locked.
+ */
+export function buildHubClassifierGroups(
+  input: BuildHubClassifierGroupsInput,
+): HubClassifierGroupsModel {
+  const emptyModel: HubClassifierGroupsModel = {
+    groups: [],
+    advisoryCaption: HUB_CLASSIFIER_ADVISORY_CAPTION,
+    emptyStateCopy: HUB_CLASSIFIER_EMPTY_STATE,
+    hasSignals: false,
+  };
+  if (!input || !Array.isArray(input.marks) || typeof input.markToChip !== 'function') {
+    return emptyModel;
+  }
+
+  // Machine Observations only (the classifier strip never renders Allegations).
+  const observations = input.marks.filter(
+    (m): m is NodeLabelMark => Boolean(m) && m.kind === 'machine_observation',
+  );
+
+  // Step 1 — explicit A–G family gate (drops H/I/J regardless of disposition).
+  const allowed = observations.filter(isHubAllowedFamily);
+  if (allowed.length === 0) return emptyModel;
+
+  // Step 2 — group by family (preserving the caller's mark order within a group).
+  const byFamily = new Map<MachineObservationFamily | 'other', CardClassifierChip[]>();
+  for (const mark of allowed) {
+    const family = resolveMarkFamily(mark);
+    const list = byFamily.get(family);
+    const chip = input.markToChip(mark);
+    if (list) {
+      list.push(chip);
+    } else {
+      byFamily.set(family, [chip]);
+    }
+  }
+
+  // Step 3 — order groups by the canonical family enumeration; "Other" last.
+  const groups: HubClassifierGroup[] = [];
+  for (const family of HUB_PRODUCTION_ENABLED_FAMILIES) {
+    const chips = byFamily.get(family);
+    if (chips && chips.length > 0) {
+      groups.push({
+        familyCode: family,
+        familyLabel: HUB_CLASSIFIER_FAMILY_HEADING[family],
+        chips,
+      });
+    }
+  }
+  const otherChips = byFamily.get('other');
+  if (otherChips && otherChips.length > 0) {
+    groups.push({
+      familyCode: 'other',
+      familyLabel: HUB_CLASSIFIER_OTHER_HEADING,
+      chips: otherChips,
+    });
+  }
+
+  if (groups.length === 0) return emptyModel;
+
+  return {
+    groups,
+    advisoryCaption: HUB_CLASSIFIER_ADVISORY_CAPTION,
+    emptyStateCopy: HUB_CLASSIFIER_EMPTY_STATE,
+    hasSignals: true,
+  };
+}
+
+/**
+ * Convenience: build the hub's all-families family-grouped classifier
+ * straight from the SAME `BuildCardClassifierStripInput` the capped Cards
+ * strip consumes. Pure. Runs the shared pipeline (surface filter + dedupe,
+ * NO cap) via `buildHubClassifierMarks`, then applies the A–G family gate +
+ * grouping via `buildHubClassifierGroups` with the SAME `markToChip` the
+ * capped strip uses (no second chip derivation).
+ */
+export function buildHubClassifier(
+  input: BuildCardClassifierStripInput,
+): HubClassifierGroupsModel {
+  const marks = buildHubClassifierMarks(input);
+  return buildHubClassifierGroups({ marks, markToChip });
 }
 
 // ── Semantic-flag chip model (shared) ────────────────────────────────
@@ -311,6 +692,147 @@ export function buildSectionSemanticFlags(
   };
 }
 
+// ── Full semantic tags (Slice 2 — ask ii) ────────────────────────────
+//
+// Design §6.6 / OQ-ii: expand the Cards Zone-8 flag subset to the FULL
+// relevant tag set, grouped by the §10a doctrine categories:
+//   - Observations (auto-metadata)   — Machine Observations
+//   - Allegations (manual tags)      — User Allegations
+//   - structural labels              — dropped-tag qualifiers on the node
+//   - status chips                   — category + lifecycle status
+// Every label is plain-language (via the RULE-003 chip labels / the caller's
+// already-resolved labels); unknown internal codes are SUPPRESSED upstream,
+// never echoed. Neutral language — never an author judgment.
+
+/** One display-only tag in the full-tags block. */
+export interface DetailFullTag {
+  /** Stable key. NEVER rendered as text. */
+  id: string;
+  /** Plain-language label. */
+  label: string;
+}
+
+/** A doctrine-grouped block of full tags. */
+export interface DetailFullTagsGroup {
+  /** Stable group key. NEVER rendered as text. */
+  groupCode: 'observations' | 'allegations' | 'structural' | 'status';
+  /** Plain-language group heading. */
+  groupLabel: string;
+  /** Tags in this group. */
+  tags: ReadonlyArray<DetailFullTag>;
+}
+
+/** The full-tags block view-model (display-only, grouped per OQ-ii). */
+export interface DetailFullTagsModel {
+  groups: ReadonlyArray<DetailFullTagsGroup>;
+  /** Empty-state copy when no group has a tag. */
+  emptyStateCopy: string;
+  /** True when at least one tag is present. */
+  hasTags: boolean;
+}
+
+/** Plain-language group headings — locked, verdict-clean, never a raw code. */
+export const FULL_TAGS_GROUP_HEADING: Record<
+  DetailFullTagsGroup['groupCode'],
+  string
+> = {
+  observations: 'Observations',
+  allegations: 'Allegations',
+  structural: 'Structural labels',
+  status: 'Status',
+};
+
+/** Empty state — never "no issues" (a verdict). */
+export const FULL_TAGS_EMPTY_STATE = 'No tags on this move yet.';
+
+export interface BuildFullTagsInput {
+  /** Shared semantic-flag section (Observations + Allegations chips). */
+  semanticFlags: DetailSemanticFlagsSection;
+  /** Already-plain-language structural labels (dropped-tag qualifiers). */
+  structuralLabels: ReadonlyArray<string>;
+  /** Already-plain-language status labels (category + lifecycle). */
+  statusLabels: ReadonlyArray<string>;
+}
+
+/** Trim + drop empties; dedupe preserving order. Pure. */
+function cleanDedupeLabels(labels: ReadonlyArray<string> | undefined): string[] {
+  if (!Array.isArray(labels)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of labels) {
+    if (typeof raw !== 'string') continue;
+    const t = raw.trim();
+    if (t.length === 0 || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
+/**
+ * Build the full-tags block. Pure. Groups the shared semantic-flag chips by
+ * the §10a Observation/Allegation boundary, then appends the structural +
+ * status groups. The chip labels are ALREADY plain-language; the caller's
+ * structural/status labels are ALREADY plain-language (unknown suppressed).
+ */
+export function buildFullTags(input: BuildFullTagsInput): DetailFullTagsModel {
+  const observations: DetailFullTag[] = [];
+  const allegations: DetailFullTag[] = [];
+  const chips = input?.semanticFlags?.chips ?? [];
+  for (const chip of chips) {
+    if (chip.family === 'manual_tag') {
+      allegations.push({ id: `allegation:${chip.id}`, label: chip.label });
+    } else {
+      observations.push({ id: `observation:${chip.id}`, label: chip.label });
+    }
+  }
+
+  const structural = cleanDedupeLabels(input?.structuralLabels).map((label, i) => ({
+    id: `structural:${i}:${label}`,
+    label,
+  }));
+  const status = cleanDedupeLabels(input?.statusLabels).map((label, i) => ({
+    id: `status:${i}:${label}`,
+    label,
+  }));
+
+  const groups: DetailFullTagsGroup[] = [];
+  if (observations.length > 0) {
+    groups.push({
+      groupCode: 'observations',
+      groupLabel: FULL_TAGS_GROUP_HEADING.observations,
+      tags: observations,
+    });
+  }
+  if (allegations.length > 0) {
+    groups.push({
+      groupCode: 'allegations',
+      groupLabel: FULL_TAGS_GROUP_HEADING.allegations,
+      tags: allegations,
+    });
+  }
+  if (structural.length > 0) {
+    groups.push({
+      groupCode: 'structural',
+      groupLabel: FULL_TAGS_GROUP_HEADING.structural,
+      tags: structural,
+    });
+  }
+  if (status.length > 0) {
+    groups.push({
+      groupCode: 'status',
+      groupLabel: FULL_TAGS_GROUP_HEADING.status,
+      tags: status,
+    });
+  }
+
+  return {
+    groups,
+    emptyStateCopy: FULL_TAGS_EMPTY_STATE,
+    hasTags: groups.length > 0,
+  };
+}
+
 // ── Superset detail view-model scaffold (Fork 2 / design §6.1) ───────
 //
 // The superset shape both surfaces will project from. SCAFFOLD ONLY in
@@ -323,14 +845,24 @@ export function buildSectionSemanticFlags(
 export type DetailSurface = 'timeline' | 'cards';
 
 /**
- * Superset detail view-model (Fork 2 shape). Slice 1 declares the surface
- * discriminator + the slice slots; Slice 2 populates them. The optional
- * `?` slots are intentionally not built yet — the existing sidecar +
- * card-detail builders remain the live derivation in Slice 1.
+ * Superset detail view-model (Fork 2 shape). Slice 1 declared the surface
+ * discriminator + the semantic-flag slot; Slice 2 adds the Cards-hub slices
+ * (parent quote, S/T/H strip, family-grouped classifiers, full tags). Each
+ * surface selects the slices it renders — the cards projection (rendered via
+ * `CardDetailViewModel` on the active card) renders the hub slices; the
+ * timeline projection (`SidecarViewModel`) renders its condensed slices.
  */
 export interface ArgumentDetailViewModel {
   surface: DetailSurface;
   activeMessageId: string;
   /** Semantic-flag chips (shared derivation). */
   semanticFlags?: DetailSemanticFlagsSection;
+  /** Parent replied-to quote (Slice 2 — ask i). */
+  parentQuote?: DetailParentQuoteSlice;
+  /** Standing / Tone / Heat strip (Slice 2 — ask v). */
+  standingToneHeat?: DetailStandingToneHeatStrip;
+  /** All-families family-grouped classifiers, A–G gated (Slice 2 — ask iii). */
+  hubClassifier?: HubClassifierGroupsModel;
+  /** Full semantic tags, doctrine-grouped (Slice 2 — ask ii). */
+  fullTags?: DetailFullTagsModel;
 }

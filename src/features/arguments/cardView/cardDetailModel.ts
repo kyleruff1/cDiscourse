@@ -54,6 +54,10 @@ import { toPlainLanguageOrSuppress } from '../gameCopy';
 import {
   artifactsToEvidenceSources,
   buildCardClassifierStrip,
+  buildFullTags,
+  buildHubClassifier,
+  buildParentQuoteSlice,
+  buildStandingToneHeatStrip,
   buildStepReferenceLine,
   type BuildCardClassifierStripInput,
   type BuildStepReferenceLineInput,
@@ -61,7 +65,16 @@ import {
   type CardDetailEvidenceSource,
   type CardDetailEvidenceZone,
   type CardStepReferenceLine,
+  type DetailFullTagsModel,
+  type DetailParentQuoteSlice,
+  type DetailSemanticFlagsSection,
+  type DetailStandingToneHeatStrip,
+  type HubClassifierGroupsModel,
 } from '../detail/argumentDetailModel';
+import type {
+  ArgumentBubbleViewModel,
+  ArgumentTimelineMapNode,
+} from '../argumentGameSurfaceModel';
 
 // Re-exported so existing consumers of `cardDetailModel` (e.g.
 // `ArgumentGameSurface`) keep their import path unchanged.
@@ -115,6 +128,20 @@ export interface CardDetailViewModel {
   lifecycleLabel: string | null;
   /** Zone 8 — plain-language semantic-flag labels (display-only). */
   flagLabels: ReadonlyArray<string>;
+
+  // ── CARD-VIEW-DETAIL-HUB-001 (Slice 2) — Cards hub slices ──────────
+  // Always present (never undefined) so the panel renders without special
+  // cases; the degrade/empty path is encoded INSIDE each slice.
+
+  /** ask i — italic replied-to parent quote (or neutral degrade). */
+  parentQuote: DetailParentQuoteSlice;
+  /** ask v — Standing / Tone / Heat strip (plain-language), or null when
+   *  no active node is available (degenerate input). */
+  standingToneHeat: DetailStandingToneHeatStrip | null;
+  /** ask iii — all-families family-grouped classifiers (A–G gated). */
+  hubClassifier: HubClassifierGroupsModel;
+  /** ask ii — full semantic tags, doctrine-grouped. */
+  fullTags: DetailFullTagsModel;
 }
 
 /** Inputs to `buildCardDetailViewModel`. Every field already in scope where
@@ -159,6 +186,28 @@ export interface BuildCardDetailViewModelInput {
   // ── Zone 8 — semantic flags (already-resolved plain labels) ──
   /** Plain-language semantic-flag labels for the active message. */
   flagLabels: ReadonlyArray<string>;
+
+  // ── CARD-VIEW-DETAIL-HUB-001 (Slice 2) — Cards hub inputs ─────────
+  // All optional + additive: #516-era callers omit them and the builder
+  // produces the safe empty/degrade slice for each.
+
+  /** ask i — parent node `bodyPreview` resolved off `timelineMap` by the
+   *  caller (no fetch). null / absent → neutral "Parent unavailable" degrade. */
+  parentBodyPreview?: string | null;
+
+  /** ask v — the active node + view-model, used to format the Standing /
+   *  Tone / Heat strip via the shared plain-language formatters. When either
+   *  is absent the strip is null (degenerate input). */
+  standingToneHeatNode?: ArgumentTimelineMapNode | null;
+  standingToneHeatViewModel?: ArgumentBubbleViewModel | null;
+
+  /** ask ii — structural labels (dropped-tag qualifiers, already plain). */
+  structuralTagLabels?: ReadonlyArray<string>;
+
+  /** Shared semantic-flag section (Observations + Allegations) for the
+   *  full-tags grouping. When absent, the full-tags Observation/Allegation
+   *  groups are empty (the Zone-8 `flagLabels` still render as before). */
+  semanticFlagsSection?: DetailSemanticFlagsSection | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -240,6 +289,40 @@ export function buildCardDetailViewModel(
       ? null
       : toPlainLanguageOrSuppress(rawLifecycle);
 
+  // ── CARD-VIEW-DETAIL-HUB-001 (Slice 2) — Cards hub slices ──────────
+
+  // ask i — parent quote (neutral degrade encoded inside the slice).
+  const parentQuote = buildParentQuoteSlice(input?.parentBodyPreview ?? null);
+
+  // ask v — Standing / Tone / Heat strip (shared plain-language formatters).
+  const sthNode = input?.standingToneHeatNode ?? null;
+  const sthVm = input?.standingToneHeatViewModel ?? null;
+  const standingToneHeat =
+    sthNode && sthVm ? buildStandingToneHeatStrip(sthVm, sthNode) : null;
+
+  // ask iii — all-families family-grouped classifiers (A–G gated, uncapped).
+  // Reuses the SAME classifier input as the capped strip; the family gate +
+  // grouping live in the shared `buildHubClassifier`.
+  const hubClassifier = buildHubClassifier(classifierInput);
+
+  // ask ii — full semantic tags, grouped by the §10a doctrine categories.
+  // The status group folds in the (suppressed) category + lifecycle labels.
+  const statusLabels: string[] = [];
+  const categoryStatus = cleanLabel(input?.categoryLabel);
+  if (categoryStatus) statusLabels.push(categoryStatus);
+  if (lifecycleLabel) statusLabels.push(lifecycleLabel);
+  const fullTags = buildFullTags({
+    semanticFlags:
+      input?.semanticFlagsSection ?? {
+        kind: 'semantic_flags',
+        isCondensed: false,
+        totalCount: 0,
+        chips: [],
+      },
+    structuralLabels: cleanLabels(input?.structuralTagLabels),
+    statusLabels,
+  });
+
   return {
     stepReference,
     categoryLabel: cleanLabel(input?.categoryLabel),
@@ -249,5 +332,9 @@ export function buildCardDetailViewModel(
     standingLabel: cleanLabel(input?.standingHint),
     lifecycleLabel,
     flagLabels: cleanLabels(input?.flagLabels),
+    parentQuote,
+    standingToneHeat,
+    hubClassifier,
+    fullTags,
   };
 }
