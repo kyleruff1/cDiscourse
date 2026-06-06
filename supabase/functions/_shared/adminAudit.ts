@@ -27,6 +27,9 @@ export const WHITELISTED_ACTIONS = [
   // ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility state.
   'set_argument_inactive',
   'bulk_set_argument_inactive',
+  // ADMIN-CONV-INACTIVE-001 — per-debate (conversation) inactive visibility state.
+  'set_debate_inactive',
+  'bulk_set_debate_inactive',
 ] as const;
 
 export type AdminAuditAction = typeof WHITELISTED_ACTIONS[number];

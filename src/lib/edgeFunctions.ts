@@ -298,7 +298,10 @@ export type AdminUsersAction =
   | 'set_semantic_config'
   // ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility state.
   | 'set_argument_inactive'
-  | 'bulk_set_argument_inactive';
+  | 'bulk_set_argument_inactive'
+  // ADMIN-CONV-INACTIVE-001 — per-debate (conversation) inactive visibility state.
+  | 'set_debate_inactive'
+  | 'bulk_set_debate_inactive';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility state types.
@@ -338,6 +341,51 @@ export interface SetArgumentInactiveResponse {
 
 export interface BulkInactiveResponse {
   results: PerIdInactiveResult[];
+  appliedCount: number;
+  failedCount: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN-CONV-INACTIVE-001 — per-debate (conversation) inactive visibility types.
+//
+// The debate-level mirror of the per-argument types above. The Edge handler
+// stamps `inactive_at` server-side; the client never picks a timestamp on the
+// wire. Result types are mirrored verbatim from the shared zod-derived types in
+// `supabase/functions/_shared/adminDebateInactiveSchemas.ts` (Deno-only, and
+// therefore not importable from the client bundle).
+//
+// The response NEVER carries another row's `inactive_reason` (doctrine §10a) —
+// only `{debateId, ok, errorCode?}` per id.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Hard cap mirrored from BULK_DEBATE_INACTIVE_ID_CAP in the Edge schemas file. */
+export const ADMIN_BULK_DEBATE_INACTIVE_ID_CAP = 100;
+
+export interface SetDebateInactiveInput {
+  debateId: string;
+  inactive: boolean;
+  reason?: string;
+}
+
+export interface BulkSetDebateInactiveInput {
+  debateIds: string[];
+  inactive: boolean;
+  reason?: string;
+}
+
+export interface PerIdDebateInactiveResult {
+  debateId: string;
+  ok: boolean;
+  /** Canonical errorCodes: not_found, read_failed, update_failed, audit_write_failed. */
+  errorCode?: string;
+}
+
+export interface SetDebateInactiveResponse {
+  result: PerIdDebateInactiveResult;
+}
+
+export interface BulkDebateInactiveResponse {
+  results: PerIdDebateInactiveResult[];
   appliedCount: number;
   failedCount: number;
 }

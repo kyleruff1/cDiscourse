@@ -111,6 +111,8 @@ export type AdminTab =
   | 'blocks'
   | 'bot_users'
   | 'arguments'
+  // ADMIN-CONV-INACTIVE-001 — per-debate (conversation) inactive visibility tab.
+  | 'debates'
   | 'metadata_events'
   | 'semantic_referee'
   // OPS-MCP-OBSERVABILITY-002 — read-only classifier-health diagnostic panel.
@@ -123,6 +125,7 @@ export const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
   blocks: 'Blocks',
   bot_users: 'Bot Users',
   arguments: 'Arguments',
+  debates: 'Debates',
   metadata_events: 'Metadata Events',
   semantic_referee: 'Semantic Referee',
   classifier_health: 'Classifier Health',
@@ -163,4 +166,56 @@ export interface AdminArgumentRow {
    * on any user-facing argument surface (doctrine §10a — composer-only).
    */
   inactiveReason: string | null;
+}
+
+/**
+ * ADMIN-CONV-INACTIVE-001 — one loader row for the AdminDebatesTab.
+ *
+ * Joins `public.debates` with `profiles(display_name)` for `created_by`
+ * (FK-pinned to `debates_created_by_fkey`; the inactivator's profile is NEVER
+ * embedded — doctrine §10a). Carries `inactiveReason` from the DB (admin-only);
+ * the RENDER view-model (`AdminDebateRowView` below) STRUCTURALLY OMITS it so
+ * it can never reach a rendered surface.
+ */
+export interface AdminDebateRow {
+  id: string;
+  title: string | null;
+  resolution: string;
+  status: string;
+  visibility: string;
+  createdBy: string | null;
+  createdByDisplayName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Lifecycle visibility. NULL = active. NOT NULL = inactive. Reversible. */
+  inactiveAt: string | null;
+  inactiveBy: string | null;
+  /**
+   * Admin-only free text. Present on the loader row; the render view-model
+   * OMITS this field so it can never reach a rendered surface (doctrine §10a).
+   */
+  inactiveReason: string | null;
+}
+
+/**
+ * ADMIN-CONV-INACTIVE-001 — what AdminDebatesTab actually renders.
+ *
+ * `inactiveReason` is STRUCTURALLY ABSENT — there is no field on this type to
+ * render. `isInactive` is derived from `inactiveAt` only. The reason-omitting
+ * projection (`toAdminDebateRowView`) is enforced by the type system, not just
+ * by reviewer vigilance.
+ */
+export interface AdminDebateRowView {
+  id: string;
+  title: string | null;
+  resolution: string;
+  status: string;
+  visibility: string;
+  createdByDisplayName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  inactiveAt: string | null;
+  /** Derived: inactiveAt !== null. */
+  isInactive: boolean;
+  // NOTE: no inactiveReason field. By construction (doctrine §10a leak gate).
 }

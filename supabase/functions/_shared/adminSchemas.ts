@@ -13,6 +13,10 @@ import {
   SetArgumentInactiveSchema,
   BulkSetArgumentInactiveSchema,
 } from './adminInactiveSchemas.ts';
+import {
+  SetDebateInactiveSchema,
+  BulkSetDebateInactiveSchema,
+} from './adminDebateInactiveSchemas.ts';
 
 const Role = z.enum(['user', 'moderator', 'admin']);
 
@@ -171,6 +175,9 @@ export const AdminUsersRequestSchema = z.discriminatedUnion('action', [
   // ADMIN-ARGS-INACTIVE-001 — per-argument inactive visibility state.
   SetArgumentInactiveSchema,
   BulkSetArgumentInactiveSchema,
+  // ADMIN-CONV-INACTIVE-001 — per-debate (conversation) inactive visibility state.
+  SetDebateInactiveSchema,
+  BulkSetDebateInactiveSchema,
 ]);
 
 export type AdminUsersRequest = z.infer<typeof AdminUsersRequestSchema>;

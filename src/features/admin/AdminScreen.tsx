@@ -6,6 +6,7 @@ import { AdminHistoryTab } from './AdminHistoryTab';
 import { AdminBlocksTab } from './AdminBlocksTab';
 import { AdminBotUsersTab } from './AdminBotUsersTab';
 import { AdminArgumentsTab } from './AdminArgumentsTab';
+import { AdminDebatesTab } from './AdminDebatesTab';
 import { AdminMetadataEventsTab } from './AdminMetadataEventsTab';
 import { AdminSemanticRefereeTab } from './AdminSemanticRefereeTab';
 import { AdminClassifierHealthTab } from './AdminClassifierHealthTab';
@@ -20,6 +21,7 @@ const TABS: AdminTab[] = [
   'blocks',
   'bot_users',
   'arguments',
+  'debates',
   'metadata_events',
   'semantic_referee',
   'classifier_health',
@@ -65,6 +67,7 @@ export function AdminScreen({ onOpenArgumentTimeline }: AdminScreenProps = {}) {
         {tab === 'arguments' && (
           <AdminArgumentsTab onOpenArgumentTimeline={onOpenArgumentTimeline} />
         )}
+        {tab === 'debates' && <AdminDebatesTab />}
         {tab === 'metadata_events' && <AdminMetadataEventsTab />}
         {tab === 'semantic_referee' && <AdminSemanticRefereeTab />}
         {tab === 'classifier_health' && <AdminClassifierHealthTab />}
