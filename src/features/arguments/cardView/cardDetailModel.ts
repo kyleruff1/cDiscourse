@@ -44,18 +44,29 @@
 
 import type { AutoMetadataCode, ManualTagEntry } from '../../metadata/moveMetadataLedger';
 import type { PointLifecycleState } from '../../lifecycle/pointLifecycleModel';
-import type { EvidenceArtifact } from '../../evidence/evidenceModel';
 import { toPlainLanguageOrSuppress } from '../gameCopy';
+// CARD-VIEW-DETAIL-HUB-001 (Slice 1) — the shared detail builders are
+// imported from the SINGLE canonical module `detail/argumentDetailModel.ts`
+// so the Timeline and Cards surfaces can never fork. `buildStepReferenceLine`
+// and `buildCardClassifierStrip` physically live in their own modules and are
+// re-exported by the shared module; `artifactsToEvidenceSources` + the
+// evidence types physically live in the shared module.
 import {
+  artifactsToEvidenceSources,
   buildCardClassifierStrip,
-  type BuildCardClassifierStripInput,
-  type CardClassifierStripModel,
-} from './cardClassifierStripModel';
-import {
   buildStepReferenceLine,
+  type BuildCardClassifierStripInput,
   type BuildStepReferenceLineInput,
+  type CardClassifierStripModel,
+  type CardDetailEvidenceSource,
+  type CardDetailEvidenceZone,
   type CardStepReferenceLine,
-} from './cardStepReferenceModel';
+} from '../detail/argumentDetailModel';
+
+// Re-exported so existing consumers of `cardDetailModel` (e.g.
+// `ArgumentGameSurface`) keep their import path unchanged.
+export { artifactsToEvidenceSources };
+export type { CardDetailEvidenceSource, CardDetailEvidenceZone };
 
 // ── Locked plain-language copy (doctrine-anchored constants) ──────────
 
@@ -77,39 +88,10 @@ const LIFECYCLE_FORBIDDEN_CODES: ReadonlySet<string> = new Set([
   'inactive_by',
 ]);
 
-/** Plain-language kind word per evidence-artifact kind. Display-only; never
- *  a verdict, never a raw code. */
-const EVIDENCE_KIND_WORD: Record<EvidenceArtifact['kind'], string> = {
-  url: 'Source',
-  quote: 'Quote',
-  source_text: 'Source',
-  dataset: 'Dataset',
-  screenshot_redacted: 'Screenshot',
-  manual_citation: 'Citation',
-  payment_screenshot: 'Payment record',
-};
-
 // ── Public model shapes ───────────────────────────────────────────────
-
-/** One attached evidence source/quote rendered as a display label. */
-export interface CardDetailEvidenceSource {
-  /** Stable React key. */
-  id: string;
-  /** Plain-language label, e.g. "Source · nytimes.com" / "Quote attached". */
-  label: string;
-}
-
-export interface CardDetailEvidenceZone {
-  /** Attached sources/quotes as labels (display-only). */
-  sources: ReadonlyArray<CardDetailEvidenceSource>;
-  /** Plain-language evidence-debt summary, e.g. "Receipts owed: a source
-   *  for this claim." null when no debt is owed. */
-  debtSummary: string | null;
-  /** Empty-state copy when there is no source AND no debt. */
-  emptyStateCopy: string;
-  /** True when at least one source is attached. */
-  hasSource: boolean;
-}
+//
+// `CardDetailEvidenceSource` / `CardDetailEvidenceZone` are defined in the
+// shared `detail/argumentDetailModel.ts` module and re-exported above.
 
 /**
  * The full card-detail view-model. JSON-serializable. Every zone is safe
@@ -197,26 +179,8 @@ function cleanLabel(label: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/**
- * Map evidence artifacts → display-only source labels. The kind word is a
- * locked plain-language prefix; the artifact's own `label` is appended.
- * Pure; never throws, never mutates. Unknown kinds fall back to "Source".
- */
-export function artifactsToEvidenceSources(
-  artifacts: ReadonlyArray<EvidenceArtifact> | undefined,
-): CardDetailEvidenceSource[] {
-  if (!Array.isArray(artifacts)) return [];
-  return artifacts
-    .filter((a): a is EvidenceArtifact => Boolean(a && typeof a.id === 'string'))
-    .map((a) => {
-      const kindWord = EVIDENCE_KIND_WORD[a.kind] ?? 'Source';
-      const detail = cleanLabel(a.label);
-      return {
-        id: a.id,
-        label: detail ? `${kindWord} · ${detail}` : kindWord,
-      };
-    });
-}
+// `artifactsToEvidenceSources` is defined in the shared
+// `detail/argumentDetailModel.ts` module and re-exported above.
 
 // ── Builder ───────────────────────────────────────────────────────────
 
