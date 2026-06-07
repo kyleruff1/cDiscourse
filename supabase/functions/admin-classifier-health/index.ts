@@ -31,9 +31,12 @@
  *   - `failure_detail` is read STRICTLY through the RunRowFailureDetail
  *     allow-list keys (validator_path / reason / family / correlation_id /
  *     attempt_count / run_mode / schema_version). An unexpected key is ignored.
- *   - When a runTag filter is supplied, `debates.title` is joined — the room
- *     TITLE only (never a body, never a span). The model reads only the
- *     trailing `[<runTag> tNN]` suffix.
+ *   - When a runTag filter is supplied, `debates(title, run_tag)` is joined —
+ *     the room TITLE plus the durable `run_tag` column only (never a body,
+ *     never a span). The durable `run_tag` is the canonical runTag
+ *     (DEVEX-RUNTAG-COLUMN-SWAP-001); the title is the legacy fallback (the
+ *     model reads only its trailing `[<runTag> tNN]` suffix). run_tag carries
+ *     no new sensitivity beyond the title (per the #476 migration comment).
  *   - Before returning, `containsForbiddenSubstring` (mirroring
  *     cutover-health-monitor) scrubs the JSON + CSV; a hit drops to an error
  *     rather than leak.
@@ -66,12 +69,15 @@ import type {
 
 /**
  * The EXPLICIT column allow-list for the aggregate read. NEVER `*`. NEVER
- * `body`. NEVER a join to results / evidence_span. The runTag heuristic adds a
- * `debates(title)` join (title only) when a runTag filter is supplied.
+ * `body`. NEVER a join to results / evidence_span. When a runTag filter is
+ * supplied, a `debates(title, run_tag)` join is added — the room TITLE (for the
+ * legacy suffix fallback) plus the durable `run_tag` column (the canonical
+ * runTag, DEVEX-RUNTAG-COLUMN-SWAP-001). Both carry no new sensitivity beyond
+ * the title (per the #476 migration comment); only counts are surfaced.
  */
 const RUN_COLUMNS =
   'status, state, failure_reason, failure_sub_reason, dead_letter_reason, run_mode, requested_families, family, started_at, completed_at, failure_detail';
-const RUN_COLUMNS_WITH_TITLE = `${RUN_COLUMNS}, debates(title)`;
+const RUN_COLUMNS_WITH_DEBATE = `${RUN_COLUMNS}, debates(title, run_tag)`;
 
 /** Cap the rows pulled per request — an aggregate read, not a row dump. */
 const MAX_RUN_ROWS = 50_000;
@@ -100,14 +106,17 @@ function toModelRow(raw: Record<string, unknown>): ClassifierHealthRunRow {
   const families = Array.isArray(raw.requested_families)
     ? (raw.requested_families as unknown[]).filter((f): f is string => typeof f === 'string')
     : null;
-  // `debates(title)` arrives as a nested object (or array) when joined; read
-  // ONLY the title string.
+  // `debates(title, run_tag)` arrives as a nested object (or array) when
+  // joined; read ONLY the title string + the durable run_tag string.
   let debateTitle: string | null = null;
+  let debateRunTag: string | null = null;
   const debates = raw.debates as unknown;
   if (debates && typeof debates === 'object') {
     const d = Array.isArray(debates) ? debates[0] : debates;
-    if (d && typeof d === 'object' && typeof (d as Record<string, unknown>).title === 'string') {
-      debateTitle = (d as Record<string, unknown>).title as string;
+    if (d && typeof d === 'object') {
+      const dr = d as Record<string, unknown>;
+      if (typeof dr.title === 'string') debateTitle = dr.title;
+      if (typeof dr.run_tag === 'string') debateRunTag = dr.run_tag;
     }
   }
   return {
@@ -123,6 +132,7 @@ function toModelRow(raw: Record<string, unknown>): ClassifierHealthRunRow {
     completed_at: typeof raw.completed_at === 'string' ? raw.completed_at : null,
     failure_detail: readFailureDetailAllowListed(raw.failure_detail),
     debate_title: debateTitle,
+    debate_run_tag: debateRunTag,
   };
 }
 
@@ -169,14 +179,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
         ? { fromIso: body.from_iso, toIso: body.to_iso }
         : undefined,
   };
-  const needsTitleJoin = Boolean(body.run_tag && body.run_tag.length > 0);
+  // Conditionally join `debates(title, run_tag)` ONLY when a runTag filter is
+  // supplied — the durable run_tag is canonical, the title is the legacy
+  // fallback (DEVEX-RUNTAG-COLUMN-SWAP-001).
+  const needsDebateJoin = Boolean(body.run_tag && body.run_tag.length > 0);
 
   // ── 4. Column-explicit aggregate read (service-role; AFTER admin check) ──
   let rows: ClassifierHealthRunRow[];
   try {
     const { data, error } = await serviceClient
       .from('argument_machine_observation_runs')
-      .select(needsTitleJoin ? RUN_COLUMNS_WITH_TITLE : RUN_COLUMNS)
+      .select(needsDebateJoin ? RUN_COLUMNS_WITH_DEBATE : RUN_COLUMNS)
       .limit(MAX_RUN_ROWS);
     if (error) {
       return internalError('runs_read_failed');

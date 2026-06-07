@@ -97,6 +97,13 @@ const FIXTURE_ROWS: ClassifierHealthRunRow[] = [
   row({ failure_reason: null, completed_at: '2026-06-02T01:00:00.000Z' }),
   row({ debate_title: 'A claim [xai-adv t01]' }),
   row({ debate_title: 'B claim [stress t07]' }),
+  // DEVEX-RUNTAG-COLUMN-SWAP-001 — durable-column fixtures: durable present,
+  // durable-wins-over-conflicting-title, whitespace-absent → title fallback,
+  // and NULL durable → legacy title fallback. The twins must agree on all.
+  row({ debate_run_tag: 'xai-adv', debate_title: 'C claim no suffix' }),
+  row({ debate_run_tag: 'stress', debate_title: 'D claim [xai-adv t09]' }), // durable wins
+  row({ debate_run_tag: '   ', debate_title: 'E claim [stress t02]' }), // whitespace → fallback
+  row({ debate_run_tag: null, debate_title: 'F claim [xai-adv t11]' }), // legacy fallback
 ];
 
 const FILTERS = [
@@ -197,6 +204,25 @@ describe('shared/adminClassifierHealth — runTag parity', () => {
       expect(sharedSrc.extract({ debateTitle: t })).toBe(srcSrc.extract({ debateTitle: t }));
     }
     expect(sharedSrc.kind).toBe(srcSrc.kind);
+  });
+
+  it('reports the durable_column kind in both trees', () => {
+    expect(sharedSrc.kind).toBe('durable_column');
+    expect(srcSrc.kind).toBe('durable_column');
+  });
+
+  it('extracts identically across durable run_tag + title combinations', () => {
+    const contexts: Array<{ debateTitle: string | null | undefined; debateRunTag?: string | null }> = [
+      { debateTitle: 'C [xai-adv t03]', debateRunTag: 'stress' }, // durable wins
+      { debateTitle: null, debateRunTag: 'ai-corpus 2026abcd #foo' }, // durable only
+      { debateTitle: 'D [stress t01]', debateRunTag: '' }, // empty → fallback
+      { debateTitle: 'E [stress t01]', debateRunTag: '   ' }, // whitespace → fallback
+      { debateTitle: 'No suffix', debateRunTag: null }, // null + no suffix → null
+      { debateTitle: 'F [xai-adv t05]', debateRunTag: undefined }, // absent → fallback
+    ];
+    for (const ctx of contexts) {
+      expect(sharedSrc.extract(ctx)).toBe(srcSrc.extract(ctx));
+    }
   });
 
   it('runTagMatches agrees', () => {
