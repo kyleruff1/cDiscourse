@@ -84,12 +84,12 @@ Deno.test('fixture: family-b-canonical-response classifierSetVersion is family-b
   assertEquals(modelInfo.classifierSetVersion, 'family-b-v1');
 });
 
-Deno.test('fixture: family-b-canonical-response has all 14 rawKeys', async () => {
+Deno.test('fixture: family-b-canonical-response has all 17 rawKeys', async () => {
   const fixture = (await loadFixture(
     'classify-argument-boolean-observations.family-b-canonical-response.json',
   )) as Record<string, unknown>;
   const checkedRawKeys = fixture.checkedRawKeys as string[];
-  assertEquals(checkedRawKeys.length, 14);
+  assertEquals(checkedRawKeys.length, 17);
 });
 
 Deno.test('fixture: family-b-canonical-response has multi-axis positive (disagreement_present + disputes_fact + disputes_scope)', async () => {

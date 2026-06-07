@@ -1,5 +1,6 @@
 /**
- * MCP-SERVER-003-FAMILY-B — Family B (disagreement_axis) 14-key constant + prompt entries.
+ * MCP-SERVER-003-FAMILY-B + MCP-BUILD2a — Family B (disagreement_axis) 17-key
+ * constant + prompt entries.
  *
  * Server-side MIRROR of the upstream Family B registry in
  * `src/features/nodeLabels/machineObservationDefinitions/familyB.ts`. The
@@ -8,8 +9,9 @@
  * `tests/familyBKeysParity.test.ts` (reads BOTH files as source text and
  * fails the build on drift).
  *
- * The 14 rawKeys are the binding contract per MCP-SERVER-003-FAMILY-B intent
- * brief §3. Verbatim, in declaration order:
+ * The 17 rawKeys are the binding contract (14 MCP-SERVER-003-FAMILY-B intent
+ * brief §3 + 3 MCP-BUILD2a Build-2-addendum §5). Verbatim, in declaration
+ * order:
  *
  *   1.  disputes_evidence_applicability
  *   2.  disagreement_present (UMBRELLA; Timeline-eligible)
@@ -25,6 +27,9 @@
  *   12. disputes_priority_order
  *   13. disputes_remedy_or_solution
  *   14. disputes_relevance (DOCTRINE RISK)
+ *   15. isolates_main_disagreement (MCP-BUILD2a)
+ *   16. distinguishes_fact_value_disagreement (MCP-BUILD2a)
+ *   17. preserves_face_while_disagreeing (MCP-BUILD2a; VERDICT-ADJACENT)
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §10a — every entry is a MACHINE OBSERVATION,
@@ -42,7 +47,7 @@
  */
 
 /**
- * The 14 Family B rawKeys, frozen in declaration order. Used by:
+ * The 17 Family B rawKeys, frozen in declaration order. Used by:
  *   - validateFamilyBooleanRequest (rejects unknown rawKeys with
  *     unsupported_rawKey error envelope; routes via familyRegistry)
  *   - validateMcpBooleanObservationResponse (rejects checkedRawKeys
@@ -65,6 +70,10 @@ export const FAMILY_B_RAW_KEYS: readonly string[] = Object.freeze([
   'disputes_priority_order',
   'disputes_remedy_or_solution',
   'disputes_relevance',
+  // MCP-BUILD2a (Build-2 addendum §5) — disagreement-quality booleans.
+  'isolates_main_disagreement',
+  'distinguishes_fact_value_disagreement',
+  'preserves_face_while_disagreeing',
 ]);
 
 /** Classifier-set version emitted in modelInfo.classifierSetVersion. */
@@ -311,5 +320,54 @@ export const FAMILY_B_PROMPT_ENTRIES: readonly FamilyBPromptEntry[] = Object.fre
       "Move: 'The carbon footprint is small — maybe 0.1% of city emissions.' (disputes_fact, accepts relevance)",
     falsePositiveGuards:
       "Do NOT mark TRUE for dismissive moves with no argument; relevance dispute requires a reason. Do NOT mark TRUE for moves that propose a different framing — that is reframes_parent.",
+  }),
+  // ── MCP-BUILD2a (Build-2 addendum §5) — disagreement-quality booleans. ──
+  Object.freeze({
+    rawKey: 'isolates_main_disagreement',
+    label: 'Isolates the disagreement',
+    booleanQuestion:
+      "Does this move identify the SPECIFIC point of disagreement with its parent (vs talking past it or disagreeing in general terms)?",
+    positiveDefinition:
+      "The move names the exact claim, premise, scope, or step it disagrees with — 'the part I disagree with is X', 'specifically, your second premise', 'where this breaks down is the move from A to B'. The disagreement is pinned to a locatable target in the parent.",
+    negativeDefinition:
+      "The move disagrees in broad or diffuse terms without locating the specific point ('I just don't buy this', 'this is all wrong'), or it raises a NEW topic rather than isolating a point in the parent (introduces_new_issue), or it is not a disagreement at all.",
+    positiveExample:
+      "Parent: 'Carbon taxes reduce emissions and are politically durable.' Move: 'I accept the emissions effect; the specific point I disagree with is political durability — Australia repealed its tax within two years.'",
+    negativeExample:
+      "Move: 'This whole argument is off base.' (broad disagreement, no specific point isolated)",
+    falsePositiveGuards:
+      "Do NOT mark TRUE for blanket disagreement ('this is wrong') that names no specific target — generality is the negative case. Do NOT mark TRUE merely because the move quotes the parent; quoting without pinning the disagreement to that quoted point is quote_anchors_parent (Family A), not point isolation. Do NOT confuse with disputes_scope / disputes_fact — those name the TYPE of axis; this names whether the move locates a specific target at all.",
+  }),
+  Object.freeze({
+    rawKey: 'distinguishes_fact_value_disagreement',
+    label: 'Separates fact vs value',
+    booleanQuestion:
+      "Does this move distinguish a FACTUAL disagreement (what is the case) from a VALUES / normative one (what ought to be the case)?",
+    positiveDefinition:
+      "The move explicitly separates an empirical question from a normative one — 'we may agree on the data but disagree on what to prioritize', 'that is a factual claim; my objection is a values one', 'set aside whether it works — even if it does, should we?'. The fact/value boundary is named.",
+    negativeDefinition:
+      "The move disagrees on only one register without naming the distinction, treats a values question as if it were settled by data (or vice versa), or does not engage the fact/value boundary at all.",
+    positiveExample:
+      "Parent: 'Library funding should prioritize cost-per-visit because it is most efficient.' Move: 'Cost-per-visit may well be the efficient metric — that is the factual part. My disagreement is a values one: efficiency should not outrank equity of access here.'",
+    negativeExample:
+      "Move: 'Efficiency matters more than equity here.' (states a value position without distinguishing it from the factual layer — that is disputes_value_weighting)",
+    falsePositiveGuards:
+      "Do NOT mark TRUE for a pure value disagreement that never acknowledges the factual layer — that is disputes_value_weighting. Do NOT mark TRUE for a pure factual dispute — drawing the boundary requires naming BOTH registers. Do NOT mark TRUE based on the words 'fact' or 'value' appearing; the move must actually separate the two.",
+  }),
+  Object.freeze({
+    rawKey: 'preserves_face_while_disagreeing',
+    label: 'Disagrees while preserving face',
+    booleanQuestion:
+      "Does this move disagree while PRESERVING the other party's standing — engaging the argument without attacking the person?",
+    positiveDefinition:
+      "The move registers a substantive disagreement AND keeps the focus on the argument: it acknowledges what is reasonable in the parent, hedges its own certainty, or frames the disagreement collaboratively ('you make a fair point about X, but I read Y differently'). The disagreement is real; the framing keeps the other party's standing intact.",
+    negativeDefinition:
+      "The move either does not disagree at all, OR it disagrees in a flat / purely technical register with no face-preserving framing (which is not a negative judgement — neutral disagreement simply does not trip this observation). A move that attacks the person, questions their motives, or is dismissive is NOT face-preserving and must be FALSE.",
+    positiveExample:
+      "Parent: 'Remote work raises productivity across the board.' Move: 'You are right that it helps for focused knowledge work — that is a fair point. Where I'd push back is the across-the-board claim; collaborative roles seem to show the opposite.'",
+    negativeExample:
+      "Move: 'This is the kind of naive take I'd expect from someone who hasn't read the literature.' (attacks the person — FALSE; never face-preserving)",
+    falsePositiveGuards:
+      "This observation describes the MOVE, never the author; it never says the author IS gracious or IS hostile. Do NOT mark TRUE for a move that disagrees AND attacks the person, questions motives, or is dismissive — any face-threat anywhere in the move makes this FALSE, even if part of the move is polite. Do NOT mark TRUE for pure agreement or pure politeness with no disagreement. Do NOT treat the ABSENCE of this observation as a criticism: a neutral, flatly-worded disagreement is valid and simply does not trip this flag. Do NOT mark TRUE based on surface politeness tokens alone if the substance is an attack.",
   }),
 ]);

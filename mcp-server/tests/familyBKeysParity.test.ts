@@ -45,11 +45,12 @@ Deno.test('familyBKeysParity: every upstream Family B rawKey is in the server-si
   if (upstreamKeys.length === 0) {
     throw new Error('Upstream familyB.ts produced 0 rawKey declarations — regex broken or file moved');
   }
-  // Family B upstream MUST have 14 entries; if drift detected, fail
-  // explicitly so the operator notices.
-  if (upstreamKeys.length !== 14) {
+  // Family B upstream MUST have 17 entries (14 MCP-SERVER-003-FAMILY-B + 3
+  // MCP-BUILD2a Build-2 addendum §5); if drift detected, fail explicitly so
+  // the operator notices.
+  if (upstreamKeys.length !== 17) {
     throw new Error(
-      `Upstream familyB.ts has ${upstreamKeys.length} rawKey declarations; expected 14. Drift detected.`,
+      `Upstream familyB.ts has ${upstreamKeys.length} rawKey declarations; expected 17. Drift detected.`,
     );
   }
   for (const upstreamKey of upstreamKeys) {

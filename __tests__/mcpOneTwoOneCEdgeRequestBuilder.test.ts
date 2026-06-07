@@ -107,22 +107,24 @@ describe('MCP-021C-EDGE — buildBooleanObservationRequestForArgument (productio
 });
 
 describe('MCP-021C-EDGE — production mode filters out D–J families (post Stage 2B: A+B+C kept)', () => {
-  it('RB-10 — disagreement_axis (B) requested in production → KEPT post Stage 2B (14 keys)', () => {
+  it('RB-10 — disagreement_axis (B) requested in production → KEPT (17 keys post MCP-BUILD2a)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...BASE_INPUT_PRODUCTION,
       requestedFamilies: ['disagreement_axis'],
     });
     expect(req.requestedFamilies).toEqual(['disagreement_axis']);
-    expect(req.requestedRawKeys.length).toBe(14);
+    // MCP-BUILD2a added 3 disagreement_axis booleans (14 → 17). All Family B
+    // entries are ai_classifier, so no subset filter excludes the new keys.
+    expect(req.requestedRawKeys.length).toBe(17);
   });
 
-  it('RB-11 — mixed [parent_relation, disagreement_axis] in production → BOTH kept (16 + 14 = 30 keys)', () => {
+  it('RB-11 — mixed [parent_relation, disagreement_axis] in production → BOTH kept (16 + 17 = 33 keys)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...BASE_INPUT_PRODUCTION,
       requestedFamilies: ['parent_relation', 'disagreement_axis'],
     });
     expect(req.requestedFamilies).toEqual(['parent_relation', 'disagreement_axis']);
-    expect(req.requestedRawKeys.length).toBe(30); // 16 (Family A) + 14 (Family B)
+    expect(req.requestedRawKeys.length).toBe(33); // 16 (Family A) + 17 (Family B post MCP-BUILD2a)
   });
 
   it('RB-12 — sensitive_composer in production → dropped (zero keys)', () => {

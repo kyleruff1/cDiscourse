@@ -316,16 +316,319 @@ const CURATED_RULES: ReadonlyArray<ObservationMappingRule> = [
   },
 ];
 
+// ── (3) MCP-BUILD2a — Family B disagreement-quality mapping rows. ──────────
+//        Adopted from the candidate CSV's deferred `disagreement_axis` rows
+//        whose required flags are EXACTLY the 3 new Build-2a booleans
+//        (isolates_main_disagreement, distinguishes_fact_value_disagreement,
+//        preserves_face_while_disagreeing). The CSV's truncated/internal
+//        label_short + "When X=yes, show: ..." diagnostic prefix are
+//        re-authored here into clean verdict-free, move-level strings per the
+//        design's review pass (§8.2). Every flag is now a deployed A-G rawKey
+//        (the 3 new defs land in familyB.ts this card), so each rule fires.
+//        6 single rows (3 true + 3 false) + 9 pair rows (every two-flag
+//        combination of the 3) = 15 rows, exercising single_true / single_false
+//        / pair_true_true / pair_true_false / pair_false_true.
+
+const FAMILY_B_BUILD2A_RULES: ReadonlyArray<ObservationMappingRule> = [
+  // ── singles: isolates_main_disagreement ──
+  {
+    mappingId: 'MBOM-00047',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['isolates_main_disagreement'],
+    requiredFalseFlags: [],
+    observationCode: 'disagreement_axis.single_true.isolates_main_disagreement',
+    labelShort: 'Isolates the point',
+    labelNeutral: 'Points to the specific disagreement',
+    diagnosticSentence:
+      'This reply points to the specific part it disagrees with, which keeps the exchange precise.',
+    displayPriority: 74,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00048',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['isolates_main_disagreement'],
+    observationCode: 'disagreement_axis.single_false.isolates_main_disagreement',
+    labelShort: 'Point not isolated',
+    labelNeutral: 'Specific disagreement point not observed',
+    diagnosticSentence:
+      'This reply disagrees in general terms; naming the specific point can sharpen the exchange.',
+    displayPriority: 102,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: distinguishes_fact_value_disagreement ──
+  {
+    mappingId: 'MBOM-00049',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['distinguishes_fact_value_disagreement'],
+    requiredFalseFlags: [],
+    observationCode:
+      'disagreement_axis.single_true.distinguishes_fact_value_disagreement',
+    labelShort: 'Separates fact and value',
+    labelNeutral: 'Separates a fact question from a value question',
+    diagnosticSentence:
+      'This reply separates a question of fact from a question of values, which can clarify the disagreement.',
+    displayPriority: 88,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00050',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['distinguishes_fact_value_disagreement'],
+    observationCode:
+      'disagreement_axis.single_false.distinguishes_fact_value_disagreement',
+    labelShort: 'Fact and value not split',
+    labelNeutral: 'Fact-versus-value distinction not observed',
+    diagnosticSentence:
+      'This reply does not separate fact from values; drawing that line can clarify the disagreement.',
+    displayPriority: 103,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: preserves_face_while_disagreeing (verdict-adjacent) ──
+  {
+    mappingId: 'MBOM-00051',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['preserves_face_while_disagreeing'],
+    requiredFalseFlags: [],
+    observationCode:
+      'disagreement_axis.single_true.preserves_face_while_disagreeing',
+    labelShort: 'Keeps focus on the argument',
+    labelNeutral: 'Disagrees while keeping the focus on the argument',
+    diagnosticSentence:
+      'This reply disagrees while keeping the focus on the argument rather than the person.',
+    displayPriority: 90,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00052',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['preserves_face_while_disagreeing'],
+    observationCode:
+      'disagreement_axis.single_false.preserves_face_while_disagreeing',
+    labelShort: 'Plain register',
+    labelNeutral: 'Face-preserving framing not observed',
+    diagnosticSentence:
+      'This reply disagrees in a plain register; this is only an observation about phrasing, not a concern.',
+    displayPriority: 112,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: isolates × distinguishes ──
+  {
+    mappingId: 'MBOM-00731',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: [
+      'isolates_main_disagreement',
+      'distinguishes_fact_value_disagreement',
+    ],
+    requiredFalseFlags: [],
+    observationCode:
+      'disagreement_axis.pair_true_true.isolates_main_disagreement.distinguishes_fact_value_disagreement',
+    labelShort: 'Precise, fact-vs-value',
+    labelNeutral: 'Pins the point and separates fact from value',
+    diagnosticSentence:
+      'This reply pins the specific point and separates fact from values, which keeps the exchange precise.',
+    displayPriority: 70,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00732',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['isolates_main_disagreement'],
+    requiredFalseFlags: ['distinguishes_fact_value_disagreement'],
+    observationCode:
+      'disagreement_axis.pair_true_false.isolates_main_disagreement.no_fact_value_split',
+    labelShort: 'Precise, no fact-vs-value',
+    labelNeutral: 'Pins the point without separating fact from value',
+    diagnosticSentence:
+      'This reply pins the specific point but does not separate fact from values; drawing that line can clarify it.',
+    displayPriority: 86,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00733',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['distinguishes_fact_value_disagreement'],
+    requiredFalseFlags: ['isolates_main_disagreement'],
+    observationCode:
+      'disagreement_axis.pair_false_true.distinguishes_fact_value_disagreement.no_point_isolated',
+    labelShort: 'Fact-vs-value, not pinned',
+    labelNeutral: 'Separates fact from value without pinning the point',
+    diagnosticSentence:
+      'This reply separates fact from values but disagrees in general terms; naming the point can sharpen it.',
+    displayPriority: 100,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: isolates × preserves_face ──
+  {
+    mappingId: 'MBOM-00734',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: [
+      'isolates_main_disagreement',
+      'preserves_face_while_disagreeing',
+    ],
+    requiredFalseFlags: [],
+    observationCode:
+      'disagreement_axis.pair_true_true.isolates_main_disagreement.preserves_face_while_disagreeing',
+    labelShort: 'Precise, focus on argument',
+    labelNeutral: 'Pins the point and keeps focus on the argument',
+    diagnosticSentence:
+      'This reply pins the specific point and keeps the focus on the argument rather than the person.',
+    displayPriority: 71,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00735',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['isolates_main_disagreement'],
+    requiredFalseFlags: ['preserves_face_while_disagreeing'],
+    observationCode:
+      'disagreement_axis.pair_true_false.isolates_main_disagreement.no_face_preservation',
+    labelShort: 'Precise, plain register',
+    labelNeutral: 'Pins the point in a plain register',
+    diagnosticSentence:
+      'This reply pins the specific point in a plain register; this is only an observation about phrasing.',
+    displayPriority: 87,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00736',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['preserves_face_while_disagreeing'],
+    requiredFalseFlags: ['isolates_main_disagreement'],
+    observationCode:
+      'disagreement_axis.pair_false_true.preserves_face_while_disagreeing.no_point_isolated',
+    labelShort: 'Focus on argument, not pinned',
+    labelNeutral: 'Keeps focus on the argument without pinning the point',
+    diagnosticSentence:
+      'This reply keeps the focus on the argument but disagrees in general terms; naming the point can sharpen it.',
+    displayPriority: 101,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: distinguishes × preserves_face ──
+  {
+    mappingId: 'MBOM-00737',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: [
+      'distinguishes_fact_value_disagreement',
+      'preserves_face_while_disagreeing',
+    ],
+    requiredFalseFlags: [],
+    observationCode:
+      'disagreement_axis.pair_true_true.distinguishes_fact_value_disagreement.preserves_face_while_disagreeing',
+    labelShort: 'Fact-vs-value, focus on argument',
+    labelNeutral: 'Separates fact from value and keeps focus on the argument',
+    diagnosticSentence:
+      'This reply separates fact from values and keeps the focus on the argument rather than the person.',
+    displayPriority: 89,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00738',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['distinguishes_fact_value_disagreement'],
+    requiredFalseFlags: ['preserves_face_while_disagreeing'],
+    observationCode:
+      'disagreement_axis.pair_true_false.distinguishes_fact_value_disagreement.no_face_preservation',
+    labelShort: 'Fact-vs-value, plain register',
+    labelNeutral: 'Separates fact from value in a plain register',
+    diagnosticSentence:
+      'This reply separates fact from values in a plain register; this is only an observation about phrasing.',
+    displayPriority: 104,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00739',
+    familyKey: 'disagreement_axis',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['preserves_face_while_disagreeing'],
+    requiredFalseFlags: ['distinguishes_fact_value_disagreement'],
+    observationCode:
+      'disagreement_axis.pair_false_true.preserves_face_while_disagreeing.no_fact_value_split',
+    labelShort: 'Focus on argument, no fact-vs-value',
+    labelNeutral: 'Keeps focus on the argument without separating fact from value',
+    diagnosticSentence:
+      'This reply keeps the focus on the argument but does not separate fact from values; drawing that line can clarify it.',
+    displayPriority: 105,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+];
+
 /**
  * The reviewed, reconciled, frozen mapping registry the evaluator reads.
  * A-G only. Every flag is a deployed rawKey; every label is verdict-free.
  */
 export const OBSERVATION_MAPPING_REGISTRY: ReadonlyArray<ObservationMappingRule> =
-  Object.freeze([...ADOPTED_FROM_CSV, ...CURATED_RULES].map((r) => Object.freeze({
-    ...r,
-    requiredTrueFlags: Object.freeze([...r.requiredTrueFlags]),
-    requiredFalseFlags: Object.freeze([...r.requiredFalseFlags]),
-  })));
+  Object.freeze(
+    [...ADOPTED_FROM_CSV, ...CURATED_RULES, ...FAMILY_B_BUILD2A_RULES].map((r) =>
+      Object.freeze({
+        ...r,
+        requiredTrueFlags: Object.freeze([...r.requiredTrueFlags]),
+        requiredFalseFlags: Object.freeze([...r.requiredFalseFlags]),
+      }),
+    ),
+  );
 
 /**
  * Adoption / deferral manifest — the explicit reconciliation record the
@@ -348,8 +651,17 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
   adoptedFromCsv: ADOPTED_FROM_CSV.length,
   /** Curated genuinely-fireable rules authored over deployed rawKeys. */
   curatedFireableRules: CURATED_RULES.length,
+  /**
+   * MCP-BUILD2a — mapping rows adopted from the candidate CSV's deferred
+   * `disagreement_axis` rows whose required flags are EXACTLY the 3 new
+   * Build-2a booleans (now deployed in familyB.ts). These were part of the
+   * 955 deferred-planned-vocab rows; deploying the 3 booleans converts them
+   * from deferred to genuinely-fireable. 6 singles + 9 pairs = 15.
+   */
+  build2aFamilyBAdoptedRules: FAMILY_B_BUILD2A_RULES.length,
   /** Total rules in the active registry. */
-  totalActiveRules: ADOPTED_FROM_CSV.length + CURATED_RULES.length,
+  totalActiveRules:
+    ADOPTED_FROM_CSV.length + CURATED_RULES.length + FAMILY_B_BUILD2A_RULES.length,
   /** Families H/I/J adopted. ALWAYS 0 (frozen / out of scope). */
   frozenFamiliesAdopted: 0,
 } as const);

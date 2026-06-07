@@ -215,9 +215,15 @@ describe('observationMappingRegistry — adoption manifest', () => {
     );
   });
 
-  it('adopted-from-CSV + curated counts add up', () => {
+  it('adopted-from-CSV + curated + build2a counts add up', () => {
     const m = OBSERVATION_MAPPING_ADOPTION_MANIFEST;
-    expect(m.adoptedFromCsv + m.curatedFireableRules).toBe(m.totalActiveRules);
+    expect(
+      m.adoptedFromCsv + m.curatedFireableRules + m.build2aFamilyBAdoptedRules,
+    ).toBe(m.totalActiveRules);
+  });
+
+  it('MCP-BUILD2a Family B adopted 15 disagreement-quality mapping rows', () => {
+    expect(OBSERVATION_MAPPING_ADOPTION_MANIFEST.build2aFamilyBAdoptedRules).toBe(15);
   });
 
   it('CSV deferral accounting is internally consistent', () => {

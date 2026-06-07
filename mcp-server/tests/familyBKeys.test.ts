@@ -1,10 +1,10 @@
 /**
- * MCP-SERVER-003-FAMILY-B — Family B keys constant test.
+ * MCP-SERVER-003-FAMILY-B + MCP-BUILD2a — Family B keys constant test.
  *
  * Critical invariants:
- *   - FAMILY_B_RAW_KEYS contains exactly 14 entries
- *   - Verbatim binding match with intent brief §3 (14 keys, declaration order)
- *   - FAMILY_B_PROMPT_ENTRIES has 14 entries with one entry per rawKey
+ *   - FAMILY_B_RAW_KEYS contains exactly 17 entries (14 + 3 MCP-BUILD2a)
+ *   - Verbatim binding match with intent brief §3 + Build-2 addendum §5
+ *   - FAMILY_B_PROMPT_ENTRIES has 17 entries with one entry per rawKey
  *   - Every prompt entry has all required verbose-definition fields
  *   - FAMILY_B_CLASSIFIER_SET_VERSION === 'family-b-v1'
  */
@@ -16,9 +16,9 @@ import {
 } from '../lib/familyBKeys.ts';
 
 /**
- * Binding list per MCP-SERVER-003-FAMILY-B intent brief §3, in declaration
- * order matching the upstream source `familyB.ts`. The SET of 14 IS
- * load-bearing for the wire contract.
+ * Binding list: 14 MCP-SERVER-003-FAMILY-B intent brief §3 + 3 MCP-BUILD2a
+ * Build-2 addendum §5, in declaration order matching the upstream source
+ * `familyB.ts`. The SET of 17 IS load-bearing for the wire contract.
  */
 const BINDING_FAMILY_B_KEYS: readonly string[] = [
   'disputes_evidence_applicability',
@@ -35,13 +35,17 @@ const BINDING_FAMILY_B_KEYS: readonly string[] = [
   'disputes_priority_order',
   'disputes_remedy_or_solution',
   'disputes_relevance',
+  // MCP-BUILD2a (Build-2 addendum §5) — disagreement-quality booleans.
+  'isolates_main_disagreement',
+  'distinguishes_fact_value_disagreement',
+  'preserves_face_while_disagreeing',
 ];
 
-Deno.test('FAMILY_B_RAW_KEYS contains exactly 14 entries', () => {
-  assertEquals(FAMILY_B_RAW_KEYS.length, 14);
+Deno.test('FAMILY_B_RAW_KEYS contains exactly 17 entries', () => {
+  assertEquals(FAMILY_B_RAW_KEYS.length, 17);
 });
 
-Deno.test('FAMILY_B_RAW_KEYS contains all 14 binding rawKeys', () => {
+Deno.test('FAMILY_B_RAW_KEYS contains all 17 binding rawKeys', () => {
   for (const key of BINDING_FAMILY_B_KEYS) {
     if (!FAMILY_B_RAW_KEYS.includes(key)) {
       throw new Error(`FAMILY_B_RAW_KEYS missing binding rawKey: ${key}`);
@@ -67,8 +71,8 @@ Deno.test('FAMILY_B_RAW_KEYS has no duplicate entries', () => {
   }
 });
 
-Deno.test('FAMILY_B_PROMPT_ENTRIES has 14 entries matching FAMILY_B_RAW_KEYS', () => {
-  assertEquals(FAMILY_B_PROMPT_ENTRIES.length, 14);
+Deno.test('FAMILY_B_PROMPT_ENTRIES has 17 entries matching FAMILY_B_RAW_KEYS', () => {
+  assertEquals(FAMILY_B_PROMPT_ENTRIES.length, 17);
   const promptKeys = FAMILY_B_PROMPT_ENTRIES.map((e) => e.rawKey);
   for (const key of FAMILY_B_RAW_KEYS) {
     if (!promptKeys.includes(key)) {

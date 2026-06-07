@@ -531,6 +531,44 @@ export const PLAIN_LANGUAGE_COPY = {
     'This reply pushes back, anchors to a quoted part, and corrects a specific detail, engaging a precise point.',
   'cross_family.disputes_evidence_applicability.provides_evidence':
     'This reply challenges how the evidence applies and provides evidence of its own, which can deepen the exchange.',
+  // MCP-BUILD2a (Family B disagreement_axis expansion) — plain-language for the
+  // 3 new disagreement-quality booleans' mapping rows. Every value is verdict-
+  // free, move-level, and describes the MOVE never the author. No underscores
+  // (the registry review-gate asserts the displayed string is snake-free).
+  // ── isolates_main_disagreement ──
+  'disagreement_axis.single_true.isolates_main_disagreement':
+    'This reply points to the specific part it disagrees with, which keeps the exchange precise.',
+  'disagreement_axis.single_false.isolates_main_disagreement':
+    'This reply disagrees in general terms; naming the specific point can sharpen the exchange.',
+  // ── distinguishes_fact_value_disagreement ──
+  'disagreement_axis.single_true.distinguishes_fact_value_disagreement':
+    'This reply separates a question of fact from a question of values, which can clarify the disagreement.',
+  'disagreement_axis.single_false.distinguishes_fact_value_disagreement':
+    'This reply does not separate fact from values; drawing that line can clarify the disagreement.',
+  // ── preserves_face_while_disagreeing ──
+  'disagreement_axis.single_true.preserves_face_while_disagreeing':
+    'This reply disagrees while keeping the focus on the argument rather than the person.',
+  'disagreement_axis.single_false.preserves_face_while_disagreeing':
+    'This reply disagrees in a plain register; this is only an observation about phrasing, not a concern.',
+  // ── pairs over the 3 new booleans ──
+  'disagreement_axis.pair_true_true.isolates_main_disagreement.distinguishes_fact_value_disagreement':
+    'This reply pins the specific point and separates fact from values, which keeps the exchange precise.',
+  'disagreement_axis.pair_true_false.isolates_main_disagreement.no_fact_value_split':
+    'This reply pins the specific point but does not separate fact from values; drawing that line can clarify it.',
+  'disagreement_axis.pair_false_true.distinguishes_fact_value_disagreement.no_point_isolated':
+    'This reply separates fact from values but disagrees in general terms; naming the point can sharpen it.',
+  'disagreement_axis.pair_true_true.isolates_main_disagreement.preserves_face_while_disagreeing':
+    'This reply pins the specific point and keeps the focus on the argument rather than the person.',
+  'disagreement_axis.pair_true_false.isolates_main_disagreement.no_face_preservation':
+    'This reply pins the specific point in a plain register; this is only an observation about phrasing.',
+  'disagreement_axis.pair_false_true.preserves_face_while_disagreeing.no_point_isolated':
+    'This reply keeps the focus on the argument but disagrees in general terms; naming the point can sharpen it.',
+  'disagreement_axis.pair_true_true.distinguishes_fact_value_disagreement.preserves_face_while_disagreeing':
+    'This reply separates fact from values and keeps the focus on the argument rather than the person.',
+  'disagreement_axis.pair_true_false.distinguishes_fact_value_disagreement.no_face_preservation':
+    'This reply separates fact from values in a plain register; this is only an observation about phrasing.',
+  'disagreement_axis.pair_false_true.preserves_face_while_disagreeing.no_fact_value_split':
+    'This reply keeps the focus on the argument but does not separate fact from values; drawing that line can clarify it.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;

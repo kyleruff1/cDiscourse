@@ -355,7 +355,7 @@ Deno.test('validateFamilyBooleanRequest-family-b-request-with-empty-rawKeys-pass
   assertEquals(result.ok, true);
 });
 
-Deno.test('validateFamilyBooleanRequest-family-b-request-with-all-14-rawKeys-passes', () => {
+Deno.test('validateFamilyBooleanRequest-family-b-request-with-all-17-rawKeys-passes', () => {
   const req = validRequest({
     requestedFamilies: ['disagreement_axis'],
     requestedRawKeys: [
@@ -373,12 +373,16 @@ Deno.test('validateFamilyBooleanRequest-family-b-request-with-all-14-rawKeys-pas
       'disputes_priority_order',
       'disputes_remedy_or_solution',
       'disputes_relevance',
+      // MCP-BUILD2a — disagreement-quality booleans (must be accepted).
+      'isolates_main_disagreement',
+      'distinguishes_fact_value_disagreement',
+      'preserves_face_while_disagreeing',
     ],
   });
   const result = validateFamilyBooleanRequest(req);
   assertEquals(result.ok, true);
   if (result.ok) {
-    assertEquals(result.value.requestedRawKeys.length, 14);
+    assertEquals(result.value.requestedRawKeys.length, 17);
   }
 });
 

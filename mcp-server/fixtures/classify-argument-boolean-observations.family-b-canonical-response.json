@@ -15,7 +15,10 @@
     "disputes_interpretation",
     "disputes_priority_order",
     "disputes_remedy_or_solution",
-    "disputes_relevance"
+    "disputes_relevance",
+    "isolates_main_disagreement",
+    "distinguishes_fact_value_disagreement",
+    "preserves_face_while_disagreeing"
   ],
   "observations": {
     "disputes_evidence_applicability": false,
@@ -31,7 +34,10 @@
     "disputes_interpretation": false,
     "disputes_priority_order": false,
     "disputes_remedy_or_solution": false,
-    "disputes_relevance": false
+    "disputes_relevance": false,
+    "isolates_main_disagreement": true,
+    "distinguishes_fact_value_disagreement": false,
+    "preserves_face_while_disagreeing": false
   },
   "confidence": {
     "disputes_evidence_applicability": "medium",
@@ -47,7 +53,10 @@
     "disputes_interpretation": "medium",
     "disputes_priority_order": "medium",
     "disputes_remedy_or_solution": "medium",
-    "disputes_relevance": "medium"
+    "disputes_relevance": "medium",
+    "isolates_main_disagreement": "high",
+    "distinguishes_fact_value_disagreement": "medium",
+    "preserves_face_while_disagreeing": "medium"
   },
   "evidenceSpan": {
     "disputes_evidence_applicability": null,
@@ -63,7 +72,10 @@
     "disputes_interpretation": null,
     "disputes_priority_order": null,
     "disputes_remedy_or_solution": null,
-    "disputes_relevance": null
+    "disputes_relevance": null,
+    "isolates_main_disagreement": "that figure does not apply to dense urban areas",
+    "distinguishes_fact_value_disagreement": null,
+    "preserves_face_while_disagreeing": null
   },
   "modelInfo": {
     "provider": "mcp",

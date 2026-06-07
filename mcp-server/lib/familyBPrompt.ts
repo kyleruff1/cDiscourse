@@ -2,8 +2,9 @@
  * MCP-SERVER-003-FAMILY-B — Family B prompt construction.
  *
  * Single-prompt strategy per design §4: one Anthropic call covers all
- * 14 Family B rawKeys. Token budget ~1-2k input, MAX_TOKENS=1500 output
- * (14 keys × ~80 tokens each plus structured-output overhead).
+ * 17 Family B rawKeys (14 MCP-SERVER-003-FAMILY-B + 3 MCP-BUILD2a). Token
+ * budget ~1-2k input, MAX_TOKENS=1500 output (17 keys × ~80 tokens each
+ * plus structured-output overhead).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
@@ -32,7 +33,7 @@
  */
 import { FAMILY_B_PROMPT_ENTRIES, FAMILY_B_RAW_KEYS } from './familyBKeys.ts';
 
-/** MAX_TOKENS for the Family B response. 14 keys × ~80 tokens + overhead. */
+/** MAX_TOKENS for the Family B response. 17 keys × ~80 tokens + overhead. */
 export const FAMILY_B_MAX_TOKENS = 1500;
 
 /** Deterministic decoding. Mirrors Family A. */
@@ -121,7 +122,7 @@ export interface ValidatedFamilyBRequest {
  *   5. Conservative-positives bias reminder (0 to 3 disagreement sub-axes)
  *   6. The input (move text, parent text, thread context)
  *
- * When requestedRawKeys is empty, all 14 Family B keys are included.
+ * When requestedRawKeys is empty, all 17 Family B keys are included.
  *
  * Returns a string — pure, no I/O. The string contains the verbatim
  * caller-redacted move/parent/thread text fields; the caller has already
@@ -189,16 +190,20 @@ Definitions and examples for each rawKey:
 
 ${definitionsBlock}
 
-Note about disagreement_present and the 13 disagreement sub-axes:
+Note about disagreement_present, the 13 disagreement sub-axes, and the 3 disagreement-quality observations:
 disagreement_present is the umbrella key for "does this move express ANY substantive
 disagreement with its parent". The 13 sub-axes (disputes_definition, disputes_scope,
 disputes_fact, disputes_causal_link, disputes_value_weighting,
 disputes_decision_criterion, disputes_generalization, disputes_analogy,
 disputes_interpretation, disputes_priority_order, disputes_remedy_or_solution,
 disputes_relevance, disputes_evidence_applicability) classify WHICH AXIS the
-disagreement targets. Mark disagreement_present true whenever ANY substantive
-disagreement is present; mark each sub-axis true ONLY when that specific axis is the
-move's disagreement vehicle. Answer each independently — do not auto-cascade.
+disagreement targets. The 3 disagreement-quality observations (isolates_main_disagreement,
+distinguishes_fact_value_disagreement, preserves_face_while_disagreeing) describe HOW the
+move carries its disagreement — whether it pins the specific point, separates fact from
+value, and keeps the other party's standing intact. They are structural observations about
+the move, never judgements of the author. Mark disagreement_present true whenever ANY
+substantive disagreement is present; mark each sub-axis or quality observation true ONLY
+when it genuinely applies. Answer each independently — do not auto-cascade.
 
 Answer each disagreement-axis question above with true or false for the move below.
 Return ONLY a single JSON object — no prose, no markdown, no code fence, no chain-of-thought.
