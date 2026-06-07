@@ -25,6 +25,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ArgumentBubbleViewModel } from './argumentGameSurfaceModel';
 import { CardDetailPanel } from './cardView/CardDetailPanel';
 import type { CardDetailViewModel } from './cardView/cardDetailModel';
+import type { CardMappingSectionModel } from './cardView/cardMappingSectionModel';
 import type { RailActionCode, RailViewerRole } from './railActionCategories';
 
 interface Props {
@@ -34,6 +35,10 @@ interface Props {
   compact?: boolean;
   /** CARD-VIEW-DATA-001 — exploded detail model; rendered only when isActive. */
   cardDetail?: CardDetailViewModel | null;
+  /** MCP-MAPPING-EXPANSION-001 (Slice B) — combination-observations section
+   *  model; forwarded to the active card's CardDetailPanel. Omitted → no
+   *  section (byte-equivalent to the pre-Slice-B card). */
+  mappingSection?: CardMappingSectionModel | null;
   /** CARD-VIEW-DATA-001 — re-activates the step-ref ancestor on token tap. */
   onActivateAncestor?: (messageId: string) => void;
   /** CVDH-001 Slice 3 — viewport width for the hub's responsive multi-column
@@ -59,6 +64,7 @@ export function ArgumentBubbleCard({
   onToggleMode,
   compact,
   cardDetail,
+  mappingSection,
   onActivateAncestor,
   windowWidth,
   maxHeight,
@@ -145,6 +151,7 @@ export function ArgumentBubbleCard({
         >
           <CardDetailPanel
             model={cardDetail!}
+            mappingSection={mappingSection}
             onActivateAncestor={onActivateAncestor}
             windowWidth={windowWidth}
             currentMessageBody={vm.body}

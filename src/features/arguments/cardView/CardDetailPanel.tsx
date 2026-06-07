@@ -38,6 +38,7 @@ import {
 import { CARD_CLASSIFIER_EVIDENCE_PREFIX } from './cardClassifierStripModel';
 import { CardStepReferenceHeader } from './CardStepReferenceHeader';
 import type { CardClassifierChip } from './cardClassifierStripModel';
+import type { CardMappingChip, CardMappingSectionModel } from './cardMappingSectionModel';
 import type { CardDetailViewModel } from './cardDetailModel';
 import {
   hubColumnLayout,
@@ -72,6 +73,17 @@ function resolvePlatformOs(override?: HubPlatformOs): HubPlatformOs {
 
 export interface CardDetailPanelProps {
   model: CardDetailViewModel;
+  /**
+   * MCP-MAPPING-EXPANSION-001 (Slice B) — the observation-mapping evaluator's
+   * `card`-surface results, formatted into the "Combination observations"
+   * section by `buildCardMappingSection`. Computed by the surface
+   * (`ArgumentGameSurface` → evaluateObservationMapping) and threaded through
+   * the Stack → Card → Panel chain. Display-only, ADDITIVE: when omitted the
+   * section does not render (byte-equivalent to the pre-Slice-B panel). The
+   * existing per-observation classifier strip (`model.hubClassifier`) is
+   * UNCHANGED — the combination section is a richer additive sibling.
+   */
+  mappingSection?: CardMappingSectionModel | null;
   /** Re-activates the step-reference ancestor message. Also fired by the
    *  off-center parent comparison-bubble reference (Slice 3). */
   onActivateAncestor?: (messageId: string) => void;
@@ -263,6 +275,100 @@ function HubClassifierZone({
       ) : (
         <Text style={styles.muted} testID="card-detail-classifier-empty">
           {model.emptyStateCopy}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * MCP-MAPPING-EXPANSION-001 (Slice B) — the "Combination observations" section.
+ *
+ * Renders the observation-mapping evaluator's `card`-surface results as a NEW,
+ * ADDITIVE display-only section beside the per-observation classifier zone.
+ * Each chip is a richer COMBINATION label (e.g. "Anchored challenge" =
+ * challenges_parent + quote_anchors_parent); the evaluator has already applied
+ * composite-supersedes-singles, so a single consumed by a composite is not
+ * also surfaced here.
+ *
+ * Doctrine (design §2 / §3 invariant 2; cdiscourse-doctrine §1 / §9 / §10a):
+ *   - Every chip is a DISPLAY-ONLY label (`accessibilityRole="text"`) — NOT a
+ *     Pressable, NO onPress, NO button role. The mapping chips are observations,
+ *     not user moves.
+ *   - Confidence is rendered as PIPS (filled/empty dots), NEVER a number.
+ *   - The advisory caption frames the section ("what the referee noticed —
+ *     advisory, not a verdict.").
+ *   - Empty / none → a teaching empty state (never "clean" / "no issues").
+ *   - A-G only; H/I/J never (the model already drops them). No `inactive_reason`.
+ *
+ * Visible by default on the active card (check #14 — no tap, no disclosure).
+ */
+function CombinationObservationChip({
+  chip,
+}: {
+  chip: CardMappingChip;
+}): React.ReactElement {
+  return (
+    <View
+      style={styles.mappingRow}
+      accessibilityRole="text"
+      accessibilityLabel={chip.accessibilityLabel}
+      testID={`card-detail-mapping-${chip.id}`}
+    >
+      <View style={styles.mappingHead}>
+        <Text
+          style={styles.glyph}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        >
+          ◎
+        </Text>
+        <Text style={styles.mappingLabelText} testID={`card-detail-mapping-label-${chip.id}`}>
+          {chip.label}
+        </Text>
+        <ConfidencePips pips={chip.confidencePips} label={chip.confidenceLabel} />
+      </View>
+      {chip.diagnosticSentence.length > 0 ? (
+        <Text
+          style={styles.mappingDiagnostic}
+          testID={`card-detail-mapping-diagnostic-${chip.id}`}
+        >
+          {chip.diagnosticSentence}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function CombinationObservationsZone({
+  section,
+  isWide,
+}: {
+  section: CardMappingSectionModel;
+  /** CARD-VIEW-REFINE-001 parity — on the wide (3-col) layout the chips wrap
+   *  HORIZONTALLY, matching the per-observation classifier strip. */
+  isWide?: boolean;
+}): React.ReactElement {
+  return (
+    <View style={styles.zone} testID="card-detail-mapping-zone">
+      <Text style={styles.zoneHeading} accessibilityRole="text">
+        {section.heading}
+      </Text>
+      <Text style={styles.zoneCaption} accessibilityRole="text">
+        {section.advisoryCaption}
+      </Text>
+      {section.hasSignals ? (
+        <View
+          style={isWide ? styles.classifierChipStrip : styles.zone}
+          testID="card-detail-mapping-strip"
+        >
+          {section.chips.map((chip) => (
+            <CombinationObservationChip key={chip.id} chip={chip} />
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.muted} testID="card-detail-mapping-empty">
+          {section.emptyStateCopy}
         </Text>
       )}
     </View>
@@ -727,9 +833,14 @@ function CenterpieceRegion({
  */
 function ClassifierColumn({
   model,
+  mappingSection,
   isWide,
 }: {
   model: CardDetailViewModel;
+  /** MCP-MAPPING-EXPANSION-001 (Slice B) — the combination-observations
+   *  section. Renders BELOW the per-observation classifier zone (additive).
+   *  Omitted → the section does not render. */
+  mappingSection?: CardMappingSectionModel | null;
   isWide?: boolean;
 }): React.ReactElement {
   return (
@@ -737,8 +848,16 @@ function ClassifierColumn({
       {/* CVDH-001 Slice 2, ask iii — all-families family-grouped classifier
           observations (A–G gated, uncapped). Stylized flags/labels/banners.
           CARD-VIEW-REFINE-001 — wide layout spreads chips horizontally + puts
-          evidence inline. */}
+          evidence inline. NOT REGRESSED by Slice B — the combination section
+          below is an ADDITIVE richer-label sibling. */}
       <HubClassifierZone model={model.hubClassifier} isWide={isWide} />
+      {/* MCP-MAPPING-EXPANSION-001 (Slice B) — combination observations. The
+          evaluator already applies composite-supersedes-singles, so a single
+          consumed by a composite is surfaced ONLY as the combination label
+          here, never twice. Display-only; visible by default (check #14). */}
+      {mappingSection ? (
+        <CombinationObservationsZone section={mappingSection} isWide={isWide} />
+      ) : null}
     </View>
   );
 }
@@ -798,6 +917,7 @@ function TagsColumn({
  */
 export function CardDetailPanel({
   model,
+  mappingSection,
   onActivateAncestor,
   windowWidth,
   platformOs,
@@ -830,7 +950,14 @@ export function CardDetailPanel({
           />
         );
       case 'classifier':
-        return <ClassifierColumn key="classifier" model={model} isWide={isThreeColumn} />;
+        return (
+          <ClassifierColumn
+            key="classifier"
+            model={model}
+            mappingSection={mappingSection}
+            isWide={isThreeColumn}
+          />
+        );
       case 'tags':
         return <TagsColumn key="tags" model={model} />;
       default:
@@ -1173,6 +1300,32 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.popoutBody.fontSize,
     lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
     marginLeft: SPACING.l,
+  },
+  // MCP-MAPPING-EXPANSION-001 (Slice B) — combination-observation chip rows.
+  // Mirror the classifier row layout so the additive section reads as one
+  // coherent advisory surface beside the per-observation strip.
+  mappingRow: {
+    gap: 2,
+    flexShrink: 1,
+  },
+  mappingHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  mappingLabelText: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: TYPOGRAPHY.chipLabel.fontWeight,
+    flexShrink: 1,
+  },
+  mappingDiagnostic: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    flexShrink: 1,
   },
   pipsRow: {
     flexDirection: 'row',

@@ -64,6 +64,18 @@ import {
   artifactsToEvidenceSources,
   buildCardDetailViewModel,
 } from './cardView/cardDetailModel';
+// MCP-MAPPING-EXPANSION-001 (Slice B) — wire the POST-STORAGE observation-
+// mapping evaluator into the active Cards-view card. The surface derives the
+// active node's set of POSITIVE persisted rawKeys, runs the Slice-A evaluator
+// at the `card` surface, and formats the results into the "Combination
+// observations" section. Pure + memoized; the evaluator NEVER calls the
+// classifier/network (it reads already-persisted booleans) and is NEVER in
+// the submit path.
+import { buildCardMappingSection } from './cardView/cardMappingSectionModel';
+import {
+  evaluateObservationMapping,
+  OBSERVATION_MAPPING_REGISTRY,
+} from '../nodeLabels/observationMapping';
 // SC-004 — Build the dock model + thread selection state into the
 // timeline map. Lifecycle + metadata maps are built once per render and
 // memoized by their inputHashes; the dock model is cheap (O(cluster
@@ -881,6 +893,31 @@ export function ArgumentGameSurface({
     viewModels,
   ]);
 
+  // ── MCP-MAPPING-EXPANSION-001 (Slice B) — combination observations ──
+  //
+  // POST-STORAGE, DISPLAY-ONLY. For the ACTIVE node only: derive the set of
+  // POSITIVE persisted rawKeys (one per persisted machine-observation row —
+  // absence of a row IS the negative, per the persistence schema), run the
+  // Slice-A evaluator at the `card` surface against the reviewed A-G registry,
+  // and format the results into the "Combination observations" section. The
+  // evaluator reads already-persisted booleans; it NEVER calls the classifier
+  // / network and is NEVER in the submit/acceptance path (engine.ts is the
+  // sole gate). Memoized on the active node's persisted rows so it recomputes
+  // only when the active node or its observations change.
+  const activeMappingSection = useMemo(() => {
+    if (!activeMessageId) return null;
+    const rows = persistedObservationsByArgumentId?.[activeMessageId] ?? [];
+    const positiveRawKeys = rows
+      .map((r) => r.rawKey)
+      .filter((k): k is string => typeof k === 'string' && k.length > 0);
+    const results = evaluateObservationMapping(
+      positiveRawKeys,
+      OBSERVATION_MAPPING_REGISTRY,
+      { surface: 'card' },
+    );
+    return buildCardMappingSection(results);
+  }, [activeMessageId, persistedObservationsByArgumentId]);
+
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
   //
   // The three mounts below consume already-resident client state. None
@@ -1544,6 +1581,11 @@ export function ArgumentGameSurface({
               // tap reuses the single shared selection path (handleActivate),
               // so card + timeline selection never desync.
               activeCardDetail={activeCardDetail}
+              // MCP-MAPPING-EXPANSION-001 (Slice B) — combination observations
+              // for the active card, computed POST-STORAGE from the active
+              // node's positive rawKeys above. Display-only; forwarded to the
+              // active card only (the Stack gates on isActive).
+              activeMappingSection={activeMappingSection}
               onActivateAncestor={handleActivate}
               // CVDH-001 Slice 3 — viewport width drives the hub's responsive
               // 3-col / stacked layout on the active card.
