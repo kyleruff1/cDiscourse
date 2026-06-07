@@ -146,7 +146,9 @@ describe('MCP-SERVER-008A-FAMILY-G Edge → MCP subset filter (Stage 2B fix)', (
       ...FAMILY_G_BASE_INPUT,
       requestedFamilies: ['argument_scheme'],
     });
-    expect(reqE.requestedRawKeys.length).toBe(16);
+    // MCP-BUILD2e: Family E 16 → 19 ai_classifier rawKeys (uniform passthrough,
+    // no subset filter — the 3 new structure booleans are ai_classifier).
+    expect(reqE.requestedRawKeys.length).toBe(19);
     const reqF = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_G_BASE_INPUT,
       requestedFamilies: ['critical_question'],

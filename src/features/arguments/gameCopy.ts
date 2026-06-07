@@ -652,6 +652,51 @@ export const PLAIN_LANGUAGE_COPY = {
     'This reply names the specific ambiguity source but does not take up a point a prior move offered.',
   'misunderstanding_repair.pair_false_true.accepts_correction.no_ambiguity_source':
     'This reply takes up a point a prior move offered but does not name a specific ambiguity source; this is a repair, not a concession of the whole.',
+  // MCP-BUILD2e (Family E argument_scheme expansion) — plain-language for the 3
+  // new argument-structure booleans' mapping rows. Every value is verdict-free,
+  // move-level, and describes the MOVE never the author. No underscores (the
+  // registry review-gate asserts the displayed string is snake-free). The
+  // argumentation-theory terms `linked` / `convergent` / `enthymeme` NEVER
+  // appear in any value (GATE-A §8.2 rule 4 — theory labels never surfaced
+  // raw); they are described in plain language. The enthymeme_gap_detected (E3)
+  // values are fenced "gap-is-not-a-verdict": they describe relying on an
+  // unstated step and never imply the argument is weak / wrong.
+  // ── linked_premise_structure ──
+  'argument_scheme.single_true.linked_premise_structure':
+    'This reply uses premises that depend on each other, so they stand or fall together.',
+  'argument_scheme.single_false.linked_premise_structure':
+    'This reply does not use premises that depend on each other; this is only an observation about its structure, not a concern.',
+  // ── convergent_premise_structure ──
+  'argument_scheme.single_true.convergent_premise_structure':
+    'This reply uses premises that each independently support its conclusion.',
+  'argument_scheme.single_false.convergent_premise_structure':
+    'This reply does not use premises that each stand on their own; this is only an observation about its structure, not a concern.',
+  // ── enthymeme_gap_detected (gap-is-not-a-verdict fence) ──
+  'argument_scheme.single_true.enthymeme_gap_detected':
+    'This reply relies on an unstated step; naming that step can make the reasoning easier to follow. This is an invitation to state it, not a concern about the reply.',
+  'argument_scheme.single_false.enthymeme_gap_detected':
+    'This reply does not appear to rely on an unstated step; this is only an observation about its structure, not a concern.',
+  // ── pairs: linked_premise_structure × convergent_premise_structure ──
+  'argument_scheme.pair_true_true.linked_premise_structure.convergent_premise_structure':
+    'This reply uses both premises that depend on each other and premises that each stand on their own.',
+  'argument_scheme.pair_true_false.linked_premise_structure.no_convergent':
+    'This reply uses premises that depend on each other rather than premises that each stand on their own.',
+  'argument_scheme.pair_false_true.convergent_premise_structure.no_linked':
+    'This reply uses premises that each stand on their own rather than premises that depend on each other.',
+  // ── pairs: linked_premise_structure × enthymeme_gap_detected ──
+  'argument_scheme.pair_true_true.linked_premise_structure.enthymeme_gap_detected':
+    'This reply uses premises that depend on each other and relies on an unstated step; naming that step can make the reasoning easier to follow.',
+  'argument_scheme.pair_true_false.linked_premise_structure.no_enthymeme_gap':
+    'This reply uses premises that depend on each other and states the steps its conclusion needs.',
+  'argument_scheme.pair_false_true.enthymeme_gap_detected.no_linked':
+    'This reply relies on an unstated step without using premises that depend on each other; naming that step can make the reasoning easier to follow.',
+  // ── pairs: convergent_premise_structure × enthymeme_gap_detected ──
+  'argument_scheme.pair_true_true.convergent_premise_structure.enthymeme_gap_detected':
+    'This reply uses premises that each stand on their own and relies on an unstated step; naming that step can make the reasoning easier to follow.',
+  'argument_scheme.pair_true_false.convergent_premise_structure.no_enthymeme_gap':
+    'This reply uses premises that each stand on their own and states the steps its conclusion needs.',
+  'argument_scheme.pair_false_true.enthymeme_gap_detected.no_convergent':
+    'This reply relies on an unstated step without using premises that each stand on their own; naming that step can make the reasoning easier to follow.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;

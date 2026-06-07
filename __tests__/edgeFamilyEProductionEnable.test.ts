@@ -134,8 +134,9 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — A/B/C/D production posture unchanged
 
 describe('MCP-021C-EDGE-FAMILY-E-ENABLE — subset filter NOT applied to Family E (defensive guard for HALT trigger #7)', () => {
   it('FEE-14 — MCP_SERVER_SUPPORTED_FAMILY_SOURCES has NO entry for argument_scheme', () => {
-    // Family E is uniform ai_classifier (all 16 keys); a subset filter
-    // entry would be a no-op at best and a doctrinal confusion at worst.
+    // Family E is uniform ai_classifier (all 19 keys post MCP-BUILD2e); a
+    // subset filter entry would be a no-op at best and a doctrinal confusion
+    // at worst.
     // The intent brief HALT trigger #7 binds this: "Subset filter
     // (MCP_SERVER_SUPPORTED_FAMILY_SOURCES) entry added for E (E is
     // uniform ai_classifier; should NOT need an entry)".
@@ -159,10 +160,11 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — subset filter NOT applied to Family 
     expect(constantBlock![0]).not.toContain('argument_scheme');
   });
 
-  it('FEE-15 — production-mode Family E request contains all 16 ai_classifier rawKeys (no subset filter)', () => {
+  it('FEE-15 — production-mode Family E request contains all 19 ai_classifier rawKeys (no subset filter)', () => {
     // Defensive: confirms the production-mode builder returns the full
-    // 16-key Family E set, identical to admin_validation-mode. The
-    // subset filter is absent for E → full passthrough.
+    // 19-key Family E set post MCP-BUILD2e (16 + 3 structure booleans),
+    // identical to admin_validation-mode. The subset filter is absent for E →
+    // full passthrough.
     const req = edgeBuildBooleanObservationRequestForArgument({
       argumentId: 'arg-e-prod-1',
       parentArgumentId: 'arg-e-prod-0',
@@ -172,7 +174,7 @@ describe('MCP-021C-EDGE-FAMILY-E-ENABLE — subset filter NOT applied to Family 
       requestedFamilies: ['argument_scheme'],
       mode: 'production',
     });
-    expect(req.requestedRawKeys.length).toBe(16);
+    expect(req.requestedRawKeys.length).toBe(19);
     // Byte-equal vs admin_validation-mode (mode-agnostic since no subset
     // filter):
     const reqAdmin = edgeBuildBooleanObservationRequestForArgument({

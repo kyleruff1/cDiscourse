@@ -105,11 +105,12 @@ Deno.test('familyRegistryInit-family-d-has-19-rawKeys-Subset', () => {
   assertEquals(rawKeys.size, 19);
 });
 
-Deno.test('familyRegistryInit-family-e-has-16-rawKeys', () => {
+Deno.test('familyRegistryInit-family-e-has-19-rawKeys', () => {
   // MCP-SERVER-006-FAMILY-E ships 16 Walton (1995, 2008) argumentation
-  // schemes, all uniform ai_classifier (no Subset filter).
+  // schemes; MCP-BUILD2e (Build-2 manifest §4) adds 3 argument-structure
+  // booleans → 19, all uniform ai_classifier (no Subset filter).
   const rawKeys = getRawKeysForFamily('argument_scheme');
-  assertEquals(rawKeys.size, 16);
+  assertEquals(rawKeys.size, 19);
 });
 
 Deno.test('familyRegistryInit-family-a-classifier-version-is-family-a-v1', () => {

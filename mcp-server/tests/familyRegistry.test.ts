@@ -474,7 +474,7 @@ Deno.test('registry-getRawKeysForFamily-returns-all-19-for-family-d-Subset', asy
 
 Deno.test('registry-getSupportedFamilies-preserves-five-family-order', async () => {
   // MCP-SERVER-006-FAMILY-E adds the fifth family register() call (uniform
-  // ai_classifier; 16 keys). Insertion order is preserved by the underlying
+  // ai_classifier; 19 keys post MCP-BUILD2e). Insertion order is preserved by the underlying
   // Map; the getSupportedFamilies() snapshot returns exactly
   // ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
   // 'evidence_source_chain', 'argument_scheme'].
@@ -515,7 +515,8 @@ Deno.test('registry-getSupportedFamilies-preserves-five-family-order', async () 
       'argument_scheme',
     ],
   );
-  assertEquals(registry.getRawKeysForFamily('argument_scheme').size, 16);
+  // MCP-BUILD2e: 16 → 19 argument_scheme rawKeys (derived from FAMILY_E_RAW_KEYS).
+  assertEquals(registry.getRawKeysForFamily('argument_scheme').size, 19);
   assertEquals(registry.getClassifierSetVersion('argument_scheme'), 'family-e-v1');
 });
 
@@ -602,7 +603,7 @@ Deno.test('registry-isRawKeySupportedForFamily-five-way-cross-family-rejection',
   );
 });
 
-Deno.test('registry-getRawKeysForFamily-returns-all-16-for-family-e', async () => {
+Deno.test('registry-getRawKeysForFamily-returns-all-19-for-family-e', async () => {
   const { FAMILY_E_RAW_KEYS, FAMILY_E_CLASSIFIER_SET_VERSION } = await import(
     '../lib/familyEKeys.ts'
   );
@@ -612,7 +613,8 @@ Deno.test('registry-getRawKeysForFamily-returns-all-16-for-family-e', async () =
     classifierSetVersion: FAMILY_E_CLASSIFIER_SET_VERSION,
   });
   const keys = registry.getRawKeysForFamily('argument_scheme');
-  assertEquals(keys.size, 16);
+  // MCP-BUILD2e: 16 → 19 argument_scheme rawKeys.
+  assertEquals(keys.size, 19);
   for (const binding of FAMILY_E_RAW_KEYS) {
     assertEquals(keys.has(binding), true);
   }

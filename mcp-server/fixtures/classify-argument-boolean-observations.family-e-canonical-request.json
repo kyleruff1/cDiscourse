@@ -24,7 +24,10 @@
       "exception_reasoning_present",
       "slippery_slope_reasoning_present",
       "cost_benefit_reasoning_present",
-      "risk_reasoning_present"
+      "risk_reasoning_present",
+      "linked_premise_structure",
+      "convergent_premise_structure",
+      "enthymeme_gap_detected"
     ],
     "definitions": {},
     "timeoutMs": 12000

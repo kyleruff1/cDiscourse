@@ -1,12 +1,14 @@
 /**
- * MCP-SERVER-006-FAMILY-E — Family E keys constant test.
+ * MCP-SERVER-006-FAMILY-E + MCP-BUILD2e — Family E keys constant test.
  *
  * Critical invariants:
- *   - FAMILY_E_RAW_KEYS contains exactly 16 entries (uniform ai_classifier)
+ *   - FAMILY_E_RAW_KEYS contains exactly 19 entries (16 + 3 MCP-BUILD2e;
+ *     uniform ai_classifier)
  *   - Verbatim binding match with intent brief §1 + design §1 16-key inventory
- *   - FAMILY_E_PROMPT_ENTRIES has 16 entries with one entry per rawKey
+ *     + Build-2 manifest §4 (3 argument-structure booleans)
+ *   - FAMILY_E_PROMPT_ENTRIES has 19 entries with one entry per rawKey
  *   - Every prompt entry has all required verbose-definition fields
- *   - FAMILY_E_CLASSIFIER_SET_VERSION === 'family-e-v1'
+ *   - FAMILY_E_CLASSIFIER_SET_VERSION === 'family-e-v1' (no version bump)
  *   - Per-key falsePositiveGuards for the 3 doctrine-risk keys
  *     (slippery_slope / abductive_explanation / analogy_reasoning)
  *     contain verbatim guards forbidding fallacy/weak/invalid framing
@@ -20,8 +22,9 @@ import {
 } from '../lib/familyEKeys.ts';
 
 /**
- * Binding list per MCP-SERVER-006-FAMILY-E intent brief §1 + design §1.
- * 16 ai_classifier rawKeys, declaration order matching upstream familyE.ts.
+ * Binding list: 16 MCP-SERVER-006-FAMILY-E intent brief §1 + design §1 + 3
+ * MCP-BUILD2e Build-2 manifest §4. 19 ai_classifier rawKeys, declaration order
+ * matching upstream familyE.ts.
  */
 const BINDING_FAMILY_E_KEYS: readonly string[] = [
   'causal_reasoning_present',
@@ -40,13 +43,17 @@ const BINDING_FAMILY_E_KEYS: readonly string[] = [
   'slippery_slope_reasoning_present',
   'cost_benefit_reasoning_present',
   'risk_reasoning_present',
+  // MCP-BUILD2e (Build-2 manifest §4) — argument-scheme structure booleans.
+  'linked_premise_structure',
+  'convergent_premise_structure',
+  'enthymeme_gap_detected',
 ];
 
-Deno.test('FAMILY_E_RAW_KEYS contains exactly 16 entries (uniform ai_classifier)', () => {
-  assertEquals(FAMILY_E_RAW_KEYS.length, 16);
+Deno.test('FAMILY_E_RAW_KEYS contains exactly 19 entries (uniform ai_classifier)', () => {
+  assertEquals(FAMILY_E_RAW_KEYS.length, 19);
 });
 
-Deno.test('FAMILY_E_RAW_KEYS contains all 16 binding rawKeys', () => {
+Deno.test('FAMILY_E_RAW_KEYS contains all 19 binding rawKeys', () => {
   for (const key of BINDING_FAMILY_E_KEYS) {
     if (!FAMILY_E_RAW_KEYS.includes(key)) {
       throw new Error(`FAMILY_E_RAW_KEYS missing binding rawKey: ${key}`);
@@ -82,8 +89,8 @@ Deno.test('FAMILY_E_RAW_KEYS preserves declaration order (matches BINDING_FAMILY
   }
 });
 
-Deno.test('FAMILY_E_PROMPT_ENTRIES has 16 entries matching FAMILY_E_RAW_KEYS', () => {
-  assertEquals(FAMILY_E_PROMPT_ENTRIES.length, 16);
+Deno.test('FAMILY_E_PROMPT_ENTRIES has 19 entries matching FAMILY_E_RAW_KEYS', () => {
+  assertEquals(FAMILY_E_PROMPT_ENTRIES.length, 19);
   const promptKeys = FAMILY_E_PROMPT_ENTRIES.map((e) => e.rawKey);
   for (const key of FAMILY_E_RAW_KEYS) {
     if (!promptKeys.includes(key)) {
@@ -184,6 +191,64 @@ Deno.test('analogy_reasoning_present falsePositiveGuards surfaces "analogy is a 
       throw new Error(
         `analogy_reasoning_present falsePositiveGuards missing verbatim doctrine fragment: "${fragment}". Got: ${entry.falsePositiveGuards}`,
       );
+    }
+  }
+});
+
+// ── MCP-BUILD2e — the 3 new argument-structure booleans ──────────────────
+
+Deno.test('MCP-BUILD2e: the 3 new rawKeys are present in declaration order at the end', () => {
+  assertEquals(FAMILY_E_RAW_KEYS[16], 'linked_premise_structure');
+  assertEquals(FAMILY_E_RAW_KEYS[17], 'convergent_premise_structure');
+  assertEquals(FAMILY_E_RAW_KEYS[18], 'enthymeme_gap_detected');
+});
+
+Deno.test('MCP-BUILD2e: each of the 3 new keys has a prompt entry asking its boolean question', () => {
+  for (const rawKey of ['linked_premise_structure', 'convergent_premise_structure', 'enthymeme_gap_detected']) {
+    const entry = FAMILY_E_PROMPT_ENTRIES.find((e) => e.rawKey === rawKey);
+    if (!entry) throw new Error(`MCP-BUILD2e prompt entry missing for ${rawKey}`);
+    if (entry.booleanQuestion.length < 20) {
+      throw new Error(`MCP-BUILD2e prompt entry for ${rawKey} has too-short booleanQuestion`);
+    }
+  }
+});
+
+Deno.test('MCP-BUILD2e: enthymeme_gap_detected guard fences gap-is-not-a-verdict (no weakness verdict)', () => {
+  // E3 is verdict-adjacent. The per-key guard MUST frame a gap as a structural
+  // observation / invitation, never a verdict that the argument is weak/wrong.
+  const entry = FAMILY_E_PROMPT_ENTRIES.find((e) => e.rawKey === 'enthymeme_gap_detected');
+  if (!entry) throw new Error('enthymeme_gap_detected prompt entry missing');
+  const guards = entry.falsePositiveGuards;
+  const expectedFragments = [
+    'gap-is-not-a-verdict',
+    'never a verdict that the argument is weak',
+    'an invitation to state the premise, not a defeat',
+    'describes THIS REPLY, never the author',
+  ];
+  for (const fragment of expectedFragments) {
+    if (!guards.includes(fragment)) {
+      throw new Error(
+        `enthymeme_gap_detected falsePositiveGuards missing verbatim fence fragment: "${fragment}". Got: ${guards}`,
+      );
+    }
+  }
+});
+
+Deno.test('MCP-BUILD2e: the 3 new user-facing prompt labels never surface the raw theory terms', () => {
+  // GATE-A §8.2 rule 4: theory terms linked / convergent / enthymeme stay
+  // INTERNAL. The prompt-entry LABEL is a user-facing-adjacent string; it must
+  // be plain-language and must NOT contain the raw theory term. (The
+  // booleanQuestion / definitions are classifier-facing and MAY name the term.)
+  const labelByKey: Record<string, string> = {};
+  for (const e of FAMILY_E_PROMPT_ENTRIES) labelByKey[e.rawKey] = e.label;
+  for (const term of ['linked', 'convergent', 'enthymeme']) {
+    for (const rawKey of ['linked_premise_structure', 'convergent_premise_structure', 'enthymeme_gap_detected']) {
+      const re = new RegExp(`\\b${term}\\b`, 'i');
+      if (re.test(labelByKey[rawKey])) {
+        throw new Error(
+          `MCP-BUILD2e: label for ${rawKey} surfaces the raw theory term "${term}": "${labelByKey[rawKey]}"`,
+        );
+      }
     }
   }
 });

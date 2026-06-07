@@ -1,10 +1,11 @@
 /**
- * MCP-SERVER-006-FAMILY-E — Family E prompt construction.
+ * MCP-SERVER-006-FAMILY-E + MCP-BUILD2e — Family E prompt construction.
  *
  * Single-prompt strategy per design §1: one Anthropic call covers all
- * 16 Family E rawKeys. Token budget ~85 tokens/key × 16 = ~1360 output;
- * MAX_TOKENS=1500 (matches Family A/B/C; NO bump per design §2; ~60 token
- * headroom).
+ * 19 Family E rawKeys (16 MCP-SERVER-006-FAMILY-E + 3 MCP-BUILD2e). Token
+ * budget ~85 tokens/key × 19 = ~1615 output; MAX_TOKENS=1500 (matches
+ * Family A/B/C; NO bump — the model returns compact booleans + sparse
+ * evidenceSpans, well under the cap in practice, as for Family C's 20 keys).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
@@ -36,7 +37,7 @@
  */
 import { FAMILY_E_PROMPT_ENTRIES, FAMILY_E_RAW_KEYS } from './familyEKeys.ts';
 
-/** MAX_TOKENS for the Family E response. 16 keys × ~85 tokens + overhead. */
+/** MAX_TOKENS for the Family E response. 19 keys × ~85 tokens + overhead. */
 export const FAMILY_E_MAX_TOKENS = 1500;
 
 /** Deterministic decoding. Mirrors Family A/B/C/D. */
@@ -72,11 +73,15 @@ Absolute rules:
 - You do NOT block an ordinary post — your output is advisory metadata only.
 
 You classify whether an argument MOVE uses one or more of 16 Walton (1995, 2008) argumentation
-SCHEMES as its primary inferential support. Each question is a structural observation about
+SCHEMES as its primary inferential support, plus 3 inference-structure observations (linked vs.
+convergent premise structure, and whether the move relies on an unstated load-bearing premise)
+— 19 argument-structure observations in total. Each question is a structural observation about
 the form of the move's reasoning — not a judgment about whether that reasoning is fallacious,
 weak, valid, invalid, sound, unsound, or bad. Schemes are descriptive shape facts. Every
 scheme has a corresponding CRITICAL QUESTION (these live in Family F, not here); detecting a
-scheme NEVER means the scheme's critical questions are unmet.
+scheme NEVER means the scheme's critical questions are unmet. The inference-structure
+observations are descriptive shape facts too: detecting an unstated-premise gap is an
+invitation to state the premise; you MUST NOT call this gap weak, wrong, flawed, or invalid.
 
 CRITICAL DOCTRINE — three schemes carry special framing risk because the literature sometimes
 frames them as fallacies:
@@ -137,7 +142,7 @@ export interface ValidatedFamilyERequest {
  *   5. Conservative-positives bias reminder (0 to 2 schemes)
  *   6. The input (move text, parent text, thread context)
  *
- * When requestedRawKeys is empty, all 16 Family E keys are included.
+ * When requestedRawKeys is empty, all 19 Family E keys are included.
  *
  * Returns a string — pure, no I/O. The string contains the verbatim
  * caller-redacted move/parent/thread text fields; the caller has already

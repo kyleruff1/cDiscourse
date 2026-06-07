@@ -810,7 +810,8 @@ Deno.test('validateFamilyBooleanRequest-family-e-request-with-rawKey-subset-pass
 
 Deno.test('validateFamilyBooleanRequest-family-e-request-with-empty-rawKeys-passes', () => {
   // Empty requestedRawKeys means "all rawKeys for the requested family" —
-  // the validator accepts; the prompt builder fills in all 16 Family E keys.
+  // the validator accepts; the prompt builder fills in all 19 Family E keys
+  // (16 + 3 MCP-BUILD2e).
   const req = validRequest({
     requestedFamilies: ['argument_scheme'],
     requestedRawKeys: [],

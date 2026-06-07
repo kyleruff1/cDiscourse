@@ -1,5 +1,6 @@
 /**
- * MCP-SERVER-006-FAMILY-E — Family E (argument_scheme) 16-key constant + prompt entries.
+ * MCP-SERVER-006-FAMILY-E + MCP-BUILD2e — Family E (argument_scheme)
+ * 19-key constant + prompt entries.
  *
  * Server-side MIRROR of the upstream Family E registry in
  * `src/features/nodeLabels/machineObservationDefinitions/familyE.ts`. The
@@ -8,8 +9,9 @@
  * `tests/familyEKeysParity.test.ts` (reads BOTH files as source text and
  * fails the build on drift).
  *
- * The 16 rawKeys are the binding contract per MCP-SERVER-006-FAMILY-E intent
- * brief §1. Verbatim, in declaration order (all are NEW; 0 retroactive):
+ * The 19 rawKeys are the binding contract (16 MCP-SERVER-006-FAMILY-E intent
+ * brief §1 + 3 MCP-BUILD2e Build-2 manifest §4). Verbatim, in declaration
+ * order:
  *
  *   1.  causal_reasoning_present (ai_classifier)
  *   2.  analogy_reasoning_present (ai_classifier; DOCTRINE RISK — not "fallacy")
@@ -27,9 +29,13 @@
  *   14. slippery_slope_reasoning_present (ai_classifier; HIGHEST DOCTRINE RISK — not "fallacy")
  *   15. cost_benefit_reasoning_present (ai_classifier)
  *   16. risk_reasoning_present (ai_classifier)
+ *   17. linked_premise_structure (MCP-BUILD2e; ai_classifier; theory term "linked" internal)
+ *   18. convergent_premise_structure (MCP-BUILD2e; ai_classifier; theory term "convergent" internal)
+ *   19. enthymeme_gap_detected (MCP-BUILD2e; ai_classifier; VERDICT-ADJACENT — gap-is-not-a-verdict; theory term "enthymeme" internal)
  *
- * Source breakdown: 16 ai_classifier / 0 auto_metadata / 0 lifecycle (uniform).
- * No Subset filter required (Stage 2B NOT REQUIRED per design §10).
+ * Source breakdown: 19 ai_classifier / 0 auto_metadata / 0 lifecycle (uniform).
+ * No Subset filter required (Stage 2B NOT REQUIRED per design §10). Post-add
+ * classified-key count 19 ≤ MAX_FLAGS_PER_RESPONSE 20 (manifest §0.5 cap OK).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §10a — every entry is a MACHINE OBSERVATION,
@@ -57,7 +63,7 @@
  */
 
 /**
- * The 16 Family E rawKeys, frozen in declaration order. Used by:
+ * The 19 Family E rawKeys, frozen in declaration order. Used by:
  *   - validateFamilyBooleanRequest (rejects unknown rawKeys with
  *     unsupported_rawKey error envelope; routes via familyRegistry)
  *   - validateMcpBooleanObservationResponse (rejects checkedRawKeys
@@ -82,6 +88,10 @@ export const FAMILY_E_RAW_KEYS: readonly string[] = Object.freeze([
   'slippery_slope_reasoning_present',
   'cost_benefit_reasoning_present',
   'risk_reasoning_present',
+  // MCP-BUILD2e (Build-2 manifest §4) — argument-scheme structure booleans.
+  'linked_premise_structure',
+  'convergent_premise_structure',
+  'enthymeme_gap_detected',
 ]);
 
 /** Classifier-set version emitted in modelInfo.classifierSetVersion. */
@@ -367,5 +377,54 @@ export const FAMILY_E_PROMPT_ENTRIES: readonly FamilyEPromptEntry[] = Object.fre
       "Move: 'AI will lead to mass unemployment.' (consequence, not risk)",
     falsePositiveGuards:
       'Do NOT confuse with consequence reasoning — risk involves explicit probability + magnitude framing. DOCTRINE: risk reasoning is a structural scheme; risk arguments rest on probability estimates; the estimate itself can be challenged via evidence (orthogonal to scheme detection).',
+  }),
+  // ── MCP-BUILD2e (Build-2 manifest §4) — argument-scheme structure booleans. ──
+  Object.freeze({
+    rawKey: 'linked_premise_structure',
+    label: 'Premises that depend on each other',
+    booleanQuestion:
+      'Does this move use linked premises (each premise needed; they fail together)?',
+    positiveDefinition:
+      'The move advances its conclusion through premises that are INTERDEPENDENT — each premise is needed and they fail together. Remove any one and the inference collapses.',
+    negativeDefinition:
+      'The move uses premises that each INDEPENDENTLY support the conclusion (that is convergent_premise_structure), or it has a single premise, or no discernible premise structure.',
+    positiveExample:
+      "Move: 'Only if the tax is durable AND enforced does it cut emissions — both are required.'",
+    negativeExample:
+      "Move: 'It works for three independent reasons: cost, equity, and feasibility.' (each reason stands alone — convergent_premise_structure)",
+    falsePositiveGuards:
+      'Linked means the premises FAIL TOGETHER (interdependent); do NOT mark a list of independent reasons (that is convergent_premise_structure). DOCTRINE: this is a structural description of the inference shape, never a quality verdict. The theory term "linked" is internal taxonomy; the output evidenceSpan must anchor the interdependent-premise pattern, never assert the argument is weak / invalid / flawed / wrong.',
+  }),
+  Object.freeze({
+    rawKey: 'convergent_premise_structure',
+    label: 'Premises that each stand alone',
+    booleanQuestion:
+      'Does this move use convergent premises (each premise independently supports the conclusion)?',
+    positiveDefinition:
+      'The move advances its conclusion through premises that are INDEPENDENT — each one supports the conclusion on its own, so any single premise would suffice.',
+    negativeDefinition:
+      'The move uses interdependent premises that fail together (that is linked_premise_structure), or it has a single premise, or no discernible premise structure.',
+    positiveExample:
+      "Move: 'Even if cost weren't an issue, equity alone justifies it; and feasibility alone would too.' (each premise stands on its own)",
+    negativeExample:
+      "Move: 'You need both A and B for this to hold.' (interdependent — linked_premise_structure)",
+    falsePositiveGuards:
+      'Convergent means each premise INDEPENDENTLY supports the conclusion; do NOT mark interdependent premises (that is linked_premise_structure). DOCTRINE: this is a structural description of the inference shape, never a quality verdict. The theory term "convergent" is internal taxonomy; the output must never assert the argument is weak / invalid / flawed / wrong.',
+  }),
+  Object.freeze({
+    rawKey: 'enthymeme_gap_detected',
+    label: 'Relies on an unstated step',
+    booleanQuestion:
+      'Does this move rely on an unstated premise (an enthymeme gap)?',
+    positiveDefinition:
+      "The move's conclusion depends on a LOAD-BEARING premise that the move never states (e.g. 'EVs are clean' — unstated: the grid is clean). The gap is a structural feature of THIS move's inference.",
+    negativeDefinition:
+      "The move states all the premises its conclusion depends on; or a critical-question move that ASKS about a missing premise in the parent (that is Family F's unstated_assumption / missing_warrant, not a gap in this move).",
+    positiveExample:
+      "Move: 'He's an expert, so he's right.' (unstated load-bearing premise: experts in this domain are reliable here)",
+    negativeExample:
+      "Move: 'He's an expert in climate policy, his peers concur, so this estimate is credible.' (the load-bearing premise is stated)",
+    falsePositiveGuards:
+      "The gap must be a LOAD-BEARING unstated premise, not a stylistic omission; do NOT mark every compressed sentence. Distinguish enthymeme_gap_detected (THIS move HAS a gap) from Family F's unstated_assumption (a critical QUESTION about a gap in the parent). DOCTRINE (VERDICT-ADJACENT — gap-is-not-a-verdict): detecting a gap is a STRUCTURAL observation about the move's inference, never a verdict that the argument is weak / wrong / flawed / invalid / bad reasoning / a logical error. A gap is an invitation to state the premise, not a defeat (cdiscourse-doctrine §1). The output describes THIS REPLY, never the author ('this person reasons sloppily' is forbidden). The theory term 'enthymeme' is internal taxonomy; the evidenceSpan must anchor the unstated-step pattern, not any quality judgment.",
   }),
 ]);

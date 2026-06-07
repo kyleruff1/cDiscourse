@@ -2,8 +2,9 @@
  * MCP-SERVER-006-FAMILY-E — validateMcpBooleanObservationResponse Family E tests.
  *
  * The validator is the shared structural validator. This file exercises it
- * against Family E response shapes (16 keys, family-e-v1) to confirm
- * the validator works identically for Family E as it does for Family A/B/C/D.
+ * against Family E response shapes (19 keys post MCP-BUILD2e, family-e-v1) to
+ * confirm the validator works identically for Family E as it does for Family
+ * A/B/C/D.
  */
 import { assertEquals } from 'std/assert/mod.ts';
 import {
@@ -161,10 +162,11 @@ Deno.test('Family E validator: rejects modelInfo with empty classifierSetVersion
   assertEquals(result.ok, false);
 });
 
-Deno.test('Family E validator: accepts full 16-key response', () => {
-  // Build a full 16-key response with each key explicitly false (default state).
-  // The 16 keys MUST fit within the MAX_FLAGS_PER_RESPONSE=20 cap (16 ≤ 20).
-  const SIXTEEN_KEYS = [
+Deno.test('Family E validator: accepts full 19-key response', () => {
+  // MCP-BUILD2e: build a full 19-key response (16 + 3 new structure keys) with
+  // each key explicitly false (default state). The 19 keys MUST fit within the
+  // MAX_FLAGS_PER_RESPONSE=20 cap (19 ≤ 20 — manifest §0.5 cap confirmation).
+  const NINETEEN_KEYS = [
     'causal_reasoning_present',
     'analogy_reasoning_present',
     'example_reasoning_present',
@@ -181,19 +183,22 @@ Deno.test('Family E validator: accepts full 16-key response', () => {
     'slippery_slope_reasoning_present',
     'cost_benefit_reasoning_present',
     'risk_reasoning_present',
+    'linked_premise_structure',
+    'convergent_premise_structure',
+    'enthymeme_gap_detected',
   ];
   const obs: Record<string, boolean> = {};
   const conf: Record<string, string> = {};
   const evid: Record<string, null> = {};
-  for (const key of SIXTEEN_KEYS) {
+  for (const key of NINETEEN_KEYS) {
     obs[key] = false;
     conf[key] = 'medium';
     evid[key] = null;
   }
   const r = {
     schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    nodeId: 'node-e-16',
-    checkedRawKeys: SIXTEEN_KEYS,
+    nodeId: 'node-e-19',
+    checkedRawKeys: NINETEEN_KEYS,
     observations: obs,
     confidence: conf,
     evidenceSpan: evid,
@@ -206,7 +211,7 @@ Deno.test('Family E validator: accepts full 16-key response', () => {
   const result = validateMcpBooleanObservationResponse(r);
   assertEquals(result.ok, true);
   if (result.ok) {
-    assertEquals(result.value.checkedRawKeys.length, 16);
+    assertEquals(result.value.checkedRawKeys.length, 19);
   }
 });
 
@@ -238,9 +243,9 @@ Deno.test('Family E validator: observation key MUST appear in checkedRawKeys', (
 });
 
 Deno.test('Family E validator: rejects observations field with > 20 keys (flag_count_too_high guard)', () => {
-  // The shared validator caps at 20 keys. Family E has 16 binding keys (well
-  // under the cap); this test confirms the cap still applies for inputs that
-  // exceed it.
+  // The shared validator caps at 20 keys. Family E has 19 binding keys post
+  // MCP-BUILD2e (still under the cap); this test confirms the cap still applies
+  // for inputs that exceed it.
   const tooMany = 25;
   const obs: Record<string, boolean> = {};
   const conf: Record<string, string> = {};

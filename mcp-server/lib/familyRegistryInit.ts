@@ -106,11 +106,12 @@ export function initializeFamilyRegistry(): void {
     classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
   });
 
-  // MCP-SERVER-006-FAMILY-E: register argument_scheme with the 16-key
-  // ai_classifier set per design §1 (uniform ai_classifier; Stage 2B NOT
-  // REQUIRED). All 16 Walton (1995, 2008) argumentation schemes are
-  // descriptive structural pattern facts; the doctrine binding lives in
-  // familyEPrompt.ts + familyEBanListScan.ts.
+  // MCP-SERVER-006-FAMILY-E + MCP-BUILD2e: register argument_scheme with the
+  // 19-key ai_classifier set (16 Walton schemes + 3 MCP-BUILD2e
+  // argument-structure booleans) per design §1 + Build-2 manifest §4 (uniform
+  // ai_classifier; Stage 2B NOT REQUIRED). All entries are descriptive
+  // structural pattern facts; the doctrine binding lives in familyEPrompt.ts +
+  // familyEBanListScan.ts.
   register('argument_scheme', {
     rawKeys: new Set(FAMILY_E_RAW_KEYS),
     classifierSetVersion: FAMILY_E_CLASSIFIER_SET_VERSION,
