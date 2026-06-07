@@ -58,11 +58,11 @@ import { DEFAULT_VIEW_MODE } from './src/features/arguments/viewModeCopy';
 // The component itself (src/features/devEnvironment/DevEnvironmentBanner.tsx)
 // is intact for later reinstatement if a release surface needs it again.
 import { AppHeader } from './src/components/AppHeader';
-// NAV-START-ARGUMENT-001 Slice B — global header / masthead primary nav.
-// Mounted once inside MainAppShell so the centered primary nav (Start An
-// Argument · Browse Arguments · My Arguments · Profile), the upper-right
-// About entry, and the lower-right copyright appear on every normal
-// authenticated page. State-only — drives the in-memory shell state via
+// NAV-HEADER-INLINE-001 (refines NAV-START-ARGUMENT-001 Slice B) — the
+// stylized primary nav (Start An Argument · Browse Arguments · My Arguments
+// · Profile, plus About top-right + copyright lower-right) is mounted INSIDE
+// the masthead via the AppHeader navSlot so the logo and the nav share one
+// header container. State-only — drives the in-memory shell state via
 // resolvePrimaryNavTransition; NO router (TL-003 / COMPOSER-002 invariant).
 import {
   AppPrimaryNav,
@@ -233,6 +233,36 @@ function AppRoot() {
     dispatch({ type: 'SIGNED_OUT' });
   }, [dispatch]);
 
+  // BRAND-001 — Tapping the header logo deselects the active debate and
+  // returns to the gallery. Implemented by re-dispatching SIGNED_IN
+  // (the same path `useCurrentDebate.deselectDebate` uses). No router,
+  // so the TL-003 no-route invariant is preserved.
+  //
+  // NAV-HEADER-INLINE-001 — declared above the `content` block so the
+  // signed-in MainAppShell can receive it (and the gear) as props and host
+  // the integrated masthead itself.
+  const handleHomePress = React.useCallback(() => {
+    if (userId) {
+      dispatch({ type: 'SIGNED_IN', userId });
+    }
+  }, [dispatch, userId]);
+
+  // PR-001 — the header gear. Only rendered while signed in (the popout
+  // is a signed-in self-service surface only).
+  const preferencesTrigger = signedIn ? (
+    <Pressable
+      testID="preferences-trigger"
+      onPress={() => setPreferencesOpen(true)}
+      accessibilityRole="button"
+      accessibilityLabel={PREFERENCES_COPY.triggerLabel}
+      accessibilityHint={PREFERENCES_COPY.triggerHint}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      style={styles.preferencesTrigger}
+    >
+      <Text style={styles.preferencesTriggerGlyph}>⚙</Text>
+    </Pressable>
+  ) : undefined;
+
   let content: React.ReactNode;
   if (state.status === 'unconfigured') {
     content = <LoadingNotice message="Starting…" />;
@@ -262,43 +292,37 @@ function AppRoot() {
         preferences={prefs}
         acceptedInviteDebateId={acceptedDebateId}
         onAcceptedInviteConsumed={() => setAcceptedDebateId(null)}
+        onHomePress={handleHomePress}
+        headerRightSlot={preferencesTrigger}
       />
     );
   }
-
-  // BRAND-001 — Tapping the header logo deselects the active debate and
-  // returns to the gallery. Implemented by re-dispatching SIGNED_IN
-  // (the same path `useCurrentDebate.deselectDebate` uses). No router,
-  // so the TL-003 no-route invariant is preserved.
-  const handleHomePress = React.useCallback(() => {
-    if (userId) {
-      dispatch({ type: 'SIGNED_IN', userId });
-    }
-  }, [dispatch, userId]);
-
-  // PR-001 — the header gear. Only rendered while signed in (the popout
-  // is a signed-in self-service surface only).
-  const preferencesTrigger = signedIn ? (
-    <Pressable
-      testID="preferences-trigger"
-      onPress={() => setPreferencesOpen(true)}
-      accessibilityRole="button"
-      accessibilityLabel={PREFERENCES_COPY.triggerLabel}
-      accessibilityHint={PREFERENCES_COPY.triggerHint}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      style={styles.preferencesTrigger}
-    >
-      <Text style={styles.preferencesTriggerGlyph}>⚙</Text>
-    </Pressable>
-  ) : undefined;
+  // NAV-HEADER-INLINE-001 — the signed-in shell owns its own masthead so
+  // the primary nav can render INSIDE the AppHeader container (the masthead
+  // carries the nav). AppRoot therefore renders the bare AppHeader only for
+  // the non-shell session states (unconfigured / signed_out / invite),
+  // where there is no authenticated primary nav to integrate. This avoids a
+  // double header while keeping AppHeader mounted from App.tsx.
+  const showRootHeader = !(
+    state.status !== 'unconfigured' &&
+    state.status !== 'signed_out' &&
+    !pendingInviteIntent
+  );
 
   // BRAND-001 — global dark backdrop. AppHeader docks at the top of every
   // screen. The DevEnvironmentBanner mount was removed (see import-block
   // note above); the component file is unchanged and can be remounted
   // when an operator wants the build-info ribbon back.
+  //
+  // NAV-HEADER-INLINE-001 — for the signed-in shell the masthead (with the
+  // integrated primary nav) is rendered INSIDE MainAppShell, so AppRoot
+  // skips its bare AppHeader there to avoid a double header. The bare
+  // header still renders for the unconfigured / signed_out / invite states.
   return (
     <SafeAreaView style={styles.appRoot}>
-      <AppHeader onHomePress={handleHomePress} rightSlot={preferencesTrigger} />
+      {showRootHeader ? (
+        <AppHeader onHomePress={handleHomePress} rightSlot={preferencesTrigger} />
+      ) : null}
       <View style={styles.appRootContent}>{content}</View>
       {signedIn ? (
         <PreferencesPopout
@@ -349,12 +373,26 @@ interface MainAppShellProps {
    */
   acceptedInviteDebateId?: string | null;
   onAcceptedInviteConsumed?: () => void;
+  /**
+   * NAV-HEADER-INLINE-001 — logo-tap handler, threaded from AppRoot so the
+   * shell can host its own integrated masthead (logo + inline primary nav).
+   * State-only deselect; no router.
+   */
+  onHomePress?: () => void;
+  /**
+   * NAV-HEADER-INLINE-001 — the header right slot (PR-001 preferences gear),
+   * threaded from AppRoot so the gear keeps living at the right edge of the
+   * masthead even though the masthead is now rendered by the shell.
+   */
+  headerRightSlot?: React.ReactNode;
 }
 
 function MainAppShell({
   preferences,
   acceptedInviteDebateId,
   onAcceptedInviteConsumed,
+  onHomePress,
+  headerRightSlot,
 }: MainAppShellProps) {
   const { state, dispatch } = useAppSession();
   const { signOut, loading: signOutLoading } = useAuthSession();
@@ -603,16 +641,24 @@ function MainAppShell({
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
 
-      {/* NAV-START-ARGUMENT-001 Slice B — global primary navigation. Lives in
-          the shared shell so it appears on every normal authenticated page
-          (gallery / Start Argument / room / Timeline / Card / My Arguments /
-          Profile / About). Each item drives the in-memory shell state via
+      {/* NAV-HEADER-INLINE-001 — the masthead carries the primary nav. The
+          large logo lockup (logo + anchored tagline) and the stylized
+          primary nav (Start An Argument · Browse Arguments · My Arguments ·
+          Profile, plus About top-right + copyright lower-right) share ONE
+          AppHeader container — the nav is INSIDE the masthead, not a strip
+          beneath it. Each item drives the in-memory shell state via
           handlePrimaryNav (no router). The Admin / Debug tabs stay in the
           role-gated secondary tab row below and are NEVER part of this
           public primary nav. */}
-      <AppPrimaryNav
-        activeSection={activePrimarySection}
-        onNavigate={handlePrimaryNav}
+      <AppHeader
+        onHomePress={onHomePress}
+        rightSlot={headerRightSlot}
+        navSlot={
+          <AppPrimaryNav
+            activeSection={activePrimarySection}
+            onNavigate={handlePrimaryNav}
+          />
+        }
       />
 
       {/* Top tab bar. UX-001.2 — hidden when a room is active so the Timeline

@@ -1,21 +1,35 @@
 /**
- * NAV-START-ARGUMENT-001 Slice B — global header / masthead primary nav.
+ * NAV-HEADER-INLINE-001 — stylized primary nav, rendered INSIDE the masthead.
  *
- * Presentational. Lives in the shared app shell (mounted once in App.tsx)
- * so the primary navigation appears on every normal authenticated page —
- * Arguments / Start Argument / Timeline / Card / room / My Arguments /
- * Profile / About — without being copied per-screen.
+ * (Refines NAV-START-ARGUMENT-001 Slice B / PR #527.)
  *
- * Layout (operator screenshot + spec):
- *   ┌────────────────────────────────────────────────────────────┐
- *   │ [LOGO]                  primary nav (centered)   About → │  ← upper-right
- *   │  tagline                                       cdiscourse… │  ← copyright lower-right
- *   └────────────────────────────────────────────────────────────┘
+ * Presentational. The shell mounts this into AppHeader's `navSlot` so the
+ * primary navigation is part of the masthead/header region itself — a
+ * single cohesive, stylized nav bar that shares the header container with
+ * the large logo lockup. It is NOT a separate strip rendered beneath the
+ * header.
  *
- * The large logo + tagline lockup is owned by AppHeader (rendered above
- * this strip). THIS component renders the navigation row, the upper-right
- * About entry, and the lower-right copyright/site mark, so the masthead
- * grid keeps logo / nav / tagline / copyright from overlapping.
+ * Layout (operator feedback 2026-06-06):
+ *   ┌──────────────── masthead (AppHeader) ─────────────────────────────┐
+ *   │ [LOGO]      ┌──── this stylized nav bar ────────────┐      [gear] │
+ *   │  ...tagline │ Start · Browse · My Args · Profile  About → │        │
+ *   │             │                                cdiscourse… │        │
+ *   │             └──────────────────────────────────────────┘         │
+ *   └────────────────────────────────────────────────────────────────────┘
+ *
+ *   - large logo left (owned by AppHeader)
+ *   - stylized primary nav inline in the masthead (this component)
+ *   - About CivilDiscourse top-right of the bar
+ *   - copyright lower-right of the bar
+ *   - the tagline stays anchored to the logo lockup (AppHeader), it does
+ *     NOT float into the nav
+ *
+ * Stylization (the "more stylized" ask): a real bar with its own elevated
+ * panel background, a hairline outline + bottom rule, generous spacing,
+ * and three distinct item states (resting · selected · pressed). The
+ * selected state is carried by weight + a leading ● marker + an underline
+ * indicator in addition to color, so it survives a grayscale snapshot
+ * (doctrine / accessibility).
  *
  * Doctrine + invariants:
  *   - Every nav item is a real <Pressable> with accessibilityRole="button",
@@ -65,12 +79,18 @@ interface AppPrimaryNavProps {
 export function AppPrimaryNav({ activeSection, onNavigate, bandOverride }: AppPrimaryNavProps) {
   const breakpoint = useHeaderBreakpoint();
   const band: Band = bandOverride ?? breakpoint.band;
-  // On phone the nav wraps to two rows; on tablet/wide it sits on one row.
+  // On phone the bar stacks (nav row, then About + copyright row) so the
+  // logo / nav / tagline / About / copyright never overlap; on tablet /
+  // wide the nav sits on the left of the bar and About + copyright anchor
+  // to the right of the same row.
   const isPhone = band === 'phone';
 
   return (
-    <View style={styles.root} testID="app-primary-nav">
-      {/* Centered primary nav row. */}
+    <View
+      style={[styles.root, isPhone && styles.rootPhone]}
+      testID="app-primary-nav"
+    >
+      {/* Primary nav row. */}
       <View
         style={[styles.navRow, isPhone && styles.navRowPhone]}
         accessibilityRole="tablist"
@@ -89,8 +109,10 @@ export function AppPrimaryNav({ activeSection, onNavigate, bandOverride }: AppPr
         ))}
       </View>
 
-      {/* Upper-right: About CivilDiscourse (public/user-facing). */}
-      <View style={styles.upperRight}>
+      {/* Right cluster: About (top) + copyright (below). On tablet / wide
+          this anchors to the right edge of the bar; on phone it wraps to a
+          second row aligned right. */}
+      <View style={[styles.rightCluster, isPhone && styles.rightClusterPhone]}>
         <PrimaryNavItem
           section="about"
           label={PRIMARY_NAV_LABELS.about}
@@ -99,10 +121,7 @@ export function AppPrimaryNav({ activeSection, onNavigate, bandOverride }: AppPr
           onPress={() => onNavigate('about')}
           testID="app-primary-nav-about"
         />
-      </View>
-
-      {/* Lower-right: copyright / site mark. Decorative text — not a button. */}
-      <View style={styles.lowerRight}>
+        {/* Copyright / site mark. Decorative text — not a button. */}
         <Text style={styles.copyright} testID="app-primary-nav-copyright" accessibilityRole="text">
           {APP_COPYRIGHT_TEXT}
         </Text>
@@ -157,39 +176,60 @@ function PrimaryNavItem({
           {label}
         </Text>
       </View>
+      {/* Underline indicator — a second non-color cue for the active item.
+          Always present (transparent when resting) so the row height does
+          not shift between states; only its color changes when active. */}
+      <View
+        style={[styles.itemUnderline, active && styles.itemUnderlineOn]}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // The stylized bar. An elevated panel with a hairline outline + bottom
+  // rule so it reads as a real, polished nav bar inside the dark masthead
+  // (not plain stacked text buttons). On tablet / wide the nav sits left,
+  // the About + copyright cluster anchors right, on one row.
   root: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: SPACING.s,
     backgroundColor: BRAND.surface.appElevated.bg,
-    borderBottomWidth: 1,
-    borderBottomColor: BRAND.accent.creamHairline,
+    borderWidth: 1,
+    borderColor: BRAND.accent.creamHairline,
+    borderRadius: RADIUS.lg,
+    borderBottomWidth: 2,
+    borderBottomColor: SURFACE_TOKENS.focusRing,
     paddingHorizontal: SPACING.m,
     paddingVertical: SPACING.s,
   },
-  // Centered nav row. Tablet/wide: single centered row. Phone: wraps.
+  rootPhone: {
+    // Phone: stack the nav row above the About + copyright cluster.
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    flexWrap: 'nowrap',
+  },
+  // Primary nav row. Tablet / wide: single row, left-aligned. Phone: wraps.
   navRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: SPACING.s,
-    // Reserve right space so the centered row does not collide with the
-    // absolutely-positioned About / copyright on tablet/wide.
-    paddingRight: SPACING.l,
+    gap: SPACING.xs,
   },
   navRowPhone: {
     justifyContent: 'flex-start',
-    paddingRight: 0,
   },
   item: {
     minHeight: TOUCH_TARGET.minSizePx,
     minWidth: TOUCH_TARGET.minSizePx,
     justifyContent: 'center',
     paddingHorizontal: SPACING.m,
-    paddingVertical: SPACING.s,
+    paddingVertical: SPACING.xs,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -198,7 +238,7 @@ const styles = StyleSheet.create({
     borderColor: SURFACE_TOKENS.focusRing,
     backgroundColor: BRAND.surface.app.bg,
   },
-  itemPressed: { opacity: 0.8 },
+  itemPressed: { opacity: 0.7 },
   itemInner: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   itemMarker: { fontSize: 11, color: SURFACE_TOKENS.focusRing, minWidth: 8 },
   itemMarkerOn: { color: SURFACE_TOKENS.focusRing },
@@ -211,15 +251,26 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: BRAND.text.primary,
   },
-  upperRight: {
-    position: 'absolute',
-    top: SPACING.xs,
-    right: SPACING.m,
+  // Underline indicator: a grayscale-legible active cue. Transparent when
+  // resting (reserves height), focus-ring colored when active.
+  itemUnderline: {
+    height: 2,
+    marginTop: 2,
+    borderRadius: RADIUS.sm,
+    backgroundColor: 'transparent',
   },
-  lowerRight: {
-    position: 'absolute',
-    bottom: SPACING.xs,
-    right: SPACING.m,
+  itemUnderlineOn: {
+    backgroundColor: SURFACE_TOKENS.focusRing,
+  },
+  // Right cluster: About (top) + copyright (below), anchored right.
+  rightCluster: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+  },
+  rightClusterPhone: {
+    alignItems: 'flex-end',
+    alignSelf: 'flex-end',
   },
   copyright: {
     fontSize: 11,
