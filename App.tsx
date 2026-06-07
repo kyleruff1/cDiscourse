@@ -628,6 +628,17 @@ function MainAppShell({
                 setEntryHint(hint || null);
                 selectDebate(debate, side);
               }}
+              // NAV-START-ARGUMENT-001 Slice A — after the Start Argument
+              // page creates a room (via the existing `create` path above),
+              // open it into the surface the author chose. Internal view id
+              // `stack` is the user-facing "Cards" view (see viewModeCopy).
+              // The creator is the room moderator (createDebate auto-joins
+              // them as moderator), so we select with that side.
+              onCreatedWithSurface={(debate, surface) => {
+                setEntryHint(null);
+                setViewMode(surface === 'card' ? 'stack' : 'timeline');
+                selectDebate(debate, 'moderator');
+              }}
             />
           </View>
         )}

@@ -11,7 +11,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Debate, CreateDebateInput, ParticipantSide } from './types';
-import { CreateDebateForm } from './CreateDebateForm';
+// NAV-START-ARGUMENT-001 Slice A — the New Argument surface is replaced by
+// the declaration-first Start Argument page. CreateDebateForm is no longer
+// rendered here.
+import { StartArgumentPage } from '../arguments/startArgument';
+import type { StartArgumentSurface } from '../arguments/startArgument';
 import { JoinDebatePanel } from './JoinDebatePanel';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
@@ -58,6 +62,13 @@ interface Props {
    * ignore it.
    */
   onSelect: (debate: Debate, side: ParticipantSide, entryHint?: GalleryEntryHint) => void;
+  /**
+   * NAV-START-ARGUMENT-001 Slice A: after the Start Argument page creates a
+   * room, the caller opens that room into the surface the author chose
+   * (timeline → Timeline view; card → Cards view). Optional — when omitted,
+   * the gallery just dismisses the page on create.
+   */
+  onCreatedWithSurface?: (debate: Debate, surface: StartArgumentSurface) => void;
 }
 
 const SORT_OPTIONS: { id: ConversationSortMode; label: string }[] = [
@@ -117,6 +128,7 @@ export function ConversationGalleryScreen({
   onCreate,
   onJoin,
   onSelect,
+  onCreatedWithSurface,
 }: Props) {
   const [search, setSearch] = useState('');
   const [activeLane, setActiveLane] = useState<ConversationGallerySection | 'all'>('all');
@@ -175,12 +187,17 @@ export function ConversationGalleryScreen({
     );
   }
   if (showCreate) {
+    // NAV-START-ARGUMENT-001 Slice A — declaration-first Start Argument page
+    // replaces the old New Argument form. `onCreate` is the SAME existing
+    // creation path; the chosen surface flows to the room shell so the
+    // author lands in the matching view.
     return (
-      <CreateDebateForm
+      <StartArgumentPage
         onCancel={() => setShowCreate(false)}
-        onSubmit={async (input: CreateDebateInput) => {
-          const created = await onCreate(input);
-          if (created) setShowCreate(false);
+        onCreate={onCreate}
+        onCreated={(created, surface) => {
+          setShowCreate(false);
+          onCreatedWithSurface?.(created, surface);
         }}
       />
     );
