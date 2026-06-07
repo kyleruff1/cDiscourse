@@ -328,9 +328,9 @@ const SECTIONS = Object.freeze([
   },
   {
     id: 'q15-family-d-subset-coverage',
-    title: 'Family D 19-key subset coverage',
+    title: 'Family D 22-key subset coverage',
     question:
-      'Q15 — Are all observed Family D raw_keys within the 19-key ai_classifier Subset, with zero deterministic-key leaks?',
+      'Q15 — Are all observed Family D raw_keys within the 22-key ai_classifier Subset, with zero deterministic-key leaks?',
     sqlFile: '15-family-d-subset-coverage.sql',
     columns: [
       'raw_key',

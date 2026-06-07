@@ -133,12 +133,15 @@ describe('MCP-SERVER-008A-FAMILY-G Edge → MCP subset filter (Stage 2B fix)', (
     }
   });
 
-  it('SFG-7 — Family D subset behavior is unchanged (still exactly 19 ai_classifier rawKeys)', () => {
+  it('SFG-7 — Family D subset is the 22-key ai_classifier set (post MCP-BUILD2d; source filter still applies)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_G_BASE_INPUT,
       requestedFamilies: ['evidence_source_chain'],
     });
-    expect(req.requestedRawKeys.length).toBe(19);
+    // MCP-BUILD2d: Family D Subset 19 → 22 (the source filter still excludes the
+    // 8 deterministic keys; the 3 new keys are ai_classifier). 22 > the 20-key
+    // cap, so the chunker downstream splits it into 2 batches.
+    expect(req.requestedRawKeys.length).toBe(22);
   });
 
   it('SFG-8 — E/F uniform ai_classifier families remain full passthrough (no filter entry needed; unaffected)', () => {

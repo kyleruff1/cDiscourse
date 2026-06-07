@@ -95,12 +95,13 @@ export function initializeFamilyRegistry(): void {
     classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
   });
 
-  // MCP-SERVER-005-FAMILY-D: register evidence_source_chain with the
-  // 19-key ai_classifier Subset per Stage 2B operator binding decision.
-  // The 8 deterministic Family D rawKeys (5 auto_metadata + 3 lifecycle)
-  // are intentionally excluded; requesting any of them under
+  // MCP-SERVER-005-FAMILY-D + MCP-BUILD2d: register evidence_source_chain
+  // with the 22-key ai_classifier Subset (19 Stage 2B + 3 MCP-BUILD2d). The
+  // 8 deterministic Family D rawKeys (5 auto_metadata + 3 lifecycle) remain
+  // intentionally excluded; requesting any of them under
   // requestedFamilies=['evidence_source_chain'] returns unsupported_rawKey
-  // at the registry boundary.
+  // at the registry boundary. 22 > the 20-key cap, so the Edge serves Family
+  // D in 2 batches (16 + 6); the registry holds the full 22-key Subset.
   register('evidence_source_chain', {
     rawKeys: new Set(FAMILY_D_RAW_KEYS),
     classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,

@@ -567,8 +567,10 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       runs: 2,
       positives: 4,
       raw_keys_observed: 2,
-      family_key_count: 19,
-      positives_per_run_key_cell: 0.1053,
+      // MCP-BUILD2d: evidence_source_chain Subset 19 → 22. Density recomputed:
+      // 4 / (2 runs × 22 keys) = 0.0909.
+      family_key_count: 22,
+      positives_per_run_key_cell: 0.0909,
     }),
     Object.freeze({
       family: 'misunderstanding_repair',

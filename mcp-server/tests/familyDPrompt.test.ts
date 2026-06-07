@@ -2,7 +2,7 @@
  * MCP-SERVER-005-FAMILY-D — Family D prompt structure + doctrine ban-list scan tests.
  *
  * Critical invariants:
- *   - Prompt includes all 19 Family D Subset rawKeys (when requestedRawKeys is empty)
+ *   - Prompt includes all 22 Family D Subset rawKeys (when requestedRawKeys is empty)
  *   - Prompt includes each rawKey's booleanQuestion + positiveDefinition +
  *     negativeDefinition + positiveExample + negativeExample + falsePositiveGuards
  *   - Prompt instructs the model to return confidence on every positive flag
@@ -131,7 +131,7 @@ Deno.test('Family D TEMPERATURE / MAX_BODY_FIELD_LEN constants are set correctly
   assertEquals(FAMILY_D_MAX_BODY_FIELD_LEN, 8000);
 });
 
-Deno.test('Family D user prompt (default request) includes all 19 Subset rawKeys', () => {
+Deno.test('Family D user prompt (default request) includes all 22 Subset rawKeys', () => {
   const prompt = buildFamilyDUserPrompt(buildRequest());
   for (const rawKey of FAMILY_D_RAW_KEYS) {
     if (!prompt.includes(rawKey)) {
@@ -205,8 +205,8 @@ Deno.test('Family D user prompt includes Subset-path note (8 deterministic keys 
   if (!prompt.includes('Note about the Subset path')) {
     throw new Error('Family D prompt missing Subset-path note header');
   }
-  if (!prompt.includes('19 ai-classifier')) {
-    throw new Error('Family D prompt missing 19 ai-classifier description');
+  if (!prompt.includes('22 ai-classifier')) {
+    throw new Error('Family D prompt missing 22 ai-classifier description');
   }
   if (!prompt.includes('do NOT infer or emit')) {
     throw new Error('Family D prompt missing do-NOT-infer-deterministic instruction');
@@ -474,7 +474,7 @@ Deno.test('DOCTRINE BAN-LIST scan: Family D system prompt contains banned tokens
 });
 
 Deno.test('DOCTRINE BAN-LIST scan: Family D user prompt contains no banned tokens outside doctrine-positive negations or descriptive vocabulary', () => {
-  // The user prompt iterates 19 Family D per-rawKey entries. Banned tokens
+  // The user prompt iterates 22 Family D per-rawKey entries. Banned tokens
   // can appear as:
   //   (a) doctrine-positive negations ("MUST NOT", "Do NOT", "You do NOT",
   //       "does NOT imply", "never implies", "NOT decide", "NOT treat",

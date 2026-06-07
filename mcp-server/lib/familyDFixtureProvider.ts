@@ -1,12 +1,22 @@
 /**
- * MCP-SERVER-005-FAMILY-D — Family D fixture provider for offline smoke testing.
+ * MCP-SERVER-005-FAMILY-D + MCP-BUILD2d — Family D fixture provider for
+ * offline smoke testing.
  *
- * Activated when `MCP_SERVER_USE_FIXTURE_PROVIDER=true`. Loads the canonical
- * Family D response from
- * `fixtures/classify-argument-boolean-observations.family-d-canonical-response.json`
+ * Activated when `MCP_SERVER_USE_FIXTURE_PROVIDER=true`. Loads the Family D
+ * BATCH-0 response from
+ * `fixtures/classify-argument-boolean-observations.family-d-batch0-response.json`
  * and returns it as the model "response". No real Anthropic call, no token
  * consumption — used by the smoke script (Checks 14 + 15) to verify the
  * full request lifecycle without a real key.
+ *
+ * MCP-BUILD2d NOTE: the full Family D Subset is now 22 keys (> the
+ * per-response cap of 20), so the Edge splits it into 2 batches (16 + 6).
+ * The mcp-server only ever serves a single BATCH per call; this provider
+ * therefore returns the valid 16-key batch-0 response (the previous canonical
+ * 19-key response is superseded by the per-batch fixtures — the canonical
+ * 22-key fixture is now the MERGED reference, not a single wire response, and
+ * would trip the 20-key validator if served whole). The merged 22-key result
+ * is assembled at the Edge after both batches return.
  *
  * PRODUCTION DEPLOYS MUST NOT SET THE FLAG. The runbook documents the kill
  * switch behavior.
@@ -17,7 +27,7 @@
 import { log } from './logging.ts';
 
 const FIXTURE_PATH = new URL(
-  '../fixtures/classify-argument-boolean-observations.family-d-canonical-response.json',
+  '../fixtures/classify-argument-boolean-observations.family-d-batch0-response.json',
   import.meta.url,
 );
 

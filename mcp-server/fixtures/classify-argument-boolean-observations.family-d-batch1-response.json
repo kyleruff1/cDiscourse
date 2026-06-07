@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-mainline-d-001",
+  "checkedRawKeys": [
+    "quote_provided",
+    "separates_observation_from_inference",
+    "source_chain_repair",
+    "source_provided",
+    "statistic_used",
+    "supplies_corroborating_document"
+  ],
+  "observations": {
+    "quote_provided": false,
+    "separates_observation_from_inference": false,
+    "source_chain_repair": false,
+    "source_provided": true,
+    "statistic_used": true,
+    "supplies_corroborating_document": false
+  },
+  "confidence": {
+    "quote_provided": "medium",
+    "separates_observation_from_inference": "medium",
+    "source_chain_repair": "medium",
+    "source_provided": "high",
+    "statistic_used": "high",
+    "supplies_corroborating_document": "medium"
+  },
+  "evidenceSpan": {
+    "quote_provided": null,
+    "separates_observation_from_inference": null,
+    "source_chain_repair": null,
+    "source_provided": "2024 EPA report Table 3.1",
+    "statistic_used": "40% drop in tailpipe emissions from 2020 to 2023",
+    "supplies_corroborating_document": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-d-v1"
+  }
+}

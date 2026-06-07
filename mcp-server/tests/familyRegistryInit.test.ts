@@ -41,8 +41,8 @@ Deno.test('familyRegistryInit-registers-family-c-on-import', () => {
 
 Deno.test('familyRegistryInit-registers-family-d-on-import', () => {
   // MCP-SERVER-005-FAMILY-D added the fourth register() call (Subset path,
-  // 19 ai_classifier rawKeys). Family D must be present in the singleton
-  // after the side-effect import.
+  // 22 ai_classifier rawKeys post MCP-BUILD2d). Family D must be present in
+  // the singleton after the side-effect import.
   assertEquals(isFamilySupported('evidence_source_chain'), true);
 });
 
@@ -100,9 +100,12 @@ Deno.test('familyRegistryInit-family-c-has-20-rawKeys', () => {
   assertEquals(rawKeys.size, 20);
 });
 
-Deno.test('familyRegistryInit-family-d-has-19-rawKeys-Subset', () => {
+Deno.test('familyRegistryInit-family-d-has-22-rawKeys-Subset', () => {
+  // MCP-BUILD2d (Build-2 manifest §3): 19 → 22 evidence_source_chain Subset
+  // booleans. 22 > the 20-key cap, so the Edge serves Family D in 2 batches
+  // (16 + 6); the registry still holds the full 22-key Subset.
   const rawKeys = getRawKeysForFamily('evidence_source_chain');
-  assertEquals(rawKeys.size, 19);
+  assertEquals(rawKeys.size, 22);
 });
 
 Deno.test('familyRegistryInit-family-e-has-19-rawKeys', () => {

@@ -159,7 +159,7 @@ describe('OPS-MCP-OBSERVABILITY — multi-family aggregation', () => {
     expect(keyCountByFamily.parent_relation).toBe(19); // MCP-BUILD2b: 16 → 19
     expect(keyCountByFamily.disagreement_axis).toBe(17); // MCP-BUILD2a: 14 → 17
     expect(keyCountByFamily.misunderstanding_repair).toBe(20); // MCP-BUILD2c: 17 → 20
-    expect(keyCountByFamily.evidence_source_chain).toBe(19);
+    expect(keyCountByFamily.evidence_source_chain).toBe(22); // MCP-BUILD2d: 19 → 22
   });
 
   it('Q15 (Family D subset coverage) — observed raw_keys are all in the ai_classifier_subset bucket', () => {

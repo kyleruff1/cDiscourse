@@ -8,10 +8,10 @@
  *   - Group B: Q14 new file + 7-column report-parser contract + hardcoded
  *     family_key_count CASE (16/14/17/19) + nullif zero-guard + header
  *     citations to the source-of-truth family*Keys.ts files.
- *   - Group C: Q15 new file + 19-vs-27 distinction in header + verbatim
- *     19-key ai_classifier Subset list + 6-key deterministic-excluded
- *     list + 3-bucket subset_membership classification + leak-first
- *     ORDER BY.
+ *   - Group C: Q15 new file + 22-vs-30 distinction in header (post MCP-BUILD2d;
+ *     was 19-vs-27) + verbatim 22-key ai_classifier Subset list + 6-key
+ *     deterministic-excluded list + 3-bucket subset_membership classification
+ *     + leak-first ORDER BY.
  *   - Group D: cross-section invariants (SECTIONS length 16, ordered
  *     ids, 4-family doctrine note in each new header, no banned tokens).
  *   - Group E: fixture compatibility (renamed Q11 key, new Q14/Q15
@@ -86,8 +86,9 @@ const BANNED_TOKENS = [
   'incorrect',
 ];
 
-// 19-key ai_classifier Subset (FAMILY_D_RAW_KEYS at
-// mcp-server/lib/familyDKeys.ts:85-105) in declaration order.
+// 22-key ai_classifier Subset (FAMILY_D_RAW_KEYS at
+// mcp-server/lib/familyDKeys.ts:85-105) in declaration order (19 baseline + 3
+// MCP-BUILD2d). 22 > the 20-key cap, so the Edge serves Family D in 2 batches.
 const FAMILY_D_SUBSET_KEYS = [
   'asks_for_evidence',
   'provides_evidence',
@@ -108,6 +109,10 @@ const FAMILY_D_SUBSET_KEYS = [
   'external_authority_used',
   'evidence_quality_questioned',
   'burden_request_present',
+  // MCP-BUILD2d additions (Subset 19 → 22).
+  'names_method_difference',
+  'separates_observation_from_inference',
+  'flags_context_limit',
 ];
 
 // 6 deterministic-excluded unique strings (FAMILY_D_EXCLUDED_DETERMINISTIC_RAW_KEYS
@@ -264,7 +269,9 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group B: Q14 density math'
     expect(stripped).toContain("when 'disagreement_axis' then 17");
     // MCP-BUILD2c: misunderstanding_repair 17 → 20 (+3 repair-quality booleans).
     expect(stripped).toContain("when 'misunderstanding_repair' then 20");
-    expect(stripped).toContain("when 'evidence_source_chain' then 19");
+    // MCP-BUILD2d: evidence_source_chain Subset 19 → 22 (+3 evidence-dynamic
+    // booleans; 22 > the 20-key cap → served in 2 batches at the Edge).
+    expect(stripped).toContain("when 'evidence_source_chain' then 22");
     // MCP-BUILD2e: argument_scheme 16 → 19 (+3 argument-structure booleans).
     expect(stripped).toContain("when 'argument_scheme' then 19");
     // MCP-BUILD2f: critical_question 14 → 17 (+3 question-quality booleans).
@@ -318,14 +325,14 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group C: Q15 Family D subs
     expect(fs.existsSync(Q15_PATH)).toBe(true);
   });
 
-  it('Q15 SQL header documents the 19-vs-27 distinction explicitly', () => {
+  it('Q15 SQL header documents the 22-vs-30 distinction explicitly (post MCP-BUILD2d)', () => {
     const src = readFile(Q15_PATH);
-    // The header references the 19/27 distinction and the ai_classifier
-    // Subset terminology. Case-insensitive search across the header
-    // narrative.
+    // MCP-BUILD2d: the Subset is now 22 (was 19); the upstream taxonomy is 30
+    // (was 27). The header references the 22/30 distinction and the
+    // ai_classifier Subset terminology. Case-insensitive across the header.
     const lower = src.toLowerCase();
-    expect(lower).toContain('19');
-    expect(lower).toContain('27');
+    expect(lower).toContain('22');
+    expect(lower).toContain('30');
     expect(lower).toContain('ai_classifier');
     expect(lower).toContain('subset');
   });
@@ -592,7 +599,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group E: fixture compatibi
     // The new sections render as their titles.
     expect(md).toContain('## Per-family per-mode coverage');
     expect(md).toContain('## Per-family per-mode signal density');
-    expect(md).toContain('## Family D 19-key subset coverage');
+    expect(md).toContain('## Family D 22-key subset coverage');
   });
 
   it('runner JSON artifact has rows for the new sections', () => {

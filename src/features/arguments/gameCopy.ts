@@ -746,6 +746,50 @@ export const PLAIN_LANGUAGE_COPY = {
   // ── curated_triple: all 3 question-quality flags ──
   'critical_question.curated_triple.question_names_uncertainty.question_separates_claim_evidence.question_invites_revision':
     'This reply poses a question that names a specific source of uncertainty, separates the claim from the evidence for it, and leaves room to refine the point; this is a constructive move, not a concern about the other reply.',
+  // MCP-BUILD2d (Family D evidence_source_chain expansion) — plain-language for
+  // the 3 new evidence-dynamic booleans' mapping rows. Every value is
+  // verdict-free, move-level, and describes the MOVE never the author. No
+  // underscores (the registry review-gate asserts the displayed string is
+  // snake-free). EVIDENCE-DOCTRINE FENCE: each value surfaces an evidence
+  // DYNAMIC (method difference / observation-vs-inference / context limit) and
+  // NEVER grants or denies factual standing or truth (anti-amplification module
+  // untouched).
+  // ── names_method_difference ──
+  'evidence_source_chain.single_true.names_method_difference':
+    'This reply names a difference in method or measurement between two pieces of evidence.',
+  'evidence_source_chain.single_false.names_method_difference':
+    'This reply does not name a method or measurement difference; this is only an observation about its structure, not a concern.',
+  // ── separates_observation_from_inference ──
+  'evidence_source_chain.single_true.separates_observation_from_inference':
+    'This reply distinguishes what was observed in the data from what was inferred on top of it.',
+  'evidence_source_chain.single_false.separates_observation_from_inference':
+    'This reply does not separate what was observed from what was inferred; this is only an observation about its structure, not a concern.',
+  // ── flags_context_limit ──
+  'evidence_source_chain.single_true.flags_context_limit':
+    'This reply flags a context or applicability limit on a piece of evidence — where it does and does not apply.',
+  'evidence_source_chain.single_false.flags_context_limit':
+    'This reply does not flag a context or applicability limit on the evidence; this is only an observation about its structure, not a concern.',
+  // ── pairs: names_method_difference × separates_observation_from_inference ──
+  'evidence_source_chain.pair_true_true.names_method_difference.separates_observation_from_inference':
+    'This reply names a method or measurement difference and separates what was observed from what was inferred.',
+  'evidence_source_chain.pair_true_false.names_method_difference.no_observation_inference_split':
+    'This reply names a method or measurement difference but does not separate what was observed from what was inferred.',
+  'evidence_source_chain.pair_false_true.separates_observation_from_inference.no_method_difference':
+    'This reply separates what was observed from what was inferred but does not name a method or measurement difference.',
+  // ── pairs: names_method_difference × flags_context_limit ──
+  'evidence_source_chain.pair_true_true.names_method_difference.flags_context_limit':
+    'This reply names a method or measurement difference and flags a context or applicability limit on the evidence.',
+  'evidence_source_chain.pair_true_false.names_method_difference.no_context_limit':
+    'This reply names a method or measurement difference but does not flag a context or applicability limit on the evidence.',
+  'evidence_source_chain.pair_false_true.flags_context_limit.no_method_difference':
+    'This reply flags a context or applicability limit on the evidence but does not name a method or measurement difference.',
+  // ── pairs: separates_observation_from_inference × flags_context_limit ──
+  'evidence_source_chain.pair_true_true.separates_observation_from_inference.flags_context_limit':
+    'This reply separates what was observed from what was inferred and flags a context or applicability limit on the evidence.',
+  'evidence_source_chain.pair_true_false.separates_observation_from_inference.no_context_limit':
+    'This reply separates what was observed from what was inferred but does not flag a context or applicability limit on the evidence.',
+  'evidence_source_chain.pair_false_true.flags_context_limit.no_observation_inference_split':
+    'This reply flags a context or applicability limit on the evidence but does not separate what was observed from what was inferred.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;

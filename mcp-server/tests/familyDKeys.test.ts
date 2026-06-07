@@ -2,10 +2,11 @@
  * MCP-SERVER-005-FAMILY-D — Family D keys constant test.
  *
  * Critical invariants:
- *   - FAMILY_D_RAW_KEYS contains exactly 19 entries (Subset path)
- *   - Verbatim binding match with Stage 2B operator-approved Subset
- *     (19 ai_classifier rawKeys, declaration order from upstream familyD.ts)
- *   - FAMILY_D_PROMPT_ENTRIES has 19 entries with one entry per rawKey
+ *   - FAMILY_D_RAW_KEYS contains exactly 22 entries (Subset path; 19 baseline
+ *     + 3 MCP-BUILD2d) — exceeds the 20-key cap, so the Edge batches it
+ *   - Verbatim binding match with Stage 2B operator-approved Subset + the 3
+ *     MCP-BUILD2d keys (declaration order from upstream familyD.ts)
+ *   - FAMILY_D_PROMPT_ENTRIES has 22 entries with one entry per rawKey
  *   - Every prompt entry has all required verbose-definition fields
  *   - FAMILY_D_CLASSIFIER_SET_VERSION === 'family-d-v1'
  *   - FAMILY_D_EXCLUDED_DETERMINISTIC_RAW_KEYS encodes the 6 unique
@@ -23,9 +24,10 @@ import {
 
 /**
  * Binding list per MCP-SERVER-005-FAMILY-D Stage 2B operator decision
- * (Subset path), in declaration order matching the upstream source
- * `familyD.ts` ai_classifier-source entries (#9-#27 in the file's order).
- * The SET of 19 IS load-bearing for the wire contract.
+ * (Subset path) + the 3 MCP-BUILD2d additions, in declaration order matching
+ * the upstream source `familyD.ts` ai_classifier-source entries.
+ * The SET of 22 IS load-bearing for the wire contract (the Edge chunker
+ * splits it into 2 batches of 16 + 6 because 22 > the 20-key cap).
  */
 const BINDING_FAMILY_D_KEYS: readonly string[] = [
   'asks_for_evidence',
@@ -47,13 +49,17 @@ const BINDING_FAMILY_D_KEYS: readonly string[] = [
   'external_authority_used',
   'evidence_quality_questioned',
   'burden_request_present',
+  // MCP-BUILD2d additions (Subset 19 → 22).
+  'names_method_difference',
+  'separates_observation_from_inference',
+  'flags_context_limit',
 ];
 
-Deno.test('FAMILY_D_RAW_KEYS contains exactly 19 entries (Subset path)', () => {
-  assertEquals(FAMILY_D_RAW_KEYS.length, 19);
+Deno.test('FAMILY_D_RAW_KEYS contains exactly 22 entries (Subset path; 19 + 3 MCP-BUILD2d)', () => {
+  assertEquals(FAMILY_D_RAW_KEYS.length, 22);
 });
 
-Deno.test('FAMILY_D_RAW_KEYS contains all 19 binding rawKeys', () => {
+Deno.test('FAMILY_D_RAW_KEYS contains all 22 binding rawKeys', () => {
   for (const key of BINDING_FAMILY_D_KEYS) {
     if (!FAMILY_D_RAW_KEYS.includes(key)) {
       throw new Error(`FAMILY_D_RAW_KEYS missing binding rawKey: ${key}`);
@@ -79,8 +85,8 @@ Deno.test('FAMILY_D_RAW_KEYS has no duplicate entries', () => {
   }
 });
 
-Deno.test('FAMILY_D_PROMPT_ENTRIES has 19 entries matching FAMILY_D_RAW_KEYS', () => {
-  assertEquals(FAMILY_D_PROMPT_ENTRIES.length, 19);
+Deno.test('FAMILY_D_PROMPT_ENTRIES has 22 entries matching FAMILY_D_RAW_KEYS', () => {
+  assertEquals(FAMILY_D_PROMPT_ENTRIES.length, 22);
   const promptKeys = FAMILY_D_PROMPT_ENTRIES.map((e) => e.rawKey);
   for (const key of FAMILY_D_RAW_KEYS) {
     if (!promptKeys.includes(key)) {
@@ -123,9 +129,9 @@ Deno.test('FAMILY_D_CLASSIFIER_SET_VERSION is exactly "family-d-v1"', () => {
 });
 
 Deno.test('FAMILY_D_RAW_KEYS preserves declaration order (matches BINDING_FAMILY_D_KEYS index-by-index)', () => {
-  // Per design §1.1 + Stage 2B record, declaration order is binding.
-  // The server-side Subset mirror must list the 19 ai_classifier keys in
-  // the same order as upstream familyD.ts entries #9-#27.
+  // Per design §1.1 + Stage 2B record + MCP-BUILD2d, declaration order is
+  // binding. The server-side Subset mirror lists the 22 ai_classifier keys in
+  // the same order as the upstream familyD.ts ai_classifier entries.
   for (let i = 0; i < BINDING_FAMILY_D_KEYS.length; i++) {
     assertEquals(
       FAMILY_D_RAW_KEYS[i],

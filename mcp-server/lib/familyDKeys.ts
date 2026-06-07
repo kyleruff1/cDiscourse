@@ -1,6 +1,6 @@
 /**
- * MCP-SERVER-005-FAMILY-D — Family D (evidence_source_chain) 19-key Subset
- * constant + prompt entries.
+ * MCP-SERVER-005-FAMILY-D + MCP-BUILD2d — Family D (evidence_source_chain)
+ * 22-key Subset constant + prompt entries.
  *
  * Server-side MIRROR of the upstream Family D registry in
  * `src/features/nodeLabels/machineObservationDefinitions/familyD.ts`. The
@@ -11,9 +11,10 @@
  *
  * Per operator Stage 2B binding decision (recorded at the top of
  * `docs/designs/MCP-SERVER-005-FAMILY-D.md`): this constant is the
- * **Subset path** — exactly the 19 `ai_classifier`-source rawKeys from
- * upstream `familyD.ts`. The 8 deterministic Family D rawKeys (5
- * `auto_metadata` + 3 `lifecycle`) are intentionally EXCLUDED:
+ * **Subset path** — the `ai_classifier`-source rawKeys from upstream
+ * `familyD.ts`. MCP-BUILD2d (Build-2 manifest §3) adds 3 new ai_classifier
+ * booleans, taking the Subset 19 → **22**. The 8 deterministic Family D
+ * rawKeys (5 `auto_metadata` + 3 `lifecycle`) remain intentionally EXCLUDED:
  *   - `auto_metadata`: has_evidence, source_requested, quote_requested,
  *     source_attached, quote_attached (5 keys)
  *   - `lifecycle`: sourced, quote_requested, source_requested (3 keys)
@@ -24,9 +25,10 @@
  * ['evidence_source_chain'] returns `unsupported_rawKey` per the registry
  * boundary (HALT trigger ensures no silent-false conversion).
  *
- * The 19 rawKeys are the binding contract per MCP-SERVER-005-FAMILY-D
- * design §1 and Stage 2B operator decision. Verbatim, in declaration order
- * matching the upstream `ai_classifier`-source entries of `familyD.ts`:
+ * The 22 rawKeys are the binding contract (19 MCP-SERVER-005-FAMILY-D
+ * design §1 / Stage 2B operator decision + 3 MCP-BUILD2d Build-2 manifest
+ * §3). Verbatim, in declaration order matching the upstream
+ * `ai_classifier`-source entries of `familyD.ts`:
  *
  *   1.  asks_for_evidence
  *   2.  provides_evidence
@@ -47,6 +49,18 @@
  *   17. external_authority_used
  *   18. evidence_quality_questioned
  *   19. burden_request_present (DOCTRINE RISK — descriptive, not verdict)
+ *   20. names_method_difference (MCP-BUILD2d; neutral method/measurement note)
+ *   21. separates_observation_from_inference (MCP-BUILD2d; epistemic-structural)
+ *   22. flags_context_limit (MCP-BUILD2d; evidence applicability limit)
+ *
+ * BATCHING (MCP-BUILD2d / MCP-BOOLEAN-BATCHING-INFRA-001): 22 > the per-
+ * response cap MAX_FLAGS_PER_RESPONSE (20), so the Edge chunker splits the
+ * 22-key set into 2 batches (16 + 6); the mcp-server serves each batch as a
+ * normal <= 16-key single-family request and never sees the full 22-key
+ * response. The merge into one 22-key family result happens at the Edge,
+ * post-validation. EVIDENCE-DOCTRINE FENCE: the 3 new keys surface evidence
+ * DYNAMICS and NEVER grant/deny factual standing (anti-amplification module
+ * untouched).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §10a — every entry is a MACHINE OBSERVATION,
@@ -72,7 +86,7 @@
  */
 
 /**
- * The 19 Family D ai_classifier-subset rawKeys, frozen in declaration
+ * The 22 Family D ai_classifier-subset rawKeys, frozen in declaration
  * order matching upstream. Used by:
  *   - validateFamilyBooleanRequest (rejects unknown rawKeys with
  *     unsupported_rawKey error envelope; routes via familyRegistry)
@@ -102,6 +116,10 @@ export const FAMILY_D_RAW_KEYS: readonly string[] = Object.freeze([
   'external_authority_used',
   'evidence_quality_questioned',
   'burden_request_present',
+  // MCP-BUILD2d (Build-2 manifest §3) — evidence-dynamic booleans. Subset 19 → 22.
+  'names_method_difference',
+  'separates_observation_from_inference',
+  'flags_context_limit',
 ]);
 
 /**
@@ -452,5 +470,54 @@ export const FAMILY_D_PROMPT_ENTRIES: readonly FamilyDPromptEntry[] = Object.fre
       "Move: 'What is your source?' (asks_for_evidence)",
     falsePositiveGuards:
       "Doctrine note: burden-of-demonstration framing is debated philosophical territory; CDiscourse treats it descriptively, not as a verdict on which side is right. burden_request_present indicates a structural request for the other party to produce evidence; it does NOT determine which side actually bears the burden in this discussion. Do NOT mark TRUE for moves that ask for evidence without framing as burden. The evidenceSpan must contain only the quoted burden framing text, never a judgment about whether the parent was right to invoke it.",
+  }),
+  // ── MCP-BUILD2d (Build-2 manifest §3) — evidence-dynamic booleans. ──
+  Object.freeze({
+    rawKey: 'names_method_difference',
+    label: 'Names a method difference',
+    booleanQuestion:
+      'Does this move name a difference in method or measurement between two pieces of evidence?',
+    positiveDefinition:
+      'The move identifies a SPECIFIC methodological or measurement difference that explains why two pieces of evidence diverge (study design, instrument, denominator, time horizon, sampling frame). A neutral observation about the evidence, not a quality dispute.',
+    negativeDefinition:
+      'The move disputes evidence quality without naming the method (evidence_quality_questioned), asks for evidence (asks_for_evidence), or makes a claim without comparing methods.',
+    positiveExample:
+      "Move: 'Your study used self-report; the one I cited used administrative records — that is why the numbers diverge.'",
+    negativeExample:
+      "Move: 'Your study is bad.' (disputes quality without naming a method — evidence_quality_questioned)",
+    falsePositiveGuards:
+      'The move must NAME a specific method or measurement difference; do NOT mark generic "I trust mine more". Co-fires acceptably with evidence_quality_questioned. EVIDENCE-DOCTRINE FENCE: naming a method difference is a neutral structural observation about the move; it NEVER grants or denies factual standing or truth to either piece of evidence, and never judges the author. The evidenceSpan must contain only the quoted text naming the method difference.',
+  }),
+  Object.freeze({
+    rawKey: 'separates_observation_from_inference',
+    label: 'Separates observation from inference',
+    booleanQuestion:
+      'Does this move distinguish what was observed from what was inferred?',
+    positiveDefinition:
+      'The move explicitly marks the boundary between observed data and an inferred conclusion ("we observed the correlation; the causal link is an inference, not in the data"). An epistemic-structural distinction.',
+    negativeDefinition:
+      'The move conflates the two, disputes a fact directly (disputes_fact), or makes a claim without drawing the observation/inference boundary.',
+    positiveExample:
+      "Move: 'The data shows X happened; that it was caused by Y is your read, not the measurement.'",
+    negativeExample:
+      "Move: 'That is just false.' (disputes a fact, no separation)",
+    falsePositiveGuards:
+      'The move must EXPLICITLY mark the observation/inference boundary; do NOT mark on the word "infer" alone. EVIDENCE-DOCTRINE FENCE: this is a structural observation about the move\'s reasoning; it NEVER grants or denies factual standing or truth and never judges the author. The evidenceSpan must contain only the quoted text drawing the boundary.',
+  }),
+  Object.freeze({
+    rawKey: 'flags_context_limit',
+    label: 'Flags a context limit',
+    booleanQuestion:
+      'Does this move flag a context or applicability limit on a piece of evidence?',
+    positiveDefinition:
+      'The move names a context or applicability boundary on the EVIDENCE ("that holds in the lab; field conditions add variables it does not account for"). An uncertainty observation about where the evidence applies.',
+    negativeDefinition:
+      'The move disputes the evidence outright (disputes_fact / evidence_quality_questioned), accepts it with no limit flagged, or names a scope limit on the CLAIM (identifies_parent_scope_limit / disputes_scope, not the evidence).',
+    positiveExample:
+      "Move: 'Valid for the 2020 sample; the population has shifted since.'",
+    negativeExample:
+      "Move: 'That evidence is wrong.' (disputes the fact / quality, no limit flagged)",
+    falsePositiveGuards:
+      'The limit must be a CONTEXT/APPLICABILITY boundary on the EVIDENCE (vs a scope limit on the claim, which is identifies_parent_scope_limit / disputes_scope); do NOT mark vague hedging. Overlaps acceptably with disputes_evidence_applicability (the dispute) vs flags_context_limit (the neutral flag). EVIDENCE-DOCTRINE FENCE: flagging a context limit is a structural observation about the move; it NEVER grants or denies factual standing or truth and never judges the author. The evidenceSpan must contain only the quoted text flagging the limit.',
   }),
 ]);
