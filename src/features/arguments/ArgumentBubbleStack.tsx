@@ -30,6 +30,7 @@ import {
   shouldClaimStackHorizontalPan,
 } from './stackKeyboardSwipeModel';
 import type { CardDetailViewModel } from './cardView/cardDetailModel';
+import type { CardMappingSectionModel } from './cardView/cardMappingSectionModel';
 import type { RailActionCode, RailViewerRole } from './railActionCategories';
 
 interface Props {
@@ -45,6 +46,13 @@ interface Props {
    * only. Memoization stays at the surface keyed on activeMessageId.
    */
   activeCardDetail?: CardDetailViewModel | null;
+  /**
+   * MCP-MAPPING-EXPANSION-001 (Slice B) — combination-observations section
+   * model for the active card. The Stack computes nothing; it forwards this
+   * to the active card only (memoization stays at the surface). Omitted → no
+   * section.
+   */
+  activeMappingSection?: CardMappingSectionModel | null;
   /** CARD-VIEW-DATA-001 — re-activates the step-ref ancestor on token tap. */
   onActivateAncestor?: (messageId: string) => void;
   /** CVDH-001 Slice 3 — viewport width for the hub's responsive multi-column
@@ -72,6 +80,7 @@ export function ArgumentBubbleStack({
   onNext,
   onToggleMode,
   activeCardDetail,
+  activeMappingSection,
   onActivateAncestor,
   windowWidth,
   viewerRole,
@@ -168,6 +177,10 @@ export function ArgumentBubbleStack({
                 // CARD-VIEW-DATA-001 — forward the exploded detail model to
                 // the active card only; the card also gates on vm.isActive.
                 cardDetail={t.isActive ? activeCardDetail : null}
+                // MCP-MAPPING-EXPANSION-001 (Slice B) — combination
+                // observations for the active card only (same gating as
+                // the detail model).
+                mappingSection={t.isActive ? activeMappingSection : null}
                 onActivateAncestor={onActivateAncestor}
                 // CVDH-001 Slice 3 — viewport width for the active card's hub.
                 windowWidth={t.isActive ? windowWidth : undefined}
