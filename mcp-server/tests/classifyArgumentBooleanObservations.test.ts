@@ -122,15 +122,15 @@ Deno.test('boolean tool rejects schemaVersion mismatch with invalid_params', asy
   });
 });
 
-Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_family (I/J remain unsupported)', async () => {
+Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_family (J remains unsupported)', async () => {
   await withFixtureEnv(async () => {
-    // MCP-SERVER-009-FAMILY-H promoted Family H (claim_clarity) to
-    // supported. The test now uses 'thread_topology' (Family I) which
+    // MCP-SERVER-010-FAMILY-I promoted Family I (thread_topology) to
+    // supported. The test now uses 'sensitive_composer' (Family J) which
     // remains unsupported. The supportedFamilies envelope now lists all
-    // eight registered families (Family A through H).
+    // nine registered families (Family A through I).
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
-      rawArgs: validRequest({ requestedFamilies: ['thread_topology'] }),
+      rawArgs: validRequest({ requestedFamilies: ['sensitive_composer'] }),
       requestId: 'r-bad-family-1',
       envelope: 'jsonRpc',
     });
@@ -141,7 +141,7 @@ Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_f
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['thread_topology']);
+    assertEquals(sc.requestedFamilies, ['sensitive_composer']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
@@ -151,6 +151,7 @@ Deno.test('boolean tool rejects unsupported requestedFamilies with unsupported_f
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ]);
   });
 });

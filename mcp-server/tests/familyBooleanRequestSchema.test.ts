@@ -54,9 +54,15 @@ import {
   FAMILY_H_RAW_KEYS,
   FAMILY_H_CLASSIFIER_SET_VERSION,
 } from '../lib/familyHKeys.ts';
+import {
+  FAMILY_I_RAW_KEYS,
+  FAMILY_I_CLASSIFIER_SET_VERSION,
+  FAMILY_I_EXCLUDED_DETERMINISTIC_RAW_KEYS,
+} from '../lib/familyIKeys.ts';
 
 // Ensure Family A + Family B + Family C + Family D + Family E + Family F +
-// Family G + Family H are registered in the production singleton for these tests.
+// Family G + Family H + Family I are registered in the production singleton
+// for these tests.
 // familyRegistryInit.ts is the canonical registration site; these guards
 // keep the test self-sufficient and avoid a double-register throw if init
 // happens elsewhere in the module graph.
@@ -106,6 +112,12 @@ if (!isFamilySupported('claim_clarity')) {
   register('claim_clarity', {
     rawKeys: new Set(FAMILY_H_RAW_KEYS),
     classifierSetVersion: FAMILY_H_CLASSIFIER_SET_VERSION,
+  });
+}
+if (!isFamilySupported('thread_topology')) {
+  register('thread_topology', {
+    rawKeys: new Set(FAMILY_I_RAW_KEYS),
+    classifierSetVersion: FAMILY_I_CLASSIFIER_SET_VERSION,
   });
 }
 
@@ -244,16 +256,16 @@ Deno.test('validateFamilyBooleanRequest-rejects-oversized-threadContextExcerpt',
 });
 
 Deno.test('validateFamilyBooleanRequest-rejects-unsupported-family-with-byte-equal-envelope', () => {
-  // MCP-SERVER-009-FAMILY-H registered 'claim_clarity'; the test now
-  // exercises an UNREGISTERED family (Family I: thread_topology). Envelope
+  // MCP-SERVER-010-FAMILY-I registered 'thread_topology'; the test now
+  // exercises an UNREGISTERED family (Family J: sensitive_composer). Envelope
   // shape is byte-equal-preserved: kind=unsupported_family, requestedFamilies
   // field echoes the requested array.
   const result = validateFamilyBooleanRequest(
-    validRequest({ requestedFamilies: ['thread_topology'] }),
+    validRequest({ requestedFamilies: ['sensitive_composer'] }),
   );
   assertEquals(result.ok, false);
   if (!result.ok && result.kind === 'unsupported_family') {
-    assertEquals(result.requestedFamilies, ['thread_topology']);
+    assertEquals(result.requestedFamilies, ['sensitive_composer']);
   } else {
     throw new Error('expected unsupported_family failure');
   }
@@ -421,12 +433,12 @@ Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-b-ra
   }
 });
 
-Deno.test('validateFamilyBooleanRequest-i-j-still-rejected-as-unsupported-family', () => {
-  // Regression: Family I/J remain unsupported after Family H lands.
-  // (Family H is now supported as of MCP-SERVER-009-FAMILY-H uniform
-  // ai_classifier path; claim_clarity has its own validation block.)
+Deno.test('validateFamilyBooleanRequest-j-still-rejected-as-unsupported-family', () => {
+  // Regression: Family J remains unsupported after Family I lands.
+  // (Family I is now supported as of MCP-SERVER-010-FAMILY-I; thread_topology
+  // has its own validation block via the registry. Family J —
+  // sensitive_composer — is the sole remaining unsupported family.)
   for (const family of [
-    'thread_topology',
     'sensitive_composer',
   ]) {
     const result = validateFamilyBooleanRequest(validRequest({ requestedFamilies: [family] }));
@@ -1162,4 +1174,115 @@ Deno.test('validateFamilyBooleanRequest-family-a-b-c-d-e-f-g-still-pass-after-h-
     requestedRawKeys: ['concedes_broader_point'],
   });
   assertEquals(validateFamilyBooleanRequest(reqG).ok, true);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-SERVER-010-FAMILY-I additions (thread_topology; 6-key ai_classifier
+// mixed-source Subset)
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('validateFamilyBooleanRequest-valid-family-i-request-passes', () => {
+  const req = validRequest({
+    requestedFamilies: ['thread_topology'],
+    requestedRawKeys: ['introduces_new_issue', 'compares_options'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+  if (result.ok) {
+    assertEquals(result.value.requestedFamilies, ['thread_topology']);
+    assertEquals(result.value.requestedRawKeys, ['introduces_new_issue', 'compares_options']);
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-i-request-with-empty-rawKeys-passes', () => {
+  // Empty requestedRawKeys means "all rawKeys for the requested family" —
+  // the validator accepts; the prompt builder fills in all 6 Family I keys.
+  const req = validRequest({
+    requestedFamilies: ['thread_topology'],
+    requestedRawKeys: [],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, true);
+});
+
+Deno.test('validateFamilyBooleanRequest-family-i-rejects-excluded-deterministic-rawKeys-as-unsupported-rawKey', () => {
+  // Stage 2B operator binding (T1 mixed-source): the 15 excluded
+  // deterministic Family I rawKeys (8 auto_metadata + 7 lifecycle) must NOT
+  // be silently converted into model-inferred keys. Requesting any of them
+  // under requestedFamilies=['thread_topology'] returns unsupported_rawKey at
+  // the registry boundary (HALT trigger #14 safeguard: deterministic excluded
+  // keys do not become AI-inferred keys; mirror Family D + Family G).
+  for (const excluded of FAMILY_I_EXCLUDED_DETERMINISTIC_RAW_KEYS) {
+    const req = validRequest({
+      requestedFamilies: ['thread_topology'],
+      requestedRawKeys: [excluded],
+    });
+    const result = validateFamilyBooleanRequest(req);
+    assertEquals(result.ok, false, `excluded deterministic rawKey '${excluded}' must be rejected`);
+    if (!result.ok && result.kind === 'unsupported_rawKey') {
+      assertEquals(result.unsupportedRawKeys, [excluded]);
+    } else {
+      throw new Error(`expected unsupported_rawKey for excluded deterministic '${excluded}'`);
+    }
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-a-key-under-thread-topology', () => {
+  const req = validRequest({
+    requestedFamilies: ['thread_topology'],
+    requestedRawKeys: ['supports_parent'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['supports_parent']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family A key under I');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-cross-family-rejection-family-i-key-under-claim-clarity', () => {
+  const req = validRequest({
+    requestedFamilies: ['claim_clarity'],
+    requestedRawKeys: ['introduces_new_issue'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['introduces_new_issue']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for cross-family Family I key under H');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-empty-requestedFamilies-with-family-i-rawKey-rejects', () => {
+  // When requestedFamilies is empty, the validator defaults to checking
+  // rawKeys against Family A only. A Family I rawKey under empty
+  // requestedFamilies is therefore rejected as unsupported_rawKey.
+  const req = validRequest({
+    requestedFamilies: [],
+    requestedRawKeys: ['compares_options'],
+  });
+  const result = validateFamilyBooleanRequest(req);
+  assertEquals(result.ok, false);
+  if (!result.ok && result.kind === 'unsupported_rawKey') {
+    assertEquals(result.unsupportedRawKeys, ['compares_options']);
+  } else {
+    throw new Error('expected unsupported_rawKey failure for Family I key under empty families');
+  }
+});
+
+Deno.test('validateFamilyBooleanRequest-family-a-b-c-d-e-f-g-h-still-pass-after-i-registered', () => {
+  // Regression: Family A/B/C/D/E/F/G/H requests still validate cleanly after
+  // Family I registration.
+  const reqA = validRequest({
+    requestedFamilies: ['parent_relation'],
+    requestedRawKeys: ['supports_parent'],
+  });
+  assertEquals(validateFamilyBooleanRequest(reqA).ok, true);
+  const reqH = validRequest({
+    requestedFamilies: ['claim_clarity'],
+    requestedRawKeys: ['claim_specificity_low'],
+  });
+  assertEquals(validateFamilyBooleanRequest(reqH).ok, true);
 });

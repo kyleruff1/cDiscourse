@@ -176,20 +176,20 @@ Deno.test('dispatch: cross-family request (Family B rawKey under parent_relation
   });
 });
 
-Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_family with full 8-family supportedFamilies list', async () => {
-  // MCP-SERVER-009-FAMILY-H promoted claim_clarity from unsupported to
-  // supported. This test continues to exercise an UNREGISTERED family
-  // (Family I: thread_topology). The supportedFamilies envelope now includes
-  // all eight currently-registered families: parent_relation,
-  // disagreement_axis, misunderstanding_repair, evidence_source_chain,
-  // argument_scheme, critical_question, resolution_progress, claim_clarity.
+Deno.test('dispatch: unsupported family J (sensitive_composer) returns unsupported_family with full 9-family supportedFamilies list', async () => {
+  // MCP-SERVER-010-FAMILY-I promoted thread_topology from unsupported to
+  // supported. This test now exercises an UNREGISTERED family (Family J:
+  // sensitive_composer). The supportedFamilies envelope now includes all
+  // nine currently-registered families: parent_relation, disagreement_axis,
+  // misunderstanding_repair, evidence_source_chain, argument_scheme,
+  // critical_question, resolution_progress, claim_clarity, thread_topology.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyBRequest({
-        requestedFamilies: ['thread_topology'],
+        requestedFamilies: ['sensitive_composer'],
       }),
-      requestId: 'r-dispatch-i-1',
+      requestId: 'r-dispatch-j-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -199,7 +199,7 @@ Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['thread_topology']);
+    assertEquals(sc.requestedFamilies, ['sensitive_composer']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
@@ -209,7 +209,30 @@ Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ]);
+  });
+});
+
+Deno.test('dispatch: supported family I (thread_topology) returns unsupported_family=false (now registered post MCP-SERVER-010-FAMILY-I)', async () => {
+  // MCP-SERVER-010-FAMILY-I promoted Family I (thread_topology) to supported.
+  // The prior stale test asserted it was unsupported; it now dispatches
+  // cleanly through the fixture provider. Family J remains unsupported
+  // (verified above + in familyBooleanRequestSchema.test.ts).
+  await withFixtureEnv(async () => {
+    const result = await handleClassifyArgumentBooleanObservations({
+      toolName: 'classify_argument_boolean_observations',
+      rawArgs: familyBRequest({
+        requestedFamilies: ['thread_topology'],
+        requestedRawKeys: ['introduces_new_issue'],
+      }),
+      requestId: 'r-dispatch-i-1',
+      envelope: 'jsonRpc',
+    });
+    assertEquals(result.isError, false);
+    const sc = result.structuredContent as Record<string, unknown>;
+    const modelInfo = sc.modelInfo as Record<string, unknown>;
+    assertEquals(modelInfo.classifierSetVersion, 'family-i-v1');
   });
 });
 
@@ -235,16 +258,16 @@ Deno.test('dispatch: supported family G (resolution_progress) returns unsupporte
   });
 });
 
-Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_family (post MCP-SERVER-007-FAMILY-F)', async () => {
-  // MCP-SERVER-007-FAMILY-F promoted critical_question to supported. The
-  // unsupported-family regression for Family B now uses Family I instead.
+Deno.test('dispatch: unsupported family J (sensitive_composer) returns unsupported_family (post MCP-SERVER-010-FAMILY-I)', async () => {
+  // MCP-SERVER-010-FAMILY-I promoted thread_topology to supported. The
+  // unsupported-family regression for Family B now uses Family J instead.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyBRequest({
-        requestedFamilies: ['thread_topology'],
+        requestedFamilies: ['sensitive_composer'],
       }),
-      requestId: 'r-dispatch-i-1',
+      requestId: 'r-dispatch-j-2',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
