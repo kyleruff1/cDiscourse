@@ -68,6 +68,38 @@ export const CARD_CLASSIFIER_EMPTY_STATE =
 /** Prefix applied to the evidence span when a chip expands. */
 export const CARD_CLASSIFIER_EVIDENCE_PREFIX = 'Why this fired:';
 
+/**
+ * CARD-VIEW-REFINE-001 — plain-language source-provenance labels.
+ *
+ * Each classifier chip carries `category` = the mark's `NodeLabelSource`
+ * (a snake_case internal code such as `auto_metadata` / `ai_classifier`).
+ * Doctrine §9 / §10a forbids rendering that raw code in user-facing UI. This
+ * locked map (a ban-list test covers it) maps each known provenance to a
+ * short, neutral, plain-language badge that says WHERE the observation came
+ * from WITHOUT implying a verdict. Unknown codes are SUPPRESSED (→ null),
+ * never echoed.
+ *
+ * The labels deliberately describe the ORIGIN ("From system metadata"),
+ * not a judgment — preserving the advisory framing.
+ */
+const SOURCE_PROVENANCE_LABEL: Record<string, string> = {
+  auto_metadata: 'From system metadata',
+  lifecycle: 'From the move’s lifecycle',
+  semantic_referee: 'From the referee',
+  composition_mutation: 'From a composer change',
+  ai_classifier: 'From the AI classifier',
+  manual_tag: 'From a user tag',
+};
+
+/**
+ * Map a raw source-provenance code to a plain-language badge label. Returns
+ * `null` for an unknown / empty code (SUPPRESSED — never the raw code). Pure.
+ */
+export function sourceProvenanceLabel(code: string | null | undefined): string | null {
+  if (typeof code !== 'string' || code.length === 0) return null;
+  return SOURCE_PROVENANCE_LABEL[code] ?? null;
+}
+
 /** Plain-language confidence words (for screen readers). Mapped from the
  *  mark's confidence band; never surfaced as a number. */
 const CONFIDENCE_LABEL: Record<'low' | 'medium' | 'high', string> = {
@@ -98,6 +130,10 @@ export interface CardClassifierChip {
   taxonomy: 'observation' | 'allegation';
   /** Source provenance (e.g. 'auto_metadata'); NEVER rendered raw. */
   category: string;
+  /** CARD-VIEW-REFINE-001 — plain-language provenance badge ("From system
+   *  metadata", …) derived from `category`. null when the code is unknown
+   *  (SUPPRESSED — the UI then renders no badge). Safe to render directly. */
+  sourceProvenanceLabel: string | null;
   /** Confidence band → PIPS count: low=1, medium=2, high=3. Never a number.
    *  null when the mark carried no confidence band. */
   confidencePips: 1 | 2 | 3 | null;
@@ -181,6 +217,7 @@ export function markToChip(mark: NodeLabelMark): CardClassifierChip {
     description: mark.description,
     taxonomy,
     category: mark.source,
+    sourceProvenanceLabel: sourceProvenanceLabel(mark.source),
     confidencePips,
     confidenceLabel,
     evidenceSpan,
