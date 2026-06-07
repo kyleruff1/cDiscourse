@@ -114,8 +114,12 @@ describe('ConversationGalleryScreen — single-select filter state', () => {
   });
 
   it('toggles lane back to "all" when the same chip is tapped', () => {
-    // The chip onPress uses an updater that returns 'all' when prev === def.id.
-    expect(readSource()).toMatch(/prev === def\.id \? 'all' : def\.id/);
+    // NAV-START-ARGUMENT-001 Slice B — the active lane became a
+    // controlled/uncontrolled hybrid (the shell can drive it from the
+    // global header), so `setActiveLane` is now a plain value setter rather
+    // than a React updater. The toggle-back-to-'all' BEHAVIOR is unchanged;
+    // the expression reads the resolved `activeLane` instead of `prev`.
+    expect(readSource()).toMatch(/activeLane === def\.id \? 'all' : def\.id/);
   });
 });
 

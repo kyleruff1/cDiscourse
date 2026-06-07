@@ -55,20 +55,24 @@ describe('UX-001.2 — AppRoot is unchanged outside the room-active branch', () 
 });
 
 describe('UX-001.2 — MainAppShell core mounts unchanged', () => {
+  // NAV-START-ARGUMENT-001 Slice B — the public About screen takes over the
+  // body when open, so each non-About body mount path gained a leading
+  // `!aboutOpen &&` guard. The per-tab conditions + role gates below are
+  // otherwise PRESERVED verbatim.
   it('AccountScreen mount is preserved (activeTab === account)', () => {
     expect(APP_SRC).toMatch(
-      /\{activeTab === 'account' &&\s*\(\s*<AccountScreen onSignOut=\{handleSignOut\} signOutLoading=\{signOutLoading\}/,
+      /\{!aboutOpen && activeTab === 'account' &&\s*\(\s*<AccountScreen onSignOut=\{handleSignOut\} signOutLoading=\{signOutLoading\}/,
     );
   });
 
   it('AdminScreen mount is preserved (admin role gate)', () => {
     expect(APP_SRC).toMatch(
-      /\{activeTab === 'admin' && currentProfile\?\.role === 'admin' && \(\s*<AdminScreen onOpenArgumentTimeline=\{handleOpenArgumentFromAdmin\}/,
+      /\{!aboutOpen && activeTab === 'admin' && currentProfile\?\.role === 'admin' && \(\s*<AdminScreen onOpenArgumentTimeline=\{handleOpenArgumentFromAdmin\}/,
     );
   });
 
   it('SessionDebugPanel mount path is preserved (dev only)', () => {
-    expect(APP_SRC).toMatch(/\{activeTab === 'debug' && __DEV__ && <SessionDebugPanel \/>\}/);
+    expect(APP_SRC).toMatch(/\{!aboutOpen && activeTab === 'debug' && __DEV__ && <SessionDebugPanel \/>\}/);
   });
 
   it('useRoomContract invocation is preserved (GAME-004 contract path)', () => {

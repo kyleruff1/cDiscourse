@@ -57,12 +57,18 @@ describe('UX-001.2 — tab bar conditional render', () => {
 
 describe('UX-001.2 — Account and Admin remain reachable outside the room', () => {
   it('AccountScreen mount path is preserved (activeTab === account)', () => {
-    expect(APP_SRC).toMatch(/\{activeTab === 'account' &&[\s\S]*?<AccountScreen/);
+    // NAV-START-ARGUMENT-001 Slice B — the public About screen takes the
+    // body when open, so each tab mount path gained a leading `!aboutOpen &&`
+    // guard. The Account mount path + condition are otherwise unchanged.
+    expect(APP_SRC).toMatch(/\{!aboutOpen && activeTab === 'account' &&[\s\S]*?<AccountScreen/);
   });
 
   it('AdminScreen mount path is preserved (admin role gate)', () => {
+    // NAV-START-ARGUMENT-001 Slice B — same `!aboutOpen &&` prefix. The
+    // admin role gate (`currentProfile?.role === 'admin'`) is PRESERVED
+    // verbatim; regular users still never mount AdminScreen.
     expect(APP_SRC).toMatch(
-      /\{activeTab === 'admin' && currentProfile\?\.role === 'admin' && \(\s*<AdminScreen onOpenArgumentTimeline=\{handleOpenArgumentFromAdmin\}/,
+      /\{!aboutOpen && activeTab === 'admin' && currentProfile\?\.role === 'admin' && \(\s*<AdminScreen onOpenArgumentTimeline=\{handleOpenArgumentFromAdmin\}/,
     );
   });
 

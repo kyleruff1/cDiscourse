@@ -69,6 +69,26 @@ interface Props {
    * the gallery just dismisses the page on create.
    */
   onCreatedWithSurface?: (debate: Debate, surface: StartArgumentSurface) => void;
+  /**
+   * NAV-START-ARGUMENT-001 Slice B — shell-driven lane filter. When
+   * provided, the gallery's active lane is owned by the shell (so the
+   * global header's "My Arguments" / "Browse Arguments" items can drive
+   * it); the gallery reports user lane-chip taps via `onActiveLaneChange`.
+   * When BOTH are omitted the gallery falls back to internal lane state
+   * (the Slice-A behavior is unchanged for every existing caller). This is
+   * the standard React managed/unmanaged hybrid — no router involved.
+   */
+  activeLane?: ConversationGallerySection | 'all';
+  onActiveLaneChange?: (lane: ConversationGallerySection | 'all') => void;
+  /**
+   * NAV-START-ARGUMENT-001 Slice B — shell-driven Start Argument page
+   * visibility. When provided, the header's "Start An Argument" item opens
+   * the Start Argument page via shell state; the gallery reports open/close
+   * via `onShowCreateChange`. Omitting both keeps the internal-state
+   * behavior (the gallery's own "+ New room" button still works).
+   */
+  showCreate?: boolean;
+  onShowCreateChange?: (open: boolean) => void;
 }
 
 const SORT_OPTIONS: { id: ConversationSortMode; label: string }[] = [
@@ -129,14 +149,36 @@ export function ConversationGalleryScreen({
   onJoin,
   onSelect,
   onCreatedWithSurface,
+  activeLane: activeLaneProp,
+  onActiveLaneChange,
+  showCreate: showCreateProp,
+  onShowCreateChange,
 }: Props) {
   const [search, setSearch] = useState('');
-  const [activeLane, setActiveLane] = useState<ConversationGallerySection | 'all'>('all');
   const [sortMode, setSortMode] = useState<ConversationSortMode>('latest_activity');
   const [pageSize, setPageSize] = useState<number>(12);
   const [pageIndex, setPageIndex] = useState<number>(0);
-  const [showCreate, setShowCreate] = useState(false);
   const [joiningDebate, setJoiningDebate] = useState<Debate | null>(null);
+
+  // NAV-START-ARGUMENT-001 Slice B — managed/unmanaged hybrid for the
+  // active lane and the Start Argument page visibility. When the shell
+  // supplies the value (header-driven nav), it is the source of truth and
+  // local state mirrors it for the unmanaged fallback path; when the
+  // shell omits it, the gallery owns it internally exactly as before.
+  const [activeLaneLocal, setActiveLaneLocal] =
+    useState<ConversationGallerySection | 'all'>('all');
+  const activeLane = activeLaneProp ?? activeLaneLocal;
+  const setActiveLane = (next: ConversationGallerySection | 'all') => {
+    setActiveLaneLocal(next);
+    onActiveLaneChange?.(next);
+  };
+
+  const [showCreateLocal, setShowCreateLocal] = useState(false);
+  const showCreate = showCreateProp ?? showCreateLocal;
+  const setShowCreate = (next: boolean) => {
+    setShowCreateLocal(next);
+    onShowCreateChange?.(next);
+  };
 
   const allCards = useMemo(() => buildConversationGalleryCards({
     debates,
@@ -257,7 +299,7 @@ export function ConversationGalleryScreen({
             helperLine={def.helperLine}
             active={activeLane === def.id}
             onPress={() => {
-              setActiveLane((prev) => (prev === def.id ? 'all' : def.id));
+              setActiveLane(activeLane === def.id ? 'all' : def.id);
               setPageIndex(0);
             }}
             testID={`lane-chip-${def.id}`}
