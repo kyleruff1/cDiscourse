@@ -35,6 +35,7 @@
  */
 
 import type {
+  ArgumentBubbleActor,
   ArgumentBubbleViewModel,
   ArgumentTimelineMapNode,
   TimelineStandingBand,
@@ -337,6 +338,281 @@ export function buildParentQuoteSlice(
     quote: truncateParentQuote(cleaned),
     isAvailable: true,
     unavailableLabel: PARENT_QUOTE_UNAVAILABLE,
+  };
+}
+
+// ── Actor / side color grammar (Slice 3 — comparison bubble) ──────────
+//
+// Design §2.A (operator 2026-06-06 refinement): the replied-to PARENT renders
+// as a visually-distinct comparison bubble ABOVE + off-center the centerpiece,
+// in a DIFFERENT color so the reader can tell it is the OTHER party's move.
+//
+// timeline-grammar doctrine: the color encodes ACTOR / SIDE (who made the
+// move), NEVER a verdict / truth / correctness signal. The values mirror the
+// EXISTING Timeline actor grammar (`ArgumentTimelineScrubber.actorTone`) so
+// the comparison bubble reads as the same system the Timeline already uses —
+// it is NOT a new visual that could drift into a truth claim. Because the
+// signal is also carried by SHAPE (the off-center bubble + the italic quote)
+// and the explicit `actorLabel`, color is never the only signal (grayscale
+// snapshot stays legible).
+
+/** One actor's bubble color pair. `bg`/`border` tint the bubble; `accent`
+ *  tints the reference token. Display-only; never a verdict color. */
+export interface ActorBubbleColor {
+  bg: string;
+  border: string;
+  accent: string;
+}
+
+/**
+ * Per-actor comparison-bubble color grammar. Hues mirror the Timeline's
+ * `actorTone` (`self → cyan`, `other → indigo`, `bot → purple`,
+ * `admin → amber`, `unknown → slate`) so the two surfaces read as one
+ * system. The pair is a muted fill + a stroke + a reference-token accent.
+ */
+export const ACTOR_BUBBLE_COLOR: Record<ArgumentBubbleActor, ActorBubbleColor> = {
+  self: { bg: '#0e2f33', border: '#22d3ee', accent: '#67e8f9' },
+  other: { bg: '#1e1b4b', border: '#818cf8', accent: '#a5b4fc' },
+  bot: { bg: '#2e1065', border: '#a855f7', accent: '#c4b5fd' },
+  admin: { bg: '#3a2e05', border: '#facc15', accent: '#fde68a' },
+  unknown: { bg: '#1e293b', border: '#475569', accent: '#94a3b8' },
+};
+
+/**
+ * Resolve an actor's comparison-bubble color. Total over the actor union;
+ * any unexpected value collapses to the neutral `unknown` pair. Pure.
+ */
+export function actorBubbleColor(
+  actor: ArgumentBubbleActor | null | undefined,
+): ActorBubbleColor {
+  if (actor && ACTOR_BUBBLE_COLOR[actor]) return ACTOR_BUBBLE_COLOR[actor];
+  return ACTOR_BUBBLE_COLOR.unknown;
+}
+
+// ── Parent comparison bubble (Slice 3 — operator refinement) ─────────
+//
+// The off-center, above-centerpiece colored bubble that upgrades the Slice-2
+// inline parent-quote zone. Carries everything the bubble renders: the italic
+// quote, the parent reference (`#N · kind`), the parent's actor color, the
+// tappable parent message id, and a `kind` (degrade signal). The CALLER
+// resolves the parent off the already-computed `timelineMap` (no fetch).
+
+/** The comparison-bubble render mode. `parent` → a colored bubble renders;
+ *  `none` → no bubble (root / unresolvable parent, per §6.7 graceful
+ *  degrade — the absence of the bubble is the entire signal). */
+export type ParentComparisonKind = 'parent' | 'none';
+
+/** The replied-to parent rendered as an off-center colored comparison bubble.
+ *  Display-only EXCEPT the reference, which is a navigation affordance. */
+export interface DetailParentComparisonBubble {
+  /** `parent` → render the bubble; `none` → render nothing (degrade). */
+  kind: ParentComparisonKind;
+  /** Italic quote slice (reuses the Slice-2 builder; ≤120 chars). */
+  quote: DetailParentQuoteSlice;
+  /** Parent reference token, e.g. "#6". null when the ordinal is unknown. */
+  referenceToken: string | null;
+  /** Plain-language reference line, e.g. "#6 · rebuttal". null on degrade. */
+  referenceLabel: string | null;
+  /** Parent message id to activate when the reference is tapped. null when
+   *  unresolvable (no dangling tappable affordance). */
+  parentMessageId: string | null;
+  /** Parent actor — drives the bubble color (who made the move). */
+  actor: ArgumentBubbleActor;
+  /** Actor color pair (different from the current card's color). */
+  color: ActorBubbleColor;
+  /** Plain-language actor label, e.g. "Other side" (color-independent cue). */
+  actorLabel: string;
+  /** Screen-reader label for the whole bubble. */
+  accessibilityLabel: string;
+}
+
+/** Locked neutral fallback actor label when none is supplied. */
+const PARENT_BUBBLE_ACTOR_FALLBACK = 'Replying to';
+
+/** Defensive plain-language normalization for the parent kind word. Never
+ *  echoes a raw code: an empty label falls back to the neutral "move". */
+function sanitizeParentKind(label: unknown): string {
+  if (typeof label !== 'string') return 'move';
+  const trimmed = label.replace(/\s+/g, ' ').trim();
+  return trimmed.length > 0 ? trimmed : 'move';
+}
+
+export interface BuildParentComparisonBubbleInput {
+  /** Parent node `bodyPreview`, resolved off `timelineMap` (no fetch). null /
+   *  empty → degrade to `kind: 'none'`. */
+  parentBodyPreview: string | null | undefined;
+  /** Parent 1-based ordinal, or null when unknown / out-of-slice. */
+  parentOrdinal: number | null | undefined;
+  /** Parent plain-language kind label, e.g. "rebuttal". */
+  parentKindLabel: string | null | undefined;
+  /** Parent message id (navigation target). null → no tappable reference. */
+  parentMessageId: string | null | undefined;
+  /** Parent actor (drives the bubble color). */
+  parentActor: ArgumentBubbleActor | null | undefined;
+  /** Parent plain-language actor label, e.g. "Other side". */
+  parentActorLabel: string | null | undefined;
+}
+
+/**
+ * Build the off-center parent comparison bubble. Pure.
+ *
+ * Graceful degrade (design §6.7 / §2.A): when the parent body preview is
+ * empty (root / soft-deleted / RLS-hidden / out-of-slice) the bubble degrades
+ * to `kind: 'none'` and the consumer renders NO bubble. The reference token /
+ * tappable id are only emitted when BOTH the ordinal AND the message id
+ * resolve (no dangling affordance, never a "hidden because…" reason).
+ */
+export function buildParentComparisonBubble(
+  input: BuildParentComparisonBubbleInput,
+): DetailParentComparisonBubble {
+  const quote = buildParentQuoteSlice(input?.parentBodyPreview ?? null);
+  const actor: ArgumentBubbleActor =
+    input?.parentActor && ACTOR_BUBBLE_COLOR[input.parentActor]
+      ? input.parentActor
+      : 'unknown';
+  const color = actorBubbleColor(actor);
+  const actorLabel =
+    typeof input?.parentActorLabel === 'string' &&
+    input.parentActorLabel.trim().length > 0
+      ? input.parentActorLabel.trim()
+      : PARENT_BUBBLE_ACTOR_FALLBACK;
+
+  // Degrade: no resolvable quote → no bubble.
+  if (!quote.isAvailable) {
+    return {
+      kind: 'none',
+      quote,
+      referenceToken: null,
+      referenceLabel: null,
+      parentMessageId: null,
+      actor,
+      color,
+      actorLabel,
+      accessibilityLabel: '',
+    };
+  }
+
+  const ordinal =
+    typeof input?.parentOrdinal === 'number' &&
+    Number.isFinite(input.parentOrdinal) &&
+    input.parentOrdinal > 0
+      ? input.parentOrdinal
+      : null;
+  const kindWord = sanitizeParentKind(input?.parentKindLabel);
+  const parentMessageId =
+    typeof input?.parentMessageId === 'string' &&
+    input.parentMessageId.length > 0
+      ? input.parentMessageId
+      : null;
+
+  // The reference is only a navigation affordance when BOTH the ordinal and
+  // the message id resolve.
+  const hasReference = ordinal != null && parentMessageId != null;
+  const referenceToken = ordinal != null ? `#${ordinal}` : null;
+  const referenceLabel =
+    ordinal != null ? `#${ordinal} · ${kindWord}` : null;
+
+  const a11yReference =
+    ordinal != null ? `message ${ordinal}, a ${kindWord}` : `a ${kindWord}`;
+  const accessibilityLabel =
+    `${actorLabel} · replied-to ${a11yReference}. ` +
+    `${quote.quote ?? ''}`.trim() +
+    (hasReference ? ` Tap to go to message ${ordinal}.` : '');
+
+  return {
+    kind: 'parent',
+    quote,
+    referenceToken,
+    referenceLabel,
+    parentMessageId: hasReference ? parentMessageId : null,
+    actor,
+    color,
+    actorLabel,
+    accessibilityLabel,
+  };
+}
+
+// ── Responsive multi-column layout (Slice 3 — design §7.2) ───────────
+//
+// The hub renders THREE columns on a wide viewport (semantic-tags column ·
+// centerpiece · classifier column) and a single stacked column on narrow.
+// The breakpoint reuses the existing ≥1024 boundary (the iPad-Pro-landscape
+// width that `menuKeyBadgeModel` uses) so the hub and the rest of UX-001
+// share one boundary.
+//
+// SR reading order is ALWAYS the same regardless of visual column order:
+// centerpiece (parent → current → S/T/H → lifecycle) → classifiers → tags.
+// The same sections are present in BOTH layouts — narrow only REFLOWS, it
+// never drops a section.
+
+/** The wide-layout breakpoint. Mirrors `menuKeyBadgeModel`'s
+ *  `BROWSER_KEYBOARD_WIDTH_THRESHOLD` (1024) so the hub and the rest of the
+ *  app share one boundary. */
+export const HUB_WIDE_LAYOUT_WIDTH_THRESHOLD = 1024;
+
+/** The hub's column regions, in stable SR reading order. */
+export type HubColumnRegion = 'centerpiece' | 'classifier' | 'tags';
+
+/** The stable SR reading order — identical in both layouts. */
+export const HUB_READING_ORDER: ReadonlyArray<HubColumnRegion> = Object.freeze([
+  'centerpiece',
+  'classifier',
+  'tags',
+]);
+
+/** The resolved hub layout. Pure presentation — a width-driven decision. */
+export interface HubColumnLayout {
+  /** `three_column` on a wide web viewport; `stacked` otherwise. */
+  mode: 'three_column' | 'stacked';
+  /** Number of visual columns (3 wide, 1 stacked). */
+  columnCount: 1 | 3;
+  /** Visual left-to-right column order on wide; the flanking regions sit on
+   *  either side of the centerpiece (tags left · centerpiece · classifier
+   *  right). On stacked this equals the reading order. */
+  visualOrder: ReadonlyArray<HubColumnRegion>;
+  /** SR reading order — ALWAYS `HUB_READING_ORDER` regardless of mode. */
+  readingOrder: ReadonlyArray<HubColumnRegion>;
+}
+
+/** The wide visual order: tags column (left) · centerpiece · classifier
+ *  column (right) — the operator's two flanking regions. */
+const HUB_WIDE_VISUAL_ORDER: ReadonlyArray<HubColumnRegion> = Object.freeze([
+  'tags',
+  'centerpiece',
+  'classifier',
+]);
+
+/**
+ * Resolve the hub's column layout from the viewport width + platform. Pure,
+ * deterministic.
+ *
+ * - Three columns ONLY on web at width ≥ 1024 (the wide-layout boundary).
+ * - Native (ios / android / windows / macos) and narrow web → stacked
+ *   single column (touch-first; the flanking-column layout needs the width
+ *   AND a desktop-class surface).
+ * - Non-finite / non-positive width → stacked (fail-safe).
+ *
+ * The reading order is ALWAYS `HUB_READING_ORDER`; only the visual order +
+ * column count change. The SAME sections are present in both layouts.
+ */
+export function hubColumnLayout(
+  width: number,
+  platformOs: 'web' | 'ios' | 'android' | 'windows' | 'macos',
+): HubColumnLayout {
+  const stacked: HubColumnLayout = {
+    mode: 'stacked',
+    columnCount: 1,
+    visualOrder: HUB_READING_ORDER,
+    readingOrder: HUB_READING_ORDER,
+  };
+  if (!Number.isFinite(width) || width <= 0) return stacked;
+  if (platformOs !== 'web') return stacked;
+  if (width < HUB_WIDE_LAYOUT_WIDTH_THRESHOLD) return stacked;
+  return {
+    mode: 'three_column',
+    columnCount: 3,
+    visualOrder: HUB_WIDE_VISUAL_ORDER,
+    readingOrder: HUB_READING_ORDER,
   };
 }
 

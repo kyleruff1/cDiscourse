@@ -801,6 +801,20 @@ export function ArgumentGameSurface({
         : null;
     const parentBodyPreview = parentNode ? parentNode.bodyPreview ?? null : null;
 
+    // CVDH-001 Slice 3 — parent COMPARISON bubble inputs (operator
+    // refinement). The parent's ordinal / kind / actorLabel come off the
+    // already-computed timeline node; the raw `actor` enum (which drives the
+    // distinct bubble color per timeline-grammar) comes off the parent's
+    // bubble view-model. All read off in-scope memos — no fetch.
+    const parentViewModel = parentNode
+      ? viewModels.find((v) => v.messageId === parentNode.messageId) ?? null
+      : null;
+    const parentActor = parentViewModel?.actor ?? null;
+    const parentOrdinal = parentNode ? parentNode.ordinal : null;
+    const parentKindLabel = parentNode ? parentNode.kindLabel : null;
+    const parentActorLabel = parentNode ? parentNode.actorLabel : null;
+    const parentMessageId = parentNode ? parentNode.messageId : null;
+
     // ask ii — structural labels: the node's dropped-tag qualifiers, already
     // plain-language on the timeline node. Defensive: drop any value that
     // still looks like an internal code (never echo a raw code).
@@ -840,6 +854,12 @@ export function ArgumentGameSurface({
       structuralTagLabels,
       semanticFlagsSection:
         flagSection && flagSection.kind === 'semantic_flags' ? flagSection : null,
+      // CVDH-001 Slice 3 — parent comparison-bubble inputs (operator refinement).
+      parentOrdinal,
+      parentKindLabel,
+      parentMessageId,
+      parentActor,
+      parentActorLabel,
     });
   }, [
     activeMessageId,
@@ -857,6 +877,7 @@ export function ArgumentGameSurface({
     evidenceDebts,
     sidecarViewModel,
     timelineMap,
+    viewModels,
   ]);
 
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
@@ -1441,6 +1462,9 @@ export function ArgumentGameSurface({
               // so card + timeline selection never desync.
               activeCardDetail={activeCardDetail}
               onActivateAncestor={handleActivate}
+              // CVDH-001 Slice 3 — viewport width drives the hub's responsive
+              // 3-col / stacked layout on the active card.
+              windowWidth={windowWidth}
             />
             {/* Stage 6.4: legacy chip cluster is hidden in observer mode;
                 the action rail below is the single entry point for both

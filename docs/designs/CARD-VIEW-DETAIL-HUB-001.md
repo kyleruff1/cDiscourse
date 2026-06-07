@@ -558,17 +558,54 @@ the semantic-tags column (§7). Reuse the sidecar's `buildSectionSemanticFlags`
 labels — the existing single reuse point becomes a *shared builder*, eliminating
 the last fork.
 
-### 6.7 Parent-quote zone (ask i)
+### 6.7 Parent comparison bubble (ask i) — Slice 3 operator refinement (2026-06-06)
 
-New `whatThisMoveSays.parentQuote` field: the italic replied-to quote, truncated
-(confirm 96 vs 120 — recommend **120** to match the sidecar's
-`PARENT_BODY_PREVIEW_CAP`, **OQ-i**). **Graceful degrade:** when the parent is
-soft-deleted / RLS-hidden / out-of-slice, `parentIdOf` returns a non-resolvable
-id and the step-ref already returns a null token; the parent-quote zone renders a
-no-quote fallback (omit the italic box; the spine still shows "Replied to · #N"
-when the ordinal is known, or nothing when it is not). Never invent a quote;
-never show "(hidden because …)" (that would leak `inactive_reason`-class info) —
-the fallback is simply the absence of the quote.
+> **Operator refinement (2026-06-06).** Slice 2 shipped the parent quote as an
+> inline, in-flow display-only zone ("Replied to" heading + italic text /
+> neutral placeholder). The operator's Slice-3 instruction UPGRADES that into a
+> visually-distinct **off-center, above-centerpiece comparison bubble** so the
+> reader can tell, at a glance, that the parent is the OTHER party's move. The
+> inline parent-quote zone is REMOVED so the parent appears exactly once (as the
+> bubble).
+
+The parent now renders as `model.parentComparison`
+(`DetailParentComparisonBubble`, built by `buildParentComparisonBubble` in the
+shared `detail/argumentDetailModel.ts`). The bubble carries:
+
+- the italic replied-to **quote** inside quote marks (reuses the Slice-2
+  `buildParentQuoteSlice`; ≤ `PARENT_BODY_PREVIEW_CAP` = **120** chars),
+- a plain-language **actor label** (e.g. "Other side") — a color-INDEPENDENT cue
+  for WHO made the parent move,
+- the **reference** `#N · kind` (e.g. "#6 · rebuttal"),
+- the parent's **actor** + its **color pair** (`ACTOR_BUBBLE_COLOR`).
+
+**Color grammar (timeline-grammar).** The bubble is filled + stroked in the
+parent's **actor / side color**, mirroring the Timeline's `actorTone`
+(`self → cyan`, `other → indigo`, `bot → purple`, `admin → amber`,
+`unknown → slate`) so the two surfaces read as one system. The color encodes
+WHO, never a verdict / truth / correctness signal, and is DIFFERENT from the
+centerpiece card's surface so the two moves contrast. Meaning is ALSO carried by
+SHAPE (the off-center bubble + the italic quote) and the plain-language actor +
+reference labels, so color is never the only signal (grayscale snapshot stays
+legible).
+
+**Position.** The bubble sits ABOVE + OFF-CENTER the centerpiece card
+(`alignSelf: flex-start` + a small negative left margin) so the centerpiece
+reads as the obvious focus.
+
+**Navigation (Fork 7).** The **reference** (`#N · kind`) is the ONLY interactive
+affordance in the bubble — a real `Pressable` (role button, ≥44×44 via hitSlop)
+that switches the active card to the parent via `onActivateAncestor`. It is
+emitted as a button only when BOTH the parent ordinal AND the parent message id
+resolve; when the id is missing the reference renders as display-only text (no
+dangling tappable affordance).
+
+**Graceful degrade.** When the parent is the root / soft-deleted / RLS-hidden /
+out-of-slice, the resolved `parentBodyPreview` is empty and the bubble degrades
+to `kind: 'none'` — the consumer renders **NOTHING** (no bubble, no placeholder).
+The absence of the bubble is the entire signal; the hub NEVER invents a quote and
+NEVER shows a "(hidden because …)" reason (that would leak `inactive_reason`-class
+info, §10a).
 
 ### 6.8 Wiring in `ArgumentGameSurface`
 
@@ -583,6 +620,33 @@ builder with `'timeline'`. No new fetch; the new inputs are read off
 ---
 
 ## 7. Visual hierarchy (always-visible on Card) + responsive multi-column layout
+
+### 7.0 Comparison-style centerpiece + stylized MCP presentation (Slice 3 operator refinement, 2026-06-06)
+
+> **Operator refinement (2026-06-06).** Slice 3 adds the operator's
+> comparison-style framing on top of the ratified §7.1 / §7.2 invariants (which
+> are UNCHANGED). The active/current message card is the OBVIOUS CENTERPIECE of
+> the page; the replied-to parent renders as the off-center colored comparison
+> bubble above it (§6.7). The hub's MCP feedback is presented as stylized
+> flags / labels / helpers / banners, not plain text rows.
+
+- **Comparison-style centerpiece.** The hub renders three logical regions —
+  **centerpiece** (the parent comparison bubble above + the centerpiece card:
+  step-ref, category, S/T/H strip, evidence, standing, lifecycle), the
+  **classifier column**, and the **semantic-tags column**. The centerpiece card
+  sits on an elevated surface (`SURFACE_TOKENS.overlay` + rounded border) so it
+  reads as the focus; the parent bubble's distinct actor color contrasts with it
+  (§6.7).
+- **Stylized MCP presentation.** The hub surfaces the ALREADY-COMPUTED MCP
+  output — the family-grouped classifier Observations (A–G), the full semantic
+  tags, the S/T/H strip, evidence, lifecycle — as stylized **flags · labels ·
+  helpers · banners** (plain-language family headings, the advisory caption
+  banner, confidence PIPS, evidence-span helper lines, doctrine-grouped tag
+  blocks). It does NOT invent new classifier data and does NOT call any model;
+  "taking full advantage of MCP feedback" = surfacing the TypeScript
+  observations + plain-language helpers the registry / `gameCopy` already
+  produce, stylized. Meaning is carried by shape / glyph / label, NOT color
+  alone (color-independent; grayscale snapshot stays legible).
 
 ### 7.1 Visual hierarchy — NOT disclosure (Fork 5, RATIFIED)
 
@@ -602,20 +666,31 @@ collapsed disclosure.** PRIMARY/SECONDARY is purely visual ordering:
 
 ### 7.2 Responsive multi-column (the operator's wide-layout signal)
 
-- **Wide viewport (web + width ≥ a tablet-landscape breakpoint, reuse the
-  existing ≥1024 boundary from `menuKeyBadgeModel`):** three columns —
-  **semantic-tags column · centered narrative spine + S/T/H strip ·
-  classifier (family-grouped) column** (the operator's two flanking rectangles).
-- **Narrow viewport (phone / tablet portrait):** single stacked column — spine
-  first, then classifier block, then semantic-tags block (reading order
-  preserved). No horizontal scroll trap; columns reflow via flex wrap.
-- The layout decision is pure presentation (a width-driven flex direction). A
-  small pure helper (`hubColumnLayout(width, platformOs)`) keeps the breakpoint
-  logic testable. Reading order on a screen reader is always spine → classifiers
-  → tags regardless of visual column order.
+Implemented via the pure helper `hubColumnLayout(width, platformOs)` (shared
+`detail/argumentDetailModel.ts`), which returns the layout mode + the visual
+column order + the stable SR reading order. The breakpoint reuses the existing
+≥1024 boundary (`HUB_WIDE_LAYOUT_WIDTH_THRESHOLD`, the iPad-Pro-landscape width
+`menuKeyBadgeModel` uses).
 
-(Exact breakpoint + 2-col vs 3-col on mid widths is operator-discretion;
-recommend 3-col ≥1024, stacked below — **OQ-5b**.)
+- **Wide viewport (web AND width ≥ 1024):** three columns — **semantic-tags
+  column (left) · centerpiece (the comparison bubble above + the centerpiece
+  card + S/T/H strip + lifecycle) · classifier (family-grouped) column
+  (right)** (the operator's two flanking regions, with the centerpiece visually
+  centered between them).
+- **Narrow viewport (phone / tablet portrait) AND ALL native platforms:** single
+  stacked column — centerpiece first, then the classifier block, then the
+  semantic-tags block (reading order preserved). No horizontal scroll trap;
+  columns reflow via flex wrap. Native is always stacked (touch-first) regardless
+  of width, matching `hubColumnLayout`'s `{platformOs, windowWidth}` encoding.
+- The layout decision is pure presentation (a width-driven flex direction).
+  **SR reading order is ALWAYS `centerpiece → classifiers → tags`**
+  (`HUB_READING_ORDER`) regardless of visual column order; on the wide layout the
+  visual order is `tags · centerpiece · classifier` so the centerpiece is
+  centered, while the canonical reading order is the order used on every native /
+  stacked viewport. The same sections are present in BOTH layouts — narrow only
+  reflows, it never drops a section.
+
+(Resolved per **OQ-5b**: 3-col ≥1024, stacked below.)
 
 ---
 

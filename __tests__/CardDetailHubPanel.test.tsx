@@ -189,32 +189,39 @@ function roleOf(node: { props: { accessibilityRole?: string } }): string | undef
 }
 
 describe('CVDH-001 Slice 2 — hub zones render visible by default', () => {
-  it('renders the parent-quote, S/T/H strip, hub classifier, and full-tags zones', () => {
+  it('renders the parent-comparison bubble, S/T/H strip, hub classifier, and full-tags zones', () => {
+    // CVDH-001 Slice 3 — the inline parent-quote zone is upgraded into the
+    // off-center colored comparison bubble; assert the bubble, not the zone.
     const { getByTestId } = render(<CardDetailPanel model={hubModel()} />);
-    expect(getByTestId('card-detail-parent-quote-zone')).toBeTruthy();
+    expect(getByTestId('card-detail-parent-bubble')).toBeTruthy();
     expect(getByTestId('card-detail-sth-zone')).toBeTruthy();
     expect(getByTestId('card-detail-classifier-zone')).toBeTruthy();
     expect(getByTestId('card-detail-full-tags-zone')).toBeTruthy();
   });
 
-  it('ask i — the parent quote renders as an italic display-only label', () => {
+  it('ask i — the parent text renders as an italic display-only quote inside the comparison bubble', () => {
+    // CVDH-001 Slice 3 — the quote now lives inside the comparison bubble,
+    // wrapped in quote marks + italic. Display-only (the only button in the
+    // bubble is the reference).
     const { getByTestId } = render(<CardDetailPanel model={hubModel()} />);
-    const quote = getByTestId('card-detail-parent-quote');
-    expect(quote.props.children).toBe('We should narrow the scope.');
+    const quote = getByTestId('card-detail-parent-bubble-quote');
+    expect(quote.props.children).toBe('“We should narrow the scope.”');
     expect(roleOf(quote)).toBe('text');
     expect(roleOf(quote)).not.toBe('button');
+    expect(quote.props.style).toEqual(
+      expect.objectContaining({ fontStyle: 'italic' }),
+    );
   });
 
-  it('ask i — degrades to a neutral placeholder when the parent is unresolvable', () => {
-    const { getByTestId, queryByTestId } = render(
+  it('ask i — degrades to NO comparison bubble when the parent is unresolvable', () => {
+    // CVDH-001 Slice 3 — root / unresolvable parent → no bubble at all (the
+    // absence is the signal; never a "hidden because…" reason).
+    const { queryByTestId } = render(
       <CardDetailPanel model={hubModel({ parentBodyPreview: null })} />,
     );
-    expect(queryByTestId('card-detail-parent-quote')).toBeNull();
-    const placeholder = getByTestId('card-detail-parent-quote-unavailable');
-    expect(placeholder.props.children).toBe('Parent unavailable');
-    // No "hidden because…" reason leak.
-    expect(String(placeholder.props.children).toLowerCase()).not.toContain('hidden');
-    expect(String(placeholder.props.children).toLowerCase()).not.toContain('because');
+    expect(queryByTestId('card-detail-parent-bubble')).toBeNull();
+    expect(queryByTestId('card-detail-parent-bubble-quote')).toBeNull();
+    expect(queryByTestId('card-detail-parent-bubble-reference')).toBeNull();
   });
 
   it('ask v — the S/T/H strip renders plain-language band labels (no raw tokens)', () => {
@@ -264,11 +271,14 @@ describe('CVDH-001 Slice 2 — hub zones render visible by default', () => {
     expect(roleOf(heading)).toBe('text');
   });
 
-  it('every new hub zone is display-only (no button role anywhere in the panel except the parent token)', () => {
+  it('every new hub zone is display-only (no button role anywhere in the panel except navigation)', () => {
     const { getByTestId } = render(<CardDetailPanel model={hubModel()} />);
-    // Spot-check the zones carry no onPress / button role.
+    // Spot-check the zones carry no onPress / button role. The comparison-bubble
+    // ACTOR + QUOTE are display-only; only the bubble REFERENCE is a button
+    // (navigation), which is asserted separately in the Slice 3 nav tests.
     for (const id of [
-      'card-detail-parent-quote',
+      'card-detail-parent-bubble-actor',
+      'card-detail-parent-bubble-quote',
       'card-detail-standing-band',
       'card-detail-tone-band',
       'card-detail-heat-band',
