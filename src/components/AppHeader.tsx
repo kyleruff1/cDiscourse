@@ -247,7 +247,11 @@ const styles = StyleSheet.create({
     height: undefined,
     minHeight: PROMINENT_HEADER_HEIGHT_PX,
     paddingVertical: 4,
-    alignItems: 'center',
+    // NAV-HEADER-INLINE-001 follow-up (operator "SHOULD BE HERE" = the TOP
+    // masthead band): top-align the logo / nav / gear so the primary nav
+    // sits in the top band to the right of the logo, NOT vertically centered
+    // mid-height against the tall logo lockup.
+    alignItems: 'flex-start',
     justifyContent: 'flex-start',
   },
   // Phone reflow: stack the brand lockup on top of the nav so nothing
@@ -262,7 +266,10 @@ const styles = StyleSheet.create({
   navSlot: {
     flex: 1,
     alignSelf: 'stretch',
-    justifyContent: 'center',
+    // Top-align the nav bar within the masthead (operator "SHOULD BE HERE" =
+    // the top band). A small top inset aligns the bar with the logo's top.
+    justifyContent: 'flex-start',
+    paddingTop: 6,
   },
   navSlotPhone: {
     flex: undefined,
