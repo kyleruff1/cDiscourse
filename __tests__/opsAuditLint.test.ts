@@ -1376,9 +1376,9 @@ describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — doctrine-risk memb
 
   it('preserves the existing Family E + F + G doctrine-risk members', () => {
     // Additive-only guard: the H enrollment must not drop any Family E, F,
-    // or G member (HALT trigger 7 / E-F-G-drift guard). Also pins the
-    // post-H set size at exactly 11 (was 8 after G; +3 for H = 11) so any
-    // future accidental drop or reorder is caught loudly.
+    // or G member (HALT trigger 7 / E-F-G-drift guard). The set-size pin
+    // lives in the Family I "preserves E+F+G+H" guard below (the I
+    // enrollment carries the canonical post-I size assertion = 14).
     expect(rules.DOCTRINE_RISK_FAMILIES.has('argument_scheme')).toBe(true);
     expect(rules.DOCTRINE_RISK_FAMILIES.has('slippery_slope')).toBe(true);
     expect(rules.DOCTRINE_RISK_FAMILIES.has('critical_question')).toBe(true);
@@ -1391,7 +1391,6 @@ describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — doctrine-risk memb
     expect(rules.DOCTRINE_RISK_FAMILIES.has('concedes_broader_point')).toBe(
       true,
     );
-    expect(rules.DOCTRINE_RISK_FAMILIES.size).toBe(11);
   });
 });
 
@@ -1514,6 +1513,170 @@ describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK — Family H fixture s
 });
 
 /* ============================================================ */
+/* 15e. Family I doctrine-risk enrollment                        */
+/*     (OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK)         */
+/* ============================================================ */
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK — doctrine-risk membership', () => {
+  it('doctrine-risk family set contains thread_topology', () => {
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('thread_topology')).toBe(true);
+  });
+
+  it('doctrine-risk family set contains family_i (the detector output; HALT-11 chain-binding)', () => {
+    // HALT trigger 11 (the chain-binding check): `family_i` is the string
+    // detectFamily() actually emits for a canonical `MCP-SERVER-NNN-FAMILY-I`
+    // title (mapFamilyLetterToName has no I case -> default branch ->
+    // `family_i`). Adding only `thread_topology` would be a silent no-op for
+    // canonical-titled I docs; `family_i` is the load-bearing alias that arms
+    // L5 for them. This membership pin is the HALT-11 satisfaction.
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('family_i')).toBe(true);
+  });
+
+  it('doctrine-risk family set contains compares_options', () => {
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('compares_options')).toBe(true);
+  });
+
+  it('preserves the existing Family E + F + G + H doctrine-risk members', () => {
+    // Additive-only guard: the I enrollment must not drop any Family E, F, G,
+    // or H member (HALT trigger 7 / E-F-G-H-drift guard). Also pins the
+    // post-I set size at exactly 14 (was 11 after H; +3 for I = 14) so any
+    // future accidental drop or reorder is caught loudly.
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('argument_scheme')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('slippery_slope')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('critical_question')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('family_f')).toBe(true);
+    expect(
+      rules.DOCTRINE_RISK_FAMILIES.has('consequence_probability_unclear'),
+    ).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('resolution_progress')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('family_g')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('concedes_broader_point')).toBe(
+      true,
+    );
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('claim_clarity')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('family_h')).toBe(true);
+    expect(rules.DOCTRINE_RISK_FAMILIES.has('claim_specificity_low')).toBe(
+      true,
+    );
+    expect(rules.DOCTRINE_RISK_FAMILIES.size).toBe(14);
+  });
+});
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK — detectFamily A.1-trap pin', () => {
+  it('a MCP-SERVER-010-FAMILY-I title detects as family_i (NOT thread_topology)', () => {
+    // Load-bearing: the title letter I has no case in mapFamilyLetterToName,
+    // so it falls through to the default branch -> `family_i`. If a future
+    // refactor adds an I case (changing the emitted string) this pin fails
+    // loudly rather than silently un-arming L5.
+    expect(
+      detectFamily(
+        '# MCP-SERVER-010-FAMILY-I-SMOKE — Post-merge audit',
+        'Phase 4b deferred.',
+      ),
+    ).toBe('family_i');
+  });
+});
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK — L5 fires for family_i', () => {
+  it('fires on a family_i audit with verdict PASS and no evidence_span mention', () => {
+    const doc = buildFamilyShipDoc({
+      titleOverride: '# MCP-SERVER-010-FAMILY-I-SMOKE — synthetic',
+      phases: [['Phase 1 — Pre-flight', 'PASS']],
+      verdict: 'PASS',
+    });
+    const result = lintAuditDoc(doc);
+    expect(result.findings.some((f) => f.rule === 'L5')).toBe(true);
+  });
+
+  it('does NOT fire on a family_i audit that inspects evidence_span', () => {
+    const doc = buildFamilyShipDoc({
+      titleOverride: '# MCP-SERVER-010-FAMILY-I-SMOKE — synthetic',
+      phases: [
+        [
+          'Phase 1 — Pre-flight',
+          'PASS',
+          'SELECT raw_key, confidence, evidence_span FROM argument_machine_observation_results;',
+        ],
+      ],
+      verdict: 'PASS',
+    });
+    const result = lintAuditDoc(doc);
+    expect(result.findings.some((f) => f.rule === 'L5')).toBe(false);
+  });
+
+  it('family_i PASS audit that names evidence_span does NOT fail L5 (consistent-PASS regression)', () => {
+    // A doctrine-risk I audit with verdict PASS that names the persisted
+    // evidence_span inspection (either as a SELECT query, a table header, a
+    // `persisted evidence` phrase, or a `direct-output inspection` phrase)
+    // must NOT false-fail L5. L5 is verdict-blind; the mention is what
+    // satisfies hasInspection. This documents the consistent-PASS mechanism
+    // independently of the static fixture.
+    const doc = buildFamilyShipDoc({
+      titleOverride: '# MCP-SERVER-010-FAMILY-I-SMOKE — synthetic',
+      phases: [
+        ['Phase 1 — Pre-flight', 'PASS'],
+        [
+          'Phase 4b — Adversarial doctrine verification',
+          'PASS',
+          'Persisted evidence_span readback re-affirmed clean against the I ban-list.',
+        ],
+      ],
+      verdict: 'PASS',
+    });
+    const result = lintAuditDoc(doc);
+    expect(result.findings.some((f) => f.rule === 'L5')).toBe(false);
+  });
+});
+
+describe('OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK — Family I fixture self-validation', () => {
+  it('family-i-consistent-PARTIAL PASSES as exit 0 (consistent-PARTIAL preserved; substitute for the missing on-main "original")', () => {
+    // Load-bearing regression guard: a legitimately-deferred I audit that
+    // names `evidence_span` as the deferred Phase 4b obligation still passes
+    // L5 (hasInspection true). There is NO on-main Card-1 I smoke to byte-copy
+    // (only the -template exists), so this hand-authored representative is the
+    // I substitute for H's byte-copy "original" fixture.
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-i-consistent-PARTIAL.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+    expect(result.parsed.family).toBe('family_i');
+    expect(result.parsed.verdict).toBe('PARTIAL');
+  });
+
+  it('family-i-amendment-PASS PASSES (representative I amendment with persisted inspection)', () => {
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-i-amendment-PASS.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(0);
+    expect(result.findings).toHaveLength(0);
+    expect(result.parsed.family).toBe('family_i');
+  });
+
+  it('family-i-IMPROPER-PASS-no-evidence-span FAILS on L5 ONLY (the teeth proof)', () => {
+    const doc = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'family-i-IMPROPER-PASS-no-evidence-span.md'),
+      'utf8',
+    );
+    const result = lintAuditDoc(doc);
+    expect(result.exitCode).toBe(1);
+    const ruleIds = result.findings.map((f) => f.rule);
+    // L5 is the doctrine-risk teeth: verdict PASS + Family I + no evidence_span.
+    expect(ruleIds).toContain('L5');
+    // Teeth-precision: ONLY L5 trips. The synthetic is amendment-typed (empty
+    // required-phase set -> no L1), has no L2 indirect-proof phrase, and its L6
+    // provenance is intact -> none of L1/L2/L6 fire.
+    expect(ruleIds).not.toContain('L1');
+    expect(ruleIds).not.toContain('L2');
+    expect(ruleIds).not.toContain('L6');
+  });
+});
+
+/* ============================================================ */
 /* 16. Fixture-directory invariants                              */
 /* ============================================================ */
 
@@ -1532,6 +1695,9 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — fixture-directory invariants', ()
     'family-h-original-PASS.md',
     'family-h-amendment-PASS.md',
     'family-h-IMPROPER-PASS-no-evidence-span.md',
+    'family-i-consistent-PARTIAL.md',
+    'family-i-amendment-PASS.md',
+    'family-i-IMPROPER-PASS-no-evidence-span.md',
   ];
 
   it('README.md exists with required exclusion-contract content', () => {
@@ -1552,11 +1718,11 @@ describe('OPS-MCP-SMOKE-DOCTRINE-HARDENING — fixture-directory invariants', ()
     }
   });
 
-  it('fixture count is exactly 13', () => {
+  it('fixture count is exactly 16', () => {
     const mdFiles = fs
       .readdirSync(FIXTURE_DIR)
       .filter((n) => n.endsWith('.md') && n !== 'README.md');
-    expect(mdFiles).toHaveLength(13);
+    expect(mdFiles).toHaveLength(16);
     expect(mdFiles.sort()).toEqual([...FIXTURE_FILES].sort());
   });
 });
