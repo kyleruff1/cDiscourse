@@ -35,6 +35,7 @@ import {
   type ArgumentSurfaceMode,
 } from './argumentGameSurfaceModel';
 import { computeParticipantTrends } from './argumentScoreModel';
+import { resolveStackKeyEffect } from './stackKeyboardSwipeModel';
 import type { TimelineDensityMode } from './timelineNodeVisualModel';
 import { ArgumentScoreTracker } from './ArgumentScoreTracker';
 import { ArgumentSideActionRail, railActionToBubbleControl } from './ArgumentSideActionRail';
@@ -1054,6 +1055,24 @@ export function ArgumentGameSurface({
       setMicroMomentDismissed(true);
     }
   }, [chronologicalIds, activeMessageId]);
+  // CARD-VIEW-REFINE-001 — Home / End in Stack mode jump to the oldest /
+  // newest move chronologically (the stack is an ordered fan, not a DAG).
+  const handleFirst = useCallback(() => {
+    const first = chronologicalIds[0] ?? null;
+    if (first && first !== activeMessageId) {
+      setActiveMessageId(first);
+      setSelectionStatus('explicit');
+      setMicroMomentDismissed(true);
+    }
+  }, [chronologicalIds, activeMessageId]);
+  const handleLast = useCallback(() => {
+    const last = chronologicalIds[chronologicalIds.length - 1] ?? null;
+    if (last && last !== activeMessageId) {
+      setActiveMessageId(last);
+      setSelectionStatus('explicit');
+      setMicroMomentDismissed(true);
+    }
+  }, [chronologicalIds, activeMessageId]);
 
   const handleAction = useCallback((
     control: ArgumentBubbleControl,
@@ -1380,6 +1399,70 @@ export function ArgumentGameSurface({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [boardActVisible, inspectVisible, goVisible]);
 
+  // ── CARD-VIEW-REFINE-001 — Stack-mode ←/→ (+ Home/End) keyboard nav ──
+  //
+  // Document-level keydown ACTIVE ONLY in Stack (Cards) mode (mode === 'stack')
+  // so it never double-fires with the Timeline's own ArrowLeft/Right handler.
+  // ArrowLeft → previous (older) move; ArrowRight → next (newer) move;
+  // Home/End → oldest/newest. Chronological prev/next is correct for the
+  // stack — this deliberately does NOT use the Timeline DAG navigation.
+  //
+  // Bails (→ no-op) when the composer (a focused TextInput / contentEditable)
+  // owns the keystroke OR a board menu/overlay is open — the pure resolver
+  // encodes both guards. This is a plain document listener (NOT a router); the
+  // composerDockNoRoute / inRoomNoRoute invariants hold (no navigation import).
+  useEffect(() => {
+    if (mode !== 'stack') return;
+    if (Platform.OS !== 'web') return;
+    if (typeof document === 'undefined' || !document.addEventListener) return;
+    const handleStackKeyDown = (event: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const composerFocused =
+        !!activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.isContentEditable === true);
+      const hasOpenMenu = boardActVisible || inspectVisible || goVisible;
+      const effect = resolveStackKeyEffect({
+        key: event.key,
+        composerFocused,
+        hasOpenMenu,
+      });
+      switch (effect) {
+        case 'prev':
+          event.preventDefault();
+          handlePrev();
+          return;
+        case 'next':
+          event.preventDefault();
+          handleNext();
+          return;
+        case 'first':
+          event.preventDefault();
+          handleFirst();
+          return;
+        case 'last':
+          event.preventDefault();
+          handleLast();
+          return;
+        case 'none':
+        default:
+          return;
+      }
+    };
+    document.addEventListener('keydown', handleStackKeyDown);
+    return () => document.removeEventListener('keydown', handleStackKeyDown);
+  }, [
+    mode,
+    boardActVisible,
+    inspectVisible,
+    goVisible,
+    handlePrev,
+    handleNext,
+    handleFirst,
+    handleLast,
+  ]);
+
   // META-1A — Persisted manual-tag write path. These route through the
   // apply-manual-tag Edge Function (the single write path; never a direct
   // client insert) and refresh the room on success so the persisted tag
@@ -1465,6 +1548,14 @@ export function ArgumentGameSurface({
               // CVDH-001 Slice 3 — viewport width drives the hub's responsive
               // 3-col / stacked layout on the active card.
               windowWidth={windowWidth}
+              // CARD-VIEW-REFINE-001 — inline "Actions on this point" zone on
+              // the active card. The set is derived from the SAME
+              // getRailActions(viewerRole, bubbleActor) the side rail uses;
+              // dispatch goes through the SAME handleRailAction path, so the
+              // inline subset and the rail can never diverge. These are USER
+              // MOVES (Constitution-governed), not classifier verdicts.
+              viewerRole={resolvedViewerRole}
+              onRailAction={handleRailAction}
             />
             {/* Stage 6.4: legacy chip cluster is hidden in observer mode;
                 the action rail below is the single entry point for both

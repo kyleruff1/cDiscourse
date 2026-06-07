@@ -21,10 +21,11 @@
  * callers (Timeline expanded-marker use, tests) render byte-equivalently.
  */
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ArgumentBubbleViewModel } from './argumentGameSurfaceModel';
 import { CardDetailPanel } from './cardView/CardDetailPanel';
 import type { CardDetailViewModel } from './cardView/cardDetailModel';
+import type { RailActionCode, RailViewerRole } from './railActionCategories';
 
 interface Props {
   viewModel: ArgumentBubbleViewModel;
@@ -38,6 +39,18 @@ interface Props {
   /** CVDH-001 Slice 3 — viewport width for the hub's responsive multi-column
    *  layout. Forwarded to the active card's CardDetailPanel. */
   windowWidth?: number;
+  /** CARD-VIEW-REFINE-001 — measured stage height (px). When present on the
+   *  active card the card clips + scrolls its detail within this bound so a
+   *  tall panel never overflows the stage. null/undefined → unbounded
+   *  (legacy / non-active). */
+  maxHeight?: number | null;
+  /** CARD-VIEW-REFINE-001 — viewer role for the inline ActionsZone (active
+   *  card only). Forwarded to CardDetailPanel; absent → no ActionsZone. */
+  viewerRole?: RailViewerRole;
+  /** CARD-VIEW-REFINE-001 — dispatch a rail action code for this message via
+   *  the SAME path the side rail uses. Forwarded to the panel's inline
+   *  ActionsZone; absent → no ActionsZone. */
+  onRailAction?: (code: RailActionCode, ctx: { activeMessageId: string | null }) => void;
 }
 
 export function ArgumentBubbleCard({
@@ -48,16 +61,31 @@ export function ArgumentBubbleCard({
   cardDetail,
   onActivateAncestor,
   windowWidth,
+  maxHeight,
+  viewerRole,
+  onRailAction,
 }: Props) {
   const isOwn = vm.actor === 'self';
   // CARD-VIEW-DATA-001 — the exploded detail renders only on the active
   // card, visible by default. Stacked (non-active) cards stay 3-line
   // compact and ignore the detail prop.
   const showCardDetail = vm.isActive && cardDetail != null;
+  // CARD-VIEW-REFINE-001 — bound the ACTIVE card by the measured stage
+  // height so a tall always-visible detail panel scrolls inside the card
+  // instead of overflowing top + bottom into the masthead. Only applied
+  // when both active AND a finite bound is supplied (else unbounded =
+  // legacy behavior). overflow:'hidden' clips to the rounded card.
+  const boundActive =
+    vm.isActive && typeof maxHeight === 'number' && Number.isFinite(maxHeight) && maxHeight > 0;
 
   return (
     <Pressable
-      style={[styles.card, vm.isActive && styles.cardActive, isOwn && styles.cardOwn]}
+      style={[
+        styles.card,
+        vm.isActive && styles.cardActive,
+        isOwn && styles.cardOwn,
+        boundActive && { maxHeight: maxHeight as number, overflow: 'hidden' },
+      ]}
       onPress={() => onActivate?.(vm.messageId)}
       onLongPress={() => onToggleMode?.()}
       accessibilityRole="button"
@@ -102,15 +130,34 @@ export function ArgumentBubbleCard({
 
       {/* CARD-VIEW-DATA-001 — exploded Inspect detail, visible by default on
           the active card. Its category/qualifier + standing zones supersede
-          the legacy badge row (rendered only when the panel is absent). */}
+          the legacy badge row (rendered only when the panel is absent).
+          CARD-VIEW-REFINE-001 — the panel is wrapped in a ScrollView so the
+          always-visible detail SCROLLS WITHIN the bounded card (containment,
+          NOT a tap-to-reveal disclosure — every section still renders without
+          a tap; check #14 holds). `flexShrink:1` lets the scroll region give
+          up space to the header + time block within the maxHeight bound. */}
       {showCardDetail ? (
-        <CardDetailPanel
-          model={cardDetail!}
-          onActivateAncestor={onActivateAncestor}
-          windowWidth={windowWidth}
-          currentMessageBody={vm.body}
-          testID={`card-detail-panel-${vm.messageId}`}
-        />
+        <ScrollView
+          style={boundActive ? styles.detailScroll : undefined}
+          contentContainerStyle={styles.detailScrollContent}
+          showsVerticalScrollIndicator
+          testID={`card-detail-scroll-${vm.messageId}`}
+        >
+          <CardDetailPanel
+            model={cardDetail!}
+            onActivateAncestor={onActivateAncestor}
+            windowWidth={windowWidth}
+            currentMessageBody={vm.body}
+            viewerRole={viewerRole}
+            bubbleActor={vm.actor}
+            onRailAction={
+              onRailAction
+                ? (code) => onRailAction(code, { activeMessageId: vm.messageId })
+                : undefined
+            }
+            testID={`card-detail-panel-${vm.messageId}`}
+          />
+        </ScrollView>
       ) : (
         (vm.qualifierBadges.length > 0 || vm.pointStandingHint) && (
           <View style={styles.badgeRow}>
@@ -166,6 +213,11 @@ const styles = StyleSheet.create({
   parentHint: { color: '#94a3b8', fontSize: 11, fontStyle: 'italic', marginBottom: 4 },
   body: { color: '#f8fafc', fontSize: 15, lineHeight: 22 },
   bodyCompact: { fontSize: 13, lineHeight: 18 },
+  // CARD-VIEW-REFINE-001 — the scroll region for the always-visible detail
+  // panel on a bounded active card. flexShrink lets it yield to the header +
+  // time block; the maxHeight bound lives on the card itself.
+  detailScroll: { flexShrink: 1, alignSelf: 'stretch' },
+  detailScrollContent: { flexGrow: 0 },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 },
   badge: { backgroundColor: '#1f2937', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
   badgePointStanding: { backgroundColor: '#3b0764' },
