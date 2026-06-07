@@ -27,6 +27,17 @@ export interface Debate {
    * populated for rows loaded post-migration.
    */
   visibility: RoomVisibility;
+  /**
+   * ADMIN-CONV-INACTIVE-VISIBILITY-001 — debate-level inactivation timestamp
+   * (#514 / migration `20260606000001`). `null` = active; non-null = the room
+   * was made inactive and must be hidden from default views. The WHAT of the
+   * lifecycle state only — never the WHY. There is intentionally NO companion
+   * `inactiveReason` field here or in `DebateRow`: the reason free-text is
+   * never threaded to the gallery or the client (§10a). Optional in the type
+   * because pre-migration callers and fixtures may omit it; absence is treated
+   * as active.
+   */
+  inactiveAt?: string | null;
 }
 
 export interface CreateDebateInput {

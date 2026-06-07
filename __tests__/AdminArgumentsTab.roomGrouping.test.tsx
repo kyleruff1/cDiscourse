@@ -42,7 +42,11 @@ describe('AdminArgumentsTab — groups artifacts into room/conversation groups',
   });
 
   it('groups the artifact rows honoring the active sort direction', () => {
-    expect(src).toMatch(/groupArtifactsByRoom\(artifactRows\.map\(\(\{ artifact \}\) => artifact\), sortDirection\)/);
+    // ADMIN-CONV-INACTIVE-VISIBILITY-001 — the call was wrapped across lines to
+    // apply the room-level includeInactives filter after grouping; the arguments
+    // (artifactRows.map + sortDirection) are unchanged. Match whitespace-/
+    // newline-tolerantly.
+    expect(src).toMatch(/groupArtifactsByRoom\(\s*artifactRows\.map\(\(\{ artifact \}\) => artifact\),\s*sortDirection,?\s*\)/);
   });
 
   it('iterates roomGroups (one header per room), not the flat artifact list at top level', () => {

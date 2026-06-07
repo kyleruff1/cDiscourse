@@ -186,6 +186,118 @@ describe('listDebates — visibility round-trip', () => {
   });
 });
 
+// ── listDebates — ADMIN-CONV-INACTIVE-VISIBILITY-001 inactive_at ──────
+
+describe('listDebates — inactive_at round-trip (#514 / ADMIN-CONV-INACTIVE-VISIBILITY-001)', () => {
+  it('selects inactive_at but NOT inactive_reason (§10a — WHAT only, never WHY)', async () => {
+    mockState.results['debates'] = { data: [], error: null };
+    mockState.results['debate_participants'] = { data: [], error: null };
+    await listDebates('u1');
+    const debatesCall = mockState.calls.find((c) => c.table === 'debates' && c.op === 'select');
+    expect(debatesCall?.columns).toContain('inactive_at');
+    expect(debatesCall?.columns).not.toContain('inactive_reason');
+  });
+
+  it('maps inactive_at → inactiveAt on each Debate', async () => {
+    mockState.results['debates'] = {
+      data: [
+        {
+          id: 'd-active',
+          created_by: 'u1',
+          title: 'A',
+          resolution: 'R',
+          description: '',
+          status: 'open',
+          constitution_id: 'c1',
+          created_at: '2026-06-06T00:00:00Z',
+          updated_at: '2026-06-06T00:00:00Z',
+          visibility: 'public',
+          inactive_at: null,
+        },
+        {
+          id: 'd-inactive',
+          created_by: 'u2',
+          title: 'B',
+          resolution: 'R',
+          description: '',
+          status: 'open',
+          constitution_id: 'c1',
+          created_at: '2026-06-06T00:00:00Z',
+          updated_at: '2026-06-06T00:00:00Z',
+          visibility: 'public',
+          inactive_at: '2026-06-06T12:00:00Z',
+        },
+      ],
+      error: null,
+    };
+    mockState.results['debate_participants'] = { data: [], error: null };
+    const res = await listDebates('u1');
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data[0].inactiveAt).toBeNull();
+      expect(res.data[1].inactiveAt).toBe('2026-06-06T12:00:00Z');
+    }
+  });
+
+  it('defaults a missing inactive_at column to null (active)', async () => {
+    mockState.results['debates'] = {
+      data: [
+        {
+          id: 'd-legacy',
+          created_by: 'u1',
+          title: 'A',
+          resolution: 'R',
+          description: '',
+          status: 'open',
+          constitution_id: 'c1',
+          created_at: '2026-06-06T00:00:00Z',
+          updated_at: '2026-06-06T00:00:00Z',
+          visibility: 'public',
+          // inactive_at intentionally absent (pre-migration row)
+        },
+      ],
+      error: null,
+    };
+    mockState.results['debate_participants'] = { data: [], error: null };
+    const res = await listDebates('u1');
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.data[0].inactiveAt).toBeNull();
+  });
+
+  it('§10a — a row carrying inactive_reason never round-trips a reason onto the Debate', async () => {
+    mockState.results['debates'] = {
+      data: [
+        {
+          id: 'd-poison',
+          created_by: 'u1',
+          title: 'A',
+          resolution: 'R',
+          description: '',
+          status: 'open',
+          constitution_id: 'c1',
+          created_at: '2026-06-06T00:00:00Z',
+          updated_at: '2026-06-06T00:00:00Z',
+          visibility: 'public',
+          inactive_at: '2026-06-06T12:00:00Z',
+          inactive_reason: 'operator marked this room as spam',
+        },
+      ],
+      error: null,
+    };
+    mockState.results['debate_participants'] = { data: [], error: null };
+    const res = await listDebates('u1');
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      const serialized = JSON.stringify(res.data[0]);
+      expect(serialized).not.toContain('inactive_reason');
+      expect(serialized).not.toContain('inactiveReason');
+      expect(serialized).not.toContain('marked this room as spam');
+      // The WHAT still threads through.
+      expect(res.data[0].inactiveAt).toBe('2026-06-06T12:00:00Z');
+    }
+  });
+});
+
 // ── createDebate ──────────────────────────────────────────────
 
 describe('createDebate — visibility on insert', () => {

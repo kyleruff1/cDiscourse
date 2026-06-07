@@ -460,10 +460,21 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
   // artifact's already-derived `isInactive` (from `inactiveAt` only). The
   // room groups honor the active sort direction, so flipping Created/Updated
   // sort re-orders the headers too.
-  const roomGroups = useMemo<AdminArgumentRoomGroup[]>(
-    () => groupArtifactsByRoom(artifactRows.map(({ artifact }) => artifact), sortDirection),
-    [artifactRows, sortDirection],
-  );
+  // ADMIN-CONV-INACTIVE-VISIBILITY-001 — the per-ARGUMENT `includeInactives`
+  // SQL predicate (in `adminArgumentsApi`) does not cover whole-room (#514)
+  // inactivation: a DEBATE-level inactive room whose individual statements are
+  // still active would slip through and render even with the toggle off. Apply
+  // the room-level filter here too. When `!includeInactives`, drop groups whose
+  // `isDebateInactive` is true (derived from `inactive_at` ONLY — never a
+  // reason, §10a). Reuses the EXISTING `includeInactives` state (default
+  // false) — no new state.
+  const roomGroups = useMemo<AdminArgumentRoomGroup[]>(() => {
+    const grouped = groupArtifactsByRoom(
+      artifactRows.map(({ artifact }) => artifact),
+      sortDirection,
+    );
+    return includeInactives ? grouped : grouped.filter((g) => !g.isDebateInactive);
+  }, [artifactRows, sortDirection, includeInactives]);
   // Lookup from artifactId → the latest revision's source AdminArgumentRow, so
   // each room group's artifacts re-hydrate to the exact `{ artifact, primaryRow }`
   // pairs the existing per-artifact row renderer consumes. Route keys and
@@ -539,18 +550,30 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
         </Pressable>
       </View>
 
-      {/* ADMIN-ARGS-INACTIVE-001 — Show-inactives toggle + bulk toolbar. */}
+      {/* ADMIN-ARGS-INACTIVE-001 — Show-inactives toggle + bulk toolbar.
+          ADMIN-CONV-INACTIVE-VISIBILITY-001 — re-cast as a CLEARLY VISIBLE
+          BUTTON (the operator reported the prior control read as inert status
+          text). It is a real `Pressable` with `accessibilityRole="button"`,
+          `accessibilityState={{ selected }}`, a visible checkbox-style box +
+          plain label ("Show inactives" / "Showing inactives"), and a ≥44×44
+          hit target via `hitSlop`. Flips the EXISTING `includeInactives` state
+          which now gates BOTH the per-argument SQL predicate AND the
+          debate-level room-group filter above. */}
       <View style={styles.subToolbar} accessibilityLabel="admin-arguments-sub-toolbar">
         <Pressable
-          style={[styles.toggle, includeInactives && styles.toggleOn]}
+          style={[styles.showInactivesBtn, includeInactives && styles.showInactivesBtnOn]}
           onPress={() => setIncludeInactives((v) => !v)}
-          accessibilityRole="switch"
-          accessibilityLabel="admin-arguments-show-inactives-toggle"
-          accessibilityState={{ checked: includeInactives }}
+          accessibilityRole="button"
+          accessibilityLabel={includeInactives ? 'Showing inactives. Tap to hide inactive rooms and statements.' : 'Show inactives. Tap to reveal inactive rooms and statements.'}
+          accessibilityState={{ selected: includeInactives }}
+          hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
           testID="admin-arguments-show-inactives-toggle"
         >
-          <Text style={[styles.toggleText, includeInactives && styles.toggleTextOn]}>
-            {includeInactives ? 'Hiding inactives off' : 'Hiding inactives on'} ({includeInactives ? 'showing all' : 'active only'})
+          <View style={[styles.showInactivesBox, includeInactives && styles.showInactivesBoxOn]}>
+            <Text style={styles.showInactivesBoxMark}>{includeInactives ? '✓' : ''}</Text>
+          </View>
+          <Text style={[styles.showInactivesText, includeInactives && styles.showInactivesTextOn]}>
+            {includeInactives ? 'Showing inactives' : 'Show inactives'}
           </Text>
         </Pressable>
         {selectedIds.size > 0 && (
@@ -1588,20 +1611,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  toggle: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  // ADMIN-CONV-INACTIVE-VISIBILITY-001 — the Show-inactives BUTTON. A row of
+  // [checkbox-style box] + [label] inside a bordered, raised pill so it reads
+  // as a pressable control rather than inert status text. `minHeight: 32` plus
+  // the `hitSlop` on the Pressable carries the ≥44×44 target.
+  showInactivesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 6,
     backgroundColor: SURFACE_TOKENS.raised,
     borderWidth: 1,
-    borderColor: SURFACE_TOKENS.divider,
+    borderColor: SURFACE_TOKENS.border,
   },
-  toggleOn: {
+  showInactivesBtnOn: {
     backgroundColor: STATUS.info.bg,
     borderColor: STATUS.info.fg,
   },
-  toggleText: { fontSize: 11, color: SURFACE_TOKENS.textSecondary, fontWeight: '600' },
-  toggleTextOn: { color: STATUS.info.fg },
+  showInactivesBox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: SURFACE_TOKENS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: SURFACE_TOKENS.inputBg,
+  },
+  showInactivesBoxOn: {
+    backgroundColor: STATUS.info.bg,
+    borderColor: STATUS.info.fg,
+  },
+  showInactivesBoxMark: { color: STATUS.info.fg, fontSize: 12, fontWeight: '700' },
+  showInactivesText: { fontSize: 12, color: SURFACE_TOKENS.textSecondary, fontWeight: '700' },
+  showInactivesTextOn: { color: STATUS.info.fg },
   bulkToolbar: {
     flexDirection: 'row',
     alignItems: 'center',

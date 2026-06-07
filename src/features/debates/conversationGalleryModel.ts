@@ -865,6 +865,15 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
   const cards: ConversationGalleryCard[] = [];
 
   for (const debate of input.debates) {
+    // ADMIN-CONV-INACTIVE-VISIBILITY-001 — debate-level (whole-conversation)
+    // inactivation guard (#514). The `debates` RLS SELECT policy (migration
+    // 20260606000001) already withholds inactive rooms from every non-admin
+    // arm, so regular users never receive these rows. The admin RLS arm is
+    // unrestricted, so without this guard the admin gallery would still list
+    // inactive rooms. SKIP them here — defense-in-depth that also cleans the
+    // admin gallery UI. Absence of `inactiveAt` is treated as active. We read
+    // the timestamp (the WHAT) ONLY — never any reason (§10a).
+    if ((debate.inactiveAt ?? null) !== null) continue;
     // ADMIN-ARGS-INACTIVE-001 — pure-TS belt-and-braces: exclude inactive
     // rows from the gallery. RLS + SQL predicate already exclude them for
     // non-admin viewers; this is defense-in-depth. Absence of inactiveAt

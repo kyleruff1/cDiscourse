@@ -22,6 +22,12 @@ interface DebateRow {
   updated_at: string;
   /** QOL-039 — column added by migration `20260524000015`. */
   visibility: string;
+  /**
+   * ADMIN-CONV-INACTIVE-VISIBILITY-001 — column added by migration
+   * `20260606000001` (#514). `null` = active; non-null = inactive. The WHAT
+   * only — `inactive_reason` is NEVER selected, mapped, or surfaced (§10a).
+   */
+  inactive_at: string | null;
 }
 
 interface ParticipantRow {
@@ -53,6 +59,10 @@ function mapDebateRow(row: DebateRow, myParticipantSide: ParticipantSide | null)
     updatedAt: row.updated_at,
     myParticipantSide,
     visibility: coerceVisibility(row.visibility),
+    // ADMIN-CONV-INACTIVE-VISIBILITY-001 — thread the debate-level inactive
+    // timestamp (#514). Default to null (active) when absent. `inactive_reason`
+    // is never read here (§10a).
+    inactiveAt: row.inactive_at ?? null,
   };
 }
 
@@ -69,7 +79,7 @@ export async function listDebates(userId: string): Promise<DebateApiResult<Debat
   const [debatesRes, partRes] = await Promise.all([
     supabase
       .from('debates')
-      .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility')
+      .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('debate_participants')
@@ -125,7 +135,7 @@ export async function createDebate(
       constitution_id: (constitutionRow as { id: string }).id,
       visibility,
     })
-    .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility')
+    .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at')
     .single();
 
   if (debateError || !debate) {
