@@ -56,6 +56,7 @@ import {
   buildCardClassifierStrip,
   buildFullTags,
   buildHubClassifier,
+  buildParentComparisonBubble,
   buildParentQuoteSlice,
   buildStandingToneHeatStrip,
   buildStepReferenceLine,
@@ -66,12 +67,14 @@ import {
   type CardDetailEvidenceZone,
   type CardStepReferenceLine,
   type DetailFullTagsModel,
+  type DetailParentComparisonBubble,
   type DetailParentQuoteSlice,
   type DetailSemanticFlagsSection,
   type DetailStandingToneHeatStrip,
   type HubClassifierGroupsModel,
 } from '../detail/argumentDetailModel';
 import type {
+  ArgumentBubbleActor,
   ArgumentBubbleViewModel,
   ArgumentTimelineMapNode,
 } from '../argumentGameSurfaceModel';
@@ -135,6 +138,10 @@ export interface CardDetailViewModel {
 
   /** ask i — italic replied-to parent quote (or neutral degrade). */
   parentQuote: DetailParentQuoteSlice;
+  /** Slice 3 — the off-center colored parent COMPARISON bubble (operator
+   *  refinement). Upgrades the inline parent quote into a distinct-color
+   *  bubble above the centerpiece; `kind: 'none'` → render nothing (degrade). */
+  parentComparison: DetailParentComparisonBubble;
   /** ask v — Standing / Tone / Heat strip (plain-language), or null when
    *  no active node is available (degenerate input). */
   standingToneHeat: DetailStandingToneHeatStrip | null;
@@ -194,6 +201,21 @@ export interface BuildCardDetailViewModelInput {
   /** ask i — parent node `bodyPreview` resolved off `timelineMap` by the
    *  caller (no fetch). null / absent → neutral "Parent unavailable" degrade. */
   parentBodyPreview?: string | null;
+
+  // ── Slice 3 — parent COMPARISON bubble inputs (operator refinement) ──
+  // All optional + additive: when omitted the comparison bubble degrades to
+  // `kind: 'none'` (no bubble) exactly as a root / unresolvable parent would.
+
+  /** Parent 1-based ordinal, resolved off `timelineMap` by the caller. */
+  parentOrdinal?: number | null;
+  /** Parent plain-language kind label (e.g. "rebuttal"). */
+  parentKindLabel?: string | null;
+  /** Parent message id (navigation target for the tappable reference). */
+  parentMessageId?: string | null;
+  /** Parent actor (drives the comparison-bubble color — who made the move). */
+  parentActor?: ArgumentBubbleActor | null;
+  /** Parent plain-language actor label (e.g. "Other side"). */
+  parentActorLabel?: string | null;
 
   /** ask v — the active node + view-model, used to format the Standing /
    *  Tone / Heat strip via the shared plain-language formatters. When either
@@ -294,6 +316,19 @@ export function buildCardDetailViewModel(
   // ask i — parent quote (neutral degrade encoded inside the slice).
   const parentQuote = buildParentQuoteSlice(input?.parentBodyPreview ?? null);
 
+  // Slice 3 — parent COMPARISON bubble (operator refinement). Reuses the
+  // parent quote + the parent's actor color; degrades to `kind: 'none'` for a
+  // root / unresolvable parent (no bubble rendered). The reference is the only
+  // navigation affordance; it is emitted only when ordinal AND id resolve.
+  const parentComparison = buildParentComparisonBubble({
+    parentBodyPreview: input?.parentBodyPreview ?? null,
+    parentOrdinal: input?.parentOrdinal ?? null,
+    parentKindLabel: input?.parentKindLabel ?? null,
+    parentMessageId: input?.parentMessageId ?? null,
+    parentActor: input?.parentActor ?? null,
+    parentActorLabel: input?.parentActorLabel ?? null,
+  });
+
   // ask v — Standing / Tone / Heat strip (shared plain-language formatters).
   const sthNode = input?.standingToneHeatNode ?? null;
   const sthVm = input?.standingToneHeatViewModel ?? null;
@@ -333,6 +368,7 @@ export function buildCardDetailViewModel(
     lifecycleLabel,
     flagLabels: cleanLabels(input?.flagLabels),
     parentQuote,
+    parentComparison,
     standingToneHeat,
     hubClassifier,
     fullTags,
