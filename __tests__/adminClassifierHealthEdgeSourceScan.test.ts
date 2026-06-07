@@ -95,6 +95,27 @@ describe('admin-classifier-health — column-explicit read (leak boundary)', () 
     expect(SOURCE).toContain('status, state, failure_reason, failure_sub_reason, dead_letter_reason, run_mode, requested_families, family, started_at, completed_at, failure_detail');
   });
 
+  it('the conditional runTag join is exactly debates(title, run_tag) (DEVEX-RUNTAG-COLUMN-SWAP-001)', () => {
+    // The ONLY join is the title + durable run_tag on debates — no body, no
+    // span, no results table. The durable run_tag is the canonical runTag.
+    expect(SOURCE).toContain('debates(title, run_tag)');
+    // No bare `debates(title)` (the pre-swap shape) survives.
+    expect(CODE_ONLY).not.toMatch(/debates\(title\)/);
+    // The join names ONLY title + run_tag (no other column smuggled in).
+    const debateJoins = CODE_ONLY.match(/debates\(([^)]*)\)/g) || [];
+    expect(debateJoins.length).toBeGreaterThan(0);
+    for (const j of debateJoins) {
+      const inner = j.replace(/^debates\(/, '').replace(/\)$/, '');
+      const cols = inner.split(',').map((c) => c.trim()).sort();
+      expect(cols).toEqual(['run_tag', 'title']);
+    }
+  });
+
+  it('reads the durable run_tag from the debates join into debate_run_tag', () => {
+    expect(CODE_ONLY).toMatch(/debate_run_tag/);
+    expect(CODE_ONLY).toMatch(/\.run_tag/);
+  });
+
   it('reads failure_detail strictly through the RunRowFailureDetail allow-list keys', () => {
     // The reader function whitelists exactly the 7 allow-list keys.
     for (const key of [

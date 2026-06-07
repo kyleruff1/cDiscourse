@@ -93,6 +93,12 @@ const ADVERSARIAL_ROWS: ClassifierHealthRunRow[] = [
     debate_title:
       'Cars @evilhandle https://x.com/evil/status/1234567890123456789 ' +
       'attacker@example.com sk-ant-PLACEHOLDERPLACEHOLDERPLACEHOLDER [xai-adv t03]',
+    // DEVEX-RUNTAG-COLUMN-SWAP-001 — durable run_tag smuggling a handle + URL +
+    // email + secret shape. The panel uses run_tag only to BUCKET; it is never
+    // echoed raw into the verdict / CSV, so none of this may surface.
+    debate_run_tag:
+      'xai-adv @evilhandle2 https://t.co/evil2 attacker2@example.com ' +
+      'sb_secret_PLACEHOLDERSECRET9999',
   },
   {
     status: 'success',
@@ -109,6 +115,7 @@ const ADVERSARIAL_ROWS: ClassifierHealthRunRow[] = [
     debate_title:
       'Hidden Bearer PLACEHOLDERTOKENVALUE123456 ' +
       'sb_secret_PLACEHOLDERSECRET1234 [stress t99]',
+    debate_run_tag: 'stress Bearer PLACEHOLDERTOKENVALUE654321',
   },
 ];
 
@@ -170,6 +177,37 @@ describe('classifier-health leak-safety — verdict + CSV', () => {
     expect(jsonString).not.toContain('Hidden');
     expect(jsonString).not.toContain('evilhandle');
     expect(jsonString).not.toContain('PLACEHOLDER');
+  });
+
+  it('the verdict never carries a raw debate_run_tag (durable column is bucket-only)', () => {
+    // DEVEX-RUNTAG-COLUMN-SWAP-001 — run_tag is used ONLY to bucket; its raw
+    // value (even a leak-shaped one) is never echoed into the verdict / CSV.
+    expect(jsonString).not.toContain('evilhandle2');
+    expect(jsonString).not.toContain('PLACEHOLDERSECRET9999');
+    expect(jsonString).not.toContain('PLACEHOLDERTOKENVALUE654321');
+    expect(csv).not.toContain('evilhandle2');
+    expect(csv).not.toContain('PLACEHOLDERSECRET9999');
+    const keys = collectKeys(verdict);
+    expect(keys.has('debate_run_tag')).toBe(false);
+    expect(keys.has('debate_title')).toBe(false);
+  });
+
+  it('a runTag-filtered verdict (durable derivation path) is also leak-free', () => {
+    // Exercise the durable-first derivation directly: filter by the durable
+    // run_tag. The filtered verdict + CSV must surface no leak shape.
+    const filtered = aggregateClassifierHealth(ADVERSARIAL_ROWS, { runTag: 'xai-adv' });
+    const fJson = JSON.stringify(filtered);
+    const fCsv = buildClassifierHealthCsv(filtered);
+    // The first row's durable run_tag is "xai-adv ..." → trimmed durable value
+    // is the full string; runTagMatches is exact, so it does NOT match "xai-adv"
+    // (durable wins, no suffix re-parse). Either way, no leak may surface.
+    expect(filtered.runTagSource).toBe('durable_column');
+    for (const { pattern } of LEAK_PATTERNS) {
+      expect(fJson.match(pattern)).toBeNull();
+      expect(fCsv.match(pattern)).toBeNull();
+    }
+    expect(containsForbiddenSubstring(fJson)).toBe(false);
+    expect(containsForbiddenSubstring(fCsv)).toBe(false);
   });
 });
 

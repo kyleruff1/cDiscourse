@@ -247,26 +247,61 @@ describe('aggregateClassifierHealth — H/I/J leakage tripwire', () => {
   });
 });
 
-// ── RunTagSource heuristic (Q3) ──────────────────────────────────
+// ── RunTagSource — durable column (canonical) + title-suffix fallback ──
+//
+// DEVEX-RUNTAG-COLUMN-SWAP-001: `makeRunTagSource()` now returns the durable
+// `debates.run_tag` source (canonical). It falls back to the legacy
+// title-suffix parse only for legacy rows whose `run_tag` is NULL/empty. The
+// title-suffix behavior below is the FALLBACK path of the same default source.
 
-describe('RunTagSource — title-suffix heuristic (Q3)', () => {
+describe('RunTagSource — durable column (canonical) + title-suffix fallback', () => {
   const src = makeRunTagSource();
 
-  it('extracts the runTag from a [<runTag> tNN] title suffix', () => {
+  it('reports the durable_column kind (canonical default)', () => {
+    expect(src.kind).toBe('durable_column');
+  });
+
+  it('falls back to the [<runTag> tNN] title suffix when no durable run_tag', () => {
     expect(src.extract({ debateTitle: 'Cars are bad [xai-adv t03]' })).toBe('xai-adv');
     expect(src.extract({ debateTitle: 'Foo [ai-corpus t12]' })).toBe('ai-corpus');
     expect(src.extract({ debateTitle: 'Bar [stress t00]' })).toBe('stress');
   });
 
-  it('returns null when there is no recognizable suffix', () => {
+  it('returns null when neither durable run_tag nor a recognizable suffix is present', () => {
     expect(src.extract({ debateTitle: 'Just a normal room title' })).toBeNull();
     expect(src.extract({ debateTitle: '' })).toBeNull();
     expect(src.extract({ debateTitle: null })).toBeNull();
     expect(src.extract({ debateTitle: undefined })).toBeNull();
   });
 
-  it('reports the title_suffix_heuristic kind', () => {
-    expect(src.kind).toBe('title_suffix_heuristic');
+  it('uses the durable run_tag when present (no title needed)', () => {
+    expect(src.extract({ debateTitle: null, debateRunTag: 'ai-corpus 2026abcd #foo' })).toBe(
+      'ai-corpus 2026abcd #foo',
+    );
+    expect(src.extract({ debateTitle: 'Some room with no suffix', debateRunTag: 'stress' })).toBe(
+      'stress',
+    );
+  });
+
+  it('durable run_tag WINS over a conflicting title suffix', () => {
+    // Title parses to "xai-adv" but the durable column says "stress" — durable
+    // is authoritative.
+    expect(
+      src.extract({ debateTitle: 'Cars are bad [xai-adv t03]', debateRunTag: 'stress' }),
+    ).toBe('stress');
+  });
+
+  it('trims a durable run_tag with surrounding whitespace', () => {
+    expect(src.extract({ debateTitle: null, debateRunTag: '  ai-corpus  ' })).toBe('ai-corpus');
+  });
+
+  it('treats an empty/whitespace durable run_tag as ABSENT → title fallback', () => {
+    // Empty string → fallback to the title suffix.
+    expect(src.extract({ debateTitle: 'A [xai-adv t01]', debateRunTag: '' })).toBe('xai-adv');
+    // Whitespace-only → fallback to the title suffix.
+    expect(src.extract({ debateTitle: 'A [xai-adv t01]', debateRunTag: '   ' })).toBe('xai-adv');
+    // Empty durable + no suffix → null.
+    expect(src.extract({ debateTitle: 'No suffix here', debateRunTag: '' })).toBeNull();
   });
 
   it('runTagMatches is case-insensitive and a null filter matches everything', () => {
@@ -277,15 +312,48 @@ describe('RunTagSource — title-suffix heuristic (Q3)', () => {
     expect(runTagMatches(null, null)).toBe(true);
   });
 
-  it('a runTag filter selects only rows whose title suffix matches', () => {
+  it('a runTag filter selects rows by the durable column first', () => {
     const rows = [
-      row({ debate_title: 'A [xai-adv t01]' }),
-      row({ debate_title: 'B [stress t01]' }),
-      row({ debate_title: 'C [xai-adv t02]' }),
+      row({ debate_title: 'A [stress t01]', debate_run_tag: 'xai-adv' }), // durable wins
+      row({ debate_title: 'B [stress t01]', debate_run_tag: 'stress' }),
+      row({ debate_title: 'C [xai-adv t02]', debate_run_tag: 'xai-adv' }),
     ];
     const v = aggregateClassifierHealth(rows, { runTag: 'xai-adv' });
     expect(v.totalRows).toBe(2);
-    expect(v.runTagSource).toBe('title_suffix_heuristic');
+    expect(v.runTagSource).toBe('durable_column');
+  });
+
+  it('a NULL-run_tag row with a matching title suffix still matches (legacy fallback)', () => {
+    const rows = [
+      row({ debate_title: 'A [xai-adv t01]', debate_run_tag: null }), // legacy → title fallback
+      row({ debate_title: 'B [stress t01]', debate_run_tag: null }),
+      row({ debate_title: 'C [xai-adv t02]' }), // debate_run_tag absent → title fallback
+    ];
+    const v = aggregateClassifierHealth(rows, { runTag: 'xai-adv' });
+    expect(v.totalRows).toBe(2);
+    expect(v.runTagSource).toBe('durable_column');
+  });
+
+  it('mixes durable + legacy rows under one canonical filter', () => {
+    const rows = [
+      row({ debate_run_tag: 'xai-adv', debate_title: 'no suffix' }), // durable
+      row({ debate_title: 'legacy [xai-adv t05]', debate_run_tag: null }), // title fallback
+      row({ debate_run_tag: 'stress', debate_title: 'x [xai-adv t09]' }), // durable wins → stress
+    ];
+    const v = aggregateClassifierHealth(rows, { runTag: 'xai-adv' });
+    expect(v.totalRows).toBe(2);
+  });
+
+  it('historical NULL-run_tag rows do NOT disappear from unscoped views', () => {
+    // No runTag filter → every row is in scope regardless of run_tag presence.
+    const rows = [
+      row({ debate_run_tag: null, debate_title: 'legacy room' }),
+      row({ debate_run_tag: 'ai-corpus x', debate_title: 'stamped room' }),
+      row({ debate_run_tag: undefined }),
+    ];
+    const v = aggregateClassifierHealth(rows);
+    expect(v.totalRows).toBe(3);
+    expect(v.runTagSource).toBe('none');
   });
 
   it('reports runTagSource "none" when no runTag filter is supplied', () => {
@@ -355,6 +423,22 @@ describe('buildClassifierHealthCsv', () => {
     const csv = buildClassifierHealthCsv(v);
     // No unescaped double-quote run that would break a parser.
     expect(() => csv.split('\n').forEach((l) => l.split(','))).not.toThrow();
+  });
+
+  it('the CSV export honors the durable-first runTag filter (counts match the verdict)', () => {
+    // DEVEX-RUNTAG-COLUMN-SWAP-001: the export is built from the same filtered
+    // verdict, so a durable-runTag filter scopes the CSV the same way it scopes
+    // the JSON aggregate (durable wins over the conflicting title suffix).
+    const rows = [
+      row({ status: 'failed', failure_reason: 'mcp_api_error', debate_run_tag: 'xai-adv', debate_title: 'x [stress t01]' }),
+      row({ status: 'success', debate_run_tag: 'stress', debate_title: 'y [xai-adv t01]' }),
+      row({ status: 'success', debate_run_tag: null, debate_title: 'z [xai-adv t02]' }), // legacy fallback matches
+    ];
+    const v = aggregateClassifierHealth(rows, { runTag: 'xai-adv' });
+    expect(v.totalRows).toBe(2);
+    const csv = buildClassifierHealthCsv(v);
+    // The total_rows footer reflects the durable-first filtered count, not 3.
+    expect(csv).toContain('total_rows,,,2');
   });
 });
 
