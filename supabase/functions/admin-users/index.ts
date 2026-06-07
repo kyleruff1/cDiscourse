@@ -31,6 +31,10 @@ import type {
   PerIdInactiveResult,
   BulkInactiveResponse,
 } from '../_shared/adminInactiveSchemas.ts';
+import type {
+  PerIdDebateInactiveResult,
+  BulkDebateInactiveResponse,
+} from '../_shared/adminDebateInactiveSchemas.ts';
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
@@ -105,6 +109,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return await handleSetArgumentInactive(body, caller, serviceClient);
       case 'bulk_set_argument_inactive':
         return await handleBulkSetArgumentInactive(body, caller, serviceClient);
+      case 'set_debate_inactive':
+        return await handleSetDebateInactive(body, caller, serviceClient);
+      case 'bulk_set_debate_inactive':
+        return await handleBulkSetDebateInactive(body, caller, serviceClient);
     }
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -988,5 +996,175 @@ async function handleBulkSetArgumentInactive(
   });
 
   const response: BulkInactiveResponse = { results, appliedCount, failedCount };
+  return ok(response);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// ADMIN-CONV-INACTIVE-001 — per-debate (conversation) inactive visibility.
+//
+// The debate-level mirror of the per-argument handlers above. Inactivating a
+// debate hides it from non-admin SELECT AND cascades (via the migration's
+// arguments SELECT successor) so its arguments also drop out of non-admin
+// SELECT — the cascade is enforced entirely in RLS, not here.
+//
+// Doctrine:
+//   - The handler computes `inactive_at = (inactive ? now() : NULL)`
+//     server-side. The client NEVER picks a timestamp on the wire.
+//   - `inactive: false` (Mark active) records a symmetric audit row with
+//     `previous_inactive_at = <old timestamp>` and `new_inactive_at = NULL`.
+//   - The debate title/resolution and argument bodies are NEVER stored in the
+//     audit row. The reason lives in the audit row ONLY — it is never echoed
+//     back to the client (the response is only `{debateId, ok, errorCode?}`).
+//   - Logging strips reason / title at info level — only the action name +
+//     counts are logged.
+// ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Per-id transition. Reads previous_inactive_at, updates the row, inserts one
+ * debate_inactive_audit row. Returns a PerIdDebateInactiveResult.
+ *
+ * Atomicity contract: the audit insert references the same `inactive_at` the
+ * handler just stamped. If the row is not found, the handler short-circuits to
+ * `{ok: false, errorCode: 'not_found'}` and the audit row is NOT inserted.
+ * There is no partial state.
+ */
+async function applyDebateInactiveTransition(
+  sc: SC,
+  debateId: string,
+  inactive: boolean,
+  reason: string | null,
+  actorUserId: string,
+): Promise<PerIdDebateInactiveResult> {
+  // Read previous state for the audit row.
+  const { data: prev, error: readErr } = await sc
+    .from('debates')
+    .select('id, inactive_at')
+    .eq('id', debateId)
+    .maybeSingle();
+  if (readErr) {
+    return { debateId, ok: false, errorCode: 'read_failed' };
+  }
+  if (!prev) {
+    return { debateId, ok: false, errorCode: 'not_found' };
+  }
+
+  const newInactiveAt = inactive ? new Date().toISOString() : null;
+  const newInactiveBy = inactive ? actorUserId : null;
+  const newInactiveReason = inactive ? reason : null;
+
+  // UPDATE debates. Service-role bypasses RLS; the admin boundary was already
+  // enforced by `requireAdmin` at the entry point.
+  const { error: updErr } = await sc
+    .from('debates')
+    .update({
+      inactive_at: newInactiveAt,
+      inactive_by: newInactiveBy,
+      inactive_reason: newInactiveReason,
+    })
+    .eq('id', debateId);
+  if (updErr) {
+    return { debateId, ok: false, errorCode: 'update_failed' };
+  }
+
+  // Insert the debate-scoped audit row. The title/resolution is NEVER stored
+  // here; the reason is stored in the AUDIT row only — never returned.
+  const { error: auditErr } = await sc
+    .from('debate_inactive_audit')
+    .insert({
+      actor_user_id: actorUserId,
+      debate_id: debateId,
+      previous_inactive_at: (prev as { inactive_at: string | null }).inactive_at,
+      new_inactive_at: newInactiveAt,
+      reason,
+    });
+  if (auditErr) {
+    // The column mutation already landed; an audit-write failure here would
+    // leave history incomplete. Surface the failure rather than silently
+    // succeeding so the operator can investigate.
+    // eslint-disable-next-line no-console
+    console.error('debate_inactive_audit_write_failed', auditErr.message);
+    return { debateId, ok: false, errorCode: 'audit_write_failed' };
+  }
+
+  return { debateId, ok: true };
+}
+
+async function handleSetDebateInactive(
+  body: Req<'set_debate_inactive'>,
+  caller: Caller,
+  sc: SC,
+): Promise<Response> {
+  const reason = body.reason ?? null;
+  const result = await applyDebateInactiveTransition(
+    sc,
+    body.debateId,
+    body.inactive,
+    reason,
+    caller.userId,
+  );
+
+  // Defense-in-depth: also write the generic admin-traffic audit row. The
+  // payload carries the action shape but NOT the title/resolution.
+  await writeAdminAudit({
+    actorUserId: caller.userId,
+    action: 'set_debate_inactive',
+    reason: body.reason ?? null,
+    payload: {
+      debateId: body.debateId,
+      inactive: body.inactive,
+      ok: result.ok,
+      errorCode: result.errorCode,
+    },
+  });
+
+  if (!result.ok) {
+    return validationFailed({ error: 'debate_inactive_transition_failed', detail: result.errorCode ?? 'unknown' });
+  }
+  return ok({ result });
+}
+
+async function handleBulkSetDebateInactive(
+  body: Req<'bulk_set_debate_inactive'>,
+  caller: Caller,
+  sc: SC,
+): Promise<Response> {
+  const reason = body.reason ?? null;
+  const results: PerIdDebateInactiveResult[] = [];
+  for (const debateId of body.debateIds) {
+    const r = await applyDebateInactiveTransition(
+      sc,
+      debateId,
+      body.inactive,
+      reason,
+      caller.userId,
+    );
+    results.push(r);
+  }
+  const appliedCount = results.filter((r) => r.ok).length;
+  const failedCount = results.length - appliedCount;
+
+  // The batch-level admin audit row carries counts and an aggregated
+  // error-code summary — NEVER the debate titles/resolutions. The reason is
+  // recorded at the batch level (sanitizePayload also strips known sensitive keys).
+  const errorCodeSummary: Record<string, number> = {};
+  for (const r of results) {
+    if (!r.ok && r.errorCode) {
+      errorCodeSummary[r.errorCode] = (errorCodeSummary[r.errorCode] ?? 0) + 1;
+    }
+  }
+  await writeAdminAudit({
+    actorUserId: caller.userId,
+    action: 'bulk_set_debate_inactive',
+    reason: body.reason ?? null,
+    payload: {
+      inactive: body.inactive,
+      requestedCount: body.debateIds.length,
+      appliedCount,
+      failedCount,
+      errorCodeSummary,
+    },
+  });
+
+  const response: BulkDebateInactiveResponse = { results, appliedCount, failedCount };
   return ok(response);
 }

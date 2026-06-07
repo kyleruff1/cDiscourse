@@ -223,3 +223,33 @@ describe('cleanArtifactTitleForDedupe — mirrors gallery dedupe', () => {
     expect(cleanArtifactTitleForDedupe('')).toBe('');
   });
 });
+
+describe('ADMIN-CONV-INACTIVE-001 — debateInactiveAt threading (DEBATE-level)', () => {
+  it('defaults to null when the source row omits debateInactiveAt', () => {
+    const out = groupArgumentsIntoArtifacts([row()]);
+    expect(out[0].debateInactiveAt).toBeNull();
+  });
+
+  it('surfaces the latest revision source row debateInactiveAt verbatim', () => {
+    const out = groupArgumentsIntoArtifacts([
+      row({ debateInactiveAt: '2026-06-05T12:00:00Z' }),
+    ]);
+    expect(out[0].debateInactiveAt).toBe('2026-06-05T12:00:00Z');
+  });
+
+  it('is distinct from the per-argument inactiveAt (debate inactive, argument active)', () => {
+    const out = groupArgumentsIntoArtifacts([
+      row({ inactiveAt: null, debateInactiveAt: '2026-06-05T12:00:00Z' }),
+    ]);
+    expect(out[0].isInactive).toBe(false);                       // per-argument
+    expect(out[0].debateInactiveAt).toBe('2026-06-05T12:00:00Z'); // DEBATE-level
+  });
+
+  it('does not introduce an inactiveReason field (§10a)', () => {
+    const out = groupArgumentsIntoArtifacts([
+      row({ debateInactiveAt: '2026-06-05T12:00:00Z' }),
+    ]);
+    expect(JSON.stringify(out)).not.toContain('inactiveReason');
+    expect(JSON.stringify(out)).not.toContain('inactive_reason');
+  });
+});

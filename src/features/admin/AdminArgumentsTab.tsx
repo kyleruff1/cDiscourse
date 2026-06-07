@@ -14,6 +14,15 @@ import {
   bulkMarkArgumentInactive,
   bulkMarkArgumentActive,
 } from './adminArgumentsInactiveApi';
+// ADMIN-CONV-INACTIVE-001 — DEBATE-level (whole-conversation) inactivation
+// wrappers (#514 backend). Distinct from the per-ARGUMENT wrappers above:
+// these inactivate the entire room via the room-group header affordances.
+import {
+  markDebateInactive,
+  markDebateActive,
+  bulkMarkDebateInactive,
+  bulkMarkDebateActive,
+} from './adminDebatesInactiveApi';
 import type { AdminArgumentRow } from './types';
 import {
   groupArgumentsIntoArtifacts,
@@ -33,7 +42,10 @@ import {
   formatQualifierLabel,
   getQualifierUiNudge,
 } from '../arguments/messageQualifiers';
-import { ADMIN_BULK_INACTIVE_ID_CAP } from '../../lib/edgeFunctions';
+import {
+  ADMIN_BULK_INACTIVE_ID_CAP,
+  ADMIN_BULK_DEBATE_INACTIVE_ID_CAP,
+} from '../../lib/edgeFunctions';
 import { SURFACE_TOKENS, CONTROL, STATUS, ARGUMENT } from '../../lib/designTokens';
 import {
   classifyRunFamily,
@@ -185,6 +197,19 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
   >(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
+  // ADMIN-CONV-INACTIVE-001 — ROOM-level (whole-conversation) selection +
+  // action state. This is a SEPARATE selection scope from the per-argument
+  // `selectedIds` above: `selectedRoomIds` holds debate (room) ids selected via
+  // the room-group HEADER checkbox; the room bulk bar acts on the whole
+  // conversation via the #514 debate-level wrappers. The two scopes never share
+  // state so the per-statement and whole-room inactivation stay distinct.
+  const [selectedRoomIds, setSelectedRoomIds] = useState<ReadonlySet<string>>(new Set());
+  const [roomBulkDialog, setRoomBulkDialog] = useState<
+    | { kind: 'inactive' | 'active'; ids: string[]; reason: string }
+    | null
+  >(null);
+  const [roomBulkBusy, setRoomBulkBusy] = useState(false);
+
   const fetchRows = useCallback(async () => {
     setState('loading');
     setError(null);
@@ -203,6 +228,14 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
         const visible = new Set(fresh.map((r) => r.id));
         const next = new Set<string>();
         for (const id of prev) if (visible.has(id)) next.add(id);
+        return next;
+      });
+      // ADMIN-CONV-INACTIVE-001 — prune room (debate) selection to rooms still
+      // present after a reload.
+      setSelectedRoomIds((prev) => {
+        const visibleRooms = new Set(fresh.map((r) => r.debateId));
+        const next = new Set<string>();
+        for (const id of prev) if (visibleRooms.has(id)) next.add(id);
         return next;
       });
       setState('idle');
@@ -269,6 +302,67 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
     }
   }, [fetchRows]);
 
+  // ── ADMIN-CONV-INACTIVE-001 — ROOM-level (whole-conversation) handlers. ──
+  // These wire the room-group HEADER affordances to the #514 DEBATE-level
+  // wrappers (`markDebateInactive` / `markDebateActive` / `bulkMarkDebate*`).
+  // roomId == the group's debateId. Distinct from the per-argument handlers
+  // above; they never touch `selectedIds` or the per-statement wrappers.
+
+  const toggleRoomSelect = useCallback((roomId: string) => {
+    setSelectedRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.add(roomId);
+      }
+      return next;
+    });
+  }, []);
+
+  const openRoomBulkDialog = useCallback((kind: 'inactive' | 'active') => {
+    const ids = Array.from(selectedRoomIds).slice(0, ADMIN_BULK_DEBATE_INACTIVE_ID_CAP);
+    setRoomBulkDialog({ kind, ids, reason: '' });
+  }, [selectedRoomIds]);
+
+  const submitRoomBulkDialog = useCallback(async () => {
+    if (!roomBulkDialog) return;
+    setRoomBulkBusy(true);
+    try {
+      const reason = roomBulkDialog.reason.trim() ? roomBulkDialog.reason.trim() : undefined;
+      if (roomBulkDialog.kind === 'inactive') {
+        await bulkMarkDebateInactive(roomBulkDialog.ids, reason);
+      } else {
+        await bulkMarkDebateActive(roomBulkDialog.ids, reason);
+      }
+      setRoomBulkDialog(null);
+      setSelectedRoomIds(new Set());
+      await fetchRows();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRoomBulkBusy(false);
+    }
+  }, [roomBulkDialog, fetchRows]);
+
+  const handleRoomMarkInactive = useCallback(async (roomId: string) => {
+    try {
+      await markDebateInactive(roomId);
+      await fetchRows();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [fetchRows]);
+
+  const handleRoomMarkActive = useCallback(async (roomId: string) => {
+    try {
+      await markDebateActive(roomId);
+      await fetchRows();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [fetchRows]);
+
   const toggleSort = useCallback((field: AdminArgumentsSortField) => {
     // ADMIN-ARGUMENTS-003 — route sort changes through the persisted prefs so
     // the choice survives a remount. Same toggle semantics as before: tapping
@@ -325,6 +419,10 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
       inactiveAt: r.inactiveAt,
+      // ADMIN-CONV-INACTIVE-001 — carry the DEBATE-level (conversation)
+      // inactive timestamp so the room-group header can derive
+      // `isDebateInactive`. Distinct from the per-argument `inactiveAt`.
+      debateInactiveAt: r.debateInactiveAt,
       selectedTagCodes: r.selectedTagCodes,
     }));
     const byId = new Map(filtered.map((r) => [r.id, r] as const));
@@ -480,6 +578,36 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
             </Pressable>
           </View>
         )}
+        {/* ADMIN-CONV-INACTIVE-001 — ROOM (whole-conversation) bulk bar. A
+             SEPARATE bar from the per-argument one above; it acts on the
+             selected ROOMS (debate ids) via the #514 debate-level wrappers.
+             Shown only when ≥1 room is selected via the room-group header
+             checkbox. */}
+        {selectedRoomIds.size > 0 && (
+          <View style={styles.roomBulkToolbar} testID="admin-arguments-rooms-bulk-bar">
+            <Text style={styles.bulkSelectedText}>
+              Rooms selected: {selectedRoomIds.size}
+            </Text>
+            <Pressable
+              style={styles.bulkBtn}
+              onPress={() => openRoomBulkDialog('inactive')}
+              accessibilityRole="button"
+              accessibilityLabel="admin-arguments-rooms-bulk-action-mark-inactive"
+              testID="admin-arguments-rooms-bulk-action-mark-inactive"
+            >
+              <Text style={styles.bulkBtnText}>Mark rooms inactive</Text>
+            </Pressable>
+            <Pressable
+              style={styles.bulkBtn}
+              onPress={() => openRoomBulkDialog('active')}
+              accessibilityRole="button"
+              accessibilityLabel="admin-arguments-rooms-bulk-action-mark-active"
+              testID="admin-arguments-rooms-bulk-action-mark-active"
+            >
+              <Text style={styles.bulkBtnText}>Mark rooms active</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       {/* ADMIN-ARGUMENTS-003 — runTag (room source) filter row. A diagnostic /
@@ -628,6 +756,62 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
         </View>
       )}
 
+      {/* ADMIN-CONV-INACTIVE-001 — ROOM (whole-conversation) bulk confirm
+           dialog. Mirrors the per-argument dialog but acts on whole rooms via
+           the #514 debate-level wrappers. The admin note is bounded to 500
+           chars client-side (the Edge schema accepts up to 2000) and lives only
+           in the audit row — it is NEVER rendered back (§10a). */}
+      {roomBulkDialog && (
+        <View
+          style={styles.bulkDialog}
+          accessibilityLabel="admin-arguments-rooms-bulk-confirm-dialog"
+          testID="admin-arguments-rooms-bulk-confirm-dialog"
+        >
+          <Text style={styles.bulkDialogTitle}>
+            {roomBulkDialog.kind === 'inactive'
+              ? `Mark ${roomBulkDialog.ids.length} room(s) inactive?`
+              : `Mark ${roomBulkDialog.ids.length} room(s) active?`}
+          </Text>
+          <Text style={styles.bulkDialogBody}>
+            {roomBulkDialog.kind === 'inactive'
+              ? 'These whole conversations will be hidden from default views (their messages too). Reversible.'
+              : 'These whole conversations will return to default views.'}
+          </Text>
+          <TextInput
+            style={styles.bulkReasonInput}
+            placeholder="Admin note (optional, admin-only)"
+            placeholderTextColor={SURFACE_TOKENS.placeholder}
+            value={roomBulkDialog.reason}
+            onChangeText={(t) => setRoomBulkDialog((d) => (d ? { ...d, reason: t } : d))}
+            maxLength={500}
+            multiline
+            accessibilityLabel="admin-arguments-rooms-bulk-reason-input"
+            testID="admin-arguments-rooms-bulk-reason-input"
+          />
+          <View style={styles.bulkDialogActions}>
+            <Pressable
+              style={[styles.bulkBtn, roomBulkBusy && styles.bulkBtnDisabled]}
+              onPress={submitRoomBulkDialog}
+              disabled={roomBulkBusy}
+              accessibilityRole="button"
+              accessibilityLabel="admin-arguments-rooms-bulk-confirm"
+              testID="admin-arguments-rooms-bulk-confirm"
+            >
+              <Text style={styles.bulkBtnText}>{roomBulkBusy ? 'Working…' : 'Confirm'}</Text>
+            </Pressable>
+            <Pressable
+              style={styles.bulkBtnCancel}
+              onPress={() => setRoomBulkDialog(null)}
+              accessibilityRole="button"
+              accessibilityLabel="admin-arguments-rooms-bulk-cancel"
+              testID="admin-arguments-rooms-bulk-cancel"
+            >
+              <Text style={styles.bulkBtnCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       <Text style={styles.sortStatus} accessibilityLabel="admin-arguments-sort-status">
         Sorted by: {sortStatusColumn} ({sortStatusHuman})
       </Text>
@@ -720,6 +904,13 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                 preview line. */}
             {roomGroups.map((group) => {
               const roomExpanded = expandedRooms.has(group.roomId);
+              // ADMIN-CONV-INACTIVE-001 — room (whole-conversation) selection +
+              // DEBATE-level inactive state for the header affordances. The
+              // debate-inactive state is derived from `inactive_at` ONLY
+              // (`group.isDebateInactive`) — never a reason. It is DISTINCT from
+              // `group.isInactive` (the per-statement fold).
+              const isRoomSelected = selectedRoomIds.has(group.roomId);
+              const roomDebateInactive = group.isDebateInactive;
               // Re-hydrate this room's artifacts to the exact
               // `{ artifact, primaryRow }` pairs the per-artifact renderer
               // consumes. Route keys + per-row literals are unchanged — the
@@ -741,47 +932,113 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                   accessibilityLabel={`admin-arguments-room-group-${group.roomId}`}
                   testID={`admin-arguments-room-group-${group.roomId}`}
                 >
-                  <Pressable
-                    style={styles.roomGroupHeader}
-                    onPress={() => toggleRoomExpanded(group.roomId)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${roomExpanded ? 'Collapse' : 'Expand'} room ${group.roomTitle ?? group.roomId} (${group.messageCount} messages)`}
-                    accessibilityState={{ expanded: roomExpanded }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    testID={`admin-arguments-room-group-header-${group.roomId}`}
-                  >
-                    <Text style={styles.roomGroupCaret}>{roomExpanded ? '▾' : '▸'}</Text>
-                    <View style={styles.roomGroupMain}>
-                      <View style={styles.roomGroupTitleRow}>
-                        <Text style={styles.roomGroupTitle} numberOfLines={1}>
-                          {group.roomTitle ?? `Room ${shortenId(group.roomId)}`}
-                        </Text>
-                        <View
-                          style={styles.roomGroupCountBadge}
-                          accessibilityLabel={`admin-arguments-room-group-count-${group.roomId}`}
-                          testID={`admin-arguments-room-group-count-${group.roomId}`}
-                        >
-                          <Text style={styles.roomGroupCountText}>
-                            {group.messageCount} {group.messageCount === 1 ? 'message' : 'messages'}
+                  {/* ADMIN-CONV-INACTIVE-001 — the room (parent) header row.
+                      Three distinct controls: (1) a ROOM checkbox that selects
+                      the whole conversation (separate scope from the per-row
+                      argument checkbox); (2) the existing expand/collapse
+                      Pressable (unchanged); (3) a per-room Mark room
+                      inactive/active action. The room checkbox + action are
+                      OUTSIDE the expand/collapse Pressable so the two
+                      affordances never collide. */}
+                  <View style={styles.roomGroupHeaderRow}>
+                    <View style={styles.roomGroupSelectCell}>
+                      <Pressable
+                        style={[styles.checkbox, isRoomSelected && styles.checkboxChecked]}
+                        onPress={() => toggleRoomSelect(group.roomId)}
+                        accessibilityRole="checkbox"
+                        accessibilityLabel={`Select room ${group.roomTitle ?? group.roomId}`}
+                        accessibilityState={{ checked: isRoomSelected }}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        testID={`admin-arguments-room-select-${group.roomId}`}
+                      >
+                        <Text style={styles.checkboxMark}>{isRoomSelected ? '✓' : ''}</Text>
+                      </Pressable>
+                    </View>
+                    <Pressable
+                      style={styles.roomGroupHeader}
+                      onPress={() => toggleRoomExpanded(group.roomId)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${roomExpanded ? 'Collapse' : 'Expand'} room ${group.roomTitle ?? group.roomId} (${group.messageCount} messages)`}
+                      accessibilityState={{ expanded: roomExpanded }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      testID={`admin-arguments-room-group-header-${group.roomId}`}
+                    >
+                      <Text style={styles.roomGroupCaret}>{roomExpanded ? '▾' : '▸'}</Text>
+                      <View style={styles.roomGroupMain}>
+                        <View style={styles.roomGroupTitleRow}>
+                          <Text style={styles.roomGroupTitle} numberOfLines={1}>
+                            {group.roomTitle ?? `Room ${shortenId(group.roomId)}`}
                           </Text>
-                        </View>
-                        {group.isInactive && (
-                          <View style={styles.roomGroupInactiveBadge}>
-                            <Text style={styles.roomGroupInactiveText}>Inactive</Text>
+                          <View
+                            style={styles.roomGroupCountBadge}
+                            accessibilityLabel={`admin-arguments-room-group-count-${group.roomId}`}
+                            testID={`admin-arguments-room-group-count-${group.roomId}`}
+                          >
+                            <Text style={styles.roomGroupCountText}>
+                              {group.messageCount} {group.messageCount === 1 ? 'message' : 'messages'}
+                            </Text>
                           </View>
+                          {group.isInactive && (
+                            <View style={styles.roomGroupInactiveBadge}>
+                              <Text style={styles.roomGroupInactiveText}>Inactive</Text>
+                            </View>
+                          )}
+                          {/* ADMIN-CONV-INACTIVE-001 — DEBATE-level (whole
+                              conversation) inactive badge. Text-only, derived
+                              from `inactive_at` ONLY (`isDebateInactive`) —
+                              NEVER a reason (§10a). Distinct from the
+                              per-statement "Inactive" badge above. */}
+                          {roomDebateInactive && (
+                            <View
+                              style={styles.roomGroupConvInactiveBadge}
+                              accessibilityLabel={`admin-arguments-room-conv-inactive-badge-${group.roomId}`}
+                              testID={`admin-arguments-room-conv-inactive-badge-${group.roomId}`}
+                            >
+                              <Text style={styles.roomGroupConvInactiveText}>Conversation inactive</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.roomGroupMetaRow}>
+                          <Text style={styles.timeAbsolute}>{formatDateTime(group.latestUpdatedAt)}</Text>
+                          <Text style={styles.timeRelative}>{formatRelativeShort(group.latestUpdatedAt)}</Text>
+                        </View>
+                        {group.latestBodyExcerpt.length > 0 && (
+                          <Text style={styles.roomGroupPreview} numberOfLines={1}>
+                            {group.latestBodyExcerpt}
+                          </Text>
                         )}
                       </View>
-                      <View style={styles.roomGroupMetaRow}>
-                        <Text style={styles.timeAbsolute}>{formatDateTime(group.latestUpdatedAt)}</Text>
-                        <Text style={styles.timeRelative}>{formatRelativeShort(group.latestUpdatedAt)}</Text>
-                      </View>
-                      {group.latestBodyExcerpt.length > 0 && (
-                        <Text style={styles.roomGroupPreview} numberOfLines={1}>
-                          {group.latestBodyExcerpt}
-                        </Text>
+                    </Pressable>
+                    {/* ADMIN-CONV-INACTIVE-001 — per-room Mark room inactive /
+                        active. Wired to the #514 debate-level wrappers
+                        (roomId == debateId). Immediate (no dialog), mirroring
+                        the per-row argument affordance. */}
+                    <View style={styles.roomGroupActionCell}>
+                      {roomDebateInactive ? (
+                        <Pressable
+                          style={styles.roomInactiveBtn}
+                          onPress={() => handleRoomMarkActive(group.roomId)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Mark room ${group.roomTitle ?? group.roomId} active`}
+                          hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                          testID={`admin-arguments-room-activate-${group.roomId}`}
+                        >
+                          <Text style={styles.roomInactiveBtnText}>Mark room active</Text>
+                        </Pressable>
+                      ) : (
+                        <Pressable
+                          style={styles.roomInactiveBtn}
+                          onPress={() => handleRoomMarkInactive(group.roomId)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Mark room ${group.roomTitle ?? group.roomId} inactive`}
+                          hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                          testID={`admin-arguments-room-inactivate-${group.roomId}`}
+                        >
+                          <Text style={styles.roomInactiveBtnText}>Mark room inactive</Text>
+                        </Pressable>
                       )}
                     </View>
-                  </Pressable>
+                  </View>
                   {roomExpanded && (
             artifactRows.map(({ artifact, primaryRow: r }) => {
               // ADMIN-ARGS-CANONICAL-001 — structural artifact badges. All are
@@ -1212,7 +1469,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: SURFACE_TOKENS.border,
   },
+  // ADMIN-CONV-INACTIVE-001 — the room header ROW wrapping the room checkbox,
+  // the expand/collapse Pressable, and the per-room Mark room inactive/active
+  // action. The expand/collapse Pressable grows (flex:1); the checkbox + action
+  // are fixed-width siblings.
+  roomGroupHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: SURFACE_TOKENS.raised,
+  },
+  roomGroupSelectCell: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingTop: 10,
+    paddingLeft: 10,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  roomGroupActionCell: {
+    minHeight: 44,
+    paddingTop: 10,
+    paddingRight: 10,
+    paddingLeft: 6,
+    justifyContent: 'flex-start',
+  },
   roomGroupHeader: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
     minHeight: 44,
@@ -1250,6 +1532,30 @@ const styles = StyleSheet.create({
     backgroundColor: ARGUMENT.challenge.bg,
   },
   roomGroupInactiveText: { fontSize: 10, fontWeight: '600', color: ARGUMENT.challenge.fg },
+  // ADMIN-CONV-INACTIVE-001 — DEBATE-level (whole conversation) inactive badge.
+  // A distinct hue from the per-statement inactive badge so the two states are
+  // visually separable; meaning is also carried by the label text.
+  roomGroupConvInactiveBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: STATUS.danger.bg,
+    borderWidth: 1,
+    borderColor: STATUS.danger.fg,
+  },
+  roomGroupConvInactiveText: { fontSize: 10, fontWeight: '700', color: STATUS.danger.fg },
+  // ADMIN-CONV-INACTIVE-001 — per-room Mark room inactive/active button.
+  roomInactiveBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 4,
+    backgroundColor: SURFACE_TOKENS.raised,
+    borderWidth: 1,
+    borderColor: SURFACE_TOKENS.divider,
+    alignSelf: 'flex-start',
+    minHeight: 32,
+  },
+  roomInactiveBtnText: { color: SURFACE_TOKENS.textSecondary, fontSize: 11, fontWeight: '700' },
   roomGroupMetaRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   roomGroupPreview: {
     fontSize: 11,
@@ -1301,6 +1607,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginLeft: 8,
+  },
+  // ADMIN-CONV-INACTIVE-001 — ROOM (whole-conversation) bulk bar. A distinct
+  // left-border accent keeps it visually separate from the per-argument bulk
+  // bar above so the two selection scopes never read as one control.
+  roomBulkToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 8,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: STATUS.danger.fg,
   },
   bulkSelectedText: { fontSize: 11, color: SURFACE_TOKENS.textPrimary, fontWeight: '600' },
   bulkBtn: {

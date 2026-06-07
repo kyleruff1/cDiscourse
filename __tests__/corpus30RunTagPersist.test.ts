@@ -36,9 +36,14 @@ describe('CORPUS-30-RUNTAG-PERSIST — migration file basics', () => {
     expect(migrationText).toContain('CORPUS-30-RUNTAG-PERSIST');
   });
 
-  it('is the highest-numbered (newest) migration — sequential timestamp', () => {
+  it('exists, sequenced after its predecessor (no global-newest coupling) — sequential timestamp', () => {
     const sqlFiles = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
-    expect(sqlFiles[sqlFiles.length - 1]).toBe(MIGRATION_FILE);
+    expect(sqlFiles).toContain(MIGRATION_FILE);
+    const idx = sqlFiles.indexOf(MIGRATION_FILE);
+    expect(idx).toBeGreaterThan(0);
+    // Ordered after its OWN predecessor; NOT coupled to being the global
+    // newest, so a later card migration never breaks this sibling test.
+    expect(sqlFiles[idx - 1] < MIGRATION_FILE).toBe(true);
   });
 });
 

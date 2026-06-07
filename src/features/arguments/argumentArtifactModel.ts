@@ -46,6 +46,14 @@ export interface ArtifactSourceRow {
   /** DERIVED-source ONLY. NULL/absent ⇒ active. Never `inactiveReason`. */
   inactiveAt?: string | null;
   /**
+   * ADMIN-CONV-INACTIVE-001 — the parent DEBATE's (conversation's) inactive
+   * timestamp, carried verbatim. NULL/absent ⇒ the conversation is active.
+   * Distinct from the per-argument `inactiveAt` above. Every source row of one
+   * debate carries the same value; the artifact surfaces the latest revision's.
+   * NEVER an `inactiveReason` field (doctrine §10a — WHAT, never WHY).
+   */
+  debateInactiveAt?: string | null;
+  /**
    * Existing user-applied tag codes carried by `AdminArgumentRow`. Structural,
    * no verdict tokens. Absent on the domain `ArgumentRow` shape (treated as
    * none). NEVER a truth/score field.
@@ -80,6 +88,14 @@ export interface ArgumentArtifact {
   authorId: string | null;
   debateId: string;
   debateTitle: string | null;
+  /**
+   * ADMIN-CONV-INACTIVE-001 — the parent DEBATE's (conversation's) inactive
+   * timestamp, surfaced from the latest revision's source row. NULL ⇒ the
+   * conversation is active. Distinct from the per-argument `isInactive` below.
+   * The room-grouping layer folds this into `isDebateInactive`. NEVER an
+   * `inactiveReason` (doctrine §10a — WHAT, never WHY).
+   */
+  debateInactiveAt: string | null;
   latestUpdatedAt: string;
   /** min(createdAt) across revisions. */
   createdAt: string;
@@ -275,6 +291,10 @@ export function groupArgumentsIntoArtifacts(rows: ArtifactSourceRow[]): Argument
       authorId: latest.authorId ?? null,
       debateId: latest.debateId,
       debateTitle: latest.debateTitle ?? null,
+      // DEBATE-level inactive state from the latest revision's source row. All
+      // revisions of one debate carry the same value; we surface it for the
+      // room-grouping layer. Never an inactiveReason (§10a).
+      debateInactiveAt: latest.debateInactiveAt ?? null,
       latestUpdatedAt: latest.updatedAt,
       createdAt: minCreated,
       updateCount: Math.max(0, revisions.length - 1),

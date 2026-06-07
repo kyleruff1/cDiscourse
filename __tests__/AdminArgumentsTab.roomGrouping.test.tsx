@@ -144,6 +144,7 @@ function makeArtifact(over: Partial<ArgumentArtifact> & {
     authorId: over.authorId ?? 'author-1',
     debateId: over.debateId,
     debateTitle: over.debateTitle ?? null,
+    debateInactiveAt: over.debateInactiveAt ?? null,
     latestUpdatedAt,
     createdAt,
     updateCount: over.updateCount ?? 0,
