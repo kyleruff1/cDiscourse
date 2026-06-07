@@ -89,6 +89,23 @@ const DOCTRINE_RISK_FAMILIES = new Set([
   'claim_clarity',
   'family_h',
   'claim_specificity_low',
+  // Family I (thread_topology). `family_i` is the string detectFamily()
+  // actually emits for a `MCP-SERVER-NNN-FAMILY-I` title (mapFamilyLetterToName
+  // has no I case → default branch → `family_i`); it is the load-bearing alias.
+  // `thread_topology` is the canonical key name (also covers any doc that
+  // declares `Family: thread_topology`). Card 1 (MCP-SERVER-010-FAMILY-I, #392)
+  // graded I's doctrine-risk LOW — all 6 ai_classifier keys are descriptive
+  // thread-graph relations and the one verdict-adjacent candidate
+  // (`repeats_prior_point`) was pruned upstream; there is NO axis-partner key
+  // (no analog to H's `claim_specificity_low`). The operator OVERRODE the LOW
+  // verdict's SKIP recommendation and chose belt-and-suspenders L5
+  // mechanization. `compares_options` is added as the precautionary third
+  // entry — the single most verdict-adjacent I key (it carries the "comparing
+  // options is not picking a winner" doctrine guard, the closest I analog to
+  // G's `concedes_broader_point`), reachable only via a `Family:` declaration.
+  'thread_topology',
+  'family_i',
+  'compares_options',
 ]);
 
 /* ------------------------------------------------------------------ */
