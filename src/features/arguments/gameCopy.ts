@@ -497,6 +497,40 @@ export const PLAIN_LANGUAGE_COPY = {
   not_room_creator:
     'Only the person who started this argument can change its visibility.',
   room_archived: 'This argument is closed — its visibility is fixed.',
+  // MCP-OBSERVATION-MAPPING-EXPANSION-001 (Slice A) — plain-language for the
+  // observation-mapping evaluator's adopted observation codes. Every value is
+  // a verdict-free, move-level description ("what the referee noticed about
+  // this reply"), advisory, never a verdict or an author label. The codes are
+  // dotted (e.g. parent_relation.single_true.challenges_parent); toPlainLanguage
+  // preserves dots and lowercases, so the keys match the codes verbatim. An
+  // unmapped code is suppressed (null) and the evaluator falls back to the
+  // rule's verdict-free labelNeutral — a raw code can never leak.
+  'evidence_source_chain.single_true.provides_evidence':
+    'This reply gives some reasoning and can support productive disagreement.',
+  'evidence_source_chain.single_false.provides_evidence':
+    'This reply states opposition but may need more reasons or evidence.',
+  'parent_relation.single_true.challenges_parent':
+    'This reply pushes back on the parent move on at least one point.',
+  'parent_relation.single_true.refines_parent':
+    'This reply keeps the parent direction and proposes a more precise version.',
+  'resolution_progress.single_true.concedes_narrow_point':
+    'This reply concedes a narrow point while leaving the broader point in play.',
+  'evidence_source_chain.single_false.has_evidence':
+    'No attached evidence was observed on this move; a later move can add a source.',
+  'parent_relation.pair_true_true.challenges_parent.quote_anchors_parent':
+    'This reply pushes back and anchors to a quoted part of the parent, making the disagreement precise.',
+  'evidence_source_chain.pair_true_true.source_attached.quote_attached':
+    'This reply attaches both a source and a quote, which makes the evidence chain easier to inspect.',
+  'resolution_progress.pair_true_true.narrows_claim.concedes_narrow_point':
+    'This reply narrows the claim and concedes a narrow point, a common repair move.',
+  'parent_relation.pair_true_false.challenges_parent.no_quote_anchor':
+    'This reply pushes back but does not anchor to a quoted part; quoting the exact part can sharpen the exchange.',
+  'evidence_source_chain.pair_false_true.asks_for_evidence.no_evidence':
+    'This reply asks for evidence and does not attach its own; the reply it targets can answer with a source.',
+  'parent_relation.curated_triple.anchored_detail_challenge':
+    'This reply pushes back, anchors to a quoted part, and corrects a specific detail, engaging a precise point.',
+  'cross_family.disputes_evidence_applicability.provides_evidence':
+    'This reply challenges how the evidence applies and provides evidence of its own, which can deepen the exchange.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;
