@@ -51,6 +51,20 @@ interface Props {
   /** Optional content rendered at the right edge of the header. */
   rightSlot?: React.ReactNode;
   /**
+   * NAV-HEADER-INLINE-001 — optional primary-navigation content rendered
+   * INSIDE the masthead container (not as a separate strip beneath it).
+   * When provided, the header lays out as a single cohesive nav bar:
+   * the large logo + tagline lockup on the left and the navSlot inline
+   * to its right, sharing one header container + one bottom hairline.
+   *
+   * The slot is intentionally a `React.ReactNode` so the shell (which
+   * owns the in-memory nav state) supplies the wired `AppPrimaryNav`.
+   * AppHeader stays state-only — it positions the slot, it does not own
+   * navigation. The TL-003 / COMPOSER-002 no-route invariant is therefore
+   * unaffected: this prop carries a presentational node, never a router.
+   */
+  navSlot?: React.ReactNode;
+  /**
    * Inject the resolved asset module for testing. The default uses the
    * canonical PNG at `assets/branding/civic-discourse-logo.png`.
    */
@@ -95,7 +109,7 @@ const PROMINENT_LOGO_HEIGHT_PX = 288;
 // Header total height therefore = 288 + 8 = 296.
 const PROMINENT_HEADER_HEIGHT_PX = PROMINENT_LOGO_HEIGHT_PX + 8;
 
-export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
+export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props) {
   const source = logoSource ?? DEFAULT_LOGO;
   const { band } = useHeaderBreakpoint();
   const logoHeightPx = PROMINENT_LOGO_HEIGHT_PX;
@@ -106,9 +120,21 @@ export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
   const homePressableStyle = [styles.homePressable, { minWidth: getHomePressableMinWidth(band) }];
   const wordmarkFallbackStyle: TextStyle = BRAND.typography.wordmarkFallback[band];
 
+  // NAV-HEADER-INLINE-001 — when the masthead carries the primary nav we
+  // reflow on narrow viewports (phone): the brand lockup and the nav stack
+  // vertically so the logo / nav / tagline / About / copyright never
+  // overlap. On tablet / wide they sit on one row (logo left, nav inline,
+  // gear right). With no navSlot the header keeps its fixed prominent
+  // height (every prior consumer unchanged).
+  const hasNav = navSlot != null;
+  const isPhone = band === 'phone';
+  const rootStyle = hasNav
+    ? [styles.root, styles.rootWithNav, isPhone ? styles.rootWithNavPhone : null]
+    : [styles.root, { height: headerHeightPx }];
+
   return (
     <View
-      style={[styles.root, { height: headerHeightPx }]}
+      style={rootStyle}
       accessibilityRole="header"
       accessibilityLabel="CivilDiscourse"
       testID="app-header"
@@ -168,6 +194,21 @@ export function AppHeader({ onHomePress, rightSlot, logoSource }: Props) {
           </Text>
         </View>
       </Pressable>
+      {/* NAV-HEADER-INLINE-001 — the primary navigation lives INSIDE the
+          masthead container, inline to the right of the brand lockup
+          (tablet / wide) or reflowed beneath it (phone). It shares this
+          header's background + bottom hairline, so the logo and the nav
+          read as one cohesive, stylized nav bar — not a separate strip
+          beneath the header. AppHeader only positions the slot; the
+          shell supplies the wired nav. */}
+      {hasNav ? (
+        <View
+          style={[styles.navSlot, isPhone ? styles.navSlotPhone : null]}
+          testID="app-header-nav-slot"
+        >
+          {navSlot}
+        </View>
+      ) : null}
       <View style={styles.rightSlot} testID="app-header-right-slot">
         {rightSlot ?? null}
       </View>
@@ -196,6 +237,36 @@ const styles = StyleSheet.create({
     // shift the layout. No shadow — keeps the header flat and avoids
     // FCP regression on web.
     position: 'relative',
+  },
+  // NAV-HEADER-INLINE-001 — masthead-with-nav layout. When the header
+  // carries the primary nav the fixed prominent height is released so the
+  // brand lockup + inline nav (+ tagline + About + copyright) lay out
+  // cleanly. On tablet / wide they sit on one row; the navSlot takes the
+  // flexible middle space between the logo (left) and the gear (right).
+  rootWithNav: {
+    height: undefined,
+    minHeight: PROMINENT_HEADER_HEIGHT_PX,
+    paddingVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  // Phone reflow: stack the brand lockup on top of the nav so nothing
+  // overlaps in the tightest layout budget.
+  rootWithNavPhone: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    minHeight: undefined,
+  },
+  // The inline nav region. `flex: 1` claims the space between the brand
+  // lockup and the right slot on tablet / wide; full width on phone.
+  navSlot: {
+    flex: 1,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+  navSlotPhone: {
+    flex: undefined,
+    width: '100%',
   },
   homePressable: {
     // UX-001.1 — `minWidth` now flows in inline per band via

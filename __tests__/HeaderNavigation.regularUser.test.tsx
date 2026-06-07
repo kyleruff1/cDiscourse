@@ -1,6 +1,15 @@
 /**
  * NAV-START-ARGUMENT-001 Slice B — global header navigation tests.
  *
+ * NAV-HEADER-INLINE-001 note: this file tests `AppPrimaryNav` in ISOLATION
+ * (the component contract — items, labels, a11y, active state, transitions,
+ * no-route). The new STRUCTURAL spec — that the nav renders INSIDE the
+ * masthead/header container as a stylized bar (not a separate strip beneath
+ * the header) — is covered by `HeaderNavigation.mastheadInline.test.tsx`.
+ * Every assertion below still holds verbatim after the restyle (the public
+ * component contract is unchanged); the role-gate assertions are preserved
+ * verbatim. Nothing here was relaxed.
+ *
  * Covers the §4 acceptance contract:
  *   - A regular (non-admin) user sees the primary header nav: Start An
  *     Argument · Browse Arguments · My Arguments · Profile · About
