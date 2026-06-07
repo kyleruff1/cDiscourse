@@ -215,13 +215,14 @@ describe('observationMappingRegistry — adoption manifest', () => {
     );
   });
 
-  it('adopted-from-CSV + curated + build2a + build2b counts add up', () => {
+  it('adopted-from-CSV + curated + build2a + build2b + build2c counts add up', () => {
     const m = OBSERVATION_MAPPING_ADOPTION_MANIFEST;
     expect(
       m.adoptedFromCsv +
         m.curatedFireableRules +
         m.build2aFamilyBAdoptedRules +
-        m.build2bFamilyAAdoptedRules,
+        m.build2bFamilyAAdoptedRules +
+        m.build2cFamilyCAdoptedRules,
     ).toBe(m.totalActiveRules);
   });
 
@@ -231,6 +232,10 @@ describe('observationMappingRegistry — adoption manifest', () => {
 
   it('MCP-BUILD2b Family A adopted 15 parent-relation mapping rows', () => {
     expect(OBSERVATION_MAPPING_ADOPTION_MANIFEST.build2bFamilyAAdoptedRules).toBe(15);
+  });
+
+  it('MCP-BUILD2c Family C adopted 15 misunderstanding-repair mapping rows', () => {
+    expect(OBSERVATION_MAPPING_ADOPTION_MANIFEST.build2cFamilyCAdoptedRules).toBe(15);
   });
 
   it('CSV deferral accounting is internally consistent', () => {

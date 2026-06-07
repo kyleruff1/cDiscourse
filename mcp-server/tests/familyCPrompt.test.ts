@@ -2,7 +2,7 @@
  * MCP-SERVER-004-FAMILY-C — Family C prompt structure + doctrine ban-list scan tests.
  *
  * Critical invariants:
- *   - Prompt includes all 17 Family C rawKeys (when requestedRawKeys is empty)
+ *   - Prompt includes all 20 Family C rawKeys (when requestedRawKeys is empty)
  *   - Prompt includes each rawKey's booleanQuestion + positiveDefinition +
  *     negativeDefinition + positiveExample + negativeExample + falsePositiveGuards
  *   - Prompt instructs the model to return confidence on every positive flag
@@ -111,7 +111,7 @@ Deno.test('Family C MAX_TOKENS / TEMPERATURE / MAX_BODY_FIELD_LEN constants are 
   assertEquals(FAMILY_C_MAX_BODY_FIELD_LEN, 8000);
 });
 
-Deno.test('Family C user prompt (default request) includes all 17 rawKeys', () => {
+Deno.test('Family C user prompt (default request) includes all 20 rawKeys', () => {
   const prompt = buildFamilyCUserPrompt(buildRequest());
   for (const rawKey of FAMILY_C_RAW_KEYS) {
     if (!prompt.includes(rawKey)) {
@@ -394,7 +394,7 @@ Deno.test('DOCTRINE BAN-LIST scan: Family C system prompt contains banned tokens
 });
 
 Deno.test('DOCTRINE BAN-LIST scan: Family C user prompt contains no banned tokens outside doctrine-positive negations or structural-repair vocabulary', () => {
-  // The user prompt iterates 17 Family C per-rawKey entries. Banned tokens
+  // The user prompt iterates 20 Family C per-rawKey entries. Banned tokens
   // can appear as:
   //   (a) doctrine-positive negations ("MUST NOT", "Do NOT", "You do NOT",
   //       "never implies", "NOT decide", "NOT treat", "not 'you are wrong'",

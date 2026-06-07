@@ -1,19 +1,23 @@
 /**
- * MCP-021A — Family C (misunderstanding_repair) definitions.
+ * MCP-021A + MCP-BUILD2c — Family C (misunderstanding_repair) definitions.
  *
- * Per design §3.3: 17 entries total.
+ * 20 entries total (MCP-021A baseline 17 + MCP-BUILD2c +3).
  *  - 4 existing assigned to Family C (RETROACTIVE_VERBOSE_DEFINITIONS):
  *    - #20 clarified (lifecycle)
  *    - #38 requests_clarification (ai_classifier)
  *    - #39 answers_clarification (ai_classifier)
  *    - #53 provides_alternate_interpretation (ai_classifier)
- *  - 13 NEW: offers_candidate_understanding, confirms_understanding,
+ *  - 13 MCP-021A: offers_candidate_understanding, confirms_understanding,
  *    rejects_candidate_understanding, requests_restatement,
  *    self_initiates_self_repair, other_initiates_repair,
  *    acknowledges_misread, flags_ambiguous_reference,
  *    flags_term_ambiguity, proposes_shared_definition,
  *    confirms_shared_definition, scope_mismatch_identified,
  *    question_answer_mismatch.
+ *  - 3 MCP-BUILD2c (Build-2 manifest §2; all Inspect-only): the
+ *    misunderstanding-repair observations offers_repair_path,
+ *    names_ambiguity_source, accepts_correction. NO schema-version bump
+ *    (vocabulary expansion, not a wire change).
  *
  * Decision 5 (binding): brief candidate `requests_clarification`
  * COLLAPSES into existing #38 `requests_clarification`. No alias added.
@@ -21,9 +25,20 @@
  * Mostly defaultSurface 'timeline_node' for high-signal repair moves;
  * sub-distinctions Inspect-only.
  *
+ * The 3 MCP-BUILD2c booleans are Inspect-only (defaultSurface: 'inspect'),
+ * source: 'ai_classifier', disposition: 'future_source'; none are verdicts.
+ * accepts_correction is verdict-adjacent and is fenced "repair-not-defeat"
+ * with extra falsePositiveGuards (describes the repair MOVE — taking up a
+ * point a prior move offered — never frames it as defeat/concession of the
+ * whole, never labels the author). Its plain-language label contains the
+ * substring "correct"; the verdict-free ban-list test MUST use word-boundary
+ * / phrase matching, never bare-substring "correct".
+ *
  * Doctrine anchors per entry:
  *   - cdiscourse-doctrine §10a — repair is structural; never implies
  *     fault on parent's clarity.
+ *   - cdiscourse-doctrine §1 — concession is a scoring REPAIR, not a
+ *     defeat; accepts_correction describes the repair move, never a loss.
  *   - Schegloff/Sacks repair model — self-initiated vs other-initiated
  *     repair as the foundational pattern.
  *   - Clark & Brennan grounding doctrine — candidate-understanding +
@@ -41,6 +56,16 @@ const REPAIR_TIMELINE_ELIGIBILITY: MachineObservationDefinition['confidenceEligi
 };
 
 const REPAIR_INSPECT_ELIGIBILITY: MachineObservationDefinition['confidenceEligibility'] = {
+  timelineMinConfidence: 'high',
+  selectedContextMinConfidence: 'medium',
+  inspectMinConfidence: 'low',
+};
+
+// MCP-BUILD2c — Inspect-only eligibility for the 3 new misunderstanding-repair
+// quality booleans. Mirrors Family A's BUILD2B_INSPECT_ELIGIBILITY: these
+// observations are surfaced on Inspect only (Timeline shows the established
+// repair keys), so they need a higher Timeline confidence bar.
+const BUILD2C_INSPECT_ELIGIBILITY: MachineObservationDefinition['confidenceEligibility'] = {
   timelineMinConfidence: 'high',
   selectedContextMinConfidence: 'medium',
   inspectMinConfidence: 'low',
@@ -722,5 +747,141 @@ export const FAMILY_C_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
       'Schegloff/Sacks: Q-A mismatch is a specific repair pattern that prevents the conversation from drifting.',
     ]),
     confidenceEligibility: REPAIR_INSPECT_ELIGIBILITY,
+  }),
+
+  // ── MCP-BUILD2c (misunderstanding_repair expansion) ───────────────────
+  // Three Build-2c booleans per the Build-2 manifest §2. These describe
+  // qualities of the misunderstanding-repair MOVE — whether it proposes a
+  // concrete resolution PATH (not just flags confusion), whether it names the
+  // specific SOURCE of an ambiguity (which term/reference and why), and whether
+  // it ACCEPTS a correction a prior move offered. All Inspect-only; none are
+  // verdicts. accepts_correction is verdict-adjacent and is fenced
+  // "repair-not-defeat" with extra falsePositiveGuards (describes the repair
+  // MOVE, never the author, never a defeat/concession of the whole). Its label
+  // contains the substring "correct"; the verdict-free ban-list test uses
+  // word-boundary / phrase matching, never bare-substring "correct".
+
+  // BUILD2c #1 offers_repair_path (Inspect-only)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:offers_repair_path',
+    rawKey: 'offers_repair_path',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'misunderstanding_repair',
+    label: 'Offers a way to resolve',
+    shortLabel: 'Repair path',
+    description: 'This move proposes a concrete way to resolve a misunderstanding.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 143,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      'Does this move propose a concrete way to resolve a misunderstanding (a path, not just a flag)?',
+    positiveDefinition:
+      "The move proposes a CONCRETE resolution mechanism — sequencing the disagreement, separating two claims, tagging each use of a term, reframing where the participants actually differ — so the misunderstanding can be worked through. It goes beyond flagging that confusion exists; it offers a path forward.",
+    negativeDefinition:
+      "The move only flags confusion (requests_clarification), restates without proposing a resolution path, or merely expresses willingness to resolve without naming a concrete mechanism. Proposing a specific shared DEFINITION is the narrower proposes_shared_definition; offers_repair_path is broader (sequencing, separating, reframing the disagreement).",
+    positiveExamples: Object.freeze([
+      "Move: 'Let's separate the cost claim from the equity claim and take them one at a time.'",
+      "Move: 'I think we're using \\'infrastructure\\' two ways — if we tag each use, we can see where we actually differ.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'I don't follow.' (requests_clarification, flags confusion only)",
+      "Move: 'What did you mean?' (requests_clarification, no resolution path)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The move must propose a CONCRETE resolution mechanism, not merely express willingness to resolve; do NOT mark on a bare "let us sort this out" with no mechanism named.',
+      'Distinguish from proposes_shared_definition (definition-specific) — repair_path is broader: sequencing, separating, or reframing the disagreement.',
+      'This observation describes the MOVE, never the author; the absence of a repair path is not a criticism of the author.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: structural / procedural observation about the MOVE; describes a constructive move shape, never a verdict.',
+      'point-standing-economy: offering a repair path is a recovery-positive move that can convert a stalled disagreement into productive narrowing; earns engagement credit for both sides.',
+    ]),
+    confidenceEligibility: BUILD2C_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2c #2 names_ambiguity_source (Inspect-only)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:names_ambiguity_source',
+    rawKey: 'names_ambiguity_source',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'misunderstanding_repair',
+    label: 'Names the ambiguity',
+    shortLabel: 'Ambiguity source',
+    description: 'This move names the specific source of an ambiguity and why it is unclear.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 144,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      'Does this move name the specific source of an ambiguity (which term / reference is unclear and why)?',
+    positiveDefinition:
+      "The move identifies the SPECIFIC term or reference that is ambiguous AND why — typically by surfacing the two readings that are talking past each other. Sharper than flags_ambiguous_reference / flags_term_ambiguity (which flag THAT something is ambiguous); this names WHAT and WHY.",
+    negativeDefinition:
+      "The move flags ambiguity without identifying its source ('this is confusing'), asks for clarification, or restates. A bare 'ambiguous' flag with no named source is flags_term_ambiguity, not this.",
+    positiveExamples: Object.freeze([
+      "Move: 'The ambiguity is in \\'works\\' — you mean reduces emissions, I read it as politically durable.'",
+      "Move: 'The word \\'fair\\' is doing two jobs here: procedural fairness and outcome fairness.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'This is ambiguous.' (flags_term_ambiguity, no source named)",
+      "Move: 'Can you rephrase?' (requests_restatement)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The move must NAME the specific term / reference AND why it is ambiguous; do NOT mark on a bare "ambiguous" flag with no named source.',
+      'Both flags_term_ambiguity and names_ambiguity_source can co-fire (the flag + the naming); names_ambiguity_source is the sharper structural fact that the source was identified.',
+      'This observation describes the text, not the author\'s competence; naming an ambiguity source never implies the author wrote carelessly.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: diagnostic-structural observation; "ambiguity source" describes the TEXT, not the author.',
+      'Clark & Brennan: naming the source of an ambiguity is a high-signal grounding move that opens shared understanding.',
+    ]),
+    confidenceEligibility: BUILD2C_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2c #3 accepts_correction (Inspect-only; VERDICT-ADJACENT)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:accepts_correction',
+    rawKey: 'accepts_correction',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'misunderstanding_repair',
+    label: 'Takes up an offered point',
+    shortLabel: 'Takes up a point',
+    description: 'This move takes up a point a prior move offered.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 145,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      'Does this move accept a correction that a prior move offered?',
+    positiveDefinition:
+      "A prior move offered a correction (a substitute figure, date, attribution, source, or reading). This move TAKES UP that offered point and folds it into its own response — 'fair, I had the date wrong, it is 2020'; 'accepted, my source was secondary, yours is primary'. It is a repair move that adopts a point a prior move offered.",
+    negativeDefinition:
+      "The move rejects the offered point ('no, my number is right'), ignores it ('anyway, as I was saying…'), or there was no prior correction to take up. Generic agreement with the parent (acknowledges_parent) is NOT taking up an offered correction.",
+    positiveExamples: Object.freeze([
+      "Move: 'Fair — I had the date wrong, it is 2020.'",
+      "Move: 'Accepted; my source was secondary, yours is primary — I will use yours.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'No, my number is right.' (rejects the offered point — does not take it up)",
+      "Move: 'Anyway, as I was saying…' (ignores the offered point)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'This observation describes the repair MOVE, never the author; it describes taking up a point a prior move offered, and never frames it as defeat or concession of the whole. The author has not "lost"; a repair is a scoring repair, not a defeat.',
+      'There must be an identifiable prior correction the move takes up; do NOT mark generic agreement (acknowledges_parent) as taking up a correction.',
+      'Do NOT treat the ABSENCE of this observation as a criticism: a move that does not take up an offered point is perfectly valid and simply does not trip this flag. Absence means "not observed", never "the author was stubborn".',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: this is a MACHINE OBSERVATION about the MOVE; display-only, never a verdict that the author was wrong or conceded a loss.',
+      'cdiscourse-doctrine §1: concession is a scoring REPAIR, not a defeat. Taking up an offered point lifts the exchange; the copy describes the repair move ("takes up a point a prior move offered"), never a defeat/concession-of-the-whole. The label contains the substring "correct" only via the rawKey; the user-facing label / diagnostic avoid the standalone verdict token "correct".',
+      'point-standing-economy: a repair that takes up an offered point earns recovery credit for the responder AND pressure credit for the prior move; it is recovery-positive, never a loss.',
+    ]),
+    confidenceEligibility: BUILD2C_INSPECT_ELIGIBILITY,
   }),
 ]);

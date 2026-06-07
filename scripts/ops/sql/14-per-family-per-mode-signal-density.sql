@@ -10,7 +10,7 @@
 -- operator Stage 2B decision):
 --   - parent_relation         19   mcp-server/lib/familyAKeys.ts:49 (16 + 3 MCP-BUILD2b)
 --   - disagreement_axis       17   mcp-server/lib/familyBKeys.ts:53 (14 + 3 MCP-BUILD2a)
---   - misunderstanding_repair 17   mcp-server/lib/familyCKeys.ts:61
+--   - misunderstanding_repair 20   mcp-server/lib/familyCKeys.ts:61 (17 + 3 MCP-BUILD2c)
 --   - evidence_source_chain   19   mcp-server/lib/familyDKeys.ts:85 (Subset; 8 deterministic excluded)
 --   - resolution_progress     18   mcp-server/lib/familyGKeys.ts:99 (Subset; 12 deterministic excluded)
 --   - others (E, F, H-J)       0   not yet backfilled (E, F coverage cards queued; H Card-1 landed 2026-05-30; I, J no MCP support)
@@ -58,7 +58,7 @@ keyed as (
     case family
       when 'parent_relation' then 19
       when 'disagreement_axis' then 17
-      when 'misunderstanding_repair' then 17
+      when 'misunderstanding_repair' then 20
       when 'evidence_source_chain' then 19
       when 'resolution_progress' then 18
       else 0

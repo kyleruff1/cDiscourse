@@ -2,8 +2,9 @@
  * MCP-SERVER-004-FAMILY-C — Family C prompt construction.
  *
  * Single-prompt strategy per design §2: one Anthropic call covers all
- * 17 Family C rawKeys. Token budget ~1-2k input, MAX_TOKENS=1500 output
- * (17 keys × ~85 tokens each plus structured-output overhead).
+ * 20 Family C rawKeys (17 MCP-SERVER-004-FAMILY-C + 3 MCP-BUILD2c). Token
+ * budget ~1-2k input, MAX_TOKENS=1500 output (20 keys × ~85 tokens each plus
+ * structured-output overhead).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
@@ -36,7 +37,7 @@
  */
 import { FAMILY_C_PROMPT_ENTRIES, FAMILY_C_RAW_KEYS } from './familyCKeys.ts';
 
-/** MAX_TOKENS for the Family C response. 17 keys × ~85 tokens + overhead. */
+/** MAX_TOKENS for the Family C response. 20 keys × ~85 tokens + overhead. */
 export const FAMILY_C_MAX_TOKENS = 1500;
 
 /** Deterministic decoding. Mirrors Family A/B. */
@@ -133,7 +134,7 @@ export interface ValidatedFamilyCRequest {
  *   6. Conservative-positives bias reminder (0 to 2 repair signals)
  *   7. The input (move text, parent text, thread context)
  *
- * When requestedRawKeys is empty, all 17 Family C keys are included.
+ * When requestedRawKeys is empty, all 20 Family C keys are included.
  *
  * Returns a string — pure, no I/O. The string contains the verbatim
  * caller-redacted move/parent/thread text fields; the caller has already

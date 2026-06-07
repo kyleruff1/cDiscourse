@@ -2,7 +2,7 @@
  * MCP-SERVER-004-FAMILY-C — validateMcpBooleanObservationResponse Family C tests.
  *
  * The validator is the shared structural validator. This file exercises it
- * against Family C response shapes (17 keys, family-c-v1) to confirm the
+ * against Family C response shapes (20 keys, family-c-v1) to confirm the
  * validator works identically for Family C as it does for Family A/B.
  */
 import { assertEquals } from 'std/assert/mod.ts';
@@ -161,9 +161,10 @@ Deno.test('Family C validator: rejects modelInfo with empty classifierSetVersion
   assertEquals(result.ok, false);
 });
 
-Deno.test('Family C validator: accepts full 17-key response', () => {
-  // Build a full 17-key response with each key explicitly false (default state).
-  const SEVENTEEN_KEYS = [
+Deno.test('Family C validator: accepts full 20-key response', () => {
+  // Build a full 20-key response (17 + 3 MCP-BUILD2c) with each key explicitly
+  // false (default state).
+  const TWENTY_KEYS = [
     'clarified',
     'requests_clarification',
     'answers_clarification',
@@ -181,19 +182,22 @@ Deno.test('Family C validator: accepts full 17-key response', () => {
     'confirms_shared_definition',
     'scope_mismatch_identified',
     'question_answer_mismatch',
+    'offers_repair_path',
+    'names_ambiguity_source',
+    'accepts_correction',
   ];
   const obs: Record<string, boolean> = {};
   const conf: Record<string, string> = {};
   const evid: Record<string, null> = {};
-  for (const key of SEVENTEEN_KEYS) {
+  for (const key of TWENTY_KEYS) {
     obs[key] = false;
     conf[key] = 'medium';
     evid[key] = null;
   }
   const r = {
     schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    nodeId: 'node-c-17',
-    checkedRawKeys: SEVENTEEN_KEYS,
+    nodeId: 'node-c-20',
+    checkedRawKeys: TWENTY_KEYS,
     observations: obs,
     confidence: conf,
     evidenceSpan: evid,
@@ -206,7 +210,7 @@ Deno.test('Family C validator: accepts full 17-key response', () => {
   const result = validateMcpBooleanObservationResponse(r);
   assertEquals(result.ok, true);
   if (result.ok) {
-    assertEquals(result.value.checkedRawKeys.length, 17);
+    assertEquals(result.value.checkedRawKeys.length, 20);
   }
 });
 

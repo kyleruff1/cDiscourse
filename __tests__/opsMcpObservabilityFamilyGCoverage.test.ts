@@ -220,14 +220,15 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group A: Q11 narrative reg
 /* ------------------------------------------------------------------ */
 
 describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group B: Q14 CASE regression', () => {
-  it('Q14 SQL hardcoded CASE includes the 5 family constants verbatim (A=19, B=17, C=17, D=19, G=18)', () => {
+  it('Q14 SQL hardcoded CASE includes the 5 family constants verbatim (A=19, B=17, C=20, D=19, G=18)', () => {
     const src = readFile(Q14_PATH);
     const stripped = stripSqlComments(src);
     // MCP-BUILD2b: parent_relation 16 → 19 (+3 parent-relation quality booleans).
     expect(stripped).toContain("when 'parent_relation' then 19");
     // MCP-BUILD2a: disagreement_axis 14 → 17 (+3 disagreement-quality booleans).
     expect(stripped).toContain("when 'disagreement_axis' then 17");
-    expect(stripped).toContain("when 'misunderstanding_repair' then 17");
+    // MCP-BUILD2c: misunderstanding_repair 17 → 20 (+3 repair-quality booleans).
+    expect(stripped).toContain("when 'misunderstanding_repair' then 20");
     expect(stripped).toContain("when 'evidence_source_chain' then 19");
     expect(stripped).toContain("when 'resolution_progress' then 18");
     // Unsupported families fall through to 0 (else branch).

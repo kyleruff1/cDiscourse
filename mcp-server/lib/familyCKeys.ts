@@ -1,5 +1,6 @@
 /**
- * MCP-SERVER-004-FAMILY-C — Family C (misunderstanding_repair) 17-key constant + prompt entries.
+ * MCP-SERVER-004-FAMILY-C + MCP-BUILD2c — Family C (misunderstanding_repair)
+ * 20-key constant + prompt entries.
  *
  * Server-side MIRROR of the upstream Family C registry in
  * `src/features/nodeLabels/machineObservationDefinitions/familyC.ts`. The
@@ -8,8 +9,9 @@
  * `tests/familyCKeysParity.test.ts` (reads BOTH files as source text and
  * fails the build on drift).
  *
- * The 17 rawKeys are the binding contract per MCP-SERVER-004-FAMILY-C intent
- * brief §3. Verbatim, in declaration order:
+ * The 20 rawKeys are the binding contract (17 MCP-SERVER-004-FAMILY-C intent
+ * brief §3 + 3 MCP-BUILD2c Build-2 manifest §2). Verbatim, in declaration
+ * order:
  *
  *   1.  clarified (RETROACTIVE; lifecycle source — tree-dependent)
  *   2.  requests_clarification (RETROACTIVE; ai_classifier)
@@ -28,6 +30,9 @@
  *   15. confirms_shared_definition (NEW; ai_classifier)
  *   16. scope_mismatch_identified (NEW; ai_classifier)
  *   17. question_answer_mismatch (NEW; ai_classifier)
+ *   18. offers_repair_path (MCP-BUILD2c; ai_classifier)
+ *   19. names_ambiguity_source (MCP-BUILD2c; ai_classifier)
+ *   20. accepts_correction (MCP-BUILD2c; ai_classifier; VERDICT-ADJACENT — repair-not-defeat)
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §10a — every entry is a MACHINE OBSERVATION,
@@ -50,7 +55,7 @@
  */
 
 /**
- * The 17 Family C rawKeys, frozen in declaration order. Used by:
+ * The 20 Family C rawKeys, frozen in declaration order. Used by:
  *   - validateFamilyBooleanRequest (rejects unknown rawKeys with
  *     unsupported_rawKey error envelope; routes via familyRegistry)
  *   - validateMcpBooleanObservationResponse (rejects checkedRawKeys
@@ -76,6 +81,10 @@ export const FAMILY_C_RAW_KEYS: readonly string[] = Object.freeze([
   'confirms_shared_definition',
   'scope_mismatch_identified',
   'question_answer_mismatch',
+  // MCP-BUILD2c (Build-2 manifest §2) — misunderstanding-repair quality booleans.
+  'offers_repair_path',
+  'names_ambiguity_source',
+  'accepts_correction',
 ]);
 
 /** Classifier-set version emitted in modelInfo.classifierSetVersion. */
@@ -370,5 +379,54 @@ export const FAMILY_C_PROMPT_ENTRIES: readonly FamilyCPromptEntry[] = Object.fre
       "Move: 'The 10% figure you cited is from one study; what about the others?' (follow-up question)",
     falsePositiveGuards:
       "Do NOT mark TRUE for follow-up questions on accepted answers. Do NOT mark TRUE for adversarial challenges framed as 'you did not answer'. Q-A mismatch surfacing is repair-positive; prevents the conversation from drifting.",
+  }),
+  // ── MCP-BUILD2c (Build-2 manifest §2) — misunderstanding-repair quality booleans. ──
+  Object.freeze({
+    rawKey: 'offers_repair_path',
+    label: 'Offers a way to resolve',
+    booleanQuestion:
+      'Does this move propose a concrete way to resolve a misunderstanding (a path, not just a flag)?',
+    positiveDefinition:
+      "The move proposes a CONCRETE resolution mechanism — sequencing the disagreement, separating two claims, tagging each use of a term, reframing where the participants actually differ — so the misunderstanding can be worked through. It goes beyond flagging that confusion exists.",
+    negativeDefinition:
+      "The move only flags confusion (requests_clarification), restates without proposing a resolution path, or merely expresses willingness to resolve without naming a concrete mechanism. Proposing a specific shared DEFINITION is the narrower proposes_shared_definition.",
+    positiveExample:
+      "Move: 'Let's separate the cost claim from the equity claim and take them one at a time.'",
+    negativeExample:
+      "Move: 'I don't follow.' (requests_clarification, flags confusion only)",
+    falsePositiveGuards:
+      'The move must propose a CONCRETE resolution mechanism, not merely express willingness to resolve. Distinguish from proposes_shared_definition (definition-specific) — repair_path is broader (sequencing, separating, reframing). This describes the MOVE, never the author; absence of a repair path is not a criticism.',
+  }),
+  Object.freeze({
+    rawKey: 'names_ambiguity_source',
+    label: 'Names the ambiguity',
+    booleanQuestion:
+      'Does this move name the specific source of an ambiguity (which term / reference is unclear and why)?',
+    positiveDefinition:
+      "The move identifies the SPECIFIC term or reference that is ambiguous AND why — typically by surfacing the two readings that are talking past each other. Sharper than flags_ambiguous_reference / flags_term_ambiguity (which flag THAT something is ambiguous); this names WHAT and WHY.",
+    negativeDefinition:
+      "The move flags ambiguity without identifying its source ('this is confusing'), asks for clarification, or restates. A bare 'ambiguous' flag with no named source is flags_term_ambiguity, not this.",
+    positiveExample:
+      "Move: 'The ambiguity is in \\'works\\' — you mean reduces emissions, I read it as politically durable.'",
+    negativeExample:
+      "Move: 'This is ambiguous.' (flags_term_ambiguity, no source named)",
+    falsePositiveGuards:
+      'The move must NAME the specific term / reference AND why it is ambiguous; do NOT mark on a bare "ambiguous" flag. flags_term_ambiguity and names_ambiguity_source can co-fire. This describes the text, not the author\'s competence.',
+  }),
+  Object.freeze({
+    rawKey: 'accepts_correction',
+    label: 'Takes up an offered point',
+    booleanQuestion:
+      'Does this move accept a correction that a prior move offered?',
+    positiveDefinition:
+      "A prior move offered a correction (a substitute figure, date, attribution, source, or reading). This move TAKES UP that offered point and folds it into its own response. It is a repair move that adopts a point a prior move offered.",
+    negativeDefinition:
+      "The move rejects the offered point ('no, my number is right'), ignores it ('anyway, as I was saying…'), or there was no prior correction to take up. Generic agreement with the parent (acknowledges_parent) is NOT taking up an offered correction.",
+    positiveExample:
+      "Move: 'Fair — I had the date wrong, it is 2020.'",
+    negativeExample:
+      "Move: 'No, my number is right.' (rejects the offered point — does not take it up)",
+    falsePositiveGuards:
+      'This observation describes the repair MOVE, never the author; it describes taking up a point a prior move offered, and never frames it as defeat or concession of the whole — a repair is a scoring repair, not a defeat. There must be an identifiable prior correction the move takes up; do NOT mark generic agreement (acknowledges_parent). Do NOT treat ABSENCE as a criticism: not taking up an offered point is valid and simply does not trip this flag.',
   }),
 ]);

@@ -16,7 +16,7 @@
  *
  * Per design §3 fixture-design — the no-repair adversarial fixture
  * (Family B disputes_generalization content) MUST produce 0 Family C
- * positives across all 17 keys when classifier is run. This file asserts
+ * positives across all 20 keys when classifier is run. This file asserts
  * the fixture content encodes the design intent (the runtime model
  * behavior is verified in the Edge admin_validation smoke).
  */
@@ -184,7 +184,7 @@ Deno.test('doctrine: no-repair adversarial request fixture is Family B disputes_
   const moveText = wrapper.input.currentText as string;
   // Per design §3 Fixture #5: the no-repair fixture is adversarial
   // disputes_generalization content. The Family C classifier MUST return
-  // all 17 keys false (verified at runtime in the Edge admin_validation
+  // all 20 keys false (verified at runtime in the Edge admin_validation
   // smoke). Operator-visible signal that the fixture encodes the intent.
   if (!/generalization/i.test(moveText)) {
     throw new Error(
