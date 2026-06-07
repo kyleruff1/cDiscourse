@@ -71,6 +71,11 @@ export interface CardDetailPanelProps {
   /** Slice 3 — platform override for `hubColumnLayout` (tests). Defaults to
    *  the runtime `Platform.OS`. */
   platformOs?: HubPlatformOs;
+  /** CARD-VIEW-COMPARISON-POLISH-001 — the current/own message body text,
+   *  forwarded from the active card so the panel owns the vertical order:
+   *  top parent bubble → current message body + observations. Omitted by
+   *  direct-render callers/tests (the body then stays in the active card). */
+  currentMessageBody?: string | null;
   testID?: string;
 }
 
@@ -187,21 +192,27 @@ function HubClassifierZone({
 }
 
 /**
- * CARD-VIEW-DETAIL-HUB-001 (Slice 3 — operator refinement) — the off-center,
- * above-centerpiece PARENT COMPARISON bubble. Upgrades the Slice-2 inline
- * parent-quote zone into a visually-distinct colored bubble so the reader can
- * tell, at a glance, that the parent is the OTHER party's move.
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 3) + CARD-VIEW-COMPARISON-POLISH-001 — the
+ * TOP-OF-CARD PARENT ("replying-to" / OPPONENT) COMPARISON bubble. Renders as
+ * the FIRST element of the active card detail so the reader sees, at the very
+ * top, the move they are answering before their own move.
  *
  * Visual grammar (timeline-grammar + accessibility-targets):
- *   - The bubble color encodes the parent's ACTOR / SIDE (reusing the Timeline
- *     actor grammar) — NEVER a verdict / truth color. It is DIFFERENT from the
- *     current card's color so the two moves contrast.
- *   - The bubble sits ABOVE + OFF-CENTER the centerpiece (alignSelf flex-start
- *     + a small negative offset) so the centerpiece reads as the obvious focus.
- *   - The parent text renders ITALIC inside QUOTES.
- *   - Meaning is carried by SHAPE (off-center bubble + italic quote) AND the
- *     plain-language actor label + reference label — color is never the only
- *     signal (grayscale snapshot stays legible).
+ *   - The bubble has a TRUE-BLACK backdrop (`bubble.color.backdrop`) — a
+ *     visually heavy, DRAMATICALLY different fill from the current message's
+ *     (non-black) centerpiece surface. Black denotes "the message being
+ *     replied to" (a MESSAGE-TYPE cue), NEVER a verdict / truth signal.
+ *   - A DOUBLE OUTLINE wraps the bubble: an OUTER ring (`bubble.color.ring`,
+ *     the actor accent) around an INNER border (`bubble.color.border`, the
+ *     deeper actor stroke). The two concentric strokes are the distinct
+ *     double border the operator asked for; they also color-encode the parent
+ *     ACTOR independently of the constant black fill.
+ *   - The bubble sits OFF-CENTER (alignSelf flex-start + a small negative
+ *     offset) so the current centerpiece below it reads as the focus.
+ *   - The parent text renders ITALIC inside QUOTES, at a LARGER font.
+ *   - Meaning is carried by SHAPE (the off-center bubble + italic quote) AND
+ *     the plain-language "Replying to" framing + actor label + reference label
+ *     — color is never the only signal (grayscale snapshot stays legible).
  *
  * The reference (`#N · kind`) is the ONLY interactive affordance here — a real
  * `Pressable` (role button, ≥44×44 via hitSlop) that switches the active card
@@ -224,64 +235,83 @@ function ParentComparisonBubble({
     bubble.referenceLabel != null &&
     bubble.parentMessageId != null;
 
+  // DOUBLE OUTLINE — the OUTER ring carries the actor accent stroke; the
+  // INNER bubble carries the black backdrop + the deeper actor border stroke.
+  // The `testID="card-detail-parent-bubble"` stays on the OUTER element so the
+  // existing layout/accessibility assertions keep resolving the bubble.
   return (
     <View
-      style={[
-        styles.parentBubble,
-        { backgroundColor: bubble.color.bg, borderColor: bubble.color.border },
-      ]}
+      style={[styles.parentBubbleRing, { borderColor: bubble.color.ring }]}
       accessibilityLabel={bubble.accessibilityLabel}
       testID="card-detail-parent-bubble"
     >
-      {/* Actor label — color-independent cue for WHO made the parent move. */}
-      <Text
-        style={[styles.parentBubbleActor, { color: bubble.color.accent }]}
-        accessibilityRole="text"
-        testID="card-detail-parent-bubble-actor"
+      <View
+        style={[
+          styles.parentBubble,
+          { backgroundColor: bubble.color.backdrop, borderColor: bubble.color.border },
+        ]}
+        testID="card-detail-parent-bubble-inner"
       >
-        {bubble.actorLabel}
-      </Text>
-
-      {/* Italic quote inside quote marks. Display-only. */}
-      {bubble.quote.quote ? (
+        {/* "Replying to" framing — color-independent MESSAGE-TYPE cue that the
+            black bubble is the move being answered, not a verdict. */}
         <Text
-          style={styles.parentBubbleQuote}
+          style={styles.parentBubbleReplyingTo}
           accessibilityRole="text"
-          testID="card-detail-parent-bubble-quote"
+          testID="card-detail-parent-bubble-replying-to"
         >
-          {`“${bubble.quote.quote}”`}
+          Replying to
         </Text>
-      ) : null}
 
-      {/* Reference — the ONLY navigation affordance in the bubble. */}
-      {hasReference ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Go to ${bubble.referenceLabel}`}
-          onPress={() => {
-            if (bubble.parentMessageId) onActivateAncestor?.(bubble.parentMessageId);
-          }}
-          hitSlop={TOUCH_TARGET.hitSlopAll}
-          style={styles.parentBubbleRefPressable}
-          testID="card-detail-parent-bubble-reference"
+        {/* Actor label — color-independent cue for WHO made the parent move. */}
+        <Text
+          style={[styles.parentBubbleActor, { color: bubble.color.accent }]}
+          accessibilityRole="text"
+          testID="card-detail-parent-bubble-actor"
         >
-          <Text style={[styles.parentBubbleRefText, { color: bubble.color.accent }]}>
-            {bubble.referenceLabel}
-          </Text>
-        </Pressable>
-      ) : (
-        // Unresolvable navigation — show the reference label as display-only
-        // text when present, but NEVER as a dangling tappable affordance.
-        bubble.referenceLabel ? (
+          {bubble.actorLabel}
+        </Text>
+
+        {/* Italic quote inside quote marks, LARGER font. Display-only. */}
+        {bubble.quote.quote ? (
           <Text
-            style={[styles.parentBubbleRefText, { color: bubble.color.accent }]}
+            style={styles.parentBubbleQuote}
             accessibilityRole="text"
-            testID="card-detail-parent-bubble-reference-static"
+            testID="card-detail-parent-bubble-quote"
           >
-            {bubble.referenceLabel}
+            {`“${bubble.quote.quote}”`}
           </Text>
-        ) : null
-      )}
+        ) : null}
+
+        {/* Reference — the ONLY navigation affordance in the bubble. */}
+        {hasReference ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Go to ${bubble.referenceLabel}`}
+            onPress={() => {
+              if (bubble.parentMessageId) onActivateAncestor?.(bubble.parentMessageId);
+            }}
+            hitSlop={TOUCH_TARGET.hitSlopAll}
+            style={styles.parentBubbleRefPressable}
+            testID="card-detail-parent-bubble-reference"
+          >
+            <Text style={[styles.parentBubbleRefText, { color: bubble.color.accent }]}>
+              {bubble.referenceLabel}
+            </Text>
+          </Pressable>
+        ) : (
+          // Unresolvable navigation — show the reference label as display-only
+          // text when present, but NEVER as a dangling tappable affordance.
+          bubble.referenceLabel ? (
+            <Text
+              style={[styles.parentBubbleRefText, { color: bubble.color.accent }]}
+              accessibilityRole="text"
+              testID="card-detail-parent-bubble-reference-static"
+            >
+              {bubble.referenceLabel}
+            </Text>
+          ) : null
+        )}
+      </View>
     </View>
   );
 }
@@ -375,9 +405,17 @@ function LabelChip({ text, testID }: { text: string; testID?: string }): React.R
 }
 
 /**
- * CARD-VIEW-DETAIL-HUB-001 (Slice 3) — the CENTERPIECE region. The obvious
- * focus of the page: the off-center parent comparison bubble ABOVE, then the
- * step reference + category + S/T/H strip + evidence + standing + lifecycle.
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 3) + CARD-VIEW-COMPARISON-POLISH-001 — the
+ * CENTERPIECE region: the CURRENT / OWN message. The parent comparison bubble
+ * has been hoisted ABOVE this region to the panel root (it is now the FIRST
+ * element of the whole card), so this region is the "my move" centerpiece:
+ * the current message body (when forwarded), then the step reference +
+ * category + S/T/H strip + evidence + standing + lifecycle.
+ *
+ * The centerpiece card uses a DRAMATICALLY DIFFERENT (non-black) backdrop +
+ * actor-accent border from the parent bubble's true-black fill, so the reader
+ * instantly reads "this is my move" vs "the move I am answering". The contrast
+ * is a MESSAGE-TYPE cue, never a verdict (timeline-grammar / doctrine §1).
  *
  * EVERY section is visible by default — there is NO expand affordance, NO
  * collapsed disclosure (ratified §7.1 / check #14). The only Pressables are
@@ -385,24 +423,41 @@ function LabelChip({ text, testID }: { text: string; testID?: string }): React.R
  */
 function CenterpieceRegion({
   model,
+  currentMessageBody,
   onActivateAncestor,
 }: {
   model: CardDetailViewModel;
+  /** CARD-VIEW-COMPARISON-POLISH-001 — the current/own message body text,
+   *  forwarded from the active card so the body + observations sit together
+   *  BELOW the top parent bubble. Omitted by direct-render callers/tests. */
+  currentMessageBody?: string | null;
   onActivateAncestor?: (messageId: string) => void;
 }): React.ReactElement {
   const { evidence } = model;
   return (
     <View style={styles.centerpieceRegion} testID="card-detail-centerpiece">
-      {/* Slice 3 — the off-center colored parent COMPARISON bubble, ABOVE the
-          centerpiece card. Degrades to nothing for a root / unresolvable
-          parent. The reference is a navigation affordance (switch active card). */}
-      <ParentComparisonBubble
-        bubble={model.parentComparison}
-        onActivateAncestor={onActivateAncestor}
-      />
-
-      {/* The centerpiece card content — visually the prominent focus. */}
+      {/* The centerpiece card content — the current/own message; visually the
+          prominent focus and a DRAMATICALLY different surface from the black
+          parent bubble above it. */}
       <View style={styles.centerpieceCard} testID="card-detail-centerpiece-card">
+        {/* CARD-VIEW-COMPARISON-POLISH-001 — "Your move" framing + the current
+            message body, at a larger, readable font. Color-independent cue
+            (the label text) that this is the responder's own move. */}
+        {typeof currentMessageBody === 'string' && currentMessageBody.length > 0 ? (
+          <View style={styles.zone} testID="card-detail-current-message-zone">
+            <Text style={styles.currentMessageLabel} accessibilityRole="text">
+              Your move
+            </Text>
+            <Text
+              style={styles.currentMessageBody}
+              accessibilityRole="text"
+              testID="card-detail-current-message-body"
+            >
+              {currentMessageBody}
+            </Text>
+          </View>
+        ) : null}
+
         {/* Zone 1 — step reference (the parent token is a navigation button). */}
         <CardStepReferenceHeader
           line={model.stepReference}
@@ -533,12 +588,17 @@ function TagsColumn({
  * The exploded card detail panel — the Cards HUB. Render ONLY on the active
  * card.
  *
- * Slice 3 — comparison-style centerpiece + responsive multi-column:
- *   - The active/current message is the OBVIOUS CENTERPIECE; the replied-to
- *     parent renders as an off-center colored COMPARISON bubble above it.
+ * Slice 3 + CARD-VIEW-COMPARISON-POLISH-001 — comparison-style centerpiece +
+ * responsive multi-column:
+ *   - The parent ("replying-to" / OPPONENT) comparison bubble is the FIRST
+ *     element of the whole panel (full-width banner at the TOP in BOTH the
+ *     stacked AND wide layouts), with a true-black backdrop + double outline +
+ *     larger quote font. Below it the current/own message is the centerpiece,
+ *     on a DRAMATICALLY different (non-black) surface.
  *   - Wide web viewport (≥1024): THREE columns — tags · centerpiece ·
- *     classifier. Narrow / native: single stacked column, SAME sections in
- *     the SAME stable reading order (centerpiece → classifier → tags).
+ *     classifier — beneath the full-width parent banner. Narrow / native:
+ *     single stacked column, SAME sections in the SAME stable reading order
+ *     (parent bubble → centerpiece → classifier → tags).
  *   - ALL sections are visible by default — NO expand affordance on the Card
  *     (ratified §7.1). The only Card Pressables are navigation.
  */
@@ -547,6 +607,7 @@ export function CardDetailPanel({
   onActivateAncestor,
   windowWidth,
   platformOs,
+  currentMessageBody,
   testID,
 }: CardDetailPanelProps): React.ReactElement {
   const layout = hubColumnLayout(
@@ -564,6 +625,7 @@ export function CardDetailPanel({
           <CenterpieceRegion
             key="centerpiece"
             model={model}
+            currentMessageBody={currentMessageBody}
             onActivateAncestor={onActivateAncestor}
           />
         );
@@ -593,6 +655,18 @@ export function CardDetailPanel({
       accessibilityLabel="Argument detail hub"
       testID={testID ?? 'card-detail-panel'}
     >
+      {/* CARD-VIEW-COMPARISON-POLISH-001 — the parent ("replying-to") bubble is
+          the FIRST element of the panel: a full-width banner at the TOP in both
+          layouts (the wrapper takes the whole first flex row in the wide
+          layout, so the three columns wrap beneath it). Degrades to nothing for
+          a root / unresolvable parent (the wrapper still renders empty, which
+          is inert). */}
+      <View style={styles.parentBubbleSlot} testID="card-detail-parent-bubble-slot">
+        <ParentComparisonBubble
+          bubble={model.parentComparison}
+          onActivateAncestor={onActivateAncestor}
+        />
+      </View>
       {renderOrder.map((region) => regionFor(region))}
     </View>
   );
@@ -612,8 +686,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: SPACING.l,
   },
-  // Slice 3 — the centerpiece region: the off-center parent bubble ABOVE the
-  // centerpiece card. On the wide layout it is the central, widest column.
+  // CARD-VIEW-COMPARISON-POLISH-001 — the full-width slot that holds the top
+  // parent ("replying-to") bubble. `flexBasis: '100%'` forces the slot to take
+  // the entire first flex row in the wide layout so the three columns wrap
+  // beneath it; in the stacked layout it is simply the first column-child.
+  parentBubbleSlot: {
+    flexBasis: '100%',
+    width: '100%',
+  },
+  // Slice 3 — the centerpiece region: the current/own message centerpiece card.
+  // On the wide layout it is the central, widest column (beneath the top parent
+  // banner).
   centerpieceRegion: {
     gap: SPACING.s,
     flexGrow: 2,
@@ -621,14 +704,35 @@ const styles = StyleSheet.create({
     flexBasis: 320,
     minWidth: 260,
   },
-  // The centerpiece card surface — visually elevated so it reads as the focus.
+  // CARD-VIEW-COMPARISON-POLISH-001 — the current/own message centerpiece card.
+  // A DRAMATICALLY different, NON-BLACK surface (the elevated indigo-tinted
+  // `raised` tone) with an actor-accent (indigo focus-ring) border, so it reads
+  // as a clearly different MESSAGE TYPE from the black parent bubble above. The
+  // contrast is a message-type cue, never a verdict (doctrine §1).
   centerpieceCard: {
     gap: SPACING.s,
-    backgroundColor: SURFACE_TOKENS.overlay,
+    backgroundColor: SURFACE_TOKENS.raised,
     borderRadius: RADIUS.lg,
-    borderWidth: BORDER_WIDTH.sm,
-    borderColor: SURFACE_TOKENS.border,
+    borderWidth: BORDER_WIDTH.md,
+    borderColor: SURFACE_TOKENS.focusRing,
     padding: SPACING.m,
+  },
+  // The current/own message "Your move" label — color-independent cue that
+  // this is the responder's own move (vs the black "Replying to" bubble).
+  currentMessageLabel: {
+    color: SURFACE_TOKENS.focusRing,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  // The current/own message body — LARGER, readable font (the operator asked
+  // for legible card text). Sized above the popout-body scale.
+  currentMessageBody: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: 16,
+    lineHeight: 23,
   },
   // Slice 3 — a flanking column (tags / classifier) in the wide layout.
   flankColumn: {
@@ -641,10 +745,12 @@ const styles = StyleSheet.create({
   zone: {
     gap: SPACING.xs,
   },
+  // CARD-VIEW-COMPARISON-POLISH-001 — section labels bumped one step (12/16)
+  // above the prior chip-label size for legibility on the dense card.
   zoneHeading: {
     color: SURFACE_TOKENS.textSecondary,
-    fontSize: TYPOGRAPHY.chipLabel.fontSize,
-    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontSize: TYPOGRAPHY.roomStrip.fontSize,
+    lineHeight: TYPOGRAPHY.roomStrip.lineHeight,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
@@ -667,33 +773,55 @@ const styles = StyleSheet.create({
     lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
     fontWeight: '600',
   },
-  // Slice 3 — the off-center, above-centerpiece parent COMPARISON bubble.
-  // `alignSelf: flex-start` + the negative left margin push it OFF-CENTER (to
-  // the left, above the centerpiece). The colored fill + stroke come from the
-  // actor color (applied inline); the offset + italic quote carry the meaning
+  // CARD-VIEW-COMPARISON-POLISH-001 — the OUTER ring of the parent bubble's
+  // DOUBLE OUTLINE. `alignSelf: flex-start` + the small negative left margin
+  // keep the bubble OFF-CENTER (to the left) so the centerpiece below reads as
+  // the focus. The ring borderColor is the actor accent (applied inline); the
+  // ring radius is one step larger than the inner bubble so the two strokes
+  // read as concentric. The off-center offset + italic quote carry meaning
   // independent of color.
-  parentBubble: {
+  parentBubbleRing: {
     alignSelf: 'flex-start',
-    maxWidth: '88%',
+    maxWidth: '92%',
     marginLeft: -SPACING.s,
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.s,
+    borderRadius: RADIUS.lg + 4,
+    borderWidth: BORDER_WIDTH.md,
+    padding: 3,
+  },
+  // The INNER bubble — the TRUE-BLACK backdrop + the deeper actor border
+  // stroke (both applied inline). The black fill is visually heavier than the
+  // centerpiece surface, so the two message types contrast dramatically.
+  parentBubble: {
     borderRadius: RADIUS.lg,
     borderWidth: BORDER_WIDTH.md,
     paddingHorizontal: SPACING.m,
     paddingVertical: SPACING.s,
     gap: SPACING.xs,
   },
-  parentBubbleActor: {
+  // "Replying to" framing — small caps cue above the actor label.
+  parentBubbleReplyingTo: {
+    color: SURFACE_TOKENS.textSecondary,
     fontSize: TYPOGRAPHY.chipLabel.fontSize,
     lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
     fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  parentBubbleActor: {
+    fontSize: TYPOGRAPHY.roomStrip.fontSize,
+    lineHeight: TYPOGRAPHY.roomStrip.lineHeight,
+    fontWeight: '800',
+    textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
+  // LARGER quoted parent text (the operator asked for a bigger parent quote).
+  // Sized above the popout-body + current-body scale so the quote is the most
+  // prominent text in the bubble.
   parentBubbleQuote: {
     color: SURFACE_TOKENS.textPrimary,
-    fontSize: TYPOGRAPHY.popoutBody.fontSize,
-    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    fontSize: 17,
+    lineHeight: 25,
     fontStyle: 'italic',
   },
   parentBubbleRefPressable: {
@@ -703,8 +831,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   parentBubbleRefText: {
-    fontSize: TYPOGRAPHY.chipLabel.fontSize,
-    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontSize: TYPOGRAPHY.roomStrip.fontSize,
+    lineHeight: TYPOGRAPHY.roomStrip.lineHeight,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
@@ -721,21 +849,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.s,
     paddingVertical: 2,
   },
+  // CARD-VIEW-COMPARISON-POLISH-001 — band / body / chip text bumped one step
+  // for legibility (the operator reported the card was hard to read).
   bandValue: {
     color: SURFACE_TOKENS.textPrimary,
-    fontSize: TYPOGRAPHY.chipLabel.fontSize,
-    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
-    fontWeight: TYPOGRAPHY.chipLabel.fontWeight,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    fontWeight: '600',
   },
   bodyText: {
     color: SURFACE_TOKENS.textPrimary,
-    fontSize: TYPOGRAPHY.popoutBody.fontSize,
-    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    fontSize: TYPOGRAPHY.composer.fontSize,
+    lineHeight: TYPOGRAPHY.composer.lineHeight,
   },
   muted: {
     color: SURFACE_TOKENS.textMuted,
-    fontSize: TYPOGRAPHY.popoutBody.fontSize,
-    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    fontSize: TYPOGRAPHY.composer.fontSize,
+    lineHeight: TYPOGRAPHY.composer.lineHeight,
   },
   chipRow: {
     flexDirection: 'row',
@@ -753,9 +883,9 @@ const styles = StyleSheet.create({
   },
   labelChipText: {
     color: SURFACE_TOKENS.textPrimary,
-    fontSize: TYPOGRAPHY.chipLabel.fontSize,
-    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
-    fontWeight: TYPOGRAPHY.chipLabel.fontWeight,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    fontWeight: '600',
   },
   classifierRow: {
     gap: 2,

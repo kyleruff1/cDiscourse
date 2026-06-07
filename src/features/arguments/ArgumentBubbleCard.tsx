@@ -88,9 +88,17 @@ export function ArgumentBubbleCard({
         </Text>
       )}
 
-      <Text style={[styles.body, compact && styles.bodyCompact]} numberOfLines={compact ? 3 : undefined} testID={`bubble-body-${vm.messageId}`}>
-        {vm.body}
-      </Text>
+      {/* CARD-VIEW-COMPARISON-POLISH-001 — when the detail panel renders, the
+          current/own message body is forwarded INTO the panel so the panel
+          owns the vertical order (top parent "replying-to" bubble → current
+          message body + observations). The card's own body line is therefore
+          suppressed in that case to avoid a duplicate above the parent bubble.
+          Non-active / panel-absent cards keep the inline body line. */}
+      {!showCardDetail && (
+        <Text style={[styles.body, compact && styles.bodyCompact]} numberOfLines={compact ? 3 : undefined} testID={`bubble-body-${vm.messageId}`}>
+          {vm.body}
+        </Text>
+      )}
 
       {/* CARD-VIEW-DATA-001 — exploded Inspect detail, visible by default on
           the active card. Its category/qualifier + standing zones supersede
@@ -100,6 +108,7 @@ export function ArgumentBubbleCard({
           model={cardDetail!}
           onActivateAncestor={onActivateAncestor}
           windowWidth={windowWidth}
+          currentMessageBody={vm.body}
           testID={`card-detail-panel-${vm.messageId}`}
         />
       ) : (
