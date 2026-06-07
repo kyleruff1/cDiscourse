@@ -128,7 +128,13 @@ function rowPassesFilter(
   }
   if (!rowInWindow(row, filter)) return false;
   if (filter.runTag != null && filter.runTag.length > 0) {
-    const extracted = runTagSource.extract({ debateTitle: row.debate_title });
+    // Canonical runTag derivation: durable `debates.run_tag` first, with the
+    // title-suffix as the legacy fallback (DEVEX-RUNTAG-COLUMN-SWAP-001). This
+    // is the ONE derivation that grouping / filtering / export all share.
+    const extracted = runTagSource.extract({
+      debateTitle: row.debate_title,
+      debateRunTag: row.debate_run_tag,
+    });
     if (!runTagMatches(extracted, filter.runTag)) return false;
   }
   return true;

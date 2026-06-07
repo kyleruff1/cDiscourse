@@ -36,4 +36,5 @@ export {
   runTagMatches,
   type RunTagSource,
   type RunTagSourceKind,
+  type RunTagExtractContext,
 } from './runTagSource';

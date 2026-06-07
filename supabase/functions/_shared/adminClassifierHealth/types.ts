@@ -75,13 +75,22 @@ export interface ClassifierHealthRunRow {
   completed_at: string | null;
   failure_detail: ClassifierHealthFailureDetail | null;
   /**
-   * OPTIONAL title context for the runTag title-suffix heuristic (Q3). The
-   * Edge function joins `debates.title` ONLY when a runTag filter is supplied.
-   * This is the room TITLE — never a body, never an `evidence_span`. The
-   * heuristic reads only the trailing `[<runTag> tNN]` suffix; the rest of the
-   * title is not surfaced in any count.
+   * OPTIONAL title context for the runTag title-suffix FALLBACK (Q3). The Edge
+   * function joins `debates.title` ONLY when a runTag filter is supplied. This
+   * is the room TITLE — never a body, never an `evidence_span`. The heuristic
+   * reads only the trailing `[<runTag> tNN]` suffix; the rest of the title is
+   * not surfaced in any count. Used only when `debate_run_tag` is absent.
    */
   debate_title?: string | null;
+  /**
+   * OPTIONAL durable runTag — the `public.debates.run_tag` column value joined
+   * in ONLY when a runTag filter is supplied (DEVEX-RUNTAG-COLUMN-SWAP-001).
+   * This is the CANONICAL runTag: authoritative when present (non-null,
+   * non-empty, non-whitespace). `null`/absent → the title-suffix fallback runs.
+   * It carries no new sensitivity beyond the title (per the #476 migration
+   * comment) and is never surfaced raw in any count — only used to bucket.
+   */
+  debate_run_tag?: string | null;
 }
 
 /** The grouping axes the panel can count over. */
