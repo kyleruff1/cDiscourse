@@ -29,6 +29,9 @@ interface Props {
   activeCardDetail?: CardDetailViewModel | null;
   /** CARD-VIEW-DATA-001 — re-activates the step-ref ancestor on token tap. */
   onActivateAncestor?: (messageId: string) => void;
+  /** CVDH-001 Slice 3 — viewport width for the hub's responsive multi-column
+   *  layout. Forwarded to the active card only. */
+  windowWidth?: number;
 }
 
 export function ArgumentBubbleStack({
@@ -40,6 +43,7 @@ export function ArgumentBubbleStack({
   onToggleMode,
   activeCardDetail,
   onActivateAncestor,
+  windowWidth,
 }: Props) {
   const activeIndex = useMemo(() => {
     const i = viewModels.findIndex((v) => v.messageId === activeMessageId);
@@ -90,6 +94,8 @@ export function ArgumentBubbleStack({
                 // the active card only; the card also gates on vm.isActive.
                 cardDetail={t.isActive ? activeCardDetail : null}
                 onActivateAncestor={onActivateAncestor}
+                // CVDH-001 Slice 3 — viewport width for the active card's hub.
+                windowWidth={t.isActive ? windowWidth : undefined}
               />
             </View>
           );

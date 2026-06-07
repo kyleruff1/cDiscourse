@@ -35,6 +35,9 @@ interface Props {
   cardDetail?: CardDetailViewModel | null;
   /** CARD-VIEW-DATA-001 — re-activates the step-ref ancestor on token tap. */
   onActivateAncestor?: (messageId: string) => void;
+  /** CVDH-001 Slice 3 — viewport width for the hub's responsive multi-column
+   *  layout. Forwarded to the active card's CardDetailPanel. */
+  windowWidth?: number;
 }
 
 export function ArgumentBubbleCard({
@@ -44,6 +47,7 @@ export function ArgumentBubbleCard({
   compact,
   cardDetail,
   onActivateAncestor,
+  windowWidth,
 }: Props) {
   const isOwn = vm.actor === 'self';
   // CARD-VIEW-DATA-001 — the exploded detail renders only on the active
@@ -95,6 +99,7 @@ export function ArgumentBubbleCard({
         <CardDetailPanel
           model={cardDetail!}
           onActivateAncestor={onActivateAncestor}
+          windowWidth={windowWidth}
           testID={`card-detail-panel-${vm.messageId}`}
         />
       ) : (

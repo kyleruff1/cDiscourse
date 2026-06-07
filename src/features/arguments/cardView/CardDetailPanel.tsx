@@ -26,29 +26,51 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BORDER_WIDTH,
   RADIUS,
   SPACING,
   SURFACE_TOKENS,
+  TOUCH_TARGET,
   TYPOGRAPHY,
 } from '../../../lib/designTokens';
 import { CARD_CLASSIFIER_EVIDENCE_PREFIX } from './cardClassifierStripModel';
 import { CardStepReferenceHeader } from './CardStepReferenceHeader';
 import type { CardClassifierChip } from './cardClassifierStripModel';
 import type { CardDetailViewModel } from './cardDetailModel';
-import type {
-  DetailFullTagsModel,
-  DetailParentQuoteSlice,
-  DetailStandingToneHeatStrip,
-  HubClassifierGroupsModel,
+import {
+  hubColumnLayout,
+  type DetailFullTagsModel,
+  type DetailParentComparisonBubble,
+  type DetailStandingToneHeatStrip,
+  type HubClassifierGroupsModel,
+  type HubColumnRegion,
 } from '../detail/argumentDetailModel';
+
+/** Platform-OS values `hubColumnLayout` accepts. */
+type HubPlatformOs = 'web' | 'ios' | 'android' | 'windows' | 'macos';
+
+function resolvePlatformOs(override?: HubPlatformOs): HubPlatformOs {
+  if (override) return override;
+  const os = Platform.OS;
+  if (os === 'web' || os === 'ios' || os === 'android' || os === 'windows' || os === 'macos') {
+    return os;
+  }
+  return 'web';
+}
 
 export interface CardDetailPanelProps {
   model: CardDetailViewModel;
-  /** Re-activates the step-reference ancestor message. */
+  /** Re-activates the step-reference ancestor message. Also fired by the
+   *  off-center parent comparison-bubble reference (Slice 3). */
   onActivateAncestor?: (messageId: string) => void;
+  /** Slice 3 — viewport width, drives the responsive 3-col / stacked layout.
+   *  Omitted → stacked single column (back-compat with #516-era callers). */
+  windowWidth?: number;
+  /** Slice 3 — platform override for `hubColumnLayout` (tests). Defaults to
+   *  the runtime `Platform.OS`. */
+  platformOs?: HubPlatformOs;
   testID?: string;
 }
 
@@ -165,37 +187,100 @@ function HubClassifierZone({
 }
 
 /**
- * CARD-VIEW-DETAIL-HUB-001 (Slice 2, ask i) — the italic replied-to parent
- * quote. Display-only. Graceful degrade: when the parent is unresolvable the
- * neutral placeholder renders — NEVER an invented quote, NEVER a
- * "hidden because…" reason.
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 3 — operator refinement) — the off-center,
+ * above-centerpiece PARENT COMPARISON bubble. Upgrades the Slice-2 inline
+ * parent-quote zone into a visually-distinct colored bubble so the reader can
+ * tell, at a glance, that the parent is the OTHER party's move.
+ *
+ * Visual grammar (timeline-grammar + accessibility-targets):
+ *   - The bubble color encodes the parent's ACTOR / SIDE (reusing the Timeline
+ *     actor grammar) — NEVER a verdict / truth color. It is DIFFERENT from the
+ *     current card's color so the two moves contrast.
+ *   - The bubble sits ABOVE + OFF-CENTER the centerpiece (alignSelf flex-start
+ *     + a small negative offset) so the centerpiece reads as the obvious focus.
+ *   - The parent text renders ITALIC inside QUOTES.
+ *   - Meaning is carried by SHAPE (off-center bubble + italic quote) AND the
+ *     plain-language actor label + reference label — color is never the only
+ *     signal (grayscale snapshot stays legible).
+ *
+ * The reference (`#N · kind`) is the ONLY interactive affordance here — a real
+ * `Pressable` (role button, ≥44×44 via hitSlop) that switches the active card
+ * to the parent (`onActivateAncestor`, Fork 7). Graceful degrade: a `none`
+ * bubble (root / soft-deleted / RLS-hidden / out-of-slice parent) renders
+ * NOTHING — never a "hidden because…" reason (§10a).
  */
-function ParentQuoteZone({
-  slice,
+function ParentComparisonBubble({
+  bubble,
+  onActivateAncestor,
 }: {
-  slice: DetailParentQuoteSlice;
-}): React.ReactElement {
+  bubble: DetailParentComparisonBubble;
+  onActivateAncestor?: (messageId: string) => void;
+}): React.ReactElement | null {
+  // Graceful degrade — no bubble for a root / unresolvable parent.
+  if (bubble.kind === 'none') return null;
+
+  const hasReference =
+    bubble.referenceToken != null &&
+    bubble.referenceLabel != null &&
+    bubble.parentMessageId != null;
+
   return (
-    <View style={styles.zone} testID="card-detail-parent-quote-zone">
-      <Text style={styles.zoneHeading} accessibilityRole="text">
-        Replied to
+    <View
+      style={[
+        styles.parentBubble,
+        { backgroundColor: bubble.color.bg, borderColor: bubble.color.border },
+      ]}
+      accessibilityLabel={bubble.accessibilityLabel}
+      testID="card-detail-parent-bubble"
+    >
+      {/* Actor label — color-independent cue for WHO made the parent move. */}
+      <Text
+        style={[styles.parentBubbleActor, { color: bubble.color.accent }]}
+        accessibilityRole="text"
+        testID="card-detail-parent-bubble-actor"
+      >
+        {bubble.actorLabel}
       </Text>
-      {slice.isAvailable && slice.quote ? (
+
+      {/* Italic quote inside quote marks. Display-only. */}
+      {bubble.quote.quote ? (
         <Text
-          style={styles.parentQuote}
+          style={styles.parentBubbleQuote}
           accessibilityRole="text"
-          testID="card-detail-parent-quote"
+          testID="card-detail-parent-bubble-quote"
         >
-          {slice.quote}
+          {`“${bubble.quote.quote}”`}
         </Text>
+      ) : null}
+
+      {/* Reference — the ONLY navigation affordance in the bubble. */}
+      {hasReference ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Go to ${bubble.referenceLabel}`}
+          onPress={() => {
+            if (bubble.parentMessageId) onActivateAncestor?.(bubble.parentMessageId);
+          }}
+          hitSlop={TOUCH_TARGET.hitSlopAll}
+          style={styles.parentBubbleRefPressable}
+          testID="card-detail-parent-bubble-reference"
+        >
+          <Text style={[styles.parentBubbleRefText, { color: bubble.color.accent }]}>
+            {bubble.referenceLabel}
+          </Text>
+        </Pressable>
       ) : (
-        <Text
-          style={styles.muted}
-          accessibilityRole="text"
-          testID="card-detail-parent-quote-unavailable"
-        >
-          {slice.unavailableLabel}
-        </Text>
+        // Unresolvable navigation — show the reference label as display-only
+        // text when present, but NEVER as a dangling tappable affordance.
+        bubble.referenceLabel ? (
+          <Text
+            style={[styles.parentBubbleRefText, { color: bubble.color.accent }]}
+            accessibilityRole="text"
+            testID="card-detail-parent-bubble-reference-static"
+          >
+            {bubble.referenceLabel}
+          </Text>
+        ) : null
       )}
     </View>
   );
@@ -290,97 +375,140 @@ function LabelChip({ text, testID }: { text: string; testID?: string }): React.R
 }
 
 /**
- * The exploded card detail panel. Render ONLY on the active card.
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 3) — the CENTERPIECE region. The obvious
+ * focus of the page: the off-center parent comparison bubble ABOVE, then the
+ * step reference + category + S/T/H strip + evidence + standing + lifecycle.
+ *
+ * EVERY section is visible by default — there is NO expand affordance, NO
+ * collapsed disclosure (ratified §7.1 / check #14). The only Pressables are
+ * navigation (the step-ref parent token + the comparison-bubble reference).
  */
-export function CardDetailPanel({
+function CenterpieceRegion({
   model,
   onActivateAncestor,
-  testID,
-}: CardDetailPanelProps): React.ReactElement {
+}: {
+  model: CardDetailViewModel;
+  onActivateAncestor?: (messageId: string) => void;
+}): React.ReactElement {
   const { evidence } = model;
   return (
-    <View style={styles.panel} testID={testID ?? 'card-detail-panel'}>
-      {/* Zone 1 — step reference (the parent token is the only button). */}
-      <CardStepReferenceHeader
-        line={model.stepReference}
+    <View style={styles.centerpieceRegion} testID="card-detail-centerpiece">
+      {/* Slice 3 — the off-center colored parent COMPARISON bubble, ABOVE the
+          centerpiece card. Degrades to nothing for a root / unresolvable
+          parent. The reference is a navigation affordance (switch active card). */}
+      <ParentComparisonBubble
+        bubble={model.parentComparison}
         onActivateAncestor={onActivateAncestor}
-        testID="card-detail-step-reference"
       />
 
-      {/* Zone 2 — category + qualifier labels. */}
-      {(model.categoryLabel || model.qualifierLabels.length > 0) ? (
-        <View style={styles.chipRow} testID="card-detail-category-zone">
-          {model.categoryLabel ? (
-            <LabelChip text={model.categoryLabel} testID="card-detail-category" />
+      {/* The centerpiece card content — visually the prominent focus. */}
+      <View style={styles.centerpieceCard} testID="card-detail-centerpiece-card">
+        {/* Zone 1 — step reference (the parent token is a navigation button). */}
+        <CardStepReferenceHeader
+          line={model.stepReference}
+          onActivateAncestor={onActivateAncestor}
+          testID="card-detail-step-reference"
+        />
+
+        {/* Zone 2 — category + qualifier labels. */}
+        {(model.categoryLabel || model.qualifierLabels.length > 0) ? (
+          <View style={styles.chipRow} testID="card-detail-category-zone">
+            {model.categoryLabel ? (
+              <LabelChip text={model.categoryLabel} testID="card-detail-category" />
+            ) : null}
+            {model.qualifierLabels.map((q, i) => (
+              <LabelChip key={`${q}-${i}`} text={q} testID={`card-detail-qualifier-${i}`} />
+            ))}
+          </View>
+        ) : null}
+
+        {/* CVDH-001 Slice 2, ask v — Standing / Tone / Heat strip (PRIMARY,
+            visible by default; plain-language; describes the TEXT). */}
+        {model.standingToneHeat ? (
+          <StandingToneHeatZone strip={model.standingToneHeat} />
+        ) : null}
+
+        {/* Zone 5 — evidence sources + debt summary. */}
+        <View style={styles.zone} testID="card-detail-evidence-zone">
+          <Text style={styles.zoneHeading} accessibilityRole="text">
+            Evidence
+          </Text>
+          {evidence.hasSource ? (
+            evidence.sources.map((s) => (
+              <LabelChip key={s.id} text={s.label} testID={`card-detail-evidence-source-${s.id}`} />
+            ))
+          ) : (
+            <Text style={styles.muted} testID="card-detail-evidence-empty">
+              {evidence.emptyStateCopy}
+            </Text>
+          )}
+          {evidence.debtSummary ? (
+            <Text style={styles.bodyText} testID="card-detail-evidence-debt">
+              {evidence.debtSummary}
+            </Text>
           ) : null}
-          {model.qualifierLabels.map((q, i) => (
-            <LabelChip key={`${q}-${i}`} text={q} testID={`card-detail-qualifier-${i}`} />
-          ))}
         </View>
-      ) : null}
 
-      {/* CVDH-001 Slice 2, ask i — italic replied-to parent quote (PRIMARY,
-          visible by default; neutral degrade when unresolvable). */}
-      <ParentQuoteZone slice={model.parentQuote} />
+        {/* Zone 6 — point standing (advisory label). */}
+        {model.standingLabel ? (
+          <View style={styles.zone} testID="card-detail-standing-zone">
+            <Text style={styles.zoneHeading} accessibilityRole="text">
+              Standing
+            </Text>
+            <Text style={styles.bodyText} testID="card-detail-standing">
+              {model.standingLabel}
+            </Text>
+          </View>
+        ) : null}
 
-      {/* CVDH-001 Slice 2, ask v — Standing / Tone / Heat strip (PRIMARY,
-          visible by default; plain-language; describes the TEXT). */}
-      {model.standingToneHeat ? (
-        <StandingToneHeatZone strip={model.standingToneHeat} />
-      ) : null}
-
-      {/* CVDH-001 Slice 2, ask iii — all-families family-grouped classifier
-          observations (A–G gated, uncapped). Replaces the ≤3 capped strip on
-          the hub. Zone 3 body is rendered by the card itself. */}
-      <HubClassifierZone model={model.hubClassifier} />
-
-      {/* Zone 5 — evidence sources + debt summary. */}
-      <View style={styles.zone} testID="card-detail-evidence-zone">
-        <Text style={styles.zoneHeading} accessibilityRole="text">
-          Evidence
-        </Text>
-        {evidence.hasSource ? (
-          evidence.sources.map((s) => (
-            <LabelChip key={s.id} text={s.label} testID={`card-detail-evidence-source-${s.id}`} />
-          ))
-        ) : (
-          <Text style={styles.muted} testID="card-detail-evidence-empty">
-            {evidence.emptyStateCopy}
-          </Text>
-        )}
-        {evidence.debtSummary ? (
-          <Text style={styles.bodyText} testID="card-detail-evidence-debt">
-            {evidence.debtSummary}
-          </Text>
+        {/* Zone 7 — lifecycle (plain-language label). */}
+        {model.lifecycleLabel ? (
+          <View style={styles.zone} testID="card-detail-lifecycle-zone">
+            <Text style={styles.zoneHeading} accessibilityRole="text">
+              Lifecycle
+            </Text>
+            <LabelChip text={model.lifecycleLabel} testID="card-detail-lifecycle" />
+          </View>
         ) : null}
       </View>
+    </View>
+  );
+}
 
-      {/* Zone 6 — point standing (advisory label). */}
-      {model.standingLabel ? (
-        <View style={styles.zone} testID="card-detail-standing-zone">
-          <Text style={styles.zoneHeading} accessibilityRole="text">
-            Standing
-          </Text>
-          <Text style={styles.bodyText} testID="card-detail-standing">
-            {model.standingLabel}
-          </Text>
-        </View>
-      ) : null}
+/**
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 3) — the CLASSIFIER column. On the wide
+ * 3-col layout this is the right-flanking region; on stacked it follows the
+ * centerpiece. Always visible by default.
+ */
+function ClassifierColumn({
+  model,
+}: {
+  model: CardDetailViewModel;
+}): React.ReactElement {
+  return (
+    <View style={styles.flankColumn} testID="card-detail-classifier-column">
+      {/* CVDH-001 Slice 2, ask iii — all-families family-grouped classifier
+          observations (A–G gated, uncapped). Stylized flags/labels/banners. */}
+      <HubClassifierZone model={model.hubClassifier} />
+    </View>
+  );
+}
 
-      {/* Zone 7 — lifecycle (plain-language label). */}
-      {model.lifecycleLabel ? (
-        <View style={styles.zone} testID="card-detail-lifecycle-zone">
-          <Text style={styles.zoneHeading} accessibilityRole="text">
-            Lifecycle
-          </Text>
-          <LabelChip text={model.lifecycleLabel} testID="card-detail-lifecycle" />
-        </View>
-      ) : null}
-
+/**
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 3) — the SEMANTIC-TAGS column. On the wide
+ * 3-col layout this is the left-flanking region; on stacked it follows the
+ * classifier column. Always visible by default.
+ */
+function TagsColumn({
+  model,
+}: {
+  model: CardDetailViewModel;
+}): React.ReactElement {
+  return (
+    <View style={styles.flankColumn} testID="card-detail-tags-column">
       {/* Zone 8 — semantic flags (display-only labels). Retained for
           backwards-compatible behavior; the CVDH-001 full-tags block below
-          is the doctrine-grouped superset (Observations / Allegations /
-          Structural / Status). */}
+          is the doctrine-grouped superset. */}
       {model.flagLabels.length > 0 ? (
         <View style={styles.zone} testID="card-detail-flags-zone">
           <Text style={styles.zoneHeading} accessibilityRole="text">
@@ -401,10 +529,114 @@ export function CardDetailPanel({
   );
 }
 
+/**
+ * The exploded card detail panel — the Cards HUB. Render ONLY on the active
+ * card.
+ *
+ * Slice 3 — comparison-style centerpiece + responsive multi-column:
+ *   - The active/current message is the OBVIOUS CENTERPIECE; the replied-to
+ *     parent renders as an off-center colored COMPARISON bubble above it.
+ *   - Wide web viewport (≥1024): THREE columns — tags · centerpiece ·
+ *     classifier. Narrow / native: single stacked column, SAME sections in
+ *     the SAME stable reading order (centerpiece → classifier → tags).
+ *   - ALL sections are visible by default — NO expand affordance on the Card
+ *     (ratified §7.1). The only Card Pressables are navigation.
+ */
+export function CardDetailPanel({
+  model,
+  onActivateAncestor,
+  windowWidth,
+  platformOs,
+  testID,
+}: CardDetailPanelProps): React.ReactElement {
+  const layout = hubColumnLayout(
+    typeof windowWidth === 'number' ? windowWidth : 0,
+    resolvePlatformOs(platformOs),
+  );
+  const isThreeColumn = layout.mode === 'three_column';
+
+  // The three region elements. Each carries a stable testID so a test can
+  // assert presence + reading order regardless of visual placement.
+  const regionFor = (region: HubColumnRegion): React.ReactElement => {
+    switch (region) {
+      case 'centerpiece':
+        return (
+          <CenterpieceRegion
+            key="centerpiece"
+            model={model}
+            onActivateAncestor={onActivateAncestor}
+          />
+        );
+      case 'classifier':
+        return <ClassifierColumn key="classifier" model={model} />;
+      case 'tags':
+        return <TagsColumn key="tags" model={model} />;
+      default:
+        return <React.Fragment key={region} />;
+    }
+  };
+
+  // STACKED (native + narrow web): render in the stable SR reading order
+  // (centerpiece → classifier → tags) so source order == focus / SR order.
+  //
+  // WIDE (web ≥1024): render in the operator's VISUAL order (tags · centerpiece
+  // · classifier) so the centerpiece is visually CENTERED between the two
+  // flanking columns. Design §7.2 explicitly permits visual order to differ
+  // from SR reading order here; the canonical reading order is carried by the
+  // model (`layout.readingOrder`) and is the order used on every touch-first /
+  // native viewport (which is always stacked).
+  const renderOrder = isThreeColumn ? layout.visualOrder : layout.readingOrder;
+
+  return (
+    <View
+      style={[styles.panel, isThreeColumn && styles.panelWide]}
+      accessibilityLabel="Argument detail hub"
+      testID={testID ?? 'card-detail-panel'}
+    >
+      {renderOrder.map((region) => regionFor(region))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   panel: {
     marginTop: SPACING.s,
     gap: SPACING.s,
+  },
+  // Slice 3 — wide 3-column layout. The panel becomes a wrapping row; each
+  // region is a column. `alignItems: flex-start` lets the centerpiece + the
+  // flanking columns size to their content.
+  panelWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    gap: SPACING.l,
+  },
+  // Slice 3 — the centerpiece region: the off-center parent bubble ABOVE the
+  // centerpiece card. On the wide layout it is the central, widest column.
+  centerpieceRegion: {
+    gap: SPACING.s,
+    flexGrow: 2,
+    flexShrink: 1,
+    flexBasis: 320,
+    minWidth: 260,
+  },
+  // The centerpiece card surface — visually elevated so it reads as the focus.
+  centerpieceCard: {
+    gap: SPACING.s,
+    backgroundColor: SURFACE_TOKENS.overlay,
+    borderRadius: RADIUS.lg,
+    borderWidth: BORDER_WIDTH.sm,
+    borderColor: SURFACE_TOKENS.border,
+    padding: SPACING.m,
+  },
+  // Slice 3 — a flanking column (tags / classifier) in the wide layout.
+  flankColumn: {
+    gap: SPACING.s,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 220,
+    minWidth: 180,
   },
   zone: {
     gap: SPACING.xs,
@@ -435,11 +667,46 @@ const styles = StyleSheet.create({
     lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
     fontWeight: '600',
   },
-  parentQuote: {
+  // Slice 3 — the off-center, above-centerpiece parent COMPARISON bubble.
+  // `alignSelf: flex-start` + the negative left margin push it OFF-CENTER (to
+  // the left, above the centerpiece). The colored fill + stroke come from the
+  // actor color (applied inline); the offset + italic quote carry the meaning
+  // independent of color.
+  parentBubble: {
+    alignSelf: 'flex-start',
+    maxWidth: '88%',
+    marginLeft: -SPACING.s,
+    marginBottom: SPACING.xs,
+    borderRadius: RADIUS.lg,
+    borderWidth: BORDER_WIDTH.md,
+    paddingHorizontal: SPACING.m,
+    paddingVertical: SPACING.s,
+    gap: SPACING.xs,
+  },
+  parentBubbleActor: {
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  parentBubbleQuote: {
     color: SURFACE_TOKENS.textPrimary,
     fontSize: TYPOGRAPHY.popoutBody.fontSize,
     lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
     fontStyle: 'italic',
+  },
+  parentBubbleRefPressable: {
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    minHeight: TOUCH_TARGET.minSizePx,
+    paddingVertical: 2,
+  },
+  parentBubbleRefText: {
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   bandRow: {
     flexDirection: 'row',
