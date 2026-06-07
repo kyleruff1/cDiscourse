@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I).
 #
-# Verifies the deployed (or locally-running) MCP server against the 23 checks:
+# Verifies the deployed (or locally-running) MCP server against the 25 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -17,6 +17,10 @@
 #   - Checks 22-23: MCP-SERVER-009-FAMILY-H (Family H 12-key ai_classifier
 #                   uniform set — claim_clarity; descriptive formulation-state,
 #                   never a quality verdict)
+#   - Checks 24-25: MCP-SERVER-010-FAMILY-I (Family I 6-key ai_classifier
+#                   mixed-source Subset — thread_topology; descriptive structure
+#                   about how a move relates to the conversation graph, never
+#                   a verdict)
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -28,7 +32,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 23 checks passed
+#   0 — all 25 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -638,6 +642,49 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "Expected real Family H tool result. Got: $RESPONSE"
+fi
+
+# ── Check 24: POST /mcp/adapter-compat boolean classify_argument_boolean_observations (Family I) ──
+# MCP-SERVER-010-FAMILY-I. Mirrors Checks 22+23 but for Family I
+# (thread_topology). The request body uses a benign thread-topology move
+# (opens a new issue + compares two options) and requests the 2 misreadable
+# keys (introduces_new_issue, returns_to_prior_issue) plus the comparison
+# keys to exercise the boundary path. The response MUST contain "family-i-v1"
+# in modelInfo.classifierSetVersion.
+CHECK_NAME="24-compat-boolean-family-i"
+BOOLEAN_I_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-i-001","parentNodeId":"fixture-node-parent-i-001","currentText":"[fixture] Worth thinking about museum funding too — that is a different question. On staffing specifically, carbon tax vs cap-and-trade: the tax is simpler and more predictable; cap-and-trade has better political durability.","parentText":"[fixture] A debate over whether library funding should be increased this budget cycle.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["thread_topology"],"requestedRawKeys":["introduces_new_issue","returns_to_prior_issue","introduces_sub_axis","compares_options"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family I)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_I_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-i-v1"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family I response shape. Got: $RESPONSE"
+fi
+
+# ── Check 25: POST /mcp tools/call classify_argument_boolean_observations (Family I) ──
+# MCP-SERVER-010-FAMILY-I. Same body + same assertion pattern as Check 24, but via
+# the official MCP /mcp endpoint with JSON-RPC envelope.
+CHECK_NAME="25-mcp-tools-call-boolean-family-i"
+BOOLEAN_I_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-10","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-i-001","parentNodeId":"fixture-node-parent-i-001","currentText":"[fixture] Worth thinking about museum funding too — that is a different question. On staffing specifically, carbon tax vs cap-and-trade: the tax is simpler and more predictable; cap-and-trade has better political durability.","parentText":"[fixture] A debate over whether library funding should be increased this budget cycle.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["thread_topology"],"requestedRawKeys":["introduces_new_issue","returns_to_prior_issue","introduces_sub_axis","compares_options"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations Family I)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_I_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-i-v1"' \
+     && contains "$RESPONSE" '"isError":false'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family I tool result. Got: $RESPONSE"
 fi
 
 echo

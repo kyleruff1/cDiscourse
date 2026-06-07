@@ -1,0 +1,18 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-i-return-issue-adv-node",
+    "parentNodeId": "fixture-i-return-issue-adv-parent",
+    "currentText": "[fixture] Coming back to the library staffing question — I know I'm rehashing and going in circles, but the new union-contract data does support X.",
+    "parentText": "[fixture] A debate currently focused on museum funding levels.",
+    "threadContextExcerpt": "[fixture] Earlier cluster discussed library staffing (parked); the room then moved on to museum funding.",
+    "requestedFamilies": ["thread_topology"],
+    "requestedRawKeys": [
+      "returns_to_prior_issue",
+      "references_external_context"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

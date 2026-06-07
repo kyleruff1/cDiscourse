@@ -382,17 +382,17 @@ Deno.test('dispatch: 5-way cross-family rejection (Family E rawKey under evidenc
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Unsupported families I-J (post MCP-SERVER-009-FAMILY-H; Family H now supported)
+// Unsupported family J (post MCP-SERVER-010-FAMILY-I; Family I now supported)
 // ─────────────────────────────────────────────────────────────────────────
 
-Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_family with 8-family supportedFamilies list', async () => {
+Deno.test('dispatch: unsupported family J (sensitive_composer) returns unsupported_family with 9-family supportedFamilies list', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyERequest({
-        requestedFamilies: ['thread_topology'],
+        requestedFamilies: ['sensitive_composer'],
       }),
-      requestId: 'r-dispatch-i-1',
+      requestId: 'r-dispatch-j-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -402,7 +402,7 @@ Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['thread_topology']);
+    assertEquals(sc.requestedFamilies, ['sensitive_composer']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
@@ -412,13 +412,14 @@ Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ]);
   });
 });
 
-Deno.test('dispatch: unsupported families I/J all return unsupported_family (H now supported)', async () => {
+Deno.test('dispatch: unsupported family J (sensitive_composer) returns unsupported_family (I now supported)', async () => {
   await withFixtureEnv(async () => {
-    for (const family of ['thread_topology', 'sensitive_composer']) {
+    for (const family of ['sensitive_composer']) {
       const result = await handleClassifyArgumentBooleanObservations({
         toolName: 'classify_argument_boolean_observations',
         rawArgs: familyERequest({
@@ -431,6 +432,29 @@ Deno.test('dispatch: unsupported families I/J all return unsupported_family (H n
       const sc = result.structuredContent as { reason: string };
       assertEquals(sc.reason, 'unsupported_family');
     }
+  });
+});
+
+Deno.test('dispatch: supported family I (thread_topology) returns a clean family-i-v1 packet via fixture provider', async () => {
+  // MCP-SERVER-010-FAMILY-I: thread_topology (Family I) is now SUPPORTED at
+  // the dispatch layer. Verify the fixture-provider path returns a clean
+  // packet (the dispatch-retarget pattern: the newly-promoted family gets a
+  // positive dispatch assertion when the prior family's dispatch file is
+  // retargeted).
+  await withFixtureEnv(async () => {
+    const result = await handleClassifyArgumentBooleanObservations({
+      toolName: 'classify_argument_boolean_observations',
+      rawArgs: familyERequest({
+        requestedFamilies: ['thread_topology'],
+        requestedRawKeys: ['introduces_new_issue', 'compares_options'],
+      }),
+      requestId: 'r-dispatch-i-supported-1',
+      envelope: 'jsonRpc',
+    });
+    assertEquals(result.isError, false);
+    const sc = result.structuredContent as Record<string, unknown>;
+    const modelInfo = sc.modelInfo as Record<string, unknown>;
+    assertEquals(modelInfo.classifierSetVersion, 'family-i-v1');
   });
 });
 

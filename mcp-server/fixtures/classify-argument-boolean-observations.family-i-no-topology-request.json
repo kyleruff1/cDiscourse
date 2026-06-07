@@ -1,0 +1,22 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-i-no-topology-node",
+    "parentNodeId": "fixture-i-no-topology-parent",
+    "currentText": "[fixture] I disagree — the funding figure you cited is for capital, not operating budget.",
+    "parentText": "[fixture] A claim that library funding rose 12% based on a cited figure.",
+    "threadContextExcerpt": "[fixture] Discussion of library funding figures.",
+    "requestedFamilies": ["thread_topology"],
+    "requestedRawKeys": [
+      "introduces_new_issue",
+      "references_prior_agreement",
+      "introduces_sub_axis",
+      "returns_to_prior_issue",
+      "references_external_context",
+      "compares_options"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

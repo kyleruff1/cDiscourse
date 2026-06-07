@@ -53,17 +53,17 @@ Deno.test('familyRegistryInit-registers-family-e-on-import', () => {
   assertEquals(isFamilySupported('argument_scheme'), true);
 });
 
-Deno.test('familyRegistryInit-registers-all-eight-families-in-insertion-order', () => {
+Deno.test('familyRegistryInit-registers-all-nine-families-in-insertion-order', () => {
   // The singleton is shared across test files; however, init registers
-  // exactly eight families: Family A first, Family B second, Family C third,
+  // exactly nine families: Family A first, Family B second, Family C third,
   // Family D fourth, Family E fifth, Family F sixth, Family G seventh,
-  // Family H eighth. Other test files may add fake families via
-  // createFamilyRegistry() factories (which yield isolated instances and
+  // Family H eighth, Family I ninth. Other test files may add fake families
+  // via createFamilyRegistry() factories (which yield isolated instances and
   // never touch the singleton). The singleton's getSupportedFamilies() must
   // remain exactly ['parent_relation', 'disagreement_axis',
   // 'misunderstanding_repair', 'evidence_source_chain', 'argument_scheme',
-  // 'critical_question', 'resolution_progress', 'claim_clarity'] in the
-  // current server build.
+  // 'critical_question', 'resolution_progress', 'claim_clarity',
+  // 'thread_topology'] in the current server build.
   const families = getSupportedFamilies();
   assertEquals(
     families,
@@ -76,9 +76,10 @@ Deno.test('familyRegistryInit-registers-all-eight-families-in-insertion-order', 
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ],
   );
-  assertEquals(families.length, 8);
+  assertEquals(families.length, 9);
 });
 
 Deno.test('familyRegistryInit-family-a-has-16-rawKeys', () => {
@@ -134,7 +135,7 @@ Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
   // 'family already registered: parent_relation'.
   initializeFamilyRegistry();
   initializeFamilyRegistry();
-  // Still exactly eight families registered, in the same insertion order.
+  // Still exactly nine families registered, in the same insertion order.
   assertEquals(
     getSupportedFamilies(),
     [
@@ -146,6 +147,7 @@ Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ],
   );
 });
@@ -204,4 +206,23 @@ Deno.test('familyRegistryInit-family-h-has-12-rawKeys', () => {
 
 Deno.test('familyRegistryInit-family-h-classifier-version-is-family-h-v1', () => {
   assertEquals(getClassifierSetVersion('claim_clarity'), 'family-h-v1');
+});
+
+Deno.test('familyRegistryInit-registers-family-i-on-import', () => {
+  // MCP-SERVER-010-FAMILY-I added the ninth register() call (ai_classifier
+  // MIXED-source Subset path; 6 thread-topology keys; the 15 deterministic
+  // auto_metadata + lifecycle keys are excluded). Family I must be present
+  // in the singleton after the side-effect import.
+  assertEquals(isFamilySupported('thread_topology'), true);
+});
+
+Deno.test('familyRegistryInit-family-i-has-6-rawKeys-Subset', () => {
+  // MCP-SERVER-010-FAMILY-I ships the 6-key ai_classifier Subset per Stage
+  // 2B operator binding (the 15 deterministic keys are excluded).
+  const rawKeys = getRawKeysForFamily('thread_topology');
+  assertEquals(rawKeys.size, 6);
+});
+
+Deno.test('familyRegistryInit-family-i-classifier-version-is-family-i-v1', () => {
+  assertEquals(getClassifierSetVersion('thread_topology'), 'family-i-v1');
 });

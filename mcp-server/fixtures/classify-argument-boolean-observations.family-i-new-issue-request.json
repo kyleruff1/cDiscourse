@@ -1,0 +1,18 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-i-new-issue-node",
+    "parentNodeId": "fixture-i-new-issue-parent",
+    "currentText": "[fixture] Worth thinking about museum funding too — that's a different question, but the same budget pressures apply.",
+    "parentText": "[fixture] A debate over whether library funding should be increased this budget cycle.",
+    "threadContextExcerpt": "[fixture] Discussion of public library funding levels.",
+    "requestedFamilies": ["thread_topology"],
+    "requestedRawKeys": [
+      "introduces_new_issue",
+      "returns_to_prior_issue"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

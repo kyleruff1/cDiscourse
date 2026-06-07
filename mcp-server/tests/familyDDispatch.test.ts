@@ -308,17 +308,18 @@ Deno.test('dispatch: 4-way cross-family rejection (Family D rawKey under misunde
   });
 });
 
-Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_family with 8-family supportedFamilies list (post MCP-SERVER-009-FAMILY-H)', async () => {
-  // MCP-SERVER-009-FAMILY-H promoted claim_clarity to supported. The
-  // dispatcher's supportedFamilies list now includes 8 entries; the
-  // remaining unsupported families I/J each return unsupported_family.
+Deno.test('dispatch: unsupported family J (sensitive_composer) returns unsupported_family with 9-family supportedFamilies list (post MCP-SERVER-010-FAMILY-I)', async () => {
+  // MCP-SERVER-010-FAMILY-I promoted thread_topology to supported. The
+  // dispatcher's supportedFamilies list now includes 9 entries; the sole
+  // remaining unsupported family J (sensitive_composer) returns
+  // unsupported_family.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyDRequest({
-        requestedFamilies: ['thread_topology'],
+        requestedFamilies: ['sensitive_composer'],
       }),
-      requestId: 'r-dispatch-i-1',
+      requestId: 'r-dispatch-j-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -328,7 +329,7 @@ Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['thread_topology']);
+    assertEquals(sc.requestedFamilies, ['sensitive_composer']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
@@ -338,6 +339,7 @@ Deno.test('dispatch: unsupported family I (thread_topology) returns unsupported_
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ]);
   });
 });

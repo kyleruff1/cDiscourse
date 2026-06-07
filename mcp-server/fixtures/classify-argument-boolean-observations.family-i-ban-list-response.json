@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-node-ban-list-i-1",
+  "checkedRawKeys": ["introduces_new_issue"],
+  "observations": {
+    "introduces_new_issue": true
+  },
+  "confidence": {
+    "introduces_new_issue": "high"
+  },
+  "evidenceSpan": {
+    "introduces_new_issue": "the speaker is just being evasive and off-topic"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-i-v1"
+  }
+}

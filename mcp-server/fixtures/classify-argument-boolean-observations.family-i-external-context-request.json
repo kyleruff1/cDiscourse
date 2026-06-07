@@ -1,0 +1,17 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-i-external-context-node",
+    "parentNodeId": "fixture-i-external-context-parent",
+    "currentText": "[fixture] Per yesterday's NYT article on library funding, the new program details are X and Y.",
+    "parentText": "[fixture] A debate over the details of the new library funding program.",
+    "threadContextExcerpt": "[fixture] Discussion of the proposed library funding program details.",
+    "requestedFamilies": ["thread_topology"],
+    "requestedRawKeys": [
+      "references_external_context"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
