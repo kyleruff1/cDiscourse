@@ -1,0 +1,17 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-i-prior-agreement-node",
+    "parentNodeId": "fixture-i-prior-agreement-parent",
+    "currentText": "[fixture] Given we agreed earlier that infrastructure means publicly-funded shared assets, libraries clearly qualify.",
+    "parentText": "[fixture] A debate over whether libraries count as infrastructure for funding purposes.",
+    "threadContextExcerpt": "[fixture] Earlier the sides settled on a shared definition of infrastructure.",
+    "requestedFamilies": ["thread_topology"],
+    "requestedRawKeys": [
+      "references_prior_agreement"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-i-new-issue-adv-node",
+    "parentNodeId": "fixture-i-new-issue-adv-parent",
+    "currentText": "[fixture] You keep dodging. Fine — let's talk about museum funding instead. I know I'm changing the subject and being evasive and off-topic, but it matters.",
+    "parentText": "[fixture] A debate over whether library funding should be increased this budget cycle.",
+    "threadContextExcerpt": "[fixture] Discussion of public library funding levels.",
+    "requestedFamilies": ["thread_topology"],
+    "requestedRawKeys": [
+      "introduces_new_issue",
+      "returns_to_prior_issue"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

@@ -54,6 +54,10 @@ import {
   FAMILY_H_RAW_KEYS,
   FAMILY_H_CLASSIFIER_SET_VERSION,
 } from './familyHKeys.ts';
+import {
+  FAMILY_I_RAW_KEYS,
+  FAMILY_I_CLASSIFIER_SET_VERSION,
+} from './familyIKeys.ts';
 
 let initialized = false;
 
@@ -69,7 +73,8 @@ let initialized = false;
  * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
  * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
  * 'evidence_source_chain', 'argument_scheme', 'critical_question',
- * 'resolution_progress', 'claim_clarity'] in this exact order.
+ * 'resolution_progress', 'claim_clarity', 'thread_topology'] in this exact
+ * order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -165,6 +170,30 @@ export function initializeFamilyRegistry(): void {
   register('claim_clarity', {
     rawKeys: new Set(FAMILY_H_RAW_KEYS),
     classifierSetVersion: FAMILY_H_CLASSIFIER_SET_VERSION,
+  });
+
+  // MCP-SERVER-010-FAMILY-I: register thread_topology with the 6-key
+  // ai_classifier MIXED-source Subset per Stage 2B operator binding decision
+  // (T1 mixed-source). The Family I taxonomy is MIXED source: 8 auto_metadata
+  // + 7 lifecycle + 6 ai_classifier = 21 total. The MCP classifier handles
+  // the 6 ai_classifier keys ONLY (introduces new issue, references prior
+  // agreement, introduces sub-axis, returns to prior issue, references
+  // external context, compares options). The 15 deterministic Family I
+  // rawKeys (8 auto_metadata + 7 lifecycle) are intentionally excluded;
+  // requesting any of them under requestedFamilies=['thread_topology']
+  // returns unsupported_rawKey at the registry boundary (mirror Family D +
+  // Family G). Doctrine-risk is LOW: the 6 keys are descriptive
+  // thread-graph topology relations (a thread-topology state is DESCRIPTIVE
+  // STRUCTURE, never a verdict on the move or speaker); the upstream taxonomy
+  // already DROPPED the one verdict-adjacent candidate `repeats_prior_point`.
+  // The doctrine binding (5-layer defense) lives in familyIPrompt.ts +
+  // familyIBanListScan.ts. Card 1 of the chain: admin_validation-only at the
+  // Edge boundary (Edge familyRegistry already has Family I productionEnabled
+  // = false at supabase/functions/_shared/booleanObservations/
+  // familyRegistry.ts:110-113; no Edge edit in this card; Card 3 flips it).
+  register('thread_topology', {
+    rawKeys: new Set(FAMILY_I_RAW_KEYS),
+    classifierSetVersion: FAMILY_I_CLASSIFIER_SET_VERSION,
   });
 }
 

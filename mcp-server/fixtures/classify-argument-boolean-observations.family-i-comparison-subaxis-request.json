@@ -1,0 +1,18 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-i-comparison-subaxis-node",
+    "parentNodeId": "fixture-i-comparison-subaxis-parent",
+    "currentText": "[fixture] On STAFFING specifically — carbon tax vs cap-and-trade for the library energy budget: the tax is simpler and more predictable; cap-and-trade has better political durability.",
+    "parentText": "[fixture] A debate over how to fund the library's operating budget.",
+    "threadContextExcerpt": "[fixture] Discussion of library operating-budget mechanisms.",
+    "requestedFamilies": ["thread_topology"],
+    "requestedRawKeys": [
+      "introduces_sub_axis",
+      "compares_options"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

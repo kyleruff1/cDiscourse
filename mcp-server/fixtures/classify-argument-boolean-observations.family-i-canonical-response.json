@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-i-canonical-node",
+  "checkedRawKeys": [
+    "introduces_new_issue",
+    "references_prior_agreement",
+    "introduces_sub_axis",
+    "returns_to_prior_issue",
+    "references_external_context",
+    "compares_options"
+  ],
+  "observations": {
+    "introduces_new_issue": true,
+    "references_prior_agreement": false,
+    "introduces_sub_axis": false,
+    "returns_to_prior_issue": false,
+    "references_external_context": false,
+    "compares_options": true
+  },
+  "confidence": {
+    "introduces_new_issue": "high",
+    "references_prior_agreement": "medium",
+    "introduces_sub_axis": "medium",
+    "returns_to_prior_issue": "medium",
+    "references_external_context": "medium",
+    "compares_options": "high"
+  },
+  "evidenceSpan": {
+    "introduces_new_issue": "Worth thinking about museum funding too — that's a different question",
+    "references_prior_agreement": null,
+    "introduces_sub_axis": null,
+    "returns_to_prior_issue": null,
+    "references_external_context": null,
+    "compares_options": "the tax is simpler and more predictable; cap-and-trade has better political durability"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-i-v1"
+  }
+}
