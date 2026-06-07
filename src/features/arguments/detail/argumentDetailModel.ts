@@ -357,25 +357,51 @@ export function buildParentQuoteSlice(
 // snapshot stays legible).
 
 /** One actor's bubble color pair. `bg`/`border` tint the bubble; `accent`
- *  tints the reference token. Display-only; never a verdict color. */
+ *  tints the reference token. Display-only; never a verdict color.
+ *
+ * CARD-VIEW-COMPARISON-POLISH-001 — additive fields for the parent bubble's
+ * BLACK-backdrop + DOUBLE-outline treatment:
+ *   - `backdrop` is a TRUE-BLACK fill shared by EVERY actor (it denotes
+ *     "the message being replied to", NOT a verdict — a constant across
+ *     actors precisely so it can never read as an actor-specific judgment).
+ *   - `ring` is the OUTER stroke of the double outline (the actor accent, so
+ *     WHO made the parent move stays color-encoded on the outer ring while
+ *     the inner `border` is the actor's deeper stroke). The two strokes give
+ *     the bubble its distinct double border.
+ * `bg` is retained (the pre-polish muted actor fill) so any non-bubble
+ * consumer keeps working byte-equivalently. */
 export interface ActorBubbleColor {
   bg: string;
   border: string;
   accent: string;
+  backdrop: string;
+  ring: string;
 }
+
+/**
+ * The shared TRUE-BLACK parent-bubble backdrop. Constant across actors:
+ * "black = the message you are replying to", a MESSAGE-TYPE cue, never a
+ * verdict / truth / correctness signal (timeline-grammar / doctrine §1).
+ * The actor signal stays color-independent — it is carried by the actor
+ * LABEL + the "replying to" framing + the accent-colored double outline,
+ * not by the (constant) black fill.
+ */
+export const PARENT_BUBBLE_BACKDROP = '#000000';
 
 /**
  * Per-actor comparison-bubble color grammar. Hues mirror the Timeline's
  * `actorTone` (`self → cyan`, `other → indigo`, `bot → purple`,
  * `admin → amber`, `unknown → slate`) so the two surfaces read as one
- * system. The pair is a muted fill + a stroke + a reference-token accent.
+ * system. `backdrop` (true black) is the parent bubble fill; `ring` (the
+ * actor accent) is the outer stroke of the double outline; `border` is the
+ * inner stroke. `bg` is the legacy muted actor fill (retained).
  */
 export const ACTOR_BUBBLE_COLOR: Record<ArgumentBubbleActor, ActorBubbleColor> = {
-  self: { bg: '#0e2f33', border: '#22d3ee', accent: '#67e8f9' },
-  other: { bg: '#1e1b4b', border: '#818cf8', accent: '#a5b4fc' },
-  bot: { bg: '#2e1065', border: '#a855f7', accent: '#c4b5fd' },
-  admin: { bg: '#3a2e05', border: '#facc15', accent: '#fde68a' },
-  unknown: { bg: '#1e293b', border: '#475569', accent: '#94a3b8' },
+  self: { bg: '#0e2f33', border: '#22d3ee', accent: '#67e8f9', backdrop: PARENT_BUBBLE_BACKDROP, ring: '#67e8f9' },
+  other: { bg: '#1e1b4b', border: '#818cf8', accent: '#a5b4fc', backdrop: PARENT_BUBBLE_BACKDROP, ring: '#a5b4fc' },
+  bot: { bg: '#2e1065', border: '#a855f7', accent: '#c4b5fd', backdrop: PARENT_BUBBLE_BACKDROP, ring: '#c4b5fd' },
+  admin: { bg: '#3a2e05', border: '#facc15', accent: '#fde68a', backdrop: PARENT_BUBBLE_BACKDROP, ring: '#fde68a' },
+  unknown: { bg: '#1e293b', border: '#475569', accent: '#94a3b8', backdrop: PARENT_BUBBLE_BACKDROP, ring: '#94a3b8' },
 };
 
 /**
