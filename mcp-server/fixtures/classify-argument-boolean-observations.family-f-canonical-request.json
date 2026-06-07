@@ -22,7 +22,10 @@
       "counterexample_available",
       "scope_limit_unstated",
       "qualification_missing",
-      "comparison_baseline_missing"
+      "comparison_baseline_missing",
+      "question_names_uncertainty",
+      "question_separates_claim_evidence",
+      "question_invites_revision"
     ],
     "definitions": {},
     "timeoutMs": 12000

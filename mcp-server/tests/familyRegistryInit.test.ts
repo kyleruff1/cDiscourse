@@ -158,17 +158,19 @@ Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
 
 Deno.test('familyRegistryInit-registers-family-f-on-import', () => {
   // MCP-SERVER-007-FAMILY-F added the sixth register() call (uniform
-  // ai_classifier path; 14 Walton/Toulmin/Peirce critical questions).
+  // ai_classifier path; 14 Walton/Toulmin/Peirce critical questions + 3
+  // MCP-BUILD2f question-quality booleans = 17).
   // Family F must be present in the singleton after the side-effect import.
   assertEquals(isFamilySupported('critical_question'), true);
 });
 
-Deno.test('familyRegistryInit-family-f-has-14-rawKeys', () => {
+Deno.test('familyRegistryInit-family-f-has-17-rawKeys', () => {
   // MCP-SERVER-007-FAMILY-F ships 14 critical questions (Walton 1995/2008 +
-  // Toulmin 1958 + Peirce abductive), all uniform ai_classifier
+  // Toulmin 1958 + Peirce abductive); MCP-BUILD2f (Build-2 manifest §5) adds 3
+  // question-quality booleans → 17, all uniform ai_classifier
   // (no Subset filter; Stage 2B NOT REQUIRED per design §1).
   const rawKeys = getRawKeysForFamily('critical_question');
-  assertEquals(rawKeys.size, 14);
+  assertEquals(rawKeys.size, 17);
 });
 
 Deno.test('familyRegistryInit-family-f-classifier-version-is-family-f-v1', () => {

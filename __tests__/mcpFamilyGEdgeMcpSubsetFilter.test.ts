@@ -153,7 +153,9 @@ describe('MCP-SERVER-008A-FAMILY-G Edge → MCP subset filter (Stage 2B fix)', (
       ...FAMILY_G_BASE_INPUT,
       requestedFamilies: ['critical_question'],
     });
-    expect(reqF.requestedRawKeys.length).toBe(14);
+    // MCP-BUILD2f: Family F 14 → 17 ai_classifier rawKeys (uniform passthrough,
+    // no subset filter — the 3 new question-quality booleans are ai_classifier).
+    expect(reqF.requestedRawKeys.length).toBe(17);
   });
 
   it('SFG-9 — multi-family request (G + A) sends Family A all-source + Family G ai_classifier only', () => {

@@ -1516,6 +1516,333 @@ const FAMILY_E_BUILD2E_RULES: ReadonlyArray<ObservationMappingRule> = [
   },
 ];
 
+// ── (7) MCP-BUILD2f — Family F critical-question (question-quality) mapping rows. ──
+//        Adopted from the candidate CSV's deferred `critical_question` rows
+//        whose required flags are EXACTLY the 3 new Build-2f booleans
+//        (question_names_uncertainty, question_separates_claim_evidence,
+//        question_invites_revision). The CSV's truncated/internal label_short
+//        ("…observed" / "…absent") and "When X=yes, show: …" diagnostic prefix
+//        are re-authored here into clean verdict-free, move-level strings per
+//        the design's review pass (§8.2 / manifest §5). Every flag is now a
+//        deployed A-G rawKey (the 3 new defs land in familyF.ts this card), so
+//        each rule fires. The CSV's intra-3 pair rows pair the 3 new flags ONLY
+//        with each other, and the CSV's single curated_triple for this family
+//        (the only family with a curated_triple in its unlock set) requires all
+//        3 new flags — all are seeded here per the fireability rule (mirror
+//        A/C/E). The CSV's other 60+ pair rows pair them with PLANNED partner
+//        flags (poses_question, requests_evidence, addresses_parent_reasoning,
+//        …) that are NOT deployed → DEFERRED to Build 3. 6 single rows (3 true +
+//        3 false) + 9 pair rows (every two-flag combination of the 3) + 1
+//        curated_triple = 16 rows.
+//        These describe a POSITIVE structural feature of the QUESTION the move
+//        poses (it names an uncertainty source / separates claim from evidence /
+//        invites revision), NOT an absence-CQ like the 14 baseline keys.
+//        question_invites_revision (F3) is VERDICT-ADJACENT: its rows are fenced
+//        "invites-revision-not-a-verdict" — they describe a question that leaves
+//        room to refine (a constructive move), never framing the parent as
+//        wrong/weak or as NEEDING revision (cdiscourse-doctrine §1). The
+//        standalone verdict tokens "weak" / "wrong" / "flawed" / "invalid" never
+//        appear in any F3 label/diagnostic; the rows never label the author.
+
+const FAMILY_F_BUILD2F_RULES: ReadonlyArray<ObservationMappingRule> = [
+  // ── singles: question_names_uncertainty ──
+  {
+    mappingId: 'MBOM-00143',
+    familyKey: 'critical_question',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['question_names_uncertainty'],
+    requiredFalseFlags: [],
+    observationCode: 'critical_question.single_true.question_names_uncertainty',
+    labelShort: 'Question names a source of uncertainty',
+    labelNeutral: 'Asks a question that names a source of uncertainty',
+    diagnosticSentence:
+      'This reply poses a question that names a specific source of uncertainty.',
+    displayPriority: 74,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00144',
+    familyKey: 'critical_question',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['question_names_uncertainty'],
+    observationCode: 'critical_question.single_false.question_names_uncertainty',
+    labelShort: 'No named uncertainty source',
+    labelNeutral: 'A question naming a source of uncertainty not observed',
+    diagnosticSentence:
+      'This reply does not pose a question that names a specific source of uncertainty; this is only an observation about its structure, not a concern.',
+    displayPriority: 112,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: question_separates_claim_evidence ──
+  {
+    mappingId: 'MBOM-00145',
+    familyKey: 'critical_question',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['question_separates_claim_evidence'],
+    requiredFalseFlags: [],
+    observationCode: 'critical_question.single_true.question_separates_claim_evidence',
+    labelShort: 'Question separates claim from evidence',
+    labelNeutral: 'Asks a question that separates the claim from its evidence',
+    diagnosticSentence:
+      'This reply poses a question that separates the claim from the evidence for it.',
+    displayPriority: 78,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00146',
+    familyKey: 'critical_question',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['question_separates_claim_evidence'],
+    observationCode: 'critical_question.single_false.question_separates_claim_evidence',
+    labelShort: 'No claim/evidence separation',
+    labelNeutral: 'A question separating the claim from its evidence not observed',
+    diagnosticSentence:
+      'This reply does not pose a question that separates the claim from its evidence; this is only an observation about its structure, not a concern.',
+    displayPriority: 103,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: question_invites_revision (verdict-adjacent; invites-revision-not-a-verdict fence) ──
+  {
+    mappingId: 'MBOM-00147',
+    familyKey: 'critical_question',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['question_invites_revision'],
+    requiredFalseFlags: [],
+    observationCode: 'critical_question.single_true.question_invites_revision',
+    labelShort: 'Question leaves room to refine',
+    labelNeutral: 'Asks a question that leaves room to refine',
+    diagnosticSentence:
+      'This reply poses a question that leaves room to refine the point rather than demanding a final answer; this is a constructive move, not a concern about the other reply.',
+    displayPriority: 80,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00148',
+    familyKey: 'critical_question',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['question_invites_revision'],
+    observationCode: 'critical_question.single_false.question_invites_revision',
+    labelShort: 'No room-to-refine question observed',
+    labelNeutral: 'A question that leaves room to refine not observed',
+    diagnosticSentence:
+      'This reply does not pose a question that leaves room to refine; this is only an observation about its structure, not a concern.',
+    displayPriority: 104,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: question_names_uncertainty × question_separates_claim_evidence ──
+  {
+    mappingId: 'MBOM-01334',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['question_names_uncertainty', 'question_separates_claim_evidence'],
+    requiredFalseFlags: [],
+    observationCode:
+      'critical_question.pair_true_true.question_names_uncertainty.question_separates_claim_evidence',
+    labelShort: 'Names uncertainty and separates claim from evidence',
+    labelNeutral: 'Asks a question that names a source of uncertainty and separates the claim from its evidence',
+    diagnosticSentence:
+      'This reply poses a question that names a specific source of uncertainty and separates the claim from the evidence for it.',
+    displayPriority: 70,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01335',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['question_names_uncertainty'],
+    requiredFalseFlags: ['question_separates_claim_evidence'],
+    observationCode:
+      'critical_question.pair_true_false.question_names_uncertainty.no_claim_evidence_separation',
+    labelShort: 'Names uncertainty, no claim/evidence separation',
+    labelNeutral: 'Asks a question that names a source of uncertainty without separating the claim from its evidence',
+    diagnosticSentence:
+      'This reply poses a question that names a source of uncertainty without separating the claim from its evidence.',
+    displayPriority: 84,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01336',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['question_separates_claim_evidence'],
+    requiredFalseFlags: ['question_names_uncertainty'],
+    observationCode:
+      'critical_question.pair_false_true.question_separates_claim_evidence.no_named_uncertainty',
+    labelShort: 'Separates claim from evidence, no named uncertainty',
+    labelNeutral: 'Asks a question that separates the claim from its evidence without naming a source of uncertainty',
+    diagnosticSentence:
+      'This reply poses a question that separates the claim from its evidence without naming a specific source of uncertainty.',
+    displayPriority: 100,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: question_names_uncertainty × question_invites_revision (F3 verdict-adjacent) ──
+  {
+    mappingId: 'MBOM-01337',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['question_names_uncertainty', 'question_invites_revision'],
+    requiredFalseFlags: [],
+    observationCode:
+      'critical_question.pair_true_true.question_names_uncertainty.question_invites_revision',
+    labelShort: 'Names uncertainty, leaves room to refine',
+    labelNeutral: 'Asks a question that names a source of uncertainty and leaves room to refine',
+    diagnosticSentence:
+      'This reply poses a question that names a specific source of uncertainty and leaves room to refine the point.',
+    displayPriority: 71,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01338',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['question_names_uncertainty'],
+    requiredFalseFlags: ['question_invites_revision'],
+    observationCode:
+      'critical_question.pair_true_false.question_names_uncertainty.no_invites_revision',
+    labelShort: 'Names uncertainty, asks for a specific answer',
+    labelNeutral: 'Asks a question that names a source of uncertainty and seeks a specific answer',
+    diagnosticSentence:
+      'This reply poses a question that names a source of uncertainty and seeks a specific answer rather than leaving room to refine.',
+    displayPriority: 85,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01339',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['question_invites_revision'],
+    requiredFalseFlags: ['question_names_uncertainty'],
+    observationCode:
+      'critical_question.pair_false_true.question_invites_revision.no_named_uncertainty',
+    labelShort: 'Leaves room to refine, no named uncertainty',
+    labelNeutral: 'Asks a question that leaves room to refine without naming a source of uncertainty',
+    diagnosticSentence:
+      'This reply poses a question that leaves room to refine the point without naming a specific source of uncertainty; this is a constructive move, not a concern about the other reply.',
+    displayPriority: 99,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: question_separates_claim_evidence × question_invites_revision (F3 verdict-adjacent) ──
+  {
+    mappingId: 'MBOM-01340',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['question_separates_claim_evidence', 'question_invites_revision'],
+    requiredFalseFlags: [],
+    observationCode:
+      'critical_question.pair_true_true.question_separates_claim_evidence.question_invites_revision',
+    labelShort: 'Separates claim from evidence, leaves room to refine',
+    labelNeutral: 'Asks a question that separates the claim from its evidence and leaves room to refine',
+    diagnosticSentence:
+      'This reply poses a question that separates the claim from its evidence and leaves room to refine the point.',
+    displayPriority: 72,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01341',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['question_separates_claim_evidence'],
+    requiredFalseFlags: ['question_invites_revision'],
+    observationCode:
+      'critical_question.pair_true_false.question_separates_claim_evidence.no_invites_revision',
+    labelShort: 'Separates claim from evidence, asks for a specific answer',
+    labelNeutral: 'Asks a question that separates the claim from its evidence and seeks a specific answer',
+    diagnosticSentence:
+      'This reply poses a question that separates the claim from its evidence and seeks a specific answer rather than leaving room to refine.',
+    displayPriority: 90,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01342',
+    familyKey: 'critical_question',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['question_invites_revision'],
+    requiredFalseFlags: ['question_separates_claim_evidence'],
+    observationCode:
+      'critical_question.pair_false_true.question_invites_revision.no_claim_evidence_separation',
+    labelShort: 'Leaves room to refine, no claim/evidence separation',
+    labelNeutral: 'Asks a question that leaves room to refine without separating the claim from its evidence',
+    diagnosticSentence:
+      'This reply poses a question that leaves room to refine the point without separating the claim from its evidence; this is a constructive move, not a concern about the other reply.',
+    displayPriority: 101,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── curated_triple: all 3 question-quality flags positive (the only family with a
+  //    curated_triple in its unlock set; manifest §5). Supersedes the pairs/singles it
+  //    fully consumes (pair > single; triple > pair). ──
+  {
+    mappingId: 'MBOM-01343',
+    familyKey: 'critical_question',
+    ruleKind: 'curated_triple',
+    requiredTrueFlags: [
+      'question_names_uncertainty',
+      'question_separates_claim_evidence',
+      'question_invites_revision',
+    ],
+    requiredFalseFlags: [],
+    observationCode:
+      'critical_question.curated_triple.question_names_uncertainty.question_separates_claim_evidence.question_invites_revision',
+    labelShort: 'Names uncertainty, separates claim/evidence, leaves room to refine',
+    labelNeutral:
+      'Asks a question that names a source of uncertainty, separates the claim from its evidence, and leaves room to refine',
+    diagnosticSentence:
+      'This reply poses a question that names a specific source of uncertainty, separates the claim from the evidence for it, and leaves room to refine the point; this is a constructive move, not a concern about the other reply.',
+    displayPriority: 68,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+];
+
 /**
  * The reviewed, reconciled, frozen mapping registry the evaluator reads.
  * A-G only. Every flag is a deployed rawKey; every label is verdict-free.
@@ -1529,6 +1856,7 @@ export const OBSERVATION_MAPPING_REGISTRY: ReadonlyArray<ObservationMappingRule>
       ...FAMILY_A_BUILD2B_RULES,
       ...FAMILY_C_BUILD2C_RULES,
       ...FAMILY_E_BUILD2E_RULES,
+      ...FAMILY_F_BUILD2F_RULES,
     ].map((r) =>
       Object.freeze({
         ...r,
@@ -1603,6 +1931,21 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
    * goal_action_reasoning, …) remain DEFERRED to Build 3.
    */
   build2eFamilyEAdoptedRules: FAMILY_E_BUILD2E_RULES.length,
+  /**
+   * MCP-BUILD2f — mapping rows adopted from the candidate CSV's deferred
+   * `critical_question` rows whose required flags are EXACTLY the 3 new Build-2f
+   * booleans (now deployed in familyF.ts): question_names_uncertainty,
+   * question_separates_claim_evidence, question_invites_revision. These were
+   * part of the 955 deferred-planned-vocab rows; deploying the 3 booleans
+   * converts them from deferred to genuinely-fireable. 6 singles + 9 pairs + 1
+   * curated_triple = 16 (Family F is the only family whose unlock set carries a
+   * curated_triple — manifest §5; all 3 of its flags are the new F keys, so it
+   * is seeded here per the fireability rule). The CSV's other 60+
+   * `critical_question` pair rows that ALSO need a planned partner flag
+   * (poses_question, requests_evidence, addresses_parent_reasoning, …) remain
+   * DEFERRED to Build 3.
+   */
+  build2fFamilyFAdoptedRules: FAMILY_F_BUILD2F_RULES.length,
   /** Total rules in the active registry. */
   totalActiveRules:
     ADOPTED_FROM_CSV.length +
@@ -1610,7 +1953,8 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
     FAMILY_B_BUILD2A_RULES.length +
     FAMILY_A_BUILD2B_RULES.length +
     FAMILY_C_BUILD2C_RULES.length +
-    FAMILY_E_BUILD2E_RULES.length,
+    FAMILY_E_BUILD2E_RULES.length +
+    FAMILY_F_BUILD2F_RULES.length,
   /** Families H/I/J adopted. ALWAYS 0 (frozen / out of scope). */
   frozenFamiliesAdopted: 0,
 } as const);

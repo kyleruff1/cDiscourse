@@ -1,17 +1,22 @@
 /**
- * MCP-SERVER-007-FAMILY-F — Family F keys constant test.
+ * MCP-SERVER-007-FAMILY-F + MCP-BUILD2f — Family F keys constant test.
  *
  * Critical invariants:
- *   - FAMILY_F_RAW_KEYS contains exactly 14 entries (uniform ai_classifier)
+ *   - FAMILY_F_RAW_KEYS contains exactly 17 entries (14 + 3 MCP-BUILD2f;
+ *     uniform ai_classifier)
  *   - Verbatim binding match with intent brief §2 + design §1 14-key inventory
- *   - FAMILY_F_PROMPT_ENTRIES has 14 entries with one entry per rawKey
+ *     + Build-2 manifest §5 (3 question-quality booleans)
+ *   - FAMILY_F_PROMPT_ENTRIES has 17 entries with one entry per rawKey
  *   - Every prompt entry has all required verbose-definition fields
- *   - FAMILY_F_CLASSIFIER_SET_VERSION === 'family-f-v1'
+ *   - FAMILY_F_CLASSIFIER_SET_VERSION === 'family-f-v1' (no version bump)
  *   - Per-key falsePositiveGuards for the 6 doctrine-risk keys
  *     (consequence_probability_unclear / analogy_mapping_missing /
  *      alternative_explanation_available / causal_mechanism_missing /
  *      authority_basis_missing / missing_warrant) contain verbatim guards
  *     forbidding fallacy/weak/invalid/proves-wrong/invalidates/refutes framing
+ *   - question_invites_revision (MCP-BUILD2f F3, verdict-adjacent) guard fences
+ *     invites-revision-not-a-verdict (never asserts the parent is wrong/weak or
+ *     NEEDS revision; never the author)
  *   - Declaration order preserved
  */
 import { assertEquals } from 'std/assert/mod.ts';
@@ -22,8 +27,9 @@ import {
 } from '../lib/familyFKeys.ts';
 
 /**
- * Binding list per MCP-SERVER-007-FAMILY-F intent brief §2 + design §1.
- * 14 ai_classifier rawKeys, declaration order matching upstream familyF.ts.
+ * Binding list per MCP-SERVER-007-FAMILY-F intent brief §2 + design §1 + 3
+ * MCP-BUILD2f Build-2 manifest §5. 17 ai_classifier rawKeys, declaration order
+ * matching upstream familyF.ts.
  */
 const BINDING_FAMILY_F_KEYS: readonly string[] = [
   'missing_warrant',
@@ -40,13 +46,17 @@ const BINDING_FAMILY_F_KEYS: readonly string[] = [
   'scope_limit_unstated',
   'qualification_missing',
   'comparison_baseline_missing',
+  // MCP-BUILD2f (Build-2 manifest §5) — question-quality booleans.
+  'question_names_uncertainty',
+  'question_separates_claim_evidence',
+  'question_invites_revision',
 ];
 
-Deno.test('FAMILY_F_RAW_KEYS contains exactly 14 entries (uniform ai_classifier)', () => {
-  assertEquals(FAMILY_F_RAW_KEYS.length, 14);
+Deno.test('FAMILY_F_RAW_KEYS contains exactly 17 entries (uniform ai_classifier)', () => {
+  assertEquals(FAMILY_F_RAW_KEYS.length, 17);
 });
 
-Deno.test('FAMILY_F_RAW_KEYS contains all 14 binding rawKeys', () => {
+Deno.test('FAMILY_F_RAW_KEYS contains all 17 binding rawKeys', () => {
   for (const key of BINDING_FAMILY_F_KEYS) {
     if (!FAMILY_F_RAW_KEYS.includes(key)) {
       throw new Error(`FAMILY_F_RAW_KEYS missing binding rawKey: ${key}`);
@@ -82,8 +92,8 @@ Deno.test('FAMILY_F_RAW_KEYS preserves declaration order (matches BINDING_FAMILY
   }
 });
 
-Deno.test('FAMILY_F_PROMPT_ENTRIES has 14 entries matching FAMILY_F_RAW_KEYS', () => {
-  assertEquals(FAMILY_F_PROMPT_ENTRIES.length, 14);
+Deno.test('FAMILY_F_PROMPT_ENTRIES has 17 entries matching FAMILY_F_RAW_KEYS', () => {
+  assertEquals(FAMILY_F_PROMPT_ENTRIES.length, 17);
   const promptKeys = FAMILY_F_PROMPT_ENTRIES.map((e) => e.rawKey);
   for (const key of FAMILY_F_RAW_KEYS) {
     if (!promptKeys.includes(key)) {
@@ -248,6 +258,93 @@ Deno.test('missing_warrant falsePositiveGuards surface Toulmin warrant doctrine 
       throw new Error(
         `missing_warrant falsePositiveGuards missing verbatim doctrine fragment: "${fragment}". Got: ${entry.falsePositiveGuards}`,
       );
+    }
+  }
+});
+
+// ── MCP-BUILD2f — the 3 new question-quality booleans ────────────────────
+
+Deno.test('MCP-BUILD2f: the 3 new rawKeys are present in declaration order at the end', () => {
+  assertEquals(FAMILY_F_RAW_KEYS[14], 'question_names_uncertainty');
+  assertEquals(FAMILY_F_RAW_KEYS[15], 'question_separates_claim_evidence');
+  assertEquals(FAMILY_F_RAW_KEYS[16], 'question_invites_revision');
+});
+
+Deno.test('MCP-BUILD2f: each of the 3 new keys has a prompt entry asking its boolean question', () => {
+  for (
+    const rawKey of [
+      'question_names_uncertainty',
+      'question_separates_claim_evidence',
+      'question_invites_revision',
+    ]
+  ) {
+    const entry = FAMILY_F_PROMPT_ENTRIES.find((e) => e.rawKey === rawKey);
+    if (!entry) throw new Error(`MCP-BUILD2f prompt entry missing for ${rawKey}`);
+    if (entry.booleanQuestion.length < 20) {
+      throw new Error(`MCP-BUILD2f prompt entry for ${rawKey} has too-short booleanQuestion`);
+    }
+  }
+});
+
+Deno.test('MCP-BUILD2f: the 3 new keys use the question_* prefix (manifest §5.2)', () => {
+  for (
+    const rawKey of [
+      'question_names_uncertainty',
+      'question_separates_claim_evidence',
+      'question_invites_revision',
+    ]
+  ) {
+    if (!rawKey.startsWith('question_')) {
+      throw new Error(`MCP-BUILD2f rawKey "${rawKey}" should use the question_* prefix`);
+    }
+  }
+});
+
+Deno.test('MCP-BUILD2f: question_invites_revision guard fences invites-revision-not-a-verdict (F3)', () => {
+  // F3 is verdict-adjacent. The per-key guard MUST frame an open question as a
+  // collaborative-stance observation / invitation, never a verdict that the
+  // parent is wrong/weak or NEEDS revision, and never about the author.
+  const entry = FAMILY_F_PROMPT_ENTRIES.find((e) => e.rawKey === 'question_invites_revision');
+  if (!entry) throw new Error('question_invites_revision prompt entry missing');
+  const guards = entry.falsePositiveGuards;
+  const expectedFragments = [
+    'invites-revision-not-a-verdict',
+    'NEVER asserts the parent is wrong, weak, or that the parent NEEDS revision',
+    'an invitation to refine, not a defeat of the parent',
+    'describes THIS REPLY, never the author',
+    "'So you admit X?' stays FALSE even when phrased courteously",
+  ];
+  for (const fragment of expectedFragments) {
+    if (!guards.includes(fragment)) {
+      throw new Error(
+        `question_invites_revision falsePositiveGuards missing verbatim fence fragment: "${fragment}". Got: ${guards}`,
+      );
+    }
+  }
+});
+
+Deno.test('MCP-BUILD2f: the 3 new prompt-entry labels are verdict-free (no weakness verdict tokens)', () => {
+  // The prompt-entry LABEL is a user-facing-adjacent string; it must be
+  // plain-language and must NOT contain a standalone weakness verdict token.
+  // (The booleanQuestion / definitions / guards are classifier-facing and MAY
+  // name verdict tokens in negation form — "MUST NOT contain 'weak'".)
+  const labelByKey: Record<string, string> = {};
+  for (const e of FAMILY_F_PROMPT_ENTRIES) labelByKey[e.rawKey] = e.label;
+  const banned = ['weak', 'wrong', 'flawed', 'invalid', 'fallacy', 'fallacious'];
+  for (
+    const rawKey of [
+      'question_names_uncertainty',
+      'question_separates_claim_evidence',
+      'question_invites_revision',
+    ]
+  ) {
+    for (const token of banned) {
+      const re = new RegExp(`\\b${token}\\b`, 'i');
+      if (re.test(labelByKey[rawKey])) {
+        throw new Error(
+          `MCP-BUILD2f: label for ${rawKey} contains a weakness verdict token "${token}": "${labelByKey[rawKey]}"`,
+        );
+      }
     }
   }
 });
