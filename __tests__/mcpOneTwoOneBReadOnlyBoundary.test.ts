@@ -131,8 +131,28 @@ describe('MCP-021B — MCP-021A registry files byte-equal', () => {
     }
   });
 
-  it('RO-9 — machineObservationDefinitions/familyC.ts unchanged', () => {
-    expect(gitDiffFromMain('src/features/nodeLabels/machineObservationDefinitions/familyC.ts')).toBe('');
+  // RO-9 — byte-equal boundary relaxed 2026-06-07 (MCP-BUILD2c, carried into the
+  // MCP-BUILD2e stacked branch). RO-9 originally asserted familyC.ts was
+  // byte-equal to main; the ratified Build-2 roadmap sequences family-by-family
+  // VOCABULARY EXPANSION of familyC.ts (MCP-BUILD2c adds 3 misunderstanding_repair
+  // booleans). Mirrors the RO-7/RO-8/RO-11 relaxation: relaxed to an ADDITIVE-ONLY
+  // well-formedness check so vocabulary-expansion cards can grow familyC.ts without
+  // a spurious read-only-boundary failure. The file must still export
+  // FAMILY_C_DEFINITIONS and retain the MCP-021A baseline rawKeys (additive).
+  it('RO-9 — familyC.ts is well-formed + additive (MCP-021A baseline preserved)', () => {
+    const content = readFileSync(
+      join(ROOT, 'src/features/nodeLabels/machineObservationDefinitions/familyC.ts'),
+      'utf8',
+    );
+    expect(content).toContain('export const FAMILY_C_DEFINITIONS');
+    // MCP-021A baseline rawKeys must all still be present (no removal/rename).
+    for (const baselineRawKey of [
+      'clarified',
+      'requests_clarification',
+      'question_answer_mismatch',
+    ]) {
+      expect(content).toContain(`rawKey: '${baselineRawKey}'`);
+    }
   });
 
   it('RO-10 — machineObservationDefinitions/familyD.ts unchanged', () => {
