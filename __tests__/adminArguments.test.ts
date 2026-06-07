@@ -69,8 +69,15 @@ describe('adminArgumentsApi — safety + shape', () => {
     expect(src).toContain('created_at');
   });
 
-  it('joins debates(title) and the author-FK-pinned profiles(display_name)', () => {
-    expect(src).toContain('debates(title)');
+  it('joins debates(title, inactive_at) and the author-FK-pinned profiles(display_name)', () => {
+    // ADMIN-CONV-INACTIVE-001 — the debates embed now also selects the
+    // DEBATE-level `inactive_at` (the #514 conversation-inactivation column) so
+    // the room-group header can derive `isDebateInactive`. It must NEVER widen
+    // the embed to include `inactive_reason` / `inactive_by` (doctrine §10a:
+    // the badge shows WHAT is inactive, never WHY).
+    expect(src).toContain('debates(title, inactive_at)');
+    expect(src).not.toMatch(/debates\([^)]*inactive_reason[^)]*\)/);
+    expect(src).not.toMatch(/debates\([^)]*inactive_by[^)]*\)/);
     // OPS-ADMIN-ARGS-PROFILES-EMBED-001 — the profiles embed MUST be pinned to
     // the author FK. `arguments` has two FKs to `profiles` (author_id +
     // inactive_by from #480); a bare `profiles(display_name)` embed is

@@ -56,6 +56,22 @@ export interface AdminArgumentRoomGroup {
   /** true ONLY when EVERY artifact in the room is inactive. */
   isInactive: boolean;
   /**
+   * ADMIN-CONV-INACTIVE-001 — the DEBATE-level (conversation) inactive
+   * timestamp, surfaced from the artifacts' carried `debateInactiveAt` (first
+   * non-null among the group's artifacts; all artifacts of one debate carry the
+   * same value). NULL ⇒ the conversation is active. This is the WHOLE-room
+   * (#514) inactivation state — DISTINCT from `isInactive` above, which folds
+   * each individual statement's per-argument inactive state. NEVER an
+   * `inactiveReason` (doctrine §10a — WHAT, never WHY).
+   */
+  debateInactiveAt: string | null;
+  /**
+   * Derived: `debateInactiveAt !== null`. Drives the room-header debate-inactive
+   * badge + the Mark room inactive/active toggle. Pure/deterministic; never
+   * reads `inactiveReason`.
+   */
+  isDebateInactive: boolean;
+  /**
    * Single-line excerpt (≤140 chars) of the most-recently-updated artifact's
    * `latestBody`. Navigation preview only — never a verdict.
    */
@@ -190,6 +206,22 @@ export function groupArtifactsByRoom(
     // artifact's already-derived `isInactive`). Never reads `inactiveReason`.
     const isInactive = bucket.every((a) => a.isInactive === true);
 
+    // ADMIN-CONV-INACTIVE-001 — debateInactiveAt: the DEBATE-level
+    // (conversation) inactive timestamp. Every artifact of one debate carries
+    // the same `debateInactiveAt`; we surface the first non-null among the
+    // group's artifacts (in input order, so it is stable regardless of
+    // `direction`). `isDebateInactive` derives from it ONLY. This is the
+    // WHOLE-room (#514) state — distinct from `isInactive` above. Never reads
+    // `inactiveReason` (§10a).
+    let debateInactiveAt: string | null = null;
+    for (const a of bucket) {
+      if (a.debateInactiveAt != null) {
+        debateInactiveAt = a.debateInactiveAt;
+        break;
+      }
+    }
+    const isDebateInactive = debateInactiveAt !== null;
+
     // Excerpt of the most-recently-updated artifact's latestBody. We pick the
     // max-activity artifact independent of `direction` so the preview is the
     // freshest message regardless of sort order.
@@ -210,6 +242,8 @@ export function groupArtifactsByRoom(
       latestUpdatedAt,
       createdAt,
       isInactive,
+      debateInactiveAt,
+      isDebateInactive,
       latestBodyExcerpt: toExcerpt(freshest.latestBody),
       artifacts: sorted,
     });

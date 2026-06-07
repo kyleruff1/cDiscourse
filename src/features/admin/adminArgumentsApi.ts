@@ -53,7 +53,15 @@ interface RawArgumentRow {
   argument_tags: { tag_code: string }[] | null;
   target_excerpt: string | null;
   server_validation: Record<string, unknown> | null;
-  debates: { title: string | null } | { title: string | null }[] | null;
+  // ADMIN-CONV-INACTIVE-001 — the embed now also selects the parent debate's
+  // DEBATE-level `inactive_at` (the #514 conversation-inactivation column). It
+  // is distinct from the per-argument `inactive_at` above. We select ONLY
+  // `inactive_at` from `debates` — never `debates.inactive_reason` /
+  // `debates.inactive_by` (doctrine §10a: the badge shows WHAT, never WHY).
+  debates:
+    | { title: string | null; inactive_at: string | null }
+    | { title: string | null; inactive_at: string | null }[]
+    | null;
   profiles: { display_name: string | null } | { display_name: string | null }[] | null;
   // ADMIN-ARGS-INACTIVE-001 — lifecycle visibility columns. All nullable.
   // `inactive_reason` is admin-only; the row carries it but the UI MUST
@@ -67,6 +75,18 @@ function asTitle(j: RawArgumentRow['debates']): string | null {
   if (!j) return null;
   if (Array.isArray(j)) return j[0]?.title ?? null;
   return j.title ?? null;
+}
+
+/**
+ * ADMIN-CONV-INACTIVE-001 — projects the DEBATE-level `inactive_at` out of the
+ * `debates` embed. NULL ⇒ the conversation is active; NOT NULL ⇒ the whole
+ * conversation has been inactivated by an admin (#514). Reads ONLY `inactive_at`
+ * — never `inactive_reason` / `inactive_by` (doctrine §10a).
+ */
+function asDebateInactiveAt(j: RawArgumentRow['debates']): string | null {
+  if (!j) return null;
+  if (Array.isArray(j)) return j[0]?.inactive_at ?? null;
+  return j.inactive_at ?? null;
 }
 
 function asDisplayName(j: RawArgumentRow['profiles']): string | null {
@@ -119,7 +139,15 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
         // returned JSON key stays `profiles`, so `asDisplayName(r.profiles)`
         // below is unchanged. We intentionally do NOT embed the inactivator's
         // profile (doctrine §10a — never surface who inactivated a row).
-        'debates(title)', 'profiles!arguments_author_id_fkey(display_name)',
+        //
+        // ADMIN-CONV-INACTIVE-001 — the `debates` embed now also selects the
+        // DEBATE-level `inactive_at` (the #514 conversation-inactivation state)
+        // so the room-group header can derive `isDebateInactive`. `arguments`
+        // has exactly ONE FK to `debates` (`debate_id` → `arguments_debate_id_fkey`),
+        // so the bare `debates(...)` embed is unambiguous. We select ONLY
+        // `inactive_at` — NEVER `debates.inactive_reason` / `debates.inactive_by`
+        // (doctrine §10a: the badge shows WHAT is inactive, never WHY).
+        'debates(title, inactive_at)', 'profiles!arguments_author_id_fkey(display_name)',
       ].join(','),
     )
     .order(sortField, { ascending: sortDirection === 'asc' })
@@ -143,6 +171,9 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
     id: r.id,
     debateId: r.debate_id,
     debateTitle: asTitle(r.debates),
+    // ADMIN-CONV-INACTIVE-001 — DEBATE-level (conversation) inactive state,
+    // distinct from the per-argument `inactiveAt` below. NULL = active.
+    debateInactiveAt: asDebateInactiveAt(r.debates),
     authorId: r.author_id,
     authorDisplayName: asDisplayName(r.profiles),
     argumentType: r.argument_type,

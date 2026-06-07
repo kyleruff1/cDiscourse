@@ -28,6 +28,7 @@ function makeArtifact(over: Partial<ArgumentArtifact> & {
     authorId: over.authorId ?? 'author-1',
     debateId: over.debateId,
     debateTitle: over.debateTitle ?? null,
+    debateInactiveAt: over.debateInactiveAt ?? null,
     latestUpdatedAt,
     createdAt,
     updateCount: over.updateCount ?? 0,
@@ -280,6 +281,75 @@ describe('groupArtifactsByRoom — excerpt clamping', () => {
       makeArtifact({ artifactId: 'id:a1', debateId: 'room-1', latestBody: 'line one\n\n  line   two' }),
     ])[0];
     expect(g.latestBodyExcerpt).toBe('line one line two');
+  });
+});
+
+describe('ADMIN-CONV-INACTIVE-001 — debateInactiveAt + isDebateInactive (DEBATE-level)', () => {
+  it('isDebateInactive is false when no artifact carries a debateInactiveAt', () => {
+    const g = groupArtifactsByRoom([
+      makeArtifact({ artifactId: 'id:a1', debateId: 'room-1' }),
+      makeArtifact({ artifactId: 'id:a2', debateId: 'room-1' }),
+    ])[0];
+    expect(g.debateInactiveAt).toBeNull();
+    expect(g.isDebateInactive).toBe(false);
+  });
+
+  it('isDebateInactive is true when an artifact carries a debateInactiveAt; surfaces the timestamp', () => {
+    const g = groupArtifactsByRoom([
+      makeArtifact({
+        artifactId: 'id:a1',
+        debateId: 'room-1',
+        debateInactiveAt: '2026-06-05T00:00:00.000Z',
+      }),
+      makeArtifact({
+        artifactId: 'id:a2',
+        debateId: 'room-1',
+        debateInactiveAt: '2026-06-05T00:00:00.000Z',
+      }),
+    ])[0];
+    expect(g.debateInactiveAt).toBe('2026-06-05T00:00:00.000Z');
+    expect(g.isDebateInactive).toBe(true);
+  });
+
+  it('surfaces the first non-null debateInactiveAt in input order (stable across direction)', () => {
+    const artifacts = [
+      makeArtifact({ artifactId: 'id:a1', debateId: 'room-1', debateInactiveAt: null }),
+      makeArtifact({ artifactId: 'id:a2', debateId: 'room-1', debateInactiveAt: '2026-06-05T00:00:00.000Z' }),
+    ];
+    expect(groupArtifactsByRoom(artifacts, 'desc')[0].debateInactiveAt).toBe('2026-06-05T00:00:00.000Z');
+    expect(groupArtifactsByRoom(artifacts, 'asc')[0].debateInactiveAt).toBe('2026-06-05T00:00:00.000Z');
+  });
+
+  it('is INDEPENDENT of the per-statement isInactive fold (a room can be debate-inactive while statements are active)', () => {
+    const g = groupArtifactsByRoom([
+      makeArtifact({
+        artifactId: 'id:a1',
+        debateId: 'room-1',
+        isInactive: false,                       // per-statement: active
+        debateInactiveAt: '2026-06-05T00:00:00.000Z', // DEBATE-level: inactive
+      }),
+    ])[0];
+    expect(g.isInactive).toBe(false);        // per-statement fold unchanged
+    expect(g.isDebateInactive).toBe(true);   // whole-conversation state
+  });
+
+  it('NEVER produces an inactiveReason field on the group (§10a)', () => {
+    const g = groupArtifactsByRoom([
+      makeArtifact({ artifactId: 'id:a1', debateId: 'room-1', debateInactiveAt: '2026-06-05T00:00:00.000Z' }),
+    ])[0];
+    expect(Object.prototype.hasOwnProperty.call(g, 'inactiveReason')).toBe(false);
+    expect(JSON.stringify(g)).not.toContain('inactiveReason');
+    expect(JSON.stringify(g)).not.toContain('inactive_reason');
+  });
+
+  it('is deterministic for the debate-level fields (two calls JSON-equal)', () => {
+    const artifacts = [
+      makeArtifact({ artifactId: 'id:a1', debateId: 'room-1', debateInactiveAt: '2026-06-05T00:00:00.000Z' }),
+      makeArtifact({ artifactId: 'id:b1', debateId: 'room-2', debateInactiveAt: null }),
+    ];
+    const first = groupArtifactsByRoom(artifacts).map((g) => `${g.roomId}:${g.debateInactiveAt}:${g.isDebateInactive}`);
+    const second = groupArtifactsByRoom(artifacts).map((g) => `${g.roomId}:${g.debateInactiveAt}:${g.isDebateInactive}`);
+    expect(first).toEqual(second);
   });
 });
 

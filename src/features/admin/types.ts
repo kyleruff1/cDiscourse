@@ -140,6 +140,15 @@ export interface AdminArgumentRow {
   id: string;
   debateId: string;
   debateTitle: string | null;
+  /**
+   * ADMIN-CONV-INACTIVE-001 — the parent DEBATE's (conversation's) inactive
+   * timestamp (the #514 debate-level inactivation). NULL = the conversation is
+   * active; NOT NULL = an admin has inactivated the whole room. Distinct from
+   * the per-argument `inactiveAt` below (an individual statement fold). Carries
+   * WHAT (the timestamp) only — NEVER `inactive_reason` / `inactive_by`
+   * (doctrine §10a).
+   */
+  debateInactiveAt: string | null;
   authorId: string | null;
   authorDisplayName: string | null;
   argumentType: string;
