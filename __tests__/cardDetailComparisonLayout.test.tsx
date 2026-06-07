@@ -1,17 +1,24 @@
 /**
- * CARD-VIEW-DETAIL-HUB-001 (Slice 3) — comparison-style centerpiece layout,
- * responsive multi-column, navigation, and the #14 disclosure regression.
+ * CARD-VIEW-DETAIL-HUB-001 (Slice 3) + CARD-VIEW-COMPARISON-POLISH-001 —
+ * comparison-style centerpiece layout, responsive multi-column, navigation,
+ * and the #14 disclosure regression.
  *
- * Covers the Slice 3 operator refinement + the ratified §7.1 invariant:
- *   - centerpiece (current card) present + prominent
- *   - parent bubble rendered ABOVE + off-center, DIFFERENT color from the
- *     current card, italic + quoted text, reference is a button that calls
+ * Covers the Slice 3 refinement, the COMPARISON-POLISH operator asks, and the
+ * ratified §7.1 invariant:
+ *   - the parent ("replying-to" / OPPONENT) bubble renders FIRST (at the TOP
+ *     of the panel, before the current message's body + observations), with a
+ *     TRUE-BLACK backdrop + a DOUBLE OUTLINE (outer ring + inner border) +
+ *     a LARGER quote font; reference is a button that calls
  *     onActivateAncestor(parentId); root / unresolvable parent → no bubble
+ *   - the current/own message centerpiece uses a DRAMATICALLY different,
+ *     NON-BLACK backdrop from the parent bubble (high-contrast message-type
+ *     differentiation), and renders the forwarded current message body
  *   - responsive 3-col (≥1024 web) vs stacked (narrow / native); same sections
  *   - #14: the Card renders ALL sections with NO "Full details" / expand and
  *     no accessibilityState.expanded; the Timeline projection STILL keeps its
  *     tap-to-reveal disclosure (source-scan, per repo discipline)
- *   - grayscale legibility (meaning carried by glyph / label, not color-only)
+ *   - grayscale legibility (meaning carried by the "Replying to" framing +
+ *     actor label + reference text, not color-only)
  *   - verdict-token ban-list recursive over rendered strings; no snake_case
  *
  * Uses @testing-library/react-native.
@@ -25,6 +32,7 @@ import { CardDetailPanel } from '../src/features/arguments/cardView/CardDetailPa
 import { buildCardDetailViewModel } from '../src/features/arguments/cardView/cardDetailModel';
 import {
   ACTOR_BUBBLE_COLOR,
+  PARENT_BUBBLE_BACKDROP,
   buildSectionSemanticFlags,
 } from '../src/features/arguments/detail/argumentDetailModel';
 import { MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION } from '../src/features/nodeLabels/mcpBooleanObservationSchema';
@@ -243,39 +251,97 @@ describe('CVDH-001 Slice 3 — comparison-style centerpiece + parent bubble', ()
     expect(getByTestId('card-detail-centerpiece-card')).toBeTruthy();
   });
 
-  it('renders the parent bubble ABOVE + OFF-CENTER the centerpiece', () => {
+  it('renders the parent bubble OFF-CENTER (alignSelf flex-start, pulled left)', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
     const bubble = getByTestId('card-detail-parent-bubble');
     expect(bubble).toBeTruthy();
+    // The OUTER ring carries the positioning. Off-center: pulled to the left
+    // with alignSelf flex-start.
     const style = flatStyle(bubble.props.style);
-    // Off-center: pulled to the left with alignSelf flex-start.
     expect(style.alignSelf).toBe('flex-start');
     expect(typeof style.marginLeft).toBe('number');
     expect(style.marginLeft as number).toBeLessThan(0);
   });
 
-  it('colors the parent bubble with the parent actor color — DIFFERENT from the centerpiece card', () => {
-    const { getByTestId } = render(<CardDetailPanel model={model()} />);
-    const bubble = getByTestId('card-detail-parent-bubble');
-    const bubbleStyle = flatStyle(bubble.props.style);
-    // Parent actor is 'other' → the indigo token, not the centerpiece surface.
-    expect(bubbleStyle.backgroundColor).toBe(ACTOR_BUBBLE_COLOR.other.bg);
-    expect(bubbleStyle.borderColor).toBe(ACTOR_BUBBLE_COLOR.other.border);
-
-    const card = getByTestId('card-detail-centerpiece-card');
-    const cardStyle = flatStyle(card.props.style);
-    // The two surfaces are visually distinct colors.
-    expect(bubbleStyle.backgroundColor).not.toBe(cardStyle.backgroundColor);
-    expect(bubbleStyle.borderColor).not.toBe(cardStyle.borderColor);
+  // CARD-VIEW-COMPARISON-POLISH-001 — ask 1: the parent bubble is the FIRST
+  // element of the panel (at the TOP), before the current message's body and
+  // observations. Updated IN-PLACE from the prior "ABOVE the centerpiece"
+  // wording — this is the new intended spec (parent banner at the very top of
+  // the active card detail), not a relaxation.
+  it('renders the parent bubble FIRST — at the top, before the current message body + observations', () => {
+    const { getByTestId } = render(
+      <CardDetailPanel model={model()} currentMessageBody="My rebuttal body." />,
+    );
+    const panel = getByTestId('card-detail-panel');
+    // The parent-bubble slot is the FIRST child of the panel root.
+    const firstChildTestId = (panel.props.children as Array<{ props?: { testID?: string } }>)[0]
+      ?.props?.testID;
+    expect(firstChildTestId).toBe('card-detail-parent-bubble-slot');
+    // The slot contains the bubble; the current message body lives BELOW it in
+    // the centerpiece card.
+    expect(getByTestId('card-detail-parent-bubble')).toBeTruthy();
+    expect(getByTestId('card-detail-current-message-body')).toBeTruthy();
   });
 
-  it('renders the parent text ITALIC inside QUOTES', () => {
+  // CARD-VIEW-COMPARISON-POLISH-001 — ask 2: BLACK backdrop + DOUBLE OUTLINE.
+  // Updated IN-PLACE from the prior actor-`bg`/`border` single-fill assertion
+  // to the new black-backdrop + double-outline structure (the new intended
+  // spec), not a relaxation. The black fill denotes the message being replied
+  // to (a message-type cue), never a verdict.
+  it('gives the parent bubble a BLACK backdrop + a DOUBLE OUTLINE (outer ring + inner border)', () => {
+    const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    const ring = getByTestId('card-detail-parent-bubble'); // outer ring
+    const inner = getByTestId('card-detail-parent-bubble-inner');
+    const ringStyle = flatStyle(ring.props.style);
+    const innerStyle = flatStyle(inner.props.style);
+
+    // INNER bubble — TRUE-BLACK backdrop, distinct from any actor fill.
+    expect(innerStyle.backgroundColor).toBe(PARENT_BUBBLE_BACKDROP);
+    expect(innerStyle.backgroundColor).toBe('#000000');
+
+    // DOUBLE OUTLINE — two concentric, separately-colored strokes:
+    //   outer ring  → actor accent (`ring`)
+    //   inner border→ deeper actor stroke (`border`)
+    expect(ringStyle.borderColor).toBe(ACTOR_BUBBLE_COLOR.other.ring);
+    expect(innerStyle.borderColor).toBe(ACTOR_BUBBLE_COLOR.other.border);
+    expect(ringStyle.borderColor).not.toBe(innerStyle.borderColor);
+    expect(typeof ringStyle.borderWidth).toBe('number');
+    expect(ringStyle.borderWidth as number).toBeGreaterThan(0);
+    expect(typeof innerStyle.borderWidth).toBe('number');
+    expect(innerStyle.borderWidth as number).toBeGreaterThan(0);
+  });
+
+  // CARD-VIEW-COMPARISON-POLISH-001 — ask 3: DRAMATIC message-type contrast.
+  // The parent bubble's BLACK backdrop vs the current message centerpiece's
+  // distinct NON-BLACK surface is the core contrast.
+  it('contrasts the parent bubble backdrop DRAMATICALLY with the current message centerpiece surface', () => {
+    const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    const inner = getByTestId('card-detail-parent-bubble-inner');
+    const card = getByTestId('card-detail-centerpiece-card');
+    const innerBackdrop = flatStyle(inner.props.style).backgroundColor;
+    const cardSurface = flatStyle(card.props.style).backgroundColor;
+
+    // The two message types use different backdrop tokens.
+    expect(innerBackdrop).toBe('#000000');
+    expect(cardSurface).not.toBe('#000000');
+    expect(innerBackdrop).not.toBe(cardSurface);
+    // The centerpiece carries an actor-accent (non-black) border so it reads as
+    // a clearly different message type, not just a different shade.
+    expect(flatStyle(card.props.style).borderColor).not.toBe(innerBackdrop);
+  });
+
+  // CARD-VIEW-COMPARISON-POLISH-001 — ask 2 + 4: LARGER parent quote font.
+  it('renders the parent text ITALIC inside QUOTES, at a LARGER font', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
     const quote = getByTestId('card-detail-parent-bubble-quote');
     expect(quote.props.children).toBe(
       '“We should narrow the scope to the downtown core.”',
     );
-    expect(flatStyle(quote.props.style).fontStyle).toBe('italic');
+    const quoteStyle = flatStyle(quote.props.style);
+    expect(quoteStyle.fontStyle).toBe('italic');
+    // Larger than the dense popout-body (12) baseline — a readable quote size.
+    expect(typeof quoteStyle.fontSize).toBe('number');
+    expect(quoteStyle.fontSize as number).toBeGreaterThanOrEqual(15);
   });
 
   it('renders the parent reference (#N · kind) as a button that switches the active card', () => {
@@ -445,13 +511,30 @@ describe('CVDH-001 Slice 3 — #14 Card-visible vs Timeline-disclosed regression
 });
 
 describe('CVDH-001 Slice 3 — grayscale legibility + ban-list', () => {
-  it('the parent bubble carries a color-INDEPENDENT actor label + reference text', () => {
+  it('the parent bubble carries a color-INDEPENDENT "Replying to" framing + actor label + reference text', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
-    // Meaning ("Other side", "#6 · claim", the italic quote) is carried by
-    // TEXT, not color — legible in a grayscale snapshot.
+    // Meaning ("Replying to", "Other side", "#6 · claim", the italic quote) is
+    // carried by TEXT, not color — legible in a grayscale snapshot. The black
+    // backdrop is a message-type cue ("the move being replied to"), so the
+    // "Replying to" wording + actor label are what carry the meaning, NOT the
+    // (constant) black fill.
+    expect(getByTestId('card-detail-parent-bubble-replying-to').props.children).toBe('Replying to');
     expect(getByTestId('card-detail-parent-bubble-actor').props.children).toBe('Other side');
     expect(getByTestId('card-detail-parent-bubble-quote')).toBeTruthy();
     expect(getByTestId('card-detail-parent-bubble-reference')).toBeTruthy();
+  });
+
+  // CARD-VIEW-COMPARISON-POLISH-001 — ask 4: the current/own message body is
+  // forwarded into the centerpiece and renders at a larger, readable font.
+  it('renders the forwarded current message body at a LARGER, readable font', () => {
+    const { getByTestId } = render(
+      <CardDetailPanel model={model()} currentMessageBody="Bike lanes do not improve safety everywhere." />,
+    );
+    const body = getByTestId('card-detail-current-message-body');
+    expect(body.props.children).toBe('Bike lanes do not improve safety everywhere.');
+    const bodyStyle = flatStyle(body.props.style);
+    expect(typeof bodyStyle.fontSize).toBe('number');
+    expect(bodyStyle.fontSize as number).toBeGreaterThanOrEqual(15);
   });
 
   it('classifier confidence renders as PIPS, not a digit', () => {
