@@ -1,23 +1,27 @@
 /**
- * MCP-021C-EDGE — Test: Family A exact 16-key binding + post-Stage-2B
+ * MCP-021C-EDGE — Test: Family A exact 19-key binding + post-Stage-2B
  * production-mode A+B+C admission.
  *
- * Per Decision 3 (BINDING): Family A in the registry is exactly the 16
- * raw keys listed below; this is the FOCUSED binding gate — if a future
- * card adds a Family A key without updating this list, the test fires.
+ * Per Decision 3 (BINDING): Family A in the registry is exactly the 19
+ * raw keys listed below (16 MCP-SERVER-002 + 3 MCP-BUILD2b); this is the
+ * FOCUSED binding gate — if a future card adds a Family A key without
+ * updating this list, the test fires.
  *
  * Per Stage 2B (`MCP-021C-EDGE-FAMILIES-B-C-ENABLE`): production mode
- * now admits Family A (16 keys) + Family B (disagreement_axis, 14 keys)
- * + Family C (misunderstanding_repair, 17 keys) = 47 raw keys total
- * across the 3 productionEnabled families. Families D–J are still
- * dropped from production-mode requests at the request-builder layer.
+ * now admits Family A (19 keys post MCP-BUILD2b) + Family B
+ * (disagreement_axis, 17 keys post MCP-BUILD2a) + Family C
+ * (misunderstanding_repair, 17 keys) across the 3 productionEnabled
+ * families. Families D–J are still dropped from production-mode requests
+ * at the request-builder layer.
  *
- * The binding Family A list (Decision 3):
+ * The binding Family A list (Decision 3 + MCP-BUILD2b manifest §1):
  *   supports_parent, challenges_parent, refines_parent, extends_parent,
  *   distinguishes_parent, reframes_parent, questions_parent,
  *   summarizes_parent, acknowledges_parent, corrects_parent_detail,
  *   contrasts_with_parent, answers_parent_question, has_rebuttal,
- *   has_counter_rebuttal, rebutted, quote_anchors_parent.
+ *   has_counter_rebuttal, rebutted, quote_anchors_parent,
+ *   acknowledges_parent_strength, compares_parent_to_sibling_branch,
+ *   identifies_parent_scope_limit.
  */
 
 import {
@@ -44,12 +48,16 @@ const BINDING_FAMILY_A_KEYS = [
   'has_counter_rebuttal',
   'rebutted',
   'quote_anchors_parent',
+  // MCP-BUILD2b (Build-2 manifest §1) — parent-relation quality booleans.
+  'acknowledges_parent_strength',
+  'compares_parent_to_sibling_branch',
+  'identifies_parent_scope_limit',
 ] as const;
 
 describe('MCP-021C-EDGE — Family A registry binding (Decision 3)', () => {
-  it('FA-1 — Family A in the registry contains exactly 16 definitions', () => {
+  it('FA-1 — Family A in the registry contains exactly 19 definitions', () => {
     const familyA = edgeGetDefinitionsForFamily('parent_relation');
-    expect(familyA).toHaveLength(16);
+    expect(familyA).toHaveLength(19);
   });
 
   it('FA-2 — every binding key has a definition in the registry', () => {
@@ -68,7 +76,7 @@ describe('MCP-021C-EDGE — Family A registry binding (Decision 3)', () => {
   });
 });
 
-describe('MCP-021C-EDGE — production mode sends exactly the 16 Family A keys', () => {
+describe('MCP-021C-EDGE — production mode sends exactly the 19 Family A keys', () => {
   const PRODUCTION_INPUT = {
     argumentId: 'arg-1',
     parentArgumentId: 'arg-0',
@@ -79,9 +87,9 @@ describe('MCP-021C-EDGE — production mode sends exactly the 16 Family A keys',
     mode: 'production' as const,
   };
 
-  it('FA-4 — request has exactly 16 requestedRawKeys', () => {
+  it('FA-4 — request has exactly 19 requestedRawKeys', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(PRODUCTION_INPUT);
-    expect(req.requestedRawKeys).toHaveLength(16);
+    expect(req.requestedRawKeys).toHaveLength(19);
   });
 
   it('FA-5 — requestedRawKeys set equals the binding list', () => {

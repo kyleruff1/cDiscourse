@@ -1,10 +1,10 @@
 /**
- * MCP-SERVER-002 — Family A keys constant test.
+ * MCP-SERVER-002 + MCP-BUILD2b — Family A keys constant test.
  *
  * Critical invariants:
- *   - FAMILY_A_RAW_KEYS contains exactly 16 entries
- *   - Verbatim binding match with intent brief Decision 1
- *   - FAMILY_A_PROMPT_ENTRIES has 16 entries with one entry per rawKey
+ *   - FAMILY_A_RAW_KEYS contains exactly 19 entries (16 + 3 MCP-BUILD2b)
+ *   - Verbatim binding match with intent brief Decision 1 + Build-2 manifest §1
+ *   - FAMILY_A_PROMPT_ENTRIES has 19 entries with one entry per rawKey
  *   - Every prompt entry has all required verbose-definition fields
  *   - FAMILY_A_CLASSIFIER_SET_VERSION === 'family-a-v1'
  */
@@ -16,8 +16,9 @@ import {
 } from '../lib/familyAKeys.ts';
 
 /**
- * Binding list per MCP-SERVER-002 intent brief Decision 1. Order is
- * NOT load-bearing for the wire contract, but the SET of 16 IS load-bearing.
+ * Binding list: 16 MCP-SERVER-002 intent brief Decision 1 + 3 MCP-BUILD2b
+ * Build-2 manifest §1. Order is NOT load-bearing for the wire contract, but
+ * the SET of 19 IS load-bearing.
  */
 const BINDING_FAMILY_A_KEYS: readonly string[] = [
   'supports_parent',
@@ -36,13 +37,17 @@ const BINDING_FAMILY_A_KEYS: readonly string[] = [
   'has_counter_rebuttal',
   'rebutted',
   'quote_anchors_parent',
+  // MCP-BUILD2b (Build-2 manifest §1) — parent-relation quality booleans.
+  'acknowledges_parent_strength',
+  'compares_parent_to_sibling_branch',
+  'identifies_parent_scope_limit',
 ];
 
-Deno.test('FAMILY_A_RAW_KEYS contains exactly 16 entries', () => {
-  assertEquals(FAMILY_A_RAW_KEYS.length, 16);
+Deno.test('FAMILY_A_RAW_KEYS contains exactly 19 entries', () => {
+  assertEquals(FAMILY_A_RAW_KEYS.length, 19);
 });
 
-Deno.test('FAMILY_A_RAW_KEYS contains all 16 binding rawKeys', () => {
+Deno.test('FAMILY_A_RAW_KEYS contains all 19 binding rawKeys', () => {
   for (const key of BINDING_FAMILY_A_KEYS) {
     if (!FAMILY_A_RAW_KEYS.includes(key)) {
       throw new Error(`FAMILY_A_RAW_KEYS missing binding rawKey: ${key}`);
@@ -68,8 +73,8 @@ Deno.test('FAMILY_A_RAW_KEYS has no duplicate entries', () => {
   }
 });
 
-Deno.test('FAMILY_A_PROMPT_ENTRIES has 16 entries matching FAMILY_A_RAW_KEYS', () => {
-  assertEquals(FAMILY_A_PROMPT_ENTRIES.length, 16);
+Deno.test('FAMILY_A_PROMPT_ENTRIES has 19 entries matching FAMILY_A_RAW_KEYS', () => {
+  assertEquals(FAMILY_A_PROMPT_ENTRIES.length, 19);
   const promptKeys = FAMILY_A_PROMPT_ENTRIES.map((e) => e.rawKey);
   for (const key of FAMILY_A_RAW_KEYS) {
     if (!promptKeys.includes(key)) {

@@ -156,7 +156,7 @@ describe('OPS-MCP-OBSERVABILITY — multi-family aggregation', () => {
     for (const row of q14!.rows) {
       keyCountByFamily[String(row.family)] = Number(row.family_key_count);
     }
-    expect(keyCountByFamily.parent_relation).toBe(16);
+    expect(keyCountByFamily.parent_relation).toBe(19); // MCP-BUILD2b: 16 → 19
     expect(keyCountByFamily.disagreement_axis).toBe(17); // MCP-BUILD2a: 14 → 17
     expect(keyCountByFamily.misunderstanding_repair).toBe(17);
     expect(keyCountByFamily.evidence_source_chain).toBe(19);

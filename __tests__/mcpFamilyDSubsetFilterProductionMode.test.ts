@@ -129,16 +129,17 @@ describe('MCP-021C-EDGE-FAMILY-D-ENABLE — production-mode subset filter (HALT 
     expect(prodKeys).toEqual(adminKeys);
   });
 
-  it('SFP-7 — production-mode multi-family request (D + A) sends 19 D ai_classifier + 16 A full = 35 (composes correctly)', () => {
+  it('SFP-7 — production-mode multi-family request (D + A) sends 19 D ai_classifier + 19 A full = 38 (composes correctly)', () => {
     // Mirror of SF-10 (admin_validation) with mode='production'. Verifies
     // the subset filter composes correctly under production-mode for
     // mixed-family requests: Family D contributes 19 ai_classifier keys
-    // (filtered); Family A contributes its full 16-key set (no filter).
+    // (filtered); Family A contributes its full 19-key set post MCP-BUILD2b
+    // (no filter — the 3 new keys are ai_classifier).
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_D_PRODUCTION_INPUT,
       requestedFamilies: ['evidence_source_chain', 'parent_relation'],
     });
-    expect(req.requestedRawKeys.length).toBe(35);
+    expect(req.requestedRawKeys.length).toBe(38);
     const sent = new Set(req.requestedRawKeys);
     for (const key of FAMILY_D_AI_CLASSIFIER_KEYS) {
       expect(sent.has(key)).toBe(true);

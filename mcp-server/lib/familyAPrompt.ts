@@ -2,9 +2,9 @@
  * MCP-SERVER-002 — Family A prompt construction.
  *
  * Single-prompt strategy per design §2.1: one Anthropic call covers all
- * 16 Family A rawKeys. Token budget ~4-5k input, MAX_TOKENS=1500 output
- * (16 keys × ~60-90 tokens each plus structured-output overhead). See
- * design doc §2.2 for budget math.
+ * 19 Family A rawKeys (16 MCP-SERVER-002 + 3 MCP-BUILD2b). Token budget
+ * ~4-5k input, MAX_TOKENS=1500 output (19 keys × ~60-90 tokens each plus
+ * structured-output overhead). See design doc §2.2 for budget math.
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
@@ -23,7 +23,7 @@
  */
 import { FAMILY_A_PROMPT_ENTRIES, FAMILY_A_RAW_KEYS } from './familyAKeys.ts';
 
-/** MAX_TOKENS for the Family A response. 16 keys × ~80 tokens + overhead. */
+/** MAX_TOKENS for the Family A response. 19 keys × ~80 tokens + overhead. */
 export const FAMILY_A_MAX_TOKENS = 1500;
 
 /** Deterministic decoding. Mirrors the semantic-move tool. */
@@ -98,7 +98,7 @@ export interface ValidatedFamilyARequest {
  *   5. Conservative-positives bias reminder
  *   6. The input (move text, parent text, thread context)
  *
- * When requestedRawKeys is empty, all 16 Family A keys are included.
+ * When requestedRawKeys is empty, all 19 Family A keys are included.
  *
  * Returns a string — pure, no I/O. The string contains the verbatim
  * caller-redacted move/parent/thread text fields; the caller has already

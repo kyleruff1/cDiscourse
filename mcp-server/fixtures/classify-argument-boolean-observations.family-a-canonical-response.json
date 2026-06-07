@@ -17,7 +17,10 @@
     "has_rebuttal",
     "has_counter_rebuttal",
     "rebutted",
-    "quote_anchors_parent"
+    "quote_anchors_parent",
+    "acknowledges_parent_strength",
+    "compares_parent_to_sibling_branch",
+    "identifies_parent_scope_limit"
   ],
   "observations": {
     "supports_parent": true,
@@ -35,7 +38,10 @@
     "has_rebuttal": false,
     "has_counter_rebuttal": false,
     "rebutted": false,
-    "quote_anchors_parent": false
+    "quote_anchors_parent": false,
+    "acknowledges_parent_strength": false,
+    "compares_parent_to_sibling_branch": false,
+    "identifies_parent_scope_limit": false
   },
   "confidence": {
     "supports_parent": "high",
@@ -53,7 +59,10 @@
     "has_rebuttal": "low",
     "has_counter_rebuttal": "low",
     "rebutted": "low",
-    "quote_anchors_parent": "medium"
+    "quote_anchors_parent": "medium",
+    "acknowledges_parent_strength": "low",
+    "compares_parent_to_sibling_branch": "low",
+    "identifies_parent_scope_limit": "low"
   },
   "evidenceSpan": {
     "supports_parent": "I agree with the parent's claim that streetlights reduce nighttime accidents.",
@@ -71,7 +80,10 @@
     "has_rebuttal": null,
     "has_counter_rebuttal": null,
     "rebutted": null,
-    "quote_anchors_parent": null
+    "quote_anchors_parent": null,
+    "acknowledges_parent_strength": null,
+    "compares_parent_to_sibling_branch": null,
+    "identifies_parent_scope_limit": null
   },
   "modelInfo": {
     "provider": "mcp",

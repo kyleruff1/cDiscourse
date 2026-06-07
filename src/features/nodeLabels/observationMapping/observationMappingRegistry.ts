@@ -615,13 +615,324 @@ const FAMILY_B_BUILD2A_RULES: ReadonlyArray<ObservationMappingRule> = [
   },
 ];
 
+// ── (4) MCP-BUILD2b — Family A parent-relation mapping rows. ───────────────
+//        Adopted from the candidate CSV's deferred `parent_relation` rows
+//        whose required flags are EXACTLY the 3 new Build-2b booleans
+//        (acknowledges_parent_strength, compares_parent_to_sibling_branch,
+//        identifies_parent_scope_limit). The CSV's truncated/internal
+//        label_short ("…observed" / "…absent") and "When X=yes, show: …"
+//        diagnostic prefix are re-authored here into clean verdict-free,
+//        move-level strings per the design's review pass (§8.2 / manifest §1).
+//        Every flag is now a deployed A-G rawKey (the 3 new defs land in
+//        familyA.ts this card), so each rule fires. The CSV's intra-3 pair
+//        rows (MBOM-00458..00466) pair the 3 new flags ONLY with each other;
+//        the CSV's other 30 pair rows pair them with PLANNED partner flags
+//        (references_parent_claim, quotes_parent_text, …) that are NOT
+//        deployed → DEFERRED to Build 3. 6 single rows (3 true + 3 false) +
+//        9 pair rows (every two-flag combination of the 3) = 15 rows.
+//        acknowledges_parent_strength (A1) is VERDICT-ADJACENT: its rows are
+//        fenced to describe the MOVE's structure (grants a point before
+//        disagreeing), never asserting the parent point IS strong/correct;
+//        "correct" / "true" / "wins" never appear in any A1 label/diagnostic.
+
+const FAMILY_A_BUILD2B_RULES: ReadonlyArray<ObservationMappingRule> = [
+  // ── singles: acknowledges_parent_strength (verdict-adjacent) ──
+  {
+    mappingId: 'MBOM-00019',
+    familyKey: 'parent_relation',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['acknowledges_parent_strength'],
+    requiredFalseFlags: [],
+    observationCode: 'parent_relation.single_true.acknowledges_parent_strength',
+    labelShort: 'Grants a point first',
+    labelNeutral: 'Grants a point before disagreeing',
+    diagnosticSentence:
+      'This reply grants a point of the parent before disagreeing, which can keep the exchange constructive.',
+    displayPriority: 74,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00020',
+    familyKey: 'parent_relation',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['acknowledges_parent_strength'],
+    observationCode: 'parent_relation.single_false.acknowledges_parent_strength',
+    labelShort: 'No point granted first',
+    labelNeutral: 'Granting a point before disagreeing not observed',
+    diagnosticSentence:
+      'This reply disagrees without granting a point first; this is only an observation about phrasing, not a concern.',
+    displayPriority: 112,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: compares_parent_to_sibling_branch ──
+  {
+    mappingId: 'MBOM-00021',
+    familyKey: 'parent_relation',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['compares_parent_to_sibling_branch'],
+    requiredFalseFlags: [],
+    observationCode:
+      'parent_relation.single_true.compares_parent_to_sibling_branch',
+    labelShort: 'Compares to a sibling branch',
+    labelNeutral: 'Compares the parent to a sibling branch',
+    diagnosticSentence:
+      'This reply compares the parent move to a sibling branch in the same thread, which can place the disagreement in context.',
+    displayPriority: 80,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00022',
+    familyKey: 'parent_relation',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['compares_parent_to_sibling_branch'],
+    observationCode:
+      'parent_relation.single_false.compares_parent_to_sibling_branch',
+    labelShort: 'No sibling comparison',
+    labelNeutral: 'Comparison to a sibling branch not observed',
+    diagnosticSentence:
+      'This reply stays within the parent line without comparing to a sibling branch.',
+    displayPriority: 103,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: identifies_parent_scope_limit ──
+  {
+    mappingId: 'MBOM-00023',
+    familyKey: 'parent_relation',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['identifies_parent_scope_limit'],
+    requiredFalseFlags: [],
+    observationCode:
+      'parent_relation.single_true.identifies_parent_scope_limit',
+    labelShort: 'Names a scope limit',
+    labelNeutral: 'Names a scope limit on the parent claim',
+    diagnosticSentence:
+      'This reply names a specific scope limit on the parent claim, which can sharpen where it applies.',
+    displayPriority: 78,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00024',
+    familyKey: 'parent_relation',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['identifies_parent_scope_limit'],
+    observationCode:
+      'parent_relation.single_false.identifies_parent_scope_limit',
+    labelShort: 'No scope limit named',
+    labelNeutral: 'A specific scope limit not observed',
+    diagnosticSentence:
+      'This reply does not name a specific scope limit; naming where the claim stops applying can sharpen the exchange.',
+    displayPriority: 104,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: acknowledges_parent_strength × compares_parent_to_sibling_branch ──
+  {
+    mappingId: 'MBOM-00458',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: [
+      'acknowledges_parent_strength',
+      'compares_parent_to_sibling_branch',
+    ],
+    requiredFalseFlags: [],
+    observationCode:
+      'parent_relation.pair_true_true.acknowledges_parent_strength.compares_parent_to_sibling_branch',
+    labelShort: 'Grants a point, compares branches',
+    labelNeutral: 'Grants a point and compares to a sibling branch',
+    diagnosticSentence:
+      'This reply grants a point before disagreeing and compares the parent to a sibling branch, which can keep the exchange constructive and in context.',
+    displayPriority: 70,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00459',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['acknowledges_parent_strength'],
+    requiredFalseFlags: ['compares_parent_to_sibling_branch'],
+    observationCode:
+      'parent_relation.pair_true_false.acknowledges_parent_strength.no_sibling_comparison',
+    labelShort: 'Grants a point, no compare',
+    labelNeutral: 'Grants a point without comparing to a sibling branch',
+    diagnosticSentence:
+      'This reply grants a point before disagreeing but does not compare to a sibling branch.',
+    displayPriority: 84,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00460',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['compares_parent_to_sibling_branch'],
+    requiredFalseFlags: ['acknowledges_parent_strength'],
+    observationCode:
+      'parent_relation.pair_false_true.compares_parent_to_sibling_branch.no_point_granted',
+    labelShort: 'Compares branches, no point granted',
+    labelNeutral: 'Compares to a sibling branch without granting a point first',
+    diagnosticSentence:
+      'This reply compares the parent to a sibling branch but does not grant a point before disagreeing.',
+    displayPriority: 100,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: acknowledges_parent_strength × identifies_parent_scope_limit ──
+  {
+    mappingId: 'MBOM-00461',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: [
+      'acknowledges_parent_strength',
+      'identifies_parent_scope_limit',
+    ],
+    requiredFalseFlags: [],
+    observationCode:
+      'parent_relation.pair_true_true.acknowledges_parent_strength.identifies_parent_scope_limit',
+    labelShort: 'Grants a point, names a limit',
+    labelNeutral: 'Grants a point and names a scope limit',
+    diagnosticSentence:
+      'This reply grants a point before disagreeing and names a specific scope limit, which can sharpen where the claim applies.',
+    displayPriority: 71,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00462',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['acknowledges_parent_strength'],
+    requiredFalseFlags: ['identifies_parent_scope_limit'],
+    observationCode:
+      'parent_relation.pair_true_false.acknowledges_parent_strength.no_scope_limit',
+    labelShort: 'Grants a point, no limit',
+    labelNeutral: 'Grants a point without naming a scope limit',
+    diagnosticSentence:
+      'This reply grants a point before disagreeing but does not name a specific scope limit.',
+    displayPriority: 85,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00463',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['identifies_parent_scope_limit'],
+    requiredFalseFlags: ['acknowledges_parent_strength'],
+    observationCode:
+      'parent_relation.pair_false_true.identifies_parent_scope_limit.no_point_granted',
+    labelShort: 'Names a limit, no point granted',
+    labelNeutral: 'Names a scope limit without granting a point first',
+    diagnosticSentence:
+      'This reply names a specific scope limit but does not grant a point before disagreeing.',
+    displayPriority: 99,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: compares_parent_to_sibling_branch × identifies_parent_scope_limit ──
+  {
+    mappingId: 'MBOM-00464',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: [
+      'compares_parent_to_sibling_branch',
+      'identifies_parent_scope_limit',
+    ],
+    requiredFalseFlags: [],
+    observationCode:
+      'parent_relation.pair_true_true.compares_parent_to_sibling_branch.identifies_parent_scope_limit',
+    labelShort: 'Compares branches, names a limit',
+    labelNeutral: 'Compares to a sibling branch and names a scope limit',
+    diagnosticSentence:
+      'This reply compares the parent to a sibling branch and names a specific scope limit, which can place the disagreement in context.',
+    displayPriority: 76,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00465',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['compares_parent_to_sibling_branch'],
+    requiredFalseFlags: ['identifies_parent_scope_limit'],
+    observationCode:
+      'parent_relation.pair_true_false.compares_parent_to_sibling_branch.no_scope_limit',
+    labelShort: 'Compares branches, no limit',
+    labelNeutral: 'Compares to a sibling branch without naming a scope limit',
+    diagnosticSentence:
+      'This reply compares the parent to a sibling branch but does not name a specific scope limit.',
+    displayPriority: 90,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00466',
+    familyKey: 'parent_relation',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['identifies_parent_scope_limit'],
+    requiredFalseFlags: ['compares_parent_to_sibling_branch'],
+    observationCode:
+      'parent_relation.pair_false_true.identifies_parent_scope_limit.no_sibling_comparison',
+    labelShort: 'Names a limit, no compare',
+    labelNeutral: 'Names a scope limit without comparing to a sibling branch',
+    diagnosticSentence:
+      'This reply names a specific scope limit but does not compare to a sibling branch.',
+    displayPriority: 101,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+];
+
 /**
  * The reviewed, reconciled, frozen mapping registry the evaluator reads.
  * A-G only. Every flag is a deployed rawKey; every label is verdict-free.
  */
 export const OBSERVATION_MAPPING_REGISTRY: ReadonlyArray<ObservationMappingRule> =
   Object.freeze(
-    [...ADOPTED_FROM_CSV, ...CURATED_RULES, ...FAMILY_B_BUILD2A_RULES].map((r) =>
+    [
+      ...ADOPTED_FROM_CSV,
+      ...CURATED_RULES,
+      ...FAMILY_B_BUILD2A_RULES,
+      ...FAMILY_A_BUILD2B_RULES,
+    ].map((r) =>
       Object.freeze({
         ...r,
         requiredTrueFlags: Object.freeze([...r.requiredTrueFlags]),
@@ -659,9 +970,24 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
    * from deferred to genuinely-fireable. 6 singles + 9 pairs = 15.
    */
   build2aFamilyBAdoptedRules: FAMILY_B_BUILD2A_RULES.length,
+  /**
+   * MCP-BUILD2b — mapping rows adopted from the candidate CSV's deferred
+   * `parent_relation` rows whose required flags are EXACTLY the 3 new
+   * Build-2b booleans (now deployed in familyA.ts): acknowledges_parent_strength,
+   * compares_parent_to_sibling_branch, identifies_parent_scope_limit. These
+   * were part of the 955 deferred-planned-vocab rows; deploying the 3 booleans
+   * converts them from deferred to genuinely-fireable. 6 singles + 9 pairs = 15.
+   * The CSV's other ~30 `parent_relation` pair rows that ALSO need a planned
+   * partner flag (references_parent_claim, quotes_parent_text, …) remain
+   * DEFERRED to Build 3.
+   */
+  build2bFamilyAAdoptedRules: FAMILY_A_BUILD2B_RULES.length,
   /** Total rules in the active registry. */
   totalActiveRules:
-    ADOPTED_FROM_CSV.length + CURATED_RULES.length + FAMILY_B_BUILD2A_RULES.length,
+    ADOPTED_FROM_CSV.length +
+    CURATED_RULES.length +
+    FAMILY_B_BUILD2A_RULES.length +
+    FAMILY_A_BUILD2B_RULES.length,
   /** Families H/I/J adopted. ALWAYS 0 (frozen / out of scope). */
   frozenFamiliesAdopted: 0,
 } as const);

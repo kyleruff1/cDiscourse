@@ -569,6 +569,47 @@ export const PLAIN_LANGUAGE_COPY = {
     'This reply separates fact from values in a plain register; this is only an observation about phrasing.',
   'disagreement_axis.pair_false_true.preserves_face_while_disagreeing.no_fact_value_split':
     'This reply keeps the focus on the argument but does not separate fact from values; drawing that line can clarify it.',
+  // MCP-BUILD2b (Family A parent_relation expansion) — plain-language for the
+  // 3 new parent-relation booleans' mapping rows. Every value is verdict-free,
+  // move-level, and describes the MOVE never the author. No underscores (the
+  // registry review-gate asserts the displayed string is snake-free). The
+  // acknowledges_parent_strength (A1) values are fenced: they describe the
+  // move's structure (grants a point before disagreeing) and never assert the
+  // parent point is correct/true/strong.
+  // ── acknowledges_parent_strength ──
+  'parent_relation.single_true.acknowledges_parent_strength':
+    'This reply grants a point of the parent before disagreeing, which can keep the exchange constructive.',
+  'parent_relation.single_false.acknowledges_parent_strength':
+    'This reply disagrees without granting a point first; this is only an observation about phrasing, not a concern.',
+  // ── compares_parent_to_sibling_branch ──
+  'parent_relation.single_true.compares_parent_to_sibling_branch':
+    'This reply compares the parent move to a sibling branch in the same thread, which can place the disagreement in context.',
+  'parent_relation.single_false.compares_parent_to_sibling_branch':
+    'This reply stays within the parent line without comparing to a sibling branch.',
+  // ── identifies_parent_scope_limit ──
+  'parent_relation.single_true.identifies_parent_scope_limit':
+    'This reply names a specific scope limit on the parent claim, which can sharpen where it applies.',
+  'parent_relation.single_false.identifies_parent_scope_limit':
+    'This reply does not name a specific scope limit; naming where the claim stops applying can sharpen the exchange.',
+  // ── pairs over the 3 new booleans ──
+  'parent_relation.pair_true_true.acknowledges_parent_strength.compares_parent_to_sibling_branch':
+    'This reply grants a point before disagreeing and compares the parent to a sibling branch, which can keep the exchange constructive and in context.',
+  'parent_relation.pair_true_false.acknowledges_parent_strength.no_sibling_comparison':
+    'This reply grants a point before disagreeing but does not compare to a sibling branch.',
+  'parent_relation.pair_false_true.compares_parent_to_sibling_branch.no_point_granted':
+    'This reply compares the parent to a sibling branch but does not grant a point before disagreeing.',
+  'parent_relation.pair_true_true.acknowledges_parent_strength.identifies_parent_scope_limit':
+    'This reply grants a point before disagreeing and names a specific scope limit, which can sharpen where the claim applies.',
+  'parent_relation.pair_true_false.acknowledges_parent_strength.no_scope_limit':
+    'This reply grants a point before disagreeing but does not name a specific scope limit.',
+  'parent_relation.pair_false_true.identifies_parent_scope_limit.no_point_granted':
+    'This reply names a specific scope limit but does not grant a point before disagreeing.',
+  'parent_relation.pair_true_true.compares_parent_to_sibling_branch.identifies_parent_scope_limit':
+    'This reply compares the parent to a sibling branch and names a specific scope limit, which can place the disagreement in context.',
+  'parent_relation.pair_true_false.compares_parent_to_sibling_branch.no_scope_limit':
+    'This reply compares the parent to a sibling branch but does not name a specific scope limit.',
+  'parent_relation.pair_false_true.identifies_parent_scope_limit.no_sibling_comparison':
+    'This reply names a specific scope limit but does not compare to a sibling branch.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;

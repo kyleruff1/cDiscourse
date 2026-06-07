@@ -159,8 +159,9 @@ describe('MCP-SERVER-008A-FAMILY-G Edge → MCP subset filter (Stage 2B fix)', (
       ...FAMILY_G_BASE_INPUT,
       requestedFamilies: ['resolution_progress', 'parent_relation'],
     });
-    // 18 Family G ai_classifier + 16 Family A = 34 total (no overlap).
-    expect(req.requestedRawKeys.length).toBe(34);
+    // 18 Family G ai_classifier + 19 Family A (post MCP-BUILD2b) = 37 total
+    // (no overlap).
+    expect(req.requestedRawKeys.length).toBe(37);
     const sent = new Set(req.requestedRawKeys);
     for (const key of FAMILY_G_AI_CLASSIFIER_KEYS) {
       expect(sent.has(key)).toBe(true);

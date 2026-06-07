@@ -30,16 +30,17 @@ describe('MCP-021A — registry size + family assignment', () => {
     expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBeLessThanOrEqual(200);
   });
 
-  it('contains exactly 175 entries (MCP-021A 172 + MCP-BUILD2a Family B +3)', () => {
+  it('contains exactly 178 entries (MCP-021A 172 + MCP-BUILD2a Family B +3 + MCP-BUILD2b Family A +3)', () => {
     // Design §3.11: "Final registry count: 64 + 107 = 171, OR 65 + 107 = 172.
     // Resolved by implementer Phase A pass; both numbers respect Trigger 11."
     // Implementer Phase A: existing 65 + 107 new = 172. Family G includes 21
     // retroactive entries (5 auto + 7 lifecycle + 9 ai_classifier).
-    // MCP-BUILD2a (Build-2 addendum §5): +3 disagreement_axis booleans
-    // (isolates_main_disagreement, distinguishes_fact_value_disagreement,
-    // preserves_face_while_disagreeing) → 175. Vocabulary expansion only; the
+    // MCP-BUILD2a (Build-2 addendum §5): +3 disagreement_axis booleans → 175.
+    // MCP-BUILD2b (Build-2 manifest §1): +3 parent_relation booleans
+    // (acknowledges_parent_strength, compares_parent_to_sibling_branch,
+    // identifies_parent_scope_limit) → 178. Vocabulary expansion only; the
     // schema version constant is byte-equal (no wire-shape change).
-    expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBe(175);
+    expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBe(178);
   });
 
   it('has every entry with a family field assigned', () => {
@@ -64,7 +65,7 @@ describe('MCP-021A — registry size + family assignment', () => {
 
 describe('MCP-021A — per-family count forecast (within ±1 of design §3.11)', () => {
   const expectedCounts: Record<MachineObservationFamily, number> = {
-    parent_relation: 16, // 4 existing + 12 new
+    parent_relation: 19, // 4 existing + 12 MCP-021A + 3 MCP-BUILD2b
     disagreement_axis: 17, // 1 existing + 13 MCP-021A + 3 MCP-BUILD2a
     misunderstanding_repair: 17, // 4 existing + 13 new
     evidence_source_chain: 27, // 15 existing + 12 new
@@ -83,12 +84,12 @@ describe('MCP-021A — per-family count forecast (within ±1 of design §3.11)',
     });
   }
 
-  it('per-family counts sum to 175', () => {
+  it('per-family counts sum to 178', () => {
     const total = ALL_MACHINE_OBSERVATION_FAMILIES.reduce(
       (sum, fam) => sum + expectedCounts[fam],
       0,
     );
-    expect(total).toBe(175);
+    expect(total).toBe(178);
   });
 });
 

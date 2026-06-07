@@ -75,8 +75,32 @@ describe('MCP-021B — MCP-021A registry files byte-equal', () => {
     expect(gitDiffFromMain('src/features/nodeLabels/machineObservationDefinitions.ts')).toBe('');
   });
 
-  it('RO-7 — machineObservationDefinitions/familyA.ts unchanged', () => {
-    expect(gitDiffFromMain('src/features/nodeLabels/machineObservationDefinitions/familyA.ts')).toBe('');
+  // RO-7 — byte-equal boundary relaxed 2026-06-07 (MCP-BUILD2b).
+  // RO-7 originally asserted familyA.ts was byte-equal to main (`git diff
+  // main..HEAD` empty), proving the long-merged MCP-021B card touched no
+  // Family-A definitions. As a PERMANENT test that premise is structurally
+  // incompatible with the ratified MCP-OBSERVATION-MAPPING-REFACTOR-DESIGN-001
+  // Build-2 roadmap, which sequences family-by-family VOCABULARY EXPANSION of
+  // familyA.ts (MCP-BUILD2b adds 3 parent_relation booleans). Mirrors the
+  // RO-8 relaxation: the MCP-021B boundary is historical; relaxed here to an
+  // ADDITIVE-ONLY well-formedness check so vocabulary-expansion cards can grow
+  // familyA.ts without a spurious read-only-boundary failure. The file must
+  // still export FAMILY_A_DEFINITIONS and retain the MCP-021A baseline rawKeys
+  // (additive, never a removal/rename).
+  it('RO-7 — familyA.ts is well-formed + additive (MCP-021A baseline preserved)', () => {
+    const content = readFileSync(
+      join(ROOT, 'src/features/nodeLabels/machineObservationDefinitions/familyA.ts'),
+      'utf8',
+    );
+    expect(content).toContain('export const FAMILY_A_DEFINITIONS');
+    // MCP-021A baseline rawKeys must all still be present (no removal/rename).
+    for (const baselineRawKey of [
+      'supports_parent',
+      'challenges_parent',
+      'quote_anchors_parent',
+    ]) {
+      expect(content).toContain(`rawKey: '${baselineRawKey}'`);
+    }
   });
 
   // RO-8 — byte-equal boundary relaxed 2026-06-07 (MCP-BUILD2a).

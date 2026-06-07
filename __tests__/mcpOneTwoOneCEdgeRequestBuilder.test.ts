@@ -63,12 +63,13 @@ describe('MCP-021C-EDGE — buildBooleanObservationRequestForArgument (productio
     expect(req.requestedFamilies).toEqual(['parent_relation']);
   });
 
-  it('RB-6 — requestedRawKeys contains exactly the 16 Family A keys (in production)', () => {
+  it('RB-6 — requestedRawKeys contains exactly the 19 Family A keys (in production)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(BASE_INPUT_PRODUCTION);
-    expect(req.requestedRawKeys).toHaveLength(16);
+    // MCP-BUILD2b: 16 → 19 Family A keys (+3 parent-relation quality booleans).
+    expect(req.requestedRawKeys).toHaveLength(19);
   });
 
-  it('RB-7 — requestedRawKeys includes the binding 16 Family A keys verbatim', () => {
+  it('RB-7 — requestedRawKeys includes the binding 19 Family A keys verbatim', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(BASE_INPUT_PRODUCTION);
     const expectedKeys = [
       'supports_parent',
@@ -87,6 +88,10 @@ describe('MCP-021C-EDGE — buildBooleanObservationRequestForArgument (productio
       'has_counter_rebuttal',
       'rebutted',
       'quote_anchors_parent',
+      // MCP-BUILD2b — parent-relation quality booleans.
+      'acknowledges_parent_strength',
+      'compares_parent_to_sibling_branch',
+      'identifies_parent_scope_limit',
     ];
     const sortedActual = [...req.requestedRawKeys].sort();
     const sortedExpected = [...expectedKeys].sort();
@@ -118,13 +123,14 @@ describe('MCP-021C-EDGE — production mode filters out D–J families (post Sta
     expect(req.requestedRawKeys.length).toBe(17);
   });
 
-  it('RB-11 — mixed [parent_relation, disagreement_axis] in production → BOTH kept (16 + 17 = 33 keys)', () => {
+  it('RB-11 — mixed [parent_relation, disagreement_axis] in production → BOTH kept (19 + 17 = 36 keys)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...BASE_INPUT_PRODUCTION,
       requestedFamilies: ['parent_relation', 'disagreement_axis'],
     });
     expect(req.requestedFamilies).toEqual(['parent_relation', 'disagreement_axis']);
-    expect(req.requestedRawKeys.length).toBe(33); // 16 (Family A) + 17 (Family B post MCP-BUILD2a)
+    // 19 (Family A post MCP-BUILD2b) + 17 (Family B post MCP-BUILD2a) = 36.
+    expect(req.requestedRawKeys.length).toBe(36);
   });
 
   it('RB-12 — sensitive_composer in production → dropped (zero keys)', () => {
@@ -144,7 +150,8 @@ describe('MCP-021C-EDGE — admin_validation mode allows all 10 families', () =>
       requestedFamilies: ['parent_relation'],
     });
     expect(req.requestedFamilies).toEqual(['parent_relation']);
-    expect(req.requestedRawKeys.length).toBe(16);
+    // MCP-BUILD2b: 16 → 19 Family A keys.
+    expect(req.requestedRawKeys.length).toBe(19);
   });
 
   it('RB-14 — admin_validation + disagreement_axis keeps it (and yields >0 rawKeys)', () => {
