@@ -19,9 +19,14 @@ const src = fs.readFileSync(
 );
 
 describe('AdminArgumentsTab — Show-inactives toggle', () => {
-  it('renders the toggle Pressable with switch role + testID', () => {
+  it('renders the toggle Pressable as a clearly-visible BUTTON + testID', () => {
+    // ADMIN-CONV-INACTIVE-VISIBILITY-001 — the operator reported the prior
+    // control read as inert text. It is now a real button with a visible
+    // checkbox-style indicator + plain "Show / Showing inactives" copy. The
+    // role moved from "switch" to "button" with an explicit `selected` state.
     expect(src).toContain('testID="admin-arguments-show-inactives-toggle"');
-    expect(src).toContain('accessibilityRole="switch"');
+    expect(src).toContain('accessibilityRole="button"');
+    expect(src).toMatch(/accessibilityState=\{\{ selected: includeInactives \}\}/);
     expect(src).toContain('admin-arguments-show-inactives-toggle');
   });
 

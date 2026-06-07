@@ -41,6 +41,9 @@ function debate(partial: Partial<Debate> & { id: string }): Debate {
     updatedAt: partial.updatedAt ?? isoAt(base),
     myParticipantSide: partial.myParticipantSide ?? null,
     visibility: partial.visibility ?? 'public',
+    // ADMIN-CONV-INACTIVE-VISIBILITY-001 — default to active; tests pass a
+    // non-null timestamp to exercise the debate-level skip.
+    inactiveAt: partial.inactiveAt ?? null,
   };
 }
 
@@ -725,6 +728,87 @@ describe('EV-003 — buildConversationGalleryCards evidenceDebtSummary', () => {
     expect(cards[0].evidenceDebtSummary.totalCount).toBe(0);
     expect(cards[0].evidenceDebtSummary.hasOpenEvidenceDebt).toBe(false);
     expect(cards[0].signals.some((s) => s.code.startsWith('evidence_debt'))).toBe(false);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────
+// ADMIN-CONV-INACTIVE-VISIBILITY-001 — debate-level inactive rooms are
+// excluded from the gallery (defense-in-depth for the admin gallery view;
+// RLS already hides them from non-admins).
+// ──────────────────────────────────────────────────────────────
+
+describe('buildConversationGalleryCards — debate-level inactive rooms', () => {
+  const NOW = 1715000000000 + 86_400_000;
+
+  it('a debate with a non-null inactiveAt yields ZERO cards', () => {
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'inact', inactiveAt: isoAt(1715000000000) })],
+      argumentsByDebateId: { inact: [arg({ id: 'm1', debateId: 'inact' })] },
+      nowMs: NOW,
+    });
+    expect(cards).toHaveLength(0);
+  });
+
+  it('a debate with inactiveAt null yields a card', () => {
+    const cards = buildConversationGalleryCards({
+      debates: [debate({ id: 'act', inactiveAt: null })],
+      argumentsByDebateId: { act: [arg({ id: 'm1', debateId: 'act' })] },
+      nowMs: NOW,
+    });
+    expect(cards).toHaveLength(1);
+    expect(cards[0].debateId).toBe('act');
+  });
+
+  it('a debate with inactiveAt absent (undefined) is treated as active → a card', () => {
+    // The fixture helper defaults inactiveAt to null; explicitly delete it to
+    // model a pre-migration / older-fixture row that omits the field entirely.
+    const d = debate({ id: 'noField' });
+    delete (d as { inactiveAt?: string | null }).inactiveAt;
+    const cards = buildConversationGalleryCards({
+      debates: [d],
+      argumentsByDebateId: { noField: [arg({ id: 'm1', debateId: 'noField' })] },
+      nowMs: NOW,
+    });
+    expect(cards).toHaveLength(1);
+    expect(cards[0].debateId).toBe('noField');
+  });
+
+  it('a mixed list keeps only the active debates', () => {
+    const cards = buildConversationGalleryCards({
+      debates: [
+        debate({ id: 'a', inactiveAt: null }),
+        debate({ id: 'b', inactiveAt: isoAt(1715000000000) }),
+        debate({ id: 'c', inactiveAt: null }),
+      ],
+      argumentsByDebateId: {
+        a: [arg({ id: 'a1', debateId: 'a' })],
+        b: [arg({ id: 'b1', debateId: 'b' })],
+        c: [arg({ id: 'c1', debateId: 'c' })],
+      },
+      nowMs: NOW,
+    });
+    expect(cards.map((c) => c.debateId).sort()).toEqual(['a', 'c']);
+  });
+
+  it('§10a — an inactive debate row carrying an inactive_reason never surfaces a card or any reason text', () => {
+    // Poisoned fixture: the model contract has no inactiveReason field, but a
+    // loader bug could spread a raw row carrying `inactive_reason`. The
+    // debate-level skip drops the room entirely, so no card and therefore no
+    // reason can leak into the gallery.
+    const poisoned = {
+      ...debate({ id: 'poison', inactiveAt: isoAt(1715000000000) }),
+      inactive_reason: 'operator marked this room as spam',
+      inactiveReason: 'operator marked this room as spam',
+    } as unknown as Debate;
+    const cards = buildConversationGalleryCards({
+      debates: [poisoned],
+      argumentsByDebateId: { poison: [arg({ id: 'p1', debateId: 'poison' })] },
+      nowMs: NOW,
+    });
+    expect(cards).toHaveLength(0);
+    const serialized = JSON.stringify(cards);
+    expect(serialized).not.toContain('inactive_reason');
+    expect(serialized).not.toContain('marked this room as spam');
   });
 });
 

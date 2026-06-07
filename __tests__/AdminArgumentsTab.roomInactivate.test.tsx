@@ -22,6 +22,8 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { groupArtifactsByRoom } from '../src/features/admin/adminArgumentsRoomGroupingModel';
+import type { ArgumentArtifact } from '../src/features/arguments/argumentArtifactModel';
 
 const repoRoot = process.cwd();
 const src = fs.readFileSync(
@@ -137,6 +139,163 @@ describe('AdminArgumentsTab — DEBATE-level inactive badge (WHAT, never WHY)', 
     expect(src).not.toMatch(/r\.debateInactiveReason/);
     expect(src).not.toMatch(/debateInactiveReason/);
     expect(src).not.toMatch(/debates\([^)]*inactive_reason/);
+  });
+});
+
+// ── ADMIN-CONV-INACTIVE-VISIBILITY-001 — default-hide inactive ROOMS ──────
+
+describe('AdminArgumentsTab — default-hides DEBATE-level inactive rooms (ADMIN-CONV-INACTIVE-VISIBILITY-001)', () => {
+  it('the roomGroups memo filters out isDebateInactive groups when includeInactives is off', () => {
+    // The filter is applied AFTER grouping, gating on the existing toggle.
+    expect(src).toMatch(/includeInactives \? grouped : grouped\.filter\(\(g\) => !g\.isDebateInactive\)/);
+  });
+
+  it('the roomGroups memo lists includeInactives in its dependency array', () => {
+    expect(src).toMatch(/\}, \[artifactRows, sortDirection, includeInactives\]\)/);
+  });
+
+  it('reuses the EXISTING includeInactives state (no new room-visibility state)', () => {
+    expect(src).toMatch(/const \[includeInactives, setIncludeInactives\] = useState\(false\)/);
+  });
+});
+
+describe('AdminArgumentsTab — Show-inactives is a CLEARLY VISIBLE BUTTON (ADMIN-CONV-INACTIVE-VISIBILITY-001)', () => {
+  it('the toggle is a Pressable with accessibilityRole="button" (not inert text)', () => {
+    // The toggle block carries the button role + selected state + testID.
+    expect(src).toMatch(/accessibilityRole="button"/);
+    expect(src).toMatch(/accessibilityState=\{\{ selected: includeInactives \}\}/);
+    expect(src).toContain('testID="admin-arguments-show-inactives-toggle"');
+  });
+
+  it('the toggle flips the existing includeInactives state on press', () => {
+    expect(src).toMatch(/onPress=\{\(\) => setIncludeInactives\(\(v\) => !v\)\}/);
+  });
+
+  it('the toggle carries a hit target (hitSlop) for the ≥44px tap area', () => {
+    expect(src).toMatch(/hitSlop=\{\{ top: 12, bottom: 12, left: 8, right: 8 \}\}/);
+  });
+
+  it('the toggle uses plain, action-oriented label copy (Show / Showing inactives)', () => {
+    expect(src).toContain('Show inactives');
+    expect(src).toContain('Showing inactives');
+    // The prior inert "Hiding inactives on/off" status copy is gone.
+    expect(src).not.toContain('Hiding inactives');
+  });
+
+  it('renders a visible checkbox-style indicator so the control reads as pressable', () => {
+    expect(src).toContain('showInactivesBox');
+    expect(src).toContain('showInactivesBoxMark');
+  });
+
+  it('the toggle never READS a reason field (§10a — WHAT only); reason appears only in never-read disclaimer comments', () => {
+    // The existing suite proves no `inactiveReason`/`debateInactiveReason` is
+    // accessed; here we re-assert the assignment/access forms specifically (the
+    // word may legitimately appear inside "...is NEVER read" comments).
+    expect(src).not.toMatch(/\binactiveReason\s*[:=.]/);
+    expect(src).not.toMatch(/\bdebateInactiveReason\b/);
+  });
+});
+
+// Pure-model proof that the filter predicate the memo uses is sound: a
+// debate-inactive room produces isDebateInactive=true (so it is dropped when
+// the toggle is off), and an active room produces false (so it stays).
+describe('groupArtifactsByRoom — isDebateInactive drives the room-level hide (ADMIN-CONV-INACTIVE-VISIBILITY-001)', () => {
+  function makeArtifact(over: Partial<ArgumentArtifact> & {
+    artifactId: string;
+    debateId: string;
+  }): ArgumentArtifact {
+    const createdAt = over.createdAt ?? '2026-06-06T00:00:00.000Z';
+    const latestUpdatedAt = over.latestUpdatedAt ?? createdAt;
+    return {
+      artifactId: over.artifactId,
+      latestBody: over.latestBody ?? 'neutral body',
+      authorId: over.authorId ?? 'author-1',
+      debateId: over.debateId,
+      debateTitle: over.debateTitle ?? null,
+      debateInactiveAt: over.debateInactiveAt ?? null,
+      latestUpdatedAt,
+      createdAt,
+      updateCount: over.updateCount ?? 0,
+      observationCount: over.observationCount ?? { covered: 0, total: 0 },
+      duplicateRunCount: over.duplicateRunCount ?? 0,
+      qualifiers: over.qualifiers ?? [],
+      isInactive: over.isInactive ?? false,
+      revisions: over.revisions ?? [
+        {
+          revisionId: over.artifactId,
+          body: over.latestBody ?? 'neutral body',
+          updatedAt: latestUpdatedAt,
+          createdAt,
+          isInactive: over.isInactive ?? false,
+        },
+      ],
+    };
+  }
+
+  // Mirror the component memo's filter so the hide behavior is asserted on real
+  // model output, not just the source.
+  const hideInactive = (groups: ReturnType<typeof groupArtifactsByRoom>) =>
+    groups.filter((g) => !g.isDebateInactive);
+
+  it('a DEBATE-inactive room (active statements) yields isDebateInactive=true', () => {
+    // The whole room is inactive even though the individual statement is active.
+    const a = makeArtifact({
+      artifactId: 'id:1',
+      debateId: 'room-inactive',
+      debateInactiveAt: '2026-06-06T12:00:00.000Z',
+      isInactive: false,
+    });
+    const group = groupArtifactsByRoom([a])[0];
+    expect(group.isDebateInactive).toBe(true);
+    // ...and the per-statement fold is still active (distinct dimension).
+    expect(group.isInactive).toBe(false);
+  });
+
+  it('with the toggle OFF, a debate-inactive room is ABSENT from the rendered groups', () => {
+    const active = makeArtifact({ artifactId: 'id:a', debateId: 'room-active', debateInactiveAt: null });
+    const inactive = makeArtifact({
+      artifactId: 'id:b',
+      debateId: 'room-inactive',
+      debateInactiveAt: '2026-06-06T12:00:00.000Z',
+    });
+    const visible = hideInactive(groupArtifactsByRoom([active, inactive]));
+    expect(visible.map((g) => g.roomId)).toEqual(['room-active']);
+  });
+
+  it('with the toggle ON, the debate-inactive room is revealed', () => {
+    const active = makeArtifact({ artifactId: 'id:a', debateId: 'room-active', debateInactiveAt: null });
+    const inactive = makeArtifact({
+      artifactId: 'id:b',
+      debateId: 'room-inactive',
+      debateInactiveAt: '2026-06-06T12:00:00.000Z',
+    });
+    // includeInactives=true → no filter applied (mirrors the memo).
+    const all = groupArtifactsByRoom([active, inactive]);
+    expect(all.map((g) => g.roomId).sort()).toEqual(['room-active', 'room-inactive']);
+  });
+
+  it('§10a — a poisoned inactive_reason on a debate-inactive room never appears in any produced group field', () => {
+    const POISON = 'reason-room-flagged-by-operator';
+    const inactive = makeArtifact({
+      artifactId: 'id:b',
+      debateId: 'room-inactive',
+      debateInactiveAt: '2026-06-06T12:00:00.000Z',
+    });
+    (inactive as unknown as { inactive_reason: string }).inactive_reason = POISON;
+    (inactive as unknown as { debateInactiveReason: string }).debateInactiveReason = POISON;
+    const group = groupArtifactsByRoom([inactive])[0];
+    const produced = JSON.stringify({
+      roomId: group.roomId,
+      roomTitle: group.roomTitle,
+      isDebateInactive: group.isDebateInactive,
+      isInactive: group.isInactive,
+      latestBodyExcerpt: group.latestBodyExcerpt,
+    });
+    expect(produced).not.toContain(POISON);
+    expect(Object.prototype.hasOwnProperty.call(group, 'inactive_reason')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(group, 'debateInactiveReason')).toBe(false);
+    // The hide decision is driven by the timestamp-only flag.
+    expect(group.isDebateInactive).toBe(true);
   });
 });
 
