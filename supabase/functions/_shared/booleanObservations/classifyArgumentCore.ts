@@ -39,6 +39,15 @@ import {
   buildBooleanObservationRequestForArgument,
   buildBooleanObservationInputHash,
 } from './booleanObservationRequestBuilder.ts';
+import {
+  chunkRawKeys,
+  buildBatchRequestFromFull,
+  mergeBatchResponses,
+  firstBatchFailureDetail,
+  hasFailedBatch,
+  hasSuccessfulBatch,
+} from './booleanObservationBatching.ts';
+import type { BatchClassifyOutcome } from './booleanObservationBatching.ts';
 import { filterFamiliesForMode } from './familyRegistry.ts';
 import { buildRunRowFailureDetail } from './classifierRunRowFailureDetail.ts';
 import {
@@ -238,13 +247,66 @@ export async function classifyOneArgumentCore(
     families: eligibleFamilies as ReadonlyArray<string>,
   });
 
-  // Invoke the adapter.
-  const adapterResult = await adapter(mcpRequest);
+  // MCP-BOOLEAN-BATCHING-INFRA-001 — split the family's full rawKey set into
+  // batches of <= BATCH_SIZE (each a normal <= 20-key request passing the
+  // UNCHANGED validator) and invoke the adapter ONCE PER BATCH (sequential,
+  // per design §4 — no concurrency-product increase). A family that fits the
+  // per-response cap (A/B/C/E/F) produces EXACTLY ONE batch whose request is
+  // byte-identical to the pre-batching call (single adapter call, single
+  // persistRun, merge-of-one = the response itself). Only D (22) / G (21) —
+  // the families that EXCEED the 20-key cap — split. batchIndex/batchTotal
+  // are OUT-OF-BAND orchestration; they NEVER serialize to the wire.
+  const batches = chunkRawKeys(mcpRequest.requestedRawKeys);
+  const batchOutcomes: BatchClassifyOutcome[] = [];
+  // The ORIGINAL typed adapter `unavailable` result of the first failed batch
+  // (preserved so the fully-failed RETURN threads the typed subReason / detail
+  // exactly as today's single-call path did). Null when every batch succeeded.
+  let firstUnavailable: Extract<BooleanObservationAdapterResult, { kind: 'unavailable' }> | null =
+    null;
+  for (const batch of batches) {
+    const batchRequest = buildBatchRequestFromFull(mcpRequest, batch);
+    const adapterResult = await adapter(batchRequest);
+    if (adapterResult.kind === 'unavailable') {
+      if (firstUnavailable === null) firstUnavailable = adapterResult;
+      batchOutcomes.push({
+        batchIndex: batch.batchIndex,
+        batchTotal: batch.batchTotal,
+        rawKeys: batch.rawKeys,
+        result: {
+          kind: 'unavailable',
+          reason: adapterResult.reason,
+          subReason: adapterResult.subReason,
+          detail: adapterResult.detail?.path !== undefined
+            ? { path: adapterResult.detail.path }
+            : undefined,
+        },
+      });
+      // Sequential short-circuit: once a batch fails the run is already
+      // doomed to `status:'failed'`. Stop issuing further provider calls for
+      // this family (no point spending more provider budget on a run that
+      // will be marked failed); the successful batches so far are still
+      // partial-persisted below. A retry (drainer / auto-trigger) re-runs the
+      // WHOLE family deterministically (idempotent chunk assignment).
+      break;
+    }
+    batchOutcomes.push({
+      batchIndex: batch.batchIndex,
+      batchTotal: batch.batchTotal,
+      rawKeys: batch.rawKeys,
+      result: { kind: 'success', response: adapterResult.response },
+    });
+  }
   const completedAt = new Date().toISOString();
 
-  // Branch on adapter result.
-  if (adapterResult.kind === 'unavailable') {
-    const failureReason = unavailableReasonToFailureReason(adapterResult.reason);
+  const anySuccess = hasSuccessfulBatch(batchOutcomes);
+  const anyFailure = hasFailedBatch(batchOutcomes);
+
+  // ── Fully-failed run (no batch succeeded) — byte-identical to today's
+  //    single-call unavailable branch (one batch, one failure). ──────────
+  if (!anySuccess) {
+    const unavailable: Extract<BooleanObservationAdapterResult, { kind: 'unavailable' }> =
+      firstUnavailable ?? { kind: 'unavailable', reason: 'network_error' };
+    const failureReason = unavailableReasonToFailureReason(unavailable.reason);
     // OPS-MCP-CLASSIFIER-FAILURE-DETAIL-AUTO-TRIGGER-FILL-001 — build the
     // leak-safe diagnostic projection for the direct-dispatch failed run row,
     // reusing the SAME builder the queue drainer uses. Inputs are
@@ -257,7 +319,7 @@ export async function classifyOneArgumentCore(
     // drainer path); the raw `adapterResult.detail` rides the RETURN value
     // below unchanged.
     const failureDetail = buildRunRowFailureDetail({
-      validatorPath: adapterResult.detail?.path,
+      validatorPath: unavailable.detail?.path,
       reason: failureReason,
       family: eligibleFamilies[0],
       runMode: mode,
@@ -277,7 +339,7 @@ export async function classifyOneArgumentCore(
       // Q2/Q3: pass the typed BooleanObservationFailureSubreason enum string
       // through to the text column; write null (no synthetic value) when the
       // adapter left it unset (e.g. url_missing / token_missing).
-      failureSubReason: adapterResult.subReason ?? null,
+      failureSubReason: unavailable.subReason ?? null,
       failureDetail,
       startedAt,
       completedAt,
@@ -294,14 +356,34 @@ export async function classifyOneArgumentCore(
       // the RETURN. ADDITIVE — `failureReason` above is unchanged. Both
       // are absent when the adapter did not populate them (e.g.
       // url_missing / token_missing leave subReason unset).
-      failureSubReason: adapterResult.subReason,
-      failureDetail: adapterResult.detail,
+      failureSubReason: unavailable.subReason,
+      failureDetail: unavailable.detail,
     };
   }
 
-  // Success path — sanitize at inspect floor.
+  // ── At least one batch succeeded — merge then run the SAME sanitize /
+  //    persist tail off the MERGED response. When some (but not all) batches
+  //    failed, the run is marked `status:'failed'` with a leak-safe
+  //    `failure_detail {batchIndex, batchTotal, reason}` while the successful
+  //    batches' positives are partial-persisted (design §4). ──────────────
+  const { merged } = mergeBatchResponses(batchOutcomes, argumentId);
+  const batchFailure = anyFailure ? firstBatchFailureDetail(batchOutcomes) : null;
+  // Leak-safe structural projection (batchIndex / batchTotal / reason — all
+  // integers/enums; no body / prompt / rawKey / secret). Widened to the
+  // persistRun failure_detail param type.
+  const partialFailureDetail: Record<string, unknown> | null = batchFailure
+    ? {
+        batchIndex: batchFailure.batchIndex,
+        batchTotal: batchFailure.batchTotal,
+        reason: batchFailure.reason,
+      }
+    : null;
+  const runStatus: 'success' | 'failed' = anyFailure ? 'failed' : 'success';
+  const partialFailureReason = anyFailure ? 'mcp_batch_partial_failure' : null;
+
+  // Success/partial path — sanitize at inspect floor.
   const sanitized: McpBooleanObservationResponse = sanitizeMcpBooleanObservationResponse(
-    adapterResult.response,
+    merged,
     { surface: 'inspect' },
   );
 
@@ -314,8 +396,12 @@ export async function classifyOneArgumentCore(
     modelName: DEFAULT_MCP_BOOLEAN_OBSERVATION_SERVER_NAME,
     inputHash,
     runMode: mode,
-    status: 'success',
-    failureReason: null,
+    status: runStatus,
+    failureReason: partialFailureReason,
+    // Partial-failure: a leak-safe structural projection of the first failed
+    // batch (batchIndex / batchTotal / reason). NULL on the all-success path
+    // so a fully-successful run's INSERT is byte-equal to today.
+    ...(partialFailureDetail !== null ? { failureDetail: partialFailureDetail } : {}),
     startedAt,
     completedAt,
   });
@@ -392,6 +478,24 @@ export async function classifyOneArgumentCore(
       runId: runWrite.runId,
       status: 'failed',
       failureReason: persistFailureReason,
+      positiveObservationCount: actualPositiveCount,
+      rawKeysWithPositive: actualRawKeys,
+    };
+  }
+
+  // MCP-BOOLEAN-BATCHING-INFRA-001 — a PARTIAL-failure run (some batches
+  // succeeded, at least one failed) persists the successful batches' positives
+  // (partial-persist; reflected in the post-persist SELECT above) but is
+  // reported as `status:'failed'` so the auto-trigger / drainer retry path
+  // re-runs the WHOLE family (the run row already carries the leak-safe
+  // failure_detail written by persistRun). On the all-success path this is a
+  // no-op — runStatus is 'success' and the return is byte-equal to today.
+  if (runStatus === 'failed') {
+    return {
+      argumentId,
+      runId: runWrite.runId,
+      status: 'failed',
+      failureReason: partialFailureReason,
       positiveObservationCount: actualPositiveCount,
       rawKeysWithPositive: actualRawKeys,
     };

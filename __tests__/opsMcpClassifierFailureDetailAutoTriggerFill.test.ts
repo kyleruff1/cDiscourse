@@ -136,14 +136,21 @@ describe('OPS-FDAF-CORE — failed-branch threading', () => {
   });
 
   it('FILL-9 — the unavailable failed branch builds the detail via buildRunRowFailureDetail', () => {
-    const branchIdx = coreCode.indexOf("adapterResult.kind === 'unavailable'");
+    // MCP-BOOLEAN-BATCHING-INFRA-001 — the fully-failed branch is now guarded
+    // by `if (!anySuccess)` (no batch succeeded) instead of a single-call
+    // `adapterResult.kind === 'unavailable'`. The leak-safe builder reuse is
+    // unchanged — it still constructs the failed run row's failure_detail.
+    const branchIdx = coreCode.indexOf('if (!anySuccess)');
     expect(branchIdx).toBeGreaterThan(-1);
-    const win = coreCode.slice(branchIdx, branchIdx + 900);
+    const win = coreCode.slice(branchIdx, branchIdx + 1400);
     expect(win).toMatch(/buildRunRowFailureDetail\(\{/);
   });
 
-  it('FILL-10 — the builder is fed validatorPath = adapterResult.detail?.path (structural PATH)', () => {
-    expect(coreCode).toMatch(/validatorPath:\s*adapterResult\.detail\?\.path/);
+  it('FILL-10 — the builder is fed validatorPath = unavailable.detail?.path (structural PATH)', () => {
+    // The first failed batch's preserved adapter result is aliased `unavailable`
+    // (= `firstUnavailable`); the structural validator PATH it carries is the
+    // SAME allow-listed `detail?.path` (never the span text). Rename only.
+    expect(coreCode).toMatch(/validatorPath:\s*unavailable\.detail\?\.path/);
   });
 
   it('FILL-11 — the builder is fed reason / family / runMode / schemaVersion from controlled sources', () => {
@@ -157,19 +164,24 @@ describe('OPS-FDAF-CORE — failed-branch threading', () => {
   });
 
   it('FILL-12 — failed-branch persistRun passes failureSubReason (typed enum, null when unset)', () => {
-    expect(coreCode).toMatch(/failureSubReason:\s*adapterResult\.subReason\s*\?\?\s*null/);
+    // MCP-BOOLEAN-BATCHING-INFRA-001 — `adapterResult` → `unavailable` (the
+    // preserved first-failed-batch result). The `?? null` write-no-synthetic
+    // semantics are unchanged.
+    expect(coreCode).toMatch(/failureSubReason:\s*unavailable\.subReason\s*\?\?\s*null/);
   });
 
   it('FILL-13 — failed-branch persistRun passes the builder output as failureDetail (?? null)', () => {
     // The built variable is `?? null` and threaded by shorthand into the call.
     expect(coreCode).toMatch(/buildRunRowFailureDetail\(\{[\s\S]*?\}\)\s*\?\?\s*null/);
-    // The persistRun call in the failed branch carries `failureDetail,` shorthand.
-    const branchIdx = coreCode.indexOf("adapterResult.kind === 'unavailable'");
+    // The persistRun call in the fully-failed branch carries `failureDetail,`
+    // shorthand. MCP-BOOLEAN-BATCHING-INFRA-001 — the branch is now guarded by
+    // `if (!anySuccess)`; the threaded fields are otherwise unchanged.
+    const branchIdx = coreCode.indexOf('if (!anySuccess)');
     const persistIdx = coreCode.indexOf('persistRun({', branchIdx);
     const close = coreCode.indexOf('});', persistIdx);
     const win = coreCode.slice(persistIdx, close);
     expect(win).toMatch(/\bfailureDetail,/);
-    expect(win).toMatch(/failureSubReason:\s*adapterResult\.subReason\s*\?\?\s*null/);
+    expect(win).toMatch(/failureSubReason:\s*unavailable\.subReason\s*\?\?\s*null/);
   });
 
   it('FILL-14 — Q1: correlationId is NOT passed (and is never argumentId) on the direct path', () => {
@@ -182,11 +194,20 @@ describe('OPS-FDAF-CORE — failed-branch threading', () => {
 
 // ── 3. Success path byte-equal (the new fields are NOT passed there) ──
 describe('OPS-FDAF-CORE — success-path persistRun is byte-equal', () => {
-  it('FILL-15 — the success persistRun call (status:success) does NOT pass the new fields', () => {
-    // There are exactly two `persistRun({` call sites: [0] = failed branch,
-    // [1] = success branch. Anchor on the call sites directly so the union
-    // type `status: 'success' | 'failed'` in PerArgumentSummary is not
-    // mistaken for the success call.
+  it('FILL-15 — the all-success persistRun does NOT pass diagnostic fields (columns stay NULL)', () => {
+    // MCP-BOOLEAN-BATCHING-INFRA-001 — there are now exactly two `persistRun({`
+    // call sites: [0] = fully-failed branch (`if (!anySuccess)`), [1] = the
+    // shared success/partial branch. The [1] call writes `status: runStatus`
+    // (which is 'success' ONLY when EVERY batch succeeded) and conditionally
+    // spreads `failureDetail` ONLY on a partial failure
+    // (`...(partialFailureDetail !== null ? { failureDetail: ... } : {})`).
+    //
+    // The invariant this test locks: on the ALL-SUCCESS path
+    // (partialFailureDetail === null, partialFailureReason === null) NEITHER
+    // diagnostic column is written, so a fully-successful run row's INSERT is
+    // byte-equal to today (failure_detail / failure_sub_reason stay NULL). The
+    // [1] call NEVER passes failureSubReason at all (preserving today's success
+    // byte-equality) and gates failureDetail behind the partial-failure guard.
     const callIdxs: number[] = [];
     let from = coreCode.indexOf('persistRun({');
     while (from !== -1) {
@@ -194,16 +215,20 @@ describe('OPS-FDAF-CORE — success-path persistRun is byte-equal', () => {
       from = coreCode.indexOf('persistRun({', from + 1);
     }
     expect(callIdxs.length).toBe(2);
-    const successStart = callIdxs[1];
-    const successEnd = coreCode.indexOf('});', successStart);
-    expect(successEnd).toBeGreaterThan(successStart);
-    const win = coreCode.slice(successStart, successEnd);
-    // This IS the success call (the byte-equal one).
-    expect(win).toMatch(/status:\s*'success'/);
-    expect(win).toMatch(/failureReason:\s*null/);
-    // and it does NOT pass either new diagnostic field (→ columns stay NULL).
+    const sharedStart = callIdxs[1];
+    const sharedEnd = coreCode.indexOf('});', sharedStart);
+    expect(sharedEnd).toBeGreaterThan(sharedStart);
+    const win = coreCode.slice(sharedStart, sharedEnd);
+    // The shared success/partial call writes status: runStatus + the
+    // partialFailureReason (null on all-success → byte-equal success row).
+    expect(win).toMatch(/status:\s*runStatus/);
+    expect(win).toMatch(/failureReason:\s*partialFailureReason/);
+    // It NEVER passes failureSubReason (success byte-equality preserved).
     expect(win).not.toMatch(/failureSubReason/);
-    expect(win).not.toMatch(/failureDetail/);
+    // failureDetail is gated behind the partial-failure conditional spread, so
+    // it is absent from the INSERT on the all-success path (partialFailureDetail
+    // === null → the spread contributes {}). Assert the guard is present.
+    expect(win).toMatch(/partialFailureDetail\s*!==\s*null\s*\?\s*\{\s*failureDetail/);
   });
 });
 

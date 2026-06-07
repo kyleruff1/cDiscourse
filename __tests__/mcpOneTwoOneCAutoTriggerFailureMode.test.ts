@@ -235,8 +235,15 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — typed sub-reason threadi
   });
 
   it('FAIL-24 — the unavailable branch sets failureSubReason + failureDetail on the summary', () => {
-    expect(coreText).toMatch(/failureSubReason:\s*adapterResult\.subReason/);
-    expect(coreText).toMatch(/failureDetail:\s*adapterResult\.detail/);
+    // MCP-BOOLEAN-BATCHING-INFRA-001 — the fully-failed branch now threads the
+    // typed sub-reason / detail off the FIRST failed batch's preserved adapter
+    // result (captured as `unavailable`, an alias of `firstUnavailable`),
+    // instead of a single-call `adapterResult`. The contract is unchanged: the
+    // typed BooleanObservationFailureSubreason + sanitized detail ride the
+    // summary RETURN. Intent-preserving rename per the ratified batching
+    // design's "intended update, not a relaxation" note.
+    expect(coreText).toMatch(/failureSubReason:\s*unavailable\.subReason/);
+    expect(coreText).toMatch(/failureDetail:\s*unavailable\.detail/);
   });
 
   it('FAIL-25 — failure_reason mapping is unchanged (validation_failed → mcp_validation_failed survives the additive change)', () => {
