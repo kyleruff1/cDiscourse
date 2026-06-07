@@ -58,6 +58,20 @@ import { DEFAULT_VIEW_MODE } from './src/features/arguments/viewModeCopy';
 // The component itself (src/features/devEnvironment/DevEnvironmentBanner.tsx)
 // is intact for later reinstatement if a release surface needs it again.
 import { AppHeader } from './src/components/AppHeader';
+// NAV-START-ARGUMENT-001 Slice B — global header / masthead primary nav.
+// Mounted once inside MainAppShell so the centered primary nav (Start An
+// Argument · Browse Arguments · My Arguments · Profile), the upper-right
+// About entry, and the lower-right copyright appear on every normal
+// authenticated page. State-only — drives the in-memory shell state via
+// resolvePrimaryNavTransition; NO router (TL-003 / COMPOSER-002 invariant).
+import {
+  AppPrimaryNav,
+  AboutScreen,
+  deriveActivePrimaryNavSection,
+  resolvePrimaryNavTransition,
+  type PrimaryNavSection,
+} from './src/features/navigation';
+import type { ConversationGallerySection } from './src/features/debates/conversationGalleryModel';
 import { BRAND } from './src/lib/designTokens';
 // PR-001 — "My preferences" popout. The header gear opens a core Modal
 // bottom-sheet of device-local UI preferences. No router, no new dep.
@@ -366,6 +380,18 @@ function MainAppShell({
   // opens a card. Tells the room shell which message to activate first
   // and what one-line "micro-moment" prompt to show.
   const [entryHint, setEntryHint] = useState<GalleryEntryHint | null>(null);
+  // NAV-START-ARGUMENT-001 Slice B — global-header primary-nav shell state.
+  // These three fields are plain in-memory state writes (no router):
+  //  - galleryLane: the active Conversation Gallery lane. 'my_rooms' is the
+  //    "My Arguments" view; 'all' is the full "Browse Arguments" gallery.
+  //  - startArgumentOpen: whether the Start Argument page is showing.
+  //  - aboutOpen: whether the public About screen is showing.
+  // They are CONTROLLED into ConversationGalleryScreen / mounted screens so
+  // the centered primary nav can drive the same surfaces the gallery's own
+  // chips + "+ New room" button already drive.
+  const [galleryLane, setGalleryLane] = useState<ConversationGallerySection | 'all'>('all');
+  const [startArgumentOpen, setStartArgumentOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const refreshTreeRef = useRef<(() => void) | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
@@ -525,6 +551,39 @@ function MainAppShell({
     deselectDebate();
   };
 
+  // NAV-START-ARGUMENT-001 Slice B — apply a primary-nav item's in-memory
+  // transition. The pure model (resolvePrimaryNavTransition) names the
+  // target state; this handler writes it. Every item returns to a top-level
+  // surface, so it always closes the composer + any open room first. No
+  // router, no Linking — purely setState calls (the no-route invariant).
+  const handlePrimaryNav = React.useCallback(
+    (section: PrimaryNavSection) => {
+      const t = resolvePrimaryNavTransition(section);
+      if (t.deselectRoom) {
+        setComposerOpen(false);
+        setReplyTarget(null);
+        setInviteOpen(false);
+        setNotificationsOpen(false);
+        if (hasDebate) deselectDebate();
+      }
+      setTab(t.tab);
+      setStartArgumentOpen(t.startArgumentOpen);
+      setGalleryLane(t.galleryLane);
+      setAboutOpen(t.aboutOpen);
+    },
+    [hasDebate, deselectDebate],
+  );
+
+  // Derive which primary nav item renders as active from the live shell
+  // state. Pure — no side effects.
+  const activePrimarySection = deriveActivePrimaryNavSection({
+    tab: activeTab,
+    hasDebate,
+    startArgumentOpen,
+    galleryLane,
+    aboutOpen,
+  });
+
   const participantSide = state.snapshot.participantSide;
 
   // GAME-004 — derive the 1v1 PvP room contract for the open room. The hook
@@ -544,9 +603,23 @@ function MainAppShell({
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
 
+      {/* NAV-START-ARGUMENT-001 Slice B — global primary navigation. Lives in
+          the shared shell so it appears on every normal authenticated page
+          (gallery / Start Argument / room / Timeline / Card / My Arguments /
+          Profile / About). Each item drives the in-memory shell state via
+          handlePrimaryNav (no router). The Admin / Debug tabs stay in the
+          role-gated secondary tab row below and are NEVER part of this
+          public primary nav. */}
+      <AppPrimaryNav
+        activeSection={activePrimarySection}
+        onNavigate={handlePrimaryNav}
+      />
+
       {/* Top tab bar. UX-001.2 — hidden when a room is active so the Timeline
           becomes the first substantive in-room object beneath the AppHeader
-          plus one compact room/context strip. Restored on room exit. */}
+          plus one compact room/context strip. Restored on room exit. The
+          About screen is a top-level public surface; the tab bar stays
+          visible there. */}
       {!roomActive ? (
         <View style={styles.tabBar} testID="app-tab-bar">
           {tabs.map((t) => (
@@ -575,11 +648,18 @@ function MainAppShell({
       ) : null}
 
       <View style={styles.body}>
+        {/* NAV-START-ARGUMENT-001 Slice B — public About screen. Reached from
+            the upper-right About item in the global header. Renders above all
+            Arguments-tab surfaces; "Back" returns to the gallery (state-only,
+            no router). Public — no admin / debug / classifier content. */}
+        {aboutOpen && (
+          <AboutScreen onBack={() => handlePrimaryNav('browse_arguments')} />
+        )}
         {/* QOL-040 — notification list screen. Renders as a routed
             sub-screen on top of the Arguments tab when the user
             taps the "Notifications" trigger in the gallery
             toolbar. Closing the list returns to the gallery. */}
-        {activeTab === 'arguments' && notificationsOpen && (
+        {!aboutOpen && activeTab === 'arguments' && notificationsOpen && (
           <NotificationListScreen
             notifications={notifications.notifications}
             unreadCount={notifications.unreadCount}
@@ -592,7 +672,7 @@ function MainAppShell({
           />
         )}
         {/* Arguments tab: Conversation Gallery (no room selected). */}
-        {activeTab === 'arguments' && !hasDebate && !notificationsOpen && (
+        {!aboutOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && (
           <View style={styles.galleryWithToolbar}>
             {/* QOL-040 — gallery toolbar exposes the
                 "Notifications" entry. The badge mirrors the tab
@@ -636,9 +716,20 @@ function MainAppShell({
               // them as moderator), so we select with that side.
               onCreatedWithSurface={(debate, surface) => {
                 setEntryHint(null);
+                setStartArgumentOpen(false);
                 setViewMode(surface === 'card' ? 'stack' : 'timeline');
                 selectDebate(debate, 'moderator');
               }}
+              // NAV-START-ARGUMENT-001 Slice B — the gallery's active lane and
+              // Start Argument page visibility are CONTROLLED by the shell so
+              // the global header's "Browse Arguments" / "My Arguments" /
+              // "Start An Argument" items drive the same surfaces. The gallery
+              // still reports its own chip / "+ New room" taps back so its
+              // internal affordances keep working.
+              activeLane={galleryLane}
+              onActiveLaneChange={setGalleryLane}
+              showCreate={startArgumentOpen}
+              onShowCreateChange={setStartArgumentOpen}
             />
           </View>
         )}
@@ -662,8 +753,9 @@ function MainAppShell({
             ArgumentTreeScreen mounted preserves viewMode, the active node,
             the entry-hint micro-moment, and scroll position for free.
             QOL-040 — the room is hidden while the notification list
-            sub-screen is open. */}
-        {activeTab === 'arguments' && hasDebate && currentDebate && !notificationsOpen && (
+            sub-screen is open. NAV-START-ARGUMENT-001 Slice B — and while
+            the public About screen is open. */}
+        {!aboutOpen && activeTab === 'arguments' && hasDebate && currentDebate && !notificationsOpen && (
           <View style={styles.debateRoom}>
             {/* UX-001.2 — compact room/context strip. Replaces the old
                 two-row DebateDetailHeader + roomToolbar with a single-row
@@ -764,15 +856,15 @@ function MainAppShell({
           </View>
         )}
 
-        {activeTab === 'account' && (
+        {!aboutOpen && activeTab === 'account' && (
           <AccountScreen onSignOut={handleSignOut} signOutLoading={signOutLoading} />
         )}
 
-        {activeTab === 'admin' && currentProfile?.role === 'admin' && (
+        {!aboutOpen && activeTab === 'admin' && currentProfile?.role === 'admin' && (
           <AdminScreen onOpenArgumentTimeline={handleOpenArgumentFromAdmin} />
         )}
 
-        {activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
+        {!aboutOpen && activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
       </View>
     </SafeAreaView>
   );
