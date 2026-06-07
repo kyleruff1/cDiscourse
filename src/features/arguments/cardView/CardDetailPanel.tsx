@@ -47,6 +47,16 @@ import {
   type HubClassifierGroupsModel,
   type HubColumnRegion,
 } from '../detail/argumentDetailModel';
+import { getRailActions } from '../ArgumentSideActionRail';
+import {
+  RAIL_ACTION_CATEGORY_LABEL,
+  groupRailActionsByCategory,
+} from '../railActionCategories';
+import type {
+  RailActionCode,
+  RailBubbleActor,
+  RailViewerRole,
+} from '../railActionCategories';
 
 /** Platform-OS values `hubColumnLayout` accepts. */
 type HubPlatformOs = 'web' | 'ios' | 'android' | 'windows' | 'macos';
@@ -76,6 +86,19 @@ export interface CardDetailPanelProps {
    *  top parent bubble → current message body + observations. Omitted by
    *  direct-render callers/tests (the body then stays in the active card). */
   currentMessageBody?: string | null;
+  /** CARD-VIEW-REFINE-001 — viewer role for the inline ActionsZone. The zone
+   *  renders ONLY when BOTH `viewerRole` and `onRailAction` are supplied (the
+   *  active-card path); display-only direct-render callers/tests omit them and
+   *  get NO ActionsZone (byte-equivalent to the pre-REFINE panel). */
+  viewerRole?: RailViewerRole;
+  /** CARD-VIEW-REFINE-001 — bubble actor for the active message. Drives the
+   *  actor-aware inline move set via `getRailActions(viewerRole, bubbleActor)`
+   *  (the SAME single source of truth the side rail uses). */
+  bubbleActor?: RailBubbleActor;
+  /** CARD-VIEW-REFINE-001 — dispatch a rail action code for the active
+   *  message via the SAME path the side rail uses. Required (with viewerRole)
+   *  for the inline ActionsZone to render. */
+  onRailAction?: (code: RailActionCode, ctx: { activeMessageId: string | null }) => void;
   testID?: string;
 }
 
@@ -111,8 +134,29 @@ function ConfidencePips({
 
 /** A single classifier observation rendered as a DISPLAY-ONLY label (no
  *  button role, no press). The evidence span — when present — is shown
- *  inline as a label, not behind a tap. */
-function ClassifierLabel({ chip }: { chip: CardClassifierChip }): React.ReactElement {
+ *  inline as a label, not behind a tap.
+ *
+ *  CARD-VIEW-REFINE-001 — denser per-node feedback (layout only, no new
+ *  evaluation):
+ *   - renders the plain-language SOURCE-PROVENANCE badge ("From system
+ *     metadata", …) beside the label (the chip already carries it; it was
+ *     never rendered on the card before). The raw `category` code is NEVER
+ *     shown — only the suppressed-on-unknown plain-language label.
+ *   - on the WIDE layout the evidence span sits INLINE beside the label
+ *     (one row, wrapping) instead of indented below — filling the
+ *     horizontal columns the 3-col layout opens up.
+ *  STILL display-only: this is an AI/classifier observation, so it stays a
+ *  non-interactive `accessibilityRole="text"` label (doctrine §1 / §4). */
+function ClassifierLabel({
+  chip,
+  isWide,
+}: {
+  chip: CardClassifierChip;
+  isWide?: boolean;
+}): React.ReactElement {
+  const evidenceText = chip.evidenceSpan
+    ? `${CARD_CLASSIFIER_EVIDENCE_PREFIX} ${chip.evidenceSpan}`
+    : null;
   return (
     <View
       style={styles.classifierRow}
@@ -130,10 +174,31 @@ function ClassifierLabel({ chip }: { chip: CardClassifierChip }): React.ReactEle
         </Text>
         <Text style={styles.classifierLabelText}>{chip.label}</Text>
         <ConfidencePips pips={chip.confidencePips} label={chip.confidenceLabel} />
+        {/* Source-provenance badge — plain language only; suppressed when the
+            code is unknown (sourceProvenanceLabel === null). */}
+        {chip.sourceProvenanceLabel ? (
+          <View
+            style={styles.provenanceBadge}
+            testID={`card-detail-classifier-provenance-${chip.id}`}
+          >
+            <Text style={styles.provenanceBadgeText}>{chip.sourceProvenanceLabel}</Text>
+          </View>
+        ) : null}
+        {/* Wide layout — evidence span INLINE beside the label. */}
+        {isWide && evidenceText ? (
+          <Text
+            style={styles.classifierEvidenceInline}
+            numberOfLines={2}
+            testID={`card-detail-classifier-evidence-${chip.id}`}
+          >
+            {evidenceText}
+          </Text>
+        ) : null}
       </View>
-      {chip.evidenceSpan ? (
+      {/* Stacked layout — evidence span indented BELOW the label. */}
+      {!isWide && evidenceText ? (
         <Text style={styles.classifierEvidence} testID={`card-detail-classifier-evidence-${chip.id}`}>
-          {`${CARD_CLASSIFIER_EVIDENCE_PREFIX} ${chip.evidenceSpan}`}
+          {evidenceText}
         </Text>
       ) : null}
     </View>
@@ -152,8 +217,13 @@ function ClassifierLabel({ chip }: { chip: CardClassifierChip }): React.ReactEle
  */
 function HubClassifierZone({
   model,
+  isWide,
 }: {
   model: HubClassifierGroupsModel;
+  /** CARD-VIEW-REFINE-001 — when wide (3-col), family chip strips wrap
+   *  HORIZONTALLY and evidence sits inline beside the label, filling the
+   *  horizontal columns the layout opens up. */
+  isWide?: boolean;
 }): React.ReactElement {
   return (
     <View style={styles.zone} testID="card-detail-classifier-zone">
@@ -177,9 +247,17 @@ function HubClassifierZone({
             >
               {group.familyLabel}
             </Text>
-            {group.chips.map((chip) => (
-              <ClassifierLabel key={chip.id} chip={chip} />
-            ))}
+            {/* CARD-VIEW-REFINE-001 — chips spread into a HORIZONTAL strip
+                that WRAPS (was a vertical stack), so the dense per-node
+                signal fills the columns. */}
+            <View
+              style={styles.classifierChipStrip}
+              testID={`card-detail-classifier-strip-${group.familyCode}`}
+            >
+              {group.chips.map((chip) => (
+                <ClassifierLabel key={chip.id} chip={chip} isWide={isWide} />
+              ))}
+            </View>
           </View>
         ))
       ) : (
@@ -405,6 +483,94 @@ function LabelChip({ text, testID }: { text: string; testID?: string }): React.R
 }
 
 /**
+ * CARD-VIEW-REFINE-001 — "Actions on this point" exploded INLINE on the
+ * active card, parallel to Evidence / Standing / Lifecycle.
+ *
+ * DOCTRINE (stated plainly): these chips are real `Pressable`s on purpose.
+ * They are USER MOVES governed by the Constitution engine (reply / disagree /
+ * join / share / …), NOT classifier or AI verdicts. The display-only /
+ * no-verdict rule (§1 / §4) applies to AI flags + classifier/tag chips —
+ * which STAY non-interactive — NOT to the viewer's own move set. The action
+ * set is the SAME single source of truth the side rail uses
+ * (`getRailActions(viewerRole, bubbleActor)`), so the inline subset and the
+ * rail can never diverge. Dispatch goes through `onRailAction` (the SAME
+ * `handleRailAction` path), so join / share / watch resolve identically to
+ * the rail.
+ *
+ * Renders nothing when the actor-aware set is empty (own bubble after the
+ * UX-001.4 migration → the deep set stays in Act; this is the high-frequency
+ * subset, not a full Act replacement).
+ *
+ * a11y: each chip is a ≥44×44 button with a descriptive label + the helper
+ * demoted to `accessibilityHint`. No animation (reduce-motion safe — nothing
+ * toggles).
+ */
+function ActionsZone({
+  viewerRole,
+  bubbleActor,
+  onRailAction,
+  activeMessageId,
+}: {
+  viewerRole: RailViewerRole;
+  bubbleActor: RailBubbleActor;
+  onRailAction: (code: RailActionCode, ctx: { activeMessageId: string | null }) => void;
+  activeMessageId: string | null;
+}): React.ReactElement | null {
+  const actions = getRailActions(viewerRole, bubbleActor);
+  if (actions.length === 0) return null;
+  const groups = groupRailActionsByCategory(actions);
+
+  return (
+    <View style={styles.zone} testID="card-detail-actions-zone">
+      <Text style={styles.zoneHeading} accessibilityRole="text">
+        Actions on this point
+      </Text>
+      <Text style={styles.zoneCaption} accessibilityRole="text">
+        Your moves — these change the debate.
+      </Text>
+      {groups.map((group) => (
+        <View
+          key={`actions-group-${group.category}`}
+          style={styles.zone}
+          testID={`card-detail-actions-group-${group.category}`}
+        >
+          <Text
+            style={styles.actionsGroupHeading}
+            accessibilityRole="text"
+            testID={`card-detail-actions-group-heading-${group.category}`}
+          >
+            {RAIL_ACTION_CATEGORY_LABEL[group.category]}
+          </Text>
+          <View style={styles.chipRow}>
+            {group.actions.map((a) => (
+              <Pressable
+                key={`card-detail-action-${a.code}`}
+                style={[
+                  styles.actionChip,
+                  a.tone === 'primary' && styles.actionChipPrimary,
+                  a.tone === 'warning' && styles.actionChipWarning,
+                  a.tone === 'critical' && styles.actionChipCritical,
+                ]}
+                onPress={() => onRailAction(a.code, { activeMessageId })}
+                accessibilityRole="button"
+                accessibilityLabel={a.label}
+                accessibilityHint={a.helper}
+                hitSlop={TOUCH_TARGET.hitSlopAll}
+                testID={`card-detail-action-${a.code}`}
+              >
+                <Text style={styles.actionChipText} numberOfLines={1}>
+                  {a.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
  * CARD-VIEW-DETAIL-HUB-001 (Slice 3) + CARD-VIEW-COMPARISON-POLISH-001 — the
  * CENTERPIECE region: the CURRENT / OWN message. The parent comparison bubble
  * has been hoisted ABOVE this region to the panel root (it is now the FIRST
@@ -425,6 +591,9 @@ function CenterpieceRegion({
   model,
   currentMessageBody,
   onActivateAncestor,
+  viewerRole,
+  bubbleActor,
+  onRailAction,
 }: {
   model: CardDetailViewModel;
   /** CARD-VIEW-COMPARISON-POLISH-001 — the current/own message body text,
@@ -432,6 +601,11 @@ function CenterpieceRegion({
    *  BELOW the top parent bubble. Omitted by direct-render callers/tests. */
   currentMessageBody?: string | null;
   onActivateAncestor?: (messageId: string) => void;
+  /** CARD-VIEW-REFINE-001 — inline ActionsZone inputs. The zone renders only
+   *  when all three are present (the active-card path). */
+  viewerRole?: RailViewerRole;
+  bubbleActor?: RailBubbleActor;
+  onRailAction?: (code: RailActionCode, ctx: { activeMessageId: string | null }) => void;
 }): React.ReactElement {
   const { evidence } = model;
   return (
@@ -525,6 +699,22 @@ function CenterpieceRegion({
             <LabelChip text={model.lifecycleLabel} testID="card-detail-lifecycle" />
           </View>
         ) : null}
+
+        {/* CARD-VIEW-REFINE-001 — "Actions on this point" exploded INLINE,
+            parallel to Evidence / Standing / Lifecycle. Renders ONLY when the
+            active-card path supplies viewerRole + bubbleActor + onRailAction.
+            These are USER MOVES (real Pressables) — NOT classifier verdicts;
+            the display-only rule does not apply to the viewer's move set. The
+            message id is bound by the card's onRailAction closure, so the
+            placeholder here is null. */}
+        {viewerRole && bubbleActor && onRailAction ? (
+          <ActionsZone
+            viewerRole={viewerRole}
+            bubbleActor={bubbleActor}
+            onRailAction={onRailAction}
+            activeMessageId={null}
+          />
+        ) : null}
       </View>
     </View>
   );
@@ -537,14 +727,18 @@ function CenterpieceRegion({
  */
 function ClassifierColumn({
   model,
+  isWide,
 }: {
   model: CardDetailViewModel;
+  isWide?: boolean;
 }): React.ReactElement {
   return (
     <View style={styles.flankColumn} testID="card-detail-classifier-column">
       {/* CVDH-001 Slice 2, ask iii — all-families family-grouped classifier
-          observations (A–G gated, uncapped). Stylized flags/labels/banners. */}
-      <HubClassifierZone model={model.hubClassifier} />
+          observations (A–G gated, uncapped). Stylized flags/labels/banners.
+          CARD-VIEW-REFINE-001 — wide layout spreads chips horizontally + puts
+          evidence inline. */}
+      <HubClassifierZone model={model.hubClassifier} isWide={isWide} />
     </View>
   );
 }
@@ -608,6 +802,9 @@ export function CardDetailPanel({
   windowWidth,
   platformOs,
   currentMessageBody,
+  viewerRole,
+  bubbleActor,
+  onRailAction,
   testID,
 }: CardDetailPanelProps): React.ReactElement {
   const layout = hubColumnLayout(
@@ -627,10 +824,13 @@ export function CardDetailPanel({
             model={model}
             currentMessageBody={currentMessageBody}
             onActivateAncestor={onActivateAncestor}
+            viewerRole={viewerRole}
+            bubbleActor={bubbleActor}
+            onRailAction={onRailAction}
           />
         );
       case 'classifier':
-        return <ClassifierColumn key="classifier" model={model} />;
+        return <ClassifierColumn key="classifier" model={model} isWide={isThreeColumn} />;
       case 'tags':
         return <TagsColumn key="tags" model={model} />;
       default:
@@ -767,6 +967,37 @@ const styles = StyleSheet.create({
     lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
     fontWeight: '600',
   },
+  // CARD-VIEW-REFINE-001 — inline ActionsZone group heading + chips. These
+  // chips are USER MOVES (real buttons), styled distinctly from the
+  // display-only label chips so a reader can tell an action from a label.
+  actionsGroupHeading: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '600',
+  },
+  actionChip: {
+    backgroundColor: SURFACE_TOKENS.elevated,
+    borderRadius: RADIUS.md,
+    borderWidth: BORDER_WIDTH.sm,
+    borderColor: SURFACE_TOKENS.border,
+    paddingHorizontal: SPACING.m,
+    minHeight: TOUCH_TARGET.minSizePx,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionChipPrimary: {
+    backgroundColor: SURFACE_TOKENS.focusRing,
+    borderColor: SURFACE_TOKENS.focusRing,
+  },
+  actionChipWarning: { backgroundColor: '#9a3412', borderColor: '#9a3412' },
+  actionChipCritical: { backgroundColor: '#7f1d1d', borderColor: '#7f1d1d' },
+  actionChipText: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    fontWeight: '700',
+  },
   tagsGroupHeading: {
     color: SURFACE_TOKENS.textSecondary,
     fontSize: TYPOGRAPHY.chipLabel.fontSize,
@@ -887,13 +1118,43 @@ const styles = StyleSheet.create({
     lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
     fontWeight: '600',
   },
+  // CARD-VIEW-REFINE-001 — the per-family chip strip wraps horizontally.
+  classifierChipStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.s,
+  },
   classifierRow: {
     gap: 2,
+    flexShrink: 1,
   },
   classifierHead: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: SPACING.xs,
+  },
+  // CARD-VIEW-REFINE-001 — source-provenance badge (plain language only).
+  provenanceBadge: {
+    backgroundColor: SURFACE_TOKENS.elevated,
+    borderRadius: RADIUS.sm,
+    borderWidth: BORDER_WIDTH.sm,
+    borderColor: SURFACE_TOKENS.border,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 1,
+  },
+  provenanceBadgeText: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '600',
+  },
+  // CARD-VIEW-REFINE-001 — evidence span shown INLINE (wide layout).
+  classifierEvidenceInline: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    flexShrink: 1,
   },
   glyph: {
     color: SURFACE_TOKENS.textSecondary,
