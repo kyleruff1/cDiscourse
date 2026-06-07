@@ -117,8 +117,9 @@ const G_VERDICT_ADJACENCY_BANNED_PHRASES = [
   'settled in favor',
 ];
 
-// 18-key ai_classifier Subset (FAMILY_G_RAW_KEYS at
-// mcp-server/lib/familyGKeys.ts:99-118) in declaration order.
+// 21-key ai_classifier Subset (FAMILY_G_RAW_KEYS at
+// mcp-server/lib/familyGKeys.ts:99-118; 18 baseline + 3 MCP-BUILD2g) in
+// declaration order.
 const FAMILY_G_SUBSET_KEYS = [
   'narrows_claim',
   'concedes_narrow_point',
@@ -138,6 +139,10 @@ const FAMILY_G_SUBSET_KEYS = [
   'decision_criterion_proposed',
   'action_item_proposed',
   'followup_question_proposed',
+  // MCP-BUILD2g (Build-2 manifest §6) — Subset 18 → 21.
+  'records_remaining_disagreement',
+  'defines_next_evidence_needed',
+  'separates_normative_from_empirical',
 ];
 
 // 12 deterministic-excluded unique strings
@@ -220,7 +225,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group A: Q11 narrative reg
 /* ------------------------------------------------------------------ */
 
 describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group B: Q14 CASE regression', () => {
-  it('Q14 SQL hardcoded CASE includes the 5 family constants verbatim (A=19, B=17, C=20, D=19, G=18)', () => {
+  it('Q14 SQL hardcoded CASE includes the 5 family constants verbatim (A=19, B=17, C=20, D=22, G=21)', () => {
     const src = readFile(Q14_PATH);
     const stripped = stripSqlComments(src);
     // MCP-BUILD2b: parent_relation 16 → 19 (+3 parent-relation quality booleans).
@@ -231,15 +236,16 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group B: Q14 CASE regressi
     expect(stripped).toContain("when 'misunderstanding_repair' then 20");
     // MCP-BUILD2d: evidence_source_chain Subset 19 → 22 (+3 evidence-dynamic booleans).
     expect(stripped).toContain("when 'evidence_source_chain' then 22");
-    expect(stripped).toContain("when 'resolution_progress' then 18");
+    // MCP-BUILD2g: resolution_progress Subset 18 → 21 (+3 resolution-progress bookkeeping booleans; batched 16+5).
+    expect(stripped).toContain("when 'resolution_progress' then 21");
     // Unsupported families fall through to 0 (else branch).
     expect(/else\s+0/i.test(stripped)).toBe(true);
   });
 
-  it('Q14 SQL header references the 18 family_key_count constant with familyGKeys.ts citation', () => {
+  it('Q14 SQL header references the 21 family_key_count constant with familyGKeys.ts citation', () => {
     const src = readFile(Q14_PATH);
     expect(src).toContain('familyGKeys.ts');
-    expect(src).toContain('18');
+    expect(src).toContain('21');
     // Header narrative carries the resolution_progress row.
     expect(src).toContain('resolution_progress');
     // Header still cites the original 4 families (A/B/C/D).
@@ -270,9 +276,13 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group C: Q16 Family G subs
     expect(fs.existsSync(Q16_PATH)).toBe(true);
   });
 
-  it('Q16 SQL header documents the 18-vs-30 distinction explicitly', () => {
+  it('Q16 SQL header documents the 21-vs-33 distinction explicitly (was 18-vs-30 pre MCP-BUILD2g)', () => {
     const src = readFile(Q16_PATH);
     const lower = src.toLowerCase();
+    // Current state after MCP-BUILD2g: 21-key Subset of 33 total.
+    expect(lower).toContain('21');
+    expect(lower).toContain('33');
+    // Historical 18-vs-30 baseline still referenced in the header narrative.
     expect(lower).toContain('18');
     expect(lower).toContain('30');
     expect(lower).toContain('ai_classifier');

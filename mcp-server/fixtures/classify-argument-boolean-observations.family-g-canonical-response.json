@@ -19,7 +19,10 @@
     "issue_closed_by_participant",
     "decision_criterion_proposed",
     "action_item_proposed",
-    "followup_question_proposed"
+    "followup_question_proposed",
+    "records_remaining_disagreement",
+    "defines_next_evidence_needed",
+    "separates_normative_from_empirical"
   ],
   "observations": {
     "narrows_claim": false,
@@ -39,7 +42,10 @@
     "issue_closed_by_participant": false,
     "decision_criterion_proposed": false,
     "action_item_proposed": false,
-    "followup_question_proposed": false
+    "followup_question_proposed": false,
+    "records_remaining_disagreement": true,
+    "defines_next_evidence_needed": true,
+    "separates_normative_from_empirical": true
   },
   "confidence": {
     "narrows_claim": "medium",
@@ -59,7 +65,10 @@
     "issue_closed_by_participant": "medium",
     "decision_criterion_proposed": "medium",
     "action_item_proposed": "medium",
-    "followup_question_proposed": "medium"
+    "followup_question_proposed": "medium",
+    "records_remaining_disagreement": "medium",
+    "defines_next_evidence_needed": "high",
+    "separates_normative_from_empirical": "high"
   },
   "evidenceSpan": {
     "narrows_claim": null,
@@ -79,7 +88,10 @@
     "issue_closed_by_participant": null,
     "decision_criterion_proposed": null,
     "action_item_proposed": null,
-    "followup_question_proposed": null
+    "followup_question_proposed": null,
+    "records_remaining_disagreement": "What is still open is the generalization and the value weighting",
+    "defines_next_evidence_needed": "we would need a primary record of the enforcement dates — that is the next evidence",
+    "separates_normative_from_empirical": "an empirical one (the effect size) and a values one (whether the tradeoff is acceptable)"
   },
   "modelInfo": {
     "provider": "mcp",

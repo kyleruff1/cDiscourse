@@ -14,7 +14,7 @@
 --   - evidence_source_chain   22   mcp-server/lib/familyDKeys.ts:85 (Subset; 8 deterministic excluded; 19 + 3 MCP-BUILD2d)
 --   - argument_scheme         19   mcp-server/lib/familyEKeys.ts:68 (16 + 3 MCP-BUILD2e)
 --   - critical_question       17   mcp-server/lib/familyFKeys.ts:68 (14 + 3 MCP-BUILD2f)
---   - resolution_progress     18   mcp-server/lib/familyGKeys.ts:99 (Subset; 12 deterministic excluded)
+--   - resolution_progress     21   mcp-server/lib/familyGKeys.ts:99 (Subset; 12 deterministic excluded; 18 + 3 MCP-BUILD2g; batched 16+5)
 --   - others (H-J)             0   not yet backfilled (H Card-1 landed 2026-05-30; I, J no MCP support)
 --
 -- Use cases:
@@ -64,7 +64,7 @@ keyed as (
       when 'evidence_source_chain' then 22
       when 'argument_scheme' then 19
       when 'critical_question' then 17
-      when 'resolution_progress' then 18
+      when 'resolution_progress' then 21
       else 0
     end as family_key_count
   from run_to_family

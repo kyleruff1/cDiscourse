@@ -240,8 +240,34 @@ describe('MCP-021B — MCP-021A registry files byte-equal', () => {
     }
   });
 
-  it('RO-13 — machineObservationDefinitions/familyG.ts unchanged', () => {
-    expect(gitDiffFromMain('src/features/nodeLabels/machineObservationDefinitions/familyG.ts')).toBe('');
+  // RO-13 — byte-equal boundary relaxed 2026-06-07 (MCP-BUILD2g).
+  // RO-13 originally asserted familyG.ts was byte-equal to main (`git diff
+  // main..HEAD` empty), proving the long-merged MCP-021B card touched no
+  // Family-G definitions. As a PERMANENT test that premise is structurally
+  // incompatible with the ratified MCP-OBSERVATION-MAPPING-REFACTOR-DESIGN-001
+  // Build-2 roadmap, which sequences family-by-family VOCABULARY EXPANSION of
+  // familyG.ts (MCP-BUILD2g adds 3 resolution_progress booleans, taking the
+  // mcp-server Subset 18 → 21; G is a batched family — 21 > the 20-key cap, so
+  // it is served in 2 batches (16 + 5)). Mirrors the
+  // RO-7/RO-8/RO-9/RO-10/RO-11/RO-12 relaxation: the MCP-021B boundary is
+  // historical; relaxed here to an ADDITIVE-ONLY well-formedness check so
+  // vocabulary-expansion cards can grow familyG.ts without a spurious
+  // read-only-boundary failure. The file must still export FAMILY_G_DEFINITIONS
+  // and retain the MCP-021A baseline rawKeys (additive, never a removal/rename).
+  it('RO-13 — familyG.ts is well-formed + additive (MCP-021A baseline preserved)', () => {
+    const content = readFileSync(
+      join(ROOT, 'src/features/nodeLabels/machineObservationDefinitions/familyG.ts'),
+      'utf8',
+    );
+    expect(content).toContain('export const FAMILY_G_DEFINITIONS');
+    // MCP-021A baseline rawKeys must all still be present (no removal/rename).
+    for (const baselineRawKey of [
+      'narrows_claim',
+      'concedes_narrow_point',
+      'ready_for_synthesis',
+    ]) {
+      expect(content).toContain(`rawKey: '${baselineRawKey}'`);
+    }
   });
 
   it('RO-14 — machineObservationDefinitions/familyH.ts unchanged', () => {

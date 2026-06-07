@@ -42,9 +42,9 @@ import {
   edgeBuildBooleanObservationRequestForArgument,
 } from './_helpers/booleanObservationEdgeDeno';
 
-// The 18 ai_classifier keys the MCP server supports for Family G
+// The 21 ai_classifier keys the MCP server supports for Family G
 // (operator-approved at Card 1; mirrored from the Card 1A SFG-* binding
-// in mcpFamilyGEdgeMcpSubsetFilter.test.ts).
+// in mcpFamilyGEdgeMcpSubsetFilter.test.ts; 18 baseline + 3 MCP-BUILD2g).
 const FAMILY_G_AI_CLASSIFIER_KEYS = [
   'narrows_claim',
   'concedes_narrow_point',
@@ -64,6 +64,10 @@ const FAMILY_G_AI_CLASSIFIER_KEYS = [
   'decision_criterion_proposed',
   'action_item_proposed',
   'followup_question_proposed',
+  // MCP-BUILD2g (Build-2 manifest §6) — Subset 18 → 21.
+  'records_remaining_disagreement',
+  'defines_next_evidence_needed',
+  'separates_normative_from_empirical',
 ] as const;
 
 // The 12 deterministic keys (5 auto_metadata + 7 lifecycle) that the MCP
@@ -224,11 +228,12 @@ describe('MCP-021C-EDGE-FAMILY-G-ENABLE — subset filter PRESENT for Family G (
     expect(constantBlock![0]).toContain('resolution_progress');
   });
 
-  it('GGE-17 — production-mode Family G request contains exactly 18 ai_classifier rawKeys, byte-equal to admin_validation-mode, with NO deterministic leak', () => {
+  it('GGE-17 — production-mode Family G request contains exactly 21 ai_classifier rawKeys, byte-equal to admin_validation-mode, with NO deterministic leak', () => {
     // DIV-1: the INVERSE of F's FFE-16. Family G's subset filter is
     // mode-agnostic, so the production-mode builder returns exactly the
-    // 18 ai_classifier keys (never the 12 deterministic keys) and the
-    // result is byte-equal to the admin_validation-mode request.
+    // 21 ai_classifier keys (18 baseline + 3 MCP-BUILD2g; never the 12
+    // deterministic keys) and the result is byte-equal to the
+    // admin_validation-mode request.
     const reqProd = edgeBuildBooleanObservationRequestForArgument({
       argumentId: 'arg-g-prod-1',
       parentArgumentId: 'arg-g-prod-0',
@@ -238,9 +243,9 @@ describe('MCP-021C-EDGE-FAMILY-G-ENABLE — subset filter PRESENT for Family G (
       requestedFamilies: ['resolution_progress'],
       mode: 'production',
     });
-    expect(reqProd.requestedRawKeys.length).toBe(18);
+    expect(reqProd.requestedRawKeys.length).toBe(21);
 
-    // Every key sent is one of the 18 ai_classifier keys.
+    // Every key sent is one of the 21 ai_classifier keys.
     const sent = new Set(reqProd.requestedRawKeys);
     for (const expected of FAMILY_G_AI_CLASSIFIER_KEYS) {
       expect(sent.has(expected)).toBe(true);

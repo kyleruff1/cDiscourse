@@ -2,10 +2,12 @@
  * MCP-SERVER-008-FAMILY-G — Family G keys constant test.
  *
  * Critical invariants:
- *   - FAMILY_G_RAW_KEYS contains exactly 18 entries (ai_classifier subset)
- *   - Verbatim binding match with design §A.1.1 18-key inventory
+ *   - FAMILY_G_RAW_KEYS contains exactly 21 entries (ai_classifier subset;
+ *     18 baseline + 3 MCP-BUILD2g)
+ *   - Verbatim binding match with design §A.1.1 18-key inventory + the 3
+ *     MCP-BUILD2g booleans (Build-2 manifest §6)
  *   - The 12 deterministic keys (auto_metadata + lifecycle) are EXCLUDED by name
- *   - FAMILY_G_PROMPT_ENTRIES has 18 entries with one entry per rawKey
+ *   - FAMILY_G_PROMPT_ENTRIES has 21 entries with one entry per rawKey
  *   - Every prompt entry has all required verbose-definition fields
  *   - FAMILY_G_CLASSIFIER_SET_VERSION === 'family-g-v1'
  *   - Per-key falsePositiveGuards for the verdict-adjacent keys contain the
@@ -22,8 +24,9 @@ import {
 } from '../lib/familyGKeys.ts';
 
 /**
- * Binding list per MCP-SERVER-008-FAMILY-G design §A.1.1.
- * 18 ai_classifier rawKeys, declaration order matching upstream familyG.ts.
+ * Binding list per MCP-SERVER-008-FAMILY-G design §A.1.1 + MCP-BUILD2g
+ * (Build-2 manifest §6, +3 resolution-progress bookkeeping booleans).
+ * 21 ai_classifier rawKeys, declaration order matching upstream familyG.ts.
  */
 const BINDING_FAMILY_G_KEYS: readonly string[] = [
   'narrows_claim',
@@ -44,6 +47,10 @@ const BINDING_FAMILY_G_KEYS: readonly string[] = [
   'decision_criterion_proposed',
   'action_item_proposed',
   'followup_question_proposed',
+  // MCP-BUILD2g (Build-2 manifest §6) — Subset 18 → 21.
+  'records_remaining_disagreement',
+  'defines_next_evidence_needed',
+  'separates_normative_from_empirical',
 ];
 
 /**
@@ -66,11 +73,11 @@ const BINDING_FAMILY_G_EXCLUDED: readonly string[] = [
   'archived_or_resolved',
 ];
 
-Deno.test('FAMILY_G_RAW_KEYS contains exactly 18 entries (ai_classifier subset)', () => {
-  assertEquals(FAMILY_G_RAW_KEYS.length, 18);
+Deno.test('FAMILY_G_RAW_KEYS contains exactly 21 entries (ai_classifier subset; 18 baseline + 3 MCP-BUILD2g)', () => {
+  assertEquals(FAMILY_G_RAW_KEYS.length, 21);
 });
 
-Deno.test('FAMILY_G_RAW_KEYS contains all 18 binding rawKeys', () => {
+Deno.test('FAMILY_G_RAW_KEYS contains all 21 binding rawKeys', () => {
   for (const key of BINDING_FAMILY_G_KEYS) {
     if (!FAMILY_G_RAW_KEYS.includes(key)) {
       throw new Error(`FAMILY_G_RAW_KEYS missing binding rawKey: ${key}`);
@@ -137,8 +144,8 @@ Deno.test('FAMILY_G_RAW_KEYS and FAMILY_G_EXCLUDED_DETERMINISTIC_RAW_KEYS are di
   }
 });
 
-Deno.test('FAMILY_G_PROMPT_ENTRIES has 18 entries matching FAMILY_G_RAW_KEYS', () => {
-  assertEquals(FAMILY_G_PROMPT_ENTRIES.length, 18);
+Deno.test('FAMILY_G_PROMPT_ENTRIES has 21 entries matching FAMILY_G_RAW_KEYS', () => {
+  assertEquals(FAMILY_G_PROMPT_ENTRIES.length, 21);
   const promptKeys = FAMILY_G_PROMPT_ENTRIES.map((e) => e.rawKey);
   for (const key of FAMILY_G_RAW_KEYS) {
     if (!promptKeys.includes(key)) {

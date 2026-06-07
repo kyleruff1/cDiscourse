@@ -69,11 +69,15 @@ const MCP_SERVER_SUPPORTED_FAMILY_SOURCES: Readonly<
   Partial<Record<MachineObservationFamily, ReadonlySet<MachineObservationSource>>>
 > = Object.freeze({
   evidence_source_chain: Object.freeze(new Set<MachineObservationSource>(['ai_classifier'])),
-  // MCP-SERVER-008A-FAMILY-G-EDGE-SUBSET — resolution_progress is a mixed-source
-  // family (5 auto_metadata + 7 lifecycle + 18 ai_classifier). Per the
-  // MCP-SERVER-008-FAMILY-G Stage 2B operator decision, the MCP server supports
-  // ONLY the 18 ai_classifier keys; sending the 12 deterministic keys triggers
-  // unsupported_rawKey → mcp_validation_failed. Mirrors the Family D entry above.
+  // MCP-SERVER-008A-FAMILY-G-EDGE-SUBSET + MCP-BUILD2g — resolution_progress is
+  // a mixed-source family (5 auto_metadata + 7 lifecycle + 21 ai_classifier;
+  // 18 baseline + 3 MCP-BUILD2g). Per the MCP-SERVER-008-FAMILY-G Stage 2B
+  // operator decision, the MCP server supports ONLY the ai_classifier keys;
+  // sending the 12 deterministic keys triggers unsupported_rawKey →
+  // mcp_validation_failed. The source-based filter requires no key-list change
+  // when ai_classifier booleans are added — the 3 new MCP-BUILD2g defs flow
+  // through automatically. The 21-key subset is served in 2 batches (16 + 5)
+  // by the downstream chunker (21 > the 20-key cap). Mirrors the Family D entry.
   resolution_progress: Object.freeze(new Set<MachineObservationSource>(['ai_classifier'])),
   // MCP-SERVER-010A-FAMILY-I-EDGE-SUBSET — thread_topology is a mixed-source family
   // (8 auto_metadata + 7 lifecycle + 6 ai_classifier). Per the MCP-SERVER-010-FAMILY-I

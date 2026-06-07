@@ -1,19 +1,24 @@
 -- OPS-MCP-OBSERVABILITY — Q16: Family G subset coverage.
 --
 -- ------------------------------------------------------------
--- The 18-vs-30 distinction (binding context)
+-- The 21-vs-33 distinction (binding context; was 18-vs-30 pre MCP-BUILD2g)
 -- ------------------------------------------------------------
 --
--- Family G (resolution_progress) has 30 entries in the upstream Edge
--- taxonomy registry (src/features/nodeLabels/machineObservationDefinitions/familyG.ts):
---   - 18 ai_classifier-source rawKeys (the "Subset")
+-- Family G (resolution_progress) has 33 entries in the upstream Edge
+-- taxonomy registry (src/features/nodeLabels/machineObservationDefinitions/familyG.ts;
+-- 30 baseline + 3 MCP-BUILD2g):
+--   - 21 ai_classifier-source rawKeys (the "Subset"; 18 baseline + 3
+--     MCP-BUILD2g: records_remaining_disagreement, defines_next_evidence_needed,
+--     separates_normative_from_empirical). Because 21 exceeds the 20-key
+--     per-response cap, the Edge serves Family G in 2 batches (16 + 5) and
+--     merges the results into one run.
 --   - 12 deterministic rawKeys split across auto_metadata + lifecycle:
 --       * auto_metadata (5): branch_suggested, branch_created,
 --         point_stalled, point_exhausted, synthesis_candidate
 --       * lifecycle (7): narrowed, conceded, confirmed, synthesis_ready,
 --         exhausted, branch_recommended, archived_or_resolved
 --
--- Per operator Stage 2B decision (MCP-SERVER-008-FAMILY-G), only the 18
+-- Per operator Stage 2B decision (MCP-SERVER-008-FAMILY-G), only the 21
 -- ai_classifier keys are routed to the MCP server. The 12 deterministic
 -- keys are intentionally excluded by the Edge subset filter at
 -- supabase/functions/_shared/booleanObservations/booleanObservationRequestBuilder.ts
@@ -22,7 +27,7 @@
 -- call.
 --
 -- Q16 verifies the binding contract holds in the persisted data:
---   1. All observed Family G raw_keys must be ∈ the 18-key ai_classifier Subset.
+--   1. All observed Family G raw_keys must be ∈ the 21-key ai_classifier Subset.
 --   2. If any of the 12 deterministic-key strings appears in result rows,
 --      it indicates a leak from somewhere outside the MCP path (which
 --      this card does NOT expect to happen — but a non-zero leak count
@@ -40,7 +45,8 @@
 -- Source-of-truth:
 --   - docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE.md §5
 --   - docs/designs/MCP-SERVER-008-FAMILY-G.md (Subset path operator decision)
---   - mcp-server/lib/familyGKeys.ts:99-118 (18-key list; FAMILY_G_RAW_KEYS)
+--   - docs/designs/MCP-OBSERVATION-MAPPING-REFACTOR-DESIGN-001-build2-families-manifest.md §6 (MCP-BUILD2g +3)
+--   - mcp-server/lib/familyGKeys.ts:99-118 (21-key list; FAMILY_G_RAW_KEYS; 18 + 3 MCP-BUILD2g)
 --   - mcp-server/lib/familyGKeys.ts:136-151 (deterministic exclusion list;
 --     FAMILY_G_EXCLUDED_DETERMINISTIC_RAW_KEYS — 12 unique strings)
 --
@@ -71,9 +77,9 @@ classification as (
     distinct_arguments,
     case
       when raw_key in (
-        -- 18-key ai_classifier Subset (FAMILY_G_RAW_KEYS at
-        -- mcp-server/lib/familyGKeys.ts:99-118). Verbatim, in
-        -- declaration order:
+        -- 21-key ai_classifier Subset (FAMILY_G_RAW_KEYS at
+        -- mcp-server/lib/familyGKeys.ts:99-118; 18 baseline + 3 MCP-BUILD2g).
+        -- Verbatim, in declaration order:
         'narrows_claim',
         'concedes_narrow_point',
         'ready_for_synthesis',
@@ -91,7 +97,12 @@ classification as (
         'issue_closed_by_participant',
         'decision_criterion_proposed',
         'action_item_proposed',
-        'followup_question_proposed'
+        'followup_question_proposed',
+        -- MCP-BUILD2g (Subset 18 -> 21; the 21-key set is served in 2 batches
+        -- (16 + 5) at the Edge because 21 > the 20-key per-response cap):
+        'records_remaining_disagreement',
+        'defines_next_evidence_needed',
+        'separates_normative_from_empirical'
       ) then 'ai_classifier_subset'
       when raw_key in (
         -- 12 deterministic keys explicitly excluded from the Subset.

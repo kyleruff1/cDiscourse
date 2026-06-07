@@ -30,7 +30,7 @@ describe('MCP-021A — registry size + family assignment', () => {
     expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBeLessThanOrEqual(200);
   });
 
-  it('contains exactly 190 entries (MCP-021A 172 + MCP-BUILD2a Family B +3 + MCP-BUILD2b Family A +3 + MCP-BUILD2c Family C +3 + MCP-BUILD2d Family D +3 + MCP-BUILD2e Family E +3 + MCP-BUILD2f Family F +3)', () => {
+  it('contains exactly 193 entries (MCP-021A 172 + MCP-BUILD2a Family B +3 + MCP-BUILD2b Family A +3 + MCP-BUILD2c Family C +3 + MCP-BUILD2d Family D +3 + MCP-BUILD2e Family E +3 + MCP-BUILD2f Family F +3 + MCP-BUILD2g Family G +3)', () => {
     // Design §3.11: "Final registry count: 64 + 107 = 171, OR 65 + 107 = 172.
     // Resolved by implementer Phase A pass; both numbers respect Trigger 11."
     // Implementer Phase A: existing 65 + 107 new = 172. Family G includes 21
@@ -51,9 +51,14 @@ describe('MCP-021A — registry size + family assignment', () => {
     // (names_method_difference, separates_observation_from_inference,
     // flags_context_limit) → 190. These take the mcp-server Subset 19 → 22,
     // the first family past the 20-key cap (served in 2 batches at the Edge).
+    // MCP-BUILD2g (Build-2 manifest §6): +3 resolution_progress booleans
+    // (records_remaining_disagreement, defines_next_evidence_needed,
+    // separates_normative_from_empirical) → 193. These take the mcp-server
+    // Subset 18 → 21, the LAST Build-2 family past the 20-key cap (served in 2
+    // batches of 16 + 5 at the Edge).
     // Vocabulary expansion only; the schema version constant is byte-equal
     // (no wire-shape change).
-    expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBe(190);
+    expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBe(193);
   });
 
   it('has every entry with a family field assigned', () => {
@@ -84,7 +89,7 @@ describe('MCP-021A — per-family count forecast (within ±1 of design §3.11)',
     evidence_source_chain: 30, // 15 existing + 12 MCP-021A new + 3 MCP-BUILD2d
     argument_scheme: 19, // 0 existing + 16 MCP-021A + 3 MCP-BUILD2e
     critical_question: 17, // 0 existing + 14 MCP-021A + 3 MCP-BUILD2f
-    resolution_progress: 30, // 21 existing (5 auto + 7 lifecycle + 9 ai_classifier) + 9 new — see design §3.7 self-correction
+    resolution_progress: 33, // 30 baseline (5 auto + 7 lifecycle + 18 ai_classifier) + 3 MCP-BUILD2g
     claim_clarity: 12, // 1 existing + 11 new
     thread_topology: 21, // 14 existing + 7 new
     sensitive_composer: 5, // 5 existing + 0 new (Trigger 10)
@@ -97,12 +102,12 @@ describe('MCP-021A — per-family count forecast (within ±1 of design §3.11)',
     });
   }
 
-  it('per-family counts sum to 190', () => {
+  it('per-family counts sum to 193', () => {
     const total = ALL_MACHINE_OBSERVATION_FAMILIES.reduce(
       (sum, fam) => sum + expectedCounts[fam],
       0,
     );
-    expect(total).toBe(190);
+    expect(total).toBe(193);
   });
 });
 
