@@ -263,7 +263,7 @@ const SECTIONS = Object.freeze([
     id: 'q11-per-family-per-mode-coverage',
     title: 'Per-family per-mode coverage',
     question:
-      'Q11 — How are runs distributed across families and run_modes? (5-family carrier-forward state: A+B+C+G (resolution_progress) production + admin_validation; D admin_validation only with 18-key Subset for G; E, F production; H Card-1 admin_validation; I, J unsupported.)',
+      'Q11 — How are runs distributed across families and run_modes? (5-family carrier-forward state: A+B+C+G (resolution_progress) production + admin_validation; D admin_validation only with 21-key Subset for G; E, F production; H Card-1 admin_validation; I, J unsupported.)',
     sqlFile: '11-per-family-per-mode-coverage.sql',
     columns: [
       'requested_family',
@@ -344,9 +344,9 @@ const SECTIONS = Object.freeze([
   },
   {
     id: 'q16-family-g-subset-coverage',
-    title: 'Family G 18-key subset coverage',
+    title: 'Family G 21-key subset coverage',
     question:
-      'Q16 — Are all observed Family G raw_keys within the 18-key ai_classifier Subset, with zero deterministic-key leaks?',
+      'Q16 — Are all observed Family G raw_keys within the 21-key ai_classifier Subset, with zero deterministic-key leaks?',
     sqlFile: '16-family-g-subset-coverage.sql',
     columns: [
       'raw_key',

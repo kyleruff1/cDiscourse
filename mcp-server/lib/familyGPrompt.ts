@@ -1,12 +1,16 @@
 /**
  * MCP-SERVER-008-FAMILY-G — Family G prompt construction.
  *
- * Single-prompt strategy per design §A.3: one Anthropic call covers all
- * 18 Family G ai_classifier rawKeys. Token budget ~85 tokens/key × 18 =
- * ~1530 naive; the conservative-positives bias (positives are sparse —
- * most moves have 0 to 2) keeps realistic output far under the budget.
- * MAX_TOKENS=1500 (matches Family A/B/C/E/F; NO bump per design §A.2 — D
- * already ships 19 ai_classifier keys at 1500 with no truncation).
+ * Single-prompt strategy per design §A.3: one Anthropic call covers each
+ * batch of Family G ai_classifier rawKeys. MCP-BUILD2g takes the Subset 18 →
+ * 21; 21 > the 20-key per-response cap, so the Edge chunker serves G in 2
+ * batches (16 + 5) and the mcp-server answers each batch as a normal <= 16-key
+ * single-family request — it never sees the full 21-key set. Token budget ~85
+ * tokens/key keeps each batch far under budget; the conservative-positives
+ * bias (positives are sparse — most moves have 0 to 2) keeps realistic output
+ * lower still. MAX_TOKENS=1500 (matches Family A/B/C/D/E/F; NO bump per design
+ * §A.2 — D already ships 22 ai_classifier keys (batched) at 1500 with no
+ * truncation).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
@@ -46,7 +50,7 @@
  */
 import { FAMILY_G_PROMPT_ENTRIES, FAMILY_G_RAW_KEYS } from './familyGKeys.ts';
 
-/** MAX_TOKENS for the Family G response. 18 keys; positives are sparse. */
+/** MAX_TOKENS for the Family G response. 21-key Subset served in 2 batches (16 + 5); positives are sparse. */
 export const FAMILY_G_MAX_TOKENS = 1500;
 
 /** Deterministic decoding. Mirrors Family A/B/C/D/E/F. */
@@ -157,7 +161,8 @@ export interface ValidatedFamilyGRequest {
  *   5. Conservative-positives bias reminder (0 to 2 states)
  *   6. The input (move text, parent text, thread context)
  *
- * When requestedRawKeys is empty, all 18 Family G keys are included.
+ * When requestedRawKeys is empty, all 21 Family G keys are included (in
+ * production the Edge passes a batched <= 16-key requestedRawKeys subset).
  *
  * Returns a string — pure, no I/O. The string contains the verbatim
  * caller-redacted move/parent/thread text fields; the caller has already

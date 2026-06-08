@@ -629,7 +629,7 @@ Deno.test('registry-getRawKeysForFamily-returns-all-19-for-family-e', async () =
 
 Deno.test('registry-getSupportedFamilies-preserves-seven-family-order', async () => {
   // MCP-SERVER-008-FAMILY-G adds the seventh family register() call
-  // (ai_classifier Subset; 18 keys). Insertion order is preserved by the
+  // (ai_classifier Subset; 21 keys after MCP-BUILD2g). Insertion order is preserved by the
   // underlying Map; the getSupportedFamilies() snapshot returns exactly the
   // seven-family list in registration order.
   const { FAMILY_D_RAW_KEYS, FAMILY_D_CLASSIFIER_SET_VERSION } = await import(
@@ -685,7 +685,7 @@ Deno.test('registry-getSupportedFamilies-preserves-seven-family-order', async ()
       'resolution_progress',
     ],
   );
-  assertEquals(registry.getRawKeysForFamily('resolution_progress').size, 18);
+  assertEquals(registry.getRawKeysForFamily('resolution_progress').size, 21);
   assertEquals(registry.getClassifierSetVersion('resolution_progress'), 'family-g-v1');
 });
 
@@ -786,7 +786,7 @@ Deno.test('registry-isRawKeySupportedForFamily-seven-way-cross-family-rejection'
   );
 });
 
-Deno.test('registry-getRawKeysForFamily-returns-all-18-for-family-g-Subset', async () => {
+Deno.test('registry-getRawKeysForFamily-returns-all-21-for-family-g-Subset', async () => {
   const { FAMILY_G_RAW_KEYS, FAMILY_G_CLASSIFIER_SET_VERSION } = await import(
     '../lib/familyGKeys.ts'
   );
@@ -796,7 +796,7 @@ Deno.test('registry-getRawKeysForFamily-returns-all-18-for-family-g-Subset', asy
     classifierSetVersion: FAMILY_G_CLASSIFIER_SET_VERSION,
   });
   const keys = registry.getRawKeysForFamily('resolution_progress');
-  assertEquals(keys.size, 18);
+  assertEquals(keys.size, 21);
   for (const binding of FAMILY_G_RAW_KEYS) {
     assertEquals(keys.has(binding), true);
   }

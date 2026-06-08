@@ -188,11 +188,12 @@ Deno.test('familyRegistryInit-registers-family-g-on-import', () => {
   assertEquals(isFamilySupported('resolution_progress'), true);
 });
 
-Deno.test('familyRegistryInit-family-g-has-18-rawKeys-Subset', () => {
+Deno.test('familyRegistryInit-family-g-has-21-rawKeys-Subset', () => {
   // MCP-SERVER-008-FAMILY-G ships the 18-key ai_classifier Subset per Stage
-  // 2B operator binding (the 12 deterministic keys are excluded).
+  // 2B operator binding (the 12 deterministic keys are excluded); MCP-BUILD2g
+  // (Build-2 manifest §6) adds 3 booleans, taking the Subset 18 → 21.
   const rawKeys = getRawKeysForFamily('resolution_progress');
-  assertEquals(rawKeys.size, 18);
+  assertEquals(rawKeys.size, 21);
 });
 
 Deno.test('familyRegistryInit-family-g-classifier-version-is-family-g-v1', () => {

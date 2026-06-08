@@ -134,7 +134,7 @@ describe('MCP-SERVER-010A-FAMILY-I Edge → MCP subset filter (Stage 2B fix)', (
     expect(req.requestedRawKeys.length).toBe(22);
   });
 
-  it('SFI-8 — Family G (resolution_progress) subset entry is unchanged (still {ai_classifier} → 18 keys)', () => {
+  it('SFI-8 — Family G (resolution_progress) subset entry is unchanged (still {ai_classifier} → 21 keys)', () => {
     const sources = edgeGetMcpServerSupportedFamilySources('resolution_progress');
     expect(sources).toBeDefined();
     expect(Array.from(sources!).sort()).toEqual(['ai_classifier']);
@@ -142,7 +142,7 @@ describe('MCP-SERVER-010A-FAMILY-I Edge → MCP subset filter (Stage 2B fix)', (
       ...FAMILY_I_BASE_INPUT,
       requestedFamilies: ['resolution_progress'],
     });
-    expect(req.requestedRawKeys.length).toBe(18);
+    expect(req.requestedRawKeys.length).toBe(21);
   });
 
   it('SFI-9 — familyRegistry thread_topology entry stays productionEnabled:false (NO FLIP this card)', () => {

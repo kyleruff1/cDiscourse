@@ -1,5 +1,22 @@
 /**
- * MCP-021A — Family G (resolution_progress) definitions.
+ * MCP-021A + MCP-BUILD2g — Family G (resolution_progress) definitions.
+ *
+ * 33 entries total (MCP-021A baseline 30 — the file-header forecast below says
+ * "29" but the array has 30 frozen entries with 18 ai_classifier; see
+ * mcp-server/lib/familyGKeys.ts §A.1.0 — plus MCP-BUILD2g +3 ai_classifier).
+ * The MCP-BUILD2g additions (Build-2 manifest §6) are the 3 resolution-progress
+ * bookkeeping booleans records_remaining_disagreement,
+ * defines_next_evidence_needed, separates_normative_from_empirical — all
+ * ai_classifier, all added to the mcp-server Subset, taking that Subset 18 → 21
+ * (G is a batched family: 21 > the per-response cap of 20, so its 21-key
+ * response is split into 2 batches (16 + 5) at the Edge by the
+ * MCP-BOOLEAN-BATCHING-INFRA-001 chunker; the client/Edge definition list is
+ * unaffected by batching). NO schema-version bump (vocabulary expansion, not a
+ * wire change). EVIDENCE-DOCTRINE FENCE (G2 defines_next_evidence_needed): the
+ * label names a next evidence step (aligns with the evidence-debt model) and
+ * is advisory; it NEVER grants or denies factual standing / truth; the
+ * anti-amplification module stays untouched. None of the 3 is verdict-adjacent
+ * (manifest §6 — "lowest-risk family alongside D").
  *
  * Per design §3.7: 29 entries total (largest family in MCP-021A).
  *  - 20 existing (RETROACTIVE_VERBOSE_DEFINITIONS):
@@ -881,6 +898,133 @@ export const FAMILY_G_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     ]),
     falsePositiveGuards: Object.freeze(['Follow-up is for FUTURE discussion; current questions are different.']),
     doctrineNotes: Object.freeze(['cdiscourse-doctrine §10a: future-question proposal is structural.']),
+    confidenceEligibility: NEW_INSPECT_ELIGIBILITY,
+  }),
+
+  // ── MCP-BUILD2g (resolution_progress expansion; Build-2 manifest §6) ──
+  // Three Build-2g booleans that surface the RESOLUTION-PROGRESS BOOKKEEPING of
+  // a move — the remaining-disagreement set it records, the next evidence it
+  // defines as resolving the open point, and the normative/empirical boundary
+  // it draws. All ai_classifier, all added to the mcp-server Subset (taking it
+  // 18 → 21), all Inspect-only. G's 21-key Subset exceeds the 20-key per-
+  // response cap, so the Edge chunker serves it in 2 batches (16 + 5) and merges
+  // the responses into one 21-key result (the client/Edge definition list is
+  // unaffected by batching). NONE is verdict-adjacent (manifest §6 — "lowest-
+  // risk family alongside D"); each label still describes the MOVE never the
+  // author and stays verdict-free. EVIDENCE-DOCTRINE FENCE (G2): defines_next_
+  // evidence_needed names a next evidence step and is advisory; it NEVER grants
+  // or denies factual standing / truth — granting/denying standing remains the
+  // anti-amplification module's job, which this card does NOT touch.
+
+  // BUILD2g #1 records_remaining_disagreement (G1; Inspect-only)
+  buildResolution({
+    rawKey: 'records_remaining_disagreement',
+    source: 'ai_classifier',
+    label: 'Records remaining disagreement',
+    shortLabel: 'Remaining set',
+    description:
+      'This move records the set of points that remain in dispute.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 164,
+    visibleByDefault: false,
+    booleanQuestion:
+      'Does this move explicitly record what remains in dispute (a roundup of the open set), distinct from isolating a single open point?',
+    positiveDefinition:
+      'The move records the SET of what is still in dispute — a roundup ("settled: the data; open: the value weighting and the timeline"). Distinct from unresolved_point_isolated, which names ONE open point; G1 summarizes the remainder.',
+    negativeDefinition:
+      'The move declares the issue closed (issue_closed_by_participant), isolates a single open point without summarizing the remainder (unresolved_point_isolated), or makes a claim without recording the open set.',
+    positiveExamples: Object.freeze([
+      "Move: 'We agree on cost; what is still open is whether equity outweighs it and whether enforcement is feasible.'",
+      "Move: 'Two things still in dispute after all this: the denominator and the causal direction.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'Done here.' (issue_closed_by_participant)",
+      "Move: 'This one point is unresolved.' (unresolved_point_isolated — a single point, not the set)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The move must RECORD what remains (a roundup of the open set), not just flag one open point; distinguish from unresolved_point_isolated. Co-fires acceptably with common_ground_identified.',
+      'DOCTRINE: recording the remaining-disagreement set is descriptive resolution bookkeeping about the MOVE; it NEVER implies one side is ahead, behind, won, or lost, and never judges the author.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: recording the remaining-disagreement set is structural resolution bookkeeping about the move; it describes the state of the exchange, never a verdict.',
+      'point-standing-economy: G1 is descriptive; recording what remains open does not change any participant\'s standing.',
+    ]),
+    confidenceEligibility: NEW_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2g #2 defines_next_evidence_needed (G2; Inspect-only; EVIDENCE-DOCTRINE FENCE)
+  buildResolution({
+    rawKey: 'defines_next_evidence_needed',
+    source: 'ai_classifier',
+    label: 'Defines next evidence needed',
+    shortLabel: 'Next evidence',
+    description:
+      'This move defines the specific evidence that would resolve the open point next.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 165,
+    visibleByDefault: false,
+    booleanQuestion:
+      'Does this move define the specific evidence that would resolve the open point next (not a generic source request)?',
+    positiveDefinition:
+      'The move names the SPECIFIC evidence that would advance resolution of the open point ("a primary record of the enforcement dates", "a longitudinal study past year 5"). A forward-looking, actionable definition of the next evidence step.',
+    negativeDefinition:
+      'The move asks for evidence generically (asks_for_evidence, Family D), proposes a settlement without naming the evidence (proposes_settlement_terms), or asks to move on (move_on_requested).',
+    positiveExamples: Object.freeze([
+      "Move: 'To settle this, we would need a primary record of the enforcement dates — that is the next evidence.'",
+      "Move: 'A longitudinal study past year 5 would resolve the durability question.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'Got a source?' (asks_for_evidence — generic, not a defined next step)",
+      "Move: 'Let us just agree to disagree.' (move_on_requested)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The move must DEFINE the specific evidence that would advance resolution; do NOT mark a generic source request (asks_for_evidence).',
+      'EVIDENCE-DOCTRINE FENCE: this observation describes a forward-looking evidence step the MOVE names (a primary_record_needed / source_needed-style next step). It is advisory; it NEVER grants or denies factual standing or truth to any claim, and never judges the author. Granting/denying standing remains the anti-amplification module\'s job, which this card does NOT touch.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: defining the next evidence step is a constructive, forward-looking structural observation about the move.',
+      'evidence-doctrine: this names a next evidence step (aligns with the evidence-debt model — a primary_record_needed / source_needed-style next step); it does NOT grant or deny factual standing — the anti-amplification module is untouched.',
+    ]),
+    confidenceEligibility: NEW_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2g #3 separates_normative_from_empirical (G3; Inspect-only)
+  buildResolution({
+    rawKey: 'separates_normative_from_empirical',
+    source: 'ai_classifier',
+    label: 'Separates normative from empirical',
+    shortLabel: 'Values vs facts',
+    description:
+      'This move separates a values dispute from a factual one.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 166,
+    visibleByDefault: false,
+    booleanQuestion:
+      'Does this move separate a normative (values) dispute from an empirical (factual) one?',
+    positiveDefinition:
+      'The move explicitly marks the boundary between a values question and a factual question ("the \'does it work\' part is empirical and we can check it; the \'is it worth it\' part is normative and data will not settle it"). An epistemic-structural distinction between fact-questions and value-questions.',
+    negativeDefinition:
+      'The move conflates the two, disputes within one without separating (disputes_fact / a value disagreement with no separation), or makes a claim without drawing the normative/empirical boundary.',
+    positiveExamples: Object.freeze([
+      "Move: 'Two questions tangled here: an empirical one (the effect size) and a values one (whether the tradeoff is acceptable).'",
+      "Move: 'We can measure the cost; whether it is too much is a judgment, not a measurement.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'That is just wrong.' (disputes a fact, no separation)",
+      "Move: 'I disagree on values.' (a value disagreement with no separation)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The move must EXPLICITLY mark the normative/empirical boundary; do NOT mark on the word "values" alone.',
+      'Related to separates_observation_from_inference (Family D) but distinct: G3 separates fact-questions from value-questions; D2 separates observed-data from inferred-conclusions.',
+      'DOCTRINE: separating normative from empirical is an epistemic-structural observation about the MOVE; it NEVER implies one side is right, won, or lost, and never judges the author.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: separating a values dispute from a factual one is an epistemic-structural fact about the move; it is never a verdict on either question.',
+      'point-standing-economy: G3 is descriptive; drawing the normative/empirical boundary does not change any participant\'s standing.',
+    ]),
     confidenceEligibility: NEW_INSPECT_ELIGIBILITY,
   }),
 ]);

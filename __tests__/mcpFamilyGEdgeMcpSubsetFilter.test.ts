@@ -2,8 +2,9 @@
  * MCP-SERVER-008A-FAMILY-G-EDGE-SUBSET — Edge → MCP subset filter regression.
  *
  * Family G (`resolution_progress`) is a mixed-source family: 5 auto_metadata
- * + 7 lifecycle + 18 ai_classifier (30 total). Per the MCP-SERVER-008-FAMILY-G
- * Stage 2B operator decision, the MCP server supports ONLY the 18 ai_classifier
+ * + 7 lifecycle + 21 ai_classifier (33 total; 18 + 3 MCP-BUILD2g). Per the
+ * MCP-SERVER-008-FAMILY-G Stage 2B operator decision, the MCP server supports
+ * ONLY the ai_classifier
  * keys; the 12 deterministic keys are excluded.
  *
  * The Card 1 ship registered the 18-key subset on the MCP server but the Edge
@@ -47,6 +48,10 @@ const FAMILY_G_AI_CLASSIFIER_KEYS = [
   'decision_criterion_proposed',
   'action_item_proposed',
   'followup_question_proposed',
+  // MCP-BUILD2g (Build-2 manifest §6) — Subset 18 → 21.
+  'records_remaining_disagreement',
+  'defines_next_evidence_needed',
+  'separates_normative_from_empirical',
 ] as const;
 
 const FAMILY_G_DETERMINISTIC_EXCLUDED_KEYS = [
@@ -77,18 +82,18 @@ const FAMILY_G_BASE_INPUT = {
 };
 
 describe('MCP-SERVER-008A-FAMILY-G Edge → MCP subset filter (Stage 2B fix)', () => {
-  it('SFG-1 — Family G admin_validation request contains exactly 18 ai_classifier rawKeys', () => {
+  it('SFG-1 — Family G admin_validation request contains exactly 21 ai_classifier rawKeys (post MCP-BUILD2g)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_G_BASE_INPUT);
-    expect(req.requestedRawKeys.length).toBe(18);
+    expect(req.requestedRawKeys.length).toBe(21);
   });
 
-  it('SFG-2 — every Family G rawKey sent matches the operator-approved 18-key ai_classifier set', () => {
+  it('SFG-2 — every Family G rawKey sent matches the operator-approved 21-key ai_classifier set', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_G_BASE_INPUT);
     const sent = new Set(req.requestedRawKeys);
     for (const expected of FAMILY_G_AI_CLASSIFIER_KEYS) {
       expect(sent.has(expected)).toBe(true);
     }
-    expect(sent.size).toBe(18);
+    expect(sent.size).toBe(21);
   });
 
   it('SFG-3 — Family G request does NOT include any of the 12 excluded deterministic rawKeys', () => {
@@ -99,9 +104,9 @@ describe('MCP-SERVER-008A-FAMILY-G Edge → MCP subset filter (Stage 2B fix)', (
     }
   });
 
-  it('SFG-4 — Family G definitions map size matches the 18 rawKeys (no orphan keys)', () => {
+  it('SFG-4 — Family G definitions map size matches the 21 rawKeys (no orphan keys)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_G_BASE_INPUT);
-    expect(Object.keys(req.definitions).length).toBe(18);
+    expect(Object.keys(req.definitions).length).toBe(21);
     for (const key of Object.keys(req.definitions)) {
       expect(FAMILY_G_AI_CLASSIFIER_KEYS.includes(key as never)).toBe(true);
     }
@@ -114,14 +119,14 @@ describe('MCP-SERVER-008A-FAMILY-G Edge → MCP subset filter (Stage 2B fix)', (
     }
   });
 
-  it('SFG-6 — production-mode Family G request also returns 18 ai_classifier rawKeys (subset filter is mode-agnostic; admin + production share the path)', () => {
+  it('SFG-6 — production-mode Family G request also returns ai_classifier rawKeys only (subset filter is mode-agnostic; admin + production share the path)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_G_BASE_INPUT,
       mode: 'production',
     });
-    // Family G is NOT productionEnabled yet (Card 3 flips it), so production
-    // mode may filter it out entirely (0 keys) OR, once enabled, return the
-    // same 18 ai_classifier keys. This asserts the subset filter does not
+    // Family G production-mode behavior is unchanged by MCP-BUILD2g: production
+    // mode may filter it out entirely (0 keys) OR return the 21 ai_classifier
+    // keys. This asserts the subset filter does not
     // LEAK deterministic keys in either case — the requested keys are always
     // a subset of the 18 ai_classifier set, never the 12 deterministic.
     const sent = new Set(req.requestedRawKeys);
@@ -166,9 +171,9 @@ describe('MCP-SERVER-008A-FAMILY-G Edge → MCP subset filter (Stage 2B fix)', (
       ...FAMILY_G_BASE_INPUT,
       requestedFamilies: ['resolution_progress', 'parent_relation'],
     });
-    // 18 Family G ai_classifier + 19 Family A (post MCP-BUILD2b) = 37 total
-    // (no overlap).
-    expect(req.requestedRawKeys.length).toBe(37);
+    // 21 Family G ai_classifier (post MCP-BUILD2g) + 19 Family A (post
+    // MCP-BUILD2b) = 40 total (no overlap).
+    expect(req.requestedRawKeys.length).toBe(40);
     const sent = new Set(req.requestedRawKeys);
     for (const key of FAMILY_G_AI_CLASSIFIER_KEYS) {
       expect(sent.has(key)).toBe(true);

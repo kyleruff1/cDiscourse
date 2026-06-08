@@ -2141,6 +2141,304 @@ const FAMILY_D_BUILD2D_RULES: ReadonlyArray<ObservationMappingRule> = [
   },
 ];
 
+// ── (9) MCP-BUILD2g — Family G resolution_progress (resolution-progress ──
+//        bookkeeping) mapping rows. Adopted from the candidate CSV's deferred
+//        `resolution_progress` rows whose required flags are EXACTLY the 3 new
+//        Build-2g booleans (records_remaining_disagreement,
+//        defines_next_evidence_needed, separates_normative_from_empirical). The
+//        CSV's generic label_neutral and "When X=yes, show: …" diagnostic
+//        prefix are re-authored here into clean verdict-free, move-level strings
+//        per the design's review pass (manifest §6). Every flag is now a
+//        deployed A-G rawKey (the 3 new defs land in familyG.ts this card,
+//        taking the mcp-server Subset 18 → 21), so each rule fires. The CSV's
+//        intra-3 pair rows pair the 3 new flags ONLY with each other; all are
+//        seeded here per the fireability rule (mirror A/C/D/E). The CSV's other
+//        60+ pair rows pair them with PLANNED partner flags (the existing
+//        resolution_progress / Family-D evidence flags) that are not co-deployed
+//        as a Build-2g unlock → DEFERRED to Build 3. 6 single rows (3 true + 3
+//        false) + 9 pair rows (every two-flag combination of the 3) = 15 rows.
+//        EVIDENCE-DOCTRINE FENCE (manifest §6 + evidence-doctrine skill): the
+//        defines_next_evidence_needed rows name a next evidence step and are
+//        advisory; they NEVER grant or deny factual standing or truth, and
+//        never judge the author; the anti-amplification module is untouched.
+//        None of the 3 G booleans is verdict-adjacent (no extra fence required
+//        beyond the standard describe-the-move framing), per manifest §6
+//        ("lowest-risk family alongside D"). G is a batched family (21 > the
+//        20-key cap → 2 batches of 16 + 5 at the Edge); mapping-row seeding is
+//        unaffected by batching (the evaluator reads merged results).
+const FAMILY_G_BUILD2G_RULES: ReadonlyArray<ObservationMappingRule> = [
+  // ── singles: records_remaining_disagreement ──
+  {
+    mappingId: 'MBOM-00101',
+    familyKey: 'resolution_progress',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['records_remaining_disagreement'],
+    requiredFalseFlags: [],
+    observationCode: 'resolution_progress.single_true.records_remaining_disagreement',
+    labelShort: 'Records remaining disagreement',
+    labelNeutral: 'Records what remains in dispute',
+    diagnosticSentence:
+      'This reply records the set of points that remain in dispute.',
+    displayPriority: 73,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00102',
+    familyKey: 'resolution_progress',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['records_remaining_disagreement'],
+    observationCode: 'resolution_progress.single_false.records_remaining_disagreement',
+    labelShort: 'No remaining disagreement recorded',
+    labelNeutral: 'A roundup of what remains in dispute not observed',
+    diagnosticSentence:
+      'This reply does not record the set of points that remain in dispute; this is only an observation about its structure, not a concern.',
+    displayPriority: 111,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: defines_next_evidence_needed ──
+  {
+    mappingId: 'MBOM-00103',
+    familyKey: 'resolution_progress',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['defines_next_evidence_needed'],
+    requiredFalseFlags: [],
+    observationCode: 'resolution_progress.single_true.defines_next_evidence_needed',
+    labelShort: 'Defines next evidence needed',
+    labelNeutral: 'Defines the evidence that would resolve the open point next',
+    diagnosticSentence:
+      'This reply defines the specific evidence that would resolve the open point next.',
+    displayPriority: 77,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00104',
+    familyKey: 'resolution_progress',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['defines_next_evidence_needed'],
+    observationCode: 'resolution_progress.single_false.defines_next_evidence_needed',
+    labelShort: 'No next evidence defined',
+    labelNeutral: 'A defined next evidence step not observed',
+    diagnosticSentence:
+      'This reply does not define the specific evidence that would resolve the open point next; this is only an observation about its structure, not a concern.',
+    displayPriority: 102,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: separates_normative_from_empirical ──
+  {
+    mappingId: 'MBOM-00105',
+    familyKey: 'resolution_progress',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['separates_normative_from_empirical'],
+    requiredFalseFlags: [],
+    observationCode: 'resolution_progress.single_true.separates_normative_from_empirical',
+    labelShort: 'Separates values from facts',
+    labelNeutral: 'Separates a values question from a factual one',
+    diagnosticSentence:
+      'This reply separates a values dispute from a factual one.',
+    displayPriority: 79,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00106',
+    familyKey: 'resolution_progress',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['separates_normative_from_empirical'],
+    observationCode: 'resolution_progress.single_false.separates_normative_from_empirical',
+    labelShort: 'Values and facts not separated',
+    labelNeutral: 'A split between a values question and a factual one not observed',
+    diagnosticSentence:
+      'This reply does not separate a values dispute from a factual one; this is only an observation about its structure, not a concern.',
+    displayPriority: 105,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: records_remaining_disagreement × defines_next_evidence_needed ──
+  {
+    mappingId: 'MBOM-01136',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['records_remaining_disagreement', 'defines_next_evidence_needed'],
+    requiredFalseFlags: [],
+    observationCode:
+      'resolution_progress.pair_true_true.records_remaining_disagreement.defines_next_evidence_needed',
+    labelShort: 'Records what remains and defines next evidence',
+    labelNeutral: 'Records what remains in dispute and defines the next evidence needed',
+    diagnosticSentence:
+      'This reply records the set of points that remain in dispute and defines the specific evidence that would resolve the open point next.',
+    displayPriority: 69,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01137',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['records_remaining_disagreement'],
+    requiredFalseFlags: ['defines_next_evidence_needed'],
+    observationCode:
+      'resolution_progress.pair_true_false.records_remaining_disagreement.no_next_evidence_defined',
+    labelShort: 'Records what remains, no next evidence defined',
+    labelNeutral: 'Records what remains in dispute without defining the next evidence needed',
+    diagnosticSentence:
+      'This reply records the set of points that remain in dispute but does not define the specific evidence that would resolve the open point next.',
+    displayPriority: 83,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01138',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['defines_next_evidence_needed'],
+    requiredFalseFlags: ['records_remaining_disagreement'],
+    observationCode:
+      'resolution_progress.pair_false_true.defines_next_evidence_needed.no_remaining_disagreement_recorded',
+    labelShort: 'Defines next evidence, no remaining-disagreement roundup',
+    labelNeutral: 'Defines the next evidence needed without recording what remains in dispute',
+    diagnosticSentence:
+      'This reply defines the specific evidence that would resolve the open point next but does not record the set of points that remain in dispute.',
+    displayPriority: 99,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: records_remaining_disagreement × separates_normative_from_empirical ──
+  {
+    mappingId: 'MBOM-01139',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['records_remaining_disagreement', 'separates_normative_from_empirical'],
+    requiredFalseFlags: [],
+    observationCode:
+      'resolution_progress.pair_true_true.records_remaining_disagreement.separates_normative_from_empirical',
+    labelShort: 'Records what remains and separates values from facts',
+    labelNeutral: 'Records what remains in dispute and separates a values question from a factual one',
+    diagnosticSentence:
+      'This reply records the set of points that remain in dispute and separates a values dispute from a factual one.',
+    displayPriority: 71,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01140',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['records_remaining_disagreement'],
+    requiredFalseFlags: ['separates_normative_from_empirical'],
+    observationCode:
+      'resolution_progress.pair_true_false.records_remaining_disagreement.no_normative_empirical_split',
+    labelShort: 'Records what remains, no values/facts split',
+    labelNeutral: 'Records what remains in dispute without separating a values question from a factual one',
+    diagnosticSentence:
+      'This reply records the set of points that remain in dispute but does not separate a values dispute from a factual one.',
+    displayPriority: 85,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01141',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['separates_normative_from_empirical'],
+    requiredFalseFlags: ['records_remaining_disagreement'],
+    observationCode:
+      'resolution_progress.pair_false_true.separates_normative_from_empirical.no_remaining_disagreement_recorded',
+    labelShort: 'Separates values from facts, no remaining-disagreement roundup',
+    labelNeutral: 'Separates a values question from a factual one without recording what remains in dispute',
+    diagnosticSentence:
+      'This reply separates a values dispute from a factual one but does not record the set of points that remain in dispute.',
+    displayPriority: 100,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: defines_next_evidence_needed × separates_normative_from_empirical ──
+  {
+    mappingId: 'MBOM-01142',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['defines_next_evidence_needed', 'separates_normative_from_empirical'],
+    requiredFalseFlags: [],
+    observationCode:
+      'resolution_progress.pair_true_true.defines_next_evidence_needed.separates_normative_from_empirical',
+    labelShort: 'Defines next evidence and separates values from facts',
+    labelNeutral: 'Defines the next evidence needed and separates a values question from a factual one',
+    diagnosticSentence:
+      'This reply defines the specific evidence that would resolve the open point next and separates a values dispute from a factual one.',
+    displayPriority: 72,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01143',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['defines_next_evidence_needed'],
+    requiredFalseFlags: ['separates_normative_from_empirical'],
+    observationCode:
+      'resolution_progress.pair_true_false.defines_next_evidence_needed.no_normative_empirical_split',
+    labelShort: 'Defines next evidence, no values/facts split',
+    labelNeutral: 'Defines the next evidence needed without separating a values question from a factual one',
+    diagnosticSentence:
+      'This reply defines the specific evidence that would resolve the open point next but does not separate a values dispute from a factual one.',
+    displayPriority: 86,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01144',
+    familyKey: 'resolution_progress',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['separates_normative_from_empirical'],
+    requiredFalseFlags: ['defines_next_evidence_needed'],
+    observationCode:
+      'resolution_progress.pair_false_true.separates_normative_from_empirical.no_next_evidence_defined',
+    labelShort: 'Separates values from facts, no next evidence defined',
+    labelNeutral: 'Separates a values question from a factual one without defining the next evidence needed',
+    diagnosticSentence:
+      'This reply separates a values dispute from a factual one but does not define the specific evidence that would resolve the open point next.',
+    displayPriority: 101,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+];
+
 /**
  * The reviewed, reconciled, frozen mapping registry the evaluator reads.
  * A-G only. Every flag is a deployed rawKey; every label is verdict-free.
@@ -2156,6 +2454,7 @@ export const OBSERVATION_MAPPING_REGISTRY: ReadonlyArray<ObservationMappingRule>
       ...FAMILY_D_BUILD2D_RULES,
       ...FAMILY_E_BUILD2E_RULES,
       ...FAMILY_F_BUILD2F_RULES,
+      ...FAMILY_G_BUILD2G_RULES,
     ].map((r) =>
       Object.freeze({
         ...r,
@@ -2263,6 +2562,23 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
    * DEFERRED to Build 3.
    */
   build2fFamilyFAdoptedRules: FAMILY_F_BUILD2F_RULES.length,
+  /**
+   * MCP-BUILD2g — mapping rows adopted from the candidate CSV's deferred
+   * `resolution_progress` rows whose required flags are EXACTLY the 3 new
+   * Build-2g booleans (now deployed in familyG.ts): records_remaining_disagreement,
+   * defines_next_evidence_needed, separates_normative_from_empirical. These
+   * were part of the 955 deferred-planned-vocab rows; deploying the 3 booleans
+   * converts them from deferred to genuinely-fireable. 6 singles + 9 pairs = 15.
+   * The CSV's other 60+ `resolution_progress` pair rows that ALSO need a
+   * planned partner flag (the existing resolution_progress / Family-D evidence
+   * flags) remain DEFERRED to Build 3. The 3 G booleans take the mcp-server
+   * Subset 18 → 21 — a batched family (21 > the 20-key cap, so served in 2
+   * batches (16 + 5) at the Edge); mapping-row seeding is unaffected by
+   * batching (the evaluator reads merged results). EVIDENCE-DOCTRINE FENCE
+   * (defines_next_evidence_needed): these rows name a next evidence step and
+   * NEVER grant/deny factual standing (anti-amplification module untouched).
+   */
+  build2gFamilyGAdoptedRules: FAMILY_G_BUILD2G_RULES.length,
   /** Total rules in the active registry. */
   totalActiveRules:
     ADOPTED_FROM_CSV.length +
@@ -2272,7 +2588,8 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
     FAMILY_C_BUILD2C_RULES.length +
     FAMILY_D_BUILD2D_RULES.length +
     FAMILY_E_BUILD2E_RULES.length +
-    FAMILY_F_BUILD2F_RULES.length,
+    FAMILY_F_BUILD2F_RULES.length +
+    FAMILY_G_BUILD2G_RULES.length,
   /** Families H/I/J adopted. ALWAYS 0 (frozen / out of scope). */
   frozenFamiliesAdopted: 0,
 } as const);

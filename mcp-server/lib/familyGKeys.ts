@@ -1,6 +1,6 @@
 /**
- * MCP-SERVER-008-FAMILY-G — Family G (resolution_progress) 18-key
- * ai_classifier Subset constant + prompt entries.
+ * MCP-SERVER-008-FAMILY-G + MCP-BUILD2g — Family G (resolution_progress)
+ * 21-key ai_classifier Subset constant + prompt entries.
  *
  * Server-side MIRROR of the upstream Family G registry in
  * `src/features/nodeLabels/machineObservationDefinitions/familyG.ts`. The
@@ -11,9 +11,11 @@
  *
  * Per operator Stage 2B binding decision (recorded at the top of
  * `docs/designs/MCP-SERVER-008-FAMILY-G.md` §A.1.1): this constant is the
- * **ai_classifier-subset path** — exactly the 18 `ai_classifier`-source
- * rawKeys from upstream `familyG.ts`. The 12 deterministic Family G
- * rawKeys (5 `auto_metadata` + 7 `lifecycle`) are intentionally EXCLUDED:
+ * **ai_classifier-subset path** — the `ai_classifier`-source rawKeys from
+ * upstream `familyG.ts`. MCP-BUILD2g (Build-2 manifest §6) adds 3 new
+ * ai_classifier booleans, taking the Subset 18 → **21**. The 12 deterministic
+ * Family G rawKeys (5 `auto_metadata` + 7 `lifecycle`) are intentionally
+ * EXCLUDED:
  *   - `auto_metadata` (5): branch_suggested, branch_created, point_stalled,
  *     point_exhausted, synthesis_candidate
  *   - `lifecycle` (7): narrowed, conceded, confirmed, synthesis_ready,
@@ -28,16 +30,17 @@
  *
  * SOURCE COUNT CORRECTION (design §A.1.0): the upstream `familyG.ts`
  * file-header comment is STALE — it says "29 entries … ai_classifier (8)"
- * but the actual array has 30 frozen entries with 18 ai_classifier
- * declarations (the 8 existing + the 9 NEW + accepts_settlement_terms = 18).
- * The binding contract for FAMILY_G_RAW_KEYS is the actual
- * `source: 'ai_classifier'` literals in the code (18), NOT the stale header
- * count. This card does NOT fix the upstream header (it is in `src/`, out of
- * scope); the parity test asserts exactly 18 ai_classifier declarations.
+ * but the actual array has 33 frozen entries with 21 ai_classifier
+ * declarations (8 existing + 9 NEW + accepts_settlement_terms = 18 baseline,
+ * + 3 MCP-BUILD2g = 21). The binding contract for FAMILY_G_RAW_KEYS is the
+ * actual `source: 'ai_classifier'` literals in the code (21), NOT the stale
+ * header count. This card does NOT fix the upstream header (it is in `src/`,
+ * out of scope); the parity test asserts exactly 21 ai_classifier declarations.
  *
- * The 18 rawKeys are the binding contract per MCP-SERVER-008-FAMILY-G
- * design §A.1.1 + Stage 2B operator decision. Verbatim, in declaration order
- * matching the upstream `ai_classifier`-source entries of `familyG.ts`:
+ * The 21 rawKeys are the binding contract (18 MCP-SERVER-008-FAMILY-G design
+ * §A.1.1 / Stage 2B operator decision + 3 MCP-BUILD2g Build-2 manifest §6).
+ * Verbatim, in declaration order matching the upstream `ai_classifier`-source
+ * entries of `familyG.ts`:
  *
  *   1.  narrows_claim (LOW — narrowing is recovery-positive)
  *   2.  concedes_narrow_point (MEDIUM — concession axis; REPAIR never defeat)
@@ -57,6 +60,20 @@
  *   16. decision_criterion_proposed (LOW — collaborative framing move)
  *   17. action_item_proposed (LOW — procedural proposal)
  *   18. followup_question_proposed (LOW — future-question proposal)
+ *   19. records_remaining_disagreement (MCP-BUILD2g; LOW — records the open set)
+ *   20. defines_next_evidence_needed (MCP-BUILD2g; LOW — names the next evidence; EVIDENCE-DOCTRINE FENCE)
+ *   21. separates_normative_from_empirical (MCP-BUILD2g; LOW — values vs facts boundary)
+ *
+ * BATCHING (MCP-BUILD2g / MCP-BOOLEAN-BATCHING-INFRA-001): 21 > the per-
+ * response cap MAX_FLAGS_PER_RESPONSE (20), so the Edge chunker splits the
+ * 21-key set into 2 batches (16 + 5); the mcp-server serves each batch as a
+ * normal <= 16-key single-family request and never sees the full 21-key
+ * response. The merge into one 21-key family result happens at the Edge,
+ * post-validation. EVIDENCE-DOCTRINE FENCE (defines_next_evidence_needed): the
+ * key names a next evidence step and is advisory; it NEVER grants or denies
+ * factual standing (anti-amplification module untouched). NO batching-infra
+ * change — G consumes the unchanged chunker (BATCH_SIZE=16, threshold=20),
+ * mirroring Family D.
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §10a — every entry is a MACHINE OBSERVATION,
@@ -86,8 +103,8 @@
  */
 
 /**
- * The 18 Family G ai_classifier-subset rawKeys, frozen in declaration
- * order matching upstream. Used by:
+ * The 21 Family G ai_classifier-subset rawKeys (18 baseline + 3 MCP-BUILD2g),
+ * frozen in declaration order matching upstream. Used by:
  *   - validateFamilyBooleanRequest (rejects unknown rawKeys with
  *     unsupported_rawKey error envelope; routes via familyRegistry)
  *   - validateMcpBooleanObservationResponse (rejects checkedRawKeys
@@ -115,6 +132,12 @@ export const FAMILY_G_RAW_KEYS: readonly string[] = Object.freeze([
   'decision_criterion_proposed',
   'action_item_proposed',
   'followup_question_proposed',
+  // MCP-BUILD2g (Build-2 manifest §6) — resolution-progress bookkeeping
+  // booleans. Subset 18 → 21. 21 > the 20-key per-response cap, so the Edge
+  // chunker serves G in 2 batches (16 + 5).
+  'records_remaining_disagreement',
+  'defines_next_evidence_needed',
+  'separates_normative_from_empirical',
 ]);
 
 /**
@@ -442,5 +465,59 @@ export const FAMILY_G_PROMPT_ENTRIES: readonly FamilyGPromptEntry[] = Object.fre
     negativeExample: "Move: 'Why did Australia repeal?' (a current question)",
     falsePositiveGuards:
       'A follow-up is for FUTURE discussion; current questions are different. DOCTRINE: proposing a follow-up question is a forward-looking structural move; it NEVER implies one side won or that the current dispute was decided. The evidence_span anchors the proposed question, never a verdict.',
+  }),
+  // ── MCP-BUILD2g (Build-2 manifest §6) — resolution-progress bookkeeping ──
+  // booleans. Subset 18 → 21. None is verdict-adjacent (manifest §6 —
+  // "lowest-risk family alongside D"); each carries the standard
+  // describe-the-MOVE-not-the-author framing, and G2 carries the
+  // EVIDENCE-DOCTRINE FENCE (names a next evidence step, advisory, never grants
+  // or denies factual standing).
+  Object.freeze({
+    rawKey: 'records_remaining_disagreement',
+    label: 'Records remaining disagreement',
+    booleanQuestion:
+      'Does this move explicitly record what remains in dispute (a roundup of the open set), distinct from isolating a single open point?',
+    positiveDefinition:
+      'The move records the SET of what is still in dispute — a roundup ("settled: the data; open: the value weighting and the timeline"). Distinct from unresolved_point_isolated, which names ONE open point; this records the remainder.',
+    negativeDefinition:
+      'The move declares the issue closed (issue_closed_by_participant), isolates a single open point without summarizing the remainder (unresolved_point_isolated), or makes a claim without recording the open set.',
+    positiveExample:
+      "Move: 'We agree on cost; what is still open is whether equity outweighs it and whether enforcement is feasible.'",
+    negativeExample:
+      "Move: 'This one point is unresolved.' (unresolved_point_isolated — a single point, not the set)",
+    falsePositiveGuards:
+      'The move must RECORD what remains (a roundup of the open set), not just flag one open point — distinguish from unresolved_point_isolated. Co-fires acceptably with common_ground_identified. DOCTRINE: recording the remaining-disagreement set is descriptive resolution bookkeeping about the MOVE; it NEVER implies one side is ahead, behind, won, or lost, and never judges the author. The evidence_span anchors the recorded open set, never a verdict.',
+  }),
+  Object.freeze({
+    rawKey: 'defines_next_evidence_needed',
+    label: 'Defines next evidence needed',
+    booleanQuestion:
+      'Does this move define the specific evidence that would resolve the open point next (not a generic source request)?',
+    positiveDefinition:
+      'The move names the SPECIFIC evidence that would advance resolution of the open point ("a primary record of the enforcement dates", "a longitudinal study past year 5"). A forward-looking, actionable definition of the next evidence step.',
+    negativeDefinition:
+      'The move asks for evidence generically (asks_for_evidence, Family D), proposes a settlement without naming the evidence (proposes_settlement_terms), or asks to move on (move_on_requested).',
+    positiveExample:
+      "Move: 'To settle this, we would need a primary record of the enforcement dates — that is the next evidence.'",
+    negativeExample:
+      "Move: 'Got a source?' (asks_for_evidence — generic, not a defined next step)",
+    falsePositiveGuards:
+      'The move must DEFINE the specific evidence that would advance resolution; do NOT mark a generic source request (asks_for_evidence). EVIDENCE-DOCTRINE FENCE: this observation describes a forward-looking evidence step the MOVE names (a primary_record_needed / source_needed-style next step); it is advisory and NEVER grants or denies factual standing or truth to any claim, and never judges the author. The evidence_span anchors the defined next evidence step, never a verdict.',
+  }),
+  Object.freeze({
+    rawKey: 'separates_normative_from_empirical',
+    label: 'Separates normative from empirical',
+    booleanQuestion:
+      'Does this move separate a normative (values) dispute from an empirical (factual) one?',
+    positiveDefinition:
+      'The move explicitly marks the boundary between a values question and a factual question ("the \'does it work\' part is empirical and we can check it; the \'is it worth it\' part is normative and data will not settle it"). An epistemic-structural distinction between fact-questions and value-questions.',
+    negativeDefinition:
+      'The move conflates the two, disputes within one without separating, or makes a claim without drawing the normative/empirical boundary.',
+    positiveExample:
+      "Move: 'Two questions tangled here: an empirical one (the effect size) and a values one (whether the tradeoff is acceptable).'",
+    negativeExample:
+      "Move: 'I disagree on values.' (a value disagreement with no separation)",
+    falsePositiveGuards:
+      'The move must EXPLICITLY mark the normative/empirical boundary; do NOT mark on the word "values" alone. Related to separates_observation_from_inference (Family D) but distinct: this separates fact-questions from value-questions; D2 separates observed-data from inferred-conclusions. DOCTRINE: separating normative from empirical is an epistemic-structural observation about the MOVE; it NEVER implies one side is right, won, or lost, and never judges the author. The evidence_span anchors the boundary the move draws, never a verdict.',
   }),
 ]);

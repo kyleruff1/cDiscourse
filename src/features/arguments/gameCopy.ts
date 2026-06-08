@@ -790,6 +790,50 @@ export const PLAIN_LANGUAGE_COPY = {
     'This reply separates what was observed from what was inferred but does not flag a context or applicability limit on the evidence.',
   'evidence_source_chain.pair_false_true.flags_context_limit.no_observation_inference_split':
     'This reply flags a context or applicability limit on the evidence but does not separate what was observed from what was inferred.',
+  // MCP-BUILD2g (Family G resolution_progress expansion) — plain-language for
+  // the 3 new resolution-progress bookkeeping booleans' mapping rows. Every
+  // value is verdict-free, move-level, and describes the MOVE never the author.
+  // No underscores (the registry review-gate asserts the displayed string is
+  // snake-free). EVIDENCE-DOCTRINE FENCE: the defines_next_evidence_needed
+  // values name a next evidence step and NEVER grant or deny factual standing
+  // or truth (anti-amplification module untouched). G is verdict-free
+  // (resolution-progress bookkeeping never asserts who won / lost / is ahead).
+  // ── records_remaining_disagreement ──
+  'resolution_progress.single_true.records_remaining_disagreement':
+    'This reply records the set of points that remain in dispute.',
+  'resolution_progress.single_false.records_remaining_disagreement':
+    'This reply does not record what remains in dispute; this is only an observation about its structure, not a concern.',
+  // ── defines_next_evidence_needed ──
+  'resolution_progress.single_true.defines_next_evidence_needed':
+    'This reply defines the specific evidence that would resolve the open point next.',
+  'resolution_progress.single_false.defines_next_evidence_needed':
+    'This reply does not define the next evidence that would resolve the open point; this is only an observation about its structure, not a concern.',
+  // ── separates_normative_from_empirical ──
+  'resolution_progress.single_true.separates_normative_from_empirical':
+    'This reply separates a values dispute from a factual one.',
+  'resolution_progress.single_false.separates_normative_from_empirical':
+    'This reply does not separate a values dispute from a factual one; this is only an observation about its structure, not a concern.',
+  // ── pairs: records_remaining_disagreement × defines_next_evidence_needed ──
+  'resolution_progress.pair_true_true.records_remaining_disagreement.defines_next_evidence_needed':
+    'This reply records the set of points that remain in dispute and defines the specific evidence that would resolve the open point next.',
+  'resolution_progress.pair_true_false.records_remaining_disagreement.no_next_evidence_defined':
+    'This reply records the set of points that remain in dispute but does not define the next evidence that would resolve the open point.',
+  'resolution_progress.pair_false_true.defines_next_evidence_needed.no_remaining_disagreement_recorded':
+    'This reply defines the specific evidence that would resolve the open point next but does not record what remains in dispute.',
+  // ── pairs: records_remaining_disagreement × separates_normative_from_empirical ──
+  'resolution_progress.pair_true_true.records_remaining_disagreement.separates_normative_from_empirical':
+    'This reply records the set of points that remain in dispute and separates a values dispute from a factual one.',
+  'resolution_progress.pair_true_false.records_remaining_disagreement.no_normative_empirical_split':
+    'This reply records the set of points that remain in dispute but does not separate a values dispute from a factual one.',
+  'resolution_progress.pair_false_true.separates_normative_from_empirical.no_remaining_disagreement_recorded':
+    'This reply separates a values dispute from a factual one but does not record what remains in dispute.',
+  // ── pairs: defines_next_evidence_needed × separates_normative_from_empirical ──
+  'resolution_progress.pair_true_true.defines_next_evidence_needed.separates_normative_from_empirical':
+    'This reply defines the specific evidence that would resolve the open point next and separates a values dispute from a factual one.',
+  'resolution_progress.pair_true_false.defines_next_evidence_needed.no_normative_empirical_split':
+    'This reply defines the specific evidence that would resolve the open point next but does not separate a values dispute from a factual one.',
+  'resolution_progress.pair_false_true.separates_normative_from_empirical.no_next_evidence_defined':
+    'This reply separates a values dispute from a factual one but does not define the next evidence that would resolve the open point.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;

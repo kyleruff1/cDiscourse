@@ -197,23 +197,30 @@ Deno.test('design §A.4.E (optional): settlement-verdict-baiting fixture INPUT c
 // Canonical response fixture (smoke Checks 20+21) — valid + doctrine-clean
 // ─────────────────────────────────────────────────────────────────────────
 
-Deno.test('canonical-response fixture validates against the wire schema and is doctrine-clean', async () => {
-  const fixture = await loadFixture(
+Deno.test('canonical-response fixture is the MERGED 21-key reference + doctrine-clean (MCP-BUILD2g)', async () => {
+  // MCP-BUILD2g: the Subset is now 21 keys (> the 20-key per-response cap), so
+  // the canonical response is the MERGED reference (= disjoint union of the 2
+  // per-batch wire responses), NOT a single ≤20-key wire response. It is read
+  // directly and is intentionally NOT passed through the cap validator (which
+  // would reject 21 keys as flag_count_too_high — the very reason batching
+  // exists). The ban-list scan operates per-string and does not require a ≤20
+  // wire shape. Each ≤20-key per-batch fixture is cap-validated in
+  // familyGFixtureParity.test.ts.
+  const merged = (await loadFixture(
     'classify-argument-boolean-observations.family-g-canonical-response.json',
-  );
-  const validated = validateMcpBooleanObservationResponse(fixture);
-  assertEquals(validated.ok, true);
-  if (validated.ok) {
-    // The canonical response is positive-sparse and doctrine-clean.
-    const scan = scanFamilyGBooleanResponseForBanList(validated.value);
-    assertEquals(scan.ok, true);
-    // Exactly 18 keys (the full ai_classifier subset).
-    assertEquals(validated.value.checkedRawKeys.length, 18);
-    assertEquals(validated.value.modelInfo.classifierSetVersion, 'family-g-v1');
-  }
+  )) as Parameters<typeof scanFamilyGBooleanResponseForBanList>[0];
+  // Exactly 21 keys (the full ai_classifier Subset, merged).
+  assertEquals((merged.checkedRawKeys as string[]).length, 21);
+  assertEquals((merged.modelInfo as Record<string, unknown>).classifierSetVersion, 'family-g-v1');
+  // The merged reference is positive-sparse and doctrine-clean.
+  const scan = scanFamilyGBooleanResponseForBanList(merged);
+  assertEquals(scan.ok, true);
 });
 
-Deno.test('fixture provider loads the canonical Family G packet', async () => {
+Deno.test('fixture provider loads the Family G batch-0 packet (≤20-key wire response)', async () => {
+  // MCP-BUILD2g: the provider now returns the valid 16-key batch-0 response
+  // (the 21-key merged canonical would trip the 20-key validator if served
+  // whole). Mirror Family D.
   const result = await loadFixtureFamilyGPacket();
   assertEquals(result.ok, true);
   if (result.ok) {
@@ -222,6 +229,7 @@ Deno.test('fixture provider loads the canonical Family G packet', async () => {
       (result.value.modelInfo as Record<string, unknown>).classifierSetVersion,
       'family-g-v1',
     );
+    assertEquals((result.value.checkedRawKeys as string[]).length, 16);
   }
 });
 

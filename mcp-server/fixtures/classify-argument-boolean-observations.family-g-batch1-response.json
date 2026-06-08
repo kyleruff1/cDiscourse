@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-g-canonical-node",
+  "checkedRawKeys": [
+    "separates_normative_from_empirical",
+    "suggests_diagonal_tangent",
+    "suggests_side_branch",
+    "synthesis_proposed",
+    "unresolved_point_isolated"
+  ],
+  "observations": {
+    "separates_normative_from_empirical": true,
+    "suggests_diagonal_tangent": false,
+    "suggests_side_branch": false,
+    "synthesis_proposed": true,
+    "unresolved_point_isolated": true
+  },
+  "confidence": {
+    "separates_normative_from_empirical": "high",
+    "suggests_diagonal_tangent": "medium",
+    "suggests_side_branch": "medium",
+    "synthesis_proposed": "high",
+    "unresolved_point_isolated": "medium"
+  },
+  "evidenceSpan": {
+    "separates_normative_from_empirical": "an empirical one (the effect size) and a values one (whether the tradeoff is acceptable)",
+    "suggests_diagonal_tangent": null,
+    "suggests_side_branch": null,
+    "synthesis_proposed": "both hold; the open question is which dominates by 2030",
+    "unresolved_point_isolated": "the open question is whether that generalizes"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-g-v1"
+  }
+}
