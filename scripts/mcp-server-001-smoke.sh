@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B new-key proof).
 #
-# Verifies the deployed (or locally-running) MCP server against the 25 checks:
+# Verifies the deployed (or locally-running) MCP server against the 27 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -685,6 +685,54 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "Expected real Family I tool result. Got: $RESPONSE"
+fi
+
+# ── Check 26: POST /mcp/adapter-compat — Family B BUILD-2b NEW keys present ──
+# OPS-DENO-GOLIVE pilot (MCP-BUILD2a / #538). SMOKE HARNESS ONLY — NOT product
+# behavior, NOT a new boolean. This check is the merged-≠-live proof: it asks
+# the hosted Deno build for the 3 NEW Family-B booleans
+# (isolates_main_disagreement, distinguishes_fact_value_disagreement,
+# preserves_face_while_disagreeing) and FAILS CLOSED unless all three appear in
+# the response. A STALE Deno deploy (pre-#538, 14-key Family B) returns
+# unsupported_rawKey / omits the keys, so a green baseline Family-B check (10/11)
+# can NOT mask a stale deploy. Key-presence is value-agnostic (true OR false is
+# fine — we are proving the classifier KNOWS the keys, not what it answered).
+CHECK_NAME="26-compat-boolean-family-b-build2b-newkeys"
+BOOLEAN_B2_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-b2-001","parentNodeId":"fixture-node-parent-b2-001","currentText":"[fixture] I think we actually agree the goal is worthwhile — where we differ is specifically whether the 2019 figures show causation or only correlation. That is an empirical question, not a values one, and I respect the case you are making.","parentText":"[fixture] Library funding should be increased because the 2019 figures prove it boosts literacy.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["disagreement_axis"],"requestedRawKeys":["isolates_main_disagreement","distinguishes_fact_value_disagreement","preserves_face_while_disagreeing"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family B Build-2b NEW keys)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_B2_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-b-v1"' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"isolates_main_disagreement"' \
+     && contains "$RESPONSE" '"distinguishes_fact_value_disagreement"' \
+     && contains "$RESPONSE" '"preserves_face_while_disagreeing"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2b Family-B keys returned (no unsupported_rawKey). A failure here means the hosted Deno build predates #538 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 27: POST /mcp tools/call — Family B BUILD-2b NEW keys present ──
+# Same merged-≠-live assertion as Check 26, via the official MCP /mcp JSON-RPC
+# envelope. SMOKE HARNESS ONLY — not product behavior.
+CHECK_NAME="27-mcp-tools-call-boolean-family-b-build2b-newkeys"
+BOOLEAN_B2_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-11","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-b2-001","parentNodeId":"fixture-node-parent-b2-001","currentText":"[fixture] I think we actually agree the goal is worthwhile — where we differ is specifically whether the 2019 figures show causation or only correlation. That is an empirical question, not a values one, and I respect the case you are making.","parentText":"[fixture] Library funding should be increased because the 2019 figures prove it boosts literacy.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["disagreement_axis"],"requestedRawKeys":["isolates_main_disagreement","distinguishes_fact_value_disagreement","preserves_face_while_disagreeing"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call Family B Build-2b NEW keys)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_B2_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-b-v1"' \
+     && contains "$RESPONSE" '"isError":false' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"isolates_main_disagreement"' \
+     && contains "$RESPONSE" '"distinguishes_fact_value_disagreement"' \
+     && contains "$RESPONSE" '"preserves_face_while_disagreeing"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2b Family-B keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #538 — merged is not live. Got: $RESPONSE"
 fi
 
 echo

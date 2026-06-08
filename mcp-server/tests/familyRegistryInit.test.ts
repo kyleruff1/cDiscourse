@@ -87,9 +87,10 @@ Deno.test('familyRegistryInit-family-a-has-16-rawKeys', () => {
   assertEquals(rawKeys.size, 16);
 });
 
-Deno.test('familyRegistryInit-family-b-has-14-rawKeys', () => {
+Deno.test('familyRegistryInit-family-b-has-17-rawKeys', () => {
+  // MCP-BUILD2a (Build-2 addendum §5): 14 → 17 disagreement_axis booleans.
   const rawKeys = getRawKeysForFamily('disagreement_axis');
-  assertEquals(rawKeys.size, 14);
+  assertEquals(rawKeys.size, 17);
 });
 
 Deno.test('familyRegistryInit-family-c-has-17-rawKeys', () => {

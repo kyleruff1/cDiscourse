@@ -76,7 +76,7 @@ Deno.test('dispatch: Family B request routes to Family B fixture provider (famil
   });
 });
 
-Deno.test('dispatch: Family B fixture response includes 14 Family B rawKeys (not Family A keys)', async () => {
+Deno.test('dispatch: Family B fixture response includes 17 Family B rawKeys (not Family A keys)', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
@@ -87,7 +87,8 @@ Deno.test('dispatch: Family B fixture response includes 14 Family B rawKeys (not
     assertEquals(result.isError, false);
     const sc = result.structuredContent as Record<string, unknown>;
     const checkedRawKeys = sc.checkedRawKeys as string[];
-    assertEquals(checkedRawKeys.length, 14);
+    // MCP-BUILD2a: canonical fixture now has 17 checkedRawKeys (14 + 3).
+    assertEquals(checkedRawKeys.length, 17);
     // disagreement_present is a Family B umbrella key; supports_parent is a
     // Family A key. The Family B response MUST include the former but NOT
     // the latter.

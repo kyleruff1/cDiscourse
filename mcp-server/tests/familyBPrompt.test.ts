@@ -2,7 +2,7 @@
  * MCP-SERVER-003-FAMILY-B — Family B prompt structure + doctrine ban-list scan tests.
  *
  * Critical invariants:
- *   - Prompt includes all 14 Family B rawKeys (when requestedRawKeys is empty)
+ *   - Prompt includes all 17 Family B rawKeys (when requestedRawKeys is empty)
  *   - Prompt includes each rawKey's booleanQuestion + positiveDefinition +
  *     negativeDefinition + positiveExample + negativeExample + falsePositiveGuards
  *   - Prompt instructs the model to return confidence on every positive flag
@@ -98,7 +98,7 @@ Deno.test('Family B MAX_TOKENS / TEMPERATURE / MAX_BODY_FIELD_LEN constants are 
   assertEquals(FAMILY_B_MAX_BODY_FIELD_LEN, 8000);
 });
 
-Deno.test('Family B user prompt (default request) includes all 14 rawKeys', () => {
+Deno.test('Family B user prompt (default request) includes all 17 rawKeys', () => {
   const prompt = buildFamilyBUserPrompt(buildRequest());
   for (const rawKey of FAMILY_B_RAW_KEYS) {
     if (!prompt.includes(rawKey)) {
@@ -169,11 +169,56 @@ Deno.test('Family B user prompt declares classifierSetVersion family-b-v1', () =
 
 Deno.test('Family B user prompt includes umbrella/subtype note', () => {
   const prompt = buildFamilyBUserPrompt(buildRequest());
-  if (!prompt.includes('Note about disagreement_present and the 13 disagreement sub-axes')) {
+  if (
+    !prompt.includes(
+      'Note about disagreement_present, the 13 disagreement sub-axes, and the 3 disagreement-quality observations',
+    )
+  ) {
     throw new Error('Family B prompt missing umbrella/subtype note header');
   }
   if (!prompt.includes('do not auto-cascade')) {
     throw new Error('Family B prompt missing "do not auto-cascade" instruction');
+  }
+});
+
+Deno.test('MCP-BUILD2a: Family B user prompt asks the 3 new disagreement-quality booleanQuestions', () => {
+  const prompt = buildFamilyBUserPrompt(buildRequest());
+  const newKeys = [
+    'isolates_main_disagreement',
+    'distinguishes_fact_value_disagreement',
+    'preserves_face_while_disagreeing',
+  ];
+  for (const rawKey of newKeys) {
+    const entry = FAMILY_B_PROMPT_ENTRIES.find((e) => e.rawKey === rawKey);
+    if (!entry) throw new Error(`MCP-BUILD2a prompt entry missing for ${rawKey}`);
+    // The rawKey appears in the questions block (`- <rawKey>: <question>`).
+    if (!prompt.includes(`- ${rawKey}:`)) {
+      throw new Error(`Family B prompt missing questions-block line for ${rawKey}`);
+    }
+    // The verbatim booleanQuestion text is in the prompt.
+    if (!prompt.includes(entry.booleanQuestion)) {
+      throw new Error(`Family B prompt missing booleanQuestion for ${rawKey}`);
+    }
+  }
+});
+
+Deno.test('MCP-BUILD2a: preserves_face_while_disagreeing entry describes the MOVE, never the author', () => {
+  const entry = FAMILY_B_PROMPT_ENTRIES.find(
+    (e) => e.rawKey === 'preserves_face_while_disagreeing',
+  );
+  if (!entry) throw new Error('preserves_face_while_disagreeing prompt entry missing');
+  // The verdict-adjacent fence: the guard explicitly says it describes the
+  // MOVE, never the author.
+  if (!entry.falsePositiveGuards.includes('describes the MOVE, never the author')) {
+    throw new Error(
+      'preserves_face_while_disagreeing falsePositiveGuards missing describes-the-MOVE-not-the-author fence',
+    );
+  }
+  // An attack-the-person move must be FALSE — the guard says so.
+  if (!entry.falsePositiveGuards.includes('attacks the person')) {
+    throw new Error(
+      'preserves_face_while_disagreeing falsePositiveGuards missing the attack-makes-it-FALSE guard',
+    );
   }
 });
 
@@ -287,7 +332,7 @@ Deno.test('DOCTRINE BAN-LIST scan: Family B system prompt contains banned tokens
 });
 
 Deno.test('DOCTRINE BAN-LIST scan: Family B user prompt contains no banned tokens outside doctrine-positive negations or structural-disagreement vocabulary', () => {
-  // The user prompt iterates 14 Family B per-rawKey entries. Banned tokens
+  // The user prompt iterates 17 Family B per-rawKey entries. Banned tokens
   // can appear as:
   //   (a) doctrine-positive negations ("MUST NOT", "Do NOT", "You do NOT",
   //       "never implies", "NOT decide", "NOT treat") — explicit doctrine guards

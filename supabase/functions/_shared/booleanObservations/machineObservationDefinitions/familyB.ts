@@ -1,11 +1,15 @@
 /**
  * MCP-021A — Family B (disagreement_axis) definitions.
  *
- * Per design §3.2: 14 entries total.
+ * 17 entries total (MCP-021A baseline 14 + MCP-BUILD2a +3).
  *  - 1 existing (ai_classifier #49 disputes_evidence_applicability;
  *    RETROACTIVE_VERBOSE_DEFINITIONS).
- *  - 13 NEW: disagreement_present (umbrella; Timeline-eligible) +
+ *  - 13 MCP-021A: disagreement_present (umbrella; Timeline-eligible) +
  *    12 subtype keys (all Inspect-only per Decision 4).
+ *  - 3 MCP-BUILD2a (Build-2 addendum §5; all Inspect-only): the
+ *    disagreement-QUALITY booleans isolates_main_disagreement,
+ *    distinguishes_fact_value_disagreement, preserves_face_while_disagreeing.
+ *    NO schema-version bump (vocabulary expansion, not a wire change).
  *
  * Decision 4 (binding): `disagreement_present` is the Timeline-
  * eligible umbrella key; all subtypes are Inspect-only. This avoids
@@ -601,6 +605,144 @@ export const FAMILY_B_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     doctrineNotes: Object.freeze([
       'cdiscourse-doctrine §10a: relevance dispute is structural; never implies the parent is "irrelevant" as a person or contributor.',
       'cdiscourse-doctrine §1: relevance disputes can be productive (narrow the topic) or non-productive (dismissive); the chip is structural not evaluative.',
+    ]),
+    confidenceEligibility: SUBTYPE_INSPECT_ELIGIBILITY,
+  }),
+
+  // ── MCP-BUILD2a (disagreement_axis expansion) ─────────────────────
+  // Three Build-2a booleans per the Build-2 addendum §5. These describe
+  // the QUALITY of the disagreement MOVE — how precisely it isolates the
+  // point, whether it separates fact from value, and whether it disagrees
+  // while preserving the other party's standing. All Inspect-only; none
+  // are verdicts. preserves_face_while_disagreeing is verdict-adjacent and
+  // is fenced with extra falsePositiveGuards (describes the MOVE, never the
+  // author).
+
+  // BUILD2a #1 isolates_main_disagreement (Inspect-only)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:isolates_main_disagreement',
+    rawKey: 'isolates_main_disagreement',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'disagreement_axis',
+    label: 'Isolates the disagreement',
+    shortLabel: 'Isolates point',
+    description: 'This move identifies the specific point of disagreement.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 133,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      "Does this move identify the SPECIFIC point of disagreement with its parent (vs talking past it or disagreeing in general terms)?",
+    positiveDefinition:
+      "The move names the exact claim, premise, scope, or step it disagrees with — 'the part I disagree with is X', 'specifically, your second premise', 'where this breaks down is the move from A to B'. The disagreement is pinned to a locatable target in the parent.",
+    negativeDefinition:
+      "The move disagrees in broad or diffuse terms without locating the specific point ('I just don't buy this', 'this is all wrong'), or it raises a NEW topic rather than isolating a point in the parent (introduces_new_issue), or it is not a disagreement at all.",
+    positiveExamples: Object.freeze([
+      "Parent: 'Carbon taxes reduce emissions and are politically durable.' Move: 'I accept the emissions effect; the specific point I disagree with is political durability — Australia repealed its tax within two years.'",
+      "Parent: 'EVs cut urban pollution because they have no tailpipe.' Move: 'The exact step I disagree with is the inference from no-tailpipe to no-pollution; battery production shifts emissions elsewhere.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'This whole argument is off base.' (broad disagreement, no specific point isolated)",
+      "Parent: 'Library funding boosts literacy.' Move: 'What about museum funding?' (introduces_new_issue, not isolating a point in the parent)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      "Do NOT mark TRUE for blanket disagreement ('this is wrong') that names no specific target — generality is the negative case.",
+      "Do NOT mark TRUE merely because the move quotes the parent; quoting without pinning the disagreement to that quoted point is quote_anchors_parent (Family A), not point isolation.",
+      'Do NOT confuse with disputes_scope / disputes_fact — those name the TYPE of axis; this names whether the move locates a specific target at all. A move can isolate a point without the subtype being clear.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: isolating the disagreement is a structural property of the MOVE; it never implies the parent is wrong or the author is at fault.',
+      'cdiscourse-doctrine §1: a precisely-located disagreement is not a verdict; it describes how legible the exchange is, not who is right.',
+      'timeline-grammar: Inspect-only per the Family-B Inspect-by-default posture; Timeline shows the umbrella disagreement_present.',
+    ]),
+    confidenceEligibility: SUBTYPE_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2a #2 distinguishes_fact_value_disagreement (Inspect-only)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:distinguishes_fact_value_disagreement',
+    rawKey: 'distinguishes_fact_value_disagreement',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'disagreement_axis',
+    label: 'Separates fact vs value',
+    shortLabel: 'Fact vs value',
+    description: 'This move distinguishes a factual disagreement from a values one.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 134,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      "Does this move distinguish a FACTUAL disagreement (what is the case) from a VALUES / normative one (what ought to be the case)?",
+    positiveDefinition:
+      "The move explicitly separates an empirical question from a normative one — 'we may agree on the data but disagree on what to prioritize', 'that is a factual claim; my objection is a values one', 'set aside whether it works — even if it does, should we?'. The fact/value boundary is named.",
+    negativeDefinition:
+      "The move disagrees on only one register without naming the distinction, treats a values question as if it were settled by data (or vice versa), or does not engage the fact/value boundary at all.",
+    positiveExamples: Object.freeze([
+      "Parent: 'Library funding should prioritize cost-per-visit because it is most efficient.' Move: 'Cost-per-visit may well be the efficient metric — that is the factual part. My disagreement is a values one: efficiency should not outrank equity of access here.'",
+      "Parent: 'Surveillance cameras cut crime, so cities should install them.' Move: 'Even granting the crime-reduction figure, the question of whether the privacy trade-off is worth it is a separate, normative one.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'Efficiency matters more than equity here.' (states a value position without distinguishing it from the factual layer — that is disputes_value_weighting)",
+      "Move: 'The crime figure is wrong.' (factual dispute only; no fact/value separation drawn)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      "Do NOT mark TRUE for a pure value disagreement that never acknowledges the factual layer — that is disputes_value_weighting, not a fact/value distinction.",
+      "Do NOT mark TRUE for a pure factual dispute — drawing the boundary requires naming BOTH registers.",
+      'Do NOT mark TRUE based on the words "fact" or "value" appearing; the move must actually separate the two, not just use the vocabulary.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: separating fact from value is a structural property of the MOVE; it never implies either side\'s facts or values are "correct".',
+      'cdiscourse-doctrine §1: this is descriptive of the exchange\'s clarity, not a verdict; value disputes rarely resolve to one side.',
+      'evidence-doctrine: naming the factual layer signals where evidence can settle the question and where it cannot.',
+    ]),
+    confidenceEligibility: SUBTYPE_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2a #3 preserves_face_while_disagreeing (Inspect-only; VERDICT-ADJACENT)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:preserves_face_while_disagreeing',
+    rawKey: 'preserves_face_while_disagreeing',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'disagreement_axis',
+    label: 'Disagrees while preserving face',
+    shortLabel: 'Face-preserving',
+    description: 'This move disagrees while preserving the other party\'s standing.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 135,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      "Does this move disagree while PRESERVING the other party's standing — engaging the argument without attacking the person?",
+    positiveDefinition:
+      "The move registers a substantive disagreement AND keeps the focus on the argument: it acknowledges what is reasonable in the parent, hedges its own certainty, or frames the disagreement collaboratively ('you make a fair point about X, but I read Y differently', 'I see why this is appealing, though I think it overreaches'). The disagreement is real; the framing keeps the other party's standing intact.",
+    negativeDefinition:
+      "The move either does not disagree at all, OR it disagrees in a flat / purely technical register with no face-preserving framing (which is not a negative judgement — neutral disagreement simply does not trip this observation). A move that attacks the person, questions their motives, or is dismissive is NOT face-preserving and must be FALSE.",
+    positiveExamples: Object.freeze([
+      "Parent: 'Remote work raises productivity across the board.' Move: 'You are right that it helps for focused knowledge work — that is a fair point. Where I'd push back is the across-the-board claim; collaborative roles seem to show the opposite.'",
+      "Parent: 'Carbon taxes are the best climate policy.' Move: 'I can see the appeal, and the price signal is real. I think cap-and-trade has better political durability, though, so I'd weigh it differently.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'This is the kind of naive take I'd expect from someone who hasn't read the literature.' (attacks the person — FALSE; this is shifts_to_person_or_intent territory, never face-preserving)",
+      "Move: 'Productivity gains are concentrated in knowledge work, not collaborative roles.' (substantive disagreement in a flat register — no face-preserving framing, so FALSE, but NOT an attack either)",
+      "Parent: 'EVs reduce pollution.' Move: 'Agreed, and they're quieter too.' (no disagreement at all — FALSE)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'This observation describes the MOVE, never the author. It never says the author IS gracious or IS hostile; it only notes whether the move\'s framing kept the other party\'s standing intact while disagreeing.',
+      'Do NOT mark TRUE for a move that disagrees AND attacks the person, questions motives, or is dismissive — any face-threat anywhere in the move makes this FALSE, even if part of the move is polite.',
+      'Do NOT mark TRUE for pure agreement or pure politeness with no disagreement — a substantive disagreement MUST be present for this to apply.',
+      'Do NOT treat the ABSENCE of this observation as a criticism: a neutral, flatly-worded disagreement is perfectly valid and simply does not trip this flag. Absence means "not observed", never "the author was rude".',
+      'Do NOT mark TRUE based on surface politeness tokens alone ("respectfully", "no offense") if the substance is an attack; the framing must genuinely keep the argument, not the person, in focus.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: this is a MACHINE OBSERVATION about the MOVE\'s framing; it is display-only and never a moderation or verdict signal about the author.',
+      'cdiscourse-doctrine §1: face-preservation is not a score of who is right; it describes how the disagreement was carried, not its merit.',
+      'cdiscourse-doctrine §4: advisory only; the AI moderator never judges the person — pairs as the structural opposite of the composer-only shifts_to_person_or_intent observation.',
     ]),
     confidenceEligibility: SUBTYPE_INSPECT_ELIGIBILITY,
   }),

@@ -556,8 +556,10 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       runs: 2,
       positives: 7,
       raw_keys_observed: 4,
-      family_key_count: 14,
-      positives_per_run_key_cell: 0.25,
+      // MCP-BUILD2a: disagreement_axis 14 → 17 booleans. Density recomputed:
+      // 7 / (2 runs × 17 keys) = 0.2059.
+      family_key_count: 17,
+      positives_per_run_key_cell: 0.2059,
     }),
     Object.freeze({
       family: 'evidence_source_chain',

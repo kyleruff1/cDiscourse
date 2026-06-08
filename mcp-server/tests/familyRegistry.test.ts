@@ -222,7 +222,8 @@ Deno.test('registry-getSupportedFamilies-preserves-real-family-b-order', () => {
     classifierSetVersion: FAMILY_B_CLASSIFIER_SET_VERSION,
   });
   assertEquals(registry.getSupportedFamilies(), ['parent_relation', 'disagreement_axis']);
-  assertEquals(registry.getRawKeysForFamily('disagreement_axis').size, 14);
+  // MCP-BUILD2a: 14 → 17 disagreement_axis booleans (derived from FAMILY_B_RAW_KEYS).
+  assertEquals(registry.getRawKeysForFamily('disagreement_axis').size, 17);
   assertEquals(registry.getClassifierSetVersion('disagreement_axis'), 'family-b-v1');
 });
 

@@ -127,8 +127,9 @@ describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', ()
       ...FAMILY_D_BASE_INPUT,
       requestedFamilies: ['disagreement_axis'],
     });
-    // Family B has 14 rawKeys; all must pass through.
-    expect(req.requestedRawKeys.length).toBe(14);
+    // Family B has 17 rawKeys post MCP-BUILD2a (all ai_classifier); none are
+    // excluded by a source-subset filter, so all must pass through.
+    expect(req.requestedRawKeys.length).toBe(17);
   });
 
   it('SF-8 — Family C admin_validation request is unaffected', () => {

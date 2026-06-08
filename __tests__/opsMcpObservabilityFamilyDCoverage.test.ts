@@ -259,7 +259,8 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group B: Q14 density math'
     const src = readFile(Q14_PATH);
     const stripped = stripSqlComments(src);
     expect(stripped).toContain("when 'parent_relation' then 16");
-    expect(stripped).toContain("when 'disagreement_axis' then 14");
+    // MCP-BUILD2a: disagreement_axis 14 → 17 (+3 disagreement-quality booleans).
+    expect(stripped).toContain("when 'disagreement_axis' then 17");
     expect(stripped).toContain("when 'misunderstanding_repair' then 17");
     expect(stripped).toContain("when 'evidence_source_chain' then 19");
     // Unsupported families fall through to 0 (else branch).

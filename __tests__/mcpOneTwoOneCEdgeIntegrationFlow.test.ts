@@ -427,7 +427,7 @@ describe('MCP-021C-EDGE — integration flow: admin_validation mode', () => {
 });
 
 describe('MCP-021C-EDGE — integration flow: production accepts A+B+C, rejects D–J (post Stage 2B)', () => {
-  it('INT-12 — production + disagreement_axis (B) → keeps the family + its 14 raw keys (post Stage 2B)', async () => {
+  it('INT-12 — production + disagreement_axis (B) → keeps the family + its 17 raw keys (post MCP-BUILD2a)', async () => {
     let capturedRequest: McpBooleanObservationRequest | null = null;
     const mockAdapter = jest.fn().mockImplementation(async (req: McpBooleanObservationRequest) => {
       capturedRequest = req;
@@ -449,7 +449,8 @@ describe('MCP-021C-EDGE — integration flow: production accepts A+B+C, rejects 
     // Post Stage 2B: disagreement_axis (B) is productionEnabled, so
     // production mode KEEPS it.
     expect(capturedRequest!.requestedFamilies).toEqual(['disagreement_axis']);
-    expect(capturedRequest!.requestedRawKeys.length).toBe(14);
+    // MCP-BUILD2a: 14 → 17 disagreement_axis booleans (all ai_classifier).
+    expect(capturedRequest!.requestedRawKeys.length).toBe(17);
   });
 });
 

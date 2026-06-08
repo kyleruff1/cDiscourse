@@ -30,13 +30,16 @@ describe('MCP-021A — registry size + family assignment', () => {
     expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBeLessThanOrEqual(200);
   });
 
-  it('contains exactly 172 entries per design §3.11 implementer Phase A resolution', () => {
+  it('contains exactly 175 entries (MCP-021A 172 + MCP-BUILD2a Family B +3)', () => {
     // Design §3.11: "Final registry count: 64 + 107 = 171, OR 65 + 107 = 172.
     // Resolved by implementer Phase A pass; both numbers respect Trigger 11."
-    // Implementer Phase A: existing 65 (correct count per
-    // machineObservationRegistry.ts) + 107 new = 172. Family G includes 21
+    // Implementer Phase A: existing 65 + 107 new = 172. Family G includes 21
     // retroactive entries (5 auto + 7 lifecycle + 9 ai_classifier).
-    expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBe(172);
+    // MCP-BUILD2a (Build-2 addendum §5): +3 disagreement_axis booleans
+    // (isolates_main_disagreement, distinguishes_fact_value_disagreement,
+    // preserves_face_while_disagreeing) → 175. Vocabulary expansion only; the
+    // schema version constant is byte-equal (no wire-shape change).
+    expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBe(175);
   });
 
   it('has every entry with a family field assigned', () => {
@@ -62,7 +65,7 @@ describe('MCP-021A — registry size + family assignment', () => {
 describe('MCP-021A — per-family count forecast (within ±1 of design §3.11)', () => {
   const expectedCounts: Record<MachineObservationFamily, number> = {
     parent_relation: 16, // 4 existing + 12 new
-    disagreement_axis: 14, // 1 existing + 13 new
+    disagreement_axis: 17, // 1 existing + 13 MCP-021A + 3 MCP-BUILD2a
     misunderstanding_repair: 17, // 4 existing + 13 new
     evidence_source_chain: 27, // 15 existing + 12 new
     argument_scheme: 16, // 0 existing + 16 new
@@ -80,12 +83,12 @@ describe('MCP-021A — per-family count forecast (within ±1 of design §3.11)',
     });
   }
 
-  it('per-family counts sum to 172', () => {
+  it('per-family counts sum to 175', () => {
     const total = ALL_MACHINE_OBSERVATION_FAMILIES.reduce(
       (sum, fam) => sum + expectedCounts[fam],
       0,
     );
-    expect(total).toBe(172);
+    expect(total).toBe(175);
   });
 });
 

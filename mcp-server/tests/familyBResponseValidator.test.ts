@@ -161,9 +161,10 @@ Deno.test('Family B validator: rejects modelInfo with empty classifierSetVersion
   assertEquals(result.ok, false);
 });
 
-Deno.test('Family B validator: accepts full 14-key response', () => {
-  // Build a full 14-key response with each key explicitly false (default state).
-  const FOURTEEN_KEYS = [
+Deno.test('Family B validator: accepts full 17-key response', () => {
+  // Build a full 17-key response with each key explicitly false (default
+  // state). MCP-BUILD2a added 3 disagreement-quality booleans (14 → 17).
+  const SEVENTEEN_KEYS = [
     'disputes_evidence_applicability',
     'disagreement_present',
     'disputes_definition',
@@ -178,19 +179,22 @@ Deno.test('Family B validator: accepts full 14-key response', () => {
     'disputes_priority_order',
     'disputes_remedy_or_solution',
     'disputes_relevance',
+    'isolates_main_disagreement',
+    'distinguishes_fact_value_disagreement',
+    'preserves_face_while_disagreeing',
   ];
   const obs: Record<string, boolean> = {};
   const conf: Record<string, string> = {};
   const evid: Record<string, null> = {};
-  for (const key of FOURTEEN_KEYS) {
+  for (const key of SEVENTEEN_KEYS) {
     obs[key] = false;
     conf[key] = 'medium';
     evid[key] = null;
   }
   const r = {
     schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    nodeId: 'node-b-14',
-    checkedRawKeys: FOURTEEN_KEYS,
+    nodeId: 'node-b-17',
+    checkedRawKeys: SEVENTEEN_KEYS,
     observations: obs,
     confidence: conf,
     evidenceSpan: evid,
@@ -203,7 +207,7 @@ Deno.test('Family B validator: accepts full 14-key response', () => {
   const result = validateMcpBooleanObservationResponse(r);
   assertEquals(result.ok, true);
   if (result.ok) {
-    assertEquals(result.value.checkedRawKeys.length, 14);
+    assertEquals(result.value.checkedRawKeys.length, 17);
   }
 });
 
