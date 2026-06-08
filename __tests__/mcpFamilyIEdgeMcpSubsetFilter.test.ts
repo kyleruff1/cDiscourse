@@ -123,7 +123,7 @@ describe('MCP-SERVER-010A-FAMILY-I Edge → MCP subset filter (Stage 2B fix)', (
     }
   });
 
-  it('SFI-7 — Family D (evidence_source_chain) subset entry is unchanged (still {ai_classifier} → 19 keys)', () => {
+  it('SFI-7 — Family D (evidence_source_chain) subset entry is unchanged (still {ai_classifier} → 22 keys)', () => {
     const sources = edgeGetMcpServerSupportedFamilySources('evidence_source_chain');
     expect(sources).toBeDefined();
     expect(Array.from(sources!).sort()).toEqual(['ai_classifier']);
@@ -131,7 +131,7 @@ describe('MCP-SERVER-010A-FAMILY-I Edge → MCP subset filter (Stage 2B fix)', (
       ...FAMILY_I_BASE_INPUT,
       requestedFamilies: ['evidence_source_chain'],
     });
-    expect(req.requestedRawKeys.length).toBe(19);
+    expect(req.requestedRawKeys.length).toBe(22);
   });
 
   it('SFI-8 — Family G (resolution_progress) subset entry is unchanged (still {ai_classifier} → 18 keys)', () => {
