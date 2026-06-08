@@ -46,6 +46,12 @@ import {
   loadArgumentContext,
 } from './classifyArgumentCore.ts';
 import { buildBooleanObservationRequestForArgument } from './booleanObservationRequestBuilder.ts';
+import {
+  chunkRawKeys,
+  buildBatchRequestFromFull,
+  mergeBatchResponses,
+} from './booleanObservationBatching.ts';
+import type { BatchClassifyOutcome } from './booleanObservationBatching.ts';
 import { sanitizeMcpBooleanObservationResponse } from './mcpBooleanObservationSchema.ts';
 import type { McpBooleanObservationRequest } from './mcpBooleanObservationSchema.ts';
 import { MACHINE_OBSERVATION_DEFINITIONS_BY_RAW_KEY } from './machineObservationDefinitions.ts';
@@ -132,23 +138,52 @@ export async function classifyJobForFinalize(
     timeoutMs: DRAINER_MCP_REQUEST_TIMEOUT_MS,
   });
 
-  // 3. Invoke the adapter with the >=30s caller-side abort (design §A.6) —
-  //    NOT the 15s submit-path default.
-  const adapterResult = await adapter(mcpRequest, {
-    timeoutMs: DRAINER_MCP_REQUEST_TIMEOUT_MS,
-  });
-
-  if (adapterResult.kind === 'unavailable') {
-    return { kind: 'unavailable', adapterResult };
+  // 3. MCP-BOOLEAN-BATCHING-INFRA-001 — split the family's full rawKey set
+  //    into batches of <= BATCH_SIZE (each a normal <= 20-key request passing
+  //    the UNCHANGED validator) and invoke the adapter ONCE PER BATCH with the
+  //    >=30s caller-side abort (design §A.6), sequentially. A family that fits
+  //    the per-response cap (A-F here; this queue is A-G only) produces EXACTLY
+  //    ONE batch whose request is byte-identical to today's single call. Only
+  //    a family that EXCEEDS 20 keys (G=21; D=22 once those cards land) splits.
+  //
+  //    The drainer has NO partial-persist concept — finalize_classifier_job is
+  //    ATOMIC (all positives + the terminal flip in one transaction). So a
+  //    failed batch fails the WHOLE family classify: return the first batch's
+  //    `unavailable` adapter result and let the existing retry policy
+  //    (classifyDrainerFailure) re-run the WHOLE (argument, family) job. The
+  //    re-run is idempotent because chunk assignment is deterministic. The job
+  //    IS the run row (one row per argument+family), so retry granularity stays
+  //    at family level (NOT batch level) — design §4 / Open Q1.
+  const batches = chunkRawKeys(mcpRequest.requestedRawKeys);
+  const batchOutcomes: BatchClassifyOutcome[] = [];
+  for (const batch of batches) {
+    const batchRequest = buildBatchRequestFromFull(mcpRequest, batch);
+    const adapterResult = await adapter(batchRequest, {
+      timeoutMs: DRAINER_MCP_REQUEST_TIMEOUT_MS,
+    });
+    if (adapterResult.kind === 'unavailable') {
+      // Whole-family failure (atomic finalize): surface the first batch's
+      // typed unavailable result for the retry policy and stop.
+      return { kind: 'unavailable', adapterResult };
+    }
+    batchOutcomes.push({
+      batchIndex: batch.batchIndex,
+      batchTotal: batch.batchTotal,
+      rawKeys: batch.rawKeys,
+      result: { kind: 'success', response: adapterResult.response },
+    });
   }
 
-  // 4. Success — sanitize at the inspect floor (same as the direct path) and
-  //    extract the POSITIVE observations into the finalizer jsonb shape.
+  // 4. Success — merge the N batch responses into one logical family-level
+  //    response, then sanitize at the inspect floor (same as the direct path)
+  //    and extract the POSITIVE observations into the finalizer jsonb shape.
   //    This loop mirrors classifyArgumentCore's persistResults assembly
   //    (the SAME registry guard + confidence guard + evidence-span passthrough),
   //    but returns the data instead of writing it — finalize_classifier_job
-  //    performs the atomic result-INSERT.
-  const sanitized = sanitizeMcpBooleanObservationResponse(adapterResult.response, {
+  //    performs the atomic result-INSERT. For a 1-batch family, the merge is a
+  //    pass-through and this is byte-identical to today.
+  const { merged } = mergeBatchResponses(batchOutcomes, argumentId);
+  const sanitized = sanitizeMcpBooleanObservationResponse(merged, {
     surface: 'inspect',
   });
 

@@ -92,44 +92,46 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING — PerArgumentSummary surfa
     expect(block).toContain('rawKeysWithPositive');
   });
 
-  it('THR-4 — only the unavailable branch sets the sub-reason fields (success / persist / not-found do not)', () => {
-    // The adapter-unavailable branch is the ONLY place that sets these
-    // fields. As of OPS-MCP-CLASSIFIER-FAILURE-DETAIL-AUTO-TRIGGER-FILL-001
-    // (#485) it sets each TWICE — once on the failed-branch persistRun INSERT
-    // (so the run row's failure_detail / failure_sub_reason columns are
-    // populated, not NULL) and once on the RETURN'd PerArgumentSummary (the
-    // pre-existing Phase-1 threading). Both sites live inside the single
-    // `if (adapterResult.kind === 'unavailable')` block; the success /
-    // persist-run-failed / persist-results-failed / argument_not_found
-    // summaries must STILL leave them absent. The count moved 1 → 2 by design;
-    // the invariant (confined to the unavailable branch; success path clean)
-    // is what this test now asserts directly, not the incidental count.
-    // Match the property key in either object form: explicit `name:` OR ES6
-    // shorthand `name,` (the failed-branch persistRun passes `failureDetail,`
-    // off a local const of the same name).
+  it('THR-4 — only the failure branches set the sub-reason fields (all-success persistRun stays clean)', () => {
+    // MCP-BOOLEAN-BATCHING-INFRA-001 — the adapter-unavailable handling moved
+    // into the batched orchestration. The typed sub-reason / detail are now
+    // confined to:
+    //   (a) the FULLY-FAILED branch (`if (!anySuccess)`) — sets each TWICE:
+    //       once on the failed-branch persistRun INSERT, once on the RETURN'd
+    //       PerArgumentSummary (the pre-existing #485 threading, now off the
+    //       preserved `unavailable` adapter result); AND
+    //   (b) the partial-failure path adds ONE more `failureDetail:` — the
+    //       leak-safe {batchIndex,batchTotal,reason} projection conditionally
+    //       spread into the SHARED success/partial persistRun (design §4).
+    // So: failureSubReason[,:] count == 2 (both in the fully-failed branch);
+    //     failureDetail[,:]   count == 3 (2 in the fully-failed branch + 1 in
+    //     the partial-failure conditional spread). The all-success persistRun
+    //     writes NEITHER (success row byte-equal to today). The invariant — NOT
+    //     the incidental count — is what this asserts; the counts are documented
+    //     so a future drift is caught.
     expect((coreText.match(/failureSubReason[,:]/g) ?? []).length).toBe(2);
-    expect((coreText.match(/failureDetail[,:]/g) ?? []).length).toBe(2);
+    expect((coreText.match(/failureDetail[,:]/g) ?? []).length).toBe(3);
 
-    // Both occurrences of each field are inside the unavailable branch block
-    // (from the branch guard to the `// Success path` marker that follows it).
-    // Anchored on the literal markers (not exact whitespace) so it is robust
-    // to CRLF / LF line endings.
-    const unavailableBlock = coreText.match(
-      /adapterResult\.kind === 'unavailable'[\s\S]*?\/\/ Success path/,
+    // Both failureSubReason occurrences + 2 of the 3 failureDetail occurrences
+    // are inside the FULLY-FAILED branch block (from `if (!anySuccess)` to the
+    // next branch marker). Anchored on literal markers (robust to CRLF / LF).
+    const fullyFailedBlock = coreText.match(
+      /if \(!anySuccess\)[\s\S]*?At least one batch succeeded/,
     );
-    expect(unavailableBlock).not.toBeNull();
-    expect((unavailableBlock![0].match(/failureSubReason[,:]/g) ?? []).length).toBe(2);
-    expect((unavailableBlock![0].match(/failureDetail[,:]/g) ?? []).length).toBe(2);
+    expect(fullyFailedBlock).not.toBeNull();
+    expect((fullyFailedBlock![0].match(/failureSubReason[,:]/g) ?? []).length).toBe(2);
+    expect((fullyFailedBlock![0].match(/failureDetail[,:]/g) ?? []).length).toBe(2);
 
-    // The success-path persistRun (status: 'success') sets NEITHER field, so
-    // success rows keep failure_detail / failure_sub_reason NULL (byte-equal
-    // to pre-#485). Extract the success persistRun call and assert it is clean.
-    const successPersist = coreText.match(
-      /\/\/ Success path[\s\S]*?await persistRun\(\{[\s\S]*?status: 'success',[\s\S]*?\}\);/,
+    // The SHARED success/partial persistRun never passes failureSubReason, so
+    // an ALL-SUCCESS run keeps failure_sub_reason NULL (byte-equal to today).
+    // The single failureDetail there is gated behind the partial-failure guard
+    // (absent on the all-success path).
+    const sharedPersist = coreText.match(
+      /At least one batch succeeded[\s\S]*?await persistRun\(\{[\s\S]*?status: runStatus,[\s\S]*?\}\);/,
     );
-    expect(successPersist).not.toBeNull();
-    expect(successPersist![0]).not.toMatch(/failureSubReason[,:]/);
-    expect(successPersist![0]).not.toMatch(/failureDetail[,:]/);
+    expect(sharedPersist).not.toBeNull();
+    expect(sharedPersist![0]).not.toMatch(/failureSubReason[,:]/);
+    expect(sharedPersist![0]).toMatch(/partialFailureDetail !== null \? \{ failureDetail:/);
   });
 });
 

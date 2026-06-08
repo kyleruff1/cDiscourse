@@ -278,6 +278,65 @@ const autoTriggerConcurrencyModule = require(`${BO}/autoTriggerConcurrency`) as 
 export const edgeMaxAutoTriggerConcurrentFamilies =
   autoTriggerConcurrencyModule.MAX_AUTO_TRIGGER_CONCURRENT_FAMILIES;
 
+// ── booleanObservationBatching.ts (pure chunker / merge core) ──────
+// MCP-BOOLEAN-BATCHING-INFRA-001 — pure, Deno-free batching core. Directly
+// Jest-loadable (no service-role / fetch / Deno import).
+
+export interface EdgeRawKeyBatch {
+  readonly batchIndex: number;
+  readonly batchTotal: number;
+  readonly rawKeys: readonly string[];
+}
+
+export interface EdgeBatchClassifyOutcome {
+  readonly batchIndex: number;
+  readonly batchTotal: number;
+  readonly rawKeys: readonly string[];
+  readonly result:
+    | { kind: 'success'; response: McpBooleanObservationResponse }
+    | { kind: 'unavailable'; reason: string; subReason?: string; detail?: { path?: string } };
+}
+
+export interface EdgeMergeBatchResult {
+  readonly merged: McpBooleanObservationResponse;
+  readonly collisions: string[];
+  readonly successfulBatchCount: number;
+}
+
+export interface EdgeBatchFailureDetail {
+  readonly batchIndex: number;
+  readonly batchTotal: number;
+  readonly reason: string;
+}
+
+const batchingModule = require(`${BO}/booleanObservationBatching`) as {
+  BATCH_SIZE: number;
+  BATCH_SPLIT_THRESHOLD: number;
+  chunkRawKeys: (rawKeys: readonly string[], batchSize?: number) => EdgeRawKeyBatch[];
+  buildBatchRequestFromFull: (
+    base: McpBooleanObservationRequest,
+    batch: EdgeRawKeyBatch,
+  ) => McpBooleanObservationRequest;
+  mergeBatchResponses: (
+    outcomes: readonly EdgeBatchClassifyOutcome[],
+    fallbackNodeId: string,
+  ) => EdgeMergeBatchResult;
+  firstBatchFailureDetail: (
+    outcomes: readonly EdgeBatchClassifyOutcome[],
+  ) => EdgeBatchFailureDetail | null;
+  hasFailedBatch: (outcomes: readonly EdgeBatchClassifyOutcome[]) => boolean;
+  hasSuccessfulBatch: (outcomes: readonly EdgeBatchClassifyOutcome[]) => boolean;
+};
+
+export const EDGE_BATCH_SIZE = batchingModule.BATCH_SIZE;
+export const EDGE_BATCH_SPLIT_THRESHOLD = batchingModule.BATCH_SPLIT_THRESHOLD;
+export const edgeChunkRawKeys = batchingModule.chunkRawKeys;
+export const edgeBuildBatchRequestFromFull = batchingModule.buildBatchRequestFromFull;
+export const edgeMergeBatchResponses = batchingModule.mergeBatchResponses;
+export const edgeFirstBatchFailureDetail = batchingModule.firstBatchFailureDetail;
+export const edgeHasFailedBatch = batchingModule.hasFailedBatch;
+export const edgeHasSuccessfulBatch = batchingModule.hasSuccessfulBatch;
+
 // ── Re-export types for test convenience ───────────────────────────
 
 export type {

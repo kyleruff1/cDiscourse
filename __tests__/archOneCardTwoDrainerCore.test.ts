@@ -223,8 +223,12 @@ describe('ARCH-001 Card 2 — classify-for-finalize maps to p_observations (test
   it('DC-26 — classify passes the >=30s drainer timeout (NOT the 15s default)', () => {
     expect(classifyText).toMatch(/DRAINER_MCP_REQUEST_TIMEOUT_MS/);
     expect(classifyText).toMatch(/timeoutMs:\s*DRAINER_MCP_REQUEST_TIMEOUT_MS/);
-    // The adapter is invoked WITH the options arg carrying the timeout.
-    expect(classifyText).toMatch(/adapter\(mcpRequest,\s*\{/);
+    // MCP-BOOLEAN-BATCHING-INFRA-001 — the adapter is now invoked ONCE PER
+    // BATCH (`batchRequest`) inside the chunk loop, still WITH the options arg
+    // carrying the >=30s drainer timeout. Intent unchanged (the timeout rides
+    // every per-batch call); only the request variable name changed from the
+    // single-call `mcpRequest` to the per-batch `batchRequest`.
+    expect(classifyText).toMatch(/adapter\(batchRequest,\s*\{/);
   });
 
   it('DC-27 — positive observations are mapped to the finalizer jsonb shape', () => {
