@@ -75,6 +75,13 @@ const MCP_SERVER_SUPPORTED_FAMILY_SOURCES: Readonly<
   // ONLY the 18 ai_classifier keys; sending the 12 deterministic keys triggers
   // unsupported_rawKey → mcp_validation_failed. Mirrors the Family D entry above.
   resolution_progress: Object.freeze(new Set<MachineObservationSource>(['ai_classifier'])),
+  // MCP-SERVER-010A-FAMILY-I-EDGE-SUBSET — thread_topology is a mixed-source family
+  // (8 auto_metadata + 7 lifecycle + 6 ai_classifier). Per the MCP-SERVER-010-FAMILY-I
+  // Stage 2B operator decision, the hosted MCP server supports ONLY the 6 ai_classifier
+  // keys (verified live: #392 hosted Deno smoke 25/25, checks 24/25 family-i-v1). Sending
+  // the 15 deterministic keys triggers unsupported_rawKey → mcp_validation_failed. Mirrors
+  // the Family D + Family G entries above.
+  thread_topology: Object.freeze(new Set<MachineObservationSource>(['ai_classifier'])),
 });
 
 /**

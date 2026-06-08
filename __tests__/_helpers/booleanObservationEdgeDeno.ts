@@ -237,12 +237,17 @@ const requestBuilderModule = require(`${BO}/booleanObservationRequestBuilder`) a
     runMode: EdgeMachineObservationRunMode;
     families: ReadonlyArray<string>;
   }) => string;
+  getMcpServerSupportedFamilySources: (
+    family: MachineObservationFamily,
+  ) => ReadonlySet<string> | undefined;
 };
 
 export const edgeBuildBooleanObservationRequestForArgument =
   requestBuilderModule.buildBooleanObservationRequestForArgument;
 export const edgeBuildBooleanObservationInputHash =
   requestBuilderModule.buildBooleanObservationInputHash;
+export const edgeGetMcpServerSupportedFamilySources =
+  requestBuilderModule.getMcpServerSupportedFamilySources;
 
 // ── boundedConcurrencyRunner.ts (pure, adapter-free) ───────────────
 
