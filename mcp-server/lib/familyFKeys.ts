@@ -1,15 +1,16 @@
 /**
- * MCP-SERVER-007-FAMILY-F — Family F (critical_question) 14-key constant + prompt entries.
+ * MCP-SERVER-007-FAMILY-F + MCP-BUILD2f — Family F (critical_question)
+ * 17-key constant + prompt entries.
  *
  * Server-side MIRROR of the upstream Family F registry in
  * `src/features/nodeLabels/machineObservationDefinitions/familyF.ts`. The
  * server is a separately-deployable artifact (Deno Deploy); cross-tree
  * imports do not work in that target. Parity is enforced by
- * `tests/familyFKeysParity.test.ts` (reads BOTH files as source text and
- * fails the build on drift).
+ * `tests/familyFKeys.test.ts` (asserts the rawKey set + prompt-entry shape).
  *
- * The 14 rawKeys are the binding contract per MCP-SERVER-007-FAMILY-F intent
- * brief §2 + design §1. Verbatim, in declaration order (all are NEW; 0 retroactive):
+ * The 17 rawKeys are the binding contract (14 MCP-SERVER-007-FAMILY-F intent
+ * brief §2 + design §1 + 3 MCP-BUILD2f Build-2 manifest §5). Verbatim, in
+ * declaration order:
  *
  *   1.  missing_warrant (ai_classifier; MEDIUM doctrine risk — Toulmin warrant)
  *   2.  unstated_assumption (ai_classifier)
@@ -25,9 +26,19 @@
  *   12. scope_limit_unstated (ai_classifier)
  *   13. qualification_missing (ai_classifier)
  *   14. comparison_baseline_missing (ai_classifier)
+ *   15. question_names_uncertainty (MCP-BUILD2f; ai_classifier; question-quality observation)
+ *   16. question_separates_claim_evidence (MCP-BUILD2f; ai_classifier; question-quality observation)
+ *   17. question_invites_revision (MCP-BUILD2f; ai_classifier; VERDICT-ADJACENT — invites-revision-not-a-verdict)
  *
- * Source breakdown: 14 ai_classifier / 0 auto_metadata / 0 lifecycle (uniform).
- * No Subset filter required (Stage 2B NOT REQUIRED per design §1).
+ * The 3 MCP-BUILD2f keys use a NEW `question_*` prefix for this family (manifest
+ * §5.2 — reads naturally, no collision). Unlike the 14 baseline keys (which flag
+ * an unanswered critical question — an absence/gap), the 3 new keys describe a
+ * POSITIVE structural feature of the QUESTION the move poses (it names an
+ * uncertainty source, separates claim from evidence, or invites revision).
+ *
+ * Source breakdown: 17 ai_classifier / 0 auto_metadata / 0 lifecycle (uniform).
+ * No Subset filter required (Stage 2B NOT REQUIRED per design §1). Post-add
+ * classified-key count 17 ≤ MAX_FLAGS_PER_RESPONSE 20 (manifest §0.5 cap OK).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §10a — every entry is a MACHINE OBSERVATION,
@@ -57,7 +68,7 @@
  */
 
 /**
- * The 14 Family F rawKeys, frozen in declaration order. Used by:
+ * The 17 Family F rawKeys, frozen in declaration order. Used by:
  *   - validateFamilyBooleanRequest (rejects unknown rawKeys with
  *     unsupported_rawKey error envelope; routes via familyRegistry)
  *   - validateMcpBooleanObservationResponse (rejects checkedRawKeys
@@ -80,6 +91,10 @@ export const FAMILY_F_RAW_KEYS: readonly string[] = Object.freeze([
   'scope_limit_unstated',
   'qualification_missing',
   'comparison_baseline_missing',
+  // MCP-BUILD2f (Build-2 manifest §5) — question-quality booleans (new `question_*` prefix).
+  'question_names_uncertainty',
+  'question_separates_claim_evidence',
+  'question_invites_revision',
 ]);
 
 /** Classifier-set version emitted in modelInfo.classifierSetVersion. */
@@ -335,5 +350,56 @@ export const FAMILY_F_PROMPT_ENTRIES: readonly FamilyFPromptEntry[] = Object.fre
       "Move: 'Carbon taxes are more effective than cap-and-trade in jurisdictions with weak enforcement capacity.' (baseline specified)",
     falsePositiveGuards:
       "Do NOT mark TRUE for moves that specify the baseline. Do NOT mark TRUE for moves using absolute claims. DOCTRINE: this is a productive critical question; absence of an explicit baseline does not mean the argument is wrong, weak, fallacious, invalid, or flawed. The output MUST NOT contain those verdict tokens.",
+  }),
+  // ── MCP-BUILD2f (Build-2 manifest §5) — question-quality booleans. ──
+  // Unlike the 14 baseline keys (which flag an unanswered critical question),
+  // these describe a POSITIVE structural feature of the QUESTION the move poses.
+  Object.freeze({
+    rawKey: 'question_names_uncertainty',
+    label: 'Question names a source of uncertainty',
+    booleanQuestion:
+      'Does the question this move poses name a specific source of uncertainty (rather than asking a vague "are you sure?")?',
+    positiveDefinition:
+      "The move POSES A QUESTION that points at a specific, named source of uncertainty — a distinction, a denominator, a confidence interval, a population.",
+    negativeDefinition:
+      'The move poses a critical question that does NOT name what is uncertain ("Really?", "Are you sure?"), or the move is not a question at all (a statement).',
+    positiveExample:
+      "Move: 'Which population does this cover? The uncertainty is in the denominator.' (names the uncertainty source)",
+    negativeExample:
+      "Move: 'Really?' (a question, but names no specific uncertainty)",
+    falsePositiveGuards:
+      "The move must POSE A QUESTION that names a specific uncertainty source; do NOT mark a bare 'are you sure?' with no named source, and do NOT mark plain statements. DOCTRINE: this is a STRUCTURAL feature of the move's question, never a verdict on the parent. Naming an uncertainty source is descriptive; the output MUST NOT contain words like 'fallacy', 'weak', 'invalid', 'flawed', 'wrong', 'bad reasoning'. The evidenceSpan must anchor the question that names the uncertainty, not any quality judgment.",
+  }),
+  Object.freeze({
+    rawKey: 'question_separates_claim_evidence',
+    label: 'Question separates claim from evidence',
+    booleanQuestion:
+      'Does the question this move poses separate the claim from the evidence for it (granting the claim while asking specifically about its evidentiary basis)?',
+    positiveDefinition:
+      "The move POSES A QUESTION that explicitly distinguishes the claim from its evidentiary basis — granting or restating the claim, then asking specifically about the evidence for it.",
+    negativeDefinition:
+      'The move poses a question that conflates claim and evidence, or asks for evidence generally without separating it from the claim (a bare "Source?"), or is not a question.',
+    positiveExample:
+      "Move: 'The claim is clear; my question is which study supports the 40% specifically.' (claim granted, evidence question separated)",
+    negativeExample:
+      "Move: 'Source?' (a bare evidence request; does not separate claim from evidence)",
+    falsePositiveGuards:
+      "The question must explicitly distinguish the claim from its evidentiary basis; do NOT mark a bare evidence request that does not separate the two. DOCTRINE: this is an epistemic-STRUCTURAL feature of the move's question, never a verdict on the parent and never a grant/denial of factual standing. The output MUST NOT contain words like 'fallacy', 'weak', 'invalid', 'flawed', 'wrong', 'bad reasoning'. The evidenceSpan must anchor the question separating claim from evidence, not any quality judgment.",
+  }),
+  Object.freeze({
+    rawKey: 'question_invites_revision',
+    label: 'Question leaves room to refine',
+    booleanQuestion:
+      'Does the question this move poses invite revision (an open, improvement-seeking stance) rather than demand closure (a gotcha / corner framing)?',
+    positiveDefinition:
+      "The move POSES A QUESTION with an open, improvement-seeking stance — asking in a way that leaves the other side room to refine or narrow its point.",
+    negativeDefinition:
+      'The move poses a question framed to corner or close ("So you admit X?", "So you have no evidence?"), or a neutral information question unrelated to refining the point, or is not a question.',
+    positiveExample:
+      "Move: 'Is there a narrower version you'd defend more confidently?' (invites refinement, open stance)",
+    negativeExample:
+      "Move: 'So you have no evidence?' (closure / gotcha framing, not an invitation to refine)",
+    falsePositiveGuards:
+      "'Invites revision' is about the QUESTION's stance (open, improvement-seeking), not its politeness; do NOT mark gotcha questions dressed politely ('So you admit X?' stays FALSE even when phrased courteously). DOCTRINE (VERDICT-ADJACENT — invites-revision-not-a-verdict): this describes the collaborative stance of the move's question — that the reply asks in a way that leaves room to refine; it NEVER asserts the parent is wrong, weak, or that the parent NEEDS revision as a verdict. An open question is an invitation to refine, not a defeat of the parent. The output describes THIS REPLY, never the author ('this person's point is deficient' is forbidden). The output MUST NOT contain words like 'fallacy', 'weak', 'invalid', 'flawed', 'wrong', 'bad reasoning'. The evidenceSpan must anchor the open question, not any quality judgment.",
   }),
 ]);

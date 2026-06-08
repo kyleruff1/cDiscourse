@@ -1,9 +1,37 @@
 /**
- * MCP-021A — Family F (critical_question) definitions.
+ * MCP-021A + MCP-BUILD2f — Family F (critical_question) definitions.
  *
- * Per design §3.6: 14 entries total. 0 existing + 14 NEW.
+ * 17 entries total (MCP-021A baseline 14 + MCP-BUILD2f +3).
+ *  - 14 MCP-021A: missing_warrant / unstated_assumption /
+ *    authority_basis_missing / causal_mechanism_missing /
+ *    analogy_mapping_missing / example_representativeness_unclear /
+ *    consequence_probability_unclear / definition_boundary_unclear /
+ *    criterion_weighting_unclear / alternative_explanation_available /
+ *    counterexample_available / scope_limit_unstated / qualification_missing /
+ *    comparison_baseline_missing (the `*_missing` / `*_unclear` / `*_available`
+ *    critical-question keys).
+ *  - 3 MCP-BUILD2f (Build-2 manifest §5; all Inspect-only): the
+ *    question-quality observations question_names_uncertainty,
+ *    question_separates_claim_evidence, question_invites_revision. These use a
+ *    NEW `question_*` rawKey prefix for this family (per manifest §5.2 — it
+ *    reads naturally and does not collide with the existing keys). NO
+ *    schema-version bump (vocabulary expansion, not a wire change).
+ *
  * All defaultSurface 'inspect', disposition 'future_source',
  * source: 'ai_classifier'.
+ *
+ * IMPORTANT — the 3 MCP-BUILD2f booleans differ in polarity from the existing
+ * 14: the baseline keys flag a CRITICAL QUESTION the move's reasoning has not
+ * yet ANSWERED (an absence/gap). The 3 new ones instead describe a POSITIVE
+ * structural feature of the QUESTION the move poses — that the question names a
+ * source of uncertainty (F1), separates the claim from its evidence (F2), or
+ * invites revision rather than demanding closure (F3). They are still
+ * structural, advisory, display-only, and never a verdict.
+ * question_invites_revision (F3) is verdict-adjacent and is fenced
+ * "invites-revision-not-a-verdict": it describes the QUESTION's collaborative
+ * stance ("this reply asks in a way that leaves room to refine"), NEVER asserts
+ * the parent is wrong/weak or NEEDS revision as a verdict (cdiscourse-doctrine
+ * §1), and never labels the author.
  *
  * BINDING doctrine for every Family F entry (per design §3.6):
  * every entry carries a falsePositiveGuards clause warning against
@@ -487,6 +515,122 @@ export const FAMILY_F_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     ]),
     doctrineNotes: Object.freeze([
       'cdiscourse-doctrine §10a: surfacing missing baseline is productive structural critical question.',
+    ]),
+  }),
+
+  // ── MCP-BUILD2f (critical_question expansion) ─────────────────────────────
+  // Three Build-2f booleans per the Build-2 manifest §5. Unlike the 14 baseline
+  // critical-question keys (which flag an ABSENCE / unanswered question), these
+  // describe a POSITIVE structural feature of the QUESTION the move poses:
+  // whether the question names a specific source of uncertainty (F1), whether
+  // it separates the claim from its evidence (F2), and whether it invites
+  // revision rather than demanding closure (F3). All Inspect-only; none are
+  // verdicts. The new keys use the `question_*` prefix (manifest §5.2 — new for
+  // this family, reads naturally, no collision). The third,
+  // question_invites_revision, is verdict-adjacent and is fenced
+  // "invites-revision-not-a-verdict": it describes the QUESTION's collaborative
+  // stance ("this reply asks in a way that leaves room to refine"), advisory,
+  // never asserting the parent is wrong/weak or NEEDS revision as a verdict, and
+  // never labeling the author (cdiscourse-doctrine §1, §10a).
+
+  // BUILD2f #1 question_names_uncertainty (Inspect-only)
+  buildCritical({
+    rawKey: 'question_names_uncertainty',
+    label: 'Question names a source of uncertainty',
+    shortLabel: 'Names uncertainty',
+    description:
+      'The question this move poses names a specific source of uncertainty.',
+    priority: 264,
+    booleanQuestion:
+      'Does the question this move poses name a specific source of uncertainty (rather than asking a vague "are you sure?")?',
+    positiveDefinition:
+      "The move POSES A QUESTION that points at a specific, named source of uncertainty — a distinction, a denominator, a confidence interval, a population. (\"Is the 40% figure tailpipe-only or lifecycle? That distinction is where the uncertainty is.\")",
+    negativeDefinition:
+      'The move poses a critical question that does NOT name what is uncertain ("Really?", "Are you sure?"), or the move is not a question at all (a statement).',
+    positiveExamples: Object.freeze([
+      "Move: 'What's the confidence interval — that's the open question.' (names the uncertainty source: the interval)",
+      "Move: 'Which population does this cover? The uncertainty is in the denominator.' (names the uncertainty source: the denominator)",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'Really?' (a question, but names no specific uncertainty)",
+      "Move: 'That's wrong.' (a statement, not a question)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The move must POSE A QUESTION that names a specific uncertainty source; do NOT mark a bare "are you sure?" with no named source, and do NOT mark plain statements.',
+      'This observation describes a structural feature of the MOVE\'s question, never the author; naming an uncertainty source is not a quality verdict on the parent.',
+      'Co-fires acceptably with the existing `*_unclear` keys (those flag that something is unclear; this names that the question itself points at the uncertainty source).',
+      COMMON_DOCTRINE_GUARD,
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: this is a structural feature of the question the move poses; display-only, never a verdict on the parent.',
+      'Sharper than the generic `*_unclear` flags — it observes that the move\'s question itself names where the uncertainty lives.',
+    ]),
+  }),
+
+  // BUILD2f #2 question_separates_claim_evidence (Inspect-only)
+  buildCritical({
+    rawKey: 'question_separates_claim_evidence',
+    label: 'Question separates claim from evidence',
+    shortLabel: 'Separates claim/evidence',
+    description:
+      'The question this move poses separates the claim from the evidence for it.',
+    priority: 265,
+    booleanQuestion:
+      'Does the question this move poses separate the claim from the evidence for it (granting the claim while asking specifically about its evidentiary basis)?',
+    positiveDefinition:
+      "The move POSES A QUESTION that explicitly distinguishes the claim from its evidentiary basis — granting or restating the claim, then asking specifically about the evidence for it. (\"I get the claim — but what's the evidence specifically for the causal step?\")",
+    negativeDefinition:
+      'The move poses a question that conflates claim and evidence, or asks for evidence generally without separating it from the claim (a bare "Source?" — that is the existing asks_for_evidence in Family D), or is not a question.',
+    positiveExamples: Object.freeze([
+      "Move: 'The claim is clear; my question is which study supports the 40% specifically.' (claim granted, evidence question separated)",
+      "Move: 'Granting the conclusion, what's the evidence for premise 2 as opposed to premise 1?' (separates the claim from the evidence for a specific premise)",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'Source?' (a bare evidence request; does not separate claim from evidence)",
+      "Move: 'Is that true?' (conflates the claim and its evidence)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The question must explicitly distinguish the claim from its evidentiary basis; do NOT mark a bare evidence request that does not separate the two.',
+      'This observation describes a structural feature of the MOVE\'s question, never the author; separating claim from evidence is not a quality verdict on the parent.',
+      COMMON_DOCTRINE_GUARD,
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: this is an epistemic-structural feature of the move\'s question; display-only, doctrine-clean.',
+      'evidence-doctrine: the question describes the MOVE, never grants or denies factual standing (the anti-amplification module is untouched).',
+    ]),
+  }),
+
+  // BUILD2f #3 question_invites_revision (Inspect-only; VERDICT-ADJACENT)
+  buildCritical({
+    rawKey: 'question_invites_revision',
+    label: 'Question leaves room to refine',
+    shortLabel: 'Open question',
+    description:
+      'The question this move poses asks in a way that leaves room to refine, rather than demanding closure.',
+    priority: 266,
+    booleanQuestion:
+      'Does the question this move poses invite revision (an open, improvement-seeking stance) rather than demand closure (a gotcha / corner framing)?',
+    positiveDefinition:
+      'The move POSES A QUESTION with an open, improvement-seeking stance — asking in a way that leaves the other side room to refine or narrow its point. ("Would the claim still hold if we restricted it to cities? — open, not gotcha." "Is there a narrower version you\'d defend more confidently?")',
+    negativeDefinition:
+      'The move poses a question framed to corner or close ("So you admit X?", "So you have no evidence?"), or a neutral information question unrelated to refining the point, or is not a question.',
+    positiveExamples: Object.freeze([
+      "Move: 'Is there a narrower version you'd defend more confidently?' (invites refinement, open stance)",
+      "Move: 'What would make this stronger — a different sample?' (improvement-seeking, leaves room to refine)",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'So you have no evidence?' (closure / gotcha framing, not an invitation to refine)",
+      "Move: 'What time is it?' (a question, but irrelevant — not an invitation to refine the point)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      '"Invites revision" is about the QUESTION\'s stance (open, improvement-seeking), not its politeness; do NOT mark gotcha questions dressed politely ("So you admit X?" stays FALSE even when phrased courteously).',
+      'This observation describes the collaborative stance of the MOVE\'s question, never the author — that the reply asks in a way that leaves room to refine; it NEVER asserts the parent is wrong, weak, or that the parent NEEDS revision as a verdict. An open question is an invitation to refine, not a judgment that refinement is required.',
+      'Do NOT treat the PRESENCE of this observation as a criticism of the parent author and do NOT treat its ABSENCE as praise: it is "this reply asks in a way that leaves room to refine", never "this person\'s point is deficient".',
+      COMMON_DOCTRINE_GUARD,
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: this is a MACHINE OBSERVATION about the MOVE\'s question stance; display-only, never a verdict that the parent is wrong or weak.',
+      'cdiscourse-doctrine §1 (VERDICT-ADJACENT — invites-revision-not-a-verdict): the label describes the question\'s collaborative stance ("this reply asks in a way that leaves room to refine"), NEVER that the parent is wrong/weak or NEEDS revision as a verdict, and never the author. A question that invites revision is a constructive move, not a defeat of the parent.',
     ]),
   }),
 ]);

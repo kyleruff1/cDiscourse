@@ -1,8 +1,8 @@
 /**
- * MCP-SERVER-007-FAMILY-F — Family F prompt structure + doctrine ban-list scan tests.
+ * MCP-SERVER-007-FAMILY-F + MCP-BUILD2f — Family F prompt structure + doctrine ban-list scan tests.
  *
  * Critical invariants:
- *   - Prompt includes all 14 Family F rawKeys (when requestedRawKeys is empty)
+ *   - Prompt includes all 17 Family F rawKeys (14 + 3 MCP-BUILD2f) when requestedRawKeys is empty
  *   - Prompt includes each rawKey's booleanQuestion + positiveDefinition +
  *     negativeDefinition + positiveExample + negativeExample + falsePositiveGuards
  *   - Prompt instructs the model to return confidence on every positive flag
@@ -91,7 +91,7 @@ Deno.test('Family F system prompt contains the 7 absolute rules byte-equal to Fa
 
 Deno.test('Family F system prompt contains CQ-as-productive-probe structural framing', () => {
   const framing = [
-    'has not yet answered one or more of 14 CRITICAL',
+    'You classify a MOVE against 17 structural observations',
     'QUESTIONS that productive inquiry would raise',
     'structural observation about an ABSENCE or GAP',
     'CRITICAL DOCTRINE — critical questions are PRODUCTIVE PROBES, never verdicts',
@@ -162,7 +162,7 @@ Deno.test('Family F MAX_TOKENS / TEMPERATURE / MAX_BODY_FIELD_LEN constants are 
   assertEquals(FAMILY_F_MAX_BODY_FIELD_LEN, 8000);
 });
 
-Deno.test('Family F user prompt (default request) includes all 14 rawKeys', () => {
+Deno.test('Family F user prompt (default request) includes all 17 rawKeys', () => {
   const prompt = buildFamilyFUserPrompt(buildRequest());
   for (const rawKey of FAMILY_F_RAW_KEYS) {
     if (!prompt.includes(rawKey)) {

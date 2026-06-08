@@ -117,16 +117,17 @@ export function initializeFamilyRegistry(): void {
     classifierSetVersion: FAMILY_E_CLASSIFIER_SET_VERSION,
   });
 
-  // MCP-SERVER-007-FAMILY-F: register critical_question with the 14-key
-  // ai_classifier set per design §1 (uniform ai_classifier; Stage 2B NOT
-  // REQUIRED). The 14 Walton (1995, 2008) + Toulmin (1958) + Peirce
-  // critical questions are descriptive structural probes on absence/gap;
-  // the existential doctrine binding (the CQ NEVER labels the scheme it
-  // probes a fallacy) lives in familyFPrompt.ts + familyFBanListScan.ts.
-  // Card 1 of the three-card chain: admin_validation-only at the Edge
-  // boundary (Edge familyRegistry already has Family F productionEnabled
-  // = false at supabase/functions/_shared/booleanObservations/
-  // familyRegistry.ts:95-97; no Edge edit in this card).
+  // MCP-SERVER-007-FAMILY-F + MCP-BUILD2f: register critical_question with the
+  // 17-key ai_classifier set (14 Walton/Toulmin/Peirce critical questions + 3
+  // MCP-BUILD2f question-quality booleans) per design §1 + Build-2 manifest §5
+  // (uniform ai_classifier; Stage 2B NOT REQUIRED). The 14 baseline CQs are
+  // descriptive structural probes on absence/gap; the 3 new question_* keys
+  // describe a POSITIVE structural feature of the question the move poses; the
+  // existential doctrine binding (the CQ NEVER labels the scheme it probes a
+  // fallacy; question_invites_revision NEVER asserts the parent NEEDS revision)
+  // lives in familyFPrompt.ts + familyFBanListScan.ts. Family F is
+  // productionEnabled = true at the Edge (flipped post-MCP-021C-EDGE-FAMILY-F-
+  // ENABLE); MCP-BUILD2f makes no familyRegistry change.
   register('critical_question', {
     rawKeys: new Set(FAMILY_F_RAW_KEYS),
     classifierSetVersion: FAMILY_F_CLASSIFIER_SET_VERSION,

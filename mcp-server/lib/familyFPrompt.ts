@@ -1,10 +1,12 @@
 /**
- * MCP-SERVER-007-FAMILY-F — Family F prompt construction.
+ * MCP-SERVER-007-FAMILY-F + MCP-BUILD2f — Family F prompt construction.
  *
  * Single-prompt strategy per design §3: one Anthropic call covers all
- * 14 Family F rawKeys. Token budget ~85 tokens/key × 14 = ~1190 output;
- * MAX_TOKENS=1500 (matches Family A/B/C/E; NO bump per design §2; ~310
- * token headroom — comfortably wider than Family E's ~60 token headroom).
+ * 17 Family F rawKeys (14 MCP-SERVER-007-FAMILY-F + 3 MCP-BUILD2f
+ * question-quality booleans). Token budget ~85 tokens/key × 17 = ~1445
+ * output; MAX_TOKENS=1500 (matches Family A/B/C/E; NO bump — the model
+ * returns compact booleans + sparse evidenceSpans, well under the cap in
+ * practice, as for Family C's 20 keys).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
@@ -51,7 +53,7 @@
  */
 import { FAMILY_F_PROMPT_ENTRIES, FAMILY_F_RAW_KEYS } from './familyFKeys.ts';
 
-/** MAX_TOKENS for the Family F response. 14 keys × ~85 tokens + overhead. */
+/** MAX_TOKENS for the Family F response. 17 keys × ~85 tokens + overhead. */
 export const FAMILY_F_MAX_TOKENS = 1500;
 
 /** Deterministic decoding. Mirrors Family A/B/C/D/E. */
@@ -87,15 +89,23 @@ Absolute rules:
 - You do NOT recommend hiding, deleting, or modifying any content.
 - You do NOT block an ordinary post — your output is advisory metadata only.
 
-You classify whether an argument MOVE has not yet answered one or more of 14 CRITICAL
-QUESTIONS that productive inquiry would raise about the move's reasoning. Each question is
-a structural observation about an ABSENCE or GAP — a warrant left implicit, an assumption
-left unstated, an authority cited without basis, a cause asserted without mechanism, an
-analogy used without mapping, an example offered without representativeness, a consequence
-predicted without probability, a definition applied without boundary check, a criterion
-invoked without weighting, an effect inferred without alternative explanations addressed,
-a generalization made where counterexamples exist, a claim made without scope limits, a
-claim made without modal qualification, a comparison made without baseline.
+You classify a MOVE against 17 structural observations. The first 14 ask whether the move
+has not yet answered one or more CRITICAL QUESTIONS that productive inquiry would raise about
+the move's reasoning. Each of those 14 is a structural observation about an ABSENCE or GAP —
+a warrant left implicit, an assumption left unstated, an authority cited without basis, a
+cause asserted without mechanism, an analogy used without mapping, an example offered without
+representativeness, a consequence predicted without probability, a definition applied without
+boundary check, a criterion invoked without weighting, an effect inferred without alternative
+explanations addressed, a generalization made where counterexamples exist, a claim made
+without scope limits, a claim made without modal qualification, a comparison made without
+baseline. The remaining 3 are POSITIVE structural observations about the QUESTION the move
+itself poses — whether that question names a specific source of uncertainty, whether it
+separates the claim from the evidence for it, and whether it invites revision (an open,
+improvement-seeking stance) rather than demands closure (a gotcha / corner framing). These 3
+describe the move's question, NOT a deficiency in the parent. question_invites_revision in
+particular is never a verdict on the parent: it does NOT assert the parent is wrong, weak, or
+that the parent needs revision — an open question is an invitation to refine, not a judgment
+that refinement is required, and it never describes the person.
 
 CRITICAL DOCTRINE — critical questions are PRODUCTIVE PROBES, never verdicts:
 - A critical question flags a GAP the move has not yet filled. The gap MAY be filled by a
@@ -164,7 +174,8 @@ export interface ValidatedFamilyFRequest {
  *   5. Conservative-positives bias reminder (0 to 2 CQs)
  *   6. The input (move text, parent text, thread context)
  *
- * When requestedRawKeys is empty, all 14 Family F keys are included.
+ * When requestedRawKeys is empty, all 17 Family F keys are included
+ * (14 MCP-SERVER-007-FAMILY-F + 3 MCP-BUILD2f).
  *
  * Returns a string — pure, no I/O. The string contains the verbatim
  * caller-redacted move/parent/thread text fields; the caller has already
@@ -232,9 +243,9 @@ Definitions and examples for each rawKey:
 
 ${definitionsBlock}
 
-Note about critical questions as productive probes: each Family F rawKey is a structural
-fact about which CRITICAL QUESTION the move's reasoning has not yet answered (warrant absence,
-assumption absence, authority basis absence, causal mechanism absence, analogy mapping
+Note about critical questions as productive probes: the first 14 Family F rawKeys are each a
+structural fact about which CRITICAL QUESTION the move's reasoning has not yet answered (warrant
+absence, assumption absence, authority basis absence, causal mechanism absence, analogy mapping
 absence, example representativeness gap, consequence probability gap, definition boundary
 gap, criterion weighting gap, alternative explanation gap, counterexample absence, scope
 limit absence, qualification absence, comparison baseline absence). NONE of these is a verdict
@@ -248,6 +259,17 @@ analogy_reasoning_present; flagging the mapping gap NEVER means analogy reasonin
 fallacious. alternative_explanation_available partners with Family E's
 abductive_explanation_present (Peirce: inference to best explanation); flagging the
 alternative gap NEVER means abductive reasoning is fallacious.
+
+The remaining 3 Family F rawKeys (question_names_uncertainty,
+question_separates_claim_evidence, question_invites_revision) are POSITIVE structural
+observations about the QUESTION the move itself poses — that the question names a source of
+uncertainty, separates the claim from the evidence for it, or invites revision (an open,
+improvement-seeking stance) rather than demanding closure. These describe the move's question,
+NOT a deficiency in the parent. question_invites_revision is VERDICT-ADJACENT: flagging it
+means the reply asks in a way that leaves room to refine — it NEVER asserts the parent is
+wrong, weak, or that the parent NEEDS revision as a verdict, and it never describes the
+person. A gotcha or corner question ("So you admit X?") is FALSE for question_invites_revision
+even when phrased politely.
 
 Answer each critical question above with true (CQ unmet by this move) or false (CQ met OR
 not applicable to this move) for the move below. Return ONLY a single JSON object — no

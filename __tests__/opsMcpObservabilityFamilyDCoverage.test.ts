@@ -267,6 +267,8 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group B: Q14 density math'
     expect(stripped).toContain("when 'evidence_source_chain' then 19");
     // MCP-BUILD2e: argument_scheme 16 → 19 (+3 argument-structure booleans).
     expect(stripped).toContain("when 'argument_scheme' then 19");
+    // MCP-BUILD2f: critical_question 14 → 17 (+3 question-quality booleans).
+    expect(stripped).toContain("when 'critical_question' then 17");
     // Unsupported families fall through to 0 (else branch).
     expect(/else\s+0/i.test(stripped)).toBe(true);
   });

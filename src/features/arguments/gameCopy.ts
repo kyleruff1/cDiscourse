@@ -697,6 +697,55 @@ export const PLAIN_LANGUAGE_COPY = {
     'This reply uses premises that each stand on their own and states the steps its conclusion needs.',
   'argument_scheme.pair_false_true.enthymeme_gap_detected.no_convergent':
     'This reply relies on an unstated step without using premises that each stand on their own; naming that step can make the reasoning easier to follow.',
+  // MCP-BUILD2f (Family F critical_question expansion) — plain-language for the 3
+  // new question-quality booleans' mapping rows. Every value is verdict-free,
+  // move-level, and describes the MOVE never the author. No underscores (the
+  // registry review-gate asserts the displayed string is snake-free). Unlike the
+  // 14 baseline critical-question keys (which flag an unanswered question), these
+  // describe a POSITIVE feature of the QUESTION the move poses. The
+  // question_invites_revision (F3) values are fenced
+  // "invites-revision-not-a-verdict": they describe a question that leaves room
+  // to refine (a constructive move) and never imply the parent is wrong / weak /
+  // NEEDS revision.
+  // ── question_names_uncertainty ──
+  'critical_question.single_true.question_names_uncertainty':
+    'This reply poses a question that names a specific source of uncertainty.',
+  'critical_question.single_false.question_names_uncertainty':
+    'This reply does not pose a question that names a specific source of uncertainty; this is only an observation about its structure, not a concern.',
+  // ── question_separates_claim_evidence ──
+  'critical_question.single_true.question_separates_claim_evidence':
+    'This reply poses a question that separates the claim from the evidence for it.',
+  'critical_question.single_false.question_separates_claim_evidence':
+    'This reply does not pose a question that separates the claim from its evidence; this is only an observation about its structure, not a concern.',
+  // ── question_invites_revision (invites-revision-not-a-verdict fence) ──
+  'critical_question.single_true.question_invites_revision':
+    'This reply poses a question that leaves room to refine the point rather than demanding a final answer; this is a constructive move, not a concern about the other reply.',
+  'critical_question.single_false.question_invites_revision':
+    'This reply does not pose a question that leaves room to refine; this is only an observation about its structure, not a concern.',
+  // ── pairs: question_names_uncertainty × question_separates_claim_evidence ──
+  'critical_question.pair_true_true.question_names_uncertainty.question_separates_claim_evidence':
+    'This reply poses a question that names a specific source of uncertainty and separates the claim from the evidence for it.',
+  'critical_question.pair_true_false.question_names_uncertainty.no_claim_evidence_separation':
+    'This reply poses a question that names a source of uncertainty without separating the claim from its evidence.',
+  'critical_question.pair_false_true.question_separates_claim_evidence.no_named_uncertainty':
+    'This reply poses a question that separates the claim from its evidence without naming a specific source of uncertainty.',
+  // ── pairs: question_names_uncertainty × question_invites_revision ──
+  'critical_question.pair_true_true.question_names_uncertainty.question_invites_revision':
+    'This reply poses a question that names a specific source of uncertainty and leaves room to refine the point.',
+  'critical_question.pair_true_false.question_names_uncertainty.no_invites_revision':
+    'This reply poses a question that names a source of uncertainty and seeks a specific answer rather than leaving room to refine.',
+  'critical_question.pair_false_true.question_invites_revision.no_named_uncertainty':
+    'This reply poses a question that leaves room to refine the point without naming a specific source of uncertainty; this is a constructive move, not a concern about the other reply.',
+  // ── pairs: question_separates_claim_evidence × question_invites_revision ──
+  'critical_question.pair_true_true.question_separates_claim_evidence.question_invites_revision':
+    'This reply poses a question that separates the claim from its evidence and leaves room to refine the point.',
+  'critical_question.pair_true_false.question_separates_claim_evidence.no_invites_revision':
+    'This reply poses a question that separates the claim from its evidence and seeks a specific answer rather than leaving room to refine.',
+  'critical_question.pair_false_true.question_invites_revision.no_claim_evidence_separation':
+    'This reply poses a question that leaves room to refine the point without separating the claim from its evidence; this is a constructive move, not a concern about the other reply.',
+  // ── curated_triple: all 3 question-quality flags ──
+  'critical_question.curated_triple.question_names_uncertainty.question_separates_claim_evidence.question_invites_revision':
+    'This reply poses a question that names a specific source of uncertainty, separates the claim from the evidence for it, and leaves room to refine the point; this is a constructive move, not a concern about the other reply.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;

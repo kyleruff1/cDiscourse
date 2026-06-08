@@ -15,7 +15,10 @@
     "counterexample_available",
     "scope_limit_unstated",
     "qualification_missing",
-    "comparison_baseline_missing"
+    "comparison_baseline_missing",
+    "question_names_uncertainty",
+    "question_separates_claim_evidence",
+    "question_invites_revision"
   ],
   "observations": {
     "missing_warrant": true,
@@ -31,7 +34,10 @@
     "counterexample_available": false,
     "scope_limit_unstated": false,
     "qualification_missing": false,
-    "comparison_baseline_missing": false
+    "comparison_baseline_missing": false,
+    "question_names_uncertainty": false,
+    "question_separates_claim_evidence": false,
+    "question_invites_revision": false
   },
   "confidence": {
     "missing_warrant": "medium",
@@ -47,7 +53,10 @@
     "counterexample_available": "medium",
     "scope_limit_unstated": "medium",
     "qualification_missing": "medium",
-    "comparison_baseline_missing": "medium"
+    "comparison_baseline_missing": "medium",
+    "question_names_uncertainty": "low",
+    "question_separates_claim_evidence": "low",
+    "question_invites_revision": "low"
   },
   "evidenceSpan": {
     "missing_warrant": "until we have arrived at full-scope content suppression",
@@ -63,7 +72,10 @@
     "counterexample_available": null,
     "scope_limit_unstated": null,
     "qualification_missing": null,
-    "comparison_baseline_missing": null
+    "comparison_baseline_missing": null,
+    "question_names_uncertainty": null,
+    "question_separates_claim_evidence": null,
+    "question_invites_revision": null
   },
   "modelInfo": {
     "provider": "mcp",
