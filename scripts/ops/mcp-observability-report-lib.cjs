@@ -344,9 +344,9 @@ const SECTIONS = Object.freeze([
   },
   {
     id: 'q16-family-g-subset-coverage',
-    title: 'Family G 18-key subset coverage',
+    title: 'Family G 21-key subset coverage',
     question:
-      'Q16 — Are all observed Family G raw_keys within the 18-key ai_classifier Subset, with zero deterministic-key leaks?',
+      'Q16 — Are all observed Family G raw_keys within the 21-key ai_classifier Subset, with zero deterministic-key leaks?',
     sqlFile: '16-family-g-subset-coverage.sql',
     columns: [
       'raw_key',

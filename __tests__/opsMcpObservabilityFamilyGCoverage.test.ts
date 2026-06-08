@@ -554,7 +554,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group E: fixture compatibi
     expect(md).not.toMatch(/\bNaN\b/);
     expect(md).not.toContain('undefined');
     // The Q16 section renders with its title.
-    expect(md).toContain('## Family G 18-key subset coverage');
+    expect(md).toContain('## Family G 21-key subset coverage');
   });
 
   it('runner JSON artifact has 17 sections including q16-family-g-subset-coverage', () => {
