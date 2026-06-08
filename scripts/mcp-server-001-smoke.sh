@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A + Build-2c Family-C + Build-2e Family-E new-key proof).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A + Build-2c Family-C + Build-2e Family-E + Build-2f Family-F new-key proof).
 #
-# Verifies the deployed (or locally-running) MCP server against the 33 checks:
+# Verifies the deployed (or locally-running) MCP server against the 35 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -37,6 +37,10 @@
 #                   (linked_premise_structure,
 #                   convergent_premise_structure,
 #                   enthymeme_gap_detected) — merged-≠-live harness
+#   - Checks 34-35: OPS-DENO-GOLIVE Build-2f Family-F new-key proof
+#                   (question_names_uncertainty,
+#                   question_separates_claim_evidence,
+#                   question_invites_revision) — merged-≠-live harness
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -48,7 +52,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 33 checks passed
+#   0 — all 35 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -896,6 +900,58 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2e Family-E keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #542 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 34: POST /mcp/adapter-compat — Family F BUILD-2f NEW keys present ──
+# OPS-DENO-GOLIVE pilot (MCP-BUILD2f / #543). SMOKE HARNESS ONLY — NOT product
+# behavior, NOT a new boolean. This check is the merged-≠-live proof: it asks
+# the hosted Deno build for the 3 NEW Family-F booleans
+# (question_names_uncertainty, question_separates_claim_evidence,
+# question_invites_revision) and FAILS CLOSED unless all three appear in the
+# response. A STALE Deno deploy (pre-#543, 14-key Family F) returns
+# unsupported_rawKey / omits the keys, so a green baseline Family-F check
+# (18/19) can NOT mask a stale deploy. Key-presence is value-agnostic (true OR
+# false is fine — we are proving the classifier KNOWS the keys, not what it
+# answered). The fixture body is doctrine-safe: it is a genuine clarifying
+# QUESTION that names its own uncertainty and invites optional refinement —
+# inviting revision is a STRUCTURAL observation about the move's own question,
+# never a verdict that the parent is wrong, weak, or NEEDS revision.
+CHECK_NAME="34-compat-boolean-family-f-build2f-newkeys"
+BOOLEAN_F2_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-f2-001","parentNodeId":"fixture-node-parent-f2-001","currentText":"[fixture] To make sure I am following: which part of this is the claim, and which part is the evidence you are leaning on? I am genuinely unsure how far the 2019 figures let us go on causation versus correlation — if that uncertainty turns out to matter, is there room to refine the scope together?","parentText":"[fixture] Library funding should be increased because the 2019 figures show it boosts literacy.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["critical_question"],"requestedRawKeys":["question_names_uncertainty","question_separates_claim_evidence","question_invites_revision"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family F Build-2f NEW keys)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_F2_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-f-v1"' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"question_names_uncertainty"' \
+     && contains "$RESPONSE" '"question_separates_claim_evidence"' \
+     && contains "$RESPONSE" '"question_invites_revision"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2f Family-F keys returned (no unsupported_rawKey). A failure here means the hosted Deno build predates #543 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 35: POST /mcp tools/call — Family F BUILD-2f NEW keys present ──
+# Same merged-≠-live assertion as Check 34, via the official MCP /mcp JSON-RPC
+# envelope. SMOKE HARNESS ONLY — not product behavior.
+CHECK_NAME="35-mcp-tools-call-boolean-family-f-build2f-newkeys"
+BOOLEAN_F2_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-15","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-f2-001","parentNodeId":"fixture-node-parent-f2-001","currentText":"[fixture] To make sure I am following: which part of this is the claim, and which part is the evidence you are leaning on? I am genuinely unsure how far the 2019 figures let us go on causation versus correlation — if that uncertainty turns out to matter, is there room to refine the scope together?","parentText":"[fixture] Library funding should be increased because the 2019 figures show it boosts literacy.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["critical_question"],"requestedRawKeys":["question_names_uncertainty","question_separates_claim_evidence","question_invites_revision"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call Family F Build-2f NEW keys)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_F2_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-f-v1"' \
+     && contains "$RESPONSE" '"isError":false' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"question_names_uncertainty"' \
+     && contains "$RESPONSE" '"question_separates_claim_evidence"' \
+     && contains "$RESPONSE" '"question_invites_revision"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2f Family-F keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #543 — merged is not live. Got: $RESPONSE"
 fi
 
 echo
