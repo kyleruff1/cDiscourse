@@ -137,14 +137,15 @@ Deno.test('registry-isFamilySupported-false-for-unregistered', () => {
   assertEquals(registry.isFamilySupported('not_a_family'), false);
 });
 
-Deno.test('registry-getRawKeysForFamily-returns-all-16-for-family-a', () => {
+Deno.test('registry-getRawKeysForFamily-returns-all-19-for-family-a', () => {
   const registry = createFamilyRegistry();
   registry.register('parent_relation', {
     rawKeys: new Set(FAMILY_A_RAW_KEYS),
     classifierSetVersion: FAMILY_A_CLASSIFIER_SET_VERSION,
   });
   const keys = registry.getRawKeysForFamily('parent_relation');
-  assertEquals(keys.size, 16);
+  // MCP-BUILD2b: 16 → 19 Family A rawKeys (derived from FAMILY_A_RAW_KEYS).
+  assertEquals(keys.size, 19);
   for (const binding of FAMILY_A_RAW_KEYS) {
     assertEquals(keys.has(binding), true);
   }
@@ -170,7 +171,7 @@ Deno.test('registry-getClassifierSetVersion-returns-family-a-v1', () => {
   assertEquals(registry.getClassifierSetVersion('parent_relation'), 'family-a-v1');
 });
 
-Deno.test('registry-isRawKeySupportedForFamily-true-for-all-16-keys', () => {
+Deno.test('registry-isRawKeySupportedForFamily-true-for-all-19-keys', () => {
   const registry = createFamilyRegistry();
   registry.register('parent_relation', {
     rawKeys: new Set(FAMILY_A_RAW_KEYS),

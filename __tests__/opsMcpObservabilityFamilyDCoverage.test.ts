@@ -258,7 +258,8 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE — Group B: Q14 density math'
   it('Q14 SQL hardcoded CASE includes the 4 family constants verbatim', () => {
     const src = readFile(Q14_PATH);
     const stripped = stripSqlComments(src);
-    expect(stripped).toContain("when 'parent_relation' then 16");
+    // MCP-BUILD2b: parent_relation 16 → 19 (+3 parent-relation quality booleans).
+    expect(stripped).toContain("when 'parent_relation' then 19");
     // MCP-BUILD2a: disagreement_axis 14 → 17 (+3 disagreement-quality booleans).
     expect(stripped).toContain("when 'disagreement_axis' then 17");
     expect(stripped).toContain("when 'misunderstanding_repair' then 17");

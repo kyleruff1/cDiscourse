@@ -1,20 +1,29 @@
 /**
  * MCP-021A — Family A (parent_relation) definitions.
  *
- * Per design §3.1: 16 entries total.
+ * 19 entries total (MCP-021A baseline 16 + MCP-BUILD2b +3).
  *  - 4 existing assigned to Family A (RETROACTIVE_VERBOSE_DEFINITIONS):
  *    - #2 has_rebuttal (auto_metadata)
  *    - #3 has_counter_rebuttal (auto_metadata)
  *    - #19 rebutted (lifecycle)
  *    - #37 quote_anchors_parent (ai_classifier)
- *  - 12 NEW: supports_parent, challenges_parent, refines_parent,
+ *  - 12 MCP-021A: supports_parent, challenges_parent, refines_parent,
  *    extends_parent, distinguishes_parent, reframes_parent,
  *    questions_parent, summarizes_parent, acknowledges_parent,
  *    corrects_parent_detail, contrasts_with_parent, answers_parent_question.
+ *  - 3 MCP-BUILD2b (Build-2 manifest §1; all Inspect-only): the
+ *    parent-relation observations acknowledges_parent_strength,
+ *    compares_parent_to_sibling_branch, identifies_parent_scope_limit.
+ *    NO schema-version bump (vocabulary expansion, not a wire change).
  *
- * All 12 new entries: source: 'ai_classifier', defaultSurface:
+ * All MCP-021A new entries: source: 'ai_classifier', defaultSurface:
  * 'timeline_node', disposition: 'future_source'.
  * timelineMinConfidence: 'medium' (per family — Timeline tolerance).
+ *
+ * The 3 MCP-BUILD2b booleans are Inspect-only (defaultSurface: 'inspect'),
+ * source: 'ai_classifier', disposition: 'future_source'; none are verdicts.
+ * acknowledges_parent_strength is verdict-adjacent and is fenced with extra
+ * falsePositiveGuards (describes the MOVE, never the author).
  *
  * Doctrine anchors per entry:
  *   - cdiscourse-doctrine §10a — structural facts about the move's
@@ -30,6 +39,16 @@ import type { MachineObservationDefinition } from '../nodeLabelTypes.ts';
 const NEW_FAMILY_A_ELIGIBILITY: MachineObservationDefinition['confidenceEligibility'] = {
   timelineMinConfidence: 'medium',
   selectedContextMinConfidence: 'low',
+  inspectMinConfidence: 'low',
+};
+
+// MCP-BUILD2b — Inspect-only eligibility for the 3 new parent-relation
+// quality booleans. Mirrors Family B's SUBTYPE_INSPECT_ELIGIBILITY: these
+// observations are surfaced on Inspect only (Timeline shows the established
+// structural keys), so they need a higher Timeline confidence bar.
+const BUILD2B_INSPECT_ELIGIBILITY: MachineObservationDefinition['confidenceEligibility'] = {
+  timelineMinConfidence: 'high',
+  selectedContextMinConfidence: 'medium',
   inspectMinConfidence: 'low',
 };
 
@@ -685,5 +704,140 @@ export const FAMILY_A_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
       "point-standing-economy: answering closes the evidence-debt or clarification-debt the parent opened.",
     ]),
     confidenceEligibility: NEW_FAMILY_A_ELIGIBILITY,
+  }),
+
+  // ── MCP-BUILD2b (parent_relation expansion) ───────────────────────
+  // Three Build-2b booleans per the Build-2 manifest §1. These describe
+  // qualities of the parent-relation MOVE — whether it grants a strength
+  // before disagreeing, whether it compares the parent to a sibling branch,
+  // and whether it names a specific scope limit on the parent's claim. All
+  // Inspect-only; none are verdicts. acknowledges_parent_strength is
+  // verdict-adjacent and is fenced with extra falsePositiveGuards (describes
+  // the MOVE, never the author). compares_parent_to_sibling_branch carries a
+  // classifier-reliability carry-forward (see its doctrineNotes).
+
+  // BUILD2b #1 acknowledges_parent_strength (Inspect-only; VERDICT-ADJACENT)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:acknowledges_parent_strength',
+    rawKey: 'acknowledges_parent_strength',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'parent_relation',
+    label: 'Grants a point before disagreeing',
+    shortLabel: 'Grants a point',
+    description: 'This move grants a point of the parent before disagreeing with it.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 112,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      'Does this move acknowledge a strength of the parent before disagreeing with it?',
+    positiveDefinition:
+      "The move explicitly grants that some substantive part of the parent holds — names a specific point it accepts — and THEN proceeds to disagree on another point. The acknowledgement names a real claim, premise, or piece of reasoning, and is followed by a substantive disagreement in the same move.",
+    negativeDefinition:
+      "The move disagrees with no acknowledgement (pure challenges_parent), or it only acknowledges with no following disagreement (that is the existing acknowledges_parent — agreement without a counter-move), or it is not a disagreement at all. Politeness or tone alone does not count.",
+    positiveExamples: Object.freeze([
+      "Parent: 'EVs cut tailpipe emissions and lower running costs.' Move: 'Fair point on the tailpipe data — I accept that. Where I'd part ways is the running-cost case; battery replacement narrows the gap a lot.'",
+      "Parent: 'Library funding should prioritize cost-per-visit and equity.' Move: 'Your strongest claim is the cost case; I take that as given, and still think the equity case has not been made out for rural branches.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'That's just off base.' (disagreement with no acknowledgement — challenges_parent, not this)",
+      "Move: 'Good point.' (acknowledgement only, no following disagreement — that is acknowledges_parent)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'This observation describes the MOVE, never the author. It never says the parent IS strong or right; it only notes that the move grants a point before disagreeing. The acknowledged point is not endorsed as standing-bearing.',
+      "Do NOT mark TRUE on politeness or tone alone; the acknowledgement must name a SUBSTANTIVE point of the parent AND be followed by a substantive disagreement in the same move.",
+      'Do NOT mark TRUE for a bare acknowledgement with no following disagreement — that is acknowledges_parent. Do NOT mark TRUE for a move that fully supports the parent — that is supports_parent.',
+      'Do NOT treat the ABSENCE of this observation as a criticism: a move that disagrees without granting a point first is perfectly valid and simply does not trip this flag. Absence means "not observed", never "the author was ungracious".',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: this is a MACHINE OBSERVATION about the MOVE\'s rhetorical structure; it is display-only and never a verdict that the parent point is correct or strong.',
+      'cdiscourse-doctrine §1: granting a point before disagreeing is not a score of who is right; "strength" here names the move\'s framing, not the parent\'s standing. Ban "correct"/"true"/"wins" in label + diagnostic.',
+      'cdiscourse-doctrine §4: advisory only; pairs with Family B\'s preserves_face_while_disagreeing as a mitigation observation — the structural opposite of the composer-only shifts_to_person_or_intent observation.',
+    ]),
+    confidenceEligibility: BUILD2B_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2b #2 compares_parent_to_sibling_branch (Inspect-only)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:compares_parent_to_sibling_branch',
+    rawKey: 'compares_parent_to_sibling_branch',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'parent_relation',
+    label: 'Compares to a sibling branch',
+    shortLabel: 'Sibling compare',
+    description: 'This move compares the parent with a sibling branch in the same thread.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 113,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      'Does this move compare the parent move with a sibling branch in the same thread?',
+    positiveDefinition:
+      "The move references another branch in the same thread (a different child line under the same parent) and contrasts the parent move with it — 'unlike the enforcement branch, this one assumes durable institutions'. The comparison is to a SIBLING branch, not the parent itself or an ancestor.",
+    negativeDefinition:
+      "The move stays within the parent line with no sibling reference; references an ancestor ('earlier you said'); or invokes a generic 'elsewhere people argue' that points to no specific sibling branch in this thread.",
+    positiveExamples: Object.freeze([
+      "Move: 'The sibling thread already settled the cost question; this branch is really about equity.'",
+      "Move: 'Compared to the other reply chain on enforcement, this one ignores the enforcement variable entirely.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'I disagree with the cost figure.' (no sibling reference)",
+      "Move: 'Earlier you said X.' (ancestor reference, not a sibling branch)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      "The comparison must be to a SIBLING branch (same parent, different child line) — not to the parent itself and not to an ancestor (ancestor topology is a Family I concern, out of scope here).",
+      "Do NOT mark TRUE on a generic 'elsewhere people argue…' that names no specific sibling branch in this thread.",
+      'Do NOT confuse with contrasts_with_parent — that contrasts two cases/examples; this references another BRANCH of the thread.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: purely structural / topological observation about the MOVE; never a verdict on which branch is right.',
+      'RELIABILITY CARRY-FORWARD (GATE-A Open Question b): cross-branch reasoning is a harder classifier task. The Family-A card ships all 3 booleans; the OPERATOR must verify admin_validation precision for this key at audit and MAY DEFER trusting it on the production card surface if it proves noisy. Shipping the definition does not commit to trusting its output before the precision check.',
+    ]),
+    confidenceEligibility: BUILD2B_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2b #3 identifies_parent_scope_limit (Inspect-only)
+  Object.freeze({
+    id: 'registry:machine_observation:ai_classifier:identifies_parent_scope_limit',
+    rawKey: 'identifies_parent_scope_limit',
+    kind: 'machine_observation',
+    source: 'ai_classifier',
+    family: 'parent_relation',
+    label: 'Names a scope limit',
+    shortLabel: 'Scope limit',
+    description: 'This move names a specific scope limit on the parent\'s claim.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 114,
+    visibleByDefault: false,
+
+    booleanQuestion:
+      "Does this move identify a specific scope limit on the parent's claim?",
+    positiveDefinition:
+      "The move names a SPECIFIC boundary — a named population, time horizon, or setting — where the parent's claim stops applying, without necessarily disputing it adversarially. 'This holds for passenger EVs; commercial duty cycles are a different case.' The scope-naming is collaborative: it sharpens where the claim does and does not reach.",
+    negativeDefinition:
+      "The move accepts the parent's scope wholesale; disputes scope adversarially (that framing is disputes_scope in Family B); or hedges vaguely ('it depends') without naming a specific boundary.",
+    positiveExamples: Object.freeze([
+      "Parent: 'Carbon taxes cut emissions.' Move: 'True within cities with stable enforcement; the suburban case is open.'",
+      "Parent: 'The trial shows a durable effect.' Move: 'It applies to the 5-year horizon you cited; beyond that the data thins out.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'That's just false.' (disputes the fact, names no scope limit)",
+      "Move: 'Carbon taxes never work.' (no scope limit named)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      "The scope limit must be SPECIFIC — a named population, time, or setting; do NOT mark on a vague 'it depends'.",
+      'Distinguish the collaborative scope-naming here from the adversarial disputes_scope in Family B (both may co-fire; this is the structural fact that a boundary was named, Family B\'s is the dispute framing).',
+      'Do NOT confuse with distinguishes_parent — that splits a category the parent treated as unified; this names a boundary where the parent\'s claim stops applying.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: structural feature of the MOVE; "scope limit" is a boundary observation, not a deficiency verdict on the parent.',
+      'point-standing-economy: naming a scope limit is a recovery-positive move — it can convert a broad challenged claim into a more defensible narrow one; both sides benefit from a sharper boundary.',
+    ]),
+    confidenceEligibility: BUILD2B_INSPECT_ELIGIBILITY,
   }),
 ]);

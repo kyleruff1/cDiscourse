@@ -585,8 +585,10 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       runs: 4,
       positives: 12,
       raw_keys_observed: 3,
-      family_key_count: 16,
-      positives_per_run_key_cell: 0.1875,
+      // MCP-BUILD2b: parent_relation 16 → 19 booleans. Density recomputed:
+      // 12 / (4 runs × 19 keys) = 0.1579.
+      family_key_count: 19,
+      positives_per_run_key_cell: 0.1579,
     }),
     Object.freeze({
       family: 'parent_relation',
@@ -594,8 +596,10 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       runs: 4,
       positives: 12,
       raw_keys_observed: 4,
-      family_key_count: 16,
-      positives_per_run_key_cell: 0.1875,
+      // MCP-BUILD2b: parent_relation 16 → 19 booleans. Density recomputed:
+      // 12 / (4 runs × 19 keys) = 0.1579.
+      family_key_count: 19,
+      positives_per_run_key_cell: 0.1579,
     }),
   ]),
   'q15-family-d-subset-coverage': Object.freeze([

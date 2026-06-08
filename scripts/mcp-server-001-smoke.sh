@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B new-key proof).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A new-key proof).
 #
-# Verifies the deployed (or locally-running) MCP server against the 27 checks:
+# Verifies the deployed (or locally-running) MCP server against the 29 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -21,6 +21,14 @@
 #                   mixed-source Subset — thread_topology; descriptive structure
 #                   about how a move relates to the conversation graph, never
 #                   a verdict)
+#   - Checks 26-27: OPS-DENO-GOLIVE Build-2b Family-B new-key proof
+#                   (isolates_main_disagreement,
+#                   distinguishes_fact_value_disagreement,
+#                   preserves_face_while_disagreeing) — merged-≠-live harness
+#   - Checks 28-29: OPS-DENO-GOLIVE Build-2b Family-A new-key proof
+#                   (acknowledges_parent_strength,
+#                   compares_parent_to_sibling_branch,
+#                   identifies_parent_scope_limit) — merged-≠-live harness
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -32,7 +40,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 25 checks passed
+#   0 — all 29 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -733,6 +741,54 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2b Family-B keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #538 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 28: POST /mcp/adapter-compat — Family A BUILD-2b NEW keys present ──
+# OPS-DENO-GOLIVE pilot (MCP-BUILD2b / #540). SMOKE HARNESS ONLY — NOT product
+# behavior, NOT a new boolean. This check is the merged-≠-live proof: it asks
+# the hosted Deno build for the 3 NEW Family-A booleans
+# (acknowledges_parent_strength, compares_parent_to_sibling_branch,
+# identifies_parent_scope_limit) and FAILS CLOSED unless all three appear in
+# the response. A STALE Deno deploy (pre-#540, 16-key Family A) returns
+# unsupported_rawKey / omits the keys, so a green baseline Family-A check (5/9)
+# can NOT mask a stale deploy. Key-presence is value-agnostic (true OR false is
+# fine — we are proving the classifier KNOWS the keys, not what it answered).
+CHECK_NAME="28-compat-boolean-family-a-build2b-newkeys"
+BOOLEAN_A2_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-a2-001","parentNodeId":"fixture-node-parent-a2-001","currentText":"[fixture] You make a fair point that the 2019 figures are striking — I grant that. Where I differ is narrower: compared with the sibling proposal in this thread, this plan only addresses urban branches, so its scope is limited to metro areas.","parentText":"[fixture] Library funding should be increased because the 2019 figures prove it boosts literacy.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["parent_relation"],"requestedRawKeys":["acknowledges_parent_strength","compares_parent_to_sibling_branch","identifies_parent_scope_limit"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family A Build-2b NEW keys)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_A2_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-a-v1"' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"acknowledges_parent_strength"' \
+     && contains "$RESPONSE" '"compares_parent_to_sibling_branch"' \
+     && contains "$RESPONSE" '"identifies_parent_scope_limit"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2b Family-A keys returned (no unsupported_rawKey). A failure here means the hosted Deno build predates #540 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 29: POST /mcp tools/call — Family A BUILD-2b NEW keys present ──
+# Same merged-≠-live assertion as Check 28, via the official MCP /mcp JSON-RPC
+# envelope. SMOKE HARNESS ONLY — not product behavior.
+CHECK_NAME="29-mcp-tools-call-boolean-family-a-build2b-newkeys"
+BOOLEAN_A2_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-12","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-a2-001","parentNodeId":"fixture-node-parent-a2-001","currentText":"[fixture] You make a fair point that the 2019 figures are striking — I grant that. Where I differ is narrower: compared with the sibling proposal in this thread, this plan only addresses urban branches, so its scope is limited to metro areas.","parentText":"[fixture] Library funding should be increased because the 2019 figures prove it boosts literacy.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["parent_relation"],"requestedRawKeys":["acknowledges_parent_strength","compares_parent_to_sibling_branch","identifies_parent_scope_limit"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call Family A Build-2b NEW keys)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_A2_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-a-v1"' \
+     && contains "$RESPONSE" '"isError":false' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"acknowledges_parent_strength"' \
+     && contains "$RESPONSE" '"compares_parent_to_sibling_branch"' \
+     && contains "$RESPONSE" '"identifies_parent_scope_limit"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2b Family-A keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #540 — merged is not live. Got: $RESPONSE"
 fi
 
 echo

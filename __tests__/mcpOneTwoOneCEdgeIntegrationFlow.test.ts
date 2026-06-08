@@ -161,7 +161,7 @@ describe('MCP-021C-EDGE — integration flow: success with positive Family A obs
     expect(mockAdapter).toHaveBeenCalledTimes(1);
   });
 
-  it('INT-2 — request to adapter carries 16 Family A keys + correct schema version', async () => {
+  it('INT-2 — request to adapter carries 19 Family A keys + correct schema version', async () => {
     let capturedRequest: McpBooleanObservationRequest | null = null;
     const mockAdapter = jest.fn().mockImplementation(async (req: McpBooleanObservationRequest) => {
       capturedRequest = req;
@@ -185,7 +185,8 @@ describe('MCP-021C-EDGE — integration flow: success with positive Family A obs
     expect(capturedRequest).not.toBeNull();
     const captured = capturedRequest!;
     expect(captured.schemaVersion).toBe(VALID_VERSION);
-    expect(captured.requestedRawKeys).toHaveLength(16);
+    // MCP-BUILD2b: 16 → 19 Family A keys (+3 parent-relation quality booleans).
+    expect(captured.requestedRawKeys).toHaveLength(19);
     expect(captured.requestedFamilies).toEqual(['parent_relation']);
   });
 

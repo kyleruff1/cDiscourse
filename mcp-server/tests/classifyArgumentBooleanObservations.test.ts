@@ -250,7 +250,7 @@ Deno.test('boolean tool via dispatch returns the same successful packet shape', 
   });
 });
 
-Deno.test('boolean tool empty requestedRawKeys is accepted (means: classify all 16)', async () => {
+Deno.test('boolean tool empty requestedRawKeys is accepted (means: classify all 19)', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',

@@ -8,7 +8,7 @@
 -- family_key_count is hardcoded per family from the binding contract
 -- in mcp-server/lib/family[ABCDG]Keys.ts (Subset path for Family D + G per
 -- operator Stage 2B decision):
---   - parent_relation         16   mcp-server/lib/familyAKeys.ts:49
+--   - parent_relation         19   mcp-server/lib/familyAKeys.ts:49 (16 + 3 MCP-BUILD2b)
 --   - disagreement_axis       17   mcp-server/lib/familyBKeys.ts:53 (14 + 3 MCP-BUILD2a)
 --   - misunderstanding_repair 17   mcp-server/lib/familyCKeys.ts:61
 --   - evidence_source_chain   19   mcp-server/lib/familyDKeys.ts:85 (Subset; 8 deterministic excluded)
@@ -56,7 +56,7 @@ keyed as (
     count(result_id) as positives,
     count(distinct raw_key) as raw_keys_observed,
     case family
-      when 'parent_relation' then 16
+      when 'parent_relation' then 19
       when 'disagreement_axis' then 17
       when 'misunderstanding_repair' then 17
       when 'evidence_source_chain' then 19

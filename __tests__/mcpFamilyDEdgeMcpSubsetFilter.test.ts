@@ -112,14 +112,15 @@ describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', ()
     }
   });
 
-  it('SF-6 — Family A admin_validation request is unaffected (all 16 rawKeys still sent; current behavior preserved)', () => {
+  it('SF-6 — Family A admin_validation request is unaffected (all 19 rawKeys still sent; current behavior preserved)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_D_BASE_INPUT,
       requestedFamilies: ['parent_relation'],
     });
-    // Family A has 16 rawKeys across auto_metadata + lifecycle + ai_classifier;
-    // all must pass through (no source filter for parent_relation).
-    expect(req.requestedRawKeys.length).toBe(16);
+    // Family A has 19 rawKeys post MCP-BUILD2b (16 + 3) across auto_metadata +
+    // lifecycle + ai_classifier; all must pass through (no source filter for
+    // parent_relation — the 3 new keys are ai_classifier).
+    expect(req.requestedRawKeys.length).toBe(19);
   });
 
   it('SF-7 — Family B admin_validation request is unaffected', () => {
@@ -167,8 +168,9 @@ describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', ()
       ...FAMILY_D_BASE_INPUT,
       requestedFamilies: ['evidence_source_chain', 'parent_relation'],
     });
-    // 19 Family D ai_classifier + 16 Family A = 35 total (no overlap between families).
-    expect(req.requestedRawKeys.length).toBe(35);
+    // 19 Family D ai_classifier + 19 Family A (post MCP-BUILD2b) = 38 total
+    // (no overlap between families).
+    expect(req.requestedRawKeys.length).toBe(38);
     const sent = new Set(req.requestedRawKeys);
     for (const key of FAMILY_D_AI_CLASSIFIER_KEYS) {
       expect(sent.has(key)).toBe(true);

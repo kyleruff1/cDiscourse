@@ -1,5 +1,6 @@
 /**
- * MCP-SERVER-002 — Family A (parent_relation) 16-key constant + prompt entries.
+ * MCP-SERVER-002 + MCP-BUILD2b — Family A (parent_relation) 19-key constant +
+ * prompt entries.
  *
  * Server-side MIRROR of the upstream Family A registry in
  * `src/features/nodeLabels/machineObservationDefinitions/familyA.ts`. The
@@ -8,8 +9,9 @@
  * `tests/familyAKeysParity.test.ts` (reads BOTH files as source text and
  * fails the build on drift).
  *
- * The 16 rawKeys are the binding contract per MCP-SERVER-002 intent brief
- * Decision 1. Verbatim, in declaration order:
+ * The 19 rawKeys are the binding contract (16 MCP-SERVER-002 intent brief
+ * Decision 1 + 3 MCP-BUILD2b Build-2 manifest §1). Verbatim, in declaration
+ * order:
  *
  *   1.  supports_parent
  *   2.  challenges_parent
@@ -27,6 +29,9 @@
  *   14. has_counter_rebuttal
  *   15. rebutted
  *   16. quote_anchors_parent
+ *   17. acknowledges_parent_strength (MCP-BUILD2b; VERDICT-ADJACENT)
+ *   18. compares_parent_to_sibling_branch (MCP-BUILD2b)
+ *   19. identifies_parent_scope_limit (MCP-BUILD2b)
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §10a — every entry is a MACHINE OBSERVATION,
@@ -38,7 +43,7 @@
  */
 
 /**
- * The 16 Family A rawKeys, frozen in declaration order. Used by:
+ * The 19 Family A rawKeys, frozen in declaration order. Used by:
  *   - validateFamilyBooleanRequest (rejects unknown rawKeys with
  *     unsupported_rawKey error envelope; routes via familyRegistry)
  *   - validateMcpBooleanObservationResponse (rejects checkedRawKeys
@@ -63,6 +68,10 @@ export const FAMILY_A_RAW_KEYS: readonly string[] = Object.freeze([
   'has_counter_rebuttal',
   'rebutted',
   'quote_anchors_parent',
+  // MCP-BUILD2b (Build-2 manifest §1) — parent-relation quality booleans.
+  'acknowledges_parent_strength',
+  'compares_parent_to_sibling_branch',
+  'identifies_parent_scope_limit',
 ]);
 
 /** Classifier-set version emitted in modelInfo.classifierSetVersion. */
@@ -342,5 +351,54 @@ export const FAMILY_A_PROMPT_ENTRIES: readonly FamilyAPromptEntry[] = Object.fre
       "Move responds with a paraphrase of the parent's overall claim without quoting anything.",
     falsePositiveGuards:
       "Do NOT mark TRUE for moves that quote in passing without anchoring the response. Do NOT mark TRUE for moves that quote a third source rather than the parent.",
+  }),
+  // ── MCP-BUILD2b (Build-2 manifest §1) — parent-relation quality booleans. ──
+  Object.freeze({
+    rawKey: 'acknowledges_parent_strength',
+    label: 'Grants a point before disagreeing',
+    booleanQuestion:
+      'Does this move acknowledge a strength of the parent before disagreeing with it?',
+    positiveDefinition:
+      "The move explicitly grants that some substantive part of the parent holds — names a specific point it accepts — and THEN proceeds to disagree on another point. The acknowledgement names a real claim, premise, or piece of reasoning, and is followed by a substantive disagreement in the same move.",
+    negativeDefinition:
+      "The move disagrees with no acknowledgement (pure challenges_parent), or it only acknowledges with no following disagreement (that is the existing acknowledges_parent), or it is not a disagreement at all. Politeness or tone alone does not count.",
+    positiveExample:
+      "Parent: 'EVs cut tailpipe emissions and lower running costs.' Move: 'Fair point on the tailpipe data — I accept that. Where I'd part ways is the running-cost case; battery replacement narrows the gap a lot.'",
+    negativeExample:
+      "Move: 'Good point.' (acknowledgement only, no following disagreement — that is acknowledges_parent)",
+    falsePositiveGuards:
+      "This observation describes the MOVE, never the author; it never says the parent IS strong or right. Do NOT mark TRUE on politeness or tone alone; the acknowledgement must name a SUBSTANTIVE point AND be followed by a substantive disagreement in the same move. Do NOT mark TRUE for a bare acknowledgement with no following disagreement (acknowledges_parent) or a move that fully supports the parent (supports_parent). Do NOT treat the ABSENCE of this observation as a criticism: a move that disagrees without granting a point first is valid and simply does not trip this flag.",
+  }),
+  Object.freeze({
+    rawKey: 'compares_parent_to_sibling_branch',
+    label: 'Compares to a sibling branch',
+    booleanQuestion:
+      'Does this move compare the parent move with a sibling branch in the same thread?',
+    positiveDefinition:
+      "The move references another branch in the same thread (a different child line under the same parent) and contrasts the parent move with it. The comparison is to a SIBLING branch, not the parent itself or an ancestor.",
+    negativeDefinition:
+      "The move stays within the parent line with no sibling reference; references an ancestor ('earlier you said'); or invokes a generic 'elsewhere people argue' that points to no specific sibling branch in this thread.",
+    positiveExample:
+      "Move: 'Compared to the other reply chain on enforcement, this one ignores the enforcement variable entirely.'",
+    negativeExample:
+      "Move: 'Earlier you said X.' (ancestor reference, not a sibling branch)",
+    falsePositiveGuards:
+      "The comparison must be to a SIBLING branch (same parent, different child line) — not the parent itself and not an ancestor. Do NOT mark TRUE on a generic 'elsewhere people argue…' that names no specific sibling branch. Do NOT confuse with contrasts_with_parent (that contrasts two cases/examples; this references another BRANCH of the thread).",
+  }),
+  Object.freeze({
+    rawKey: 'identifies_parent_scope_limit',
+    label: 'Names a scope limit',
+    booleanQuestion:
+      "Does this move identify a specific scope limit on the parent's claim?",
+    positiveDefinition:
+      "The move names a SPECIFIC boundary — a named population, time horizon, or setting — where the parent's claim stops applying, without necessarily disputing it adversarially. The scope-naming is collaborative: it sharpens where the claim does and does not reach.",
+    negativeDefinition:
+      "The move accepts the parent's scope wholesale; disputes scope adversarially (that framing is disputes_scope in Family B); or hedges vaguely ('it depends') without naming a specific boundary.",
+    positiveExample:
+      "Parent: 'Carbon taxes cut emissions.' Move: 'True within cities with stable enforcement; the suburban case is open.'",
+    negativeExample:
+      "Move: 'Carbon taxes never work.' (no scope limit named)",
+    falsePositiveGuards:
+      "The scope limit must be SPECIFIC — a named population, time, or setting; do NOT mark on a vague 'it depends'. Distinguish the collaborative scope-naming here from the adversarial disputes_scope in Family B (both may co-fire). Do NOT confuse with distinguishes_parent (that splits a category the parent treated as unified).",
   }),
 ]);

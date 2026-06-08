@@ -2,7 +2,7 @@
  * MCP-SERVER-002 — Family A prompt structure + doctrine ban-list scan tests.
  *
  * Critical invariants:
- *   - Prompt includes all 16 Family A rawKeys (when requestedRawKeys is empty)
+ *   - Prompt includes all 19 Family A rawKeys (when requestedRawKeys is empty)
  *   - Prompt includes each rawKey's booleanQuestion + positiveDefinition +
  *     negativeDefinition + positiveExample + negativeExample + falsePositiveGuards
  *   - Prompt instructs the model to return confidence on every positive flag
@@ -80,11 +80,64 @@ Deno.test('Family A MAX_TOKENS and TEMPERATURE constants are set correctly', () 
   assertEquals(FAMILY_A_TEMPERATURE, 0);
 });
 
-Deno.test('Family A user prompt (default request) includes all 16 rawKeys', () => {
+Deno.test('Family A user prompt (default request) includes all 19 rawKeys', () => {
   const prompt = buildFamilyAUserPrompt(buildRequest());
   for (const rawKey of FAMILY_A_RAW_KEYS) {
     if (!prompt.includes(rawKey)) {
       throw new Error(`Family A user prompt missing rawKey: ${rawKey}`);
+    }
+  }
+});
+
+Deno.test('MCP-BUILD2b: Family A user prompt asks the 3 new parent-relation booleanQuestions', () => {
+  const prompt = buildFamilyAUserPrompt(buildRequest());
+  const newKeys = [
+    'acknowledges_parent_strength',
+    'compares_parent_to_sibling_branch',
+    'identifies_parent_scope_limit',
+  ];
+  for (const rawKey of newKeys) {
+    const entry = FAMILY_A_PROMPT_ENTRIES.find((e) => e.rawKey === rawKey);
+    if (!entry) throw new Error(`MCP-BUILD2b prompt entry missing for ${rawKey}`);
+    // The rawKey appears in the questions block (`- <rawKey>: <question>`).
+    if (!prompt.includes(`- ${rawKey}:`)) {
+      throw new Error(`Family A prompt missing questions-block line for ${rawKey}`);
+    }
+    // The verbatim booleanQuestion text is in the prompt.
+    if (!prompt.includes(entry.booleanQuestion)) {
+      throw new Error(`Family A prompt missing booleanQuestion for ${rawKey}`);
+    }
+  }
+});
+
+Deno.test('MCP-BUILD2b: acknowledges_parent_strength entry describes the MOVE, never the author', () => {
+  const entry = FAMILY_A_PROMPT_ENTRIES.find(
+    (e) => e.rawKey === 'acknowledges_parent_strength',
+  );
+  if (!entry) throw new Error('acknowledges_parent_strength prompt entry missing');
+  // The verdict-adjacent fence: the guard explicitly says it describes the
+  // MOVE, never the author.
+  if (!entry.falsePositiveGuards.includes('describes the MOVE, never the author')) {
+    throw new Error(
+      'acknowledges_parent_strength falsePositiveGuards missing describes-the-MOVE-not-the-author fence',
+    );
+  }
+  // The fence states it never asserts the parent IS strong/right.
+  if (!entry.falsePositiveGuards.includes('never says the parent IS strong or right')) {
+    throw new Error(
+      'acknowledges_parent_strength falsePositiveGuards missing the parent-not-asserted-strong fence',
+    );
+  }
+  // Ban the verdict tokens "correct" / "true" / "wins" from the label +
+  // booleanQuestion (manifest §1 A1 requirement).
+  for (const field of [entry.label, entry.booleanQuestion]) {
+    for (const banned of ['correct', 'true', 'wins']) {
+      const re = new RegExp(`\\b${banned}\\b`, 'i');
+      if (re.test(field)) {
+        throw new Error(
+          `acknowledges_parent_strength field contains banned verdict token "${banned}": ${field}`,
+        );
+      }
     }
   }
 });

@@ -82,9 +82,10 @@ Deno.test('familyRegistryInit-registers-all-nine-families-in-insertion-order', (
   assertEquals(families.length, 9);
 });
 
-Deno.test('familyRegistryInit-family-a-has-16-rawKeys', () => {
+Deno.test('familyRegistryInit-family-a-has-19-rawKeys', () => {
+  // MCP-BUILD2b (Build-2 manifest §1): 16 → 19 parent_relation booleans.
   const rawKeys = getRawKeysForFamily('parent_relation');
-  assertEquals(rawKeys.size, 16);
+  assertEquals(rawKeys.size, 19);
 });
 
 Deno.test('familyRegistryInit-family-b-has-17-rawKeys', () => {
