@@ -138,8 +138,10 @@ describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', ()
       ...FAMILY_D_BASE_INPUT,
       requestedFamilies: ['misunderstanding_repair'],
     });
-    // Family C has 17 rawKeys; all must pass through.
-    expect(req.requestedRawKeys.length).toBe(17);
+    // Family C has 20 rawKeys post MCP-BUILD2c (17 + 3); all must pass through
+    // (no source filter for misunderstanding_repair — the 3 new keys are
+    // ai_classifier).
+    expect(req.requestedRawKeys.length).toBe(20);
   });
 
   it('SF-9 — production-mode Family D request returns 19 ai_classifier rawKeys (post MCP-021C-EDGE-FAMILY-D-ENABLE Card 2 flip)', () => {

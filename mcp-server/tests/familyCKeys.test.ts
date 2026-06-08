@@ -1,12 +1,13 @@
 /**
- * MCP-SERVER-004-FAMILY-C — Family C keys constant test.
+ * MCP-SERVER-004-FAMILY-C + MCP-BUILD2c — Family C keys constant test.
  *
  * Critical invariants:
- *   - FAMILY_C_RAW_KEYS contains exactly 17 entries
- *   - Verbatim binding match with intent brief §3 (17 keys, declaration order)
- *   - FAMILY_C_PROMPT_ENTRIES has 17 entries with one entry per rawKey
+ *   - FAMILY_C_RAW_KEYS contains exactly 20 entries (17 + 3 MCP-BUILD2c)
+ *   - Verbatim binding match with intent brief §3 + Build-2 manifest §2
+ *     (20 keys, declaration order)
+ *   - FAMILY_C_PROMPT_ENTRIES has 20 entries with one entry per rawKey
  *   - Every prompt entry has all required verbose-definition fields
- *   - FAMILY_C_CLASSIFIER_SET_VERSION === 'family-c-v1'
+ *   - FAMILY_C_CLASSIFIER_SET_VERSION === 'family-c-v1' (no version bump)
  */
 import { assertEquals } from 'std/assert/mod.ts';
 import {
@@ -16,9 +17,9 @@ import {
 } from '../lib/familyCKeys.ts';
 
 /**
- * Binding list per MCP-SERVER-004-FAMILY-C intent brief §3, in declaration
- * order matching the upstream source `familyC.ts`. The SET of 17 IS
- * load-bearing for the wire contract.
+ * Binding list: 17 MCP-SERVER-004-FAMILY-C intent brief §3 + 3 MCP-BUILD2c
+ * Build-2 manifest §2, in declaration order matching the upstream source
+ * `familyC.ts`. The SET of 20 IS load-bearing for the wire contract.
  */
 const BINDING_FAMILY_C_KEYS: readonly string[] = [
   'clarified',
@@ -38,13 +39,17 @@ const BINDING_FAMILY_C_KEYS: readonly string[] = [
   'confirms_shared_definition',
   'scope_mismatch_identified',
   'question_answer_mismatch',
+  // MCP-BUILD2c (Build-2 manifest §2) — misunderstanding-repair quality booleans.
+  'offers_repair_path',
+  'names_ambiguity_source',
+  'accepts_correction',
 ];
 
-Deno.test('FAMILY_C_RAW_KEYS contains exactly 17 entries', () => {
-  assertEquals(FAMILY_C_RAW_KEYS.length, 17);
+Deno.test('FAMILY_C_RAW_KEYS contains exactly 20 entries', () => {
+  assertEquals(FAMILY_C_RAW_KEYS.length, 20);
 });
 
-Deno.test('FAMILY_C_RAW_KEYS contains all 17 binding rawKeys', () => {
+Deno.test('FAMILY_C_RAW_KEYS contains all 20 binding rawKeys', () => {
   for (const key of BINDING_FAMILY_C_KEYS) {
     if (!FAMILY_C_RAW_KEYS.includes(key)) {
       throw new Error(`FAMILY_C_RAW_KEYS missing binding rawKey: ${key}`);
@@ -70,8 +75,8 @@ Deno.test('FAMILY_C_RAW_KEYS has no duplicate entries', () => {
   }
 });
 
-Deno.test('FAMILY_C_PROMPT_ENTRIES has 17 entries matching FAMILY_C_RAW_KEYS', () => {
-  assertEquals(FAMILY_C_PROMPT_ENTRIES.length, 17);
+Deno.test('FAMILY_C_PROMPT_ENTRIES has 20 entries matching FAMILY_C_RAW_KEYS', () => {
+  assertEquals(FAMILY_C_PROMPT_ENTRIES.length, 20);
   const promptKeys = FAMILY_C_PROMPT_ENTRIES.map((e) => e.rawKey);
   for (const key of FAMILY_C_RAW_KEYS) {
     if (!promptKeys.includes(key)) {
@@ -114,8 +119,8 @@ Deno.test('FAMILY_C_CLASSIFIER_SET_VERSION is exactly "family-c-v1"', () => {
 });
 
 Deno.test('FAMILY_C_RAW_KEYS preserves declaration order (matches BINDING_FAMILY_C_KEYS index-by-index)', () => {
-  // Per intent brief §3, declaration order is binding. The server-side
-  // mirror must list the 17 keys in the same order as familyC.ts.
+  // Per intent brief §3 + Build-2 manifest §2, declaration order is binding.
+  // The server-side mirror must list the 20 keys in the same order as familyC.ts.
   for (let i = 0; i < BINDING_FAMILY_C_KEYS.length; i++) {
     assertEquals(
       FAMILY_C_RAW_KEYS[i],

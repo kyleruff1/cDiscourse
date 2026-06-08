@@ -25,7 +25,10 @@
       "proposes_shared_definition",
       "confirms_shared_definition",
       "scope_mismatch_identified",
-      "question_answer_mismatch"
+      "question_answer_mismatch",
+      "offers_repair_path",
+      "names_ambiguity_source",
+      "accepts_correction"
     ],
     "definitions": {},
     "timeoutMs": 12000

@@ -288,7 +288,8 @@ Deno.test('registry-getSupportedFamilies-preserves-three-family-order', () => {
     registry.getSupportedFamilies(),
     ['parent_relation', 'disagreement_axis', 'misunderstanding_repair'],
   );
-  assertEquals(registry.getRawKeysForFamily('misunderstanding_repair').size, 17);
+  // MCP-BUILD2c: 17 → 20 misunderstanding_repair rawKeys (derived from FAMILY_C_RAW_KEYS).
+  assertEquals(registry.getRawKeysForFamily('misunderstanding_repair').size, 20);
   assertEquals(registry.getClassifierSetVersion('misunderstanding_repair'), 'family-c-v1');
 });
 
@@ -337,14 +338,15 @@ Deno.test('registry-isRawKeySupportedForFamily-three-way-cross-family-rejection'
   );
 });
 
-Deno.test('registry-getRawKeysForFamily-returns-all-17-for-family-c', () => {
+Deno.test('registry-getRawKeysForFamily-returns-all-20-for-family-c', () => {
   const registry = createFamilyRegistry();
   registry.register('misunderstanding_repair', {
     rawKeys: new Set(FAMILY_C_RAW_KEYS),
     classifierSetVersion: FAMILY_C_CLASSIFIER_SET_VERSION,
   });
   const keys = registry.getRawKeysForFamily('misunderstanding_repair');
-  assertEquals(keys.size, 17);
+  // MCP-BUILD2c: 17 → 20 misunderstanding_repair rawKeys.
+  assertEquals(keys.size, 20);
   for (const binding of FAMILY_C_RAW_KEYS) {
     assertEquals(keys.has(binding), true);
   }

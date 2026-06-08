@@ -84,12 +84,12 @@ Deno.test('fixture: family-c-canonical-response classifierSetVersion is family-c
   assertEquals(modelInfo.classifierSetVersion, 'family-c-v1');
 });
 
-Deno.test('fixture: family-c-canonical-response has all 17 rawKeys', async () => {
+Deno.test('fixture: family-c-canonical-response has all 20 rawKeys', async () => {
   const fixture = (await loadFixture(
     'classify-argument-boolean-observations.family-c-canonical-response.json',
   )) as Record<string, unknown>;
   const checkedRawKeys = fixture.checkedRawKeys as string[];
-  assertEquals(checkedRawKeys.length, 17);
+  assertEquals(checkedRawKeys.length, 20);
 });
 
 Deno.test('fixture: family-c-canonical-response has the canonical positives (offers_candidate_understanding + other_initiates_repair)', async () => {
@@ -205,10 +205,10 @@ Deno.test('fixture: 5 Family C per-scenario request fixtures use only rawKeys in
   }
 });
 
-Deno.test('fixture: family-c-canonical-request requests all 17 rawKeys', async () => {
+Deno.test('fixture: family-c-canonical-request requests all 20 rawKeys', async () => {
   const wrapper = (await loadFixture(
     'classify-argument-boolean-observations.family-c-canonical-request.json',
   )) as { input: Record<string, unknown> };
   const rawKeys = wrapper.input.requestedRawKeys as string[];
-  assertEquals(rawKeys.length, 17);
+  assertEquals(rawKeys.length, 20);
 });

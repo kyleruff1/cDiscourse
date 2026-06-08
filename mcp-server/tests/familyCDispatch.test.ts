@@ -3,7 +3,7 @@
  *
  * Critical invariants:
  *   - Family C fixture-mode request returns a Family C canonical response
- *     (classifierSetVersion='family-c-v1', 17 keys, no Family A or B keys).
+ *     (classifierSetVersion='family-c-v1', 20 keys, no Family A or B keys).
  *   - Family A and Family B fixture-mode requests continue to return their
  *     respective canonical responses (regression — byte-equal preservation).
  *   - Cross-family rejection: Family A rawKey under requestedFamilies=
@@ -97,7 +97,7 @@ Deno.test('dispatch: Family C request routes to Family C fixture provider (famil
   });
 });
 
-Deno.test('dispatch: Family C fixture response includes 17 Family C rawKeys (not Family A or B keys)', async () => {
+Deno.test('dispatch: Family C fixture response includes 20 Family C rawKeys (not Family A or B keys)', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
@@ -108,7 +108,8 @@ Deno.test('dispatch: Family C fixture response includes 17 Family C rawKeys (not
     assertEquals(result.isError, false);
     const sc = result.structuredContent as Record<string, unknown>;
     const checkedRawKeys = sc.checkedRawKeys as string[];
-    assertEquals(checkedRawKeys.length, 17);
+    // MCP-BUILD2c: canonical fixture now has 20 checkedRawKeys (17 + 3).
+    assertEquals(checkedRawKeys.length, 20);
     // offers_candidate_understanding is a Family C key; supports_parent is
     // Family A; disagreement_present is Family B. The Family C response
     // MUST include the former but NOT the latter two.

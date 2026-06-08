@@ -10,9 +10,9 @@
  * Per Stage 2B (`MCP-021C-EDGE-FAMILIES-B-C-ENABLE`): production mode
  * now admits Family A (19 keys post MCP-BUILD2b) + Family B
  * (disagreement_axis, 17 keys post MCP-BUILD2a) + Family C
- * (misunderstanding_repair, 17 keys) across the 3 productionEnabled
- * families. Families D–J are still dropped from production-mode requests
- * at the request-builder layer.
+ * (misunderstanding_repair, 20 keys post MCP-BUILD2c) across the 3
+ * productionEnabled families. Families D–J are still dropped from
+ * production-mode requests at the request-builder layer.
  *
  * The binding Family A list (Decision 3 + MCP-BUILD2b manifest §1):
  *   supports_parent, challenges_parent, refines_parent, extends_parent,

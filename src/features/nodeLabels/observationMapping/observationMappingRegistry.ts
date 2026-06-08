@@ -921,6 +921,302 @@ const FAMILY_A_BUILD2B_RULES: ReadonlyArray<ObservationMappingRule> = [
   },
 ];
 
+// ── (5) MCP-BUILD2c — Family C misunderstanding-repair mapping rows. ───────
+//        Adopted from the candidate CSV's deferred `misunderstanding_repair`
+//        rows whose required flags are EXACTLY the 3 new Build-2c booleans
+//        (offers_repair_path, names_ambiguity_source, accepts_correction).
+//        The CSV's truncated/internal label_short ("…observed" / "…absent")
+//        and "When X=yes, show: …" diagnostic prefix are re-authored here into
+//        clean verdict-free, move-level strings per the design's review pass
+//        (§8.2 / manifest §2). Every flag is now a deployed A-G rawKey (the 3
+//        new defs land in familyC.ts this card), so each rule fires. The CSV's
+//        intra-3 pair rows (MBOM-00929..00937) pair the 3 new flags ONLY with
+//        each other; the CSV's other 30+ pair rows pair them with PLANNED
+//        partner flags (signals_confusion, asks_for_clarification,
+//        restates_other_position, …) that are NOT deployed → DEFERRED to
+//        Build 3. 6 single rows (3 true + 3 false) + 9 pair rows (every two-
+//        flag combination of the 3) = 15 rows.
+//        accepts_correction (C3) is VERDICT-ADJACENT: its rows are fenced
+//        "repair-not-defeat" to describe the MOVE's structure (takes up a point
+//        a prior move offered), never framing it as defeat / concession of the
+//        whole (cdiscourse-doctrine §1: concession is a scoring repair, not a
+//        defeat). The standalone verdict token "correct" never appears in any
+//        C3 label/diagnostic; the rawKey contains "correct" but the user-facing
+//        strings are word-boundary clean.
+
+const FAMILY_C_BUILD2C_RULES: ReadonlyArray<ObservationMappingRule> = [
+  // ── singles: offers_repair_path ──
+  {
+    mappingId: 'MBOM-00071',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['offers_repair_path'],
+    requiredFalseFlags: [],
+    observationCode: 'misunderstanding_repair.single_true.offers_repair_path',
+    labelShort: 'Offers a way to resolve',
+    labelNeutral: 'Proposes a concrete way to resolve a misunderstanding',
+    diagnosticSentence:
+      'This reply proposes a concrete way to resolve a misunderstanding, which can move the exchange forward.',
+    displayPriority: 74,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00072',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['offers_repair_path'],
+    observationCode: 'misunderstanding_repair.single_false.offers_repair_path',
+    labelShort: 'No resolution path offered',
+    labelNeutral: 'A concrete resolution path not observed',
+    diagnosticSentence:
+      'This reply does not propose a concrete resolution path; this is only an observation about phrasing, not a concern.',
+    displayPriority: 112,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: names_ambiguity_source ──
+  {
+    mappingId: 'MBOM-00073',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['names_ambiguity_source'],
+    requiredFalseFlags: [],
+    observationCode: 'misunderstanding_repair.single_true.names_ambiguity_source',
+    labelShort: 'Names the ambiguity',
+    labelNeutral: 'Names the specific source of an ambiguity',
+    diagnosticSentence:
+      'This reply names the specific term or reference that is ambiguous and why, which can sharpen the exchange.',
+    displayPriority: 78,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00074',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['names_ambiguity_source'],
+    observationCode: 'misunderstanding_repair.single_false.names_ambiguity_source',
+    labelShort: 'Ambiguity source not named',
+    labelNeutral: 'A named ambiguity source not observed',
+    diagnosticSentence:
+      'This reply does not name a specific ambiguity source; naming which term is unclear can sharpen the exchange.',
+    displayPriority: 103,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: accepts_correction (verdict-adjacent; repair-not-defeat fence) ──
+  {
+    mappingId: 'MBOM-00075',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['accepts_correction'],
+    requiredFalseFlags: [],
+    observationCode: 'misunderstanding_repair.single_true.accepts_correction',
+    labelShort: 'Takes up an offered point',
+    labelNeutral: 'Takes up a point a prior move offered',
+    diagnosticSentence:
+      'This reply takes up a point a prior move offered, which can keep the exchange constructive; this is a repair, not a concession of the whole.',
+    displayPriority: 76,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00076',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['accepts_correction'],
+    observationCode: 'misunderstanding_repair.single_false.accepts_correction',
+    labelShort: 'No offered point taken up',
+    labelNeutral: 'Taking up an offered point not observed',
+    diagnosticSentence:
+      'This reply does not take up a point a prior move offered; this is only an observation about phrasing, not a concern.',
+    displayPriority: 104,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: offers_repair_path × names_ambiguity_source ──
+  {
+    mappingId: 'MBOM-00929',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['offers_repair_path', 'names_ambiguity_source'],
+    requiredFalseFlags: [],
+    observationCode:
+      'misunderstanding_repair.pair_true_true.offers_repair_path.names_ambiguity_source',
+    labelShort: 'Names the ambiguity, offers a way to resolve',
+    labelNeutral: 'Names an ambiguity source and proposes a way to resolve it',
+    diagnosticSentence:
+      'This reply names the specific ambiguity source and proposes a concrete way to resolve it, which can move the exchange forward.',
+    displayPriority: 70,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00930',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['offers_repair_path'],
+    requiredFalseFlags: ['names_ambiguity_source'],
+    observationCode:
+      'misunderstanding_repair.pair_true_false.offers_repair_path.no_ambiguity_source',
+    labelShort: 'Offers a way to resolve, no ambiguity named',
+    labelNeutral: 'Proposes a way to resolve without naming an ambiguity source',
+    diagnosticSentence:
+      'This reply proposes a concrete way to resolve a misunderstanding but does not name a specific ambiguity source.',
+    displayPriority: 84,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00931',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['names_ambiguity_source'],
+    requiredFalseFlags: ['offers_repair_path'],
+    observationCode:
+      'misunderstanding_repair.pair_false_true.names_ambiguity_source.no_repair_path',
+    labelShort: 'Names the ambiguity, no path offered',
+    labelNeutral: 'Names an ambiguity source without proposing a way to resolve it',
+    diagnosticSentence:
+      'This reply names the specific ambiguity source but does not propose a concrete way to resolve it.',
+    displayPriority: 100,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: offers_repair_path × accepts_correction (C3 verdict-adjacent) ──
+  {
+    mappingId: 'MBOM-00932',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['offers_repair_path', 'accepts_correction'],
+    requiredFalseFlags: [],
+    observationCode:
+      'misunderstanding_repair.pair_true_true.offers_repair_path.accepts_correction',
+    labelShort: 'Takes up a point, offers a way to resolve',
+    labelNeutral: 'Takes up an offered point and proposes a way to resolve',
+    diagnosticSentence:
+      'This reply takes up a point a prior move offered and proposes a concrete way to resolve the misunderstanding, which can keep the exchange constructive.',
+    displayPriority: 71,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00933',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['offers_repair_path'],
+    requiredFalseFlags: ['accepts_correction'],
+    observationCode:
+      'misunderstanding_repair.pair_true_false.offers_repair_path.no_point_taken_up',
+    labelShort: 'Offers a way to resolve, no point taken up',
+    labelNeutral: 'Proposes a way to resolve without taking up an offered point',
+    diagnosticSentence:
+      'This reply proposes a concrete way to resolve a misunderstanding but does not take up a point a prior move offered.',
+    displayPriority: 85,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00934',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['accepts_correction'],
+    requiredFalseFlags: ['offers_repair_path'],
+    observationCode:
+      'misunderstanding_repair.pair_false_true.accepts_correction.no_repair_path',
+    labelShort: 'Takes up a point, no path offered',
+    labelNeutral: 'Takes up an offered point without proposing a way to resolve',
+    diagnosticSentence:
+      'This reply takes up a point a prior move offered but does not propose a concrete way to resolve; this is a repair, not a concession of the whole.',
+    displayPriority: 99,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: names_ambiguity_source × accepts_correction (C3 verdict-adjacent) ──
+  {
+    mappingId: 'MBOM-00935',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['names_ambiguity_source', 'accepts_correction'],
+    requiredFalseFlags: [],
+    observationCode:
+      'misunderstanding_repair.pair_true_true.names_ambiguity_source.accepts_correction',
+    labelShort: 'Names the ambiguity, takes up a point',
+    labelNeutral: 'Names an ambiguity source and takes up an offered point',
+    diagnosticSentence:
+      'This reply names the specific ambiguity source and takes up a point a prior move offered, which can keep the exchange constructive.',
+    displayPriority: 72,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00936',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['names_ambiguity_source'],
+    requiredFalseFlags: ['accepts_correction'],
+    observationCode:
+      'misunderstanding_repair.pair_true_false.names_ambiguity_source.no_point_taken_up',
+    labelShort: 'Names the ambiguity, no point taken up',
+    labelNeutral: 'Names an ambiguity source without taking up an offered point',
+    diagnosticSentence:
+      'This reply names the specific ambiguity source but does not take up a point a prior move offered.',
+    displayPriority: 90,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00937',
+    familyKey: 'misunderstanding_repair',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['accepts_correction'],
+    requiredFalseFlags: ['names_ambiguity_source'],
+    observationCode:
+      'misunderstanding_repair.pair_false_true.accepts_correction.no_ambiguity_source',
+    labelShort: 'Takes up a point, no ambiguity named',
+    labelNeutral: 'Takes up an offered point without naming an ambiguity source',
+    diagnosticSentence:
+      'This reply takes up a point a prior move offered but does not name a specific ambiguity source; this is a repair, not a concession of the whole.',
+    displayPriority: 101,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+];
+
 /**
  * The reviewed, reconciled, frozen mapping registry the evaluator reads.
  * A-G only. Every flag is a deployed rawKey; every label is verdict-free.
@@ -932,6 +1228,7 @@ export const OBSERVATION_MAPPING_REGISTRY: ReadonlyArray<ObservationMappingRule>
       ...CURATED_RULES,
       ...FAMILY_B_BUILD2A_RULES,
       ...FAMILY_A_BUILD2B_RULES,
+      ...FAMILY_C_BUILD2C_RULES,
     ].map((r) =>
       Object.freeze({
         ...r,
@@ -982,12 +1279,25 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
    * DEFERRED to Build 3.
    */
   build2bFamilyAAdoptedRules: FAMILY_A_BUILD2B_RULES.length,
+  /**
+   * MCP-BUILD2c — mapping rows adopted from the candidate CSV's deferred
+   * `misunderstanding_repair` rows whose required flags are EXACTLY the 3 new
+   * Build-2c booleans (now deployed in familyC.ts): offers_repair_path,
+   * names_ambiguity_source, accepts_correction. These were part of the 955
+   * deferred-planned-vocab rows; deploying the 3 booleans converts them from
+   * deferred to genuinely-fireable. 6 singles + 9 pairs = 15. The CSV's other
+   * 30+ `misunderstanding_repair` pair rows that ALSO need a planned partner
+   * flag (signals_confusion, asks_for_clarification, restates_other_position,
+   * …) remain DEFERRED to Build 3.
+   */
+  build2cFamilyCAdoptedRules: FAMILY_C_BUILD2C_RULES.length,
   /** Total rules in the active registry. */
   totalActiveRules:
     ADOPTED_FROM_CSV.length +
     CURATED_RULES.length +
     FAMILY_B_BUILD2A_RULES.length +
-    FAMILY_A_BUILD2B_RULES.length,
+    FAMILY_A_BUILD2B_RULES.length +
+    FAMILY_C_BUILD2C_RULES.length,
   /** Families H/I/J adopted. ALWAYS 0 (frozen / out of scope). */
   frozenFamiliesAdopted: 0,
 } as const);

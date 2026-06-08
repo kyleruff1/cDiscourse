@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A new-key proof).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A + Build-2c Family-C new-key proof).
 #
-# Verifies the deployed (or locally-running) MCP server against the 29 checks:
+# Verifies the deployed (or locally-running) MCP server against the 31 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -29,6 +29,10 @@
 #                   (acknowledges_parent_strength,
 #                   compares_parent_to_sibling_branch,
 #                   identifies_parent_scope_limit) — merged-≠-live harness
+#   - Checks 30-31: OPS-DENO-GOLIVE Build-2c Family-C new-key proof
+#                   (offers_repair_path,
+#                   names_ambiguity_source,
+#                   accepts_correction) — merged-≠-live harness
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -40,7 +44,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 29 checks passed
+#   0 — all 31 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -789,6 +793,54 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2b Family-A keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #540 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 30: POST /mcp/adapter-compat — Family C BUILD-2c NEW keys present ──
+# OPS-DENO-GOLIVE pilot (MCP-BUILD2c / #541). SMOKE HARNESS ONLY — NOT product
+# behavior, NOT a new boolean. This check is the merged-≠-live proof: it asks
+# the hosted Deno build for the 3 NEW Family-C booleans
+# (offers_repair_path, names_ambiguity_source, accepts_correction) and FAILS
+# CLOSED unless all three appear in the response. A STALE Deno deploy (pre-#541,
+# 17-key Family C) returns unsupported_rawKey / omits the keys, so a green
+# baseline Family-C check (12/13) can NOT mask a stale deploy. Key-presence is
+# value-agnostic (true OR false is fine — we are proving the classifier KNOWS
+# the keys, not what it answered).
+CHECK_NAME="30-compat-boolean-family-c-build2c-newkeys"
+BOOLEAN_C2_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-c2-001","parentNodeId":"fixture-node-parent-c2-001","currentText":"[fixture] I see the mix-up now — when you said infrastructure I read it as physical buildings, but you meant the broader civic-service role; that ambiguous term is what we were talking past. I take up your restatement, and here is a path: let us agree to define infrastructure in the shared-service sense for the rest of this thread so we stop diverging.","parentText":"[fixture] Libraries are infrastructure and deserve funding like roads.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["misunderstanding_repair"],"requestedRawKeys":["offers_repair_path","names_ambiguity_source","accepts_correction"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family C Build-2c NEW keys)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_C2_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-c-v1"' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"offers_repair_path"' \
+     && contains "$RESPONSE" '"names_ambiguity_source"' \
+     && contains "$RESPONSE" '"accepts_correction"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2c Family-C keys returned (no unsupported_rawKey). A failure here means the hosted Deno build predates #541 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 31: POST /mcp tools/call — Family C BUILD-2c NEW keys present ──
+# Same merged-≠-live assertion as Check 30, via the official MCP /mcp JSON-RPC
+# envelope. SMOKE HARNESS ONLY — not product behavior.
+CHECK_NAME="31-mcp-tools-call-boolean-family-c-build2c-newkeys"
+BOOLEAN_C2_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-13","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-c2-001","parentNodeId":"fixture-node-parent-c2-001","currentText":"[fixture] I see the mix-up now — when you said infrastructure I read it as physical buildings, but you meant the broader civic-service role; that ambiguous term is what we were talking past. I take up your restatement, and here is a path: let us agree to define infrastructure in the shared-service sense for the rest of this thread so we stop diverging.","parentText":"[fixture] Libraries are infrastructure and deserve funding like roads.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["misunderstanding_repair"],"requestedRawKeys":["offers_repair_path","names_ambiguity_source","accepts_correction"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call Family C Build-2c NEW keys)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_C2_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-c-v1"' \
+     && contains "$RESPONSE" '"isError":false' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"offers_repair_path"' \
+     && contains "$RESPONSE" '"names_ambiguity_source"' \
+     && contains "$RESPONSE" '"accepts_correction"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2c Family-C keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #541 — merged is not live. Got: $RESPONSE"
 fi
 
 echo

@@ -576,8 +576,10 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       runs: 2,
       positives: 3,
       raw_keys_observed: 2,
-      family_key_count: 17,
-      positives_per_run_key_cell: 0.0882,
+      // MCP-BUILD2c: misunderstanding_repair 17 → 20 booleans. Density recomputed:
+      // 3 / (2 runs × 20 keys) = 0.075.
+      family_key_count: 20,
+      positives_per_run_key_cell: 0.075,
     }),
     Object.freeze({
       family: 'parent_relation',

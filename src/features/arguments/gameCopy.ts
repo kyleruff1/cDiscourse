@@ -610,6 +610,48 @@ export const PLAIN_LANGUAGE_COPY = {
     'This reply compares the parent to a sibling branch but does not name a specific scope limit.',
   'parent_relation.pair_false_true.identifies_parent_scope_limit.no_sibling_comparison':
     'This reply names a specific scope limit but does not compare to a sibling branch.',
+  // MCP-BUILD2c (Family C misunderstanding_repair expansion) — plain-language
+  // for the 3 new repair booleans' mapping rows. Every value is verdict-free,
+  // move-level, and describes the MOVE never the author. No underscores (the
+  // registry review-gate asserts the displayed string is snake-free). The
+  // accepts_correction (C3) values are fenced "repair-not-defeat": they
+  // describe taking up a point a prior move offered and never frame it as a
+  // defeat / concession of the whole; the standalone verdict token "correct"
+  // never appears (word-boundary clean).
+  // ── offers_repair_path ──
+  'misunderstanding_repair.single_true.offers_repair_path':
+    'This reply proposes a concrete way to resolve a misunderstanding, which can move the exchange forward.',
+  'misunderstanding_repair.single_false.offers_repair_path':
+    'This reply does not propose a concrete resolution path; this is only an observation about phrasing, not a concern.',
+  // ── names_ambiguity_source ──
+  'misunderstanding_repair.single_true.names_ambiguity_source':
+    'This reply names the specific term or reference that is ambiguous and why, which can sharpen the exchange.',
+  'misunderstanding_repair.single_false.names_ambiguity_source':
+    'This reply does not name a specific ambiguity source; naming which term is unclear can sharpen the exchange.',
+  // ── accepts_correction (repair-not-defeat fence) ──
+  'misunderstanding_repair.single_true.accepts_correction':
+    'This reply takes up a point a prior move offered, which can keep the exchange constructive; this is a repair, not a concession of the whole.',
+  'misunderstanding_repair.single_false.accepts_correction':
+    'This reply does not take up a point a prior move offered; this is only an observation about phrasing, not a concern.',
+  // ── pairs over the 3 new booleans ──
+  'misunderstanding_repair.pair_true_true.offers_repair_path.names_ambiguity_source':
+    'This reply names the specific ambiguity source and proposes a concrete way to resolve it, which can move the exchange forward.',
+  'misunderstanding_repair.pair_true_false.offers_repair_path.no_ambiguity_source':
+    'This reply proposes a concrete way to resolve a misunderstanding but does not name a specific ambiguity source.',
+  'misunderstanding_repair.pair_false_true.names_ambiguity_source.no_repair_path':
+    'This reply names the specific ambiguity source but does not propose a concrete way to resolve it.',
+  'misunderstanding_repair.pair_true_true.offers_repair_path.accepts_correction':
+    'This reply takes up a point a prior move offered and proposes a concrete way to resolve the misunderstanding, which can keep the exchange constructive.',
+  'misunderstanding_repair.pair_true_false.offers_repair_path.no_point_taken_up':
+    'This reply proposes a concrete way to resolve a misunderstanding but does not take up a point a prior move offered.',
+  'misunderstanding_repair.pair_false_true.accepts_correction.no_repair_path':
+    'This reply takes up a point a prior move offered but does not propose a concrete way to resolve; this is a repair, not a concession of the whole.',
+  'misunderstanding_repair.pair_true_true.names_ambiguity_source.accepts_correction':
+    'This reply names the specific ambiguity source and takes up a point a prior move offered, which can keep the exchange constructive.',
+  'misunderstanding_repair.pair_true_false.names_ambiguity_source.no_point_taken_up':
+    'This reply names the specific ambiguity source but does not take up a point a prior move offered.',
+  'misunderstanding_repair.pair_false_true.accepts_correction.no_ambiguity_source':
+    'This reply takes up a point a prior move offered but does not name a specific ambiguity source; this is a repair, not a concession of the whole.',
 } as const;
 
 export type PlainLanguageKey = keyof typeof PLAIN_LANGUAGE_COPY;

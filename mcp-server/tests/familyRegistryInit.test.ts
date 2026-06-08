@@ -94,9 +94,10 @@ Deno.test('familyRegistryInit-family-b-has-17-rawKeys', () => {
   assertEquals(rawKeys.size, 17);
 });
 
-Deno.test('familyRegistryInit-family-c-has-17-rawKeys', () => {
+Deno.test('familyRegistryInit-family-c-has-20-rawKeys', () => {
+  // MCP-BUILD2c (Build-2 manifest §2): 17 → 20 misunderstanding_repair booleans.
   const rawKeys = getRawKeysForFamily('misunderstanding_repair');
-  assertEquals(rawKeys.size, 17);
+  assertEquals(rawKeys.size, 20);
 });
 
 Deno.test('familyRegistryInit-family-d-has-19-rawKeys-Subset', () => {

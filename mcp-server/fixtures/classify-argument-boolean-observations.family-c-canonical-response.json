@@ -18,7 +18,10 @@
     "proposes_shared_definition",
     "confirms_shared_definition",
     "scope_mismatch_identified",
-    "question_answer_mismatch"
+    "question_answer_mismatch",
+    "offers_repair_path",
+    "names_ambiguity_source",
+    "accepts_correction"
   ],
   "observations": {
     "clarified": false,
@@ -37,7 +40,10 @@
     "proposes_shared_definition": false,
     "confirms_shared_definition": false,
     "scope_mismatch_identified": false,
-    "question_answer_mismatch": false
+    "question_answer_mismatch": false,
+    "offers_repair_path": false,
+    "names_ambiguity_source": false,
+    "accepts_correction": false
   },
   "confidence": {
     "clarified": "low",
@@ -56,7 +62,10 @@
     "proposes_shared_definition": "medium",
     "confirms_shared_definition": "medium",
     "scope_mismatch_identified": "medium",
-    "question_answer_mismatch": "medium"
+    "question_answer_mismatch": "medium",
+    "offers_repair_path": "low",
+    "names_ambiguity_source": "low",
+    "accepts_correction": "low"
   },
   "evidenceSpan": {
     "clarified": null,
@@ -75,7 +84,10 @@
     "proposes_shared_definition": null,
     "confirms_shared_definition": null,
     "scope_mismatch_identified": null,
-    "question_answer_mismatch": null
+    "question_answer_mismatch": null,
+    "offers_repair_path": null,
+    "names_ambiguity_source": null,
+    "accepts_correction": null
   },
   "modelInfo": {
     "provider": "mcp",
