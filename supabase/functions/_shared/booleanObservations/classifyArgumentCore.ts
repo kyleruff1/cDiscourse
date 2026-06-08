@@ -284,9 +284,10 @@ export async function classifyOneArgumentCore(
       // Sequential short-circuit: once a batch fails the run is already
       // doomed to `status:'failed'`. Stop issuing further provider calls for
       // this family (no point spending more provider budget on a run that
-      // will be marked failed); the successful batches so far are still
-      // partial-persisted below. A retry (drainer / auto-trigger) re-runs the
-      // WHOLE family deterministically (idempotent chunk assignment).
+      // will be marked failed); on ANY batch failure the run is ALL-OR-NOTHING
+      // — no positive rows are persisted (see the runStatus === 'failed' guard
+      // below). A retry (drainer / auto-trigger) re-runs the WHOLE family
+      // deterministically (idempotent chunk assignment).
       break;
     }
     batchOutcomes.push({
@@ -364,8 +365,9 @@ export async function classifyOneArgumentCore(
   // ── At least one batch succeeded — merge then run the SAME sanitize /
   //    persist tail off the MERGED response. When some (but not all) batches
   //    failed, the run is marked `status:'failed'` with a leak-safe
-  //    `failure_detail {batchIndex, batchTotal, reason}` while the successful
-  //    batches' positives are partial-persisted (design §4). ──────────────
+  //    `failure_detail {batchIndex, batchTotal, reason}` and NO positive rows
+  //    are persisted (ALL-OR-NOTHING — see the runStatus === 'failed' guard
+  //    below). Only the all-success path persists the merged positives. ─────
   const { merged } = mergeBatchResponses(batchOutcomes, argumentId);
   const batchFailure = anyFailure ? firstBatchFailureDetail(batchOutcomes) : null;
   // Leak-safe structural projection (batchIndex / batchTotal / reason — all
