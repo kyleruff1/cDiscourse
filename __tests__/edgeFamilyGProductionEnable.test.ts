@@ -20,13 +20,13 @@
  *   - cdiscourse-doctrine §7 — Pure TS; no Deno-specific runtime call.
  *
  * DIV-1 (the principal divergence from F-ENABLE): Family G is a
- * MIXED-source family (5 auto_metadata + 7 lifecycle + 18 ai_classifier
- * = 30 total). The Edge subset filter
+ * MIXED-source family (5 auto_metadata + 7 lifecycle + 21 ai_classifier
+ * = 33 total). The Edge subset filter
  * `MCP_SERVER_SUPPORTED_FAMILY_SOURCES['resolution_progress'] =
  * {'ai_classifier'}` is ALREADY PRESENT (added at Card 1A
  * `MCP-SERVER-008A-FAMILY-G-EDGE-SUBSET`) and is mode-agnostic. So the
  * subset-filter guards below assert the entry is PRESENT (GGE-16) and
- * that production-mode G returns exactly the 18 ai_classifier keys with
+ * that production-mode G returns exactly the 21 ai_classifier keys with
  * NO deterministic leak (GGE-17) — the INVERSE of F's FFE-15/16, which
  * asserted absence + a 14-key full passthrough.
  *
@@ -202,10 +202,10 @@ describe('MCP-021C-EDGE-FAMILY-G-ENABLE — A/B/C/D/E/F production posture uncha
 
 describe('MCP-021C-EDGE-FAMILY-G-ENABLE — subset filter PRESENT for Family G (defensive guard for HALT trigger #7; DIV-1)', () => {
   it('GGE-16 — MCP_SERVER_SUPPORTED_FAMILY_SOURCES HAS an entry for resolution_progress', () => {
-    // DIV-1: Family G is MIXED-source (5 auto_metadata + 7 lifecycle + 18
+    // DIV-1: Family G is MIXED-source (5 auto_metadata + 7 lifecycle + 21
     // ai_classifier). Unlike uniform Family F (no entry → full
     // passthrough), Family G MUST carry a subset entry so production-mode
-    // requests filter to the 18 ai_classifier keys and the 12
+    // requests filter to the 21 ai_classifier keys and the 12
     // deterministic keys are never sent to the MCP server (sending them
     // triggers unsupported_rawKey → mcp_validation_failed). The entry was
     // added at Card 1A (MCP-SERVER-008A-FAMILY-G-EDGE-SUBSET); this card

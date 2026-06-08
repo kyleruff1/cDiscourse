@@ -30,12 +30,12 @@
  *
  * SOURCE COUNT CORRECTION (design §A.1.0): the upstream `familyG.ts`
  * file-header comment is STALE — it says "29 entries … ai_classifier (8)"
- * but the actual array has 30 frozen entries with 18 ai_classifier
- * declarations (the 8 existing + the 9 NEW + accepts_settlement_terms = 18).
- * The binding contract for FAMILY_G_RAW_KEYS is the actual
- * `source: 'ai_classifier'` literals in the code (18), NOT the stale header
- * count. This card does NOT fix the upstream header (it is in `src/`, out of
- * scope); the parity test asserts exactly 18 ai_classifier declarations.
+ * but the actual array has 33 frozen entries with 21 ai_classifier
+ * declarations (8 existing + 9 NEW + accepts_settlement_terms = 18 baseline,
+ * + 3 MCP-BUILD2g = 21). The binding contract for FAMILY_G_RAW_KEYS is the
+ * actual `source: 'ai_classifier'` literals in the code (21), NOT the stale
+ * header count. This card does NOT fix the upstream header (it is in `src/`,
+ * out of scope); the parity test asserts exactly 21 ai_classifier declarations.
  *
  * The 21 rawKeys are the binding contract (18 MCP-SERVER-008-FAMILY-G design
  * §A.1.1 / Stage 2B operator decision + 3 MCP-BUILD2g Build-2 manifest §6).
