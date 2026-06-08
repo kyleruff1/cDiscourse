@@ -176,8 +176,11 @@ describe('MCP-SERVER-010A-FAMILY-I Edge → MCP subset filter (Stage 2B fix)', (
       ...FAMILY_I_BASE_INPUT,
       requestedFamilies: ['thread_topology', 'parent_relation'],
     });
-    // 6 Family I ai_classifier + 16 Family A = 22 total (no overlap between families).
-    expect(req.requestedRawKeys.length).toBe(22);
+    // 6 Family I ai_classifier + 19 Family A = 25 total (no overlap between families).
+    // Family A = 19 post-MCP-BUILD2b (#540): 16 base parent_relation keys + 3 new
+    // parent-relation quality booleans (acknowledges_parent_strength,
+    // compares_parent_to_sibling_branch, identifies_parent_scope_limit).
+    expect(req.requestedRawKeys.length).toBe(25);
     const sent = new Set(req.requestedRawKeys);
     for (const key of FAMILY_I_AI_CLASSIFIER_KEYS) {
       expect(sent.has(key)).toBe(true);
