@@ -36,11 +36,16 @@ const BASE = {
 // ── Backward-compat: every <=20 family -> 1 byte-identical batch ────
 
 describe('MCP-BATCHING — backward-compat: <=20 families chunk to 1 byte-identical batch', () => {
-  // Production families that are all <= 20 keys post Build-2 (A=19, B=17, C=20).
+  // Production families that are all <= 20 keys post Build-2 (A=19, B=17, C=20,
+  // E=19, F=17). The header docstring claims A/B/C/E/F; this list now iterates
+  // ALL FIVE so the byte-identity regression covers every shipped production
+  // family (E + F added in the reconcile/545 bar-raising pass).
   const PRODUCTION_FAMILIES: ReadonlyArray<{ family: string; expectedLen: number }> = [
     { family: 'parent_relation', expectedLen: 19 }, // A
     { family: 'disagreement_axis', expectedLen: 17 }, // B
     { family: 'misunderstanding_repair', expectedLen: 20 }, // C
+    { family: 'argument_scheme', expectedLen: 19 }, // E
+    { family: 'critical_question', expectedLen: 17 }, // F
   ];
 
   for (const { family, expectedLen } of PRODUCTION_FAMILIES) {
@@ -96,6 +101,57 @@ describe('MCP-BATCHING — backward-compat: <=20 families chunk to 1 byte-identi
     // input-order-preserved in the 1-batch path (no sort below threshold), so
     // they are the same array -> the serialized request bodies match.
     expect(stable(batchReq)).toBe(stable(full));
+  });
+});
+
+// ── Family-I (#550) thread_topology 6-key subset -> 1 batch, no wire meta ──
+
+describe('MCP-BATCHING — Family-I (#550) thread_topology 6-key subset chunks to 1 batch', () => {
+  // The Family-I (thread_topology) ai_classifier subset is 6 keys — well under
+  // the BATCH_SPLIT_THRESHOLD (20) — so it MUST produce EXACTLY ONE batch with
+  // input order preserved (no lexicographic sort below threshold), and the
+  // on-the-wire request MUST carry NO batchIndex/batchTotal (those are
+  // out-of-band orchestration only; the no-schema-bump invariant).
+  const FAMILY_I_SUBSET_6 = [
+    'thread_topology_k1',
+    'thread_topology_k2',
+    'thread_topology_k3',
+    'thread_topology_k4',
+    'thread_topology_k5',
+    'thread_topology_k6',
+  ] as const;
+
+  it('FAMILY-I-6 — chunkRawKeys(6 keys) -> exactly 1 batch, batchTotal 1, input order preserved', () => {
+    const batches = edgeChunkRawKeys([...FAMILY_I_SUBSET_6]);
+    expect(batches).toHaveLength(1);
+    expect(batches[0].batchIndex).toBe(0);
+    expect(batches[0].batchTotal).toBe(1);
+    // <= threshold: input order preserved verbatim (no lexicographic sort).
+    expect([...batches[0].rawKeys]).toEqual([...FAMILY_I_SUBSET_6]);
+  });
+
+  it('FAMILY-I-6 — the 1-batch request carries NO batchIndex/batchTotal wire metadata', () => {
+    const base = {
+      schemaVersion: EDGE_MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      nodeId: 'arg-1',
+      parentNodeId: 'arg-0',
+      currentText: 'reply text',
+      parentText: 'parent thesis',
+      threadContextExcerpt: 'context',
+      requestedFamilies: ['thread_topology'],
+      requestedRawKeys: [...FAMILY_I_SUBSET_6],
+      definitions: {},
+      timeoutMs: 15000,
+    } as unknown as Parameters<typeof edgeBuildBatchRequestFromFull>[0];
+    const [oneBatch] = edgeChunkRawKeys([...FAMILY_I_SUBSET_6]);
+    const batchReq = edgeBuildBatchRequestFromFull(base, oneBatch) as unknown as Record<
+      string,
+      unknown
+    >;
+    expect('batchIndex' in batchReq).toBe(false);
+    expect('batchTotal' in batchReq).toBe(false);
+    // requestedRawKeys still the 6 keys, order preserved.
+    expect(batchReq.requestedRawKeys).toEqual([...FAMILY_I_SUBSET_6]);
   });
 });
 

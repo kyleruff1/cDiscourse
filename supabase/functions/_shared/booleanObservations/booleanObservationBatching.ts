@@ -285,8 +285,11 @@ export function mergeBatchResponses(
  * evidenceSpan value, rawKey, Authorization header, or any secret.
  *
  * Returns the FIRST failed batch (lowest batchIndex) — the orchestrator marks
- * the run `status:'failed'` while still persisting the successful batches'
- * positives (partial-persist; design §4).
+ * the run `status:'failed'`. Per the reconcile/545 CONCERN resolution BOTH
+ * orchestrators are now ALL-OR-NOTHING: on any batch failure NO positive rows
+ * are persisted (the drainer never had partial-persist; the direct path was
+ * aligned to match — see classifyArgumentCore.ts). This projection is the only
+ * batch-level diagnostic written to the failed run's `failure_detail`.
  */
 export interface BatchFailureDetail {
   readonly batchIndex: number;

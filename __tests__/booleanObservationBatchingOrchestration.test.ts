@@ -12,8 +12,8 @@
  * The pure chunk/merge BEHAVIOR is fully unit-tested in
  * booleanObservationBatching.test.ts; these scans verify the orchestrators
  * actually invoke that core in the right shape (loop-per-batch, merge, one
- * run row, partial-persist failure, family-granularity retry, engine.ts
- * untouched).
+ * run row, ALL-OR-NOTHING failure (no partial-persist), family-granularity
+ * retry, engine.ts untouched).
  */
 
 import * as fs from 'fs';
@@ -107,11 +107,23 @@ describe('MCP-BATCHING — direct path (classifyArgumentCore.ts) wiring', () => 
     expect(coreText).toMatch(/batchTotal/);
   });
 
-  it('ORC-12 — successful batches are partial-persisted (positives collected from the MERGED response)', () => {
+  it('ORC-12 — ALL-OR-NOTHING: any batch failure persists NO positive rows, aligned to the drainer (reconcile/545 CONCERN)', () => {
+    // The all-SUCCESS path still merges the per-batch outcomes and collects
+    // positives from the MERGED response (built via sanitize-over-merged).
     expect(coreText).toMatch(/mergeBatchResponses\(\s*batchOutcomes/);
-    // The positive-collection loop reads `sanitized` (built from the merged
-    // response), not per-batch responses.
     expect(coreText).toMatch(/sanitizeMcpBooleanObservationResponse\(\s*\n?\s*merged/);
+    // On a partial failure (runStatus === 'failed') the direct path returns
+    // BEFORE any result-row INSERT: the failed-run guard yields ZERO positives
+    // and PRECEDES the persistResults(...) call. This matches the drainer's
+    // atomic-finalize semantics — a failed run never partial-persists positives
+    // that the status-blind Source-6 consumer would surface / double-count.
+    const guardIdx = coreText.indexOf("if (runStatus === 'failed')");
+    const persistResultsCallIdx = coreText.indexOf('persistResults(');
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(persistResultsCallIdx).toBeGreaterThan(guardIdx);
+    const guardBlock = coreText.slice(guardIdx, persistResultsCallIdx);
+    expect(guardBlock).toMatch(/positiveObservationCount:\s*0/);
+    expect(guardBlock).toMatch(/rawKeysWithPositive:\s*\[\]/);
   });
 
   it('ORC-13 — does NOT add batchIndex/batchTotal to the on-the-wire request', () => {

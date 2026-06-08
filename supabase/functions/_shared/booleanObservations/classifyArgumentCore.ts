@@ -416,6 +416,35 @@ export async function classifyOneArgumentCore(
     };
   }
 
+  // MCP-BOOLEAN-BATCHING-INFRA-001 — ALL-OR-NOTHING (aligned to the drainer):
+  // when ANY batch failed, persist NO positive result rows. The failed run row
+  // (written above by persistRun, carrying the leak-safe failure_detail
+  // { batchIndex, batchTotal, reason }) is the ONLY thing written — matching
+  // classifierDrainerClassify.ts, which has no partial-persist concept.
+  //
+  // RATIONALE (reconcile/545 CONCERN resolution): the production results-read
+  // consumers filter run_mode but NOT run STATUS —
+  //   • src/features/nodeLabels/machineObservationPersistenceQuery.ts:127
+  //     (Source 6) filters `run_mode = 'production'` only, no status filter; and
+  //   • src/features/arguments/argumentsApi.ts (fetchArgumentRelations) selects
+  //     results by argument_id with no run join at all.
+  // So a partial-persisted positive under a FAILED run would (a) surface in
+  // Source 6 and (b) double-count against the retry's fresh success run. The
+  // auto-trigger / drainer retry re-runs the WHOLE family deterministically
+  // (idempotent chunk assignment); a fresh SUCCESS run then persists the FULL
+  // positive set under a NEW run_id. On the all-success path this guard is a
+  // no-op (runStatus === 'success') and the tail below is byte-equal to today.
+  if (runStatus === 'failed') {
+    return {
+      argumentId,
+      runId: runWrite.runId,
+      status: 'failed',
+      failureReason: partialFailureReason,
+      positiveObservationCount: 0,
+      rawKeysWithPositive: [],
+    };
+  }
+
   // Collect positive observations (in-memory aggregation from the
   // sanitized response). The actual response summary is built from the
   // post-persist SELECT below, NOT this in-memory state — see
@@ -483,24 +512,10 @@ export async function classifyOneArgumentCore(
     };
   }
 
-  // MCP-BOOLEAN-BATCHING-INFRA-001 — a PARTIAL-failure run (some batches
-  // succeeded, at least one failed) persists the successful batches' positives
-  // (partial-persist; reflected in the post-persist SELECT above) but is
-  // reported as `status:'failed'` so the auto-trigger / drainer retry path
-  // re-runs the WHOLE family (the run row already carries the leak-safe
-  // failure_detail written by persistRun). On the all-success path this is a
-  // no-op — runStatus is 'success' and the return is byte-equal to today.
-  if (runStatus === 'failed') {
-    return {
-      argumentId,
-      runId: runWrite.runId,
-      status: 'failed',
-      failureReason: partialFailureReason,
-      positiveObservationCount: actualPositiveCount,
-      rawKeysWithPositive: actualRawKeys,
-    };
-  }
-
+  // MCP-BOOLEAN-BATCHING-INFRA-001 — by this point runStatus is necessarily
+  // 'success': the partial-failure (some batches failed) case returned ALL-OR-
+  // NOTHING above (no positive rows persisted). So the only run reaching this
+  // tail is fully-successful, and the return is byte-equal to today.
   return {
     argumentId,
     runId: runWrite.runId,
