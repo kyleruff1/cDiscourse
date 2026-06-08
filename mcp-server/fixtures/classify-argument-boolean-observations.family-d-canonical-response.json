@@ -20,7 +20,10 @@
     "statistic_used",
     "external_authority_used",
     "evidence_quality_questioned",
-    "burden_request_present"
+    "burden_request_present",
+    "names_method_difference",
+    "separates_observation_from_inference",
+    "flags_context_limit"
   ],
   "observations": {
     "asks_for_evidence": false,
@@ -41,12 +44,15 @@
     "statistic_used": true,
     "external_authority_used": false,
     "evidence_quality_questioned": false,
-    "burden_request_present": false
+    "burden_request_present": false,
+    "names_method_difference": true,
+    "separates_observation_from_inference": false,
+    "flags_context_limit": false
   },
   "confidence": {
     "asks_for_evidence": "medium",
     "provides_evidence": "high",
-    "evidence_supports_claim": "low",
+    "evidence_supports_claim": "medium",
     "creates_source_chain_gap": "medium",
     "opens_evidence_debt_marker": "medium",
     "closes_evidence_debt_marker": "medium",
@@ -62,7 +68,10 @@
     "statistic_used": "high",
     "external_authority_used": "medium",
     "evidence_quality_questioned": "medium",
-    "burden_request_present": "medium"
+    "burden_request_present": "medium",
+    "names_method_difference": "medium",
+    "separates_observation_from_inference": "medium",
+    "flags_context_limit": "medium"
   },
   "evidenceSpan": {
     "asks_for_evidence": null,
@@ -83,7 +92,10 @@
     "statistic_used": "40% drop in tailpipe emissions from 2020 to 2023",
     "external_authority_used": null,
     "evidence_quality_questioned": null,
-    "burden_request_present": null
+    "burden_request_present": null,
+    "names_method_difference": "administrative records",
+    "separates_observation_from_inference": null,
+    "flags_context_limit": null
   },
   "modelInfo": {
     "provider": "mcp",

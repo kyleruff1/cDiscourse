@@ -1,22 +1,26 @@
 /**
- * MCP-SERVER-005-FAMILY-D fix — Edge → MCP subset filter regression coverage.
+ * MCP-SERVER-005-FAMILY-D fix + MCP-BUILD2d — Edge → MCP subset filter
+ * regression coverage.
  *
  * Card 2 (MCP-SERVER-005-FAMILY-D) shipped the 19-key ai_classifier Subset
- * per operator Stage 2B decision. The MCP server supports those 19 keys
- * only; requesting any of the 8 deterministic Family D rawKeys
- * (5 auto_metadata + 3 lifecycle, 6 unique strings) triggers MCP's
- * `unsupported_rawKey` validation → Edge maps to `mcp_validation_failed`.
+ * per operator Stage 2B decision; MCP-BUILD2d takes it to 22 (+3 evidence-
+ * dynamic booleans). The MCP server supports those 22 keys only; requesting
+ * any of the 8 deterministic Family D rawKeys (5 auto_metadata + 3 lifecycle,
+ * 6 unique strings) triggers MCP's `unsupported_rawKey` validation → Edge maps
+ * to `mcp_validation_failed`.
  *
- * Pre-fix, `buildBooleanObservationRequestForArgument` iterated all 27
- * Family D entries and sent ~25 rawKeys (compound-key collision dedupes 2)
- * to the MCP server, causing every Family D admin_validation request to
- * fail with mcp_validation_failed in live smoke (Card 2 Phase 4).
- *
- * Post-fix, `MCP_SERVER_SUPPORTED_FAMILY_SOURCES['evidence_source_chain']
+ * `MCP_SERVER_SUPPORTED_FAMILY_SOURCES['evidence_source_chain']
  * = {'ai_classifier'}` filters the request builder to only send the
- * 19 ai_classifier rawKeys. Other families (A/B/C) have no entry in the
+ * 22 ai_classifier rawKeys. Other families (A/B/C) have no entry in the
  * map, so all of their sources pass through unchanged (current behavior
  * preserved byte-equal).
+ *
+ * NOTE (MCP-BUILD2d batching): this test exercises
+ * `buildBooleanObservationRequestForArgument`, which builds the FULL
+ * 22-key family request. The chunking into 2 batches (16 + 6) happens
+ * downstream in `classifyOneArgumentCore`, AFTER this builder — so the full
+ * request correctly carries all 22 keys here. The batching proof lives in
+ * mcpBuild2dFamilyD.test.ts §0.5.
  *
  * Doctrine:
  *   - cdiscourse-doctrine §10a — structural observations only
@@ -50,6 +54,10 @@ const FAMILY_D_AI_CLASSIFIER_KEYS = [
   'external_authority_used',
   'evidence_quality_questioned',
   'burden_request_present',
+  // MCP-BUILD2d additions (Subset 19 → 22).
+  'names_method_difference',
+  'separates_observation_from_inference',
+  'flags_context_limit',
 ] as const;
 
 const FAMILY_D_DETERMINISTIC_EXCLUDED_KEYS = [
@@ -75,18 +83,18 @@ const FAMILY_D_BASE_INPUT = {
 };
 
 describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', () => {
-  it('SF-1 — Family D admin_validation request contains exactly 19 ai_classifier rawKeys', () => {
+  it('SF-1 — Family D admin_validation request contains exactly 22 ai_classifier rawKeys', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_BASE_INPUT);
-    expect(req.requestedRawKeys.length).toBe(19);
+    expect(req.requestedRawKeys.length).toBe(22);
   });
 
-  it('SF-2 — every Family D rawKey sent matches the operator-approved 19-key ai_classifier set', () => {
+  it('SF-2 — every Family D rawKey sent matches the operator-approved 22-key ai_classifier set', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_BASE_INPUT);
     const sent = new Set(req.requestedRawKeys);
     for (const expected of FAMILY_D_AI_CLASSIFIER_KEYS) {
       expect(sent.has(expected)).toBe(true);
     }
-    expect(sent.size).toBe(19);
+    expect(sent.size).toBe(22);
   });
 
   it('SF-3 — Family D request does NOT include any of the 8 excluded deterministic rawKeys', () => {
@@ -97,9 +105,9 @@ describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', ()
     }
   });
 
-  it('SF-4 — Family D definitions map size matches the 19 rawKeys (no orphan keys)', () => {
+  it('SF-4 — Family D definitions map size matches the 22 rawKeys (no orphan keys)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_BASE_INPUT);
-    expect(Object.keys(req.definitions).length).toBe(19);
+    expect(Object.keys(req.definitions).length).toBe(22);
     for (const key of Object.keys(req.definitions)) {
       expect(FAMILY_D_AI_CLASSIFIER_KEYS.includes(key as never)).toBe(true);
     }
@@ -144,17 +152,17 @@ describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', ()
     expect(req.requestedRawKeys.length).toBe(20);
   });
 
-  it('SF-9 — production-mode Family D request returns 19 ai_classifier rawKeys (post MCP-021C-EDGE-FAMILY-D-ENABLE Card 2 flip)', () => {
+  it('SF-9 — production-mode Family D request returns 22 ai_classifier rawKeys (post MCP-021C-EDGE-FAMILY-D-ENABLE Card 2 flip + MCP-BUILD2d)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_D_BASE_INPUT,
       mode: 'production',
     });
     // Post Card 2: Family D is productionEnabled; the subset filter is
-    // mode-agnostic, so production mode emits the same 19 ai_classifier
+    // mode-agnostic, so production mode emits the same 22 ai_classifier
     // rawKeys as admin_validation mode. See
     // mcpFamilyDSubsetFilterProductionMode.test.ts SFP-1..SFP-7 for the
     // dedicated production-mode subset filter binding.
-    expect(req.requestedRawKeys.length).toBe(19);
+    expect(req.requestedRawKeys.length).toBe(22);
     expect(req.requestedFamilies).toEqual(['evidence_source_chain']);
     const sent = new Set(req.requestedRawKeys);
     for (const expected of FAMILY_D_AI_CLASSIFIER_KEYS) {
@@ -170,9 +178,9 @@ describe('MCP-SERVER-005-FAMILY-D Edge → MCP subset filter (Stage 2B fix)', ()
       ...FAMILY_D_BASE_INPUT,
       requestedFamilies: ['evidence_source_chain', 'parent_relation'],
     });
-    // 19 Family D ai_classifier + 19 Family A (post MCP-BUILD2b) = 38 total
-    // (no overlap between families).
-    expect(req.requestedRawKeys.length).toBe(38);
+    // 22 Family D ai_classifier (post MCP-BUILD2d) + 19 Family A (post
+    // MCP-BUILD2b) = 41 total (no overlap between families).
+    expect(req.requestedRawKeys.length).toBe(41);
     const sent = new Set(req.requestedRawKeys);
     for (const key of FAMILY_D_AI_CLASSIFIER_KEYS) {
       expect(sent.has(key)).toBe(true);

@@ -2,8 +2,11 @@
  * MCP-SERVER-005-FAMILY-D — validateMcpBooleanObservationResponse Family D tests.
  *
  * The validator is the shared structural validator. This file exercises it
- * against Family D response shapes (19 Subset keys, family-d-v1) to confirm
- * the validator works identically for Family D as it does for Family A/B/C.
+ * against Family D response shapes (family-d-v1) to confirm it works
+ * identically for Family D as for Family A/B/C. MCP-BUILD2d takes the full
+ * Subset to 22 keys (> the 20-key cap), so the validator only ever sees a
+ * per-batch wire response (<= 16 keys); a full 22-key single response is
+ * REJECTED (flag_count_too_high) — the reason batching exists.
  */
 import { assertEquals } from 'std/assert/mod.ts';
 import {
@@ -161,42 +164,43 @@ Deno.test('Family D validator: rejects modelInfo with empty classifierSetVersion
   assertEquals(result.ok, false);
 });
 
-Deno.test('Family D validator: accepts full 19-key Subset response', () => {
-  // Build a full 19-key response with each key explicitly false (default state).
-  // The 19 keys MUST fit within the MAX_FLAGS_PER_RESPONSE=20 cap (19 ≤ 20).
-  const NINETEEN_KEYS = [
+Deno.test('Family D validator: accepts a 16-key batch-0 response (MCP-BUILD2d batching wire unit)', () => {
+  // MCP-BUILD2d takes the full Family D Subset to 22 keys (> the
+  // MAX_FLAGS_PER_RESPONSE=20 cap), so the Edge serves it in 2 batches
+  // (16 + 6). The mcp-server only ever validates a single BATCH response —
+  // never the full 22-key set. This test builds the 16-key batch-0 slice
+  // (lexicographically the first 16 of the 22 Subset keys) and confirms it
+  // passes the unchanged 20-key validator (16 ≤ 20).
+  const BATCH0_KEYS = [
+    'anecdote_used',
     'asks_for_evidence',
-    'provides_evidence',
-    'evidence_supports_claim',
-    'creates_source_chain_gap',
-    'opens_evidence_debt_marker',
+    'burden_request_present',
     'closes_evidence_debt_marker',
-    'supplies_corroborating_document',
-    'source_provided',
-    'quote_provided',
-    'concrete_example_requested',
     'concrete_example_provided',
+    'concrete_example_requested',
+    'creates_source_chain_gap',
     'evidence_claim_present',
     'evidence_gap_present',
-    'source_chain_repair',
-    'anecdote_used',
-    'statistic_used',
-    'external_authority_used',
     'evidence_quality_questioned',
-    'burden_request_present',
+    'evidence_supports_claim',
+    'external_authority_used',
+    'flags_context_limit',
+    'names_method_difference',
+    'opens_evidence_debt_marker',
+    'provides_evidence',
   ];
   const obs: Record<string, boolean> = {};
   const conf: Record<string, string> = {};
   const evid: Record<string, null> = {};
-  for (const key of NINETEEN_KEYS) {
+  for (const key of BATCH0_KEYS) {
     obs[key] = false;
     conf[key] = 'medium';
     evid[key] = null;
   }
   const r = {
     schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    nodeId: 'node-d-19',
-    checkedRawKeys: NINETEEN_KEYS,
+    nodeId: 'node-d-batch0',
+    checkedRawKeys: BATCH0_KEYS,
     observations: obs,
     confidence: conf,
     evidenceSpan: evid,
@@ -209,8 +213,48 @@ Deno.test('Family D validator: accepts full 19-key Subset response', () => {
   const result = validateMcpBooleanObservationResponse(r);
   assertEquals(result.ok, true);
   if (result.ok) {
-    assertEquals(result.value.checkedRawKeys.length, 19);
+    assertEquals(result.value.checkedRawKeys.length, 16);
   }
+});
+
+Deno.test('Family D validator: REJECTS a full 22-key single response (> 20 cap — the reason batching exists)', () => {
+  // The full Family D Subset is 22 keys. A single 22-key response trips the
+  // flag_count_too_high guard — which is precisely why MCP-BOOLEAN-BATCHING-
+  // INFRA-001 splits it into 2 batches at the Edge. The cap is unchanged.
+  const TWENTY_TWO_KEYS = [
+    'asks_for_evidence', 'provides_evidence', 'evidence_supports_claim',
+    'creates_source_chain_gap', 'opens_evidence_debt_marker',
+    'closes_evidence_debt_marker', 'supplies_corroborating_document',
+    'source_provided', 'quote_provided', 'concrete_example_requested',
+    'concrete_example_provided', 'evidence_claim_present', 'evidence_gap_present',
+    'source_chain_repair', 'anecdote_used', 'statistic_used',
+    'external_authority_used', 'evidence_quality_questioned',
+    'burden_request_present', 'names_method_difference',
+    'separates_observation_from_inference', 'flags_context_limit',
+  ];
+  const obs: Record<string, boolean> = {};
+  const conf: Record<string, string> = {};
+  const evid: Record<string, null> = {};
+  for (const key of TWENTY_TWO_KEYS) {
+    obs[key] = false;
+    conf[key] = 'medium';
+    evid[key] = null;
+  }
+  const r = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'node-d-22',
+    checkedRawKeys: TWENTY_TWO_KEYS,
+    observations: obs,
+    confidence: conf,
+    evidenceSpan: evid,
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-d-v1',
+    },
+  };
+  const result = validateMcpBooleanObservationResponse(r);
+  assertEquals(result.ok, false);
 });
 
 Deno.test('Family D validator: accepts evidenceSpan strings up to 240 chars', () => {

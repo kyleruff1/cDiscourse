@@ -7,10 +7,10 @@
  * imports do not work in that target. This test reads BOTH files as source
  * text and asserts:
  *   - every binding Subset rawKey string literal appears in both files
- *   - upstream `familyD.ts` has exactly 27 rawKey declarations (5
- *     auto_metadata + 3 lifecycle + 19 ai_classifier; with 2 rawKey strings
- *     duplicated across source types → 25 unique strings × 27 declarations)
- *   - the server-side Subset contains exactly the 19 ai_classifier-source
+ *   - upstream `familyD.ts` has exactly 30 rawKey declarations (5
+ *     auto_metadata + 3 lifecycle + 22 ai_classifier; MCP-BUILD2d added 3
+ *     ai_classifier keys, taking the Subset 19 → 22)
+ *   - the server-side Subset contains exactly the 22 ai_classifier-source
  *     entries; the 8 deterministic rawKey declarations are absent from
  *     `FAMILY_D_RAW_KEYS`
  *
@@ -47,7 +47,7 @@ Deno.test('familyDKeysParity: every server-side Subset rawKey literal appears in
   }
 });
 
-Deno.test('familyDKeysParity: upstream familyD.ts has exactly 27 rawKey declarations (5 + 3 + 19)', async () => {
+Deno.test('familyDKeysParity: upstream familyD.ts has exactly 30 rawKey declarations (5 + 3 + 22)', async () => {
   const upstream = await Deno.readTextFile(UPSTREAM_FAMILY_D_PATH);
   // Extract every `rawKey: '<value>'` declaration from the upstream source.
   // This is the canonical buildEvidence() shape per familyD.ts.
@@ -60,15 +60,15 @@ Deno.test('familyDKeysParity: upstream familyD.ts has exactly 27 rawKey declarat
   if (upstreamDeclarations.length === 0) {
     throw new Error('Upstream familyD.ts produced 0 rawKey declarations — regex broken or file moved');
   }
-  // Family D upstream MUST have 27 declarations (intent brief §1 binding).
-  if (upstreamDeclarations.length !== 27) {
+  // Family D upstream MUST have 30 declarations (27 baseline + 3 MCP-BUILD2d).
+  if (upstreamDeclarations.length !== 30) {
     throw new Error(
-      `Upstream familyD.ts has ${upstreamDeclarations.length} rawKey declarations; expected 27. Drift detected.`,
+      `Upstream familyD.ts has ${upstreamDeclarations.length} rawKey declarations; expected 30. Drift detected.`,
     );
   }
 });
 
-Deno.test('familyDKeysParity: upstream familyD.ts contains all 19 ai_classifier-Subset rawKey literals', async () => {
+Deno.test('familyDKeysParity: upstream familyD.ts contains all 22 ai_classifier-Subset rawKey literals', async () => {
   const upstream = await Deno.readTextFile(UPSTREAM_FAMILY_D_PATH);
   for (const subsetKey of FAMILY_D_RAW_KEYS) {
     // Each Subset rawKey must appear at least once as a string literal in
@@ -174,8 +174,8 @@ Deno.test('familyDKeysParity: upstream ai_classifier-source declarations match s
   }
   assertEquals(
     aiClassifierKeys.length,
-    19,
-    `Upstream familyD.ts ai_classifier entries: expected 19, got ${aiClassifierKeys.length}`,
+    22,
+    `Upstream familyD.ts ai_classifier entries: expected 22, got ${aiClassifierKeys.length}`,
   );
   // Each upstream ai_classifier rawKey MUST be in the server-side Subset.
   for (const upstreamKey of aiClassifierKeys) {

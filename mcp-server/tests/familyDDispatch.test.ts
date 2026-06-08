@@ -2,8 +2,9 @@
  * MCP-SERVER-005-FAMILY-D — Family D tool dispatcher tests.
  *
  * Critical invariants:
- *   - Family D fixture-mode request returns a Family D canonical response
- *     (classifierSetVersion='family-d-v1', 19 keys, no Family A / B / C keys).
+ *   - Family D fixture-mode request returns a Family D batch-0 response
+ *     (classifierSetVersion='family-d-v1', 16 keys — the valid batch-0 slice
+ *     of the 22-key Subset; no Family A / B / C keys).
  *   - Family A, B, C fixture-mode requests continue to return their
  *     respective canonical responses (regression — byte-equal preservation).
  *   - 4-way cross-family rejection: each family's keys rejected under
@@ -113,7 +114,7 @@ Deno.test('dispatch: Family D request routes to Family D fixture provider (famil
   });
 });
 
-Deno.test('dispatch: Family D fixture response uses only the 19 Subset keys (not Family A/B/C keys)', async () => {
+Deno.test('dispatch: Family D fixture response uses only Subset keys (not Family A/B/C keys)', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
@@ -124,12 +125,14 @@ Deno.test('dispatch: Family D fixture response uses only the 19 Subset keys (not
     assertEquals(result.isError, false);
     const sc = result.structuredContent as Record<string, unknown>;
     const checkedRawKeys = sc.checkedRawKeys as string[];
-    // source_provided is a Family D key; supports_parent is Family A;
+    // provides_evidence is a Family D key (batch-0; the fixture provider
+    // serves the valid 16-key batch-0 response now that the full 22-key
+    // Subset spans 2 batches); supports_parent is Family A;
     // disagreement_present is Family B; offers_candidate_understanding is
     // Family C. The Family D response MUST NOT include any of the Family
     // A/B/C keys.
-    if (!checkedRawKeys.includes('source_provided')) {
-      throw new Error('Family D dispatch did not return source_provided');
+    if (!checkedRawKeys.includes('provides_evidence')) {
+      throw new Error('Family D dispatch did not return provides_evidence (batch-0 key)');
     }
     if (checkedRawKeys.includes('supports_parent')) {
       throw new Error('Family D dispatch incorrectly returned Family A rawKey supports_parent');
@@ -403,7 +406,7 @@ Deno.test('dispatch: Family D tool description advertises Family D alongside A, 
     if (!description.includes('evidence_source_chain')) {
       throw new Error('Tool description missing "evidence_source_chain"');
     }
-    if (!description.includes('19-key ai_classifier Subset')) {
+    if (!description.includes('22-key ai_classifier Subset')) {
       throw new Error('Tool description missing Family D Subset description');
     }
   });

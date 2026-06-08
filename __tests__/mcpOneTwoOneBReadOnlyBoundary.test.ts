@@ -155,8 +155,33 @@ describe('MCP-021B — MCP-021A registry files byte-equal', () => {
     }
   });
 
-  it('RO-10 — machineObservationDefinitions/familyD.ts unchanged', () => {
-    expect(gitDiffFromMain('src/features/nodeLabels/machineObservationDefinitions/familyD.ts')).toBe('');
+  // RO-10 — byte-equal boundary relaxed 2026-06-07 (MCP-BUILD2d). RO-10
+  // originally asserted familyD.ts was byte-equal to main (`git diff
+  // main..HEAD` empty). As a PERMANENT test that premise is structurally
+  // incompatible with the ratified MCP-OBSERVATION-MAPPING-REFACTOR-DESIGN-001
+  // Build-2 roadmap, which sequences family-by-family VOCABULARY EXPANSION of
+  // familyD.ts (MCP-BUILD2d adds 3 evidence_source_chain booleans, taking the
+  // mcp-server Subset 19 → 22 — the first family to exceed the 20-key cap, so
+  // it is served in 2 batches). Mirrors the RO-7/RO-8/RO-9/RO-11/RO-12
+  // relaxation: the MCP-021B boundary is historical; relaxed here to an
+  // ADDITIVE-ONLY well-formedness check so vocabulary-expansion cards can grow
+  // familyD.ts without a spurious read-only-boundary failure. The file must
+  // still export FAMILY_D_DEFINITIONS and retain the MCP-021A baseline rawKeys
+  // (additive, never a removal/rename).
+  it('RO-10 — familyD.ts is well-formed + additive (MCP-021A baseline preserved)', () => {
+    const content = readFileSync(
+      join(ROOT, 'src/features/nodeLabels/machineObservationDefinitions/familyD.ts'),
+      'utf8',
+    );
+    expect(content).toContain('export const FAMILY_D_DEFINITIONS');
+    // MCP-021A baseline rawKeys must all still be present (no removal/rename).
+    for (const baselineRawKey of [
+      'has_evidence',
+      'asks_for_evidence',
+      'burden_request_present',
+    ]) {
+      expect(content).toContain(`rawKey: '${baselineRawKey}'`);
+    }
   });
 
   // RO-11 — byte-equal boundary relaxed 2026-06-07 (MCP-BUILD2e).

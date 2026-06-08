@@ -2,7 +2,7 @@
  * MCP-021C-EDGE-FAMILY-D-ENABLE — Family D production-mode subset filter binding.
  *
  * This file is the CRITICAL test of HALT trigger #14 (Family D production
- * runs send all 27 keys). It mirrors `mcpFamilyDEdgeMcpSubsetFilter.test.ts`
+ * runs send all 30 keys). It mirrors `mcpFamilyDEdgeMcpSubsetFilter.test.ts`
  * SF-1..SF-5 (admin_validation-mode) and SF-10 (multi-family) but with
  * `mode: 'production'` — proving the subset filter holds under production
  * mode now that Family D is productionEnabled.
@@ -12,13 +12,16 @@
  * is **mode-agnostic** — it applies the source allowlist AFTER the
  * `filterFamiliesForMode` gate but WITHOUT any reference to `input.mode`.
  * Therefore any Family D request — production or admin_validation — sends
- * only the 19 ai_classifier keys, never the 8 deterministic keys.
+ * only the 22 ai_classifier keys (MCP-BUILD2d: 19 → 22), never the 8
+ * deterministic keys.
  *
  * Pre-flip, mode='production' + requestedFamilies=['evidence_source_chain']
  * → eligibleFamilies=[] → empty rawKeys (the SF-9 admin-only assertion).
  * Post-flip, the same input → eligibleFamilies=['evidence_source_chain']
- * → 19 ai_classifier rawKeys. This file makes that post-flip behavior
- * a binding gate.
+ * → 22 ai_classifier rawKeys. This file makes that post-flip behavior
+ * a binding gate. (MCP-BUILD2d note: the request builder sends the FULL
+ * 22-key family request; the chunker downstream in classifyOneArgumentCore
+ * splits it into 2 batches (16 + 6) because 22 > the 20-key cap.)
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §10a — structural observations only; the subset
@@ -52,6 +55,10 @@ const FAMILY_D_AI_CLASSIFIER_KEYS = [
   'external_authority_used',
   'evidence_quality_questioned',
   'burden_request_present',
+  // MCP-BUILD2d additions (Subset 19 → 22).
+  'names_method_difference',
+  'separates_observation_from_inference',
+  'flags_context_limit',
 ] as const;
 
 const FAMILY_D_DETERMINISTIC_EXCLUDED_KEYS = [
@@ -77,18 +84,18 @@ const FAMILY_D_PRODUCTION_INPUT = {
 };
 
 describe('MCP-021C-EDGE-FAMILY-D-ENABLE — production-mode subset filter (HALT trigger #14)', () => {
-  it('SFP-1 — production-mode Family D request contains exactly 19 ai_classifier rawKeys', () => {
+  it('SFP-1 — production-mode Family D request contains exactly 22 ai_classifier rawKeys', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_PRODUCTION_INPUT);
-    expect(req.requestedRawKeys.length).toBe(19);
+    expect(req.requestedRawKeys.length).toBe(22);
   });
 
-  it('SFP-2 — every production-mode Family D rawKey matches the 19-key ai_classifier set', () => {
+  it('SFP-2 — every production-mode Family D rawKey matches the 22-key ai_classifier set', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_PRODUCTION_INPUT);
     const sent = new Set(req.requestedRawKeys);
     for (const expected of FAMILY_D_AI_CLASSIFIER_KEYS) {
       expect(sent.has(expected)).toBe(true);
     }
-    expect(sent.size).toBe(19);
+    expect(sent.size).toBe(22);
   });
 
   it('SFP-3 — production-mode Family D request does NOT include any of the 6 excluded deterministic rawKeys', () => {
@@ -99,9 +106,9 @@ describe('MCP-021C-EDGE-FAMILY-D-ENABLE — production-mode subset filter (HALT 
     }
   });
 
-  it('SFP-4 — production-mode Family D definitions map has exactly 19 entries (no orphan keys)', () => {
+  it('SFP-4 — production-mode Family D definitions map has exactly 22 entries (no orphan keys)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument(FAMILY_D_PRODUCTION_INPUT);
-    expect(Object.keys(req.definitions).length).toBe(19);
+    expect(Object.keys(req.definitions).length).toBe(22);
     for (const key of Object.keys(req.definitions)) {
       expect(FAMILY_D_AI_CLASSIFIER_KEYS.includes(key as never)).toBe(true);
     }
@@ -129,17 +136,17 @@ describe('MCP-021C-EDGE-FAMILY-D-ENABLE — production-mode subset filter (HALT 
     expect(prodKeys).toEqual(adminKeys);
   });
 
-  it('SFP-7 — production-mode multi-family request (D + A) sends 19 D ai_classifier + 19 A full = 38 (composes correctly)', () => {
+  it('SFP-7 — production-mode multi-family request (D + A) sends 22 D ai_classifier + 19 A full = 41 (composes correctly)', () => {
     // Mirror of SF-10 (admin_validation) with mode='production'. Verifies
     // the subset filter composes correctly under production-mode for
-    // mixed-family requests: Family D contributes 19 ai_classifier keys
-    // (filtered); Family A contributes its full 19-key set post MCP-BUILD2b
-    // (no filter — the 3 new keys are ai_classifier).
+    // mixed-family requests: Family D contributes 22 ai_classifier keys
+    // (filtered; post MCP-BUILD2d); Family A contributes its full 19-key set
+    // post MCP-BUILD2b (no filter — the 3 new keys are ai_classifier).
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_D_PRODUCTION_INPUT,
       requestedFamilies: ['evidence_source_chain', 'parent_relation'],
     });
-    expect(req.requestedRawKeys.length).toBe(38);
+    expect(req.requestedRawKeys.length).toBe(41);
     const sent = new Set(req.requestedRawKeys);
     for (const key of FAMILY_D_AI_CLASSIFIER_KEYS) {
       expect(sent.has(key)).toBe(true);

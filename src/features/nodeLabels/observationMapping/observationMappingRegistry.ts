@@ -1843,6 +1843,304 @@ const FAMILY_F_BUILD2F_RULES: ReadonlyArray<ObservationMappingRule> = [
   },
 ];
 
+// ── (8) MCP-BUILD2d — Family D evidence_source_chain (evidence-dynamic) mapping rows. ──
+//        Adopted from the candidate CSV's deferred `evidence_source_chain` rows
+//        whose required flags are EXACTLY the 3 new Build-2d booleans
+//        (names_method_difference, separates_observation_from_inference,
+//        flags_context_limit). The CSV's generic label_neutral
+//        ("Unsupported or lightly supported disagreement") and "When X=yes,
+//        show: …" diagnostic prefix are re-authored here into clean verdict-free,
+//        move-level strings per the design's review pass (§8.2 / manifest §3).
+//        Every flag is now a deployed A-G rawKey (the 3 new defs land in
+//        familyD.ts this card, taking the mcp-server Subset 19 → 22), so each
+//        rule fires. The CSV's intra-3 pair rows pair the 3 new flags ONLY with
+//        each other; all are seeded here per the fireability rule (mirror
+//        A/C/E). The CSV's other 60+ pair rows pair them with PLANNED partner
+//        flags (requests_source, cites_source, source_is_specific,
+//        source_is_primary, evidence_matches_claim, distinguishes_uncertainty,
+//        …) that are NOT deployed → DEFERRED to Build 3. 6 single rows (3 true +
+//        3 false) + 9 pair rows (every two-flag combination of the 3) = 15 rows.
+//        EVIDENCE-DOCTRINE FENCE (manifest §3 + evidence-doctrine skill): each
+//        row describes the MOVE's evidence DYNAMIC (it names a method
+//        difference / separates observation from inference / flags a context
+//        limit). It NEVER grants or denies factual standing or truth, and never
+//        judges the author; the anti-amplification module is untouched. None of
+//        the 3 D booleans is verdict-adjacent (no extra fence required beyond the
+//        standard describe-the-move framing), per manifest §3 ("lowest-risk
+//        family alongside G").
+const FAMILY_D_BUILD2D_RULES: ReadonlyArray<ObservationMappingRule> = [
+  // ── singles: names_method_difference ──
+  {
+    mappingId: 'MBOM-00095',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['names_method_difference'],
+    requiredFalseFlags: [],
+    observationCode: 'evidence_source_chain.single_true.names_method_difference',
+    labelShort: 'Names a method difference',
+    labelNeutral: 'Names a method or measurement difference',
+    diagnosticSentence:
+      'This reply names a difference in method or measurement between two pieces of evidence.',
+    displayPriority: 74,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00096',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['names_method_difference'],
+    observationCode: 'evidence_source_chain.single_false.names_method_difference',
+    labelShort: 'No method difference named',
+    labelNeutral: 'A method or measurement difference not observed',
+    diagnosticSentence:
+      'This reply does not name a method or measurement difference between pieces of evidence; this is only an observation about its structure, not a concern.',
+    displayPriority: 112,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: separates_observation_from_inference ──
+  {
+    mappingId: 'MBOM-00097',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['separates_observation_from_inference'],
+    requiredFalseFlags: [],
+    observationCode: 'evidence_source_chain.single_true.separates_observation_from_inference',
+    labelShort: 'Separates observation from inference',
+    labelNeutral: 'Separates what was observed from what was inferred',
+    diagnosticSentence:
+      'This reply distinguishes what was observed in the data from what was inferred on top of it.',
+    displayPriority: 78,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00098',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['separates_observation_from_inference'],
+    observationCode: 'evidence_source_chain.single_false.separates_observation_from_inference',
+    labelShort: 'Observation and inference not separated',
+    labelNeutral: 'A split between observed and inferred not observed',
+    diagnosticSentence:
+      'This reply does not separate what was observed from what was inferred; this is only an observation about its structure, not a concern.',
+    displayPriority: 103,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: flags_context_limit ──
+  {
+    mappingId: 'MBOM-00099',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['flags_context_limit'],
+    requiredFalseFlags: [],
+    observationCode: 'evidence_source_chain.single_true.flags_context_limit',
+    labelShort: 'Flags a context limit',
+    labelNeutral: 'Flags a context or applicability limit on evidence',
+    diagnosticSentence:
+      'This reply flags a context or applicability limit on a piece of evidence — where it does and does not apply.',
+    displayPriority: 80,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00100',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['flags_context_limit'],
+    observationCode: 'evidence_source_chain.single_false.flags_context_limit',
+    labelShort: 'No context limit flagged',
+    labelNeutral: 'A context or applicability limit not observed',
+    diagnosticSentence:
+      'This reply does not flag a context or applicability limit on the evidence; this is only an observation about its structure, not a concern.',
+    displayPriority: 104,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: names_method_difference × separates_observation_from_inference ──
+  {
+    mappingId: 'MBOM-01127',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['names_method_difference', 'separates_observation_from_inference'],
+    requiredFalseFlags: [],
+    observationCode:
+      'evidence_source_chain.pair_true_true.names_method_difference.separates_observation_from_inference',
+    labelShort: 'Method difference and observation/inference split',
+    labelNeutral: 'Names a method difference and separates observation from inference',
+    diagnosticSentence:
+      'This reply names a method or measurement difference and separates what was observed from what was inferred.',
+    displayPriority: 70,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01128',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['names_method_difference'],
+    requiredFalseFlags: ['separates_observation_from_inference'],
+    observationCode:
+      'evidence_source_chain.pair_true_false.names_method_difference.no_observation_inference_split',
+    labelShort: 'Method difference, no observation/inference split',
+    labelNeutral: 'Names a method difference without separating observation from inference',
+    diagnosticSentence:
+      'This reply names a method or measurement difference but does not separate what was observed from what was inferred.',
+    displayPriority: 84,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01129',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['separates_observation_from_inference'],
+    requiredFalseFlags: ['names_method_difference'],
+    observationCode:
+      'evidence_source_chain.pair_false_true.separates_observation_from_inference.no_method_difference',
+    labelShort: 'Observation/inference split, no method difference',
+    labelNeutral: 'Separates observation from inference without naming a method difference',
+    diagnosticSentence:
+      'This reply separates what was observed from what was inferred but does not name a method or measurement difference.',
+    displayPriority: 100,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: names_method_difference × flags_context_limit ──
+  {
+    mappingId: 'MBOM-01130',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['names_method_difference', 'flags_context_limit'],
+    requiredFalseFlags: [],
+    observationCode:
+      'evidence_source_chain.pair_true_true.names_method_difference.flags_context_limit',
+    labelShort: 'Method difference and context limit',
+    labelNeutral: 'Names a method difference and flags a context limit',
+    diagnosticSentence:
+      'This reply names a method or measurement difference and flags a context or applicability limit on the evidence.',
+    displayPriority: 71,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01131',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['names_method_difference'],
+    requiredFalseFlags: ['flags_context_limit'],
+    observationCode:
+      'evidence_source_chain.pair_true_false.names_method_difference.no_context_limit',
+    labelShort: 'Method difference, no context limit',
+    labelNeutral: 'Names a method difference without flagging a context limit',
+    diagnosticSentence:
+      'This reply names a method or measurement difference but does not flag a context or applicability limit on the evidence.',
+    displayPriority: 85,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01132',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['flags_context_limit'],
+    requiredFalseFlags: ['names_method_difference'],
+    observationCode:
+      'evidence_source_chain.pair_false_true.flags_context_limit.no_method_difference',
+    labelShort: 'Context limit, no method difference',
+    labelNeutral: 'Flags a context limit without naming a method difference',
+    diagnosticSentence:
+      'This reply flags a context or applicability limit on the evidence but does not name a method or measurement difference.',
+    displayPriority: 99,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: separates_observation_from_inference × flags_context_limit ──
+  {
+    mappingId: 'MBOM-01133',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['separates_observation_from_inference', 'flags_context_limit'],
+    requiredFalseFlags: [],
+    observationCode:
+      'evidence_source_chain.pair_true_true.separates_observation_from_inference.flags_context_limit',
+    labelShort: 'Observation/inference split and context limit',
+    labelNeutral: 'Separates observation from inference and flags a context limit',
+    diagnosticSentence:
+      'This reply separates what was observed from what was inferred and flags a context or applicability limit on the evidence.',
+    displayPriority: 72,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01134',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['separates_observation_from_inference'],
+    requiredFalseFlags: ['flags_context_limit'],
+    observationCode:
+      'evidence_source_chain.pair_true_false.separates_observation_from_inference.no_context_limit',
+    labelShort: 'Observation/inference split, no context limit',
+    labelNeutral: 'Separates observation from inference without flagging a context limit',
+    diagnosticSentence:
+      'This reply separates what was observed from what was inferred but does not flag a context or applicability limit on the evidence.',
+    displayPriority: 90,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01135',
+    familyKey: 'evidence_source_chain',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['flags_context_limit'],
+    requiredFalseFlags: ['separates_observation_from_inference'],
+    observationCode:
+      'evidence_source_chain.pair_false_true.flags_context_limit.no_observation_inference_split',
+    labelShort: 'Context limit, no observation/inference split',
+    labelNeutral: 'Flags a context limit without separating observation from inference',
+    diagnosticSentence:
+      'This reply flags a context or applicability limit on the evidence but does not separate what was observed from what was inferred.',
+    displayPriority: 101,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+];
+
 /**
  * The reviewed, reconciled, frozen mapping registry the evaluator reads.
  * A-G only. Every flag is a deployed rawKey; every label is verdict-free.
@@ -1855,6 +2153,7 @@ export const OBSERVATION_MAPPING_REGISTRY: ReadonlyArray<ObservationMappingRule>
       ...FAMILY_B_BUILD2A_RULES,
       ...FAMILY_A_BUILD2B_RULES,
       ...FAMILY_C_BUILD2C_RULES,
+      ...FAMILY_D_BUILD2D_RULES,
       ...FAMILY_E_BUILD2E_RULES,
       ...FAMILY_F_BUILD2F_RULES,
     ].map((r) =>
@@ -1920,6 +2219,24 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
    */
   build2cFamilyCAdoptedRules: FAMILY_C_BUILD2C_RULES.length,
   /**
+   * MCP-BUILD2d — mapping rows adopted from the candidate CSV's deferred
+   * `evidence_source_chain` rows whose required flags are EXACTLY the 3 new
+   * Build-2d booleans (now deployed in familyD.ts): names_method_difference,
+   * separates_observation_from_inference, flags_context_limit. These were part
+   * of the 955 deferred-planned-vocab rows; deploying the 3 booleans converts
+   * them from deferred to genuinely-fireable. 6 singles + 9 pairs = 15. The
+   * CSV's other 60+ `evidence_source_chain` pair rows that ALSO need a planned
+   * partner flag (requests_source, cites_source, source_is_specific,
+   * source_is_primary, evidence_matches_claim, distinguishes_uncertainty, …)
+   * remain DEFERRED to Build 3. The 3 D booleans take the mcp-server Subset
+   * 19 → 22 — the FIRST family to exceed the 20-key cap, so it is served in 2
+   * batches (16 + 6) at the Edge; mapping-row seeding is unaffected by
+   * batching (the evaluator reads merged results). EVIDENCE-DOCTRINE FENCE:
+   * these rows describe the move's evidence dynamic and NEVER grant/deny
+   * factual standing (anti-amplification module untouched).
+   */
+  build2dFamilyDAdoptedRules: FAMILY_D_BUILD2D_RULES.length,
+  /**
    * MCP-BUILD2e — mapping rows adopted from the candidate CSV's deferred
    * `argument_scheme` rows whose required flags are EXACTLY the 3 new Build-2e
    * booleans (now deployed in familyE.ts): linked_premise_structure,
@@ -1953,6 +2270,7 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
     FAMILY_B_BUILD2A_RULES.length +
     FAMILY_A_BUILD2B_RULES.length +
     FAMILY_C_BUILD2C_RULES.length +
+    FAMILY_D_BUILD2D_RULES.length +
     FAMILY_E_BUILD2E_RULES.length +
     FAMILY_F_BUILD2F_RULES.length,
   /** Families H/I/J adopted. ALWAYS 0 (frozen / out of scope). */

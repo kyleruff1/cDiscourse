@@ -386,7 +386,7 @@ Deno.test('registry-getSupportedFamilies-preserves-four-family-order', async () 
     registry.getSupportedFamilies(),
     ['parent_relation', 'disagreement_axis', 'misunderstanding_repair', 'evidence_source_chain'],
   );
-  assertEquals(registry.getRawKeysForFamily('evidence_source_chain').size, 19);
+  assertEquals(registry.getRawKeysForFamily('evidence_source_chain').size, 22);
   assertEquals(registry.getClassifierSetVersion('evidence_source_chain'), 'family-d-v1');
 });
 
@@ -452,7 +452,7 @@ Deno.test('registry-isRawKeySupportedForFamily-four-way-cross-family-rejection',
   );
 });
 
-Deno.test('registry-getRawKeysForFamily-returns-all-19-for-family-d-Subset', async () => {
+Deno.test('registry-getRawKeysForFamily-returns-all-22-for-family-d-Subset', async () => {
   const { FAMILY_D_RAW_KEYS, FAMILY_D_CLASSIFIER_SET_VERSION } = await import(
     '../lib/familyDKeys.ts'
   );
@@ -462,7 +462,8 @@ Deno.test('registry-getRawKeysForFamily-returns-all-19-for-family-d-Subset', asy
     classifierSetVersion: FAMILY_D_CLASSIFIER_SET_VERSION,
   });
   const keys = registry.getRawKeysForFamily('evidence_source_chain');
-  assertEquals(keys.size, 19);
+  // MCP-BUILD2d: 19 → 22 Family D Subset rawKeys (FAMILY_D_RAW_KEYS).
+  assertEquals(keys.size, 22);
   for (const binding of FAMILY_D_RAW_KEYS) {
     assertEquals(keys.has(binding), true);
   }

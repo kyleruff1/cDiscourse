@@ -229,7 +229,8 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group B: Q14 CASE regressi
     expect(stripped).toContain("when 'disagreement_axis' then 17");
     // MCP-BUILD2c: misunderstanding_repair 17 → 20 (+3 repair-quality booleans).
     expect(stripped).toContain("when 'misunderstanding_repair' then 20");
-    expect(stripped).toContain("when 'evidence_source_chain' then 19");
+    // MCP-BUILD2d: evidence_source_chain Subset 19 → 22 (+3 evidence-dynamic booleans).
+    expect(stripped).toContain("when 'evidence_source_chain' then 22");
     expect(stripped).toContain("when 'resolution_progress' then 18");
     // Unsupported families fall through to 0 (else branch).
     expect(/else\s+0/i.test(stripped)).toBe(true);

@@ -8,7 +8,7 @@
  *
  * The patterns themselves are tested in upstream `doctrineBanList.test.ts`;
  * this file exercises the SCAN logic and field coverage against Family D
- * fixture shapes (19 keys, family-d-v1). Per design §4.4: NO Family-D-specific
+ * fixture shapes (22-key Subset, family-d-v1). Per design §4.4: NO Family-D-specific
  * patterns are added to the shared DOCTRINE_BAN_PATTERNS in this card;
  * per-key doctrine-risk assertions live in `familyDDoctrineFixtures.test.ts`.
  */

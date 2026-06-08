@@ -1,7 +1,19 @@
 /**
- * MCP-021A — Family D (evidence_source_chain) definitions.
+ * MCP-021A + MCP-BUILD2d — Family D (evidence_source_chain) definitions.
  *
- * Per design §3.4: 27 entries total.
+ * 30 entries total (MCP-021A baseline 27 + MCP-BUILD2d +3 ai_classifier).
+ * The MCP-BUILD2d additions (Build-2 manifest §3) are the 3 evidence-dynamic
+ * booleans names_method_difference, separates_observation_from_inference,
+ * flags_context_limit — all ai_classifier, all added to the mcp-server Subset,
+ * taking that Subset 19 → 22 (the FIRST family to exceed the per-response cap
+ * of 20, so its 22-key response is split into 2 batches at the Edge by the
+ * MCP-BOOLEAN-BATCHING-INFRA-001 chunker; the client/Edge definition list is
+ * unaffected by batching). NO schema-version bump (vocabulary expansion, not a
+ * wire change). EVIDENCE-DOCTRINE FENCE: the 3 new labels surface evidence
+ * DYNAMICS (method, observation/inference, context limit) and NEVER grant or
+ * deny factual standing/truth; the anti-amplification module stays untouched.
+ *
+ * Per design §3.4: 27 entries baseline.
  *  - 15 existing (RETROACTIVE_VERBOSE_DEFINITIONS):
  *      auto_metadata #4-#8: has_evidence, source_requested,
  *        quote_requested, source_attached, quote_attached
@@ -908,6 +920,132 @@ export const FAMILY_D_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     doctrineNotes: Object.freeze([
       'cdiscourse-doctrine §10a: burden-of-proof framing is structural meta-evidence move.',
       'evidence-doctrine: burden-of-proof framing is debated philosophical territory; CDiscourse treats it descriptively, not as a verdict on which side is "right".',
+    ]),
+    confidenceEligibility: NEW_EVIDENCE_INSPECT_ELIGIBILITY,
+  }),
+
+  // ── MCP-BUILD2d (evidence_source_chain expansion; Build-2 manifest §3) ──
+  // Three Build-2d booleans that surface the EVIDENCE DYNAMICS of a move — the
+  // method/measurement difference it names, the observation/inference boundary
+  // it draws, and the context/applicability limit it flags. All ai_classifier,
+  // all added to the mcp-server Subset (taking it 19 → 22), all Inspect-only.
+  // EVIDENCE-DOCTRINE FENCE (manifest §3 + evidence-doctrine skill): each label
+  // describes the MOVE's evidence dynamic, advisory, never grants or denies
+  // factual standing / truth and never judges the author. Granting/denying
+  // factual standing remains the anti-amplification module's job, which this
+  // card does NOT touch. None is verdict-adjacent (no fence beyond the standard
+  // describe-the-move framing required), per manifest §3 ("lowest-risk family
+  // alongside G").
+
+  // BUILD2d #1 names_method_difference (Inspect-only)
+  buildEvidence({
+    rawKey: 'names_method_difference',
+    source: 'ai_classifier',
+    label: 'Names a method difference',
+    shortLabel: 'Method diff',
+    description:
+      'This move names a difference in method or measurement between two pieces of evidence.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 161,
+    visibleByDefault: false,
+    booleanQuestion:
+      'Does this move name a difference in method or measurement between two pieces of evidence?',
+    positiveDefinition:
+      'The move identifies a SPECIFIC methodological or measurement difference that explains why two pieces of evidence diverge (study design, instrument, denominator, time horizon, sampling frame). Neutral observation about the evidence, not a quality dispute.',
+    negativeDefinition:
+      'The move disputes evidence quality without naming the method (evidence_quality_questioned), asks for evidence (asks_for_evidence), or makes a claim without comparing methods.',
+    positiveExamples: Object.freeze([
+      "Move: 'Your study used self-report; the one I cited used administrative records — that is why the numbers diverge.'",
+      "Move: 'They measured at 6 months, you at 5 years; the method difference is the time horizon.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'Your study is bad.' (disputes quality without naming a method — evidence_quality_questioned)",
+      "Move: 'Where is your source?' (asks_for_evidence)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The move must NAME a specific method or measurement difference; do NOT mark generic "I trust mine more".',
+      'Co-fires acceptably with evidence_quality_questioned (the neutral naming vs the quality dispute).',
+      'EVIDENCE-DOCTRINE FENCE: this observation describes a neutral methodological feature of the MOVE; it NEVER grants or denies factual standing or truth to either piece of evidence, and NEVER judges the author. Granting/denying standing remains the anti-amplification module\'s job.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: naming a method difference is a structural, neutral evidence observation about the move.',
+      'evidence-doctrine: this surfaces an evidence DYNAMIC (why two sources diverge); it does NOT grant or deny factual standing — the anti-amplification module is untouched.',
+    ]),
+    confidenceEligibility: NEW_EVIDENCE_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2d #2 separates_observation_from_inference (Inspect-only)
+  buildEvidence({
+    rawKey: 'separates_observation_from_inference',
+    source: 'ai_classifier',
+    label: 'Separates observation from inference',
+    shortLabel: 'Obs vs inference',
+    description:
+      'This move distinguishes what was observed in the data from what was inferred on top of it.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 162,
+    visibleByDefault: false,
+    booleanQuestion:
+      'Does this move distinguish what was observed from what was inferred?',
+    positiveDefinition:
+      'The move explicitly marks the boundary between observed data and an inferred conclusion ("we observed the correlation; the causal link is an inference, not in the data"). An epistemic-structural distinction.',
+    negativeDefinition:
+      'The move conflates the two, disputes a fact directly (disputes_fact), or makes a claim without drawing the observation/inference boundary.',
+    positiveExamples: Object.freeze([
+      "Move: 'The data shows X happened; that it was caused by Y is your read, not the measurement.'",
+      "Move: 'What is measured is enrollment; \"literacy gain\" is an inference on top of it.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'That is just false.' (disputes a fact, no separation)",
+      "Move: 'Good evidence.' (no observation/inference separation)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The move must EXPLICITLY mark the observation/inference boundary; do NOT mark on the word "infer" alone.',
+      'EVIDENCE-DOCTRINE FENCE: this observation describes a structural feature of the MOVE\'s reasoning; it NEVER grants or denies factual standing or truth and NEVER judges the author. The anti-amplification module is untouched.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: separating observation from inference is an epistemic-structural fact about the move.',
+      'evidence-doctrine: this surfaces an evidence DYNAMIC (the data/inference boundary); it does NOT grant or deny factual standing.',
+    ]),
+    confidenceEligibility: NEW_EVIDENCE_INSPECT_ELIGIBILITY,
+  }),
+
+  // BUILD2d #3 flags_context_limit (Inspect-only)
+  buildEvidence({
+    rawKey: 'flags_context_limit',
+    source: 'ai_classifier',
+    label: 'Flags a context limit',
+    shortLabel: 'Context limit',
+    description:
+      'This move flags a context or applicability limit on a piece of evidence.',
+    defaultSurface: 'inspect',
+    disposition: 'future_source',
+    priority: 163,
+    visibleByDefault: false,
+    booleanQuestion:
+      'Does this move flag a context or applicability limit on a piece of evidence?',
+    positiveDefinition:
+      'The move names a context or applicability boundary on the EVIDENCE ("that holds in the lab; field conditions add variables it does not account for"). An uncertainty observation about where the evidence applies.',
+    negativeDefinition:
+      'The move disputes the evidence outright (disputes_fact / evidence_quality_questioned), accepts it with no limit flagged, or names a scope limit on the CLAIM (identifies_parent_scope_limit / disputes_scope, not the evidence).',
+    positiveExamples: Object.freeze([
+      "Move: 'Valid for the 2020 sample; the population has shifted since.'",
+      "Move: 'True in high-trust institutions; the evidence does not speak to low-trust ones.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'That evidence is wrong.' (disputes the fact / quality, no limit flagged)",
+      "Move: 'Solid source.' (no applicability limit)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'The limit must be a CONTEXT/APPLICABILITY boundary on the EVIDENCE (vs a scope limit on the claim, which is identifies_parent_scope_limit / disputes_scope); do NOT mark vague hedging.',
+      'Overlaps acceptably with disputes_evidence_applicability (the dispute) vs flags_context_limit (the neutral flag).',
+      'EVIDENCE-DOCTRINE FENCE: this observation describes a limit on the EVIDENCE; it NEVER grants or denies factual standing or truth and NEVER judges the author. The anti-amplification module is untouched.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: flagging a context limit is an uncertainty observation about the move.',
+      'evidence-doctrine: this surfaces an evidence DYNAMIC (where the evidence applies); it does NOT grant or deny factual standing.',
     ]),
     confidenceEligibility: NEW_EVIDENCE_INSPECT_ELIGIBILITY,
   }),

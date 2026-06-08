@@ -30,7 +30,7 @@ describe('MCP-021A — registry size + family assignment', () => {
     expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBeLessThanOrEqual(200);
   });
 
-  it('contains exactly 187 entries (MCP-021A 172 + MCP-BUILD2a Family B +3 + MCP-BUILD2b Family A +3 + MCP-BUILD2c Family C +3 + MCP-BUILD2e Family E +3 + MCP-BUILD2f Family F +3)', () => {
+  it('contains exactly 190 entries (MCP-021A 172 + MCP-BUILD2a Family B +3 + MCP-BUILD2b Family A +3 + MCP-BUILD2c Family C +3 + MCP-BUILD2d Family D +3 + MCP-BUILD2e Family E +3 + MCP-BUILD2f Family F +3)', () => {
     // Design §3.11: "Final registry count: 64 + 107 = 171, OR 65 + 107 = 172.
     // Resolved by implementer Phase A pass; both numbers respect Trigger 11."
     // Implementer Phase A: existing 65 + 107 new = 172. Family G includes 21
@@ -47,9 +47,13 @@ describe('MCP-021A — registry size + family assignment', () => {
     // MCP-BUILD2f (Build-2 manifest §5): +3 critical_question booleans
     // (question_names_uncertainty, question_separates_claim_evidence,
     // question_invites_revision) → 187.
+    // MCP-BUILD2d (Build-2 manifest §3): +3 evidence_source_chain booleans
+    // (names_method_difference, separates_observation_from_inference,
+    // flags_context_limit) → 190. These take the mcp-server Subset 19 → 22,
+    // the first family past the 20-key cap (served in 2 batches at the Edge).
     // Vocabulary expansion only; the schema version constant is byte-equal
     // (no wire-shape change).
-    expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBe(187);
+    expect(ALL_MACHINE_OBSERVATION_DEFINITION_KEYS.length).toBe(190);
   });
 
   it('has every entry with a family field assigned', () => {
@@ -77,7 +81,7 @@ describe('MCP-021A — per-family count forecast (within ±1 of design §3.11)',
     parent_relation: 19, // 4 existing + 12 MCP-021A + 3 MCP-BUILD2b
     disagreement_axis: 17, // 1 existing + 13 MCP-021A + 3 MCP-BUILD2a
     misunderstanding_repair: 20, // 4 existing + 13 MCP-021A + 3 MCP-BUILD2c
-    evidence_source_chain: 27, // 15 existing + 12 new
+    evidence_source_chain: 30, // 15 existing + 12 MCP-021A new + 3 MCP-BUILD2d
     argument_scheme: 19, // 0 existing + 16 MCP-021A + 3 MCP-BUILD2e
     critical_question: 17, // 0 existing + 14 MCP-021A + 3 MCP-BUILD2f
     resolution_progress: 30, // 21 existing (5 auto + 7 lifecycle + 9 ai_classifier) + 9 new — see design §3.7 self-correction
@@ -93,12 +97,12 @@ describe('MCP-021A — per-family count forecast (within ±1 of design §3.11)',
     });
   }
 
-  it('per-family counts sum to 187', () => {
+  it('per-family counts sum to 190', () => {
     const total = ALL_MACHINE_OBSERVATION_FAMILIES.reduce(
       (sum, fam) => sum + expectedCounts[fam],
       0,
     );
-    expect(total).toBe(187);
+    expect(total).toBe(190);
   });
 });
 

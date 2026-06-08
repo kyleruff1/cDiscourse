@@ -1,11 +1,16 @@
 /**
- * MCP-SERVER-005-FAMILY-D — Family D prompt construction.
+ * MCP-SERVER-005-FAMILY-D + MCP-BUILD2d — Family D prompt construction.
  *
- * Single-prompt strategy per design §2: one Anthropic call covers all
- * 19 Family D Subset rawKeys. Token budget ~9k input worst-case,
- * MAX_TOKENS=1800 output (19 keys × ~90 tokens each plus structured-output
- * overhead). Per Stage 2B operator decision the MAX_TOKENS bump from
- * Family A/B/C's 1500 baseline to 1800 is approved.
+ * Per-batch prompt strategy: the prompt builder filters to the requested
+ * rawKey slice, so each call covers the BATCH's keys, not the full Subset.
+ * MCP-BUILD2d takes the Family D Subset 19 → 22 (Build-2 manifest §3). 22 >
+ * the per-response cap (20), so the Edge chunker (MCP-BOOLEAN-BATCHING-
+ * INFRA-001) splits the 22-key set into 2 batches (16 + 6); this builder
+ * receives each batch's requestedRawKeys and emits a <= 16-key prompt per
+ * call (NO builder change — it already filters to requestedRawKeys). Token
+ * budget MAX_TOKENS=1800 output comfortably covers a 16-key batch (it was
+ * sized for 19). Per Stage 2B operator decision the MAX_TOKENS bump from
+ * Family A/B/C's 1500 baseline to 1800 is approved (unchanged this card).
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 (Score is gameplay, not truth): the system
@@ -48,10 +53,11 @@
 import { FAMILY_D_PROMPT_ENTRIES, FAMILY_D_RAW_KEYS } from './familyDKeys.ts';
 
 /**
- * MAX_TOKENS for the Family D response. 19 keys × ~90 tokens + overhead.
- * Per Stage 2B operator decision: bumped from the Family A/B/C 1500 baseline
- * to 1800 to fit the 19-key Subset within the structured-output envelope.
- * HALT if 1800 proves insufficient — do not silently bump further.
+ * MAX_TOKENS for the Family D response. Per Stage 2B operator decision:
+ * 1800 (bumped from the Family A/B/C 1500 baseline). MCP-BUILD2d takes the
+ * Subset to 22 keys but they are served in 2 batches (16 + 6) — each batch
+ * response is <= 16 keys, comfortably within 1800 (was sized for 19). NO
+ * bump this card. HALT if 1800 proves insufficient — do not silently bump.
  */
 export const FAMILY_D_MAX_TOKENS = 1800;
 
@@ -156,7 +162,9 @@ export interface ValidatedFamilyDRequest {
  *   6. Conservative-positives bias reminder (0 to 3 evidence signals)
  *   7. The input (move text, parent text, thread context)
  *
- * When requestedRawKeys is empty, all 19 Family D Subset keys are included.
+ * When requestedRawKeys is empty, all 22 Family D Subset keys are included
+ * (in practice the Edge always passes a per-batch slice of <= 16 keys for
+ * Family D, since 22 > the 20-key cap forces batching).
  *
  * Returns a string — pure, no I/O. The string contains the verbatim
  * caller-redacted move/parent/thread text fields; the caller has already
@@ -224,7 +232,7 @@ Definitions and examples for each rawKey:
 
 ${definitionsBlock}
 
-Note about the Subset path: this server processes only the 19 ai-classifier
+Note about the Subset path: this server processes only the 22 ai-classifier
 Family D rawKeys above. The 8 deterministic Family D rawKeys (has_evidence,
 source_requested, quote_requested, source_attached, quote_attached, sourced,
 plus lifecycle quote_requested / source_requested) are computed by other
