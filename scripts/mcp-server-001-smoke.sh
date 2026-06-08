@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A + Build-2c Family-C + Build-2e Family-E + Build-2f Family-F + Build-2d Family-D new-key proof).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A + Build-2c Family-C + Build-2e Family-E + Build-2f Family-F + Build-2d Family-D + Build-2g Family-G new-key proof).
 #
-# Verifies the deployed (or locally-running) MCP server against the 37 checks:
+# Verifies the deployed (or locally-running) MCP server against the 39 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -11,7 +11,7 @@
 #                   coverage — argument_scheme)
 #   - Checks 18-19: MCP-SERVER-007-FAMILY-F (Family F 14 Walton/Toulmin/
 #                   Peirce critical questions — critical_question)
-#   - Checks 20-21: MCP-SERVER-008-FAMILY-G (Family G 18-key ai_classifier
+#   - Checks 20-21: MCP-SERVER-008-FAMILY-G (Family G 21-key ai_classifier
 #                   Subset — resolution_progress; descriptive convergence-state,
 #                   never a verdict)
 #   - Checks 22-23: MCP-SERVER-009-FAMILY-H (Family H 12-key ai_classifier
@@ -47,6 +47,13 @@
 #                   flags_context_limit) — merged-≠-live harness; these DIRECT-
 #                   Deno checks request only the 3 NEW keys (≤20), bypassing the
 #                   Edge 2-batch split (correct: any ≤20-key subset is one request)
+#   - Checks 38-39: OPS-DENO-GOLIVE Build-2g Family-G new-key proof
+#                   (records_remaining_disagreement,
+#                   defines_next_evidence_needed,
+#                   separates_normative_from_empirical) — merged-≠-live harness;
+#                   these DIRECT-Deno checks request only the 3 NEW keys (≤20),
+#                   bypassing the Edge 2-batch split (the 21-key Family-G Subset
+#                   splits 16+5 in the Edge classifier, not here)
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -58,7 +65,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 37 checks passed
+#   0 — all 39 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -1013,6 +1020,64 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2d Family-D keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #547 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 38: POST /mcp/adapter-compat — Family G BUILD-2g NEW keys present ──
+# MCP-BUILD2g / #548. SMOKE HARNESS ONLY — NOT product behavior, NOT a new
+# boolean. This check is the merged-≠-live proof: it asks the hosted Deno build
+# for the 3 NEW Family-G booleans (records_remaining_disagreement,
+# defines_next_evidence_needed, separates_normative_from_empirical) and FAILS
+# CLOSED unless all three appear in the response. A STALE Deno deploy (pre-#548,
+# 18-key Family G Subset) returns unsupported_rawKey / omits the keys, so a green
+# baseline Family-G check (20/21) can NOT mask a stale deploy. This DIRECT-Deno
+# check requests only the 3 NEW keys (3 ≤ 20), so it bypasses the Edge 2-batch
+# split entirely — that is correct: the server serves any ≤20-key subset as one
+# normal single-family request; the 16+5 split lives in the Edge classifier, not
+# here. Key-presence is value-agnostic (true OR false is fine — we are proving
+# the classifier KNOWS the keys, not what it answered). The fixture body is
+# doctrine-safe: it surfaces resolution-progress STRUCTURE (a remaining-
+# disagreement roundup, a next-evidence definition, a normative-vs-empirical
+# separation) — these are DESCRIPTIVE CONVERGENCE-STATE and NEVER an adjudication
+# of which side is leading or has resolved the dispute; concession is a scoring
+# repair, synthesis is a gameplay move, settlement is procedural. The next-
+# evidence definition NEVER grants or denies factual standing, and the
+# observation never judges the author.
+CHECK_NAME="38-compat-boolean-family-g-build2g-newkeys"
+BOOLEAN_G2_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-g2-001","parentNodeId":"fixture-node-parent-g2-001","currentText":"[fixture] I think we both agree on the BC and Sweden data; the open question is whether that generalizes. Two questions are tangled: an empirical one (the effect size) and a values one (whether the tradeoff is acceptable). To settle the empirical part we would need a primary record of the enforcement dates — that is the next evidence. What is still open is the generalization and the value weighting.","parentText":"[fixture] A debate over whether carbon taxes reduce emissions generally.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["resolution_progress"],"requestedRawKeys":["records_remaining_disagreement","defines_next_evidence_needed","separates_normative_from_empirical"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family G Build-2g NEW keys)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_G2_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-g-v1"' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"records_remaining_disagreement"' \
+     && contains "$RESPONSE" '"defines_next_evidence_needed"' \
+     && contains "$RESPONSE" '"separates_normative_from_empirical"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2g Family-G keys returned (no unsupported_rawKey). A failure here means the hosted Deno build predates #548 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 39: POST /mcp tools/call — Family G BUILD-2g NEW keys present ──
+# Same merged-≠-live assertion as Check 38, via the official MCP /mcp JSON-RPC
+# envelope. SMOKE HARNESS ONLY — not product behavior.
+CHECK_NAME="39-mcp-tools-call-boolean-family-g-build2g-newkeys"
+BOOLEAN_G2_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-17","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-g2-001","parentNodeId":"fixture-node-parent-g2-001","currentText":"[fixture] I think we both agree on the BC and Sweden data; the open question is whether that generalizes. Two questions are tangled: an empirical one (the effect size) and a values one (whether the tradeoff is acceptable). To settle the empirical part we would need a primary record of the enforcement dates — that is the next evidence. What is still open is the generalization and the value weighting.","parentText":"[fixture] A debate over whether carbon taxes reduce emissions generally.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["resolution_progress"],"requestedRawKeys":["records_remaining_disagreement","defines_next_evidence_needed","separates_normative_from_empirical"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call Family G Build-2g NEW keys)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_G2_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"family-g-v1"' \
+     && contains "$RESPONSE" '"isError":false' \
+     && ! contains "$RESPONSE" 'unsupported_rawKey' \
+     && contains "$RESPONSE" '"records_remaining_disagreement"' \
+     && contains "$RESPONSE" '"defines_next_evidence_needed"' \
+     && contains "$RESPONSE" '"separates_normative_from_empirical"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2g Family-G keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #548 — merged is not live. Got: $RESPONSE"
 fi
 
 echo
