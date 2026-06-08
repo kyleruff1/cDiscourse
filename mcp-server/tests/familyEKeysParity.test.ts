@@ -7,9 +7,9 @@
  * imports do not work in that target. This test reads BOTH files as source
  * text and asserts:
  *   - every binding rawKey string literal appears in both files
- *   - upstream `familyE.ts` has exactly 16 rawKey declarations (uniform
- *     ai_classifier; no auto_metadata, no lifecycle)
- *   - the server-side constant contains exactly the 16 ai_classifier-source
+ *   - upstream `familyE.ts` has exactly 19 rawKey declarations (16 baseline +
+ *     3 MCP-BUILD2e; uniform ai_classifier; no auto_metadata, no lifecycle)
+ *   - the server-side constant contains exactly the 19 ai_classifier-source
  *     entries
  *
  * Also verifies cross-family-key collision (HALT trigger #2 guard):
@@ -19,7 +19,7 @@
  *   - Family D ∩ Family E = ∅
  *
  * Also verifies HALT trigger #15 guard:
- *   - All 16 Family E entries upstream use `source: 'ai_classifier'`
+ *   - All 19 Family E entries upstream use `source: 'ai_classifier'`
  *     (uniform; no Subset filter required)
  *
  * If MCP-021A adds/removes a Family E rawKey, this test fails the build
@@ -48,7 +48,7 @@ Deno.test('familyEKeysParity: every server-side rawKey literal appears in upstre
   }
 });
 
-Deno.test('familyEKeysParity: upstream familyE.ts has exactly 16 rawKey declarations', async () => {
+Deno.test('familyEKeysParity: upstream familyE.ts has exactly 19 rawKey declarations', async () => {
   const upstream = await Deno.readTextFile(UPSTREAM_FAMILY_E_PATH);
   // Extract every `rawKey: '<value>'` declaration from the upstream source.
   // This is the canonical buildScheme() shape per familyE.ts.
@@ -61,10 +61,11 @@ Deno.test('familyEKeysParity: upstream familyE.ts has exactly 16 rawKey declarat
   if (upstreamDeclarations.length === 0) {
     throw new Error('Upstream familyE.ts produced 0 rawKey declarations — regex broken or file moved');
   }
-  // Family E upstream MUST have 16 declarations (intent brief §1 binding).
-  if (upstreamDeclarations.length !== 16) {
+  // Family E upstream MUST have 19 declarations (intent brief §1 binding 16 +
+  // 3 MCP-BUILD2e Build-2 manifest §4).
+  if (upstreamDeclarations.length !== 19) {
     throw new Error(
-      `Upstream familyE.ts has ${upstreamDeclarations.length} rawKey declarations; expected 16. Drift detected.`,
+      `Upstream familyE.ts has ${upstreamDeclarations.length} rawKey declarations; expected 19. Drift detected.`,
     );
   }
 });
@@ -142,21 +143,22 @@ Deno.test('familyEKeysParity: Family D ∩ Family E = ∅ (HALT trigger #2 guard
   }
 });
 
-Deno.test('familyEKeysParity: all 16 upstream Family E entries use source: ai_classifier (HALT trigger #15 guard)', async () => {
-  // Per design §1 + §10: Family E is uniform `ai_classifier` (16/16 keys).
-  // No Subset filter required (Stage 2B NOT REQUIRED). Any entry with a
-  // different source would surface as a Stage 2B trigger.
+Deno.test('familyEKeysParity: all 19 upstream Family E entries use source: ai_classifier (HALT trigger #15 guard)', async () => {
+  // Per design §1 + §10 + Build-2 manifest §4: Family E is uniform
+  // `ai_classifier` (19/19 keys). No Subset filter required (Stage 2B NOT
+  // REQUIRED). Any entry with a different source would surface as a Stage 2B
+  // trigger.
   const upstream = await Deno.readTextFile(UPSTREAM_FAMILY_E_PATH);
   // Split into buildScheme blocks. Each block should declare
   // `source: 'ai_classifier'` per the shared SchemeBuilder factory.
   const blocks = upstream.split('buildScheme({');
   // The first block is preamble (header + imports); subsequent blocks are
-  // entries. So expect 17 blocks (16 entries + 1 preamble).
+  // entries. So expect 20 blocks (19 entries + 1 preamble).
   const entryBlocks = blocks.slice(1);
   assertEquals(
     entryBlocks.length,
-    16,
-    `Expected 16 buildScheme() entry blocks; got ${entryBlocks.length}`,
+    19,
+    `Expected 19 buildScheme() entry blocks; got ${entryBlocks.length}`,
   );
   // The shared buildScheme factory pins source: 'ai_classifier' as const,
   // so individual blocks don't repeat it. But the factory itself should
@@ -179,8 +181,8 @@ Deno.test('familyEKeysParity: upstream ai_classifier-source declarations match s
   }
   assertEquals(
     upstreamKeys.length,
-    16,
-    `Upstream familyE.ts ai_classifier entries: expected 16, got ${upstreamKeys.length}`,
+    19,
+    `Upstream familyE.ts ai_classifier entries: expected 19, got ${upstreamKeys.length}`,
   );
   // Each upstream rawKey MUST be in the server-side constant.
   for (const upstreamKey of upstreamKeys) {

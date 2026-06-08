@@ -1217,6 +1217,305 @@ const FAMILY_C_BUILD2C_RULES: ReadonlyArray<ObservationMappingRule> = [
   },
 ];
 
+// ── (6) MCP-BUILD2e — Family E argument-scheme mapping rows. ──────────────
+//        Adopted from the candidate CSV's deferred `argument_scheme` rows
+//        whose required flags are EXACTLY the 3 new Build-2e booleans
+//        (linked_premise_structure, convergent_premise_structure,
+//        enthymeme_gap_detected). The CSV's truncated/internal label_short
+//        ("…observed" / "…absent") and "When X=yes, show: …" diagnostic prefix
+//        are re-authored here into clean verdict-free, move-level strings per
+//        the design's review pass (§8.2 / manifest §4). Every flag is now a
+//        deployed A-G rawKey (the 3 new defs land in familyE.ts this card), so
+//        each rule fires. The CSV's intra-3 pair rows (MBOM-01325..01333) pair
+//        the 3 new flags ONLY with each other; the CSV's other 60+ pair rows
+//        pair them with PLANNED partner flags (has_premise_conclusion,
+//        cause_effect_language, goal_action_reasoning, …) that are NOT deployed
+//        → DEFERRED to Build 3. 6 single rows (3 true + 3 false) + 9 pair rows
+//        (every two-flag combination of the 3) = 15 rows.
+//        The argumentation-theory terms `linked` / `convergent` / `enthymeme`
+//        appear ONLY in the internal rawKeys / observationCodes (routing keys);
+//        every user-facing labelShort / labelNeutral / diagnosticSentence is
+//        plain-language (GATE-A §8.2 rule 4 — theory labels never surfaced raw).
+//        enthymeme_gap_detected (E3) is VERDICT-ADJACENT: its rows are fenced
+//        "gap-is-not-a-verdict" — they describe relying on an unstated step
+//        (a structural feature of the MOVE's inference, an invitation to state
+//        the premise), never framing it as a weakness / defeat
+//        (cdiscourse-doctrine §1). The standalone verdict tokens "weak" /
+//        "wrong" / "flawed" / "invalid" never appear in any E3 label/diagnostic.
+
+const FAMILY_E_BUILD2E_RULES: ReadonlyArray<ObservationMappingRule> = [
+  // ── singles: linked_premise_structure ──
+  {
+    mappingId: 'MBOM-00119',
+    familyKey: 'argument_scheme',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['linked_premise_structure'],
+    requiredFalseFlags: [],
+    observationCode: 'argument_scheme.single_true.linked_premise_structure',
+    labelShort: 'Premises that depend on each other',
+    labelNeutral: 'Uses premises that depend on each other',
+    diagnosticSentence:
+      'This reply uses premises that depend on each other, so they stand or fall together.',
+    displayPriority: 74,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00120',
+    familyKey: 'argument_scheme',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['linked_premise_structure'],
+    observationCode: 'argument_scheme.single_false.linked_premise_structure',
+    labelShort: 'No interdependent premises',
+    labelNeutral: 'Premises that depend on each other not observed',
+    diagnosticSentence:
+      'This reply does not use premises that depend on each other; this is only an observation about its structure, not a concern.',
+    displayPriority: 112,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: convergent_premise_structure ──
+  {
+    mappingId: 'MBOM-00121',
+    familyKey: 'argument_scheme',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['convergent_premise_structure'],
+    requiredFalseFlags: [],
+    observationCode: 'argument_scheme.single_true.convergent_premise_structure',
+    labelShort: 'Premises that each stand alone',
+    labelNeutral: 'Uses premises that each stand on their own',
+    diagnosticSentence:
+      'This reply uses premises that each independently support its conclusion.',
+    displayPriority: 78,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00122',
+    familyKey: 'argument_scheme',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['convergent_premise_structure'],
+    observationCode: 'argument_scheme.single_false.convergent_premise_structure',
+    labelShort: 'No independently standing premises',
+    labelNeutral: 'Premises that each stand on their own not observed',
+    diagnosticSentence:
+      'This reply does not use premises that each stand on their own; this is only an observation about its structure, not a concern.',
+    displayPriority: 103,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── singles: enthymeme_gap_detected (verdict-adjacent; gap-is-not-a-verdict fence) ──
+  {
+    mappingId: 'MBOM-00123',
+    familyKey: 'argument_scheme',
+    ruleKind: 'single_true',
+    requiredTrueFlags: ['enthymeme_gap_detected'],
+    requiredFalseFlags: [],
+    observationCode: 'argument_scheme.single_true.enthymeme_gap_detected',
+    labelShort: 'Relies on an unstated step',
+    labelNeutral: 'Relies on an unstated step',
+    diagnosticSentence:
+      'This reply relies on an unstated step; naming that step can make the reasoning easier to follow. This is an invitation to state it, not a concern about the reply.',
+    displayPriority: 80,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-00124',
+    familyKey: 'argument_scheme',
+    ruleKind: 'single_false',
+    requiredTrueFlags: [],
+    requiredFalseFlags: ['enthymeme_gap_detected'],
+    observationCode: 'argument_scheme.single_false.enthymeme_gap_detected',
+    labelShort: 'No unstated step observed',
+    labelNeutral: 'An unstated step not observed',
+    diagnosticSentence:
+      'This reply does not appear to rely on an unstated step; this is only an observation about its structure, not a concern.',
+    displayPriority: 104,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: linked_premise_structure × convergent_premise_structure ──
+  {
+    mappingId: 'MBOM-01325',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['linked_premise_structure', 'convergent_premise_structure'],
+    requiredFalseFlags: [],
+    observationCode:
+      'argument_scheme.pair_true_true.linked_premise_structure.convergent_premise_structure',
+    labelShort: 'Both interdependent and standalone premises',
+    labelNeutral: 'Uses both interdependent and independently standing premises',
+    diagnosticSentence:
+      'This reply uses both premises that depend on each other and premises that each stand on their own.',
+    displayPriority: 70,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01326',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['linked_premise_structure'],
+    requiredFalseFlags: ['convergent_premise_structure'],
+    observationCode:
+      'argument_scheme.pair_true_false.linked_premise_structure.no_convergent',
+    labelShort: 'Interdependent premises, not standalone',
+    labelNeutral: 'Uses premises that depend on each other, not standalone ones',
+    diagnosticSentence:
+      'This reply uses premises that depend on each other rather than premises that each stand on their own.',
+    displayPriority: 84,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01327',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['convergent_premise_structure'],
+    requiredFalseFlags: ['linked_premise_structure'],
+    observationCode:
+      'argument_scheme.pair_false_true.convergent_premise_structure.no_linked',
+    labelShort: 'Standalone premises, not interdependent',
+    labelNeutral: 'Uses premises that each stand on their own, not interdependent ones',
+    diagnosticSentence:
+      'This reply uses premises that each stand on their own rather than premises that depend on each other.',
+    displayPriority: 100,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: linked_premise_structure × enthymeme_gap_detected (E3 verdict-adjacent) ──
+  {
+    mappingId: 'MBOM-01328',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['linked_premise_structure', 'enthymeme_gap_detected'],
+    requiredFalseFlags: [],
+    observationCode:
+      'argument_scheme.pair_true_true.linked_premise_structure.enthymeme_gap_detected',
+    labelShort: 'Interdependent premises, relies on an unstated step',
+    labelNeutral: 'Uses interdependent premises and relies on an unstated step',
+    diagnosticSentence:
+      'This reply uses premises that depend on each other and relies on an unstated step; naming that step can make the reasoning easier to follow.',
+    displayPriority: 71,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01329',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['linked_premise_structure'],
+    requiredFalseFlags: ['enthymeme_gap_detected'],
+    observationCode:
+      'argument_scheme.pair_true_false.linked_premise_structure.no_enthymeme_gap',
+    labelShort: 'Interdependent premises, steps stated',
+    labelNeutral: 'Uses interdependent premises and states the steps it needs',
+    diagnosticSentence:
+      'This reply uses premises that depend on each other and states the steps its conclusion needs.',
+    displayPriority: 85,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01330',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['enthymeme_gap_detected'],
+    requiredFalseFlags: ['linked_premise_structure'],
+    observationCode:
+      'argument_scheme.pair_false_true.enthymeme_gap_detected.no_linked',
+    labelShort: 'Relies on an unstated step, no interdependent premises',
+    labelNeutral: 'Relies on an unstated step without interdependent premises',
+    diagnosticSentence:
+      'This reply relies on an unstated step without using premises that depend on each other; naming that step can make the reasoning easier to follow.',
+    displayPriority: 99,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  // ── pairs: convergent_premise_structure × enthymeme_gap_detected (E3 verdict-adjacent) ──
+  {
+    mappingId: 'MBOM-01331',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_true_true',
+    requiredTrueFlags: ['convergent_premise_structure', 'enthymeme_gap_detected'],
+    requiredFalseFlags: [],
+    observationCode:
+      'argument_scheme.pair_true_true.convergent_premise_structure.enthymeme_gap_detected',
+    labelShort: 'Standalone premises, relies on an unstated step',
+    labelNeutral: 'Uses standalone premises and relies on an unstated step',
+    diagnosticSentence:
+      'This reply uses premises that each stand on their own and relies on an unstated step; naming that step can make the reasoning easier to follow.',
+    displayPriority: 72,
+    confidencePip: 'high',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01332',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_true_false',
+    requiredTrueFlags: ['convergent_premise_structure'],
+    requiredFalseFlags: ['enthymeme_gap_detected'],
+    observationCode:
+      'argument_scheme.pair_true_false.convergent_premise_structure.no_enthymeme_gap',
+    labelShort: 'Standalone premises, steps stated',
+    labelNeutral: 'Uses standalone premises and states the steps it needs',
+    diagnosticSentence:
+      'This reply uses premises that each stand on their own and states the steps its conclusion needs.',
+    displayPriority: 90,
+    confidencePip: 'medium',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+  {
+    mappingId: 'MBOM-01333',
+    familyKey: 'argument_scheme',
+    ruleKind: 'pair_false_true',
+    requiredTrueFlags: ['enthymeme_gap_detected'],
+    requiredFalseFlags: ['convergent_premise_structure'],
+    observationCode:
+      'argument_scheme.pair_false_true.enthymeme_gap_detected.no_convergent',
+    labelShort: 'Relies on an unstated step, no standalone premises',
+    labelNeutral: 'Relies on an unstated step without standalone premises',
+    diagnosticSentence:
+      'This reply relies on an unstated step without using premises that each stand on their own; naming that step can make the reasoning easier to follow.',
+    displayPriority: 101,
+    confidencePip: 'low',
+    cardSurfaceVisibility: 'card_default_visible',
+    timelineSurfaceVisibility: 'timeline_tap_to_reveal',
+    safetyNote: SAFETY_NOTE,
+  },
+];
+
 /**
  * The reviewed, reconciled, frozen mapping registry the evaluator reads.
  * A-G only. Every flag is a deployed rawKey; every label is verdict-free.
@@ -1229,6 +1528,7 @@ export const OBSERVATION_MAPPING_REGISTRY: ReadonlyArray<ObservationMappingRule>
       ...FAMILY_B_BUILD2A_RULES,
       ...FAMILY_A_BUILD2B_RULES,
       ...FAMILY_C_BUILD2C_RULES,
+      ...FAMILY_E_BUILD2E_RULES,
     ].map((r) =>
       Object.freeze({
         ...r,
@@ -1291,13 +1591,26 @@ export const OBSERVATION_MAPPING_ADOPTION_MANIFEST = Object.freeze({
    * …) remain DEFERRED to Build 3.
    */
   build2cFamilyCAdoptedRules: FAMILY_C_BUILD2C_RULES.length,
+  /**
+   * MCP-BUILD2e — mapping rows adopted from the candidate CSV's deferred
+   * `argument_scheme` rows whose required flags are EXACTLY the 3 new Build-2e
+   * booleans (now deployed in familyE.ts): linked_premise_structure,
+   * convergent_premise_structure, enthymeme_gap_detected. These were part of
+   * the 955 deferred-planned-vocab rows; deploying the 3 booleans converts them
+   * from deferred to genuinely-fireable. 6 singles + 9 pairs = 15. The CSV's
+   * other 60+ `argument_scheme` pair/triple rows that ALSO need a planned
+   * partner flag (has_premise_conclusion, cause_effect_language,
+   * goal_action_reasoning, …) remain DEFERRED to Build 3.
+   */
+  build2eFamilyEAdoptedRules: FAMILY_E_BUILD2E_RULES.length,
   /** Total rules in the active registry. */
   totalActiveRules:
     ADOPTED_FROM_CSV.length +
     CURATED_RULES.length +
     FAMILY_B_BUILD2A_RULES.length +
     FAMILY_A_BUILD2B_RULES.length +
-    FAMILY_C_BUILD2C_RULES.length,
+    FAMILY_C_BUILD2C_RULES.length +
+    FAMILY_E_BUILD2E_RULES.length,
   /** Families H/I/J adopted. ALWAYS 0 (frozen / out of scope). */
   frozenFamiliesAdopted: 0,
 } as const);

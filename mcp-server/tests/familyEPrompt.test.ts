@@ -2,7 +2,7 @@
  * MCP-SERVER-006-FAMILY-E — Family E prompt structure + doctrine ban-list scan tests.
  *
  * Critical invariants:
- *   - Prompt includes all 16 Family E rawKeys (when requestedRawKeys is empty)
+ *   - Prompt includes all 19 Family E rawKeys (when requestedRawKeys is empty)
  *   - Prompt includes each rawKey's booleanQuestion + positiveDefinition +
  *     negativeDefinition + positiveExample + negativeExample + falsePositiveGuards
  *   - Prompt instructs the model to return confidence on every positive flag
@@ -162,7 +162,7 @@ Deno.test('Family E MAX_TOKENS / TEMPERATURE / MAX_BODY_FIELD_LEN constants are 
   assertEquals(FAMILY_E_MAX_BODY_FIELD_LEN, 8000);
 });
 
-Deno.test('Family E user prompt (default request) includes all 16 rawKeys', () => {
+Deno.test('Family E user prompt (default request) includes all 19 rawKeys', () => {
   const prompt = buildFamilyEUserPrompt(buildRequest());
   for (const rawKey of FAMILY_E_RAW_KEYS) {
     if (!prompt.includes(rawKey)) {

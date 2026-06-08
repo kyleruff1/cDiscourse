@@ -104,12 +104,13 @@ Deno.test('fixture: family-e-canonical-response classifierSetVersion is family-e
   assertEquals(modelInfo.classifierSetVersion, 'family-e-v1');
 });
 
-Deno.test('fixture: family-e-canonical-response has all 16 rawKeys', async () => {
+Deno.test('fixture: family-e-canonical-response has all 19 rawKeys', async () => {
+  // MCP-BUILD2e: 16 → 19 (canonical fixture carries the 3 new structure keys).
   const fixture = (await loadFixture(
     'classify-argument-boolean-observations.family-e-canonical-response.json',
   )) as Record<string, unknown>;
   const checkedRawKeys = fixture.checkedRawKeys as string[];
-  assertEquals(checkedRawKeys.length, 16);
+  assertEquals(checkedRawKeys.length, 19);
 });
 
 Deno.test('fixture: family-e-canonical-response has the canonical positives (causal + example)', async () => {
@@ -193,12 +194,13 @@ Deno.test('fixture: all 8 Family E per-scenario request fixtures use only rawKey
   }
 });
 
-Deno.test('fixture: family-e-canonical-request requests all 16 rawKeys', async () => {
+Deno.test('fixture: family-e-canonical-request requests all 19 rawKeys', async () => {
+  // MCP-BUILD2e: 16 → 19 (canonical fixture requests the 3 new structure keys).
   const wrapper = (await loadFixture(
     'classify-argument-boolean-observations.family-e-canonical-request.json',
   )) as { input: Record<string, unknown> };
   const rawKeys = wrapper.input.requestedRawKeys as string[];
-  assertEquals(rawKeys.length, 16);
+  assertEquals(rawKeys.length, 19);
 });
 
 // ─────────────────────────────────────────────────────────────────────────

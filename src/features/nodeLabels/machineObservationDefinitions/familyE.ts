@@ -1,7 +1,15 @@
 /**
- * MCP-021A — Family E (argument_scheme) definitions.
+ * MCP-021A + MCP-BUILD2e — Family E (argument_scheme) definitions.
  *
- * Per design §3.5: 16 entries total. 0 existing + 16 NEW.
+ * 19 entries total (MCP-021A baseline 16 + MCP-BUILD2e +3).
+ *  - 16 MCP-021A: causal/analogy/example/authority/consequence/principle/
+ *    definition/classification/precedent/means-end/tradeoff/abductive/
+ *    exception/slippery-slope/cost-benefit/risk reasoning-present schemes.
+ *  - 3 MCP-BUILD2e (Build-2 manifest §4; all Inspect-only): the
+ *    argument-scheme structure observations linked_premise_structure,
+ *    convergent_premise_structure, enthymeme_gap_detected. NO
+ *    schema-version bump (vocabulary expansion, not a wire change).
+ *
  * All defaultSurface 'inspect', disposition 'future_source',
  * source: 'ai_classifier'.
  *
@@ -10,8 +18,20 @@
  * question (Family F) is unmet. Schemes are descriptive shape facts.
  * The critical-question framing is what keeps Family E + F safe.
  *
+ * The 3 MCP-BUILD2e booleans describe a structural feature of the move's
+ * inference. The argumentation-theory terms `linked` / `convergent` /
+ * `enthymeme` stay INTERNAL (rawKey + internal metadata + classifier prompt);
+ * the user-facing plain-language label is the gameCopy-mapped string, never the
+ * raw theory term (GATE-A §8.2 rule 4 — theory labels never surfaced raw).
+ * enthymeme_gap_detected is verdict-adjacent and is fenced "gap-is-not-a-verdict"
+ * with extra falsePositiveGuards (describes the MOVE's inference — relying on an
+ * unstated step — never the author, never "this argument is weak/wrong"; a gap
+ * is an invitation to state the premise, not a defeat — cdiscourse-doctrine §1).
+ *
  * Doctrine anchors per entry:
  *   - cdiscourse-doctrine §10a — scheme presence is structural fact only.
+ *   - cdiscourse-doctrine §1 — an enthymeme gap is an invitation to state the
+ *     premise, never a defeat / weakness verdict.
  *   - Walton (1995, 2008) — argumentation schemes; every scheme has
  *     a corresponding critical question (Family F counterpart).
  *   - MCP-020 audit §"Rejected labels" — slippery_slope and similar
@@ -524,6 +544,123 @@ export const FAMILY_E_DEFINITIONS: ReadonlyArray<MachineObservationDefinition> =
     doctrineNotes: Object.freeze([
       'cdiscourse-doctrine §10a: risk reasoning is a structural scheme.',
       'evidence-doctrine: risk arguments rest on probability estimates; the estimate itself can be challenged via evidence.',
+    ]),
+  }),
+
+  // ── MCP-BUILD2e (argument_scheme expansion) ───────────────────────────
+  // Three Build-2e booleans per the Build-2 manifest §4. These describe the
+  // STRUCTURE of the move's inference — whether its premises are linked (each
+  // needed; they fail together), whether they are convergent (each
+  // independently supports the conclusion), and whether the move relies on an
+  // unstated load-bearing premise (an enthymeme gap). All Inspect-only; none
+  // are verdicts. The argumentation-theory terms `linked` / `convergent` /
+  // `enthymeme` stay INTERNAL (rawKey + classifier prompt); the user-facing
+  // label / shortLabel / description carry only plain-language. The third,
+  // enthymeme_gap_detected, is verdict-adjacent and is fenced
+  // "gap-is-not-a-verdict": it describes a structural feature of the MOVE's
+  // inference (relies on an unstated step), advisory, never "this argument is
+  // weak/wrong" and never the author — a gap is an invitation to state the
+  // premise, not a defeat (cdiscourse-doctrine §1).
+
+  // BUILD2e #1 linked_premise_structure (Inspect-only)
+  buildScheme({
+    rawKey: 'linked_premise_structure',
+    label: 'Premises that depend on each other',
+    shortLabel: 'Dependent premises',
+    description:
+      'This move uses premises that each need the others, so they stand or fall together.',
+    priority: 216,
+    booleanQuestion:
+      'Does this move use linked premises (each premise needed; they fail together)?',
+    positiveDefinition:
+      'The move advances its conclusion through premises that are INTERDEPENDENT — each premise is needed and they fail together. Remove any one and the inference collapses. ("Only if the tax is durable AND enforced does it cut emissions — both are required.")',
+    negativeDefinition:
+      'The move uses premises that each INDEPENDENTLY support the conclusion (that is the convergent structure, convergent_premise_structure), or it has a single premise, or no discernible premise structure.',
+    positiveExamples: Object.freeze([
+      "Move: 'Only if the tax is durable AND enforced does it cut emissions — both are required.'",
+      "Move: 'It works because the population is large and the effect is per-capita; remove either and the case collapses.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'It works for three independent reasons: cost, equity, and feasibility.' (each reason stands alone — convergent_premise_structure)",
+      "Move: 'It works.' (no premise structure)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'Linked means the premises FAIL TOGETHER (interdependent); do NOT mark a list of independent reasons (that is convergent_premise_structure).',
+      'Distinguish sharply from convergent_premise_structure — the two are mutually exclusive on the same inference, though both may appear in a multi-part move.',
+      'This observation describes a structural feature of the MOVE, never the author; the presence or absence of a linked structure is not a quality verdict.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: a structural description of the inference shape (Walton / argumentation-scheme theory term), surfaced as plain-language; no quality verdict.',
+      'GATE-A §8.2 rule 4: the theory term "linked" stays internal (rawKey + classifier prompt); the user-facing label is the plain-language gameCopy string, never the raw theory term.',
+    ]),
+  }),
+
+  // BUILD2e #2 convergent_premise_structure (Inspect-only)
+  buildScheme({
+    rawKey: 'convergent_premise_structure',
+    label: 'Premises that each stand alone',
+    shortLabel: 'Independent premises',
+    description:
+      'This move uses premises that each independently support its conclusion.',
+    priority: 217,
+    booleanQuestion:
+      'Does this move use convergent premises (each premise independently supports the conclusion)?',
+    positiveDefinition:
+      'The move advances its conclusion through premises that are INDEPENDENT — each one supports the conclusion on its own, so any single premise would suffice. ("Even if cost were not an issue, equity alone justifies it; and feasibility alone would too.")',
+    negativeDefinition:
+      'The move uses interdependent premises that fail together (that is the linked structure, linked_premise_structure), or it has a single premise, or no discernible premise structure.',
+    positiveExamples: Object.freeze([
+      "Move: 'Even if cost weren't an issue, equity alone justifies it; and feasibility alone would too.' (each premise stands on its own)",
+      "Move: 'It's good on the merits AND independently good politically.'",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'You need both A and B for this to hold.' (interdependent — linked_premise_structure)",
+      "Move: 'Because A.' (single premise)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'Convergent means each premise INDEPENDENTLY supports the conclusion; do NOT mark interdependent premises (that is linked_premise_structure).',
+      'linked_premise_structure and convergent_premise_structure are mutually exclusive on the same inference, though both may appear in a multi-part move.',
+      'This observation describes a structural feature of the MOVE, never the author; convergent structure is not a quality verdict.',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: a structural description of the inference shape (the mirror of the linked structure); no quality verdict.',
+      'GATE-A §8.2 rule 4: the theory term "convergent" stays internal (rawKey + classifier prompt); the user-facing label is the plain-language gameCopy string, never the raw theory term.',
+    ]),
+  }),
+
+  // BUILD2e #3 enthymeme_gap_detected (Inspect-only; VERDICT-ADJACENT)
+  buildScheme({
+    rawKey: 'enthymeme_gap_detected',
+    label: 'Relies on an unstated step',
+    shortLabel: 'Unstated step',
+    description:
+      "This move's conclusion relies on a load-bearing premise it does not state.",
+    priority: 218,
+    booleanQuestion:
+      'Does this move rely on an unstated premise (an enthymeme gap)?',
+    positiveDefinition:
+      "The move's conclusion depends on a LOAD-BEARING premise that the move never states. (\"EVs are clean\" — unstated: the grid is clean. \"It's natural, therefore safe\" — unstated: natural implies safe.) The gap is a structural feature of THIS move's inference.",
+    negativeDefinition:
+      "The move states all the premises its conclusion depends on; or a critical-question move that ASKS about a missing premise in the parent (that is Family F's unstated_assumption / missing_warrant, a question about the parent, not a gap in this move).",
+    positiveExamples: Object.freeze([
+      "Move: 'He's an expert, so he's right.' (unstated load-bearing premise: experts in this domain are reliable here)",
+      "Move: 'It's natural, therefore safe.' (unstated load-bearing premise: natural implies safe)",
+    ]),
+    negativeExamples: Object.freeze([
+      "Move: 'He's an expert in climate policy, his peers concur, so this estimate is credible.' (the load-bearing premise is stated)",
+      "Move: 'What's the unstated assumption here?' (a Family F critical question about the parent, not a gap in this move)",
+    ]),
+    falsePositiveGuards: Object.freeze([
+      'This observation describes a structural feature of the MOVE\'s inference (it relies on an unstated step), never the author; it is NEVER a verdict that the argument is weak, wrong, flawed, or invalid. A gap is an invitation to state the premise, not a defeat.',
+      'The gap must be a LOAD-BEARING unstated premise, not a stylistic omission; do NOT mark every compressed sentence.',
+      'Distinguish enthymeme_gap_detected (THIS move HAS a gap — a structural fact about this move) from Family F\'s unstated_assumption (a critical QUESTION asking about a gap in the parent).',
+      'Do NOT treat the PRESENCE of this observation as a criticism of the author and do NOT treat its ABSENCE as praise: it is "an unstated step was observed in this reply", never "this person reasons sloppily".',
+    ]),
+    doctrineNotes: Object.freeze([
+      'cdiscourse-doctrine §10a: this is a MACHINE OBSERVATION about the MOVE\'s inference structure; display-only, never a verdict that the argument is weak or wrong.',
+      'cdiscourse-doctrine §1: a gap is an invitation to state the premise, not a defeat. The label describes a structural feature of the move ("relies on an unstated step"), never "this argument is weak/wrong" and never the author.',
+      'GATE-A §8.2 rule 4: the theory term "enthymeme" stays internal (rawKey + classifier prompt); the user-facing label is the plain-language gameCopy string, never the raw theory term.',
+      'Family F counterpart: the critical question unstated_assumption / missing_warrant probes the parent; this family only detects the structural gap in the present move.',
     ]),
   }),
 ]);

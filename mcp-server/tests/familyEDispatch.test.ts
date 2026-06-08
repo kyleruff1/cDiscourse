@@ -3,7 +3,8 @@
  *
  * Critical invariants:
  *   - Family E fixture-mode request returns a Family E canonical response
- *     (classifierSetVersion='family-e-v1', 16 keys, no Family A/B/C/D keys).
+ *     (classifierSetVersion='family-e-v1', 19 keys post MCP-BUILD2e, no Family
+ *     A/B/C/D keys).
  *   - Family A, B, C, D fixture-mode requests continue to return their
  *     respective canonical responses (regression — byte-equal preservation).
  *   - 5-way cross-family rejection: each family's keys rejected under
@@ -124,7 +125,7 @@ Deno.test('dispatch: Family E request routes to Family E fixture provider (famil
   });
 });
 
-Deno.test('dispatch: Family E fixture response uses only the 16 Family E keys (not Family A/B/C/D keys)', async () => {
+Deno.test('dispatch: Family E fixture response uses only the 19 Family E keys (not Family A/B/C/D keys)', async () => {
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',

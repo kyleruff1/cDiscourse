@@ -17,7 +17,10 @@
     "exception_reasoning_present",
     "slippery_slope_reasoning_present",
     "cost_benefit_reasoning_present",
-    "risk_reasoning_present"
+    "risk_reasoning_present",
+    "linked_premise_structure",
+    "convergent_premise_structure",
+    "enthymeme_gap_detected"
   ],
   "observations": {
     "causal_reasoning_present": true,
@@ -35,7 +38,10 @@
     "exception_reasoning_present": false,
     "slippery_slope_reasoning_present": false,
     "cost_benefit_reasoning_present": false,
-    "risk_reasoning_present": false
+    "risk_reasoning_present": false,
+    "linked_premise_structure": false,
+    "convergent_premise_structure": false,
+    "enthymeme_gap_detected": false
   },
   "confidence": {
     "causal_reasoning_present": "high",
@@ -53,7 +59,10 @@
     "exception_reasoning_present": "medium",
     "slippery_slope_reasoning_present": "medium",
     "cost_benefit_reasoning_present": "medium",
-    "risk_reasoning_present": "medium"
+    "risk_reasoning_present": "medium",
+    "linked_premise_structure": "low",
+    "convergent_premise_structure": "low",
+    "enthymeme_gap_detected": "low"
   },
   "evidenceSpan": {
     "causal_reasoning_present": "they raise the price of carbon, which reduces consumption",
@@ -71,7 +80,10 @@
     "exception_reasoning_present": null,
     "slippery_slope_reasoning_present": null,
     "cost_benefit_reasoning_present": null,
-    "risk_reasoning_present": null
+    "risk_reasoning_present": null,
+    "linked_premise_structure": null,
+    "convergent_premise_structure": null,
+    "enthymeme_gap_detected": null
   },
   "modelInfo": {
     "provider": "mcp",
