@@ -1,6 +1,6 @@
 # ARCH-001 — Civil Discourse classifier queue architecture
 
-**Status:** APPROVED as implementation basis (operator, 2026-05-30). Committed design draft — no production code, migration SQL, runtime flag, or deploy yet. Implementation staged: Card 1 (DB substrate), Card 2 (drainer + enqueue behind smoke-only flag), Card 3 (production smoke + staged rollout). Three operator confirmations pending: Anthropic tier, Edge plan, pg_cron granularity.
+**Status:** APPROVED as implementation basis (operator, 2026-05-30). Committed design draft — no production code, migration SQL, runtime flag, or deploy yet. Implementation staged: Card 1 (DB substrate), Card 2 (drainer + enqueue behind smoke-only flag), Card 3 (production smoke + staged rollout). Three operator confirmations pending: Anthropic tier, Edge plan, pg_cron granularity. **Card 3 implementation artifacts WRITTEN (2026-06-08, GATE-B):** the cron drain-tick migration (`supabase/migrations/20260608000001_arch_001_card3_cron_drain_tick.sql`, null-URL-guarded, apply-safe/no-op-until-Vault-seeded), the burst regression test (`__tests__/archOneCardThreeBurstConcurrency.test.ts`), the staged-arm runbook (`docs/runbooks/ARCH-001-CARD3-staged-arm-runbook.md`), and the smoke harness (`scripts/arch-001-card3-smoke/`) — per `docs/designs/ARCH-001-CARD3-PRODUCTION-SMOKE-STAGED-ROLLOUT.md`. **Apply / Vault-seed / arm / smoke remain operator-gated (GATE-C); nothing is deployed or armed.**
 **Epic:** Epic 12 / MCP semantic-referee track (Civil Discourse classifier infrastructure)
 **Release:** Stage 2B successor — supersedes Option A (`OPS-MCP-GLOBAL-PROVIDER-CAPACITY-CONTROL.md`)
 **Issue / trail:** source spec absorbed into this document; GitHub issue #373 is the durable trail.
@@ -885,6 +885,12 @@ migration needed to roll back. The queue tables/columns are additive and inert w
 ---
 
 ## A.12 — Verification plan
+
+> **Card-3 supersession (R7, 2026-06-08):** the canonical PASS-LOAD burst size is **N=56 (8 args × 7
+> families)** per `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md` §A (the canonical gate
+> reference) and the Card-3 design `docs/designs/ARCH-001-CARD3-PRODUCTION-SMOKE-STAGED-ROLLOUT.md` §3.2.
+> Where this section's older "3 waves of 5 / 3×5 (N=15)" phrasing differs, **N=56 controls**. The PASS bar
+> is **0 terminal dead-letters at N=56**, never lowered.
 
 **Verification POLLS to ACTUAL settle — NO fixed sleep** (per `test-discipline`'s "exit code is the
 contract" + the card's explicit rule).
