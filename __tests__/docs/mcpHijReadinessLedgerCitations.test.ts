@@ -3,16 +3,30 @@
  *
  * Guards the citations in `docs/core/MCP-HIJ-READINESS-LEDGER.md`. Every
  * `file:line` cite in the ledger must resolve to a real file with at least that
- * many lines, and the load-bearing H/I/J cites must still point at
- * `productionEnabled: false` lines. This catches citation drift in CI rather
- * than re-verifying by hand each time HEAD advances.
+ * many lines, and the load-bearing cites must still point at the registry
+ * lines they claim. This catches citation drift in CI rather than
+ * re-verifying by hand each time HEAD advances.
+ *
+ * MCP-H-002 (2026-06-10, operator-approved at E#7(b) after the #472
+ * reproduction PASS): Family H (`claim_clarity`) was re-enabled to
+ * `productionEnabled: true` — the realization of the ledger's own named flip
+ * precondition (Row H, col 10: "satisfy E#7 + a clean Card-3 re-run smoke,
+ * owned by #472"). The frozen set therefore narrowed from {H, I, J} to
+ * {I, J}. This is NOT a loosening: the freeze guard is preserved verbatim for
+ * the still-frozen I/J, and a NEW guard locks H at `productionEnabled: true`
+ * (catches an accidental re-freeze of H).
  *
  * Doctrine: cdiscourse-doctrine §4-C (never-self-approve) — the load-bearing
- * cites prove the frozen H/I/J set stays `productionEnabled: false`.
+ * cites prove the frozen I/J set stays `productionEnabled: false` and that the
+ * now-thawed H stays `productionEnabled: true` (no silent flip in either
+ * direction).
  *
  * §4-A failure semantics: if a cite fails, the doc's citation has drifted OR a
  * cited file moved. Do NOT loosen the test and do NOT edit the guarded doc.
- * Report the failing cite + the actual file state and HALT.
+ * Report the failing cite + the actual file state and HALT. (The MCP-H-002
+ * re-baseline above is the operator-approved exception, not a self-approval:
+ * the flip is authorized by E#7(b) and the guard is strengthened, not
+ * weakened.)
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -100,7 +114,9 @@ describe('MCP-HIJ readiness ledger — citation integrity', () => {
         .filter((c) => c.citedPath === 'familyRegistry.ts')
         .map((c) => c.line);
       // The ledger cites the Edge registry by bare name; ensure the
-      // load-bearing H/I/J cites and the freeze/first-entry cites are present.
+      // load-bearing cites are present: 106 (H — now production-enabled per
+      // MCP-H-002) + 111/116 (I/J — still frozen) + the freeze/first-entry
+      // cites.
       for (const expected of [106, 111, 116]) {
         expect(regLines).toContain(expected);
       }
@@ -173,7 +189,7 @@ describe('MCP-HIJ readiness ledger — citation integrity', () => {
     });
   });
 
-  describe('4. load-bearing H/I/J cites point at productionEnabled: false', () => {
+  describe('4. load-bearing cites: frozen I/J productionEnabled:false, thawed H productionEnabled:true (post MCP-H-002)', () => {
     const EDGE_REGISTRY =
       'supabase/functions/_shared/booleanObservations/familyRegistry.ts';
 
@@ -184,13 +200,14 @@ describe('MCP-HIJ readiness ledger — citation integrity', () => {
         .split('\n');
     });
 
-    const LOAD_BEARING: Array<{ family: string; line: number; nameLine: number }> = [
-      { family: 'claim_clarity', line: 106, nameLine: 105 },
+    // The still-frozen set is I/J. (H was re-enabled by MCP-H-002 / E#7(b);
+    // its productionEnabled:true guard is the separate assertion below.)
+    const LOAD_BEARING_FROZEN: Array<{ family: string; line: number; nameLine: number }> = [
       { family: 'thread_topology', line: 111, nameLine: 110 },
       { family: 'sensitive_composer', line: 116, nameLine: 115 },
     ];
 
-    for (const { family, line, nameLine } of LOAD_BEARING) {
+    for (const { family, line, nameLine } of LOAD_BEARING_FROZEN) {
       it(`${EDGE_REGISTRY}:${line} (${family}) is productionEnabled: false`, () => {
         // 1-indexed cite → 0-indexed array.
         const content = registryLines[line - 1];
@@ -203,6 +220,16 @@ describe('MCP-HIJ readiness ledger — citation integrity', () => {
         expect(nameContent).toContain(`'${family}'`);
       });
     }
+
+    it(`${EDGE_REGISTRY}:106 (claim_clarity) is productionEnabled: true (re-enabled by MCP-H-002 / E#7(b))`, () => {
+      // Drift-detection for the thaw: catches an accidental re-freeze of H.
+      // 1-indexed cite → 0-indexed array.
+      const content = registryLines[106 - 1];
+      expect(content).toBeDefined();
+      expect(content).toContain('productionEnabled: true');
+      const nameContent = registryLines[105 - 1];
+      expect(nameContent).toContain(`'claim_clarity'`);
+    });
 
     it('the ledger itself cites all three load-bearing lines', () => {
       const regLines = cites

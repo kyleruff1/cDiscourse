@@ -15,7 +15,7 @@
  * This single suite (the one test file in the Card-3 inventory, design §8)
  * carries:
  *   - the bounded-concurrency proof (§4 primary assertion),
- *   - the contrast that unbounded fan-out saturates at N=56,
+ *   - the contrast that unbounded fan-out saturates at N=64,
  *   - source-scan supports that the drainer wires C into the runner + the
  *     single-flight skip (§4 supporting assertions),
  *   - the no-provider-call self-scan (§4 step 8),
@@ -27,8 +27,19 @@
  *
  * D-convention: every concurrency assertion uses C derived FROM the drainer
  * source (DRAINER_PROVIDER_CONCURRENCY), never a bare literal `3` — a single
- * value-pin (expect(C).toBe(3)) anchors it. The 56-job burst size is pinned
- * to the canonical N=56 (8 args × 7 families).
+ * value-pin (expect(C).toBe(3)) anchors it. The 64-job burst size is pinned
+ * to the post-Family-H production roster (8 args × 8 production families) so
+ * the structural proof models the REAL current production burst.
+ *
+ * NOTE — two distinct N's live in this file, deliberately:
+ *   - the bounded-concurrency PROOF below uses N=64 (8 args × 8 production
+ *     families) because Family H (claim_clarity) is now production-enabled
+ *     (MCP-021C-EDGE-FAMILY-H-ENABLE). The proof must model the real burst.
+ *   - BAN-4's PASS-LOAD bar assertion keeps the ARCH-001 cutover live-drill
+ *     bar at its operator-gated N=56 (8 args × 7 families) on the external
+ *     scripts/arch-001-card3-smoke/README.md — that bar is an ARCH-001
+ *     operator gate, untouched here; revisiting it for the 8-family roster
+ *     is an ARCH-001 follow-up, out of scope for this Edge-layer flip.
  */
 
 import * as fs from 'fs';
@@ -198,7 +209,7 @@ async function flushMicrotasks(times = 6): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* The canonical N=56 synthetic burst (8 args x 7 families)           */
+/* The production synthetic burst N=64 (8 args x 8 production families) */
 /* ------------------------------------------------------------------ */
 
 const BURST_ARGS = 8;
@@ -210,6 +221,7 @@ const PRODUCTION_FAMILIES = [
   'argument_scheme',
   'critical_question',
   'resolution_progress',
+  'claim_clarity',
 ] as const;
 
 interface SyntheticJob {
@@ -217,7 +229,7 @@ interface SyntheticJob {
   family: (typeof PRODUCTION_FAMILIES)[number];
 }
 
-/** Build 56 plain-object jobs — NO DB, NO provider, NO network. */
+/** Build 64 plain-object jobs — NO DB, NO provider, NO network. */
 function buildBurstJobs(): SyntheticJob[] {
   const jobs: SyntheticJob[] = [];
   for (let a = 0; a < BURST_ARGS; a += 1) {
@@ -243,11 +255,11 @@ describe('ARCH-001 Card 3 — provider-concurrency bound C (value pin)', () => {
     expect(C).toBeLessThanOrEqual(MCP_CAP);
   });
 
-  it('BC-3 — the canonical burst is N=56 (8 args x 7 production families)', () => {
+  it('BC-3 — the production burst is N=64 (8 args x 8 production families post Family H flip)', () => {
     const jobs = buildBurstJobs();
-    expect(jobs).toHaveLength(56);
-    expect(BURST_ARGS * PRODUCTION_FAMILIES.length).toBe(56);
-    expect(PRODUCTION_FAMILIES).toHaveLength(7);
+    expect(jobs).toHaveLength(64);
+    expect(BURST_ARGS * PRODUCTION_FAMILIES.length).toBe(64);
+    expect(PRODUCTION_FAMILIES).toHaveLength(8);
   });
 });
 
@@ -256,7 +268,7 @@ describe('ARCH-001 Card 3 — provider-concurrency bound C (value pin)', () => {
 /* ============================================================ */
 
 describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency to C (§4)', () => {
-  it('BC-4 — 56-job burst through runWithBoundedConcurrency NEVER exceeds C in flight', async () => {
+  it('BC-4 — 64-job burst through runWithBoundedConcurrency NEVER exceeds C in flight', async () => {
     const C = drainerProviderConcurrency();
     const jobs = buildBurstJobs();
     const tracker = makeTrackingTask();
@@ -277,7 +289,7 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
     }
     const results = await runPromise;
 
-    expect(results).toHaveLength(56);
+    expect(results).toHaveLength(64);
     expect(tracker.everExceeded).toBe(false);
     expect(tracker.maxObserved).toBeLessThanOrEqual(C);
   });
@@ -289,7 +301,7 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
     tracker.setAssertBound(C);
 
     const runPromise = runWithBoundedConcurrency(jobs, C, tracker.task);
-    // With 56 slow (unreleased) tasks the pool fills to its full bound and holds.
+    // With 64 slow (unreleased) tasks the pool fills to its full bound and holds.
     await flushMicrotasks();
     expect(tracker.maxObserved).toBe(C);
 
@@ -301,7 +313,7 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
     expect(tracker.maxObserved).toBe(C);
   });
 
-  it('BC-6 — every one of the 56 jobs settles fulfilled (no job lost; allSettled-style)', async () => {
+  it('BC-6 — every one of the 64 jobs settles fulfilled (no job lost; allSettled-style)', async () => {
     const C = drainerProviderConcurrency();
     const jobs = buildBurstJobs();
     const tracker = makeTrackingTask();
@@ -312,7 +324,7 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
       await flushMicrotasks();
     }
     const results = await runPromise;
-    expect(results).toHaveLength(56);
+    expect(results).toHaveLength(64);
     expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
     // Results preserve INPUT order (results[i] ↔ jobs[i]).
     expect(results.map((r) => r.index)).toEqual(jobs.map((_, i) => i));
@@ -320,32 +332,32 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
 });
 
 /* ============================================================ */
-/* §4 contrast — unbounded fan-out saturates at N=56            */
+/* §4 contrast — unbounded fan-out saturates at N=64            */
 /* (the RCA failure the queue prevents)                         */
 /* ============================================================ */
 
-describe('ARCH-001 Card 3 — contrast: unbounded direct fan-out saturates at 56 (§4)', () => {
-  it('BC-7 — Promise.all over the same 56 jobs reaches maxObserved === 56 (queue-less saturation)', async () => {
+describe('ARCH-001 Card 3 — contrast: unbounded direct fan-out saturates at 64 (§4)', () => {
+  it('BC-7 — Promise.all over the same 64 jobs reaches maxObserved === 64 (queue-less saturation)', async () => {
     const jobs = buildBurstJobs();
     const tracker = makeTrackingTask();
 
     // Direct dispatch = unbounded fan-out: every task is invoked synchronously,
-    // so all 56 increment inFlight before any awaits resolve. This is the
-    // ~76-wide saturation the RCA observed (here exactly 56 = the burst size).
+    // so all 64 increment inFlight before any awaits resolve. This is the
+    // ~76-wide saturation the RCA observed (here exactly 64 = the burst size).
     const all = Promise.all(jobs.map((job, i) => tracker.task(job, i)));
-    expect(tracker.inFlight).toBe(56);
-    expect(tracker.maxObserved).toBe(56);
+    expect(tracker.inFlight).toBe(64);
+    expect(tracker.maxObserved).toBe(64);
 
     tracker.releaseAll();
     await all;
     expect(tracker.inFlight).toBe(0);
   });
 
-  it('BC-8 — the bounded peak (C) is strictly less than the unbounded peak (56)', async () => {
+  it('BC-8 — the bounded peak (C) is strictly less than the unbounded peak (64)', async () => {
     const C = drainerProviderConcurrency();
     // The whole point of ARCH-001: C << N. A regression that let the drainer
     // fan out unbounded would make these equal.
-    expect(C).toBeLessThan(56);
+    expect(C).toBeLessThan(64);
   });
 });
 

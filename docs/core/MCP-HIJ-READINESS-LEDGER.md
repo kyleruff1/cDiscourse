@@ -37,17 +37,19 @@ Each cell is sourced verbatim from an existing artifact; no new facts are invent
 
 ## Current production state
 
-At HEAD `3b668d2`, the family registry (`supabase/functions/_shared/booleanObservations/familyRegistry.ts:68-119`, `Object.freeze`d at line 68) holds 10 families. Families **A–G** (`parent_relation`, `disagreement_axis`, `misunderstanding_repair`, `evidence_source_chain`, `argument_scheme`, `critical_question`, `resolution_progress`) are `productionEnabled: true` + `adminValidationEnabled: true` (`familyRegistry.ts:69-103`). Families **H / I / J** are `productionEnabled: false` + `adminValidationEnabled: true`:
+> **UPDATE 2026-06-10 — MCP-H-002 re-enabled Family H.** Family H (`claim_clarity`) was re-enabled to production by the operator-approved **E#7(b)** registry flip (after the **#472** reproduction PASS proved provider/server reliability at 8-family load) — the realization of Row H col 10's named precondition. The production roster is now **A–H (8 families)**; the H rows captured below at HEAD `3b668d2` are superseded for H's registry value. **Families I / J remain frozen** (`productionEnabled: false`). This ledger still flips no flag of its own — MCP-H-002 made the registry edit; this section records it.
+
+At HEAD `3b668d2`, the family registry (`supabase/functions/_shared/booleanObservations/familyRegistry.ts:68-119`, `Object.freeze`d at line 68) holds 10 families. Families **A–G** (`parent_relation`, `disagreement_axis`, `misunderstanding_repair`, `evidence_source_chain`, `argument_scheme`, `critical_question`, `resolution_progress`) are `productionEnabled: true` + `adminValidationEnabled: true` (`familyRegistry.ts:69-103`). **Family H (`claim_clarity`) was re-enabled to production mode by MCP-H-002 (2026-06-10); registry line 106 now reads enabled.** Families **I / J** remain `productionEnabled: false` + `adminValidationEnabled: true`:
 
 | Family | Registry name | `productionEnabled` | `adminValidationEnabled` | Cite |
 |---|---|---|---|---|
-| H | `claim_clarity` | **false** | true | `familyRegistry.ts:106` |
+| H | `claim_clarity` | **true** (re-enabled 2026-06-10, MCP-H-002) | true | `familyRegistry.ts:106` |
 | I | `thread_topology` | **false** | true | `familyRegistry.ts:111` |
 | J | `sensitive_composer` | **false** | true | `familyRegistry.ts:116` |
 
 `adminValidationEnabled: true` means all three families run in the **admin-validation** path only (the dormant `admin_validation` run mode), never on the production auto-trigger path. No H/I/J observation reaches a production user-facing surface today. Routing baseline is OFF: `CLASSIFIER_QUEUE_ROUTING_ENABLED` reads via strict `=== "true"` (unset ⇒ false) and `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE` fail-closes to 0 (`supabase/functions/submit-argument/index.ts:811-816`; `classifierQueueRouting.ts:89-98`).
 
-The frozen-set boundary is a hard limit this ledger respects and re-states (does not weaken): **H/I/J stay `productionEnabled: false`.** No card in this family flips that flag, arms routing, or raises the routing percentage (`docs/core/known-blockers.md:579-582`).
+The frozen-set boundary is a hard limit this ledger respects and re-states (does not weaken): **I/J stay `productionEnabled: false`.** (H was re-enabled 2026-06-10 by MCP-H-002 per the operator-approved E#7(b) decision — see the update banner above; that flip was the operator's, not this ledger's.) No card in this family flips the I/J flag, arms routing, or raises the routing percentage (`docs/core/known-blockers.md:579-582`).
 
 ---
 
@@ -57,16 +59,16 @@ The frozen-set boundary is a hard limit this ledger respects and re-states (does
 
 | Column | State at HEAD `3b668d2` | Cite |
 |---|---|---|
-| **1. Registry state** | `productionEnabled: false`, `adminValidationEnabled: true` | `familyRegistry.ts:106-107` |
+| **1. Registry state** | `productionEnabled: true` (re-enabled 2026-06-10 by MCP-H-002 / E#7(b)), `adminValidationEnabled: true` | `familyRegistry.ts:106-107` |
 | **2. Prompt / server state** | Card 1 SHIPPED — per-family `claim_clarity` classifier on the MCP server (admin_validation classifier). | PR #400 (Card 1) |
 | **3. Validator / schema state** | Card 2 SHIPPED — L5 audit-lint mechanization for `family_h`. Audit smoke PASS. | PR #403 (Card 2/3), PR #404 (smoke PASS 5/5 + L5 teeth) |
 | **4. Input requirements** | Source-uniform `ai_classifier` (12 keys). **No** `MCP_SERVER_SUPPORTED_FAMILY_SOURCES` subset entry required (absence ⇒ full registry passthrough). | `docs/roadmap-expansions/2026-06-02-mcp-H-I-J-integration-roadmap.md:73`; `booleanObservationRequestBuilder.ts:62` |
 | **5. UI consumer** | Admin-validation table only today. No production user-facing surface (registry-gated). | `familyRegistry.ts:106` (production gate) |
-| **6. Known failures** | Card 3 production-enable merged (PR #405) → smoke FAIL (audit PR #407) → ROLLED BACK (PR #408). The 8-family production surface failed under burst. | `docs/audits/MCP-021C-EDGE-FAMILY-H-ENABLE-SMOKE-2026-06-01.md`; `docs/reviews/REVERT-MCP-021C-EDGE-FAMILY-H-ENABLE.md:15,37` |
+| **6. Known failures** | Card 3 production-enable merged (PR #405) → smoke FAIL (audit PR #407) → ROLLED BACK (PR #408). The 8-family production surface failed under burst. **SUPERSEDED 2026-06-10:** the burst cause (provider/server reliability at 8-family load) was fixed and re-proven (#472 reproduction PASS), so MCP-H-002 re-applied the flip per E#7(b). | `docs/audits/MCP-021C-EDGE-FAMILY-H-ENABLE-SMOKE-2026-06-01.md`; `docs/reviews/REVERT-MCP-021C-EDGE-FAMILY-H-ENABLE.md:15,37`; #472 closing comment |
 | **7. Doctrine risks** | Every H key is a **structural Observation, never a verdict** (`claim_specificity_low` = "broad claim", not "weak"; `conclusion_missing` = "no explicit conclusion", not "incomplete"). §1 / §4 bind. | `docs/roadmap-expansions/2026-06-02-mcp-H-I-J-integration-roadmap.md:191-192` |
 | **8. Smoke plan** | Per-family smoke per the H-enable SMOKE template (canary-then-burst), but smoke PASS is **necessary-but-not-sufficient** — the P1 real-organic precondition must precede it. | `docs/audits/MCP-021C-EDGE-FAMILY-H-ENABLE-SMOKE-2026-06-01.md` (template); cutover gate rows 10/11 |
 | **9. Load plan** | E#7 three-conjunctive-condition retry gate (below). H/I/J carry a zero-terminal-failure bar (E#11). | `OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md:78,82` |
-| **10. `productionEnabled` blocker** | `false` because the 8-family burst surface FAILed and the retry preconditions are unmet. Named precondition to flip (NOT a recommendation to flip): satisfy E#7 (all three conditions) + a clean Card-3 re-run smoke. The decision is owned by #472, not by this ledger. | `familyRegistry.ts:106`; cutover row 7 (`:78`) |
+| **10. `productionEnabled` blocker** | RESOLVED 2026-06-10. The E#7 precondition (the three conjunctive conditions + a clean Card-3 re-run) was satisfied — provider/server reliability proven at 8-family load via the #472 reproduction PASS — and the operator ratified the thaw at E#7(b). MCP-H-002 re-applied the flip. (The decision was owned by #472, not by this ledger; this row records its resolution.) | `familyRegistry.ts:106`; cutover row 7 (`:78`); #472 |
 | **11. Operator gate required** | **#472 MCP-H-001** (Family H scoping / retry design — GATE A only). The retry decision lives there, not here. | gh issue #472 (OPEN) |
 
 **E#7 — H retry gate (three conjunctive conditions, ALL required, stated verbatim from the existing cutover doc — no new or weakened criterion):** (a) a non-H PASS-LOAD; (b) a separate operator decision; (c) provider/server reliability proven at higher (8-family) load **and** a clean Card-3 re-run smoke. The non-H PASS-LOAD alone does NOT unblock H. P1 (A–G stable at higher % with **real organic** evidence) is an ordered precondition that must precede the H synthetic smoke; synthetic PASS is necessary-but-not-sufficient (`OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md:78,104`; §F item 3 operator-ratified 2026-06-03 at `:100,104`).
