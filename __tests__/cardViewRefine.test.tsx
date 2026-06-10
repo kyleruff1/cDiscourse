@@ -321,7 +321,10 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
     expect(collectText(evidence)).toContain('M has a child typed challenge.');
   });
 
-  it('families H / I / J are NEVER surfaced (seed a Family I auto-metadata mark → absent)', () => {
+  it('Family I NOW surfaces on the card classifier zone (PR #562); Family J never does', () => {
+    // OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: Family I (thread_topology) is now
+    // production-enabled, so a seeded Family I rendered_now mark surfaces under
+    // its plain-language group. Family J (sensitive_composer) stays gated out.
     const m = buildCardDetailViewModel({
       activeMessageId: ACTIVE,
       chronologicalIds: [ACTIVE],
@@ -343,11 +346,12 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
       standingToneHeatNode: fakeNode({ parentId: null }),
       standingToneHeatViewModel: fakeViewModel(),
     });
-    const { getByTestId, queryByTestId } = render(<CardDetailPanel model={m} />);
-    // The classifier zone shows the empty state; no Family I/H/J group renders.
-    expect(getByTestId('card-detail-classifier-empty')).toBeTruthy();
-    expect(queryByTestId('card-detail-classifier-group-thread_topology')).toBeNull();
-    expect(queryByTestId('card-detail-classifier-group-claim_clarity')).toBeNull();
+    const { queryByTestId } = render(<CardDetailPanel model={m} />);
+    // Family I now renders → the zone is no longer empty and the
+    // thread_topology group is present.
+    expect(queryByTestId('card-detail-classifier-empty')).toBeNull();
+    expect(queryByTestId('card-detail-classifier-group-thread_topology')).not.toBeNull();
+    // Family J never surfaces on the card classifier zone (still frozen).
     expect(queryByTestId('card-detail-classifier-group-sensitive_composer')).toBeNull();
   });
 

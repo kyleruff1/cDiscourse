@@ -420,7 +420,7 @@ describe('CVDH-001 Slice 2 — buildCardDetailViewModel hub slices', () => {
     expect(m.standingToneHeat).toBeNull();
   });
 
-  it('ask iii — the hub classifier is A–G gated (drops a Family I rendered_now code)', () => {
+  it('ask iii — the hub classifier surfaces a Family I rendered_now code (now production-enabled, PR #562)', () => {
     const m = buildCardDetailViewModel(
       baseInput({
         // Neutral cluster + no persisted rows so the ONLY candidate is the
@@ -431,9 +431,11 @@ describe('CVDH-001 Slice 2 — buildCardDetailViewModel hub slices', () => {
         autoMetadataCodes: ['no_response_after_n_turns'], // Family I, rendered_now
       }),
     );
-    // The Family I rendered_now mark is dropped by the explicit family gate.
-    expect(JSON.stringify(m.hubClassifier)).not.toContain('No follow-up');
-    expect(JSON.stringify(m.hubClassifier)).not.toContain('no_response_after_n_turns');
+    // OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: Family I (thread_topology) is now
+    // production-enabled, so the mark surfaces under its plain-language group.
+    expect(m.hubClassifier.hasSignals).toBe(true);
+    expect(m.hubClassifier.groups.some((g) => g.familyCode === 'thread_topology')).toBe(true);
+    expect(JSON.stringify(m.hubClassifier)).toContain('No follow-up');
   });
 
   it('ask iii — the hub classifier surfaces an A-family persisted observation', () => {

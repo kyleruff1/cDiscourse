@@ -292,8 +292,8 @@ describe('CVDH-001 Slice 2 — hub zones render visible by default', () => {
   });
 });
 
-describe('CVDH-001 Slice 2 — H/I/J never render on the hub panel (family gate)', () => {
-  it('a seeded Family I auto-metadata code (no_response_after_n_turns) does not render', () => {
+describe('CVDH-001 Slice 2 — Family I renders on the hub panel; J gated (family gate)', () => {
+  it('a seeded Family I auto-metadata code (no_response_after_n_turns) NOW renders (PR #562)', () => {
     const model = buildCardDetailViewModel({
       activeMessageId: ACTIVE,
       chronologicalIds: [ACTIVE],
@@ -315,9 +315,11 @@ describe('CVDH-001 Slice 2 — H/I/J never render on the hub panel (family gate)
       standingToneHeatNode: fakeNode({ parentId: null }),
       standingToneHeatViewModel: fakeViewModel(),
     });
-    const { queryByText, getByTestId } = render(<CardDetailPanel model={model} />);
-    // The classifier zone shows the empty state — the Family I mark is gated.
-    expect(getByTestId('card-detail-classifier-empty')).toBeTruthy();
-    expect(queryByText('No follow-up')).toBeNull();
+    const { queryByText, queryByTestId } = render(<CardDetailPanel model={model} />);
+    // OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: Family I (thread_topology) is now
+    // production-enabled, so the mark renders — the zone is no longer empty.
+    expect(queryByTestId('card-detail-classifier-empty')).toBeNull();
+    expect(queryByTestId('card-detail-classifier-group-thread_topology')).not.toBeNull();
+    expect(queryByText('No follow-up')).not.toBeNull();
   });
 });

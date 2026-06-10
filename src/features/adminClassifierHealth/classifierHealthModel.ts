@@ -5,13 +5,15 @@
  * Edge function reads the column-explicit allow-list, maps rows to this shape,
  * and calls `aggregateClassifierHealth`. NO raw row ever leaves the function.
  *
- * Frozen-set tripwire (cdiscourse-doctrine §4-C never-self-approve): the H/I/J
- * family names (`claim_clarity` / `thread_topology` / `sensitive_composer`)
- * are a FROZEN constant in code, NOT user input. They mirror the
- * `productionEnabled: false` entries in the Deno `familyRegistry.ts`. A test
- * pins them to the canonical `ALL_MACHINE_OBSERVATION_FAMILIES` membership so a
- * rename in the registry forces this constant to be re-verified. The panel
- * OBSERVES the tripwire; it never flips a production flag.
+ * Frozen-set tripwire (cdiscourse-doctrine §4-C never-self-approve): the frozen
+ * family name (`sensitive_composer`, Family J) is a FROZEN constant in code,
+ * NOT user input. It mirrors the lone `productionEnabled: false` entry in the
+ * Deno `familyRegistry.ts` (Family H / `claim_clarity` was production-enabled
+ * via PR #559, Family I / `thread_topology` via PR #562; both Edge windows
+ * closed PASS). A test pins it to the canonical
+ * `ALL_MACHINE_OBSERVATION_FAMILIES` membership so a rename in the registry
+ * forces this constant to be re-verified. The panel OBSERVES the tripwire; it
+ * never flips a production flag.
  *
  * Pure TS — no React, no Supabase, no fetch, no Deno. Jest-loadable.
  */
@@ -28,15 +30,21 @@ import { classifierHealthPlainLanguage } from './classifierHealthPlainLanguage';
 import { makeRunTagSource, runTagMatches, type RunTagSource } from './runTagSource';
 
 /**
- * The FROZEN H/I/J family set the leakage tripwire watches. These are the
- * `productionEnabled: false` families in the Deno `familyRegistry.ts` — frozen
- * in code, never derived from user input. A production-mode SUCCESS row that
- * references any of these is the tripwire firing.
+ * The FROZEN non-production family set the leakage tripwire watches. After
+ * Family H (`claim_clarity`) was production-enabled via PR #559 and Family I
+ * (`thread_topology`) via PR #562 — both Edge production-enable windows closed
+ * PASS — only Family J (`sensitive_composer`) remains frozen by ratified
+ * disposition. This set mirrors the lone `productionEnabled: false` entry in
+ * the Deno `familyRegistry.ts`, frozen in code, never derived from user input.
+ * A production-mode SUCCESS row that references J is the tripwire firing.
+ *
+ * Re-scoping {H,I,J} → {J} restores the tripwire as a TRUE producer-bug
+ * detector: it no longer counts the now-legitimate H/I production-success rows
+ * (which had been firing as false positives), so a non-zero count is once again
+ * a real leak of the still-frozen J family.
  */
 export const FROZEN_NON_PRODUCTION_FAMILIES: ReadonlyArray<string> = Object.freeze([
-  'claim_clarity', // Family H
-  'thread_topology', // Family I
-  'sensitive_composer', // Family J
+  'sensitive_composer', // Family J — frozen by ratified disposition
 ]);
 
 /**
