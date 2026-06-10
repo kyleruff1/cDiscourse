@@ -127,10 +127,10 @@ describe('MCP-021C-EDGE — run_mode binding to migration', () => {
   });
 });
 
-describe('MCP-021C-EDGE — production filter does NOT see I–J admin_validation families (post Card 3 of FAMILY-H chain flip)', () => {
-  // Post Card 3 of FAMILY-H chain (MCP-021C-EDGE-FAMILY-H-ENABLE):
-  // families A + B + C + D + E + F + G + H are productionEnabled; I–J
-  // remain admin-only.
+describe('MCP-021C-EDGE — production filter does NOT see J admin_validation family (post MCP-021C-EDGE-FAMILY-I-ENABLE flip)', () => {
+  // Post MCP-021C-EDGE-FAMILY-I-ENABLE (MCP-I-D2): families
+  // A + B + C + D + E + F + G + H + I are productionEnabled; J
+  // remains admin-only.
 
   it('AVM-10 — production filter keeps disagreement_axis (B was flipped to productionEnabled in Stage 2B)', () => {
     expect(edgeFilterFamiliesForMode(['disagreement_axis'], 'production')).toEqual([
@@ -165,6 +165,12 @@ describe('MCP-021C-EDGE — production filter does NOT see I–J admin_validatio
   it('AVM-11e — production filter keeps claim_clarity (H flipped to productionEnabled in Card 3 of FAMILY-H chain)', () => {
     expect(edgeFilterFamiliesForMode(['claim_clarity'], 'production')).toEqual([
       'claim_clarity',
+    ]);
+  });
+
+  it('AVM-11f — production filter keeps thread_topology (I flipped to productionEnabled in MCP-021C-EDGE-FAMILY-I-ENABLE / MCP-I-D2)', () => {
+    expect(edgeFilterFamiliesForMode(['thread_topology'], 'production')).toEqual([
+      'thread_topology',
     ]);
   });
 

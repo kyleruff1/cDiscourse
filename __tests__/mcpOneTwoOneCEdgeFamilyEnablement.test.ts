@@ -26,13 +26,13 @@ import {
   edgeAdminValidationEnabledFamilies,
 } from './_helpers/booleanObservationEdgeDeno';
 
-describe('MCP-021C-EDGE — production enablement is binding (post Card 3 of FAMILY-H chain flip: A+B+C+D+E+F+G+H)', () => {
-  it('FE-1 — exactly EIGHT entries have productionEnabled: true (post Card 3 of FAMILY-H chain flip)', () => {
+describe('MCP-021C-EDGE — production enablement is binding (post MCP-021C-EDGE-FAMILY-I-ENABLE flip: A+B+C+D+E+F+G+H+I)', () => {
+  it('FE-1 — exactly NINE entries have productionEnabled: true (post MCP-021C-EDGE-FAMILY-I-ENABLE flip)', () => {
     const productionEntries = EDGE_FAMILY_REGISTRY.filter((e) => e.productionEnabled);
-    expect(productionEntries).toHaveLength(8);
+    expect(productionEntries).toHaveLength(9);
   });
 
-  it('FE-2 — the production-enabled families are A+B+C+D+E+F+G+H (parent_relation, disagreement_axis, misunderstanding_repair, evidence_source_chain, argument_scheme, critical_question, resolution_progress, claim_clarity)', () => {
+  it('FE-2 — the production-enabled families are A+B+C+D+E+F+G+H+I (parent_relation, disagreement_axis, misunderstanding_repair, evidence_source_chain, argument_scheme, critical_question, resolution_progress, claim_clarity, thread_topology)', () => {
     const productionEntries = EDGE_FAMILY_REGISTRY.filter((e) => e.productionEnabled).map(
       (e) => e.family,
     );
@@ -45,10 +45,11 @@ describe('MCP-021C-EDGE — production enablement is binding (post Card 3 of FAM
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ]);
   });
 
-  it('FE-3 — productionEnabledFamilies() returns exactly ["parent_relation", "disagreement_axis", "misunderstanding_repair", "evidence_source_chain", "argument_scheme", "critical_question", "resolution_progress", "claim_clarity"]', () => {
+  it('FE-3 — productionEnabledFamilies() returns exactly ["parent_relation", "disagreement_axis", "misunderstanding_repair", "evidence_source_chain", "argument_scheme", "critical_question", "resolution_progress", "claim_clarity", "thread_topology"]', () => {
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
@@ -58,11 +59,12 @@ describe('MCP-021C-EDGE — production enablement is binding (post Card 3 of FAM
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ]);
   });
 
-  it('FE-4 — productionEnabledFamilies() has length 8 (post Card 3 of FAMILY-H chain flip)', () => {
-    expect(edgeProductionEnabledFamilies()).toHaveLength(8);
+  it('FE-4 — productionEnabledFamilies() has length 9 (post MCP-021C-EDGE-FAMILY-I-ENABLE flip)', () => {
+    expect(edgeProductionEnabledFamilies()).toHaveLength(9);
   });
 });
 
@@ -78,11 +80,10 @@ describe('MCP-021C-EDGE — admin validation enablement is all 10 (unchanged)', 
   });
 });
 
-describe('MCP-021C-EDGE — every I–J family is production-disabled (H now production-enabled)', () => {
-  // Post Card 3 of FAMILY-H chain (MCP-021C-EDGE-FAMILY-H-ENABLE): H
-  // (claim_clarity) is PRODUCTION-ENABLED. I–J remain admin-only.
+describe('MCP-021C-EDGE — every J family is production-disabled (I now production-enabled)', () => {
+  // Post MCP-021C-EDGE-FAMILY-I-ENABLE (MCP-I-D2): I (thread_topology) is
+  // PRODUCTION-ENABLED. J remains admin-only.
   const NON_PRODUCTION_FAMILIES = [
-    'thread_topology',
     'sensitive_composer',
   ] as const;
 
@@ -195,6 +196,19 @@ describe('MCP-021C-EDGE-FAMILY-H-ENABLE — H explicit production flip assertion
 
   it('FE-15 — claim_clarity (H) is productionEnabled: true (Card 3 of FAMILY-H chain flip)', () => {
     const entry = EDGE_FAMILY_REGISTRY.find((e) => e.family === 'claim_clarity');
+    expect(entry).toBeDefined();
+    expect(entry!.productionEnabled).toBe(true);
+  });
+});
+
+describe('MCP-021C-EDGE-FAMILY-I-ENABLE — I explicit production flip assertion (MCP-I-D2)', () => {
+  // This test is added by MCP-021C-EDGE-FAMILY-I-ENABLE (MCP-I-D2) to make
+  // the I flip visible in this binding-gate file. If a future card
+  // accidentally reverts the Family I production flag, this assertion fails
+  // with a Family-I-specific message.
+
+  it('FE-16 — thread_topology (I) is productionEnabled: true (MCP-I-D2 flip)', () => {
+    const entry = EDGE_FAMILY_REGISTRY.find((e) => e.family === 'thread_topology');
     expect(entry).toBeDefined();
     expect(entry!.productionEnabled).toBe(true);
   });

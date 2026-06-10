@@ -15,7 +15,7 @@
  * This single suite (the one test file in the Card-3 inventory, design §8)
  * carries:
  *   - the bounded-concurrency proof (§4 primary assertion),
- *   - the contrast that unbounded fan-out saturates at N=64,
+ *   - the contrast that unbounded fan-out saturates at N=72,
  *   - source-scan supports that the drainer wires C into the runner + the
  *     single-flight skip (§4 supporting assertions),
  *   - the no-provider-call self-scan (§4 step 8),
@@ -27,18 +27,19 @@
  *
  * D-convention: every concurrency assertion uses C derived FROM the drainer
  * source (DRAINER_PROVIDER_CONCURRENCY), never a bare literal `3` — a single
- * value-pin (expect(C).toBe(3)) anchors it. The 64-job burst size is pinned
- * to the post-Family-H production roster (8 args × 8 production families) so
+ * value-pin (expect(C).toBe(3)) anchors it. The 72-job burst size is pinned
+ * to the post-Family-I production roster (8 args × 9 production families) so
  * the structural proof models the REAL current production burst.
  *
  * NOTE — two distinct N's live in this file, deliberately:
- *   - the bounded-concurrency PROOF below uses N=64 (8 args × 8 production
- *     families) because Family H (claim_clarity) is now production-enabled
- *     (MCP-021C-EDGE-FAMILY-H-ENABLE). The proof must model the real burst.
+ *   - the bounded-concurrency PROOF below uses N=72 (8 args × 9 production
+ *     families) because Family I (thread_topology) is now production-enabled
+ *     (MCP-021C-EDGE-FAMILY-I-ENABLE / MCP-I-D2), on top of Family H
+ *     (claim_clarity). The proof must model the real burst.
  *   - BAN-4's PASS-LOAD bar assertion keeps the ARCH-001 cutover live-drill
  *     bar at its operator-gated N=56 (8 args × 7 families) on the external
  *     scripts/arch-001-card3-smoke/README.md — that bar is an ARCH-001
- *     operator gate, untouched here; revisiting it for the 8-family roster
+ *     operator gate, untouched here; revisiting it for the widened roster
  *     is an ARCH-001 follow-up, out of scope for this Edge-layer flip.
  */
 
@@ -209,7 +210,7 @@ async function flushMicrotasks(times = 6): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* The production synthetic burst N=64 (8 args x 8 production families) */
+/* The production synthetic burst N=72 (8 args x 9 production families) */
 /* ------------------------------------------------------------------ */
 
 const BURST_ARGS = 8;
@@ -222,6 +223,7 @@ const PRODUCTION_FAMILIES = [
   'critical_question',
   'resolution_progress',
   'claim_clarity',
+  'thread_topology',
 ] as const;
 
 interface SyntheticJob {
@@ -229,7 +231,7 @@ interface SyntheticJob {
   family: (typeof PRODUCTION_FAMILIES)[number];
 }
 
-/** Build 64 plain-object jobs — NO DB, NO provider, NO network. */
+/** Build 72 plain-object jobs — NO DB, NO provider, NO network. */
 function buildBurstJobs(): SyntheticJob[] {
   const jobs: SyntheticJob[] = [];
   for (let a = 0; a < BURST_ARGS; a += 1) {
@@ -255,11 +257,11 @@ describe('ARCH-001 Card 3 — provider-concurrency bound C (value pin)', () => {
     expect(C).toBeLessThanOrEqual(MCP_CAP);
   });
 
-  it('BC-3 — the production burst is N=64 (8 args x 8 production families post Family H flip)', () => {
+  it('BC-3 — the production burst is N=72 (8 args x 9 production families post Family I flip)', () => {
     const jobs = buildBurstJobs();
-    expect(jobs).toHaveLength(64);
-    expect(BURST_ARGS * PRODUCTION_FAMILIES.length).toBe(64);
-    expect(PRODUCTION_FAMILIES).toHaveLength(8);
+    expect(jobs).toHaveLength(72);
+    expect(BURST_ARGS * PRODUCTION_FAMILIES.length).toBe(72);
+    expect(PRODUCTION_FAMILIES).toHaveLength(9);
   });
 });
 
@@ -268,7 +270,7 @@ describe('ARCH-001 Card 3 — provider-concurrency bound C (value pin)', () => {
 /* ============================================================ */
 
 describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency to C (§4)', () => {
-  it('BC-4 — 64-job burst through runWithBoundedConcurrency NEVER exceeds C in flight', async () => {
+  it('BC-4 — 72-job burst through runWithBoundedConcurrency NEVER exceeds C in flight', async () => {
     const C = drainerProviderConcurrency();
     const jobs = buildBurstJobs();
     const tracker = makeTrackingTask();
@@ -289,7 +291,7 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
     }
     const results = await runPromise;
 
-    expect(results).toHaveLength(64);
+    expect(results).toHaveLength(72);
     expect(tracker.everExceeded).toBe(false);
     expect(tracker.maxObserved).toBeLessThanOrEqual(C);
   });
@@ -301,7 +303,7 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
     tracker.setAssertBound(C);
 
     const runPromise = runWithBoundedConcurrency(jobs, C, tracker.task);
-    // With 64 slow (unreleased) tasks the pool fills to its full bound and holds.
+    // With 72 slow (unreleased) tasks the pool fills to its full bound and holds.
     await flushMicrotasks();
     expect(tracker.maxObserved).toBe(C);
 
@@ -313,7 +315,7 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
     expect(tracker.maxObserved).toBe(C);
   });
 
-  it('BC-6 — every one of the 64 jobs settles fulfilled (no job lost; allSettled-style)', async () => {
+  it('BC-6 — every one of the 72 jobs settles fulfilled (no job lost; allSettled-style)', async () => {
     const C = drainerProviderConcurrency();
     const jobs = buildBurstJobs();
     const tracker = makeTrackingTask();
@@ -324,7 +326,7 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
       await flushMicrotasks();
     }
     const results = await runPromise;
-    expect(results).toHaveLength(64);
+    expect(results).toHaveLength(72);
     expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
     // Results preserve INPUT order (results[i] ↔ jobs[i]).
     expect(results.map((r) => r.index)).toEqual(jobs.map((_, i) => i));
@@ -332,32 +334,32 @@ describe('ARCH-001 Card 3 — the queue path bounds GLOBAL provider concurrency 
 });
 
 /* ============================================================ */
-/* §4 contrast — unbounded fan-out saturates at N=64            */
+/* §4 contrast — unbounded fan-out saturates at N=72            */
 /* (the RCA failure the queue prevents)                         */
 /* ============================================================ */
 
-describe('ARCH-001 Card 3 — contrast: unbounded direct fan-out saturates at 64 (§4)', () => {
-  it('BC-7 — Promise.all over the same 64 jobs reaches maxObserved === 64 (queue-less saturation)', async () => {
+describe('ARCH-001 Card 3 — contrast: unbounded direct fan-out saturates at 72 (§4)', () => {
+  it('BC-7 — Promise.all over the same 72 jobs reaches maxObserved === 72 (queue-less saturation)', async () => {
     const jobs = buildBurstJobs();
     const tracker = makeTrackingTask();
 
     // Direct dispatch = unbounded fan-out: every task is invoked synchronously,
-    // so all 64 increment inFlight before any awaits resolve. This is the
-    // ~76-wide saturation the RCA observed (here exactly 64 = the burst size).
+    // so all 72 increment inFlight before any awaits resolve. This is the
+    // ~76-wide saturation the RCA observed (here exactly 72 = the burst size).
     const all = Promise.all(jobs.map((job, i) => tracker.task(job, i)));
-    expect(tracker.inFlight).toBe(64);
-    expect(tracker.maxObserved).toBe(64);
+    expect(tracker.inFlight).toBe(72);
+    expect(tracker.maxObserved).toBe(72);
 
     tracker.releaseAll();
     await all;
     expect(tracker.inFlight).toBe(0);
   });
 
-  it('BC-8 — the bounded peak (C) is strictly less than the unbounded peak (64)', async () => {
+  it('BC-8 — the bounded peak (C) is strictly less than the unbounded peak (72)', async () => {
     const C = drainerProviderConcurrency();
     // The whole point of ARCH-001: C << N. A regression that let the drainer
     // fan out unbounded would make these equal.
-    expect(C).toBeLessThan(64);
+    expect(C).toBeLessThan(72);
   });
 });
 

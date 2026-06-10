@@ -4,7 +4,7 @@
  * classifierQueueRouting.ts imports only pure modules (familyRegistry,
  * mcpBooleanObservationSchema) + a type, so it is Jest-importable and gets
  * REAL behavioral tests. Covers intent-brief tests (a) (smoke-route enqueues
- * per A–G), the DEFAULT-DISABLED contract, and (j) (H/I/J never enqueued).
+ * per the production roster), the DEFAULT-DISABLED contract, and (j) (J never enqueued).
  */
 import {
   shouldRouteToQueue,
@@ -107,7 +107,7 @@ describe('ARCH-001 Card 3 — enqueueClassifierJobs (single multi-row INSERT for
     expect(result.ok).toBe(true);
   });
 
-  it('ENQ-2 — exactly the 8 A–H families are enqueued (no I/J) post MCP-021C-EDGE-FAMILY-H-ENABLE flip', async () => {
+  it('ENQ-2 — exactly the 9 A–I families are enqueued (no J) post MCP-021C-EDGE-FAMILY-I-ENABLE flip', async () => {
     const { client, inserts } = makeStubClient();
     await enqueueClassifierJobs('arg-1', 'deb-1', client);
     const enqueuedFamilies = inserts[0].rows.map((r) => r.family);
@@ -121,10 +121,11 @@ describe('ARCH-001 Card 3 — enqueueClassifierJobs (single multi-row INSERT for
         'misunderstanding_repair',
         'parent_relation',
         'resolution_progress',
+        'thread_topology',
       ].sort(),
     );
-    // intent-brief (j): the two non-production families are NEVER enqueued.
-    for (const banned of ['thread_topology', 'sensitive_composer']) {
+    // intent-brief (j): the non-production family J is NEVER enqueued.
+    for (const banned of ['sensitive_composer']) {
       expect(enqueuedFamilies).not.toContain(banned);
     }
   });

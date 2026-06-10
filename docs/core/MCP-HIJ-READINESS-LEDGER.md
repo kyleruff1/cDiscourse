@@ -37,19 +37,21 @@ Each cell is sourced verbatim from an existing artifact; no new facts are invent
 
 ## Current production state
 
-> **UPDATE 2026-06-10 — MCP-H-002 re-enabled Family H.** Family H (`claim_clarity`) was re-enabled to production by the operator-approved **E#7(b)** registry flip (after the **#472** reproduction PASS proved provider/server reliability at 8-family load) — the realization of Row H col 10's named precondition. The production roster is now **A–H (8 families)**; the H rows captured below at HEAD `3b668d2` are superseded for H's registry value. **Families I / J remain frozen** (`productionEnabled: false`). This ledger still flips no flag of its own — MCP-H-002 made the registry edit; this section records it.
+> **UPDATE 2026-06-10 — MCP-H-002 re-enabled Family H.** Family H (`claim_clarity`) was re-enabled to production by the operator-approved **E#7(b)** registry flip (after the **#472** reproduction PASS proved provider/server reliability at 8-family load) — the realization of Row H col 10's named precondition. The production roster moved to **A–H (8 families)**; the H rows captured below at HEAD `3b668d2` are superseded for H's registry value. This ledger still flips no flag of its own — MCP-H-002 made the registry edit; this section records it.
 
-At HEAD `3b668d2`, the family registry (`supabase/functions/_shared/booleanObservations/familyRegistry.ts:68-119`, `Object.freeze`d at line 68) holds 10 families. Families **A–G** (`parent_relation`, `disagreement_axis`, `misunderstanding_repair`, `evidence_source_chain`, `argument_scheme`, `critical_question`, `resolution_progress`) are `productionEnabled: true` + `adminValidationEnabled: true` (`familyRegistry.ts:69-103`). **Family H (`claim_clarity`) was re-enabled to production mode by MCP-H-002 (2026-06-10); registry line 106 now reads enabled.** Families **I / J** remain `productionEnabled: false` + `adminValidationEnabled: true`:
+> **UPDATE 2026-06-10 — MCP-I-D2 re-enabled Family I.** Family I (`thread_topology`) was re-enabled to production by the operator-authorized **MCP-021C-EDGE-FAMILY-I-ENABLE (MCP-I-D2)** registry flip, executed per the **D1 runbook** (`docs/designs/MCP-021C-EDGE-FAMILY-I-PRODUCTION-ENABLE-D1.md`) after the H-stable precondition cleared (Lane C/C4) and with the mixed-source subset entry already present (Card 1A, #550) — the realization of Row I col 10's named precondition. The production roster is now **A–I (9 families)**. **Family J remains frozen** (`productionEnabled: false`). The single-boolean flip rides the existing direct-dispatch fan-out plus whatever routing percentage is already armed; no routing percentage was raised. The D3 post-merge smoke + D4 observation window are **operator-run and PENDING** — this registry value is correct, but production-traffic validation is not yet claimed. This ledger still flips no flag of its own — MCP-I-D2 made the registry edit; this section records it.
+
+At HEAD `3b668d2`, the family registry (`supabase/functions/_shared/booleanObservations/familyRegistry.ts:68-119`, `Object.freeze`d at line 68) holds 10 families. Families **A–G** (`parent_relation`, `disagreement_axis`, `misunderstanding_repair`, `evidence_source_chain`, `argument_scheme`, `critical_question`, `resolution_progress`) are `productionEnabled: true` + `adminValidationEnabled: true` (`familyRegistry.ts:69-103`). **Family H (`claim_clarity`) was re-enabled to production mode by MCP-H-002 (2026-06-10); registry line 106 now reads enabled.** **Family I (`thread_topology`) was re-enabled to production mode by MCP-I-D2 (2026-06-10); registry line 111 now reads enabled.** Family **J** remains `productionEnabled: false` + `adminValidationEnabled: true`:
 
 | Family | Registry name | `productionEnabled` | `adminValidationEnabled` | Cite |
 |---|---|---|---|---|
 | H | `claim_clarity` | **true** (re-enabled 2026-06-10, MCP-H-002) | true | `familyRegistry.ts:106` |
-| I | `thread_topology` | **false** | true | `familyRegistry.ts:111` |
+| I | `thread_topology` | **true** (re-enabled 2026-06-10, MCP-I-D2) | true | `familyRegistry.ts:111` |
 | J | `sensitive_composer` | **false** | true | `familyRegistry.ts:116` |
 
-`adminValidationEnabled: true` means all three families run in the **admin-validation** path only (the dormant `admin_validation` run mode), never on the production auto-trigger path. No H/I/J observation reaches a production user-facing surface today. Routing baseline is OFF: `CLASSIFIER_QUEUE_ROUTING_ENABLED` reads via strict `=== "true"` (unset ⇒ false) and `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE` fail-closes to 0 (`supabase/functions/submit-argument/index.ts:811-816`; `classifierQueueRouting.ts:89-98`).
+`adminValidationEnabled: true` on J means it runs in the **admin-validation** path only (the dormant `admin_validation` run mode), never on the production auto-trigger path. Per the §4.3 client/admin decoupling, no H/I observation reaches a production user-facing surface today either — the client hub allow-list and admin-health tripwire mirrors gate H/I off production user surfaces independently of the Edge registry (their re-scope is a separate operator follow-up). Routing baseline is OFF: `CLASSIFIER_QUEUE_ROUTING_ENABLED` reads via strict `=== "true"` (unset ⇒ false) and `CLASSIFIER_QUEUE_ROUTING_PERCENTAGE` fail-closes to 0 (`supabase/functions/submit-argument/index.ts:811-816`; `classifierQueueRouting.ts:89-98`).
 
-The frozen-set boundary is a hard limit this ledger respects and re-states (does not weaken): **I/J stay `productionEnabled: false`.** (H was re-enabled 2026-06-10 by MCP-H-002 per the operator-approved E#7(b) decision — see the update banner above; that flip was the operator's, not this ledger's.) No card in this family flips the I/J flag, arms routing, or raises the routing percentage (`docs/core/known-blockers.md:579-582`).
+The frozen-set boundary is a hard limit this ledger respects and re-states (does not weaken): **J stays `productionEnabled: false`.** (H was re-enabled 2026-06-10 by MCP-H-002 per the operator-approved E#7(b) decision, and I was re-enabled 2026-06-10 by MCP-I-D2 per the operator-authorized D1 runbook — see the update banners above; those flips were the operator's, not this ledger's.) No card in this family flips the J flag, arms routing, or raises the routing percentage (`docs/core/known-blockers.md:579-582`).
 
 ---
 
@@ -75,19 +77,21 @@ The frozen-set boundary is a hard limit this ledger respects and re-states (does
 
 ### Row I — `thread_topology`
 
-| Column | State at HEAD `3b668d2` | Cite |
+> **Row I SUPERSEDED 2026-06-10 by Card 1A (#550), Card 1 server (#546), and MCP-I-D2.** The HEAD-`3b668d2` snapshot below recorded I as "never attempted / subset entry absent / chained behind H." All three preconditions have since cleared: the MCP-server classifier shipped (#546), the Edge mixed-source subset entry shipped (#550), and MCP-I-D2 flipped `productionEnabled: true` per the D1 runbook. The load-bearing columns (1/2/3/4/5/10) are updated to the post-flip reality; cols 6–9/11 retain their HEAD framing.
+
+| Column | State at HEAD `3b668d2`, updated post-MCP-I-D2 | Cite |
 |---|---|---|
-| **1. Registry state** | `productionEnabled: false`, `adminValidationEnabled: true` | `familyRegistry.ts:111-112` |
-| **2. Prompt / server state** | Cards 1/2/3 **never attempted**. Intent doc only. | `docs/designs/MCP-021C-EDGE-FAMILY-I-ENABLE-intent.md` (intent only); Phase 0 `family_I_card_status_NEVER_ATTEMPTED` |
-| **3. Validator / schema state** | No L5 audit-lint mechanization shipped (Card 2 unshipped). | intent-only state |
-| **4. Input requirements** | **Mixed-source** family. Production-enable **MUST** add `MCP_SERVER_SUPPORTED_FAMILY_SOURCES['thread_topology'] = new Set(['ai_classifier'])` to `booleanObservationRequestBuilder.ts`. This is the **HALT-13 inverse**: today only `evidence_source_chain` (D) and `resolution_progress` (G) have subset entries; `thread_topology` is **absent**, and "absence ⇒ full registry passthrough" — so enabling I without the entry would send deterministic keys the MCP server rejects → `mcp_validation_failed`. **That add is owned by #478, not this ledger.** | `booleanObservationRequestBuilder.ts:68-78` (D + G only; comment line 62); MEMORY note `mcp-mixed-source-family-edge-subset` |
-| **5. UI consumer** | Admin-validation table only today. No production surface. | `familyRegistry.ts:111` |
-| **6. Known failures** | None (never attempted in production). The only recorded I risk is the mixed-source subset trap above, which is a design hazard, not an incident. | Phase 0 `family_I_card_status_NEVER_ATTEMPTED` |
+| **1. Registry state** | `productionEnabled: true` (re-enabled 2026-06-10 by MCP-I-D2 / MCP-021C-EDGE-FAMILY-I-ENABLE), `adminValidationEnabled: true` | `familyRegistry.ts:111` |
+| **2. Prompt / server state** | Card 1 SHIPPED — per-family `thread_topology` classifier on the hosted MCP server (6 `ai_classifier` keys; classifier-set `family-i-v1`). Deno-live; hosted smoke 25/25, checks 24/25. | PR #546 (Card 1, MCP-SERVER-010-FAMILY-I) |
+| **3. Validator / schema state** | Card 2 SHIPPED — `family_i` L5 audit-lint mechanization (`thread_topology` / `family_i` / `compares_options`). | PR #549 (MCP-AUDIT-LINT-RULES-FAMILY-I) |
+| **4. Input requirements** | **Mixed-source** family (8 auto_metadata + 7 lifecycle + 6 ai_classifier). The required subset entry `MCP_SERVER_SUPPORTED_FAMILY_SOURCES['thread_topology'] = new Set(['ai_classifier'])` is **PRESENT** (added by Card 1A, #550) — alongside `evidence_source_chain` (D) and `resolution_progress` (G). It stays byte-identical across the MCP-I-D2 flip (mode-agnostic) so production-mode I sends exactly the 6 `ai_classifier` keys and the 15 deterministic keys are never sent (no `mcp_validation_failed`). | `booleanObservationRequestBuilder.ts:82-88` (D + G + I; comment line 62); MEMORY note `mcp-mixed-source-family-edge-subset` |
+| **5. UI consumer** | Edge production path now requests I; the production **user-facing** surface stays gated by the client `HUB_NON_PRODUCTION_FAMILIES` allow-list mirror (§4.3 decoupling) — the I client re-scope is a separate operator follow-up, not part of MCP-I-D2. Admin-validation table unchanged. | `familyRegistry.ts:111`; `argumentDetailModel.ts` hub allow-list |
+| **6. Known failures** | None (never attempted in production at HEAD framing). The only recorded I risk was the mixed-source subset trap, now resolved by the present subset entry (#550). | Phase 0 `family_I_card_status_NEVER_ATTEMPTED` |
 | **7. Doctrine risks** | Every I key is a structural topology Observation, never a verdict (`ignored_by_both` = a reply-state topology fact, not a verdict on the contribution). §1 / §3 / §4 bind. | `docs/roadmap-expansions/2026-06-02-mcp-H-I-J-integration-roadmap.md:191-192` |
-| **8. Smoke plan** | Would mirror the family-enable SMOKE template once Cards 1/2 exist; not yet drafted. | (unshipped) |
-| **9. Load plan** | Chained behind H stable; the same E#11 zero-terminal bar applies when attempted. | `OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md:82` |
-| **10. `productionEnabled` blocker** | `false` because Cards 1/2/3 are unbuilt **and** the mixed-source subset entry is missing **and** I is chained behind H stable. None of these is unblocked by this ledger; all are owned by #478. | `familyRegistry.ts:111`; `docs/designs/MCP-021C-EDGE-FAMILY-I-ENABLE-intent.md` |
-| **11. Operator gate required** | **#478 MCP-I-SCOPE-001** (Family I scoping design — parallel to H #472 / J #473). | gh issue #478 (OPEN) |
+| **8. Smoke plan** | D3 GATE-SPEND smoke (canary + targeted I-signal + optional N=72 burst + doctrine/leak + J-zero) per the D1 runbook §6; **operator-run, PENDING** post-merge. | `docs/designs/MCP-021C-EDGE-FAMILY-I-PRODUCTION-ENABLE-D1.md` §6 |
+| **9. Load plan** | A–I = 9 families; the N=72 burst (8 args × 9) carries the same E#11 zero-terminal bar; the `C=3` drainer concurrency pin is unchanged. | `OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md:82` |
+| **10. `productionEnabled` blocker** | RESOLVED 2026-06-10. Cards 1/2 shipped (#546/#549), the subset entry is present (#550), and the H-stable precondition cleared (Lane C/C4) — so MCP-I-D2 applied the flip per the D1 runbook under explicit operator authorization. The D3 smoke + D4 window remain operator-run and PENDING (this row records the registry resolution, not a production-traffic PASS). | `familyRegistry.ts:111`; `docs/designs/MCP-021C-EDGE-FAMILY-I-PRODUCTION-ENABLE-D1.md` |
+| **11. Operator gate required** | **#478 MCP-I-SCOPE-001** (Family I scoping design) — superseded by the D1 runbook's bundled `MCP-I-SCOPE-001.md`; **Closes #478 on merge**. The D2 flip itself was Tier-3 operator-authorized. | gh issue #478 |
 
 ### Row J — `sensitive_composer`
 
@@ -128,8 +132,8 @@ The capacity history is recorded-and-closed: the provider-capacity incident (#37
 
 ## Operator follow-up (none unblocked by this ledger)
 
-- **H** retry remains gated on the E#7 three conjunctive conditions (#472).
-- **I** Card 1 is chained behind H stable **and** requires the mixed-source `MCP_SERVER_SUPPORTED_FAMILY_SOURCES['thread_topology']` subset entry before any production-enable (#478).
+- **H** was re-enabled to production by MCP-H-002 (2026-06-10, E#7(b)); its D4-analog observation closeout is recorded under Lane C/C4.
+- **I** was re-enabled to production by MCP-I-D2 (2026-06-10, MCP-021C-EDGE-FAMILY-I-ENABLE per the D1 runbook). Cards 1/2 (#546/#549) + the subset entry (#550) shipped earlier. The **D3 post-merge smoke + D4 observation window are operator-run and PENDING**; the routing-percentage ramp remains a separate operator card.
 - **J** stays at the ratified N=0 disposition; any new J surface is a NEW P4-doctrine-reviewed card, never an advancement of this ledger (#473).
 
 ---
