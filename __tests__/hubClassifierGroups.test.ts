@@ -1,19 +1,22 @@
 /**
  * CARD-VIEW-DETAIL-HUB-001 (Slice 2, ask iii) — all-families classifier
- * cap-lift + EXPLICIT A–G family gate + per-family grouping.
+ * cap-lift + EXPLICIT production family gate + per-family grouping.
+ *
+ * OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: Family H (claim_clarity, PR #559) and
+ * Family I (thread_topology, PR #562) are now productionEnabled, so they JOIN
+ * the hub. Only Family J (sensitive_composer) is still gated out.
  *
  * Covers the design's §6.5 + §10 adversarial set:
  *   - uncapped grouped view vs the old ≤3 selected_context cap
  *   - per-family grouping via the registry lookup
  *   - unknown rawKey → "Other observations" (never the raw code)
- *   - HARD Family-I negative (adversarial #7): a Family I `rendered_now`
- *     mark (`no_response_after_n_turns`) passes the disposition filter but
- *     is dropped by the explicit family allow-list gate — it does NOT render
- *   - Families H + J also absent
+ *   - Family H + Family I marks now RENDER on the hub (post re-scope)
+ *   - HARD Family-J negative (adversarial #7): a force-passed Family J mark is
+ *     dropped by the explicit family allow-list gate — it does NOT render
  *   - confidence PIPS not numbers; advisory caption present; neutral heading
- *   - the A–G allow-list is DERIVED from `productionEnabled` (the canonical
- *     family enumeration + the frozen H/I/J non-production set), not a
- *     hard-coded A–G code list
+ *   - the A–I allow-list is DERIVED from `productionEnabled` (the canonical
+ *     family enumeration + the frozen J non-production set), not a
+ *     hard-coded family code list
  *
  * Pure-model test. No React, no Supabase.
  */
@@ -62,25 +65,27 @@ function mark(over: Partial<NodeLabelMark> = {}): NodeLabelMark {
   };
 }
 
-describe('CVDH-001 Slice 2 — A–G family allow-list is DERIVED, not hard-coded', () => {
-  it('the non-production set mirrors the canonical frozen H/I/J set', () => {
+describe('CVDH-001 Slice 2 — production family allow-list is DERIVED, not hard-coded', () => {
+  it('the non-production set mirrors the canonical frozen J set (admin-health twin)', () => {
     expect([...HUB_NON_PRODUCTION_FAMILIES].sort()).toEqual(
       [...FROZEN_NON_PRODUCTION_FAMILIES].sort(),
     );
+    // Post re-scope: the frozen set is exactly Family J.
+    expect([...HUB_NON_PRODUCTION_FAMILIES]).toEqual(['sensitive_composer']);
   });
 
-  it('the allow-list is the complement of H/I/J over ALL_MACHINE_OBSERVATION_FAMILIES', () => {
+  it('the allow-list is the complement of frozen-J over ALL_MACHINE_OBSERVATION_FAMILIES (exactly the 9 A–I families)', () => {
     const expected = ALL_MACHINE_OBSERVATION_FAMILIES.filter(
       (f) => !HUB_NON_PRODUCTION_FAMILIES.includes(f),
     );
     expect([...HUB_PRODUCTION_ENABLED_FAMILIES]).toEqual([...expected]);
-    // The allow-list is exactly A–G (7 families).
-    expect(HUB_PRODUCTION_ENABLED_FAMILIES).toHaveLength(7);
+    // The allow-list is exactly A–I (9 families) after the H/I enables.
+    expect(HUB_PRODUCTION_ENABLED_FAMILIES).toHaveLength(9);
     expect(HUB_PRODUCTION_ENABLED_FAMILIES).toContain('parent_relation');
     expect(HUB_PRODUCTION_ENABLED_FAMILIES).toContain('resolution_progress');
-    expect(HUB_PRODUCTION_ENABLED_FAMILIES).not.toContain('thread_topology');
-    expect(HUB_PRODUCTION_ENABLED_FAMILIES).not.toContain('claim_clarity');
-    expect(HUB_PRODUCTION_ENABLED_FAMILIES).not.toContain('sensitive_composer');
+    expect(HUB_PRODUCTION_ENABLED_FAMILIES).toContain('thread_topology'); // Family I — now production
+    expect(HUB_PRODUCTION_ENABLED_FAMILIES).toContain('claim_clarity'); // Family H — now production
+    expect(HUB_PRODUCTION_ENABLED_FAMILIES).not.toContain('sensitive_composer'); // Family J — still frozen
   });
 });
 
@@ -188,17 +193,16 @@ describe('CVDH-001 Slice 2 — buildHubClassifierGroups grouping + family gate',
   });
 });
 
-describe('CVDH-001 Slice 2 — HARD Family-I / H / J negatives (adversarial #7)', () => {
-  it('a Family I rendered_now mark (no_response_after_n_turns) is DROPPED by the family gate', () => {
-    // Prove the seed is genuinely Family I AND genuinely rendered_now — so it
-    // PASSES disposition filtering and only the explicit family gate can drop it.
+describe('CVDH-001 Slice 2 — Family I + H now RENDER; HARD Family-J negative (adversarial #7)', () => {
+  it('a Family I rendered_now mark (no_response_after_n_turns) NOW RENDERS on the hub (post re-scope)', () => {
+    // Prove the seed is genuinely Family I AND genuinely rendered_now.
     const def = lookupMachineObservationDefinitionByCompoundKey(
       'auto_metadata',
       'no_response_after_n_turns',
     );
     expect(def).not.toBeNull();
     expect(def!.family).toBe('thread_topology'); // Family I
-    expect(def!.disposition).toBe('rendered_now'); // would pass selected_context
+    expect(def!.disposition).toBe('rendered_now'); // passes selected_context
 
     const familyIMark = mark({
       rawKey: 'no_response_after_n_turns',
@@ -209,19 +213,20 @@ describe('CVDH-001 Slice 2 — HARD Family-I / H / J negatives (adversarial #7)'
     });
     const model = buildHubClassifierGroups({ marks: [familyIMark], markToChip });
 
-    // The mark does NOT render on the hub.
-    expect(model.hasSignals).toBe(false);
-    expect(model.groups).toHaveLength(0);
-    const json = JSON.stringify(model);
-    expect(json).not.toContain('No follow-up');
-    expect(json).not.toContain('no_response_after_n_turns');
+    // Family I is now productionEnabled (PR #562), so the mark renders under
+    // the thread_topology group.
+    expect(model.hasSignals).toBe(true);
+    const group = model.groups.find((g) => g.familyCode === 'thread_topology');
+    expect(group).toBeDefined();
+    expect(group?.familyLabel).toBe(HUB_CLASSIFIER_FAMILY_HEADING.thread_topology);
+    expect(group?.familyLabel).not.toMatch(/_/); // plain-language heading, never raw code
+    expect(group?.chips.length).toBeGreaterThanOrEqual(1);
+    // markToChip maps mark.label → chip.longLabel (chip.label is mark.shortLabel).
+    expect(group?.chips.some((c) => c.longLabel === 'No follow-up')).toBe(true);
   });
 
-  it('through the FULL pipeline, a seeded Family I auto-metadata code never reaches the hub', () => {
-    // Seed via the autoMetadataCodes input (the real surface path): the
-    // selected_context disposition filter PASSES no_response_after_n_turns
-    // (rendered_now), so the capped strip WOULD show it — but the hub's
-    // family gate removes it.
+  it('through the FULL pipeline, a seeded Family I auto-metadata code NOW reaches the hub', () => {
+    // Seed via the autoMetadataCodes input (the real surface path).
     const input: BuildCardClassifierStripInput = {
       activeMessageId: ACTIVE,
       persistedClassifierRows: [],
@@ -230,48 +235,19 @@ describe('CVDH-001 Slice 2 — HARD Family-I / H / J negatives (adversarial #7)'
       clusterState: 'open',
       messageContribution: null,
     };
-    // The capped strip (no family gate) DOES surface the Family I rendered_now
-    // mark — demonstrating disposition filtering alone is insufficient.
+    // The capped strip surfaces the Family I rendered_now mark.
     const capped = buildCardClassifierStrip(input);
     expect(capped.hasSignals).toBe(true);
     expect(capped.chips.some((c) => c.label === 'No follow-up')).toBe(true);
 
-    // The hub (with the family gate) drops it.
+    // The hub (production gate now admits A–I) also surfaces it.
     const hub = buildHubClassifier(input);
-    expect(hub.hasSignals).toBe(false);
-    expect(JSON.stringify(hub)).not.toContain('No follow-up');
+    expect(hub.hasSignals).toBe(true);
+    expect(JSON.stringify(hub)).toContain('No follow-up');
+    expect(hub.groups.some((g) => g.familyCode === 'thread_topology')).toBe(true);
   });
 
-  it('Family H + Family J marks are absent from the hub', () => {
-    // Family J is composer_only and never reaches selected_context via the
-    // pipeline; we still assert the family gate drops a direct J/H mark.
-    const familyJMark = mark({
-      rawKey: 'shifts_to_person_or_intent',
-      id: 'j1',
-      source: 'semantic_referee',
-      label: 'Shifts to person',
-      disposition: 'rendered_now', // force-pass disposition to isolate the family gate
-    });
-    const familyHMark = mark({
-      rawKey: 'claim_present',
-      id: 'h1',
-      source: 'ai_classifier',
-      label: 'Claim present',
-      disposition: 'rendered_now',
-    });
-    const model = buildHubClassifierGroups({
-      marks: [familyJMark, familyHMark],
-      markToChip,
-    });
-    // Both are dropped IF their (source, rawKey) resolves to H/J in the
-    // registry; if a rawKey is unknown it falls to "Other" — assert neither
-    // resolves into an A–G group.
-    const jDef = lookupMachineObservationDefinitionByCompoundKey(
-      'semantic_referee',
-      'shifts_to_person_or_intent',
-    );
-    expect(jDef).not.toBeNull();
-    expect(jDef!.family).toBe('sensitive_composer'); // Family J
+  it('a Family H mark (claim_present) NOW RENDERS on the hub (post re-scope)', () => {
     const hDef = lookupMachineObservationDefinitionByCompoundKey(
       'ai_classifier',
       'claim_present',
@@ -279,13 +255,48 @@ describe('CVDH-001 Slice 2 — HARD Family-I / H / J negatives (adversarial #7)'
     expect(hDef).not.toBeNull();
     expect(hDef!.family).toBe('claim_clarity'); // Family H
 
-    // Both families are dropped — nothing renders.
+    const familyHMark = mark({
+      rawKey: 'claim_present',
+      id: 'h1',
+      source: 'ai_classifier',
+      label: 'Claim present',
+      disposition: 'rendered_now',
+    });
+    const model = buildHubClassifierGroups({ marks: [familyHMark], markToChip });
+
+    expect(model.hasSignals).toBe(true);
+    const group = model.groups.find((g) => g.familyCode === 'claim_clarity');
+    expect(group).toBeDefined();
+    expect(group?.familyLabel).toBe(HUB_CLASSIFIER_FAMILY_HEADING.claim_clarity);
+    expect(group?.chips.length).toBeGreaterThanOrEqual(1);
+    expect(group?.chips.some((c) => c.longLabel === 'Claim present')).toBe(true);
+  });
+
+  it('a force-passed Family J mark is STILL DROPPED by the family gate (still frozen)', () => {
+    // Family J is composer_only and never reaches selected_context via the
+    // pipeline; force-pass disposition to isolate the family gate.
+    const familyJMark = mark({
+      rawKey: 'shifts_to_person_or_intent',
+      id: 'j1',
+      source: 'semantic_referee',
+      label: 'Shifts to person',
+      disposition: 'rendered_now',
+    });
+    const jDef = lookupMachineObservationDefinitionByCompoundKey(
+      'semantic_referee',
+      'shifts_to_person_or_intent',
+    );
+    expect(jDef).not.toBeNull();
+    expect(jDef!.family).toBe('sensitive_composer'); // Family J
+
+    const model = buildHubClassifierGroups({ marks: [familyJMark], markToChip });
+
+    // Family J is still gated out — nothing renders.
     expect(model.hasSignals).toBe(false);
     const json = JSON.stringify(model);
     expect(json).not.toContain('Shifts to person');
-    expect(json).not.toContain('Claim present');
 
-    // No A–G production group ever contains an H/J family chip.
+    // No production group ever contains a Family J chip.
     for (const group of model.groups) {
       if (group.familyCode !== 'other') {
         expect(HUB_PRODUCTION_ENABLED_FAMILIES).toContain(group.familyCode);

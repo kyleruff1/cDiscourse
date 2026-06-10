@@ -16,7 +16,10 @@ import {
   DEPLOYED_AG_RAW_KEYS,
   FROZEN_HIJ_FAMILIES,
   PRODUCTION_AG_FAMILIES,
+  familyForDeployedRawKey,
+  isDeployedAgRawKey,
 } from '../src/features/nodeLabels/observationMapping/deployedAgRawKeys';
+import { getDefinitionsForFamily } from '../src/features/nodeLabels/machineObservationDefinitions';
 import { evaluateObservationMapping } from '../src/features/nodeLabels/observationMapping/observationMappingEvaluator';
 import {
   looksLikeInternalCode,
@@ -51,8 +54,12 @@ const AUTHOR_LABEL_PATTERNS = [
   'they are a',
 ];
 
-const AG_FAMILY_SET = new Set<string>(PRODUCTION_AG_FAMILIES);
-const HIJ_FAMILY_SET = new Set<string>(FROZEN_HIJ_FAMILIES);
+// OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: PRODUCTION_AG_FAMILIES is now A–I (9
+// families, after the H/I production enables) and FROZEN_HIJ_FAMILIES is now
+// J-only. The constant NAMES are historical (kept to avoid a wide importer
+// ripple); the sets below reflect the current contents.
+const PRODUCTION_FAMILY_SET = new Set<string>(PRODUCTION_AG_FAMILIES);
+const FROZEN_FAMILY_SET = new Set<string>(FROZEN_HIJ_FAMILIES);
 
 function labelFieldsOf(rule: ObservationMappingRule): string[] {
   return [rule.labelShort, rule.labelNeutral, rule.diagnosticSentence];
@@ -100,20 +107,20 @@ describe('observationMappingRegistry — review gate (safety_note present)', () 
   }
 });
 
-describe('observationMappingRegistry — A-G only, H/I/J never', () => {
+describe('observationMappingRegistry — production-family only, frozen-J never', () => {
   for (const rule of OBSERVATION_MAPPING_REGISTRY) {
-    it(`rule ${rule.mappingId} family is A-G only`, () => {
+    it(`rule ${rule.mappingId} references only production families (never frozen J)`, () => {
       for (const part of familyParts(rule.familyKey)) {
-        expect(AG_FAMILY_SET.has(part)).toBe(true);
-        expect(HIJ_FAMILY_SET.has(part)).toBe(false);
+        expect(PRODUCTION_FAMILY_SET.has(part)).toBe(true);
+        expect(FROZEN_FAMILY_SET.has(part)).toBe(false);
       }
     });
   }
 
-  it('no rule references a frozen H/I/J family anywhere', () => {
+  it('no rule references the frozen Family J anywhere', () => {
     for (const rule of OBSERVATION_MAPPING_REGISTRY) {
       for (const part of familyParts(rule.familyKey)) {
-        expect(HIJ_FAMILY_SET.has(part)).toBe(false);
+        expect(FROZEN_FAMILY_SET.has(part)).toBe(false);
       }
     }
   });
@@ -123,7 +130,7 @@ describe('observationMappingRegistry — reconciliation (flags are deployed rawK
   for (const rule of OBSERVATION_MAPPING_REGISTRY) {
     const allFlags = [...rule.requiredTrueFlags, ...rule.requiredFalseFlags];
     for (const flag of allFlags) {
-      it(`rule ${rule.mappingId} flag "${flag}" is a deployed A-G rawKey`, () => {
+      it(`rule ${rule.mappingId} flag "${flag}" is a deployed production rawKey`, () => {
         expect(DEPLOYED_AG_RAW_KEYS.has(flag)).toBe(true);
       });
     }
@@ -284,4 +291,89 @@ describe('observationMappingRegistry — every rule actually fires on its flags'
       expect(out.some((m) => m.mappingId === rule.mappingId)).toBe(true);
     });
   }
+});
+
+// ── OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: H/I key adoption + J still frozen ──
+//
+// Re-scoping PRODUCTION_AG_FAMILIES to A–I means the deployed rawKey set (the
+// reconciliation target) now adopts the Family H + Family I rawKeys, while the
+// Family J keys remain frozen out. These assertions pin the adoption facts and
+// keep unknown-code suppression intact.
+
+describe('observationMappingRegistry — H/I rawKey adoption (post re-scope)', () => {
+  const H_KEYS = getDefinitionsForFamily('claim_clarity').map((d) => d.rawKey);
+  const I_KEYS = getDefinitionsForFamily('thread_topology').map((d) => d.rawKey);
+  const J_KEYS = getDefinitionsForFamily('sensitive_composer').map((d) => d.rawKey);
+
+  // The 6 ai_classifier Family I keys the card names explicitly (the only I keys
+  // with MCP-side production output; the deterministic keys persist via direct
+  // deterministic writers). Verified against familyI.ts — not invented.
+  const I_AI_CLASSIFIER_KEYS = getDefinitionsForFamily('thread_topology')
+    .filter((d) => d.source === 'ai_classifier')
+    .map((d) => d.rawKey);
+
+  it('PRODUCTION_AG_FAMILIES is the 9 A–I families in registry order (H + I appended)', () => {
+    expect([...PRODUCTION_AG_FAMILIES]).toEqual([
+      'parent_relation',
+      'disagreement_axis',
+      'misunderstanding_repair',
+      'evidence_source_chain',
+      'argument_scheme',
+      'critical_question',
+      'resolution_progress',
+      'claim_clarity', // Family H — PR #559
+      'thread_topology', // Family I — PR #562
+    ]);
+  });
+
+  it('FROZEN_HIJ_FAMILIES is now exactly the frozen Family J', () => {
+    expect([...FROZEN_HIJ_FAMILIES]).toEqual(['sensitive_composer']);
+  });
+
+  it('familyH.ts defines 12 keys and ALL are now deployed production rawKeys', () => {
+    expect(H_KEYS).toHaveLength(12);
+    for (const key of H_KEYS) {
+      expect(DEPLOYED_AG_RAW_KEYS.has(key)).toBe(true);
+      expect(isDeployedAgRawKey(key)).toBe(true);
+      expect(familyForDeployedRawKey(key)).toBe('claim_clarity');
+    }
+  });
+
+  it('familyI.ts defines 21 keys and ALL are now deployed production rawKeys', () => {
+    expect(I_KEYS).toHaveLength(21);
+    for (const key of I_KEYS) {
+      expect(DEPLOYED_AG_RAW_KEYS.has(key)).toBe(true);
+      expect(isDeployedAgRawKey(key)).toBe(true);
+    }
+  });
+
+  it('the 6 Family I ai_classifier keys (MCP-side production output) are deployed', () => {
+    expect(I_AI_CLASSIFIER_KEYS.sort()).toEqual(
+      [
+        'compares_options',
+        'introduces_new_issue',
+        'introduces_sub_axis',
+        'references_external_context',
+        'references_prior_agreement',
+        'returns_to_prior_issue',
+      ].sort(),
+    );
+    for (const key of I_AI_CLASSIFIER_KEYS) {
+      expect(DEPLOYED_AG_RAW_KEYS.has(key)).toBe(true);
+    }
+  });
+
+  it('Family J keys (5) remain FROZEN — never deployed production rawKeys', () => {
+    expect(J_KEYS).toHaveLength(5);
+    for (const key of J_KEYS) {
+      expect(DEPLOYED_AG_RAW_KEYS.has(key)).toBe(false);
+      expect(isDeployedAgRawKey(key)).toBe(false);
+    }
+  });
+
+  it('unknown-code suppression remains: an unknown rawKey is neither deployed nor family-resolved', () => {
+    expect(isDeployedAgRawKey('totally_unknown_raw_key_xyz')).toBe(false);
+    expect(DEPLOYED_AG_RAW_KEYS.has('totally_unknown_raw_key_xyz')).toBe(false);
+    expect(familyForDeployedRawKey('totally_unknown_raw_key_xyz')).toBeNull();
+  });
 });

@@ -184,13 +184,19 @@ describe('aggregateClassifierHealth — provider-error cluster (Q5)', () => {
   });
 });
 
-// ── H/I/J frozen-family tripwire ─────────────────────────────────
+// ── Frozen-family (J) leakage tripwire ───────────────────────────
+//
+// OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: Family H (claim_clarity, PR #559) and
+// Family I (thread_topology, PR #562) are now productionEnabled. The tripwire
+// now watches ONLY the still-frozen Family J (sensitive_composer), which
+// restores it as a TRUE producer-bug detector — it no longer counts the
+// legitimate H/I production rows as leaks.
 
-describe('aggregateClassifierHealth — H/I/J leakage tripwire', () => {
-  it('frozen set is exactly claim_clarity / thread_topology / sensitive_composer', () => {
-    expect([...FROZEN_NON_PRODUCTION_FAMILIES].sort()).toEqual(
-      ['claim_clarity', 'sensitive_composer', 'thread_topology'].sort(),
-    );
+describe('aggregateClassifierHealth — frozen-family (J) leakage tripwire', () => {
+  it('frozen set is exactly sensitive_composer (Family J only; H + I re-scoped out)', () => {
+    expect([...FROZEN_NON_PRODUCTION_FAMILIES]).toEqual(['sensitive_composer']);
+    expect(FROZEN_NON_PRODUCTION_FAMILIES).not.toContain('claim_clarity'); // H now production
+    expect(FROZEN_NON_PRODUCTION_FAMILIES).not.toContain('thread_topology'); // I now production
   });
 
   it('frozen names are a subset of the canonical family enumeration (registry mirror pin)', () => {
@@ -199,7 +205,7 @@ describe('aggregateClassifierHealth — H/I/J leakage tripwire', () => {
     }
   });
 
-  it('a clean A–G fixture reads 0 tripwire', () => {
+  it('a clean production fixture reads 0 tripwire', () => {
     const rows = [
       row({ run_mode: 'production', status: 'success', requested_families: ['parent_relation'] }),
       row({ run_mode: 'production', status: 'success', requested_families: ['evidence_source_chain'] }),
@@ -209,31 +215,43 @@ describe('aggregateClassifierHealth — H/I/J leakage tripwire', () => {
     expect(v.frozenFamilyTripwire.watchedFamilies).toEqual(FROZEN_NON_PRODUCTION_FAMILIES);
   });
 
-  it('a production-SUCCESS H/I/J row FIRES the tripwire', () => {
+  it('a production-SUCCESS Family J row FIRES the tripwire', () => {
     const rows = [
-      row({ run_mode: 'production', status: 'success', requested_families: ['claim_clarity'], family: 'claim_clarity' }),
+      row({ run_mode: 'production', status: 'success', requested_families: ['sensitive_composer'], family: 'sensitive_composer' }),
     ];
     const v = aggregateClassifierHealth(rows);
     expect(v.frozenFamilyTripwire.count).toBe(1);
-    const claimClarity = v.frozenFamilyTripwire.byFamily.find((f) => f.family === 'claim_clarity');
-    expect(claimClarity?.count).toBe(1);
+    const sensitive = v.frozenFamilyTripwire.byFamily.find((f) => f.family === 'sensitive_composer');
+    expect(sensitive?.count).toBe(1);
   });
 
-  it('an H/I/J FAILURE-only row does NOT fire (only success indicates a flip)', () => {
+  it('production-SUCCESS Family H + Family I rows do NOT fire (true-detector: H/I are now legitimate producers)', () => {
+    const rows = [
+      row({ run_mode: 'production', status: 'success', requested_families: ['claim_clarity'], family: 'claim_clarity' }),
+      row({ run_mode: 'production', status: 'success', requested_families: ['thread_topology'], family: 'thread_topology' }),
+      // a mixed row requesting H + I together is also clean
+      row({ run_mode: 'production', status: 'success', requested_families: ['claim_clarity', 'thread_topology'], family: 'claim_clarity' }),
+    ];
+    const v = aggregateClassifierHealth(rows);
+    expect(v.frozenFamilyTripwire.count).toBe(0);
+    expect(v.frozenFamilyTripwire.byFamily.every((f) => f.count === 0)).toBe(true);
+  });
+
+  it('a Family J FAILURE-only row does NOT fire (only success indicates a flip)', () => {
     const rows = [
       row({
         run_mode: 'production',
         status: 'failed',
         failure_reason: 'mcp_validation_failed',
-        requested_families: ['thread_topology'],
-        family: 'thread_topology',
+        requested_families: ['sensitive_composer'],
+        family: 'sensitive_composer',
       }),
     ];
     const v = aggregateClassifierHealth(rows);
     expect(v.frozenFamilyTripwire.count).toBe(0);
   });
 
-  it('an H/I/J admin_validation SUCCESS row does NOT fire (production-only tripwire)', () => {
+  it('a Family J admin_validation SUCCESS row does NOT fire (production-only tripwire)', () => {
     const rows = [
       row({
         run_mode: 'admin_validation',

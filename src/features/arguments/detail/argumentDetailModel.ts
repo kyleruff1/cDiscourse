@@ -642,41 +642,43 @@ export function hubColumnLayout(
   };
 }
 
-// ── All-families classifier — A–G family gate + grouping (ask iii) ───
+// ── All-families classifier — A–I family gate + grouping (ask iii) ───
 //
 // Design §6.5: the hub renders the UNCAPPED classifier set, but ONLY for
-// families that are `productionEnabled: true` (the A–G set). Family H
-// (`claim_clarity`), I (`thread_topology`), and J (`sensitive_composer`)
-// are `productionEnabled: false` and are dropped by an EXPLICIT family
-// allow-list gate — NOT by disposition alone. Verified leak: three Family I
-// entries (`no_response_after_n_turns`, `repeated_axis_pressure`,
-// `ignored_by_both`) are dispositioned `rendered_now`, so they pass
-// `filterMarksBySurface(_, 'selected_context')`; the family gate is the
-// authoritative §10a hub gate that keeps them off the hub regardless of
-// per-entry disposition or future family enablement (#392 / #394).
+// families that are `productionEnabled: true`. Family H (`claim_clarity`,
+// PR #559) and Family I (`thread_topology`, PR #562) are now production-
+// enabled (both Edge windows closed PASS), so they JOIN the hub. Only
+// Family J (`sensitive_composer`) is still `productionEnabled: false` and
+// is dropped by an EXPLICIT family allow-list gate — NOT by disposition
+// alone. The gate remains the authoritative §10a hub gate: it admits the
+// production families (now A–I) and excludes the frozen J family regardless
+// of per-entry disposition (#392 / #394). J's keys are composer_only and
+// never reach `selected_context` anyway; the gate is the belt-and-braces.
 
 /**
- * The FROZEN `productionEnabled: false` family set (Families H / I / J).
- * Mirrors the Deno `supabase/functions/_shared/booleanObservations/
- * familyRegistry.ts` `productionEnabled: false` entries — the canonical
+ * The FROZEN `productionEnabled: false` family set. After the H (PR #559)
+ * and I (PR #562) production enables, only Family J (`sensitive_composer`)
+ * remains. Mirrors the Deno `supabase/functions/_shared/booleanObservations/
+ * familyRegistry.ts` `productionEnabled: false` entry — the canonical
  * registry lives in the Edge runtime (Deno, `.ts`-extension imports) and
  * cannot be imported into `src/**`, so it is mirrored here as a locked
  * constant, exactly as `adminClassifierHealth/classifierHealthModel.ts`
  * (`FROZEN_NON_PRODUCTION_FAMILIES`) does. A test pins both this set AND
- * its A–G complement to `ALL_MACHINE_OBSERVATION_FAMILIES`, so a registry
- * rename / new family forces this constant to be re-verified.
+ * its production-enabled complement to `ALL_MACHINE_OBSERVATION_FAMILIES`,
+ * so a registry rename / new family forces this constant to be re-verified.
  */
 export const HUB_NON_PRODUCTION_FAMILIES: ReadonlyArray<MachineObservationFamily> =
-  Object.freeze(['claim_clarity', 'thread_topology', 'sensitive_composer']);
+  Object.freeze(['sensitive_composer']);
 
 /**
  * The hub's family ALLOW-LIST: the `productionEnabled: true` families
- * (A–G), DERIVED as the complement of `HUB_NON_PRODUCTION_FAMILIES` over
- * `ALL_MACHINE_OBSERVATION_FAMILIES` (single canonical family enumeration).
- * It is NOT a hard-coded list of A–G codes — adding a family to the
- * canonical enumeration automatically excludes it from the hub UNTIL it is
- * removed from `HUB_NON_PRODUCTION_FAMILIES`, mirroring the registry's
- * `productionEnabled` flip. This is the §6.5 step-1b explicit family gate.
+ * (now A–I, after the H/I enables), DERIVED as the complement of
+ * `HUB_NON_PRODUCTION_FAMILIES` over `ALL_MACHINE_OBSERVATION_FAMILIES`
+ * (single canonical family enumeration). It is NOT a hard-coded list of
+ * family codes — adding a family to the canonical enumeration automatically
+ * excludes it from the hub UNTIL it is removed from
+ * `HUB_NON_PRODUCTION_FAMILIES`, mirroring the registry's `productionEnabled`
+ * flip. This is the §6.5 step-1b explicit family gate.
  */
 export const HUB_PRODUCTION_ENABLED_FAMILIES: ReadonlyArray<MachineObservationFamily> =
   Object.freeze(
@@ -690,9 +692,11 @@ const HUB_PRODUCTION_ENABLED_FAMILY_SET: ReadonlySet<MachineObservationFamily> =
 
 /**
  * Plain-language family headings (design §6.5 step 3). NEVER a raw family
- * code. The map is total over the A–G allow-list; the H/I/J headings are
- * present for completeness/tests but those families never reach the hub.
- * Verdict-token-clean (locked constant; ban-list test).
+ * code. The map is total over every family; the A–I production headings are
+ * now live on the hub (H/I joined via PR #559 / #562). The J heading
+ * (`sensitive_composer`) is present for completeness/tests but Family J never
+ * reaches the hub (frozen + composer_only). Verdict-token-clean (locked
+ * constant; ban-list test).
  */
 export const HUB_CLASSIFIER_FAMILY_HEADING: Record<MachineObservationFamily, string> = {
   parent_relation: 'How it relates to the parent',
@@ -720,9 +724,9 @@ export interface HubClassifierGroup {
   chips: ReadonlyArray<CardClassifierChip>;
 }
 
-/** The hub's all-families classifier view-model (uncapped, A–G gated). */
+/** The hub's all-families classifier view-model (uncapped, A–I gated). */
 export interface HubClassifierGroupsModel {
-  /** Family-grouped chips (A–G only; H/I/J gated out). */
+  /** Family-grouped chips (production families A–I; frozen J gated out). */
   groups: ReadonlyArray<HubClassifierGroup>;
   /** Fixed advisory caption — locked copy. */
   advisoryCaption: string;
@@ -752,7 +756,7 @@ function resolveMarkFamily(
   return def ? def.family : 'other';
 }
 
-/** True when a mark's family is in the hub's A–G allow-list. */
+/** True when a mark's family is in the hub's production allow-list (A–I). */
 function isHubAllowedFamily(mark: NodeLabelMark): boolean {
   const family = resolveMarkFamily(mark);
   if (family === 'other') return true; // unknown rawKey → kept, grouped under "Other"
@@ -773,8 +777,8 @@ export interface BuildHubClassifierGroupsInput {
  *
  * Pipeline (the caller has ALREADY run disposition filtering + dedupe at
  * `selected_context`):
- *   1. Drop any mark whose family is NOT in the A–G allow-list (the
- *      EXPLICIT §6.5 step-1b family gate — the authoritative hub gate).
+ *   1. Drop any mark whose family is NOT in the production allow-list (A–I;
+ *      the EXPLICIT §6.5 step-1b family gate — the authoritative hub gate).
  *   2. Group surviving marks by family; unknown rawKey → "Other observations".
  *   3. Order groups by the canonical family enumeration; "Other" last.
  *
@@ -798,7 +802,7 @@ export function buildHubClassifierGroups(
     (m): m is NodeLabelMark => Boolean(m) && m.kind === 'machine_observation',
   );
 
-  // Step 1 — explicit A–G family gate (drops H/I/J regardless of disposition).
+  // Step 1 — explicit production family gate (A–I; drops frozen J regardless of disposition).
   const allowed = observations.filter(isHubAllowedFamily);
   if (allowed.length === 0) return emptyModel;
 
@@ -850,8 +854,8 @@ export function buildHubClassifierGroups(
  * Convenience: build the hub's all-families family-grouped classifier
  * straight from the SAME `BuildCardClassifierStripInput` the capped Cards
  * strip consumes. Pure. Runs the shared pipeline (surface filter + dedupe,
- * NO cap) via `buildHubClassifierMarks`, then applies the A–G family gate +
- * grouping via `buildHubClassifierGroups` with the SAME `markToChip` the
+ * NO cap) via `buildHubClassifierMarks`, then applies the production (A–I)
+ * family gate + grouping via `buildHubClassifierGroups` with the SAME `markToChip` the
  * capped strip uses (no second chip derivation).
  */
 export function buildHubClassifier(
@@ -1163,7 +1167,7 @@ export interface ArgumentDetailViewModel {
   parentQuote?: DetailParentQuoteSlice;
   /** Standing / Tone / Heat strip (Slice 2 — ask v). */
   standingToneHeat?: DetailStandingToneHeatStrip;
-  /** All-families family-grouped classifiers, A–G gated (Slice 2 — ask iii). */
+  /** All-families family-grouped classifiers, A–I gated (Slice 2 — ask iii). */
   hubClassifier?: HubClassifierGroupsModel;
   /** Full semantic tags, doctrine-grouped (Slice 2 — ask ii). */
   fullTags?: DetailFullTagsModel;

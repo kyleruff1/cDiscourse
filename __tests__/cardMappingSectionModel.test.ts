@@ -8,7 +8,8 @@
  *   - confidence → PIPS count (low=1 / medium=2 / high=3), never a number
  *   - composite-supersedes-singles: a consumed single does not also render
  *   - DEFENSIVE: a result whose displayLabel is a raw internal code is dropped
- *   - DEFENSIVE: a result referencing a frozen H/I/J family is dropped
+ *   - DEFENSIVE: a result referencing the frozen Family J is dropped (H + I
+ *     are now production-enabled — PR #559 / #562 — and render)
  *   - ban-list: no verdict tokens / snake_case in any rendered field
  *
  * Expectations track the REAL Slice-A registry semantics (verified against
@@ -220,21 +221,28 @@ describe('buildCardMappingSection — defensive guards', () => {
     expect(section.hasSignals).toBe(false);
   });
 
-  it('drops a result referencing a frozen H/I/J family (A-G only)', () => {
-    for (const frozen of ['claim_clarity', 'thread_topology', 'sensitive_composer']) {
-      const section = buildCardMappingSection([fakeResult({ familyKey: frozen })]);
-      expect(section.hasSignals).toBe(false);
-    }
-  });
-
-  it('drops a cross-family result if EITHER half is a frozen family', () => {
+  it('drops a result referencing the frozen Family J (sensitive_composer)', () => {
     const section = buildCardMappingSection([
-      fakeResult({ familyKey: 'parent_relation+thread_topology' }),
+      fakeResult({ familyKey: 'sensitive_composer' }),
     ]);
     expect(section.hasSignals).toBe(false);
   });
 
-  it('keeps a well-formed A-G result through the guards', () => {
+  it('KEEPS a result referencing Family H or Family I (now production-enabled, PR #559 / #562)', () => {
+    for (const production of ['claim_clarity', 'thread_topology']) {
+      const section = buildCardMappingSection([fakeResult({ familyKey: production })]);
+      expect(section.hasSignals).toBe(true);
+    }
+  });
+
+  it('drops a cross-family result if EITHER half is the frozen Family J', () => {
+    const section = buildCardMappingSection([
+      fakeResult({ familyKey: 'parent_relation+sensitive_composer' }),
+    ]);
+    expect(section.hasSignals).toBe(false);
+  });
+
+  it('keeps a well-formed production result through the guards', () => {
     const section = buildCardMappingSection([fakeResult({})]);
     expect(section.hasSignals).toBe(true);
     expect(section.chips[0].label).toBe('Readable');
