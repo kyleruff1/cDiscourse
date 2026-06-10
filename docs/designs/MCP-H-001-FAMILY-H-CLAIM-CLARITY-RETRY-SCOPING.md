@@ -236,7 +236,7 @@ This card is **DOC-ONLY**. Expected test count delta: **0 tests added, 0 suites 
 - `npm run test` — must still PASS at baseline (no regression).
 - `npm run typecheck` — must still PASS.
 - `npm run lint` — must still PASS (no scratch `.ts` files; scratch uses `.txt` per MEMORY note "eslint scans .claude-tmp .ts scratch").
-- `node scripts/ops/audit-lint.mjs docs/designs/MCP-H-001-FAMILY-H-CLAIM-CLARITY-RETRY-SCOPING.md` — must report 0 findings (this doc's audit-type resolves to `unknown`, so L1–L4/L6 do not apply; the doctrine-risk L5 path is satisfied by the persisted `evidence_span` inspection language in §4 Stage 3).
+- `node scripts/ops/audit-lint.mjs docs/designs/MCP-H-001-FAMILY-H-CLAIM-CLARITY-RETRY-SCOPING.md` — must report 0 findings (this doc declares `Audit-type: ops`; L1–L4/L6 produce no findings for it; the doctrine-risk L5 path is satisfied by the persisted `evidence_span` inspection language in §4 Stage 3).
 - Ban-list scan: 0 occurrences of the 10 banned verdict tokens per cdiscourse-doctrine §1.
 
 Existing coverage that protects the H posture during this scoping (no edits needed here): `__tests__/booleanObservationFamilyRegistry.test.ts` (H `productionEnabled: false`), `__tests__/booleanObservationRequestBuilder.test.ts` (H uniform-source / no subset entry), `__tests__/auditLintRules.test.ts` (Card-2 L5 `family_h`). The eventual downstream fix/flip card (MCP-H-002) will add its own `edgeFamilyHProductionEnable.test.ts` and a 9-phase smoke template (`MCP-HIJ-SCALEUP-IMPLEMENTATION-PLAN.md` Template C C2/C3).
