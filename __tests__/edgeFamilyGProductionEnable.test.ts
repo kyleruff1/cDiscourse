@@ -107,11 +107,11 @@ describe('MCP-021C-EDGE-FAMILY-G-ENABLE — Family G production-mode flip bindin
     expect(edgeProductionEnabledFamilies()).toContain('resolution_progress');
   });
 
-  it('GGE-4 — edgeProductionEnabledFamilies() has length 8 (post Card 3 of FAMILY-H chain flip)', () => {
-    expect(edgeProductionEnabledFamilies()).toHaveLength(8);
+  it('GGE-4 — edgeProductionEnabledFamilies() has length 9 (post MCP-021C-EDGE-FAMILY-I-ENABLE flip)', () => {
+    expect(edgeProductionEnabledFamilies()).toHaveLength(9);
   });
 
-  it('GGE-5 — edgeProductionEnabledFamilies() preserves registry A→H order', () => {
+  it('GGE-5 — edgeProductionEnabledFamilies() preserves registry A→I order', () => {
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
@@ -121,6 +121,7 @@ describe('MCP-021C-EDGE-FAMILY-G-ENABLE — Family G production-mode flip bindin
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ]);
   });
 
@@ -131,13 +132,12 @@ describe('MCP-021C-EDGE-FAMILY-G-ENABLE — Family G production-mode flip bindin
   });
 });
 
-describe('MCP-021C-EDGE-FAMILY-G-ENABLE — I–J remain admin-only (no widening past H; H flipped in MCP-021C-EDGE-FAMILY-H-ENABLE)', () => {
-  const IJ_ADMIN_ONLY = [
-    'thread_topology',
+describe('MCP-021C-EDGE-FAMILY-G-ENABLE — J remains admin-only (no widening past I; I flipped in MCP-021C-EDGE-FAMILY-I-ENABLE / MCP-I-D2)', () => {
+  const J_ADMIN_ONLY = [
     'sensitive_composer',
   ] as const;
 
-  for (const family of IJ_ADMIN_ONLY) {
+  for (const family of J_ADMIN_ONLY) {
     it(`GGE-7:${family} — productionEnabled is false (awaits its own card)`, () => {
       const entry = edgeLookupFamilyRegistryEntry(family);
       expect(entry).not.toBeNull();

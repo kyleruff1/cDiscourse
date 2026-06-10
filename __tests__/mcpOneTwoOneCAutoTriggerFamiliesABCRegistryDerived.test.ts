@@ -356,10 +356,10 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — doctrine safety (post-refactor)'
 });
 
 describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
-  it('DREG-29 — at registry HEAD, productionEnabledFamilies() returns exactly [A, B, C, D, E, F, G, H] (post Card 3 of FAMILY-H chain)', () => {
+  it('DREG-29 — at registry HEAD, productionEnabledFamilies() returns exactly [A, B, C, D, E, F, G, H, I] (post MCP-021C-EDGE-FAMILY-I-ENABLE)', () => {
     // Cross-checks the registry source against the dispatcher's expected
     // dispatch list (this is the binding registry-shape gate). Post
-    // MCP-021C-EDGE-FAMILY-H-ENABLE, the production list is 8 families.
+    // MCP-021C-EDGE-FAMILY-I-ENABLE (MCP-I-D2), the production list is 9 families.
     expect(edgeProductionEnabledFamilies()).toEqual([
       'parent_relation',
       'disagreement_axis',
@@ -369,6 +369,7 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
       'critical_question',
       'resolution_progress',
       'claim_clarity',
+      'thread_topology',
     ]);
   });
 
@@ -386,15 +387,14 @@ describe('MCP-021C-EDGE-FAMILIES-B-C-ENABLE — registry alignment', () => {
     ).toBe(true);
   });
 
-  it('DREG-31 — registry source still has I–J productionEnabled: false (no widening past H)', () => {
-    // Catches a future PR accidentally flipping I-J before its own card.
-    // Post Card 3 of FAMILY-H chain (MCP-021C-EDGE-FAMILY-H-ENABLE), H
-    // is productionEnabled; I-J must remain admin-only.
-    const IJ_FAMILIES = [
-      'thread_topology',
+  it('DREG-31 — registry source still has J productionEnabled: false (no widening past I)', () => {
+    // Catches a future PR accidentally flipping J before its own card.
+    // Post MCP-021C-EDGE-FAMILY-I-ENABLE (MCP-I-D2), I (thread_topology)
+    // is productionEnabled; J must remain admin-only.
+    const J_FAMILIES = [
       'sensitive_composer',
     ];
-    for (const family of IJ_FAMILIES) {
+    for (const family of J_FAMILIES) {
       // The family block has productionEnabled: false within ~200 chars
       // of the family declaration.
       const pattern = new RegExp(

@@ -26,8 +26,12 @@
  *     facts about argument-tree shape; never verdicts.
  *   - cdiscourse-doctrine §7 — pure TS; no Deno-specific calls in the builder.
  *   - Stage 2B operator binding — 6-key ai_classifier subset only; no
- *     mcp-server change; no compound-key shape; no schema mirror change; no
- *     productionEnabled flip (familyRegistry.ts untouched).
+ *     mcp-server change; no compound-key shape; no schema mirror change. The
+ *     subset entry was added by Card 1A WITHOUT a productionEnabled flip; the
+ *     later MCP-021C-EDGE-FAMILY-I-ENABLE (MCP-I-D2) card flipped
+ *     thread_topology to productionEnabled:true, and SFI-9/SFI-10 below now
+ *     bind that post-flip state (the subset entry stays byte-identical across
+ *     the flip — it is mode-agnostic).
  */
 
 import {
@@ -145,22 +149,23 @@ describe('MCP-SERVER-010A-FAMILY-I Edge → MCP subset filter (Stage 2B fix)', (
     expect(req.requestedRawKeys.length).toBe(21);
   });
 
-  it('SFI-9 — familyRegistry thread_topology entry stays productionEnabled:false (NO FLIP this card)', () => {
+  it('SFI-9 — familyRegistry thread_topology entry is productionEnabled:true (post MCP-021C-EDGE-FAMILY-I-ENABLE / MCP-I-D2 flip)', () => {
     const entry = edgeLookupFamilyRegistryEntry('thread_topology');
     expect(entry).not.toBeNull();
-    expect(entry!.productionEnabled).toBe(false);
+    expect(entry!.productionEnabled).toBe(true);
     expect(entry!.adminValidationEnabled).toBe(true);
   });
 
-  it('SFI-10 — production-mode Family I request never LEAKS deterministic keys (subset filter is mode-agnostic; family is not productionEnabled so it filters out entirely)', () => {
+  it('SFI-10 — production-mode Family I request emits exactly the 6 ai_classifier keys with NO deterministic leak (subset filter is mode-agnostic; family is now productionEnabled)', () => {
     const req = edgeBuildBooleanObservationRequestForArgument({
       ...FAMILY_I_BASE_INPUT,
       mode: 'production',
     });
-    // thread_topology is NOT productionEnabled (no flip this card), so the
-    // family filter drops it in production mode → 0 requested keys. Whatever
-    // keys appear, none may be a deterministic key, and any present must be
-    // from the 6 ai_classifier set.
+    // thread_topology IS productionEnabled (post MCP-I-D2 flip), so the
+    // family survives the production filter; the mode-agnostic subset filter
+    // then keeps only the 6 ai_classifier keys. No deterministic key may
+    // appear, and every key present must be from the 6 ai_classifier set.
+    expect(req.requestedRawKeys.length).toBe(6);
     const sent = new Set(req.requestedRawKeys);
     for (const excluded of FAMILY_I_DETERMINISTIC_EXCLUDED_KEYS) {
       expect(sent.has(excluded)).toBe(false);
@@ -168,7 +173,7 @@ describe('MCP-SERVER-010A-FAMILY-I Edge → MCP subset filter (Stage 2B fix)', (
     for (const key of req.requestedRawKeys) {
       expect(FAMILY_I_AI_CLASSIFIER_KEYS.includes(key as never)).toBe(true);
     }
-    expect(req.requestedFamilies).not.toContain('thread_topology');
+    expect(req.requestedFamilies).toContain('thread_topology');
   });
 
   it('SFI-11 — multi-family request (I + A) sends Family A all-source + Family I ai_classifier only', () => {

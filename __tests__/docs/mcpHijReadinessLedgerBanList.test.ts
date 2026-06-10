@@ -8,8 +8,9 @@
  *
  * Doctrine: cdiscourse-doctrine §1 (no truth/verdict labels), §4 (AI moderator
  * advisory-only — no advancement recommendation), §4-C (never-self-approve — the
- * frozen family set is never flipped by a doc; post MCP-H-002 the frozen set is
- * I/J, H having been re-enabled by the operator-approved E#7(b) registry flip).
+ * frozen family set is never flipped by a doc; post MCP-H-002 + MCP-I-D2 the
+ * frozen set is J only, H and I having been re-enabled by the operator-approved
+ * E#7(b) and MCP-021C-EDGE-FAMILY-I-ENABLE registry flips respectively).
  *
  * Acceptance-gate invariant (verbatim, restated for this guard):
  *   "AI/MCP classifiers MUST NEVER be the submission acceptance gate. The
@@ -105,31 +106,34 @@ describe('MCP-HIJ readiness ledger — ban-list + advancement-neutral guards', (
     // MCP-H-002 (2026-06-10, operator-approved E#7(b) after the #472
     // reproduction PASS): Family H (`claim_clarity`) was re-enabled to
     // production — the realization of the ledger's own named flip precondition
-    // (Row H, col 10). The STILL-frozen set narrowed from {H, I, J} to {I, J}.
-    // The adjacency guard below therefore scopes to I/J only. This is NOT a
-    // doctrine loosening: the §1 verdict ban-list and the
+    // (Row H, col 10). The frozen set narrowed from {H, I, J} to {I, J}.
+    // MCP-I-D2 (2026-06-10, operator-authorized MCP-021C-EDGE-FAMILY-I-ENABLE):
+    // Family I (`thread_topology`) was re-enabled to production — the
+    // realization of Row I's named precondition. The STILL-frozen set narrowed
+    // from {I, J} to {J}. The adjacency guard below therefore scopes to J
+    // only. This is NOT a doctrine loosening: the §1 verdict ban-list and the
     // advancement-recommendation guard are unchanged; only the frozen-family
     // set tracks the registry reality.
-    const FROZEN_IJ_FAMILY_NAMES = ['thread_topology', 'sensitive_composer'];
+    const FROZEN_J_FAMILY_NAMES = ['sensitive_composer'];
 
-    it('does not place `productionEnabled: true` adjacent to a still-frozen I/J family name', () => {
-      // The doc legitimately states A–H are `productionEnabled: true` (line 40
-      // + Row H post MCP-H-002), so a bare scan would over-match. Scope to
-      // ADJACENCY: a `productionEnabled: true` within ~80 chars of an I/J
-      // registry name would assert one of the still-frozen families is enabled.
-      // That must never appear.
+    it('does not place `productionEnabled: true` adjacent to a still-frozen J family name', () => {
+      // The doc legitimately states A–I are `productionEnabled: true` (line 40
+      // + Row H post MCP-H-002 + Row I post MCP-I-D2), so a bare scan would
+      // over-match. Scope to ADJACENCY: a `productionEnabled: true` within ~80
+      // chars of the J registry name would assert the still-frozen family is
+      // enabled. That must never appear.
       const PROD_TRUE = /productionEnabled:\s*true/gi;
       let m: RegExpExecArray | null;
       while ((m = PROD_TRUE.exec(text)) !== null) {
         const windowStart = Math.max(0, m.index - 80);
         const windowEnd = m.index + m[0].length + 80;
         const ctx = text.slice(windowStart, windowEnd);
-        for (const fam of FROZEN_IJ_FAMILY_NAMES) {
+        for (const fam of FROZEN_J_FAMILY_NAMES) {
           if (ctx.includes(fam)) {
             const lineNum = text.slice(0, m.index).split('\n').length;
             throw new Error(
               `${LEDGER_REL}:${lineNum} places \`productionEnabled: true\` ` +
-                `within ~80 chars of frozen family "${fam}" — the I/J set ` +
+                `within ~80 chars of frozen family "${fam}" — the J family ` +
                 `must stay productionEnabled: false.`,
             );
           }
