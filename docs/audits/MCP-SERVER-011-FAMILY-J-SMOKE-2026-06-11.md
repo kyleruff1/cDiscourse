@@ -71,3 +71,15 @@ All Phase-2 numbers green on this exact HEAD. Byte-equality obligations were enf
 - **E4 ceiling stands (BINDING):** no production-enable card exists in this chain; the FJ-2 jest tripwire fails any build that silently flips J; a future production proposal requires a fresh §10a doctrine review + roadmap-architecture decision.
 - Separate follow-ups (not this card): Card 2 L5 mechanization (`family_j` entries in `audit-lint-rules.cjs`); the optional Edge timeout-headroom tuning card for J's admin_validation path.
 - Provider spend this gate: 5 J admin classifications + 2 Edge retries + 1 direct server call (+ the 5 seeded posts' standing A–I queue fan-out at PCT=100).
+
+---
+
+## Amendment (2026-06-11, post-OPS-MCP-ADMIN-VALIDATION-TIMEOUT-HIERARCHY) — the Phase-4b typed finding RE-TYPED
+
+**Prior typing:** transport (Edge per-call timeout clipping longer deliberation). **Corrected typing: doctrine-residual, fail-closed** — proven by reproducing the exact Edge-shaped request at the hosted server boundary after the timeout fix (PR #570) had deployed: the failure persisted at ~6 s (under both the old 15 s and new 30 s ceilings) and the server's unmasked reason is `validation_failed` at `path: evidenceSpan.needs_pre_send_pause`, `detail: doctrine_ban_list`.
+
+**Mechanism:** given the richer Edge-built input (full stored parent + thread context), the model also fires `needs_pre_send_pause` on the existential text and anchors that span on the reactive sentence — which contains the input's person-directed terms — and `familyJBanListScan` rejects the packet. Deterministic across all 4 Edge attempts (retry-immune, the packet-residual signature per the cutover-gate taxonomy §B), and **fail-closed exactly as designed: nothing dirty ever persisted at any point.** The `shifts_to_person_or_intent` key itself anchored cleanly in the same window (the direct fixture call) — the residual is specific to `needs_pre_send_pause`'s span anchoring under slur-bearing reactive input.
+
+**Verdict impact: none.** PASS stands — the firing-count gate was met with clean spans on all 5 keys, and this residual is the validator refusing an unclean span, which is the guard's purpose. The timeout-hierarchy fix (PR #570) remains correct on its own merits (the inverted hierarchy was real); it was not the cause of this finding.
+
+**Scoped follow-up (its own card, the #421/#423/#443 STRICT-shape precedent):** Family-J prompt-side span non-echo reinforcement for `needs_pre_send_pause` (extend the person-shift key's slur-non-echo constraint to all J span anchoring) — an `mcp-server` prompt change, Deno-deploy-bearing. **The validator gate is never relaxed.**
