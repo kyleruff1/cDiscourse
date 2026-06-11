@@ -8,9 +8,9 @@
 
 ## What this is
 
-A read-only operator script that runs 17 SQL queries against the
+A read-only operator script that runs 18 SQL queries against the
 linked Supabase project and emits a doctrine-safe markdown + JSON
-report answering 16 telemetry questions about the multi-family MCP
+report answering 17 telemetry questions about the multi-family MCP
 classifier (`argument_machine_observation_runs` +
 `argument_machine_observation_results`).
 
@@ -136,10 +136,14 @@ confidence band counts (high/medium/low).
 ### Q6 — Top positive raw_keys by family
 
 Surfaces the concentration of positive signal across the 84 supported
-raw_keys (Family A=16, B=14, C=17, D=19, G=18). Family E (16 keys), F
-(14 keys), and H (12 keys) are queued behind their respective
-observability backfill cards; until then their density renders as
-`null` and their raw_keys are not counted in the total.
+raw_keys (Family A=16, B=14, C=17, D=19, G=18). Family E (16 keys) and
+F (14 keys) are queued behind their respective observability backfill
+cards; until then their density renders as `null` and their raw_keys
+are not counted in the total. Family H (12 keys, uniform ai_classifier)
+and Family I (6-key ai_classifier Subset; 15 deterministic keys
+excluded) are backfilled by OPS-MCP-OBSERVABILITY-FAMILY-HI-COVERAGE —
+H via the Q14 CASE branch only (uniform source, no subset file), I via
+its Q14 branch plus the dedicated Q17 subset-coverage query.
 
 **Healthy state:**
 - Top raw_keys are well-distributed (no single key dominating without
@@ -393,6 +397,65 @@ synthesis / settlement keys (`concedes_broader_point`,
 NOT a verdict that one side lost. The report's section title and
 ORDER BY logic carry no verdict overlay; the operator interprets per
 `cdiscourse-doctrine §1`.
+
+### Q17 — Family I 6-key subset coverage
+
+Added by OPS-MCP-OBSERVABILITY-FAMILY-HI-COVERAGE (Family I sibling to
+the D + G subset queries). Family-I-scoped query that verifies the
+Stage-2B Subset-path contract holds in the persisted data for
+`thread_topology`.
+
+**The 6-vs-21 distinction (binding context):**
+
+Family I (`thread_topology`) has 21 entries in the upstream Edge
+taxonomy registry (`src/features/nodeLabels/machineObservationDefinitions/familyI.ts`):
+
+- **6 ai_classifier-source rawKeys** (the "Subset") — the
+  text-derivable thread-graph relations routed to the MCP server per
+  the Stage 2B operator decision.
+- **15 deterministic rawKeys** split across `auto_metadata` (8) and
+  `lifecycle` (7) — intentionally excluded from the MCP path (the 8
+  auto_metadata keys are argument-tree-structure-derived; the 7
+  lifecycle keys are cluster/temporal-derived). A future Edge/app-side
+  card will compute these app-side without an Anthropic call.
+
+Source-of-truth files:
+- 6-key list: `mcp-server/lib/familyIKeys.ts:92-99` (`FAMILY_I_RAW_KEYS`)
+- excluded list: `mcp-server/lib/familyIKeys.ts:117-135`
+  (`FAMILY_I_EXCLUDED_DETERMINISTIC_RAW_KEYS`)
+
+**Minority-subset asymmetry:** unlike Family D (22 of 30 routed) and
+Family G (21 of 33 routed), Family I routes only the MINORITY of its
+keys (6 of 21). A misrouted deterministic key has a 15/21 chance of
+landing in the excluded set, so this leak-detection query is *more*
+load-bearing for Family I than for D or G. All 21 Family I strings are
+unique within the family (no name-pair collision), so the included(6)
+and excluded(15) sets are disjoint.
+
+**`subset_membership` values:** (same 3 values as Q15 / Q16)
+
+| Value | Meaning |
+| --- | --- |
+| `ai_classifier_subset` | The observed raw_key is in the 6-key Subset — expected and healthy. |
+| `deterministic_excluded_leak` | The observed raw_key is one of the 15 deterministic-excluded strings — would indicate a leak from somewhere outside the MCP path. Expected count: 0. |
+| `unknown_key_outside_taxonomy` | The observed raw_key is neither in the Subset nor in the excluded list — would indicate a registry-vs-DB inconsistency or a stale row. |
+
+**ORDER BY** prioritizes `deterministic_excluded_leak` first so any
+security-adjacent finding lands at the top of the section.
+
+**Healthy state:** all rows have `subset_membership =
+'ai_classifier_subset'`; zero `deterministic_excluded_leak` rows; zero
+`unknown_key_outside_taxonomy` rows.
+
+**Doctrine note (Family I specific):** Family I's thread-topology keys
+(`introduces_new_issue`, `returns_to_prior_issue`, `compares_options`,
+etc.) are DESCRIPTIVE STRUCTURE per `cdiscourse-doctrine §1` —
+introducing a new issue is not a derailment, returning to a prior
+issue is not repetition, and comparing options never adjudicates
+between the options. The `references_external_context` key records only
+the structural fact of an external reference and NEVER grants factual
+standing (`cdiscourse-doctrine §3` — popularity is not evidence). Per
+`point-standing-economy`, Family I emits no standing delta.
 
 ---
 

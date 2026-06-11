@@ -18,6 +18,8 @@
  * `q15-family-d-subset-coverage`, and
  * `q16-family-g-subset-coverage` (added by
  * OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE) ship alongside.
+ * `q17-family-i-subset-coverage` (added by
+ * OPS-MCP-OBSERVABILITY-FAMILY-HI-COVERAGE) ships alongside.
  *
  * Doctrine:
  *   - No body content; no evidence span values; no secrets.
@@ -638,6 +640,22 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       subset_membership: 'ai_classifier_subset',
     }),
   ]),
+  'q17-family-i-subset-coverage': Object.freeze([
+    Object.freeze({
+      raw_key: 'introduces_new_issue',
+      run_mode: 'admin_validation',
+      positive_count: 2,
+      distinct_arguments: 2,
+      subset_membership: 'ai_classifier_subset',
+    }),
+    Object.freeze({
+      raw_key: 'compares_options',
+      run_mode: 'production',
+      positive_count: 1,
+      distinct_arguments: 1,
+      subset_membership: 'ai_classifier_subset',
+    }),
+  ]),
 });
 
 /**
@@ -662,4 +680,5 @@ export const FIXTURE_EMPTY_SECTIONS_DATA: Record<string, ReadonlyArray<Record<st
   'q14-per-family-per-mode-signal-density': Object.freeze([]),
   'q15-family-d-subset-coverage': Object.freeze([]),
   'q16-family-g-subset-coverage': Object.freeze([]),
+  'q17-family-i-subset-coverage': Object.freeze([]),
 });

@@ -71,14 +71,14 @@ function stripCommentsForScan(src: string): string {
 describe('OPS-MCP-OBSERVABILITY — scripts/ops source scan: no secrets', () => {
   const FILES = collectAllFiles(OPS_DIR);
 
-  it('finds at least the entry script + lib + 17 SQL files', () => {
-    expect(FILES.length).toBeGreaterThanOrEqual(19);
+  it('finds at least the entry script + lib + 18 SQL files', () => {
+    expect(FILES.length).toBeGreaterThanOrEqual(20);
     expect(FILES.some((f) => f.endsWith('mcp-observability-report.mjs'))).toBe(true);
     expect(
       FILES.some((f) => f.endsWith('mcp-observability-report-lib.cjs')),
     ).toBe(true);
     const sqlFiles = FILES.filter((f) => f.endsWith('.sql'));
-    expect(sqlFiles.length).toBe(17);
+    expect(sqlFiles.length).toBe(18);
   });
 
   it('no executable code contains SERVICE_ROLE literal', () => {
