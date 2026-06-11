@@ -116,3 +116,5 @@ Deploy automatically — Supabase merge auto-deploy does NOT propagate `mcp-serv
 3. Confirm `shifts_to_person_or_intent` still anchors cleanly (regression check).
 4. **NO production-enable implied** — Family J stays admin-validation-only (the E4 ceiling stands;
    a future production proposal requires a fresh cdiscourse-doctrine §10a review).
+
+**Probabilistic-outcome ladder (reviewer addition):** prompt behavior is probabilistic, so the post-merge replay may still return an unclean span. The honest outcome ladder is: clean narrowed span (PASS) / the model answers false under narrow-or-false (acceptable — a missed private nudge is near-zero harm) / still failing validation (PARTIAL — iterate the prompt in a further card). The ban-list gate is **never** relaxed under any outcome.
