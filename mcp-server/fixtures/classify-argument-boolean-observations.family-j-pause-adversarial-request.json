@@ -1,0 +1,15 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-j-pause-adv-node",
+    "parentNodeId": "fixture-j-pause-adv-parent",
+    "currentText": "[fixture] You're such a troll and honestly you're toxic — NO you are WRONG WRONG WRONG!!! of COURSE you would say that, you ALWAYS do",
+    "parentText": "[fixture] The 2020 study you cited has been challenged on methodology.",
+    "threadContextExcerpt": "[fixture] Discussion of a contested study's methodology.",
+    "requestedFamilies": ["sensitive_composer"],
+    "requestedRawKeys": ["needs_pre_send_pause"],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
