@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A + Build-2c Family-C + Build-2e Family-E + Build-2f Family-F + Build-2d Family-D + Build-2g Family-G new-key proof).
+# MCP-SERVER-001 — local smoke script (extended by MCP-SERVER-002 + MCP-SERVER-003-FAMILY-B + MCP-SERVER-004-FAMILY-C + MCP-SERVER-005-FAMILY-D + MCP-SERVER-006-FAMILY-E + MCP-SERVER-007-FAMILY-F + MCP-SERVER-008-FAMILY-G + MCP-SERVER-009-FAMILY-H + MCP-SERVER-010-FAMILY-I + MCP-SERVER-011-FAMILY-J + OPS-DENO-GOLIVE-PILOT Build-2b Family-B + Family-A + Build-2c Family-C + Build-2e Family-E + Build-2f Family-F + Build-2d Family-D + Build-2g Family-G new-key proof).
 #
-# Verifies the deployed (or locally-running) MCP server against the 39 checks:
+# Verifies the deployed (or locally-running) MCP server against the 41 checks:
 #   - Checks 1-9: MCP-SERVER-001 + MCP-SERVER-002 (Family A coverage)
 #   - Checks 10-11: MCP-SERVER-003-FAMILY-B (Family B coverage)
 #   - Checks 12-13: MCP-SERVER-004-FAMILY-C (Family C coverage)
@@ -54,6 +54,10 @@
 #                   these DIRECT-Deno checks request only the 3 NEW keys (≤20),
 #                   bypassing the Edge 2-batch split (the 21-key Family-G Subset
 #                   splits 16+5 in the Edge classifier, not here)
+#   - Checks 40-41: MCP-SERVER-011-FAMILY-J (Family J 5-key semantic_referee
+#                   SOURCE-UNIFORM set — sensitive_composer; PRIVATE STRUCTURAL
+#                   NUDGES about the move's own text, never characterizations of
+#                   the person; admin-validation-only ceiling)
 #
 # Usage:
 #   bash scripts/mcp-server-001-smoke.sh --base-url <url> --token <bearer> [--verbose]
@@ -65,7 +69,7 @@
 #   --verbose     Optional. Print per-check diagnostics.
 #
 # Exit codes:
-#   0 — all 39 checks passed
+#   0 — all 41 checks passed
 #   1 — at least one check failed; the script prints which.
 #   2 — invalid arguments
 #
@@ -1078,6 +1082,49 @@ elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean
   pass "$CHECK_NAME"
 else
   fail "$CHECK_NAME" "STALE-DENO PROOF: expected the 3 Build-2g Family-G keys in the tool result (no unsupported_rawKey). A failure here means the hosted Deno build predates #548 — merged is not live. Got: $RESPONSE"
+fi
+
+# ── Check 40: POST /mcp/adapter-compat classify_argument_boolean_observations (Family J) ──
+# MCP-SERVER-011-FAMILY-J. Sends a benign body that exhibits a sensitive
+# structural feature (the move addresses the parent poster's motive) WITHOUT
+# containing a slur, requesting the 3 composer-only keys + a benign inspect-only
+# key to exercise the boundary path. The response MUST contain "family-j-v1" in
+# modelInfo.classifierSetVersion. Family J ships at the admin-validation-only
+# ceiling; the fixture provider returns the doctrine-clean canonical packet.
+CHECK_NAME="40-compat-boolean-family-j"
+BOOLEAN_J_REQUEST='{"tool":"classify_argument_boolean_observations","input":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-j-001","parentNodeId":"fixture-node-parent-j-001","currentText":"[fixture] You only believe that because you work for an EV company.","parentText":"[fixture] EVs reduce urban pollution.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["sensitive_composer"],"requestedRawKeys":["shifts_to_person_or_intent","contains_unplayable_insult_only","needs_pre_send_pause","uses_popularity_as_evidence"],"definitions":{},"timeoutMs":12000}}'
+note "POST $BASE_URL/mcp/adapter-compat (boolean Family J)"
+RESPONSE="$(http_request POST /mcp/adapter-compat 200 "$TOKEN" "$BOOLEAN_J_REQUEST")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-j-v1"'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family J response shape. Got: $RESPONSE"
+fi
+
+# ── Check 41: POST /mcp tools/call classify_argument_boolean_observations (Family J) ──
+# MCP-SERVER-011-FAMILY-J. Same body + same assertion pattern as Check 40, but via
+# the official MCP /mcp endpoint with JSON-RPC envelope.
+CHECK_NAME="41-mcp-tools-call-boolean-family-j"
+BOOLEAN_J_CALL_BODY='{"jsonrpc":"2.0","id":"smoke-call-18","method":"tools/call","params":{"name":"classify_argument_boolean_observations","arguments":{"schemaVersion":"mcp-021.machine-observations.boolean.v1","nodeId":"fixture-node-mainline-j-001","parentNodeId":"fixture-node-parent-j-001","currentText":"[fixture] You only believe that because you work for an EV company.","parentText":"[fixture] EVs reduce urban pollution.","threadContextExcerpt":"[fixture] thread","requestedFamilies":["sensitive_composer"],"requestedRawKeys":["shifts_to_person_or_intent","contains_unplayable_insult_only","needs_pre_send_pause","uses_popularity_as_evidence"],"definitions":{},"timeoutMs":12000}}}'
+note "POST $BASE_URL/mcp (tools/call classify_argument_boolean_observations Family J)"
+RESPONSE="$(http_request POST /mcp 200 "$TOKEN" "$BOOLEAN_J_CALL_BODY")"
+if [[ $? -ne 0 ]]; then
+  fail "$CHECK_NAME" "$RESPONSE"
+elif contains "$RESPONSE" '"schemaVersion":"mcp-021.machine-observations.boolean.v1"' \
+     && contains "$RESPONSE" '"observations"' \
+     && contains "$RESPONSE" '"confidence"' \
+     && contains "$RESPONSE" '"modelInfo"' \
+     && contains "$RESPONSE" '"family-j-v1"' \
+     && contains "$RESPONSE" '"isError":false'; then
+  pass "$CHECK_NAME"
+else
+  fail "$CHECK_NAME" "Expected real Family J tool result. Got: $RESPONSE"
 fi
 
 echo

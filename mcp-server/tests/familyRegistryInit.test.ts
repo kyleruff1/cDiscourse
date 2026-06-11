@@ -53,17 +53,18 @@ Deno.test('familyRegistryInit-registers-family-e-on-import', () => {
   assertEquals(isFamilySupported('argument_scheme'), true);
 });
 
-Deno.test('familyRegistryInit-registers-all-nine-families-in-insertion-order', () => {
+Deno.test('familyRegistryInit-registers-all-ten-families-in-insertion-order', () => {
   // The singleton is shared across test files; however, init registers
-  // exactly nine families: Family A first, Family B second, Family C third,
+  // exactly ten families: Family A first, Family B second, Family C third,
   // Family D fourth, Family E fifth, Family F sixth, Family G seventh,
-  // Family H eighth, Family I ninth. Other test files may add fake families
-  // via createFamilyRegistry() factories (which yield isolated instances and
-  // never touch the singleton). The singleton's getSupportedFamilies() must
-  // remain exactly ['parent_relation', 'disagreement_axis',
-  // 'misunderstanding_repair', 'evidence_source_chain', 'argument_scheme',
-  // 'critical_question', 'resolution_progress', 'claim_clarity',
-  // 'thread_topology'] in the current server build.
+  // Family H eighth, Family I ninth, Family J tenth. Other test files may add
+  // fake families via createFamilyRegistry() factories (which yield isolated
+  // instances and never touch the singleton). The singleton's
+  // getSupportedFamilies() must remain exactly ['parent_relation',
+  // 'disagreement_axis', 'misunderstanding_repair', 'evidence_source_chain',
+  // 'argument_scheme', 'critical_question', 'resolution_progress',
+  // 'claim_clarity', 'thread_topology', 'sensitive_composer'] in the current
+  // server build.
   const families = getSupportedFamilies();
   assertEquals(
     families,
@@ -77,9 +78,10 @@ Deno.test('familyRegistryInit-registers-all-nine-families-in-insertion-order', (
       'resolution_progress',
       'claim_clarity',
       'thread_topology',
+      'sensitive_composer',
     ],
   );
-  assertEquals(families.length, 9);
+  assertEquals(families.length, 10);
 });
 
 Deno.test('familyRegistryInit-family-a-has-19-rawKeys', () => {
@@ -142,7 +144,7 @@ Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
   // 'family already registered: parent_relation'.
   initializeFamilyRegistry();
   initializeFamilyRegistry();
-  // Still exactly nine families registered, in the same insertion order.
+  // Still exactly ten families registered, in the same insertion order.
   assertEquals(
     getSupportedFamilies(),
     [
@@ -155,6 +157,7 @@ Deno.test('familyRegistryInit-initializeFamilyRegistry-is-idempotent', () => {
       'resolution_progress',
       'claim_clarity',
       'thread_topology',
+      'sensitive_composer',
     ],
   );
 });
@@ -235,4 +238,22 @@ Deno.test('familyRegistryInit-family-i-has-6-rawKeys-Subset', () => {
 
 Deno.test('familyRegistryInit-family-i-classifier-version-is-family-i-v1', () => {
   assertEquals(getClassifierSetVersion('thread_topology'), 'family-i-v1');
+});
+
+Deno.test('familyRegistryInit-registers-family-j-on-import', () => {
+  // MCP-SERVER-011-FAMILY-J added the tenth register() call (semantic_referee
+  // SOURCE-UNIFORM path; 5 sensitive-composer keys; no excluded list). Family
+  // J must be present in the singleton after the side-effect import.
+  assertEquals(isFamilySupported('sensitive_composer'), true);
+});
+
+Deno.test('familyRegistryInit-family-j-has-5-rawKeys', () => {
+  // MCP-SERVER-011-FAMILY-J ships the 5-key semantic_referee SOURCE-UNIFORM
+  // set per design §1 (no subset filter; J is not a mixed-source family).
+  const rawKeys = getRawKeysForFamily('sensitive_composer');
+  assertEquals(rawKeys.size, 5);
+});
+
+Deno.test('familyRegistryInit-family-j-classifier-version-is-family-j-v1', () => {
+  assertEquals(getClassifierSetVersion('sensitive_composer'), 'family-j-v1');
 });

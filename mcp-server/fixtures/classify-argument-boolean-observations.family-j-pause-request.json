@@ -1,0 +1,15 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-j-pause-node",
+    "parentNodeId": "fixture-j-pause-parent",
+    "currentText": "[fixture] NO YOU ARE WRONG WRONG WRONG!!! of COURSE you would say that, you ALWAYS do",
+    "parentText": "[fixture] The 2020 study you cited has been challenged on methodology.",
+    "threadContextExcerpt": "[fixture] Discussion of a contested study's methodology.",
+    "requestedFamilies": ["sensitive_composer"],
+    "requestedRawKeys": ["needs_pre_send_pause"],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

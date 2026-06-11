@@ -1,0 +1,15 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-j-popularity-node",
+    "parentNodeId": "fixture-j-popularity-parent",
+    "currentText": "[fixture] Everyone knows this is the case; 500 million people shared it, so that settles it.",
+    "parentText": "[fixture] A debate over whether the policy reduced emissions.",
+    "threadContextExcerpt": "[fixture] Discussion of a widely-circulated policy claim.",
+    "requestedFamilies": ["sensitive_composer"],
+    "requestedRawKeys": ["uses_popularity_as_evidence"],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-j-malformed-node",
+  "checkedRawKeys": ["shifts_to_person_or_intent"],
+  "observations": {
+    "shifts_to_person_or_intent": "not-a-boolean"
+  },
+  "confidence": {
+    "shifts_to_person_or_intent": "high"
+  },
+  "evidenceSpan": {
+    "shifts_to_person_or_intent": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-j-v1"
+  }
+}

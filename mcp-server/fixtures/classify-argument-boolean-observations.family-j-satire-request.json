@@ -1,0 +1,15 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-j-satire-node",
+    "parentNodeId": "fixture-j-satire-parent",
+    "currentText": "[fixture] See, The Onion confirmed this last week, so the policy has already failed.",
+    "parentText": "[fixture] A debate over whether the policy has failed.",
+    "threadContextExcerpt": "[fixture] Discussion of a policy outcome claim.",
+    "requestedFamilies": ["sensitive_composer"],
+    "requestedRawKeys": ["uses_satire_as_evidence"],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

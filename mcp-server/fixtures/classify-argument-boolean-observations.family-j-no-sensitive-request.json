@@ -1,0 +1,21 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-j-no-sensitive-node",
+    "parentNodeId": "fixture-j-no-sensitive-parent",
+    "currentText": "[fixture] I disagree — the figure you cited measures the capital budget, not the operating budget, so it does not show the operating cut you claim. See the methodology note.",
+    "parentText": "[fixture] A claim that library funding rose 12% based on a cited figure.",
+    "threadContextExcerpt": "[fixture] Discussion of library funding figures.",
+    "requestedFamilies": ["sensitive_composer"],
+    "requestedRawKeys": [
+      "shifts_to_person_or_intent",
+      "contains_unplayable_insult_only",
+      "needs_pre_send_pause",
+      "uses_popularity_as_evidence",
+      "uses_satire_as_evidence"
+    ],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

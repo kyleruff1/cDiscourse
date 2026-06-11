@@ -1,0 +1,15 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-j-person-shift-node",
+    "parentNodeId": "fixture-j-person-shift-parent",
+    "currentText": "[fixture] You only believe that because you work for an EV company.",
+    "parentText": "[fixture] EVs reduce urban pollution.",
+    "threadContextExcerpt": "[fixture] Discussion of EV adoption and urban air quality.",
+    "requestedFamilies": ["sensitive_composer"],
+    "requestedRawKeys": ["shifts_to_person_or_intent"],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}

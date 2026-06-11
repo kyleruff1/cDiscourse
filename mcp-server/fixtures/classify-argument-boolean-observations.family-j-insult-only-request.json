@@ -1,0 +1,15 @@
+{
+  "tool": "classify_argument_boolean_observations",
+  "input": {
+    "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+    "nodeId": "fixture-j-insult-only-node",
+    "parentNodeId": "fixture-j-insult-only-parent",
+    "currentText": "[fixture] That is dumb.",
+    "parentText": "[fixture] Library funding should rise this budget cycle.",
+    "threadContextExcerpt": "[fixture] Discussion of public library funding levels.",
+    "requestedFamilies": ["sensitive_composer"],
+    "requestedRawKeys": ["contains_unplayable_insult_only"],
+    "definitions": {},
+    "timeoutMs": 12000
+  }
+}
