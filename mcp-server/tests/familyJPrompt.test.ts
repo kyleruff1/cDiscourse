@@ -441,3 +441,95 @@ Deno.test('Family J system prompt closes with the conservative-positives bias + 
     throw new Error('Family J system prompt missing sparse-features note');
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// OPS-MCP-FAMILY-J-SPAN-SHAPE-REINFORCEMENT (E3 amendment follow-up) —
+// BINDING SPAN-SELECTION RULE block + needs_pre_send_pause concrete escape.
+// The #421/#423 STRICT-shape reinforcement precedent. Validator unchanged.
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('SPAN-SHAPE: Family J user prompt carries the BINDING SPAN-SELECTION RULE block with all four sub-rules', () => {
+  const prompt = buildFamilyJUserPrompt(buildRequest());
+  const expectedFragments = [
+    'SPAN-SELECTION RULE (BINDING — applies to EVERY rawKey above, not only the person-shift key)',
+    '(a) SHORTEST SUB-SPAN',
+    '(b) SELF-SCAN',
+    '(c) NARROW TO EXCLUDE',
+    '(d) NARROW-OR-FALSE',
+    'answer FALSE for that',
+  ];
+  for (const fragment of expectedFragments) {
+    if (!prompt.includes(fragment)) {
+      throw new Error(`Family J user prompt missing SPAN-SELECTION RULE fragment: "${fragment}"`);
+    }
+  }
+});
+
+Deno.test('SPAN-SHAPE: SPAN-SELECTION RULE carries the concrete WRONG-burst reactive-marker example', () => {
+  const prompt = buildFamilyJUserPrompt(buildRequest());
+  // Concrete example required (mirrors the person-shift key's "because you work for…" example).
+  if (!prompt.includes('WRONG WRONG WRONG!!!')) {
+    throw new Error('Family J user prompt SPAN-SELECTION RULE missing the WRONG-burst typographic example');
+  }
+  if (!prompt.includes('because you work for')) {
+    throw new Error('Family J user prompt SPAN-SELECTION RULE missing the person-shift clean-anchor example');
+  }
+  // The non-echo escape is anchored on the validator path so the model knows the consequence.
+  if (!prompt.includes('validation_failed at evidenceSpan.<rawKey>')) {
+    throw new Error('Family J user prompt SPAN-SELECTION RULE missing the validator-path consequence anchor');
+  }
+});
+
+Deno.test('SPAN-SHAPE: needs_pre_send_pause SYSTEM-prompt paragraph carries the interleaved-slur concrete escape', () => {
+  // The E3 amendment gap: the pause paragraph named WHAT to anchor (all-caps
+  // bursts, repeated punctuation) but had no sub-span selection rule for when
+  // the markers are interleaved with person labels. This closes it.
+  const expectedFragments = [
+    'When the reactive markers are INTERLEAVED with a slur or person label',
+    'SHORTEST typographic fragment that carries the marker',
+    'WRONG WRONG WRONG!!!',
+    'answer false for this key rather than emit a',
+  ];
+  for (const fragment of expectedFragments) {
+    if (!FAMILY_J_SYSTEM_PROMPT.includes(fragment)) {
+      throw new Error(`Family J system prompt needs_pre_send_pause paragraph missing escape fragment: "${fragment}"`);
+    }
+  }
+});
+
+Deno.test('SPAN-SHAPE: needs_pre_send_pause prompt-entry guard carries the sub-span/non-echo constraint', () => {
+  const entry = FAMILY_J_PROMPT_ENTRIES.find((e) => e.rawKey === 'needs_pre_send_pause');
+  if (!entry) throw new Error('needs_pre_send_pause prompt entry missing');
+  const expectedFragments = [
+    'SPAN-SELECTION (non-echo)',
+    'SHORTEST typographic fragment only',
+    'WRONG WRONG WRONG!!!',
+    'answer false rather than emit a span that echoes the slur',
+  ];
+  for (const fragment of expectedFragments) {
+    if (!entry.falsePositiveGuards.includes(fragment)) {
+      throw new Error(`needs_pre_send_pause falsePositiveGuards missing SPAN-SELECTION fragment: "${fragment}"`);
+    }
+  }
+  // The prior per-key guards survive verbatim (verdict-adjacent enumeration unchanged).
+  if (!entry.falsePositiveGuards.includes('The output MUST NOT contain: unhinged, hostile, aggressive, losing it.')) {
+    throw new Error('needs_pre_send_pause falsePositiveGuards lost its prior MUST NOT contain enumeration');
+  }
+});
+
+Deno.test('SPAN-SHAPE: the SPAN-SELECTION RULE block does not disturb the questions block (still exactly 5 lines)', () => {
+  const prompt = buildFamilyJUserPrompt(buildRequest({ requestedRawKeys: [] }));
+  const questionsBlockStart = prompt.indexOf('Sensitive-composer questions for this move:');
+  const questionsBlockEnd = prompt.indexOf('\nDefinitions and examples');
+  const questionsBlock = prompt.slice(questionsBlockStart, questionsBlockEnd);
+  const matches = questionsBlock.match(/^- [a-z_]+:/gm);
+  if (!matches) throw new Error('questions block produced no rawKey lines');
+  assertEquals(matches.length, 5);
+  // The SPAN-SELECTION RULE block lives AFTER the slur-in-input instruction and
+  // BEFORE the input — never inside the questions or definitions blocks.
+  const spanRuleIndex = prompt.indexOf('SPAN-SELECTION RULE (BINDING');
+  const inputIndex = prompt.indexOf('Input to classify:');
+  if (spanRuleIndex < 0 || inputIndex < 0 || spanRuleIndex > inputIndex) {
+    throw new Error('SPAN-SELECTION RULE block is mis-positioned relative to the input block');
+  }
+});

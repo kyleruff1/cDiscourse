@@ -118,6 +118,12 @@ characterizations of the person:
 - needs_pre_send_pause records reactive / escalatory STRUCTURAL MARKERS (all-caps bursts,
   repeated punctuation, tone-only reply). It NEVER labels the author "angry", "unhinged",
   "hostile", or "losing it" — it is a private suggestion to pause, never a diagnosis of the writer.
+  When the reactive markers are INTERLEAVED with a slur or person label (e.g. a "you're such a
+  troll" sentence that also contains an all-caps burst), the evidence_span MUST anchor ONLY the
+  SHORTEST typographic fragment that carries the marker — the all-caps / repeated-punctuation
+  burst itself, e.g. "WRONG WRONG WRONG!!!" — and MUST NOT echo the slur or person label that
+  surrounds it. If no clean fragment can be isolated, answer false for this key rather than emit a
+  span that echoes the slur.
 - uses_satire_as_evidence records that the text cites a satire / parody source as if it
   documented a real event. It NEVER calls the claim "false", "fake", or "untrue", and NEVER calls
   the author "gullible" — satire's value as commentary is preserved; only the evidentiary misuse
@@ -178,7 +184,12 @@ export interface ValidatedFamilyJRequest {
  *   4. Response-shape instruction (verbatim JSON example, classifierSetVersion family-j-v1)
  *   5. Conservative-positives bias reminder (0 to 1 features)
  *   6. The slur-in-input handling instruction (detect the feature, never echo the slur)
- *   7. The input (move text, parent text, thread context)
+ *   7. The SPAN-SELECTION RULE block (BINDING, all J keys): shortest sub-span →
+ *      self-scan the candidate span → narrow to exclude any person-directed term →
+ *      narrow-or-false. Carries the concrete WRONG-burst reactive-marker example
+ *      (the E3-amendment follow-up for needs_pre_send_pause span anchoring under
+ *      slur-bearing reactive input; the #421/#423 STRICT-shape reinforcement precedent).
+ *   8. The input (move text, parent text, thread context)
  *
  * When requestedRawKeys is empty, all 5 Family J keys are included.
  *
@@ -283,6 +294,26 @@ underlying sensitive-composer feature — but your output evidenceSpan MUST NOT 
 person label. Anchor the evidenceSpan on the structural feature (the focus-shift wording, the
 absent claim, the reactive markers, the popularity-leaning wording, the satire-as-fact citation)
 — never on the slur or person label.
+
+SPAN-SELECTION RULE (BINDING — applies to EVERY rawKey above, not only the person-shift key):
+whenever you set an observation true and choose its evidenceSpan, select a CLEAN, NON-ECHOING span
+by this exact procedure:
+(a) SHORTEST SUB-SPAN — choose the SHORTEST sub-span of the move text that still exhibits the
+    structural feature. Do NOT quote a whole sentence when a short fragment already carries the
+    feature.
+(b) SELF-SCAN — before emitting, self-scan your candidate span for any banned person-directed term
+    or second-person character label (e.g. "troll", "toxic", "bad actor", or a "you are <label>"
+    judgment of the person).
+(c) NARROW TO EXCLUDE — if the candidate span contains such a term, NARROW the span so it excludes
+    the term. For reactive markers (needs_pre_send_pause), anchor ONLY the typographic fragment —
+    the all-caps / repeated-punctuation burst, e.g. "WRONG WRONG WRONG!!!" — NOT the slur sentence
+    that surrounds it. For a focus-shift (shifts_to_person_or_intent), anchor the structural
+    wording ("because you work for…"), never the slur.
+(d) NARROW-OR-FALSE — a clean narrow span ALWAYS exists for a genuine structural feature. If you
+    cannot produce a span that excludes every banned person-directed term, answer FALSE for that
+    rawKey rather than emit an unclean span. The server rejects any span that echoes a
+    person-directed term (validation_failed at evidenceSpan.<rawKey>), so a true observation
+    carrying an unclean span is worse than answering false.
 
 Input to classify:
 Node id: ${request.nodeId}

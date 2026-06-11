@@ -456,6 +456,64 @@ Deno.test('design §5.2 reviewer matrix sub-check: the 4 verdict-adjacent keys e
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// OPS-MCP-FAMILY-J-SPAN-SHAPE-REINFORCEMENT (E3 amendment follow-up) —
+// the INTERLEAVED case: reactive markers inside a slur sentence.
+//
+// THE INCIDENT (docs/audits/MCP-SERVER-011-FAMILY-J-SMOKE-2026-06-11.md
+// Amendment): with the Edge-shaped input the model fired needs_pre_send_pause
+// and anchored its span on the reactive sentence — which contained the input's
+// slurs — so familyJBanListScan rejected the packet closed (validation_failed
+// at evidenceSpan.needs_pre_send_pause / doctrine_ban_list). The validator is
+// CORRECT (it must reject an unclean span); the prompt-side fix instructs the
+// clean narrowed shape. These tests prove BOTH poles: the clean narrowed span
+// passes, the slur-bearing full sentence FAILS — validator posture UNCHANGED.
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('SPAN-SHAPE §4 (NEW interleaved fixture): pause-adversarial fixture exists, targets needs_pre_send_pause, interleaves reactive markers WITH a slur', async () => {
+  const fixture = (await loadFixture(
+    'classify-argument-boolean-observations.family-j-pause-adversarial-request.json',
+  )) as { tool: string; input: Record<string, unknown> };
+  assertEquals(fixture.tool, 'classify_argument_boolean_observations');
+  const rawKeys = fixture.input.requestedRawKeys as string[];
+  if (!rawKeys.includes('needs_pre_send_pause')) {
+    throw new Error('pause-adversarial fixture should request needs_pre_send_pause');
+  }
+  const moveText = fixture.input.currentText as string;
+  // Reactive markers present (the structural feature).
+  if (!/WRONG/.test(moveText) || !/!!!/.test(moveText)) {
+    throw new Error('pause-adversarial fixture must contain reactive markers (ALL CAPS + repeated punctuation). Got: ' + moveText);
+  }
+  // AND a person token present in the SAME move (the interleaving — the exact
+  // shape the existing clean pause fixture did NOT cover).
+  const carriesPersonToken = FAMILY_J_BAN_PATTERNS.some((p) => p.test(moveText));
+  if (!carriesPersonToken) {
+    throw new Error('pause-adversarial fixture must INTERLEAVE a person/slur token with the reactive markers. Got: ' + moveText);
+  }
+});
+
+Deno.test('SPAN-SHAPE cross-check: clean narrowed needs_pre_send_pause span (WRONG-burst only) PASSES the ban scan', () => {
+  // The shape the SPAN-SELECTION RULE instructs: anchor ONLY the typographic burst.
+  const response = buildResponse('needs_pre_send_pause', 'WRONG WRONG WRONG!!!');
+  const result = scanFamilyJBooleanResponseForBanList(response);
+  assertEquals(result.ok, true);
+});
+
+Deno.test('SPAN-SHAPE cross-check: slur-bearing full-sentence needs_pre_send_pause span FAILS at evidenceSpan.needs_pre_send_pause (validator posture UNCHANGED)', () => {
+  // The exact E3-incident shape: the model anchored the pause span on the
+  // reactive sentence that ALSO carries the input slur. The validator must
+  // reject it closed — the prompt change makes the model AVOID this shape, but
+  // the backstop is unchanged. The dirty span is the new fixture's own text.
+  const dirtySpan =
+    "You're such a troll and honestly you're toxic — NO you are WRONG WRONG WRONG!!! of COURSE you would say that, you ALWAYS do";
+  const response = buildResponse('needs_pre_send_pause', dirtySpan);
+  const result = scanFamilyJBooleanResponseForBanList(response);
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.path, 'evidenceSpan.needs_pre_send_pause');
+  }
+});
+
 Deno.test('design §4 canonical per-key fixtures (non-adversarial) produce NO person token in their move text', async () => {
   // The non-adversarial canonical inputs must be doctrine-clean: no person/
   // intent token in the move text. (The adversarial fixture B is the explicit
