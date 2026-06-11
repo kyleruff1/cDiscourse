@@ -30,7 +30,17 @@ import {
   EDGE_ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS,
   EDGE_DRAINER_MCP_REQUEST_TIMEOUT_MS,
   EDGE_MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS,
+  edgeBuildBooleanObservationRequestForArgument,
 } from './_helpers/booleanObservationEdgeDeno';
+
+/**
+ * The request builder's in-body default (`DEFAULT_REQUEST_TIMEOUT_MS` in
+ * `booleanObservationRequestBuilder.ts:38`) — the MCP server's model
+ * deliberation budget that production / auto-trigger / submit requests carry
+ * BY DESIGN (fast-fail hot path). Pinned here as the byte-equivalence anchor
+ * for the OPS-MCP-ADMIN-VALIDATION-BODY-BUDGET Part-2 behavioural tests.
+ */
+const BUILDER_DEFAULT_IN_BODY_TIMEOUT_MS = 12_000;
 
 /**
  * The MCP server's own per-model-call budget. Source of truth:
@@ -59,17 +69,23 @@ const ADAPTER_CORE_PATH = path.join(
   REPO,
   'supabase/functions/_shared/booleanObservations/booleanObservationMcpAdapterCore.ts',
 );
+const CLASSIFY_CORE_PATH = path.join(
+  REPO,
+  'supabase/functions/_shared/booleanObservations/classifyArgumentCore.ts',
+);
 
 let adminHandlerText = '';
 let dispatcherText = '';
 let drainerClassifyText = '';
 let adapterCoreText = '';
+let classifyCoreText = '';
 
 beforeAll(() => {
   adminHandlerText = fs.readFileSync(ADMIN_HANDLER_PATH, 'utf8');
   dispatcherText = fs.readFileSync(DISPATCHER_PATH, 'utf8');
   drainerClassifyText = fs.readFileSync(DRAINER_CLASSIFY_PATH, 'utf8');
   adapterCoreText = fs.readFileSync(ADAPTER_CORE_PATH, 'utf8');
+  classifyCoreText = fs.readFileSync(CLASSIFY_CORE_PATH, 'utf8');
 });
 
 describe('OPS-MCP-ADMIN-VALIDATION-TIMEOUT-HIERARCHY — constant + hierarchy', () => {
@@ -165,5 +181,131 @@ describe('OPS-MCP-ADMIN-VALIDATION-TIMEOUT-HIERARCHY — invariants preserved', 
     expect(adapterCoreText).toMatch(
       /export const DRAINER_MCP_REQUEST_TIMEOUT_MS\s*=\s*30_000/,
     );
+  });
+});
+
+/**
+ * OPS-MCP-ADMIN-VALIDATION-BODY-BUDGET — Part 2: the SECOND timeout lever.
+ *
+ * PR #570 (Part 1) widened only the caller-side `AbortSignal.timeout`. The
+ * 2026-06-11 byte-exact replay proved that was necessary but NOT sufficient:
+ * the request body's `timeoutMs` field is a DISTINCT lever — the MCP server's
+ * MODEL deliberation budget, read server-side. The builder default is 12s
+ * (`booleanObservationRequestBuilder.ts:38`), which truncates deliberation on
+ * slur-adjacent inputs → unclean span → validation_failed. The
+ * `admin_validation` path now passes 30s IN THE BODY too, aligning it with the
+ * drainer (which already passes 30s in-body). production / auto-trigger / submit
+ * keep the 12s in-body default (byte-equivalent).
+ */
+describe('OPS-MCP-ADMIN-VALIDATION-BODY-BUDGET — Part 2 in-body budget (source)', () => {
+  it('AVTH-13 — classifyArgumentCore imports ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS from the adapter core', () => {
+    expect(
+      /import\s+\{[\s\S]*?ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS[\s\S]*?\}\s+from\s+['"]\.\/booleanObservationMcpAdapterCore\.ts['"]/.test(
+        classifyCoreText,
+      ),
+    ).toBe(true);
+  });
+
+  it('AVTH-14 — the builder call passes the mode-gated in-body timeoutMs ternary (fails if the field is removed)', () => {
+    // Mutation-resistant: the WHOLE ternary is matched. Removing the field,
+    // inverting the gate to `mode === 'production'`, swapping the branches
+    // (`? undefined : ADMIN_...`), or inlining a literal in place of the named
+    // constant all break this match.
+    expect(
+      /timeoutMs:\s*mode\s*===\s*['"]admin_validation['"]\s*\?\s*ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS\s*:\s*undefined/.test(
+        classifyCoreText,
+      ),
+    ).toBe(true);
+  });
+
+  it('AVTH-15 — production gets undefined (builder default), NOT the 30s constant — gate is not inverted', () => {
+    // The else branch must be `undefined` so production threads the builder's
+    // 12s default (byte-equivalent). If a refactor flipped the branches so
+    // production received ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS, AVTH-14
+    // would already fail; this assertion pins the else-branch value explicitly.
+    expect(
+      /\?\s*ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS\s*:\s*undefined/.test(
+        classifyCoreText,
+      ),
+    ).toBe(true);
+    // And the constant must NOT be passed unconditionally (no ungated
+    // `timeoutMs: ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS,` line).
+    expect(
+      /timeoutMs:\s*ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS\s*,/.test(
+        classifyCoreText,
+      ),
+    ).toBe(false);
+  });
+
+  it('AVTH-16 — the existing `mode,` builder argument is still wired (production path unbroken)', () => {
+    expect(/requestedFamilies:\s*eligibleFamilies,\s+mode,/.test(classifyCoreText)).toBe(
+      true,
+    );
+  });
+});
+
+describe('OPS-MCP-ADMIN-VALIDATION-BODY-BUDGET — Part 2 in-body budget (behavioural)', () => {
+  const baseBuilderInput = {
+    argumentId: 'arg-under-test',
+    parentArgumentId: null,
+    currentText: 'A claim under test.',
+    parentText: null,
+    threadContextExcerpt: '',
+    requestedFamilies: ['parent_relation'] as const,
+    mode: 'admin_validation' as const,
+  };
+
+  it('AVTH-17 — admin_validation passes 30s into the request body timeoutMs', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument({
+      ...baseBuilderInput,
+      mode: 'admin_validation',
+      timeoutMs: EDGE_ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS,
+    });
+    expect(req.timeoutMs).toBe(30_000);
+    expect(req.timeoutMs).toBe(EDGE_ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS);
+  });
+
+  it('AVTH-18 — production (timeoutMs omitted) keeps the builder 12s in-body default — byte-equivalent', () => {
+    const req = edgeBuildBooleanObservationRequestForArgument({
+      ...baseBuilderInput,
+      mode: 'production',
+    });
+    expect(req.timeoutMs).toBe(BUILDER_DEFAULT_IN_BODY_TIMEOUT_MS);
+    expect(req.timeoutMs).toBe(12_000);
+  });
+
+  it('AVTH-19 — the ternary else value (undefined) also yields the 12s default (production branch is faithful)', () => {
+    // The production branch literally passes `timeoutMs: undefined`; prove the
+    // builder treats that identically to omission.
+    const req = edgeBuildBooleanObservationRequestForArgument({
+      ...baseBuilderInput,
+      mode: 'production',
+      timeoutMs: undefined,
+    });
+    expect(req.timeoutMs).toBe(BUILDER_DEFAULT_IN_BODY_TIMEOUT_MS);
+  });
+
+  it('AVTH-20 — admin in-body budget === drainer in-body budget === 30000 (both levers aligned)', () => {
+    // Constant parity (the drainer already passes DRAINER_MCP_REQUEST_TIMEOUT_MS
+    // in-body per classifierDrainerClassify.ts:138).
+    expect(EDGE_ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS).toBe(
+      EDGE_DRAINER_MCP_REQUEST_TIMEOUT_MS,
+    );
+    // Emitted body-field parity: the request the admin path produces carries
+    // the same in-body model budget as the request the drainer produces.
+    const adminReq = edgeBuildBooleanObservationRequestForArgument({
+      ...baseBuilderInput,
+      mode: 'admin_validation',
+      timeoutMs: EDGE_ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS,
+    });
+    const drainerReq = edgeBuildBooleanObservationRequestForArgument({
+      ...baseBuilderInput,
+      mode: 'production',
+      timeoutMs: EDGE_DRAINER_MCP_REQUEST_TIMEOUT_MS,
+    });
+    expect(adminReq.timeoutMs).toBe(drainerReq.timeoutMs);
+    expect(adminReq.timeoutMs).toBe(30_000);
+    // And the in-body model budget EXCEEDS the builder's hot-path default.
+    expect(adminReq.timeoutMs).toBeGreaterThan(BUILDER_DEFAULT_IN_BODY_TIMEOUT_MS);
   });
 });

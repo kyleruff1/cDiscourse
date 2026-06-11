@@ -64,6 +64,7 @@ import type {
   PersistResultInput,
 } from './persistenceWriter.ts';
 import {
+  ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS,
   DEFAULT_MCP_BOOLEAN_OBSERVATION_SERVER_NAME,
   MCP_BOOLEAN_OBSERVATION_TOOL_NAME,
 } from './booleanObservationMcpAdapterCore.ts';
@@ -229,6 +230,20 @@ export async function classifyOneArgumentCore(
   const eligibleFamilies = filterFamiliesForMode(requestedFamilies, mode);
 
   // Build the MCP request.
+  //
+  // OPS-MCP-ADMIN-VALIDATION-BODY-BUDGET — the SECOND timeout lever. The
+  // in-body `timeoutMs` is the MCP server's MODEL deliberation budget (read
+  // server-side), distinct from the caller-side `AbortSignal.timeout` PR #570
+  // widened to 30s for admin_validation. The 2026-06-11 byte-exact replay
+  // isolated the body budget as the determinant: body `timeoutMs:12000`
+  // (builder default) truncates deliberation on slur-adjacent inputs and emits
+  // an unclean span → validation_failed; body `timeoutMs:30000` yields a clean
+  // narrowed span → success (4/4 deterministic). The DRAINER already passes
+  // `DRAINER_MCP_REQUEST_TIMEOUT_MS` (30s) in-body (classifierDrainerClassify.ts
+  // header §2 / :138); this aligns admin_validation with the drainer on BOTH
+  // levers. `undefined` → the builder's 12s default, keeping production /
+  // auto-trigger / submit hot-path requests BYTE-EQUIVALENT (fast-fail by
+  // design). Only the admin_validation branch of the ternary adds the field.
   const mcpRequest = buildBooleanObservationRequestForArgument({
     argumentId,
     parentArgumentId: context.parentArgumentId,
@@ -237,6 +252,10 @@ export async function classifyOneArgumentCore(
     threadContextExcerpt: context.threadContextExcerpt,
     requestedFamilies: eligibleFamilies,
     mode,
+    timeoutMs:
+      mode === 'admin_validation'
+        ? ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS
+        : undefined,
   });
 
   // Compute the audit input hash.
