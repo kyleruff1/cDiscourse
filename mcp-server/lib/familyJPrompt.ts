@@ -174,22 +174,63 @@ export interface ValidatedFamilyJRequest {
 }
 
 /**
+ * Per-key span reminders (OPS-MCP-FAMILY-J-PROMPT-ORDER-ROBUSTNESS — J prompt
+ * iteration 2; the #388 order-sensitivity matrix follow-up).
+ *
+ * The global SPAN-SELECTION RULE block (shipped PR #572) sits at the END of the
+ * user prompt. With shifts_to_person_or_intent asked FIRST (the Edge registry
+ * order), the rule loses salience by the time the LATER questions are answered:
+ * needs_pre_send_pause's evidenceSpan then contaminated with the input's slur
+ * sentence (3/3 deterministic at the 30s in-body budget), whereas with the pause
+ * question earlier (alphabetical) it narrowed cleanly (2/2). Rather than reorder
+ * server-side keys (which would touch ALL families), these SHORT bracketed
+ * reminders are appended to EACH question line so the span discipline travels
+ * WITH every key regardless of position — strongest on needs_pre_send_pause (the
+ * key whose span anchoring failed in the E3 Edge replay).
+ *
+ * Prompt-side only. The familyJBanListScan.ts validator gate is byte-equal and
+ * NEVER relaxed; these reminders lower the rate of unclean spans reaching the
+ * gate, they do not change what the gate rejects.
+ */
+export const FAMILY_J_SPAN_REMINDERS: Readonly<Record<string, string>> = Object.freeze({
+  shifts_to_person_or_intent:
+    '[span: SHORTEST clean fragment only — anchor the focus-shift wording, e.g. "because you work for…", never any fragment containing a slur or person label; if no clean fragment exists, answer false]',
+  contains_unplayable_insult_only:
+    '[span: SHORTEST clean fragment only — the span may be null, or only the move text if it is already clean, never any fragment containing a slur or person label; if no clean fragment exists, answer false]',
+  needs_pre_send_pause:
+    '[span: SHORTEST clean fragment only — for reactive markers anchor ONLY the typographic burst, e.g. "WRONG WRONG WRONG!!!", never any fragment containing a person label; if no clean fragment exists, answer false]',
+  uses_popularity_as_evidence:
+    '[span: SHORTEST clean fragment only — anchor the popularity-leaning wording, e.g. "everyone knows this", never any fragment containing a slur or person label; if no clean fragment exists, answer false]',
+  uses_satire_as_evidence:
+    '[span: SHORTEST clean fragment only — anchor the satire-as-fact citation wording, never any fragment containing a slur or person label; if no clean fragment exists, answer false]',
+});
+
+/**
  * Builds the user prompt for Family J classification.
  *
- * Structure per design §5.2:
- *   1. Sensitive-composer questions block (rawKey: booleanQuestion for each requested key)
+ * Structure per design §5.2 (+ OPS-MCP-FAMILY-J-PROMPT-ORDER-ROBUSTNESS items 1 & 4):
+ *   1. Sensitive-composer questions block (rawKey: booleanQuestion for each requested key).
+ *      EACH question line now carries a SHORT bracketed PER-KEY SPAN REMINDER
+ *      (FAMILY_J_SPAN_REMINDERS) so the shortest-clean-fragment discipline travels
+ *      WITH every key — strongest on needs_pre_send_pause (the #388 order-sensitivity
+ *      mitigation; the global rule alone lost salience for later-answered keys).
  *   2. Definitions + examples + false-positive guards block (one per requested key)
  *   3. Note about sensitive-composer-as-structure cross-key framing
  *      (the structural-feature↔characterization doctrine anchors)
- *   4. Response-shape instruction (verbatim JSON example, classifierSetVersion family-j-v1)
- *   5. Conservative-positives bias reminder (0 to 1 features)
- *   6. The slur-in-input handling instruction (detect the feature, never echo the slur)
- *   7. The SPAN-SELECTION RULE block (BINDING, all J keys): shortest sub-span →
+ *   4. Pre-emit FINAL CHECK block (BINDING): before emitting, re-scan EVERY
+ *      evidenceSpan against the banned person-directed terms; narrow or flip to
+ *      false. Positioned as the lead-in to the response-shape instruction so it is
+ *      the LAST instruction the model reads before producing the JSON (the #388
+ *      order-sensitivity mitigation's second leg).
+ *   5. Response-shape instruction (verbatim JSON example, classifierSetVersion family-j-v1)
+ *   6. Conservative-positives bias reminder (0 to 1 features)
+ *   7. The slur-in-input handling instruction (detect the feature, never echo the slur)
+ *   8. The SPAN-SELECTION RULE block (BINDING, all J keys): shortest sub-span →
  *      self-scan the candidate span → narrow to exclude any person-directed term →
  *      narrow-or-false. Carries the concrete WRONG-burst reactive-marker example
  *      (the E3-amendment follow-up for needs_pre_send_pause span anchoring under
  *      slur-bearing reactive input; the #421/#423 STRICT-shape reinforcement precedent).
- *   8. The input (move text, parent text, thread context)
+ *   9. The input (move text, parent text, thread context)
  *
  * When requestedRawKeys is empty, all 5 Family J keys are included.
  *
@@ -208,7 +249,13 @@ export function buildFamilyJUserPrompt(request: ValidatedFamilyJRequest): string
   );
 
   const questionsBlock = requestedEntries
-    .map((entry) => `- ${entry.rawKey}: ${entry.booleanQuestion}`)
+    .map((entry) => {
+      // OPS-MCP-FAMILY-J-PROMPT-ORDER-ROBUSTNESS: append the per-key span reminder
+      // to the SAME question line (never a new line — the questions block must stay
+      // exactly one line per rawKey) so the span discipline travels with every key.
+      const reminder = FAMILY_J_SPAN_REMINDERS[entry.rawKey];
+      return `- ${entry.rawKey}: ${entry.booleanQuestion}${reminder ? ` ${reminder}` : ''}`;
+    })
     .join('\n');
 
   const definitionsBlock = requestedEntries
@@ -275,6 +322,10 @@ cited as fact is the evidentiary misuse, never a verdict that the claim is "fals
 Answer each sensitive-composer question above with true (the move exhibits the feature) or false
 (the feature is absent OR not applicable to this move) for the move below. Return ONLY a single
 JSON object — no prose, no markdown, no code fence, no chain-of-thought.
+
+FINAL CHECK (BINDING): before emitting, re-scan EVERY evidenceSpan value you are about to output
+against the banned person-directed terms; if ANY span contains one, NARROW that span or flip that
+key to false. An output with even one unclean span is rejected whole.
 
 The object MUST conform to this shape:
 ${responseShape}
