@@ -23,15 +23,17 @@ file-level opt-out signal without needing a directory allow-list.
 Jest tests in `__tests__/opsAuditLint.test.ts` assert:
 - this `README.md` exists in the directory;
 - each fixture file starts with the `<!-- AUDIT-LINT-FIXTURE` marker;
-- the fixture count is exactly 16 (the four original Family E/D motivating
+- the fixture count is exactly 19 (the four original Family E/D motivating
   arc docs, the three Family F doctrine-risk-enrollment fixtures added in
   `OPS-MCP-AUDIT-LINT-RULES-FAMILY-F-DOCTRINE-RISK`, the three Family G
   doctrine-risk-enrollment fixtures added in
   `OPS-MCP-AUDIT-LINT-RULES-FAMILY-G-DOCTRINE-RISK`, the three Family H
   doctrine-risk-enrollment fixtures added in
-  `OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK`, and the three Family I
+  `OPS-MCP-AUDIT-LINT-RULES-FAMILY-H-DOCTRINE-RISK`, the three Family I
   doctrine-risk-enrollment fixtures added in
-  `OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK`).
+  `OPS-MCP-AUDIT-LINT-RULES-FAMILY-I-DOCTRINE-RISK`, and the three Family J
+  doctrine-risk-enrollment fixtures added in
+  `OPS-MCP-AUDIT-LINT-RULES-FAMILY-J-DOCTRINE-RISK`).
 
 ## DO NOT EDIT
 
@@ -136,6 +138,30 @@ Re-author all three from the bodies in
 § "Fixture matrix" (fixtures 14 + 15 + 16) rather than extracting them from a
 commit.
 
+All three Family J fixtures (`family-j-consistent-PARTIAL.md`,
+`family-j-amendment-PASS.md`, `family-j-IMPROPER-PASS-no-evidence-span.md`)
+are **HAND-AUTHORED** (not extracted). Like Family I, there is **no on-main
+build-only J smoke audit shaped as a consistent-PARTIAL / amendment** to
+byte-copy — `docs/audits/` carries the `MCP-SERVER-011-FAMILY-J-SMOKE-template.md`
+template and the real merged E3 smoke
+(`MCP-SERVER-011-FAMILY-J-SMOKE-2026-06-11.md`, an `Audit-type: ops` PASS that
+already carries the persisted `evidence_span` readback and lints clean under
+this enrollment). So there is NO `git show` re-extraction recipe for any J
+fixture. `family-j-consistent-PARTIAL.md` is the representative consistent-PARTIAL
+(it names `evidence_span` as the deferred Phase 4b obligation so L5 is
+satisfied). `family-j-amendment-PASS.md` is a representative admin_validation
+smoke-completion shape with the canonical `MCP-SERVER-011-FAMILY-J-AMENDMENT`
+title and a persisted `evidence_span` readback whose synthetic spans anchor the
+STRUCTURAL focus-shift wording and never echo a person/intent label (the §10a
+existential). `family-j-IMPROPER-PASS-no-evidence-span.md` is the J-amendment
+shape with every `evidence_span` inspection trigger stripped. Re-author all three
+from the bodies in
+`docs/designs/OPS-MCP-AUDIT-LINT-RULES-FAMILY-J-DOCTRINE-RISK.md`
+§ "Fixture matrix" (fixtures 17 + 18 + 19) rather than extracting them from a
+commit. **Family J is doctrine-risk = HIGH by construction** (the inverse of I's
+LOW grade); `shifts_to_person_or_intent` is the §10a axis-partner carrying the
+maximal guard — the highest verdict-adjacency key in the system.
+
 ### Documented limitation — H title-format trap
 
 `family-h-original-PASS.md` is a byte-copy of the Card 1 H smoke audit at
@@ -170,6 +196,9 @@ audit MUST use the canonical `MCP-SERVER-NNN-FAMILY-H-SMOKE` /
 | `family-i-consistent-PARTIAL.md` | 0 (PASSES) | (none) — representative consistent-PARTIAL for Family I; names `evidence_span` as the deferred Phase 4b obligation so `hasInspection` is true and L5 does not fire. The substitute for H's byte-copy "original" (no on-main Card-1 I smoke exists) |
 | `family-i-amendment-PASS.md` | 0 (PASSES) | (none) — representative I amendment / production-enable shape with canonical `MCP-SERVER-010-FAMILY-I-AMENDMENT` title; persisted `evidence_span` inspection present; L5 satisfied |
 | `family-i-IMPROPER-PASS-no-evidence-span.md` | 1 (FAILS) | L5 ONLY — doctrine-risk Family I + verdict PASS + ZERO `evidence_span` inspection. The teeth proof (I analog of `original-family-e-IMPROPER-PASS`). Amendment-typed + intact L6 → L1/L2/L6 do NOT fire |
+| `family-j-consistent-PARTIAL.md` | 0 (PASSES) | (none) — representative consistent-PARTIAL for Family J; names `evidence_span` as the deferred Phase 4b obligation so `hasInspection` is true and L5 does not fire. Detects as `family_j` / `auditType: family-ship` / verdict PARTIAL |
+| `family-j-amendment-PASS.md` | 0 (PASSES) | (none) — representative J admin_validation smoke-completion shape with canonical `MCP-SERVER-011-FAMILY-J-AMENDMENT` title; persisted `evidence_span` inspection present (synthetic spans anchor the structural focus-shift wording, never a person/intent label); L5 satisfied |
+| `family-j-IMPROPER-PASS-no-evidence-span.md` | 1 (FAILS) | L5 ONLY — doctrine-risk Family J + verdict PASS + ZERO `evidence_span` inspection. The teeth proof (J analog of `original-family-e-IMPROPER-PASS`). Amendment-typed + intact L6 → L1/L2/L6 do NOT fire |
 
 The Jest suite asserts these outcomes. If a future linter change causes a
 mismatch, EITHER the linter must be tuned back OR the design's expected
