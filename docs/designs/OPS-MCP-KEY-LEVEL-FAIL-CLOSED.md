@@ -13,6 +13,17 @@
 
 The mcp-server boolean-observation response validator currently fails an **entire** response packet — `validation_failed` / `doctrine_ban_list` — the moment **one** `evidenceSpan` string trips the doctrine ban-scan. Because generation is deterministic per byte of input, one un-narrowable span (the canonical case: Family J `needs_pre_send_pause` anchoring its span on a reactive sentence that interleaves the input's own person-directed terms) kills the whole packet, discarding the **clean** sibling keys' Observations that were independently verified clean in the same generation. The Amendment to `MCP-SERVER-011-FAMILY-J-SMOKE-2026-06-11.md` characterizes this as a deterministic, retry-immune **packet-residual** (4/4 Edge attempts), proves it is **fail-closed** (nothing dirty ever persisted), and notes that **prompt iteration has reached its structural limit** (17+ boundary probes; the #574 prompt-order-robustness follow-up). This card designs **key-level fail-closed**: the unclean key is **omitted** (never returns, never persists its span); the clean siblings survive. The change relaxes **nothing** about what is banned — every span is still scanned against the byte-unchanged ban-list, and no unclean span ever reaches the wire, the Edge, the database, or the client. It replaces the **packet-level death penalty** with **key-level death**, and turns the model-side "narrow-the-span-or-set-false" instruction into a deterministic **server-side backstop** that applies the same rule. The design is shaped by `cdiscourse-doctrine` §1 (the system never fabricates a finding or a verdict), §10a (Observations are structural features of the move's own text; sensitive-composer keys are composer-only and must never read as a person-characterization), §3 (popularity/satire never earn standing), and `test-discipline` §1 (tests are part of the deliverable). It ends at GATE-A; the implement card carries an explicit §10a doctrine-review merge gate.
 
+**Qualification (GATE-A review finding — binding honesty note):** "relaxes nothing" applies to the
+**regex-detectable** ban set. One incidental property of packet-death is removed: today, a
+regex-clean-but-soft-paraphrase sibling span (e.g. "the author seems biased") that co-occurs with a
+hard-banned span in the same generation is discarded WITH the packet; under key-level the hard key
+dies alone and that sibling SURVIVES and persists. The soft-paraphrase residual predates this change
+(no regex closes it, and the L5 audit readback shares the same regex), but key-level makes it
+marginally more reachable on surviving siblings. Bounded by: J-only scope, admin-validation-only
+reachability, and the composer-only rendering of J's sensitive keys (never a public
+characterization). The implement card's §10a review must weigh this explicitly — see item (f).
+
+
 ---
 
 ## Validation-layer map (read the real code; every claim is file:line)
@@ -247,6 +258,7 @@ The shared-mechanism-with-named-enablement gives consistency of code, zero produ
 7. **§3:** `uses_popularity_as_evidence` / `uses_satire_as_evidence` semantics are untouched — popularity/satire still earn no standing; a drop never grants standing.
 
 **Explicit §10a doctrine-review gate for the implement card (BINDING):** because this changes the runtime backstop of **the most sensitive prompt in the system**, the implement card MUST carry an explicit `cdiscourse-doctrine` §10a doctrine review as a merge gate (same posture as a J production-enable). The review must confirm, with evidence: (a) the ban-scan patterns are byte-unchanged; (b) no path returns or persists an unclean span; (c) the drop is server-side, pre-envelope; (d) the audit field carries rawKey **names** only, never span content; (e) no family posture changes (every `productionEnabled` / `adminValidationEnabled` flag byte-unchanged; J stays admin-validation-only).
+- (f) affirmatively assess whether any SURVIVING sibling span carries a soft (non-regex) person/intent characterization on the adversarial fixtures, and confirm the J composer-only rendering contains the blast radius.
 
 ---
 
@@ -339,3 +351,21 @@ For the **implement** card (NOT this design card — this card commits only this
 3. On merge to main, the Supabase GitHub integration auto-redeploys registered Edge functions; the mcp-server (Deno Deploy) auto-builds on the merge commit — confirm the hosted `/health` and re-run the J admin_validation smoke (the live success criterion above).
 
 For **this** card: **None — pure design doc; no migration, no deploy, no code.**
+
+## Amendment (GATE-A review) — collector placement decided
+
+The unclean-key collector is a **shared helper** in the dispatcher layer, parameterized by the
+family's own pattern set (a new optional `FamilyProviders.uncleanKeyCollector` field is REJECTED —
+it duplicates wiring per family for identical logic). Shape: `findUncleanEvidenceSpanKeys(spans,
+patterns)` lives beside the dispatcher's Step-5 logic and receives the SAME pattern set the
+family's `banListScan` provider uses, so the drop decision and the whole-packet scan can never
+diverge. Under J-only enablement the helper is invoked only when the family is in
+`KEY_LEVEL_FAIL_CLOSED_FAMILIES`.
+
+## Amendment (GATE-A review) — `checkedRawKeys` semantic note
+
+This design REDEFINES `checkedRawKeys` from "attempted" to "cleanly assessed". The reconstruction
+`checkedRawKeys UNION keysDroppedForUncleanSpan = attempted` holds by construction. The implement
+card MUST inventory every existing consumer of `checkedRawKeys` and confirm none reads it alone as
+an attempted-count (the key-set-coordination validator at `mcpBooleanObservationSchemaMirror.ts:218-265`
+and any Edge/jest mirror assertions are the named starting points).
