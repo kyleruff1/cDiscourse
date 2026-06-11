@@ -161,3 +161,78 @@ remain advisory; the admin gate (`requireAdmin`) is unchanged.
 Family-J E3 admin_validation smoke step on the existential input and confirm it
 now classifies at the Edge boundary (no `mcp_api_error`) within the 30s ceiling.
 No production-enable is implied — Family J stays admin-validation-only.
+
+---
+
+## Part 2 — the in-body budget (OPS-MCP-ADMIN-VALIDATION-BODY-BUDGET, 2026-06-11)
+
+Part 1 (PR #570) widened only the **caller-side** `AbortSignal.timeout` to 30s
+for `admin_validation`. That was necessary but **not sufficient**. After PR #570
+the Family-J E3 existential input still failed `validation_failed` on the admin
+path. A byte-exact replay isolated a **SECOND, distinct timeout lever**.
+
+### The second lever
+
+The classifier request **body** carries its own `timeoutMs` field, set by
+`buildBooleanObservationRequestForArgument` (`booleanObservationRequestBuilder.ts`),
+defaulting to `DEFAULT_REQUEST_TIMEOUT_MS = 12_000` (`:38`). This in-body value
+is the **MCP server's MODEL deliberation budget** (read server-side) — wholly
+distinct from the caller-side transport abort Part 1 fixed.
+
+`classifyArgumentCore.ts`'s build call (`~:232-247`) omitted `timeoutMs`, so
+admin_validation request bodies carried the **12s** builder default. The
+caller-side 30s abort gave the *transport* room, but the *model* still got cut
+off at 12s.
+
+### Replay isolation (deterministic, 4/4)
+
+| Body `timeoutMs` | Model behaviour | Outcome |
+| --- | --- | --- |
+| `12000` (builder default) | truncates deliberation, emits a slur-echoing span | `validation_failed` at `evidenceSpan.needs_pre_send_pause` / `doctrine_ban_list` |
+| `30000` | completes deliberation, emits a clean narrowed span | validation **success** |
+
+### Drainer precedent (both levers)
+
+The DRAINER already passes 30s on **both** levers:
+- in-body: `buildBooleanObservationRequestForArgument({ … timeoutMs: DRAINER_MCP_REQUEST_TIMEOUT_MS })`
+  (`classifierDrainerClassify.ts` header §2 / `:138`);
+- caller-side option: `adapter(batchRequest, { timeoutMs: DRAINER_MCP_REQUEST_TIMEOUT_MS })` (`:161-163`).
+
+Part 1 aligned admin_validation with the drainer on the caller-side lever; Part 2
+aligns it on the in-body lever, so admin_validation now matches the drainer on
+**both**.
+
+### The Part 2 fix (shape)
+
+In `classifyArgumentCore.ts`'s `buildBooleanObservationRequestForArgument({…})`
+call, pass the in-body budget mode-gated:
+
+```ts
+timeoutMs:
+  mode === 'admin_validation'
+    ? ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS
+    : undefined,
+```
+
+`undefined` → the builder's 12s default, keeping **production / auto-trigger /
+submit** request bodies **byte-equivalent** (fast-fail hot path BY DESIGN). Only
+the `admin_validation` branch of the ternary adds the field. The constant
+`ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS = 30_000` (added by Part 1 in
+`booleanObservationMcpAdapterCore.ts`) is reused; its doc-comment is extended
+with the second-lever finding.
+
+### Blast radius (Part 2)
+
+- **Changed:** one import + one mode-gated ternary field in
+  `classifyArgumentCore.ts`; the constant's doc-comment; +8 tests in
+  `__tests__/adminValidationTimeoutHierarchy.test.ts`; two doc updates.
+- **Byte-unchanged (verified by tests):** production / auto-trigger / submit
+  in-body budget stays 12s; the drainer in-body 30s is untouched; the
+  caller-side levers from Part 1 are untouched.
+- **Untouched:** `mcp-server/**`, migrations, the family registry, routing, the
+  25s server model budget.
+
+EDGE-BEARING on merge (the `_shared` module is shared with `submit-argument` —
+the registered Edge Functions redeploy via the Supabase GitHub integration).
+Doctrine unchanged: transport/model-timing tuning only; no verdict, no truth
+label, no AI-on-client, no service-role in client, no RLS change.

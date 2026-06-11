@@ -103,6 +103,27 @@ export const DRAINER_MCP_REQUEST_TIMEOUT_MS = 30_000;
  * persisted (fail-closed); the doctrine proof was obtained at the server
  * boundary.
  *
+ * SECOND LEVER — the IN-BODY model budget (OPS-MCP-ADMIN-VALIDATION-BODY-BUDGET,
+ * 2026-06-11): widening the caller-side abort ABOVE was necessary but NOT
+ * sufficient. There is a SECOND, distinct timeout — the request body's
+ * `timeoutMs` field (set by `buildBooleanObservationRequestForArgument`,
+ * default `DEFAULT_REQUEST_TIMEOUT_MS = 12_000` in
+ * `booleanObservationRequestBuilder.ts`). That in-body value is the MCP
+ * SERVER's own MODEL deliberation budget (read server-side), NOT a transport
+ * abort. A byte-exact replay on the Family-J E3 existential input isolated it
+ * deterministically (4/4): body `timeoutMs:12000` → the model truncates
+ * deliberation and emits a slur-echoing span → `validation_failed` at
+ * `evidenceSpan.needs_pre_send_pause` / `doctrine_ban_list`; body
+ * `timeoutMs:30000` → a clean narrowed span and validation success. The
+ * admin_validation path therefore must pass `timeoutMs:30000` IN THE BODY as
+ * well — done in `classifyArgumentCore.ts` via the mode-gated ternary on the
+ * builder call. The DRAINER already passes `DRAINER_MCP_REQUEST_TIMEOUT_MS`
+ * (30s) in-body (`classifierDrainerClassify.ts` header §2 / :138) in addition
+ * to the adapter option, so this aligns admin_validation with the drainer on
+ * BOTH levers (caller-side abort AND in-body model budget). production /
+ * auto-trigger / submit keep the 12s in-body default BY DESIGN (fast-fail hot
+ * path) — only the admin_validation builder branch adds the field.
+ *
  * BATCH-INTERACTION BOUND (no enforcement change): the admin handler's
  * `MAX_ARGUMENTS_PER_CALL = 10` classifies SEQUENTIALLY, so a worst-case
  * 10 args x 30s = 300s would approach the Edge wall clock. Observed per-arg
