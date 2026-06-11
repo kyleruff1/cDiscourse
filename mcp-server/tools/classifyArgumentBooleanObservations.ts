@@ -49,11 +49,15 @@
  *      is never labeled a verdict on argument quality.
  *   6. Return the tool result with content[text] + structuredContent.
  *
- * Family J (sensitive_composer) is NOT implemented in this server build.
- * The unsupported_family error envelope is the boundary; the validator
- * already rejects it at the registry layer. (Family I — thread_topology —
- * is registered as of MCP-SERVER-010-FAMILY-I with the 6-key ai_classifier
- * mixed-source Subset.) Future MCP-SERVER-011+ cards add Family J.
+ * Family J (sensitive_composer) is registered as of MCP-SERVER-011-FAMILY-J
+ * with the 5-key semantic_referee SOURCE-UNIFORM set (no excluded list; J is
+ * not a mixed-source family). With J landed, there is NO remaining unsupported
+ * family in the A→J registry; the unsupported_family envelope now only fires
+ * for a string outside the 10 registered families. (Family I —
+ * thread_topology — is registered with the 6-key ai_classifier mixed-source
+ * Subset.) Family J ships at the ADMIN-VALIDATION-ONLY ceiling: the Edge
+ * familyRegistry entry keeps productionEnabled:false (design §11 E4 ceiling);
+ * a future production flip requires a fresh cdiscourse-doctrine §10a review.
  *
  * Family D ships in admin_validation-only posture: the Edge familyRegistry
  * entry at `supabase/functions/_shared/booleanObservations/familyRegistry.ts`
@@ -106,6 +110,22 @@
  * paragraphs. The production auto-trigger excludes Family H until Card 3
  * of the three-card chain flips the Edge gate.
  *
+ * Family J (MCP-SERVER-011-FAMILY-J) ships in admin_validation-only posture
+ * at the Edge boundary: the Edge familyRegistry entry at
+ * `supabase/functions/_shared/booleanObservations/familyRegistry.ts:114-118`
+ * has `productionEnabled: false, adminValidationEnabled: true`. The MCP
+ * server classifier handles the 5-key semantic_referee SOURCE-UNIFORM set
+ * (no subset; J is not a mixed-source family — design §1/§7.1). J is the
+ * MOST SENSITIVE family: 4 of 5 keys are verdict-adjacent and 3 are
+ * person/intent-directed. The sensitive-composer doctrine binding (a
+ * sensitive-composer observation is a STRUCTURAL FEATURE of the move's own
+ * text, NEVER a characterization of the author; cdiscourse-doctrine §10a)
+ * lives in familyJPrompt.ts + familyJBanListScan.ts, with
+ * shifts_to_person_or_intent carrying the maximal axis-partner guard. Unlike
+ * Families D-I, there is NO Card-3 production flip in this chain: J is held
+ * at the admin_validation ceiling and a future production-enable requires a
+ * fresh cdiscourse-doctrine §10a doctrine review (design §11 E4 ceiling).
+ *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 — server returns structural observations only,
  *     never verdicts; ban-list scan blocks verdict tokens in evidenceSpans.
@@ -144,6 +164,8 @@ import { runAnthropicFamilyHClassifier } from '../lib/familyHAnthropic.ts';
 import { loadFixtureFamilyHPacket } from '../lib/familyHFixtureProvider.ts';
 import { runAnthropicFamilyIClassifier } from '../lib/familyIAnthropic.ts';
 import { loadFixtureFamilyIPacket } from '../lib/familyIFixtureProvider.ts';
+import { runAnthropicFamilyJClassifier } from '../lib/familyJAnthropic.ts';
+import { loadFixtureFamilyJPacket } from '../lib/familyJFixtureProvider.ts';
 import {
   validateMcpBooleanObservationResponse,
   type McpBooleanObservationValidatedResponse,
@@ -157,6 +179,7 @@ import { scanFamilyFBooleanResponseForBanList } from '../lib/familyFBanListScan.
 import { scanFamilyGBooleanResponseForBanList } from '../lib/familyGBanListScan.ts';
 import { scanFamilyHBooleanResponseForBanList } from '../lib/familyHBanListScan.ts';
 import { scanFamilyIBooleanResponseForBanList } from '../lib/familyIBanListScan.ts';
+import { scanFamilyJBooleanResponseForBanList } from '../lib/familyJBanListScan.ts';
 import type { AnthropicCallResult } from '../lib/anthropicCall.ts';
 import type { ValidatedFamilyARequest } from '../lib/familyAPrompt.ts';
 import type { ValidatedFamilyBRequest } from '../lib/familyBPrompt.ts';
@@ -167,12 +190,13 @@ import type { ValidatedFamilyFRequest } from '../lib/familyFPrompt.ts';
 import type { ValidatedFamilyGRequest } from '../lib/familyGPrompt.ts';
 import type { ValidatedFamilyHRequest } from '../lib/familyHPrompt.ts';
 import type { ValidatedFamilyIRequest } from '../lib/familyIPrompt.ts';
+import type { ValidatedFamilyJRequest } from '../lib/familyJPrompt.ts';
 
 export const CLASSIFY_BOOLEAN_OBSERVATIONS_TOOL: ToolMetadata = {
   name: 'classify_argument_boolean_observations',
   title: 'Argument Boolean Observation Classifier',
   description:
-    "Classifies an argument move against MCP-021A Family A (parent_relation), Family B (disagreement_axis), Family C (misunderstanding_repair), Family D (evidence_source_chain), Family E (argument_scheme), Family F (critical_question), Family G (resolution_progress), Family H (claim_clarity), OR Family I (thread_topology) boolean Machine Observation taxonomy. Accepts McpBooleanObservationRequest with requestedFamilies=['parent_relation'] or requestedFamilies=['disagreement_axis'] or requestedFamilies=['misunderstanding_repair'] or requestedFamilies=['evidence_source_chain'] or requestedFamilies=['argument_scheme'] or requestedFamilies=['critical_question'] or requestedFamilies=['resolution_progress'] or requestedFamilies=['claim_clarity'] or requestedFamilies=['thread_topology'] and returns McpBooleanObservationResponse per the schema in src/features/nodeLabels/mcpBooleanObservationSchema.ts. Family D ships with the 22-key ai_classifier Subset (the 8 deterministic auto_metadata + lifecycle keys are excluded; requesting any of them returns unsupported_rawKey). Because 22 exceeds the per-response cap of 20, the Edge classifier splits Family D into 2 batches (16 + 6) and merges the results into one run; each batch is served here as a normal single-family request. Family E covers 19 argument-structure observations: 16 Walton (1995, 2008) argumentation schemes (causal, analogy, example, authority, consequence, principle, definition, classification, precedent, means-end, tradeoff, abductive, exception, slippery-slope, cost-benefit, risk) plus 3 inference-structure observations (premises that depend on each other, premises that each stand alone, and whether the move relies on an unstated step) — schemes and inference structures are descriptive structural patterns, never adjudications; an unstated-step observation is an invitation to state the premise, never a quality judgment. Family F covers 17 critical-question observations: 14 Walton + Toulmin + Peirce critical questions (warrant, assumption, authority basis, causal mechanism, analogy mapping, example representativeness, consequence probability, definition boundary, criterion weighting, alternative explanation, counterexample, scope limit, qualification, comparison baseline) plus 3 question-quality observations about the question the move itself poses (whether it names a source of uncertainty, separates the claim from its evidence, and invites revision rather than demanding closure) — CQs are descriptive structural probes on absence/gap, never adjudications of argument quality; an unmet CQ NEVER means the partner scheme is a fallacy; the 3 question-quality observations describe the move's question, and an invites-revision observation NEVER means the parent is wrong/weak or NEEDS revision. Family G ships with the 21-key ai_classifier Subset (the 12 deterministic auto_metadata + lifecycle keys are excluded; requesting any of them returns unsupported_rawKey). Because 21 exceeds the per-response cap of 20, the Edge classifier splits Family G into 2 batches (16 + 5) and merges the results into one run; each batch is served here as a normal single-family request, covering resolution-progress states (claim narrowed, narrow/broad point conceded, common ground identified, synthesis proposed, settlement terms proposed/accepted, issue closed, point set aside, decision criterion / action item / follow-up question proposed) — these are DESCRIPTIVE CONVERGENCE-STATE, never an adjudication of which side is leading or has resolved the dispute; concession is a scoring repair, synthesis is a gameplay move, settlement is procedural. Family H ships with the 12-key ai_classifier set covering claim-clarity formulation states (claim present, reason present, conclusion missing, reason missing, multiple claims, claim specificity high/low, quantifier present, modal language present, hedging present, unclear reference, temporal constraint) — these are DESCRIPTIVE FORMULATION-STATE, never quality adjudications of the move or speaker; absence is not failure, broad scope is a SHAPE not a defect, unclear reference is a structural feature visible to the classifier not a speaker label. Family I ships with the 6-key ai_classifier Subset (the 15 deterministic auto_metadata + lifecycle keys are excluded; requesting any of them returns unsupported_rawKey) covering thread-topology relations (introduces new issue, references prior agreement, introduces sub-axis, returns to prior issue, references external context, compares options) — these are DESCRIPTIVE STRUCTURE about how a move relates to the conversation graph, never adjudications; a new issue is not a derailment, returning to a prior issue is not repetition, comparing options records structure and never adjudicates which option prevails. Family J returns an unsupported_family error envelope in this server build. STRUCTURAL questions only — does not assign factual standing, does not award outcomes, does not treat engagement or popularity as evidence.",
+    "Classifies an argument move against MCP-021A Family A (parent_relation), Family B (disagreement_axis), Family C (misunderstanding_repair), Family D (evidence_source_chain), Family E (argument_scheme), Family F (critical_question), Family G (resolution_progress), Family H (claim_clarity), OR Family I (thread_topology) boolean Machine Observation taxonomy. Accepts McpBooleanObservationRequest with requestedFamilies=['parent_relation'] or requestedFamilies=['disagreement_axis'] or requestedFamilies=['misunderstanding_repair'] or requestedFamilies=['evidence_source_chain'] or requestedFamilies=['argument_scheme'] or requestedFamilies=['critical_question'] or requestedFamilies=['resolution_progress'] or requestedFamilies=['claim_clarity'] or requestedFamilies=['thread_topology'] and returns McpBooleanObservationResponse per the schema in src/features/nodeLabels/mcpBooleanObservationSchema.ts. Family D ships with the 22-key ai_classifier Subset (the 8 deterministic auto_metadata + lifecycle keys are excluded; requesting any of them returns unsupported_rawKey). Because 22 exceeds the per-response cap of 20, the Edge classifier splits Family D into 2 batches (16 + 6) and merges the results into one run; each batch is served here as a normal single-family request. Family E covers 19 argument-structure observations: 16 Walton (1995, 2008) argumentation schemes (causal, analogy, example, authority, consequence, principle, definition, classification, precedent, means-end, tradeoff, abductive, exception, slippery-slope, cost-benefit, risk) plus 3 inference-structure observations (premises that depend on each other, premises that each stand alone, and whether the move relies on an unstated step) — schemes and inference structures are descriptive structural patterns, never adjudications; an unstated-step observation is an invitation to state the premise, never a quality judgment. Family F covers 17 critical-question observations: 14 Walton + Toulmin + Peirce critical questions (warrant, assumption, authority basis, causal mechanism, analogy mapping, example representativeness, consequence probability, definition boundary, criterion weighting, alternative explanation, counterexample, scope limit, qualification, comparison baseline) plus 3 question-quality observations about the question the move itself poses (whether it names a source of uncertainty, separates the claim from its evidence, and invites revision rather than demanding closure) — CQs are descriptive structural probes on absence/gap, never adjudications of argument quality; an unmet CQ NEVER means the partner scheme is a fallacy; the 3 question-quality observations describe the move's question, and an invites-revision observation NEVER means the parent is wrong/weak or NEEDS revision. Family G ships with the 21-key ai_classifier Subset (the 12 deterministic auto_metadata + lifecycle keys are excluded; requesting any of them returns unsupported_rawKey). Because 21 exceeds the per-response cap of 20, the Edge classifier splits Family G into 2 batches (16 + 5) and merges the results into one run; each batch is served here as a normal single-family request, covering resolution-progress states (claim narrowed, narrow/broad point conceded, common ground identified, synthesis proposed, settlement terms proposed/accepted, issue closed, point set aside, decision criterion / action item / follow-up question proposed) — these are DESCRIPTIVE CONVERGENCE-STATE, never an adjudication of which side is leading or has resolved the dispute; concession is a scoring repair, synthesis is a gameplay move, settlement is procedural. Family H ships with the 12-key ai_classifier set covering claim-clarity formulation states (claim present, reason present, conclusion missing, reason missing, multiple claims, claim specificity high/low, quantifier present, modal language present, hedging present, unclear reference, temporal constraint) — these are DESCRIPTIVE FORMULATION-STATE, never quality adjudications of the move or speaker; absence is not failure, broad scope is a SHAPE not a defect, unclear reference is a structural feature visible to the classifier not a speaker label. Family I ships with the 6-key ai_classifier Subset (the 15 deterministic auto_metadata + lifecycle keys are excluded; requesting any of them returns unsupported_rawKey) covering thread-topology relations (introduces new issue, references prior agreement, introduces sub-axis, returns to prior issue, references external context, compares options) — these are DESCRIPTIVE STRUCTURE about how a move relates to the conversation graph, never adjudications; a new issue is not a derailment, returning to a prior issue is not repetition, comparing options records structure and never adjudicates which option prevails. Family J ships with the 5-key semantic_referee set covering sensitive-composer structural features (a move that shifts focus from the parent's claim to the parent's poster, a move that contains only a putdown with no playable claim attached, a move that shows reactive markers suggesting a brief pause before sending, a move that leans on popularity as support, and a move that cites a satire source as if it documented a real event) — these are PRIVATE STRUCTURAL NUDGES surfaced only in the author's own composer (the first three) or to an admin reviewing the text (the last two), never characterizations of the person; a person-or-intent shift records that the move's content addresses the poster, never that the author is attacking anyone; popularity and satire used as support are recorded as structural features and never granted factual standing. Family J is admin-validation-only and is not production-enabled. STRUCTURAL questions only — does not assign factual standing, does not award outcomes, does not treat engagement or popularity as evidence.",
   inputSchema: {
     type: 'object',
     required: [
@@ -350,7 +374,8 @@ interface FamilyProviders {
       | ValidatedFamilyFRequest
       | ValidatedFamilyGRequest
       | ValidatedFamilyHRequest
-      | ValidatedFamilyIRequest,
+      | ValidatedFamilyIRequest
+      | ValidatedFamilyJRequest,
     requestId: string,
   ) => Promise<AnthropicCallResult>;
   fixture: () => Promise<
@@ -433,6 +458,14 @@ function pickFamilyProviders(family: string): FamilyProviders | null {
         runAnthropicFamilyIClassifier(req as ValidatedFamilyIRequest, requestId),
       fixture: loadFixtureFamilyIPacket,
       banListScan: scanFamilyIBooleanResponseForBanList,
+    };
+  }
+  if (family === 'sensitive_composer') {
+    return {
+      anthropic: (req, requestId) =>
+        runAnthropicFamilyJClassifier(req as ValidatedFamilyJRequest, requestId),
+      fixture: loadFixtureFamilyJPacket,
+      banListScan: scanFamilyJBooleanResponseForBanList,
     };
   }
   return null; // unreachable post-validation; defensive

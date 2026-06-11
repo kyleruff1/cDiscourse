@@ -58,6 +58,10 @@ import {
   FAMILY_I_RAW_KEYS,
   FAMILY_I_CLASSIFIER_SET_VERSION,
 } from './familyIKeys.ts';
+import {
+  FAMILY_J_RAW_KEYS,
+  FAMILY_J_CLASSIFIER_SET_VERSION,
+} from './familyJKeys.ts';
 
 let initialized = false;
 
@@ -73,8 +77,8 @@ let initialized = false;
  * familyRegistry.ts:82-84), so `getSupportedFamilies()` returns
  * ['parent_relation', 'disagreement_axis', 'misunderstanding_repair',
  * 'evidence_source_chain', 'argument_scheme', 'critical_question',
- * 'resolution_progress', 'claim_clarity', 'thread_topology'] in this exact
- * order.
+ * 'resolution_progress', 'claim_clarity', 'thread_topology',
+ * 'sensitive_composer'] in this exact order.
  */
 export function initializeFamilyRegistry(): void {
   if (initialized) return;
@@ -197,6 +201,31 @@ export function initializeFamilyRegistry(): void {
   register('thread_topology', {
     rawKeys: new Set(FAMILY_I_RAW_KEYS),
     classifierSetVersion: FAMILY_I_CLASSIFIER_SET_VERSION,
+  });
+
+  // MCP-SERVER-011-FAMILY-J: register sensitive_composer with the 5-key
+  // semantic_referee SOURCE-UNIFORM set per design §1. The Family J taxonomy
+  // is uniform source (5 existing UX-001.5A sensitive keys; zero
+  // auto_metadata; zero lifecycle). No subset filter; no exclusion list
+  // (mirrors the uniform-source E/F/H precedent, the inverse of the
+  // mixed-source D/G/I families). The 5 keys cover sensitive-composer
+  // structural features (person/intent shift, insult-only-no-claim,
+  // pre-send pause, popularity-as-evidence, satire-as-evidence).
+  // Doctrine-risk HIGH (the most sensitive prompt in the system): 4 of 5
+  // keys are verdict-adjacent and 3 are person/intent-directed, with
+  // shifts_to_person_or_intent the axis-partner carrying the maximal guard.
+  // The existential doctrine binding (a sensitive-composer observation is a
+  // STRUCTURAL FEATURE of the move's own text, never a characterization of
+  // the author; cdiscourse-doctrine §10a) lives in familyJPrompt.ts +
+  // familyJBanListScan.ts. ADMIN-VALIDATION-ONLY CEILING: the Edge
+  // familyRegistry already has Family J productionEnabled = false at
+  // supabase/functions/_shared/booleanObservations/familyRegistry.ts:114-118;
+  // this card changes NO Edge surface and there is NO Card-3 production flip
+  // — a future production-enable requires a fresh cdiscourse-doctrine §10a
+  // doctrine review (design §11 E4 ceiling).
+  register('sensitive_composer', {
+    rawKeys: new Set(FAMILY_J_RAW_KEYS),
+    classifierSetVersion: FAMILY_J_CLASSIFIER_SET_VERSION,
   });
 }
 

@@ -235,18 +235,18 @@ Deno.test('dispatch: cross-family request (Family C rawKey under disagreement_ax
   });
 });
 
-Deno.test('dispatch: unsupported family J (sensitive_composer) returns unsupported_family with full 9-family supportedFamilies list', async () => {
-  // MCP-SERVER-010-FAMILY-I promoted thread_topology to supported. The
-  // supportedFamilies envelope now includes all nine registered families.
-  // This regression continues to cover the "unsupported family with full
-  // supportedFamilies envelope" path (Family J: sensitive_composer).
+Deno.test('dispatch: unsupported family (synthetic unregistered string) returns unsupported_family with full 10-family supportedFamilies list', async () => {
+  // MCP-SERVER-011-FAMILY-J registered sensitive_composer, so there is NO
+  // remaining real unsupported family. This regression now exercises a
+  // SYNTHETIC unregistered family string (design §13 HARD finding); the
+  // supportedFamilies envelope now includes all ten registered families.
   await withFixtureEnv(async () => {
     const result = await handleClassifyArgumentBooleanObservations({
       toolName: 'classify_argument_boolean_observations',
       rawArgs: familyCRequest({
-        requestedFamilies: ['sensitive_composer'],
+        requestedFamilies: ['__unregistered_family_for_test__'],
       }),
-      requestId: 'r-dispatch-j-1',
+      requestId: 'r-dispatch-synthetic-1',
       envelope: 'jsonRpc',
     });
     assertEquals(result.isError, true);
@@ -256,7 +256,7 @@ Deno.test('dispatch: unsupported family J (sensitive_composer) returns unsupport
       supportedFamilies?: string[];
     };
     assertEquals(sc.reason, 'unsupported_family');
-    assertEquals(sc.requestedFamilies, ['sensitive_composer']);
+    assertEquals(sc.requestedFamilies, ['__unregistered_family_for_test__']);
     assertEquals(sc.supportedFamilies, [
       'parent_relation',
       'disagreement_axis',
@@ -267,7 +267,26 @@ Deno.test('dispatch: unsupported family J (sensitive_composer) returns unsupport
       'resolution_progress',
       'claim_clarity',
       'thread_topology',
+      'sensitive_composer',
     ]);
+  });
+});
+
+Deno.test('dispatch: supported family J (sensitive_composer) returns a clean family-j-v1 packet (now registered post MCP-SERVER-011-FAMILY-J)', async () => {
+  await withFixtureEnv(async () => {
+    const result = await handleClassifyArgumentBooleanObservations({
+      toolName: 'classify_argument_boolean_observations',
+      rawArgs: familyCRequest({
+        requestedFamilies: ['sensitive_composer'],
+        requestedRawKeys: ['shifts_to_person_or_intent'],
+      }),
+      requestId: 'r-dispatch-j-supported-1',
+      envelope: 'jsonRpc',
+    });
+    assertEquals(result.isError, false);
+    const sc = result.structuredContent as Record<string, unknown>;
+    const modelInfo = sc.modelInfo as Record<string, unknown>;
+    assertEquals(modelInfo.classifierSetVersion, 'family-j-v1');
   });
 });
 
