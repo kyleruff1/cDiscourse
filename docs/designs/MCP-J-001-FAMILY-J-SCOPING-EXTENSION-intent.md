@@ -173,6 +173,13 @@ Candidate: surface a composer-only key to the *argument author only*, after subm
   node is one CSS/visibility bug away from being visible to non-authors, at which
   point it reads as accusation. The composer-only disposition has no such failure
   mode because the composer is never co-rendered with another participant's view.
+- Two further §10a risks survive even perfect gating (doctrine-review addition):
+  **self-accusation / chilling** — a retrospective sensitive note on the author's
+  own already-posted move arrives when no revision is actionable, so it can only
+  read as a standing mark against the move's character rather than a usable nudge;
+  and **screenshot-amplification** — an author-private note can be captured and
+  re-shared off-platform, where it reads as the platform accusing the author,
+  regardless of any in-app visibility gating.
 - There is **no demonstrated product need** today. The composer-pre-send nudge
   already serves the author at the only moment a revision is actionable. A post-hoc
   note adds doctrine risk without a closing benefit.
@@ -266,6 +273,11 @@ per-argument inspect affordance. Rationale, grounded in code:
 - It is **admin-scoped**, so the Observation never reaches a public node — preserving
   §10a. The admin is reviewing one argument's text, the exact audience for whom
   "this point cites satire as if it were a factual source" is context, not accusation.
+- What makes admin viewing observation-not-allegation is the **operator duty-of-care
+  frame** (doctrine-review addition): the admin reads these marks as stewardship
+  signals about the evidentiary form of a text under review — never as findings
+  about the poster — and the surface carries no affordance to forward, badge, or
+  publish the mark toward any participant-facing node.
 
 **Contrast (why NOT these):**
 - `AdminClassifierHealthTab` (`src/features/admin/AdminClassifierHealthTab.tsx`) is a
