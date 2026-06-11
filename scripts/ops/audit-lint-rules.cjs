@@ -106,6 +106,30 @@ const DOCTRINE_RISK_FAMILIES = new Set([
   'thread_topology',
   'family_i',
   'compares_options',
+  // Family J (sensitive_composer). `family_j` is the string detectFamily()
+  // actually emits for a `MCP-SERVER-NNN-FAMILY-J` title (mapFamilyLetterToName
+  // has no J case → default branch → `family_j`); it is the load-bearing alias.
+  // `sensitive_composer` is the canonical key name (also covers any doc that
+  // declares `Family: sensitive_composer`). Unlike Family I (Card 1 graded I's
+  // doctrine-risk LOW, so its L5 entry was an operator belt-and-suspenders
+  // override), Family J is doctrine-risk = HIGH BY CONSTRUCTION
+  // (MCP-SERVER-011-FAMILY-J §1 / §5 / §13; the SMOKE-template "MOST sensitive
+  // prompt in the system" framing): four of the five `semantic_referee` keys are
+  // verdict-adjacent and three are person/intent-directed, and J has NO pruned
+  // key — the sensitive vocabulary IS the family (the inverse of I, whose
+  // verdict-adjacent candidate `repeats_prior_point` was pruned upstream).
+  // `shifts_to_person_or_intent` is the J doctrinal-axis partner key — the J
+  // analog of E's `slippery_slope` / F's `consequence_probability_unclear` / G's
+  // `concedes_broader_point` / H's `claim_specificity_low` / I's
+  // `compares_options`, but STRONGER: it carries the MAXIMAL guard and is the
+  // single highest verdict-adjacency key in the entire system — it is the key
+  // that `cdiscourse-doctrine` §10a (Observations vs Allegations) exists to
+  // constrain (the person/intent focus-shift that must never become an
+  // "ad hominem" / "personal attack" verdict). Reachable via a `Family:`
+  // declaration.
+  'sensitive_composer',
+  'family_j',
+  'shifts_to_person_or_intent',
 ]);
 
 /* ------------------------------------------------------------------ */
