@@ -61,9 +61,13 @@ import {
 } from '../_shared/http.ts';
 import { requireAdmin } from '../_shared/adminAuth.ts';
 import { runBooleanObservationMcpAdapter } from '../_shared/booleanObservations/booleanObservationMcpAdapter.ts';
+import { ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS } from '../_shared/booleanObservations/booleanObservationMcpAdapterCore.ts';
 import { filterFamiliesForMode } from '../_shared/booleanObservations/familyRegistry.ts';
 import {
   MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+} from '../_shared/booleanObservations/mcpBooleanObservationSchema.ts';
+import type {
+  McpBooleanObservationRequest,
 } from '../_shared/booleanObservations/mcpBooleanObservationSchema.ts';
 import { isMachineObservationRunMode } from '../_shared/booleanObservations/runModeConstants.ts';
 import type { MachineObservationRunMode } from '../_shared/booleanObservations/runModeConstants.ts';
@@ -244,6 +248,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── Execute per-argument ──────────────────────────────────────
   const serviceClient = createServiceClient();
+
+  // OPS-MCP-ADMIN-VALIDATION-TIMEOUT-HIERARCHY — adapter-injection wrap.
+  // The admin_validation path is operator-driven (off the user's submit hot
+  // path); give its caller-side abort enough headroom to EXCEED the MCP
+  // server's 25s model budget (ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS=30s),
+  // correcting the inverted hierarchy where the fixed 15s default killed a
+  // valid 16-25s slow call (the Family-J E3 finding). The submit-path
+  // auto-trigger (autoTriggerDispatcher.ts) and the production HTTP mode both
+  // KEEP the bare 1-arg adapter reference (15s default) — byte-unchanged.
+  const observationAdapter =
+    body.mode === 'admin_validation'
+      ? (request: McpBooleanObservationRequest) =>
+          runBooleanObservationMcpAdapter(request, {
+            timeoutMs: ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS,
+          })
+      : runBooleanObservationMcpAdapter;
+
   const perArgument: PerArgumentSummary[] = [];
   for (const argumentId of body.argumentIds) {
     try {
@@ -252,7 +273,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         body.requestedFamilies,
         body.mode,
         serviceClient,
-        runBooleanObservationMcpAdapter,
+        observationAdapter,
       );
       perArgument.push(summary);
     } catch {
