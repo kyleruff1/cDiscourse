@@ -261,9 +261,12 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group B: Q14 CASE regressi
       (s) => s.id === 'q14-per-family-per-mode-signal-density',
     );
     expect(q14).toBeDefined();
-    // The most stable canary is the word "five" — letter enumeration
-    // may shift as E/F/H backfill cards ship; the count remains.
-    expect(q14?.question.toLowerCase()).toContain('five');
+    // Stable canary: the comma-letter roster entry `, G` (per
+    // OPS-MCP-OBSERVABILITY-FAMILY-HI-COVERAGE §HI-5 R2). The count word
+    // shifts as E/F/H/I backfill cards ship (five → eight → nine), so
+    // asserting the count word is fragile; the family-letter enumeration
+    // entry for G is stable across those cards.
+    expect(q14?.question).toContain(', G');
   });
 });
 
@@ -402,12 +405,12 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group C: Q16 Family G subs
 /* ------------------------------------------------------------------ */
 
 describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group D: cross-section invariants', () => {
-  it('SECTIONS length is now 17 (was 16 pre-card)', () => {
+  it('SECTIONS length is now 18 (was 16 pre-card; HI-coverage appended q17)', () => {
     const lib = require(path.join(REPO, 'scripts', 'ops', 'mcp-observability-report-lib.cjs'));
-    expect((lib.SECTIONS as Array<unknown>).length).toBe(17);
+    expect((lib.SECTIONS as Array<unknown>).length).toBe(18);
   });
 
-  it('SECTIONS section ids are stable, unique, and ordered (q01..q16 with q02b)', () => {
+  it('SECTIONS section ids are stable, unique, and ordered (q01..q17 with q02b)', () => {
     const lib = require(path.join(REPO, 'scripts', 'ops', 'mcp-observability-report-lib.cjs'));
     const ids = (lib.SECTIONS as Array<{ id: string }>).map((s) => s.id);
     expect(ids).toEqual([
@@ -428,6 +431,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group D: cross-section inv
       'q14-per-family-per-mode-signal-density',
       'q15-family-d-subset-coverage',
       'q16-family-g-subset-coverage',
+      'q17-family-i-subset-coverage',
     ]);
     // Uniqueness check.
     expect(new Set(ids).size).toBe(ids.length);
@@ -557,7 +561,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group E: fixture compatibi
     expect(md).toContain('## Family G 21-key subset coverage');
   });
 
-  it('runner JSON artifact has 17 sections including q16-family-g-subset-coverage', () => {
+  it('runner JSON artifact has 18 sections including q16-family-g-subset-coverage', () => {
     const lib = require(path.join(REPO, 'scripts', 'ops', 'mcp-observability-report-lib.cjs'));
     const json = lib.buildJsonArtifact({
       sectionsData: FIXTURE_SECTIONS_DATA,
@@ -566,7 +570,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE — Group E: fixture compatibi
       generatedAt: FIXTURE_GENERATED_AT,
       defaultTimeWindowDays: 7,
     });
-    expect(json.sections).toHaveLength(17);
+    expect(json.sections).toHaveLength(18);
     const q16 = json.sections.find(
       (s: { id: string }) => s.id === 'q16-family-g-subset-coverage',
     );

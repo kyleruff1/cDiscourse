@@ -8,7 +8,9 @@
 --   - Family C (misunderstanding_repair): production + auto-trigger live + admin_validation
 --   - Family D (evidence_source_chain): admin_validation only (19-key ai_classifier Subset)
 --   - Family G (resolution_progress): production + admin_validation (18-key ai_classifier Subset)
---   - Families E, F, H-J: see operator notes (E, F production-enabled; H Card-1 admin_validation; I, J unsupported)
+--   - Family H (claim_clarity): production + admin_validation (12-key ai_classifier; uniform source, no deterministic exclusions)
+--   - Family I (thread_topology): production + admin_validation (6-key ai_classifier Subset; 15 deterministic keys excluded)
+--   - Families E (argument_scheme), F (critical_question): production-enabled; Family J: no MCP support yet
 --
 -- Family attribution: unnest(requested_families) so failed runs (which may
 -- have no `results` rows) are still counted under their requested family.

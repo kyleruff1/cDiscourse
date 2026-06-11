@@ -14,8 +14,10 @@
 --   - evidence_source_chain   22   mcp-server/lib/familyDKeys.ts:85 (Subset; 8 deterministic excluded; 19 + 3 MCP-BUILD2d)
 --   - argument_scheme         19   mcp-server/lib/familyEKeys.ts:68 (16 + 3 MCP-BUILD2e)
 --   - critical_question       17   mcp-server/lib/familyFKeys.ts:68 (14 + 3 MCP-BUILD2f)
+--   - claim_clarity           12   mcp-server/lib/familyHKeys.ts:86 (uniform; 12 ai_classifier, no exclusions)
 --   - resolution_progress     21   mcp-server/lib/familyGKeys.ts:99 (Subset; 12 deterministic excluded; 18 + 3 MCP-BUILD2g; batched 16+5)
---   - others (H-J)             0   not yet backfilled (H Card-1 landed 2026-05-30; I, J no MCP support)
+--   - thread_topology          6   mcp-server/lib/familyIKeys.ts:92 (Subset; 15 deterministic excluded)
+--   - others (J)               0   not yet backfilled (J no MCP support)
 --
 -- Use cases:
 --   - Compare Family D's 19-key admin_validation density to Family A's
@@ -31,9 +33,14 @@
 -- Doctrine: aggregate ratios only; raw_key + family + run_mode are
 -- machine-taxonomy values; the report does NOT label a family as
 -- "over-firing" or "under-firing" (per cdiscourse-doctrine §1).
+-- claim_clarity (Family H) signals are DESCRIPTIVE FORMULATION-STATE and
+-- thread_topology (Family I) signals are DESCRIPTIVE STRUCTURE — never
+-- quality verdicts about a move or its author (per cdiscourse-doctrine
+-- §1). Per point-standing-economy, neither family emits a standing delta.
 --
 -- Source-of-truth: docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-D-COVERAGE.md §3;
---                  docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE.md §4.
+--                  docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-G-COVERAGE.md §4;
+--                  docs/designs/OPS-MCP-OBSERVABILITY-FAMILY-HI-COVERAGE.md §3 (claim_clarity 12; thread_topology 6).
 -- Runs standalone via:
 --   npx supabase db query --linked --file scripts/ops/sql/14-per-family-per-mode-signal-density.sql
 with run_to_family as (
@@ -64,7 +71,9 @@ keyed as (
       when 'evidence_source_chain' then 22
       when 'argument_scheme' then 19
       when 'critical_question' then 17
+      when 'claim_clarity' then 12
       when 'resolution_progress' then 21
+      when 'thread_topology' then 6
       else 0
     end as family_key_count
   from run_to_family

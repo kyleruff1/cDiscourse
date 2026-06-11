@@ -55,8 +55,8 @@ function stripSqlComments(src: string): string {
 const FILES = listSqlFiles();
 
 describe('OPS-MCP-OBSERVABILITY — SQL safety', () => {
-  it('discovers all 17 SQL files', () => {
-    expect(FILES.length).toBe(17);
+  it('discovers all 18 SQL files', () => {
+    expect(FILES.length).toBe(18);
   });
 
   it('every file extension is .sql', () => {

@@ -312,7 +312,7 @@ const SECTIONS = Object.freeze([
     id: 'q14-per-family-per-mode-signal-density',
     title: 'Per-family per-mode signal density',
     question:
-      'Q14 — What is the per-(run, possible_key) signal density across all five Subset-backfilled families (A, B, C, D, G) and both run_modes?',
+      'Q14 — What is the per-(run, possible_key) signal density across all nine backfilled families (A, B, C, D, E, F, G, H, I) and both run_modes?',
     sqlFile: '14-per-family-per-mode-signal-density.sql',
     columns: [
       'family',
@@ -357,6 +357,22 @@ const SECTIONS = Object.freeze([
     ],
     emptyMessage:
       'No Family G positive results yet. Subset coverage will populate after admin_validation or production runs produce positives.',
+  },
+  {
+    id: 'q17-family-i-subset-coverage',
+    title: 'Family I 6-key subset coverage',
+    question:
+      'Q17 — Are all observed Family I raw_keys within the 6-key ai_classifier Subset, with zero deterministic-key leaks (15 keys excluded)?',
+    sqlFile: '17-family-i-subset-coverage.sql',
+    columns: [
+      'raw_key',
+      'run_mode',
+      'positive_count',
+      'distinct_arguments',
+      'subset_membership',
+    ],
+    emptyMessage:
+      'No Family I positive results yet. Subset coverage will populate after admin_validation or production runs produce positives.',
   },
 ]);
 
