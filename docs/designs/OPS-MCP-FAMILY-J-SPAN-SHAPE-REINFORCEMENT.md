@@ -118,3 +118,103 @@ Deploy automatically — Supabase merge auto-deploy does NOT propagate `mcp-serv
    a future production proposal requires a fresh cdiscourse-doctrine §10a review).
 
 **Probabilistic-outcome ladder (reviewer addition):** prompt behavior is probabilistic, so the post-merge replay may still return an unclean span. The honest outcome ladder is: clean narrowed span (PASS) / the model answers false under narrow-or-false (acceptable — a missed private nudge is near-zero harm) / still failing validation (PARTIAL — iterate the prompt in a further card). The ban-list gate is **never** relaxed under any outcome.
+
+---
+
+## Part 2 — order-robustness (OPS-MCP-FAMILY-J-PROMPT-ORDER-ROBUSTNESS; J prompt iteration 2)
+
+**Card:** `OPS-MCP-FAMILY-J-PROMPT-ORDER-ROBUSTNESS` — follow-up to Part 1's PARTIAL outcome.
+**Source:** the diagnosis matrix recorded on #388 (2026-06-11).
+**Type:** `mcp-server` prompt-side change (Deno-deploy-bearing on merge). Validator UNCHANGED.
+
+### 2.1 The PARTIAL outcome that triggered this card
+
+Part 1 shipped the global SPAN-SELECTION RULE block (PR #572). The post-merge E3 replay still
+returned an unclean `needs_pre_send_pause` span. Investigation found the residual was
+**order-sensitive**, not a failure of the rule's content.
+
+### 2.2 The order-sensitivity matrix (#388, 2026-06-11)
+
+The SPAN-SELECTION RULE lives at the END of the user prompt (after the questions, definitions,
+response-shape, conservative-positives, and slur-in-input blocks). The Edge calls the classifier
+with the rawKeys in the **registry order** — `shifts_to_person_or_intent` FIRST. By the time the
+model reaches `needs_pre_send_pause` (asked later), the global end-of-prompt rule has lost
+salience and the `needs_pre_send_pause` evidenceSpan contaminates with the input's slur sentence.
+
+| Question order asked | `needs_pre_send_pause` span outcome | Determinism (30s in-body budget) |
+| --- | --- | --- |
+| `shifts_to_person_or_intent` FIRST (Edge registry order) | contaminates with the input's slur sentence | 3/3 unclean (deterministic) |
+| pause question EARLIER (alphabetical) | narrows cleanly to the typographic burst | 2/2 clean |
+
+The variable is **position**, not content: the same rule, asked while the question is fresh,
+produces a clean span; asked after several intervening questions, it does not.
+
+### 2.3 Chosen candidates (a) + (c)
+
+Prompt-side only; no server-side key reordering.
+
+- **(a) Per-key span reminders** — a SHORT bracketed span reminder is appended to EACH key's
+  question line (`FAMILY_J_SPAN_REMINDERS` in `familyJPrompt.ts`), so the shortest-clean-fragment
+  discipline travels WITH every key regardless of position. Strongest on `needs_pre_send_pause`
+  (`[span: SHORTEST clean fragment only — for reactive markers anchor ONLY the typographic burst,
+  e.g. "WRONG WRONG WRONG!!!", never any fragment containing a person label; if no clean fragment
+  exists, answer false]`); analogous one-liners for the other four keys (person-shift anchors the
+  focus-shift wording; insult-only span may be null / the move text only if clean; popularity
+  anchors the popularity-leaning wording; satire anchors the satire-citation wording). Each
+  reminder carries the shared `SHORTEST clean fragment only` + `if no clean fragment exists, answer
+  false` spine.
+
+- **(c) Pre-emit FINAL CHECK** — a binding re-scan instruction is inserted as the lead-in to the
+  response-shape instruction (after the questions/definitions/cross-key-note blocks, immediately
+  before `The object MUST conform to this shape:`), so it is among the LAST instructions the model
+  reads before emitting JSON: `FINAL CHECK (BINDING): before emitting, re-scan EVERY evidenceSpan
+  value you are about to output against the banned person-directed terms; if ANY span contains one,
+  NARROW that span or flip that key to false. An output with even one unclean span is rejected
+  whole.` The Part 1 global SPAN-SELECTION RULE block remains verbatim at the end of the prompt;
+  the FINAL CHECK precedes it — the two legs coexist.
+
+### 2.4 Rejected candidate (b): server-side key reordering
+
+The matrix shows asking the pause question alphabetically-early fixes the span. The naive fix is to
+reorder the rawKeys the Edge sends J (or the order J emits them). **Rejected** because the rawKey
+registry order is a cross-family contract: the Edge `booleanObservationRequestBuilder.ts` derives
+request order from the shared registry, and reordering would either (i) touch ALL families' request
+construction, or (ii) diverge J's order from the registry and risk a parity / contract drift that
+no test pins. The order-sensitivity is a prompt-salience problem; the prompt-salience fix (a + c)
+solves it without disturbing the cross-family request contract. The validator gate is unchanged
+under either path; reordering would add cross-family blast radius for no validator benefit.
+
+### 2.5 Files changed (mcp-server only)
+
+- `mcp-server/lib/familyJPrompt.ts` — new exported `FAMILY_J_SPAN_REMINDERS` map (one reminder per
+  rawKey); `buildFamilyJUserPrompt` appends the reminder to each question line (same line, never a
+  new line — the questions block must stay exactly one line per rawKey); the FINAL CHECK block is
+  inserted as the response-shape lead-in; the function's structure doc-comment list is renumbered
+  to name both additions (items 1 & 4).
+- `mcp-server/tests/familyJPrompt.test.ts` — +7 tests: reminder map shape (one per key + shared
+  spine); each reminder lands on its question line; the `needs_pre_send_pause` reminder carries the
+  WRONG-burst example and is strongest; subset request only emits requested-key reminders; the
+  questions block stays exactly 5 lines (no spilled newlines); FINAL CHECK present + positioned
+  after the questions and before the response shape, with the Part 1 SPAN-SELECTION RULE still
+  following it; per-key reminders + FINAL CHECK carry zero banned person-directed tokens.
+
+**NOT changed:** `familyJBanListScan.ts` (byte-equal — `git hash-object` =
+`d9913ca4c99c3f7b0085e6ca7c3a4d9f927ac9b4`, the gate is never relaxed); `familyJKeys.ts` (the
+reminders are prompt-only — no guard sentence needed mirroring); no other family's files; no Edge /
+`supabase/**`; no `src/**`.
+
+### 2.6 Verification
+
+- `cd mcp-server && deno test --allow-env --allow-read tests/` → **1583 passed / 0 failed, exit 0**
+  (+7 vs the 1576 Part-1 baseline).
+- `npx jest --maxWorkers=4` → unchanged (the change is Deno-only; jest does not execute
+  `mcp-server/`). The repo-wide `dockerfileShape.test.ts` *.json walk can flake under
+  `--maxWorkers=4` parallel load (it races other suites writing transient JSON); it passes
+  isolated and is not in this branch's diff.
+- `npm run typecheck` → exit 0.
+- Validator byte-equality: `git hash-object mcp-server/lib/familyJBanListScan.ts` =
+  `d9913ca4c99c3f7b0085e6ca7c3a4d9f927ac9b4` (unchanged). Secret/ban scan of the diff: clean.
+
+Post-merge live-replay plan is unchanged from §6 above (Deno-deploy-bearing; re-run the E3 admin
+validation smoke on the existential person-shift input; the probabilistic-outcome ladder still
+applies).

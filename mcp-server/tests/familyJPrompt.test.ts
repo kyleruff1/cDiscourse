@@ -24,6 +24,7 @@ import {
   FAMILY_J_MAX_TOKENS,
   FAMILY_J_TEMPERATURE,
   FAMILY_J_MAX_BODY_FIELD_LEN,
+  FAMILY_J_SPAN_REMINDERS,
   buildFamilyJUserPrompt,
   type ValidatedFamilyJRequest,
 } from '../lib/familyJPrompt.ts';
@@ -531,5 +532,167 @@ Deno.test('SPAN-SHAPE: the SPAN-SELECTION RULE block does not disturb the questi
   const inputIndex = prompt.indexOf('Input to classify:');
   if (spanRuleIndex < 0 || inputIndex < 0 || spanRuleIndex > inputIndex) {
     throw new Error('SPAN-SELECTION RULE block is mis-positioned relative to the input block');
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// OPS-MCP-FAMILY-J-PROMPT-ORDER-ROBUSTNESS (J prompt iteration 2) —
+// per-key span reminders (the span discipline travels with EACH question line)
+// + the pre-emit FINAL CHECK block (the last instruction before the JSON shape).
+//
+// THE INCIDENT (#388 order-sensitivity matrix, 2026-06-11): the global
+// SPAN-SELECTION RULE (PR #572) sits at the END of the prompt. With
+// shifts_to_person_or_intent asked FIRST (the Edge registry order), the rule
+// lost salience by the time needs_pre_send_pause was answered and its span
+// contaminated with the input's slur sentence (3/3 deterministic at 30s);
+// with the pause question earlier (alphabetical) it narrowed cleanly (2/2).
+// The mitigation (candidates a+c) is prompt-only: per-key reminders on every
+// question line + a binding pre-emit re-scan. Server-side key order is NOT
+// reordered (that would touch all families). Validator gate UNCHANGED.
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('ORDER-ROBUSTNESS: FAMILY_J_SPAN_REMINDERS has exactly one reminder per Family J rawKey', () => {
+  assertEquals(Object.keys(FAMILY_J_SPAN_REMINDERS).length, FAMILY_J_RAW_KEYS.length);
+  for (const rawKey of FAMILY_J_RAW_KEYS) {
+    const reminder = FAMILY_J_SPAN_REMINDERS[rawKey];
+    if (!reminder || reminder.length === 0) {
+      throw new Error(`FAMILY_J_SPAN_REMINDERS missing a reminder for ${rawKey}`);
+    }
+    // Every reminder carries the shared shortest-clean-fragment + narrow-or-false spine.
+    if (!reminder.includes('SHORTEST clean fragment only')) {
+      throw new Error(`${rawKey} reminder missing the SHORTEST-clean-fragment spine`);
+    }
+    if (!reminder.includes('if no clean fragment exists, answer false')) {
+      throw new Error(`${rawKey} reminder missing the narrow-or-false escape`);
+    }
+  }
+});
+
+Deno.test('ORDER-ROBUSTNESS: every Family J question line carries its per-key span reminder ON THE SAME LINE', () => {
+  const prompt = buildFamilyJUserPrompt(buildRequest());
+  const lines = prompt.split('\n');
+  for (const rawKey of FAMILY_J_RAW_KEYS) {
+    const reminder = FAMILY_J_SPAN_REMINDERS[rawKey];
+    const questionLine = lines.find((l) => l.startsWith(`- ${rawKey}:`));
+    if (!questionLine) throw new Error(`question line missing for ${rawKey}`);
+    if (!questionLine.includes(reminder)) {
+      throw new Error(`per-key span reminder is not appended to the ${rawKey} question line (salience-per-key requirement)`);
+    }
+  }
+});
+
+Deno.test('ORDER-ROBUSTNESS: needs_pre_send_pause reminder is the strongest — carries the WRONG-burst typographic example', () => {
+  const reminder = FAMILY_J_SPAN_REMINDERS['needs_pre_send_pause'];
+  for (const fragment of [
+    'SHORTEST clean fragment only',
+    'anchor ONLY the typographic burst',
+    'WRONG WRONG WRONG!!!',
+    'never any fragment containing a person label',
+    'if no clean fragment exists, answer false',
+  ]) {
+    if (!reminder.includes(fragment)) {
+      throw new Error(`needs_pre_send_pause reminder missing fragment: "${fragment}"`);
+    }
+  }
+  // And it actually lands on the pause question line in the built prompt.
+  const prompt = buildFamilyJUserPrompt(buildRequest());
+  const pauseLine = prompt.split('\n').find((l) => l.startsWith('- needs_pre_send_pause:'));
+  if (!pauseLine || !pauseLine.includes('WRONG WRONG WRONG!!!')) {
+    throw new Error('pause question line missing the WRONG-burst reminder example');
+  }
+});
+
+Deno.test('ORDER-ROBUSTNESS: per-key reminders only appear for REQUESTED keys (subset request)', () => {
+  const subset = ['shifts_to_person_or_intent', 'needs_pre_send_pause'];
+  const prompt = buildFamilyJUserPrompt(buildRequest({ requestedRawKeys: subset }));
+  const questionsBlockStart = prompt.indexOf('Sensitive-composer questions for this move:');
+  const questionsBlockEnd = prompt.indexOf('\nDefinitions and examples');
+  const questionsBlock = prompt.slice(questionsBlockStart, questionsBlockEnd);
+  for (const rawKey of subset) {
+    if (!questionsBlock.includes(FAMILY_J_SPAN_REMINDERS[rawKey])) {
+      throw new Error(`subset questions block missing per-key reminder for requested ${rawKey}`);
+    }
+  }
+  for (const rawKey of [
+    'contains_unplayable_insult_only',
+    'uses_popularity_as_evidence',
+    'uses_satire_as_evidence',
+  ]) {
+    if (questionsBlock.includes(FAMILY_J_SPAN_REMINDERS[rawKey])) {
+      throw new Error(`subset questions block leaked per-key reminder for non-requested ${rawKey}`);
+    }
+  }
+});
+
+Deno.test('ORDER-ROBUSTNESS: questions block stays exactly 5 lines despite per-key reminders (no extra newlines)', () => {
+  const prompt = buildFamilyJUserPrompt(buildRequest({ requestedRawKeys: [] }));
+  const questionsBlockStart = prompt.indexOf('Sensitive-composer questions for this move:');
+  const questionsBlockEnd = prompt.indexOf('\nDefinitions and examples');
+  const questionsBlock = prompt.slice(questionsBlockStart, questionsBlockEnd);
+  const lineMatches = questionsBlock.match(/^- [a-z_]+:/gm);
+  if (!lineMatches) throw new Error('questions block produced no rawKey lines');
+  assertEquals(lineMatches.length, 5);
+  // Exactly one reminder per line (5 total), proving none spilled onto a new line.
+  const reminderMatches = questionsBlock.match(/\[span: SHORTEST clean fragment only/g);
+  if (!reminderMatches) throw new Error('questions block produced no per-key reminders');
+  assertEquals(reminderMatches.length, 5);
+});
+
+Deno.test('ORDER-ROBUSTNESS: the pre-emit FINAL CHECK block is present and positioned after the questions block, before the response shape', () => {
+  const prompt = buildFamilyJUserPrompt(buildRequest());
+  const finalCheck =
+    'FINAL CHECK (BINDING): before emitting, re-scan EVERY evidenceSpan value you are about to output';
+  const finalCheckIndex = prompt.indexOf(finalCheck);
+  if (finalCheckIndex < 0) {
+    throw new Error('FINAL CHECK block missing from the user prompt');
+  }
+  for (const fragment of [
+    'against the banned person-directed terms',
+    'NARROW that span or flip that',
+    'An output with even one unclean span is rejected whole.',
+  ]) {
+    if (!prompt.includes(fragment)) {
+      throw new Error(`FINAL CHECK block missing fragment: "${fragment}"`);
+    }
+  }
+  const questionsBlockEnd = prompt.indexOf('\nDefinitions and examples');
+  const responseShapeIndex = prompt.indexOf('The object MUST conform to this shape:');
+  if (!(finalCheckIndex > questionsBlockEnd && finalCheckIndex < responseShapeIndex)) {
+    throw new Error('FINAL CHECK block is mis-positioned (must be after the questions block, before the response shape)');
+  }
+  // The global SPAN-SELECTION RULE (PR #572) still survives, AFTER the FINAL CHECK
+  // (the two legs coexist: per-line reminders + pre-emit re-scan + the end-of-prompt rule).
+  const spanRuleIndex = prompt.indexOf('SPAN-SELECTION RULE (BINDING');
+  if (spanRuleIndex < 0 || spanRuleIndex < finalCheckIndex) {
+    throw new Error('the end-of-prompt SPAN-SELECTION RULE block should still follow the FINAL CHECK block');
+  }
+});
+
+Deno.test('ORDER-ROBUSTNESS: per-key reminders + FINAL CHECK block carry zero banned person-directed tokens (clean instruction text)', () => {
+  const banned = [
+    'troll',
+    'toxic',
+    'hostile',
+    'abusive',
+    'aggressive',
+    'uncivil',
+    'unhinged',
+    'gullible',
+    'ad hominem',
+    'personal attack',
+    'bad actor',
+    'name calling',
+    'fake news',
+    'losing it',
+  ];
+  const finalCheck =
+    'FINAL CHECK (BINDING): before emitting, re-scan EVERY evidenceSpan value you are about to output against the banned person-directed terms; if ANY span contains one, NARROW that span or flip that key to false. An output with even one unclean span is rejected whole.';
+  const samples = [...FAMILY_J_RAW_KEYS.map((k) => FAMILY_J_SPAN_REMINDERS[k]), finalCheck];
+  for (const sample of samples) {
+    for (const token of banned) {
+      if (sample.toLowerCase().includes(token)) {
+        throw new Error(`instruction text leaks banned token "${token}": ${sample}`);
+      }
+    }
   }
 });
