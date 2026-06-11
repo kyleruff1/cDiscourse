@@ -74,6 +74,46 @@ export const MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS = 15_000;
 export const DRAINER_MCP_REQUEST_TIMEOUT_MS = 30_000;
 
 /**
+ * OPS-MCP-ADMIN-VALIDATION-TIMEOUT-HIERARCHY (timeout hierarchy correction —
+ * ADMIN path): the ADMIN-GATED `classify-argument-boolean-observations` Edge
+ * HTTP handler's caller-side abort deadline for the MCP-server fetch on the
+ * `admin_validation` mode.
+ *
+ * This MIRRORS the ARCH-001 Card 2 DRAINER correction above, applied to the
+ * admin path. The 15s default (`MCP_BOOLEAN_OBSERVATION_REQUEST_TIMEOUT_MS`)
+ * is TIGHTER than the MCP server's own model budget
+ * (`MCP_SERVER_MODEL_TIMEOUT_MS`, default 25000 — defined at
+ * `mcp-server/lib/anthropicCall.ts:32` as `DEFAULT_MODEL_TIMEOUT_MS = 25_000`,
+ * read via `readEnvTimeoutMs()` at `:97-103`), so a valid slow provider call
+ * (16-25s, within the server's tolerance) was killed by the 15s caller abort —
+ * an inverted hierarchy. The admin_validation path is OPERATOR-DRIVEN (off the
+ * user's submit hot path), so it can (and must) be patient: 30s >= 25s server
+ * model budget + 5s headroom ⇒ caller patience EXCEEDS the callee work budget.
+ * Passed by the admin Edge handler via
+ * `runBooleanObservationMcpAdapter(request, { timeoutMs:
+ * ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS })` — the wrapped adapter it injects
+ * into `classifyOneArgumentCore` for `admin_validation` calls ONLY.
+ *
+ * MOTIVATING INCIDENT: the MCP-SERVER-011 Family-J E3 admin_validation smoke
+ * (`docs/audits/MCP-SERVER-011-FAMILY-J-SMOKE-2026-06-11.md` Phase 4b typed
+ * finding) — the existential person-shift input failed `mcp_api_error` 3/3 at
+ * the Edge boundary while the DIRECT hosted-server call on the same semantic
+ * content succeeded; the slur-adjacent input drove longer model deliberation
+ * (16-25s) that clipped the fixed 15s Edge per-call abort. Nothing dirty
+ * persisted (fail-closed); the doctrine proof was obtained at the server
+ * boundary.
+ *
+ * BATCH-INTERACTION BOUND (no enforcement change): the admin handler's
+ * `MAX_ARGUMENTS_PER_CALL = 10` classifies SEQUENTIALLY, so a worst-case
+ * 10 args x 30s = 300s would approach the Edge wall clock. Observed per-arg
+ * latency is ~4-6s; the 30s ceiling is reached only by deliberation-heavy
+ * sensitive inputs (Family J). Operators SHOULD keep admin_validation batches
+ * to <= 5 arguments for sensitive families. The 15s default and the drainer
+ * 30s above are UNCHANGED (the submit / auto-trigger path is byte-equal).
+ */
+export const ADMIN_VALIDATION_MCP_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
  * The `serverName` stamped on the response's modelInfo block when the MCP
  * server does not surface its own server name. The MCP-021A parser
  * requires `modelInfo.serverName` to be a non-empty string.
