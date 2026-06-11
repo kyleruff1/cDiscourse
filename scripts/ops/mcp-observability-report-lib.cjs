@@ -374,6 +374,22 @@ const SECTIONS = Object.freeze([
     emptyMessage:
       'No Family I positive results yet. Subset coverage will populate after admin_validation or production runs produce positives.',
   },
+  {
+    id: 'q18-unclean-span-key-drops-by-family',
+    title: 'Unclean-span key drops by family',
+    question:
+      'Q18 — Which keys did the server drop by OMISSION (key-level fail-closed) because their evidenceSpan tripped the doctrine ban-scan, by family + run_mode + rawKey over a recent window? A sustained drop rate on one key is an ADVISORY prompt-iteration signal (never a gate, never a posture flip). Family J (sensitive_composer) only on first ship (admin-validation-only).',
+    sqlFile: '18-unclean-span-key-drops-by-family.sql',
+    columns: [
+      'family',
+      'run_mode',
+      'dropped_raw_key',
+      'runs_with_drop',
+      'distinct_arguments',
+    ],
+    emptyMessage:
+      'No unclean-span key drops in the window. Either no key tripped the ban-scan or no key-level-fail-closed family ran.',
+  },
 ]);
 
 /* ------------------------------------------------------------------ */

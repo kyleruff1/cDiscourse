@@ -277,6 +277,16 @@ export function aggregateClassifierHealth(
     byFailureDetailReason: countBy(filtered, 'failure_detail_reason', (r) => [
       r.failure_detail?.reason ?? null,
     ]),
+    // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — per-rawKey count of runs that dropped that
+    // key by omission. `unnest`-equivalent: a row with N dropped keys
+    // contributes to each key's bucket; a row with zero drops contributes
+    // nothing. NAMES only (admin surface; not a reason axis, so no plain-
+    // language label) — never a span.
+    byUncleanSpanKeyDrop: countBy(filtered, 'unclean_span_key_drop', (r) =>
+      Array.isArray(r.dropped_unclean_span_keys) && r.dropped_unclean_span_keys.length > 0
+        ? r.dropped_unclean_span_keys
+        : [],
+    ),
     providerErrorCluster: deriveProviderErrorCluster(filtered),
     frozenFamilyTripwire: deriveFrozenFamilyTripwire(filtered),
     runTagSource:

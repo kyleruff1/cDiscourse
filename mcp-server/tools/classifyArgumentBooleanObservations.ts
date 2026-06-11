@@ -170,6 +170,12 @@ import {
   validateMcpBooleanObservationResponse,
   type McpBooleanObservationValidatedResponse,
 } from '../lib/mcpBooleanObservationSchemaMirror.ts';
+import {
+  KEY_LEVEL_FAIL_CLOSED_FAMILIES,
+  banPatternsForKeyLevelFamily,
+  findUncleanEvidenceSpanKeys,
+  dropUncleanEvidenceSpanKeys,
+} from '../lib/keyLevelFailClosed.ts';
 import { scanFamilyABooleanResponseForBanList } from '../lib/familyABanListScan.ts';
 import { scanFamilyBBooleanResponseForBanList } from '../lib/familyBBanListScan.ts';
 import { scanFamilyCBooleanResponseForBanList } from '../lib/familyCBanListScan.ts';
@@ -265,6 +271,11 @@ export const CLASSIFY_BOOLEAN_OBSERVATIONS_TOOL: ToolMetadata = {
           classifierSetVersion: { type: 'string' },
         },
       },
+      // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — optional, additive. Names the rawKeys
+      // the server dropped by OMISSION when their evidenceSpan tripped the
+      // doctrine ban-scan (key-level fail-closed). Listed in `properties` so the
+      // tool `outputSchema` `additionalProperties:false` still admits it.
+      keysDroppedForUncleanSpan: { type: 'array', items: { type: 'string' } },
     },
     additionalProperties: false,
   },
@@ -649,6 +660,59 @@ export async function handleClassifyArgumentBooleanObservations(
   // Step 5: doctrine ban-list scan (family-specific).
   const banScanResult = providers.banListScan(responseCheck.value);
   if (!banScanResult.ok) {
+    // ── OPS-MCP-KEY-LEVEL-FAIL-CLOSED ──────────────────────────────────────
+    // For a key-level-fail-closed family (J only on first ship), an UNCLEAN
+    // evidenceSpan key is dropped by OMISSION rather than failing the whole
+    // packet, so the clean sibling keys survive. modelInfo ban-hits and
+    // out-of-set families keep BYTE-IDENTICAL packet-fail posture.
+    //
+    // The scan returns on the FIRST match and scans evidenceSpan BEFORE
+    // modelInfo, so a `modelInfo.*` path means every evidenceSpan was clean (a
+    // pure packet-level field hit — you cannot drop a key to fix serverName /
+    // classifierSetVersion). An `evidenceSpan.*` path means ≥1 dirty span; we
+    // collect ALL dirty keys (using the SAME pattern set the family's scan
+    // uses, so the decision can never diverge), drop them, then RE-SCAN the
+    // kept packet: the only ban hit that can survive the drop is a modelInfo
+    // one, which still fails the packet.
+    if (
+      KEY_LEVEL_FAIL_CLOSED_FAMILIES.has(resolvedFamily) &&
+      banScanResult.path.startsWith('evidenceSpan.')
+    ) {
+      const patterns = banPatternsForKeyLevelFamily(resolvedFamily);
+      if (patterns !== null) {
+        const droppedKeys = findUncleanEvidenceSpanKeys(
+          responseCheck.value.evidenceSpan,
+          patterns,
+        );
+        if (droppedKeys.length > 0) {
+          const kept = dropUncleanEvidenceSpanKeys(responseCheck.value, droppedKeys);
+          // Defensive: the kept packet must re-validate AND re-scan clean. After
+          // omitting every unclean evidenceSpan key the only ban hit that can
+          // remain is a modelInfo one — in which case we fall through to the
+          // unchanged packet-level failure below.
+          const keptValidation = validateMcpBooleanObservationResponse(kept);
+          const keptScan = keptValidation.ok
+            ? providers.banListScan(keptValidation.value)
+            : null;
+          if (keptValidation.ok && keptScan !== null && keptScan.ok) {
+            // Non-failure log analog of emitToolErrorLog — NAMES only, never the
+            // span content (the leak-safe allow-list discipline).
+            log('info', 'boolean_observation_key_dropped_unclean_span', {
+              tool: 'classify_argument_boolean_observations',
+              family: resolvedFamily,
+              requestId: input.requestId,
+              droppedKeyNames: droppedKeys,
+              status: 'success',
+            });
+            return {
+              content: [{ type: 'text' as const, text: JSON.stringify(kept) }],
+              structuredContent: kept as unknown as Record<string, unknown>,
+              isError: false,
+            };
+          }
+        }
+      }
+    }
     log('warn', 'boolean_observations_doctrine_ban_list', {
       requestId: input.requestId,
       tool: 'classify_argument_boolean_observations',

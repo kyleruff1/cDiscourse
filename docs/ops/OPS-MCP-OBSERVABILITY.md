@@ -8,9 +8,9 @@
 
 ## What this is
 
-A read-only operator script that runs 18 SQL queries against the
+A read-only operator script that runs 19 SQL queries against the
 linked Supabase project and emits a doctrine-safe markdown + JSON
-report answering 17 telemetry questions about the multi-family MCP
+report answering 18 telemetry questions about the multi-family MCP
 classifier (`argument_machine_observation_runs` +
 `argument_machine_observation_results`).
 
@@ -456,6 +456,41 @@ between the options. The `references_external_context` key records only
 the structural fact of an external reference and NEVER grants factual
 standing (`cdiscourse-doctrine §3` — popularity is not evidence). Per
 `point-standing-economy`, Family I emits no standing delta.
+
+### Q18 — Unclean-span key drops by family
+
+Added by OPS-MCP-KEY-LEVEL-FAIL-CLOSED. Counts SUCCESS runs that dropped
+>= 1 key by OMISSION (key-level fail-closed) because that key's
+`evidenceSpan` tripped the byte-unchanged doctrine ban-scan, grouped by
+family + `run_mode` + the `unnest`-ed dropped rawKey NAME, over a recent
+30-day window. The query reads the new additive nullable
+`argument_machine_observation_runs.dropped_unclean_span_keys text[]`
+column.
+
+**What key-level fail-closed is:** when ONE Family J `evidenceSpan`
+tripped the ban-scan, the prior behavior failed the WHOLE response packet
+(`validation_failed` / `doctrine_ban_list`), discarding the clean sibling
+keys' Observations. Key-level fail-closed instead OMITS the unclean key
+(it never returns and never persists its span) while the clean siblings
+survive. It relaxes NOTHING — the ban-scan patterns are byte-unchanged and
+no unclean span ever reaches the wire, the Edge, the DB, or the client.
+
+**Columns:** `family`, `run_mode`, `dropped_raw_key`, `runs_with_drop`,
+`distinct_arguments`. NAMES ONLY — the query surfaces the dropped rawKey
+NAME (e.g. `needs_pre_send_pause`) and per-key counts; it NEVER reads a
+body or a span.
+
+**Advisory, never a gate:** a sustained drop rate on one key is the
+operator's cue that prompt iteration is warranted for that key's
+span-anchoring. The per-key DROP RATE is ADVISORY (`cdiscourse-doctrine
+§1`) — it never gates, never disarms, never flips a family posture. The
+per-key drop ITSELF is fail-closed validation at the key scope.
+
+**Scope (first ship):** Family J (`sensitive_composer`) only — it is
+admin-validation-only (`productionEnabled:false`) and uses the
+direct-dispatch persistRun path, so production rows here should be empty
+until a widening follow-up (which would re-create `finalize_classifier_job`
+to write the column on the drainer SUCCESS branch).
 
 ---
 

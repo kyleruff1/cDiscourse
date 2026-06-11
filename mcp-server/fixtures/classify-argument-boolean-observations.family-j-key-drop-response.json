@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-j-key-drop-node",
+  "checkedRawKeys": [
+    "shifts_to_person_or_intent",
+    "contains_unplayable_insult_only",
+    "needs_pre_send_pause",
+    "uses_popularity_as_evidence",
+    "uses_satire_as_evidence"
+  ],
+  "observations": {
+    "shifts_to_person_or_intent": true,
+    "contains_unplayable_insult_only": false,
+    "needs_pre_send_pause": true,
+    "uses_popularity_as_evidence": true,
+    "uses_satire_as_evidence": false
+  },
+  "confidence": {
+    "shifts_to_person_or_intent": "high",
+    "contains_unplayable_insult_only": "medium",
+    "needs_pre_send_pause": "medium",
+    "uses_popularity_as_evidence": "high",
+    "uses_satire_as_evidence": "medium"
+  },
+  "evidenceSpan": {
+    "shifts_to_person_or_intent": "because you work for an EV company",
+    "contains_unplayable_insult_only": null,
+    "needs_pre_send_pause": "You're such a troll and honestly toxic — NO you are WRONG WRONG WRONG!!! of COURSE you would say that",
+    "uses_popularity_as_evidence": "Everyone knows this is the case",
+    "uses_satire_as_evidence": null
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-j-v1"
+  }
+}

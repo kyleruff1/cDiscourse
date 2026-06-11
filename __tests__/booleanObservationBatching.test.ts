@@ -453,3 +453,53 @@ describe('MCP-BATCHING — partial-failure merge + failure detail', () => {
     expect(merged.checkedRawKeys).toHaveLength(0);
   });
 });
+
+// ── OPS-MCP-KEY-LEVEL-FAIL-CLOSED — keysDroppedForUncleanSpan union ────────
+
+describe('MCP-BATCHING — keysDroppedForUncleanSpan union (key-level fail-closed)', () => {
+  function droppedOutcome(
+    batch: EdgeRawKeyBatch,
+    droppedKeys: string[],
+  ): EdgeBatchClassifyOutcome {
+    const response = {
+      ...makeBatchResponse([...batch.rawKeys]),
+      keysDroppedForUncleanSpan: droppedKeys,
+    } as McpBooleanObservationResponse;
+    return {
+      batchIndex: batch.batchIndex,
+      batchTotal: batch.batchTotal,
+      rawKeys: batch.rawKeys,
+      result: { kind: 'success', response },
+    };
+  }
+
+  it('KLF-1 — two batches each dropping one key → merged is the UNION (sorted)', () => {
+    const keys = makeKeys(22);
+    const batches = edgeChunkRawKeys(keys);
+    const outcomes = [
+      droppedOutcome(batches[0], ['needs_pre_send_pause']),
+      droppedOutcome(batches[1], ['uses_satire_as_evidence']),
+    ];
+    const { merged } = edgeMergeBatchResponses(outcomes, 'arg-1');
+    expect(merged.keysDroppedForUncleanSpan).toEqual([
+      'needs_pre_send_pause',
+      'uses_satire_as_evidence',
+    ]);
+  });
+
+  it('KLF-2 — absent in EVERY batch → absent in merged (byte-identical to pre-card)', () => {
+    const keys = makeKeys(22);
+    const batches = edgeChunkRawKeys(keys);
+    const outcomes = [successOutcome(batches[0]), successOutcome(batches[1])];
+    const { merged } = edgeMergeBatchResponses(outcomes, 'arg-1');
+    expect('keysDroppedForUncleanSpan' in merged).toBe(false);
+  });
+
+  it('KLF-3 — single batch dropping a key → merged carries exactly that key', () => {
+    const keys = makeKeys(5);
+    const batches = edgeChunkRawKeys(keys);
+    const outcomes = [droppedOutcome(batches[0], ['needs_pre_send_pause'])];
+    const { merged } = edgeMergeBatchResponses(outcomes, 'arg-1');
+    expect(merged.keysDroppedForUncleanSpan).toEqual(['needs_pre_send_pause']);
+  });
+});

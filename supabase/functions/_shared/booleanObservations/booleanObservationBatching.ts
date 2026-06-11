@@ -231,6 +231,11 @@ export function mergeBatchResponses(
   let nodeId: string | null = null;
   let modelInfo: McpBooleanObservationResponse['modelInfo'] | null = null;
   let successfulBatchCount = 0;
+  // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — UNION of each successful batch's
+  // server-sourced unclean-span drop list. Chunks are disjoint, so the union is
+  // a concatenation (first-wins is moot). Absent in every batch ⇒ absent in the
+  // merged response (byte-identical to a pre-card merge).
+  const droppedUncleanSpanKeys: string[] = [];
 
   for (const outcome of outcomes) {
     if (outcome.result.kind !== 'success') continue;
@@ -239,6 +244,12 @@ export function mergeBatchResponses(
 
     if (nodeId === null) nodeId = response.nodeId;
     if (modelInfo === null) modelInfo = { ...response.modelInfo };
+
+    if (Array.isArray(response.keysDroppedForUncleanSpan)) {
+      for (const k of response.keysDroppedForUncleanSpan) {
+        if (!droppedUncleanSpanKeys.includes(k)) droppedUncleanSpanKeys.push(k);
+      }
+    }
 
     for (const rawKey of response.checkedRawKeys) {
       if (seen.has(rawKey)) {
@@ -273,6 +284,10 @@ export function mergeBatchResponses(
       serverName: '',
       classifierSetVersion: '',
     },
+    // Absent ⇔ no batch dropped a key (byte-identical to a pre-card merge).
+    ...(droppedUncleanSpanKeys.length > 0
+      ? { keysDroppedForUncleanSpan: Object.freeze([...droppedUncleanSpanKeys].sort()) }
+      : {}),
   };
 
   return { merged, collisions, successfulBatchCount };

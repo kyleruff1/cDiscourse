@@ -91,6 +91,14 @@ export interface ClassifierHealthRunRow {
    * comment) and is never surfaced raw in any count — only used to bucket.
    */
   debate_run_tag?: string | null;
+  /**
+   * OPS-MCP-KEY-LEVEL-FAIL-CLOSED — OPTIONAL text[] of the rawKey NAMES the MCP
+   * server dropped by OMISSION (key-level fail-closed) on this SUCCESS run. NULL
+   * / absent on runs with zero drops + on historical rows. NAMES ONLY — never a
+   * span, never a body. The panel reads it as a counts-only bucket
+   * (`byUncleanSpanKeyDrop`), never echoing span content.
+   */
+  dropped_unclean_span_keys?: string[] | null;
 }
 
 /** The grouping axes the panel can count over. */
@@ -102,7 +110,8 @@ export type ClassifierHealthGroupKey =
   | 'dead_letter_reason'
   | 'run_mode'
   | 'family'
-  | 'failure_detail_reason';
+  | 'failure_detail_reason'
+  | 'unclean_span_key_drop';
 
 /**
  * One aggregate bucket: a grouping axis + the key value + the count + the
@@ -199,6 +208,14 @@ export interface ClassifierHealthVerdict {
   byFamily: ClassifierHealthCountBucket[];
   /** Count by failure_detail->>'reason' (the first-read column). */
   byFailureDetailReason: ClassifierHealthCountBucket[];
+  /**
+   * OPS-MCP-KEY-LEVEL-FAIL-CLOSED — per-rawKey count of SUCCESS runs that
+   * dropped that key by OMISSION (key-level fail-closed). NAMES + counts ONLY;
+   * never echoes a span. A sustained drop rate on a specific key is the
+   * operator's ADVISORY signal that prompt iteration is warranted for that key's
+   * span-anchoring — it never gates, never flips a family posture.
+   */
+  byUncleanSpanKeyDrop: ClassifierHealthCountBucket[];
   /** The provider-error cluster row. */
   providerErrorCluster: ProviderErrorClusterVerdict;
   /** The H/I/J leakage tripwire row (SHOULD read 0). */

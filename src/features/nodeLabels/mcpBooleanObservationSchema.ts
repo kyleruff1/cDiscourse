@@ -126,6 +126,16 @@ export interface McpBooleanObservationResponse {
     serverName: string;
     classifierSetVersion: string;
   };
+
+  /**
+   * OPS-MCP-KEY-LEVEL-FAIL-CLOSED — optional, additive, v1-compatible. Present
+   * ONLY when the MCP server dropped ≥1 unclean-span key by OMISSION (key-level
+   * fail-closed; Family J only on first ship). Absent ⇔ no keys dropped (a fully
+   * clean packet is byte-identical to today). Carries rawKey NAMES ONLY — never
+   * span content, never a verdict. Each entry is, by construction, absent from
+   * `observations` / `confidence` / `evidenceSpan` / `checkedRawKeys`.
+   */
+  keysDroppedForUncleanSpan?: ReadonlyArray<string>;
 }
 
 // ── Validator results ────────────────────────────────────────────
@@ -322,6 +332,35 @@ export function parseMcpBooleanObservationResponse(
     };
   }
 
+  // Step 10: OPS-MCP-KEY-LEVEL-FAIL-CLOSED — optional `keysDroppedForUncleanSpan`.
+  // When present it must be a string[] (names of keys the server omitted because
+  // their span tripped the doctrine ban-scan). Absent ⇔ no keys dropped. The
+  // reconstruction step below carries it through ONLY when valid + present.
+  let droppedKeys: string[] | undefined;
+  if (
+    'keysDroppedForUncleanSpan' in parsed &&
+    parsed['keysDroppedForUncleanSpan'] !== undefined
+  ) {
+    const raw = parsed['keysDroppedForUncleanSpan'];
+    if (!Array.isArray(raw)) {
+      return {
+        ok: false,
+        reason: 'wrong_shape',
+        details: 'keysDroppedForUncleanSpan must be array',
+      };
+    }
+    for (const k of raw as unknown[]) {
+      if (typeof k !== 'string') {
+        return {
+          ok: false,
+          reason: 'wrong_shape',
+          details: 'keysDroppedForUncleanSpan entries must be string',
+        };
+      }
+    }
+    droppedKeys = raw as string[];
+  }
+
   // Build typed response.
   const response: McpBooleanObservationResponse = {
     schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
@@ -335,6 +374,7 @@ export function parseMcpBooleanObservationResponse(
       serverName: modelInfo['serverName'] as string,
       classifierSetVersion: modelInfo['classifierSetVersion'] as string,
     },
+    ...(droppedKeys !== undefined ? { keysDroppedForUncleanSpan: droppedKeys } : {}),
   };
 
   return { ok: true, response };
@@ -402,6 +442,13 @@ export function sanitizeMcpBooleanObservationResponse(
     confidence: safeConfidence,
     evidenceSpan: safeEvidenceSpan,
     modelInfo: { ...parsed.modelInfo },
+    // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — preserve the server-sourced unclean-span
+    // drop list verbatim (names only). The sanitizer's own confidence-floor /
+    // unknown-key drops are SEPARATE and are NOT recorded here. Absent ⇔ no
+    // server-side drop (byte-identical to a pre-card sanitize output).
+    ...(parsed.keysDroppedForUncleanSpan !== undefined
+      ? { keysDroppedForUncleanSpan: parsed.keysDroppedForUncleanSpan }
+      : {}),
   };
 }
 

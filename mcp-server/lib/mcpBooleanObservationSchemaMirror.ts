@@ -59,6 +59,16 @@ export interface McpBooleanObservationValidatedResponse {
     readonly serverName: string;
     readonly classifierSetVersion: string;
   };
+  /**
+   * OPS-MCP-KEY-LEVEL-FAIL-CLOSED — optional, additive, v1-compatible. Present
+   * ONLY when the server's Step-5 backstop dropped ≥1 unclean-span key by
+   * OMISSION (key-level fail-closed). Absent ⇔ "no keys dropped" (a fully clean
+   * packet is byte-identical to today). Carries rawKey NAMES ONLY — never span
+   * content, never a verdict, never any person/intent text. Each entry is, by
+   * construction, a key REMOVED from `observations` / `confidence` /
+   * `evidenceSpan` / `checkedRawKeys` (the anti-resurrection invariant).
+   */
+  readonly keysDroppedForUncleanSpan?: readonly string[];
 }
 
 export type McpBooleanObservationValidationResult =
@@ -294,6 +304,46 @@ export function validateMcpBooleanObservationResponse(
     };
   }
 
+  // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — optional `keysDroppedForUncleanSpan`. When
+  // present it MUST be a string[] and each entry MUST be a key that is NOT in
+  // observations / confidence / evidenceSpan / checkedRawKeys (a dropped key is,
+  // by construction, removed from those maps — the anti-resurrection invariant).
+  // Absent ⇔ no keys dropped (byte-identical to a pre-card packet).
+  let validatedDroppedKeys: string[] | undefined;
+  if ('keysDroppedForUncleanSpan' in parsed && parsed['keysDroppedForUncleanSpan'] !== undefined) {
+    const dropped = parsed['keysDroppedForUncleanSpan'];
+    if (!Array.isArray(dropped)) {
+      return {
+        ok: false,
+        path: 'keysDroppedForUncleanSpan',
+        detail: 'must be array',
+      };
+    }
+    for (let i = 0; i < dropped.length; i += 1) {
+      const entry = dropped[i];
+      if (typeof entry !== 'string') {
+        return {
+          ok: false,
+          path: `keysDroppedForUncleanSpan[${i}]`,
+          detail: 'must be string',
+        };
+      }
+      if (
+        entry in observations ||
+        entry in confidence ||
+        entry in evidenceSpan ||
+        checkedRawKeys.includes(entry)
+      ) {
+        return {
+          ok: false,
+          path: `keysDroppedForUncleanSpan[${i}]`,
+          detail: `dropped key "${entry}" must be absent from observations / confidence / evidenceSpan / checkedRawKeys`,
+        };
+      }
+    }
+    validatedDroppedKeys = dropped as string[];
+  }
+
   return {
     ok: true,
     value: {
@@ -308,6 +358,9 @@ export function validateMcpBooleanObservationResponse(
         serverName: modelInfo['serverName'] as string,
         classifierSetVersion: modelInfo['classifierSetVersion'] as string,
       },
+      ...(validatedDroppedKeys !== undefined
+        ? { keysDroppedForUncleanSpan: validatedDroppedKeys }
+        : {}),
     },
   };
 }

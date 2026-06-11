@@ -47,7 +47,7 @@ describe('OPS-MCP-OBSERVABILITY — empty-DB safety', () => {
     expect(md.length).toBeGreaterThan(100);
   });
 
-  it('markdown contains all 18 section titles even when every section is empty', () => {
+  it('markdown contains all 19 section titles even when every section is empty', () => {
     const md = stitchMarkdownReport(baseArgs);
     for (const s of SECTIONS) {
       expect(md).toContain(`## ${s.title}`);
@@ -90,8 +90,8 @@ describe('OPS-MCP-OBSERVABILITY — empty-DB safety', () => {
     }
   });
 
-  it('JSON artifact still has 18 sections even when all are empty', () => {
+  it('JSON artifact still has 19 sections even when all are empty', () => {
     const json = buildJsonArtifact(baseArgs);
-    expect(json.sections.length).toBe(18);
+    expect(json.sections.length).toBe(19);
   });
 });

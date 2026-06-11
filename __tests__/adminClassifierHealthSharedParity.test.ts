@@ -104,6 +104,20 @@ const FIXTURE_ROWS: ClassifierHealthRunRow[] = [
   row({ debate_run_tag: 'stress', debate_title: 'D claim [xai-adv t09]' }), // durable wins
   row({ debate_run_tag: '   ', debate_title: 'E claim [stress t02]' }), // whitespace → fallback
   row({ debate_run_tag: null, debate_title: 'F claim [xai-adv t11]' }), // legacy fallback
+  // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — exercise the byUncleanSpanKeyDrop bucket in
+  // BOTH trees: a J admin_validation SUCCESS run that dropped a key by omission.
+  row({
+    run_mode: 'admin_validation',
+    requested_families: ['sensitive_composer'],
+    family: 'sensitive_composer',
+    dropped_unclean_span_keys: ['needs_pre_send_pause'],
+  }),
+  row({
+    run_mode: 'admin_validation',
+    requested_families: ['sensitive_composer'],
+    family: 'sensitive_composer',
+    dropped_unclean_span_keys: ['needs_pre_send_pause', 'uses_satire_as_evidence'],
+  }),
 ];
 
 const FILTERS = [

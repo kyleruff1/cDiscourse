@@ -477,3 +477,42 @@ describe('panel copy — doctrine ban-list scan', () => {
     }
   });
 });
+
+// ── OPS-MCP-KEY-LEVEL-FAIL-CLOSED — byUncleanSpanKeyDrop bucket ────
+
+describe('aggregateClassifierHealth — byUncleanSpanKeyDrop (key-level fail-closed)', () => {
+  it('counts SUCCESS runs per dropped rawKey NAME (unnest-equivalent), names only', () => {
+    const rows = [
+      row({ dropped_unclean_span_keys: ['needs_pre_send_pause'] }),
+      row({ dropped_unclean_span_keys: ['needs_pre_send_pause'] }),
+      row({ dropped_unclean_span_keys: ['needs_pre_send_pause', 'uses_satire_as_evidence'] }),
+      row({ dropped_unclean_span_keys: null }),
+      row({ dropped_unclean_span_keys: [] }),
+      row(),
+    ];
+    const v = aggregateClassifierHealth(rows);
+    const counts = Object.fromEntries(v.byUncleanSpanKeyDrop.map((b) => [b.rawKey, b.count]));
+    expect(counts.needs_pre_send_pause).toBe(3);
+    expect(counts.uses_satire_as_evidence).toBe(1);
+    // Names only — no plain-language label (not a reason axis).
+    for (const b of v.byUncleanSpanKeyDrop) {
+      expect(b.plainLanguage).toBeNull();
+      expect(b.groupKey).toBe('unclean_span_key_drop');
+    }
+  });
+
+  it('is EMPTY when no run dropped a key (byte-identical to a pre-card verdict)', () => {
+    const v = aggregateClassifierHealth([row(), row({ dropped_unclean_span_keys: null })]);
+    expect(v.byUncleanSpanKeyDrop).toEqual([]);
+  });
+
+  it('a dropped key NAME never echoes a span (the field is a name array, not content)', () => {
+    const v = aggregateClassifierHealth([
+      row({ dropped_unclean_span_keys: ['needs_pre_send_pause'] }),
+    ]);
+    const csv = buildClassifierHealthCsv(v);
+    // The CSV carries the group + the rawKey NAME + the count — never a span.
+    expect(csv).toContain('unclean_span_key_drop');
+    expect(csv).toContain('needs_pre_send_pause');
+  });
+});

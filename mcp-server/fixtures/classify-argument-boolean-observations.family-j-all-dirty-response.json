@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "mcp-021.machine-observations.boolean.v1",
+  "nodeId": "fixture-j-all-dirty-node",
+  "checkedRawKeys": [
+    "shifts_to_person_or_intent",
+    "needs_pre_send_pause"
+  ],
+  "observations": {
+    "shifts_to_person_or_intent": true,
+    "needs_pre_send_pause": true
+  },
+  "confidence": {
+    "shifts_to_person_or_intent": "high",
+    "needs_pre_send_pause": "medium"
+  },
+  "evidenceSpan": {
+    "shifts_to_person_or_intent": "you're such a troll",
+    "needs_pre_send_pause": "you are WRONG WRONG WRONG!!! you toxic person"
+  },
+  "modelInfo": {
+    "provider": "mcp",
+    "serverName": "cdiscourse-mcp-server",
+    "classifierSetVersion": "family-j-v1"
+  }
+}

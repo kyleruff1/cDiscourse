@@ -373,3 +373,56 @@ describe('MCP-021C-EDGE — registry parity', () => {
     }
   });
 });
+
+// ── OPS-MCP-KEY-LEVEL-FAIL-CLOSED — keysDroppedForUncleanSpan parity ───────
+
+describe('MCP-021C-EDGE — keysDroppedForUncleanSpan parity (key-level fail-closed)', () => {
+  it('PARITY-KLF-1 — both parsers carry the optional field identically when present', () => {
+    const fixture = makeValidResponse({
+      checkedRawKeys: ['has_rebuttal'],
+      observations: { has_rebuttal: true },
+      confidence: { has_rebuttal: 'high' },
+      evidenceSpan: { has_rebuttal: null },
+      keysDroppedForUncleanSpan: ['needs_pre_send_pause'],
+    });
+    const prod = parseProd(fixture);
+    const edge = parseEdge(fixture);
+    expect(prod).toEqual(edge);
+    if (!prod.ok) throw new Error('expected ok');
+    expect(prod.response.keysDroppedForUncleanSpan).toEqual(['needs_pre_send_pause']);
+  });
+
+  it('PARITY-KLF-2 — both parsers OMIT the field when absent (byte-identical to pre-card)', () => {
+    const fixture = makeValidResponse();
+    const prod = parseProd(fixture);
+    const edge = parseEdge(fixture);
+    expect(prod).toEqual(edge);
+    if (!prod.ok) throw new Error('expected ok');
+    expect('keysDroppedForUncleanSpan' in prod.response).toBe(false);
+  });
+
+  it('PARITY-KLF-3 — both parsers reject a non-array field identically (wrong_shape)', () => {
+    const fixture = makeValidResponse({
+      keysDroppedForUncleanSpan: 'needs_pre_send_pause' as unknown as string[],
+    });
+    expect(parseProd(fixture)).toEqual(parseEdge(fixture));
+    expect(parseProd(fixture).ok).toBe(false);
+  });
+
+  it('PARITY-KLF-4 — both sanitizers PRESERVE the field verbatim (names only)', () => {
+    const parsed = parseProd(
+      makeValidResponse({
+        checkedRawKeys: ['has_rebuttal'],
+        observations: { has_rebuttal: true },
+        confidence: { has_rebuttal: 'high' },
+        evidenceSpan: { has_rebuttal: null },
+        keysDroppedForUncleanSpan: ['needs_pre_send_pause'],
+      }),
+    );
+    if (!parsed.ok) throw new Error('expected ok');
+    const prodOut = sanitizeProd(parsed.response, { surface: 'inspect' });
+    const edgeOut = sanitizeEdge(parsed.response, { surface: 'inspect' });
+    expect(prodOut).toEqual(edgeOut);
+    expect(prodOut.keysDroppedForUncleanSpan).toEqual(['needs_pre_send_pause']);
+  });
+});
