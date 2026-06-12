@@ -104,6 +104,7 @@
  */
 import type { McpBooleanObservationValidatedResponse } from './mcpBooleanObservationSchemaMirror.ts';
 import { DOCTRINE_BAN_PATTERNS } from './doctrineBanList.ts';
+import { banScanMatches } from './banScanNormalize.ts';
 
 /**
  * Family J-specific ban-list patterns per design §6 BINDING.
@@ -161,28 +162,23 @@ export function scanFamilyJBooleanResponseForBanList(
     ...FAMILY_J_BAN_PATTERNS,
   ];
 
-  // Scan every evidenceSpan string.
+  // Scan every evidenceSpan string via the shared raw-OR-normalized matcher
+  // (OPS-MCP-BAN-SCAN-NORMALIZATION). The `allPatterns` stack is byte-unchanged.
   for (const [rawKey, span] of Object.entries(response.evidenceSpan)) {
     if (typeof span !== 'string') continue;
-    for (const pattern of allPatterns) {
-      if (pattern.test(span)) {
-        return { ok: false, path: `evidenceSpan.${rawKey}` };
-      }
+    if (banScanMatches(span, allPatterns)) {
+      return { ok: false, path: `evidenceSpan.${rawKey}` };
     }
   }
 
   // Scan modelInfo.serverName.
-  for (const pattern of allPatterns) {
-    if (pattern.test(response.modelInfo.serverName)) {
-      return { ok: false, path: 'modelInfo.serverName' };
-    }
+  if (banScanMatches(response.modelInfo.serverName, allPatterns)) {
+    return { ok: false, path: 'modelInfo.serverName' };
   }
 
   // Scan modelInfo.classifierSetVersion.
-  for (const pattern of allPatterns) {
-    if (pattern.test(response.modelInfo.classifierSetVersion)) {
-      return { ok: false, path: 'modelInfo.classifierSetVersion' };
-    }
+  if (banScanMatches(response.modelInfo.classifierSetVersion, allPatterns)) {
+    return { ok: false, path: 'modelInfo.classifierSetVersion' };
   }
 
   return { ok: true };
