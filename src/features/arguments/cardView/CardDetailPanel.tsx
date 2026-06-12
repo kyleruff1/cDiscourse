@@ -37,6 +37,7 @@ import {
 } from '../../../lib/designTokens';
 import { CardStepReferenceHeader } from './CardStepReferenceHeader';
 import { RefereeCardView } from './RefereeCardView';
+import type { RefereeNavVerb } from './RefereeCardView';
 import type { DisagreementContract, MoveSuggestion } from '../../refereeLoop';
 import type { CardClassifierChip } from './cardClassifierStripModel';
 import type { CardMappingChip, CardMappingSectionModel } from './cardMappingSectionModel';
@@ -125,6 +126,11 @@ export interface CardDetailPanelProps {
    *  the surface handler for full Act-popout routing (this leaf prop is
    *  stable). Omitted → buttons render but pressing them is a no-op. */
   onRefereeMove?: (move: MoveSuggestion) => void;
+  /** REF-004 — fired when a Referee Card navigation affordance is pressed
+   *  ("View details" → 'inspect'; "Focus on board" → 'focus_on_board').
+   *  Forwarded to the RefereeCardView slot. Omitted → the secondary
+   *  affordance row does not render (byte-equivalent to REF-003). */
+  onRefereeNavigate?: (verb: RefereeNavVerb) => void;
   testID?: string;
 }
 
@@ -944,6 +950,7 @@ export function CardDetailPanel({
   onRailAction,
   refereeCard,
   onRefereeMove,
+  onRefereeNavigate,
   testID,
 }: CardDetailPanelProps): React.ReactElement {
   const layout = hubColumnLayout(
@@ -1024,6 +1031,7 @@ export function CardDetailPanel({
           <RefereeCardView
             issue={refereeCard}
             onMove={onRefereeMove}
+            onRefereeNavigate={onRefereeNavigate}
             testID="referee-card-view"
           />
         </View>

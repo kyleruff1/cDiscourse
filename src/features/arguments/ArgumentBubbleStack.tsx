@@ -33,6 +33,7 @@ import type { CardDetailViewModel } from './cardView/cardDetailModel';
 import type { CardMappingSectionModel } from './cardView/cardMappingSectionModel';
 import type { RailActionCode, RailViewerRole } from './railActionCategories';
 import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
+import type { RefereeNavVerb } from './cardView/RefereeCardView';
 
 interface Props {
   viewModels: ArgumentBubbleViewModel[];
@@ -81,6 +82,12 @@ interface Props {
     move: MoveSuggestion,
     ctx: { activeMessageId: string | null },
   ) => void;
+  /** REF-004 — Referee Card navigation verbs (Inspect / Focus on board) for
+   *  the active card; pure pass-through, forwarded to the active card only. */
+  onRefereeNavigate?: (
+    verb: RefereeNavVerb,
+    ctx: { activeMessageId: string | null },
+  ) => void;
 }
 
 export function ArgumentBubbleStack({
@@ -98,6 +105,7 @@ export function ArgumentBubbleStack({
   onRailAction,
   activeRefereeCard,
   onRefereeMove,
+  onRefereeNavigate,
 }: Props) {
   const activeIndex = useMemo(() => {
     const i = viewModels.findIndex((v) => v.messageId === activeMessageId);
@@ -211,6 +219,9 @@ export function ArgumentBubbleStack({
                 // the detail model).
                 refereeCard={t.isActive ? activeRefereeCard : null}
                 onRefereeMove={t.isActive ? onRefereeMove : undefined}
+                // REF-004 — Inspect / Focus-on-board verbs, forwarded to the
+                // active card only (same gating as onRefereeMove).
+                onRefereeNavigate={t.isActive ? onRefereeNavigate : undefined}
               />
             </View>
           );
