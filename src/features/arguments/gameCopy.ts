@@ -229,6 +229,10 @@ export const PLAIN_LANGUAGE_COPY = {
   exhausted: 'Out of new angles',
   branch_recommended: 'Branch suggested',
   archived_or_resolved: 'Resolved',
+  // REF-002 — the Open Issue `moved_on` IssueState. The lifecycle layer
+  // only carries side-specific `moved_on_by_*` codes; the person-neutral
+  // bare `moved_on` collapses those for the issue card / Open Issues rail.
+  moved_on: 'Moved on',
   // META-001 — Manual tag plain labels (9 new; `evidence_debt` is updated
   // above to match the manual-tag table). Each label is a gameplay signal,
   // NEVER a verdict. Zero verdict / amplification / person-attribution
