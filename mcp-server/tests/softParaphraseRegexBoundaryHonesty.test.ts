@@ -1,17 +1,22 @@
 /**
  * OPS-MCP-SOFT-PARAPHRASE-ADVERSARIAL-FIXTURE — File 3 of 4.
  *
- * Pin the CURRENT regex-boundary behavior of the byte-unchanged ban-scan around
- * the edges the parent design names: case-insensitivity (a real positive
- * control), and the honestly-UNCLOSED evasion gaps (homoglyph / diacritic /
- * leet) plus the strict word-boundary asymmetry. These tests CHARACTERIZE the
- * boundary; they do NOT fix it.
+ * Pin the regex-boundary behavior of the ban-scan around the edges the parent
+ * design names: case-insensitivity (a real positive control), the Unicode/leet
+ * evasion edges, and the strict word-boundary asymmetry.
  *
- * Every NOT-caught pin below documents: CURRENT BEHAVIOR, OUT OF SCOPE TO CHANGE
- * HERE. Closing the Unicode / boundary gaps is a pattern-engine card with its
- * own §10a + production review — not this test-only honesty corpus. If a future
- * card closes one of these gaps, the corresponding NOT-caught pin flips to
- * caught and must be updated deliberately as part of that card.
+ * BOUNDARY MOVED — OPS-MCP-BAN-SCAN-NORMALIZATION (this card): the three
+ * evasion gaps that #578 honestly pinned as NOT-caught (homoglyph / diacritic /
+ * leet) are now CAUGHT. The pattern arrays are byte-unchanged; the scan now
+ * tests the RAW text OR the `normalizeForBanScan`d text (a raw-OR-normalized
+ * union — tighten-only), so each family's OWN boundary became evasion-resistant.
+ * Per the #578 flip procedure, those three pins flip `false → true` deliberately
+ * here, with boundary-moved notes naming this card. Two NEW edges are added
+ * (zero-width insertion + NFKD fullwidth — also caught). The case-insensitive
+ * positive control and the strict word-boundary asymmetry pins
+ * (`troll`≠`trolling`; `astroturf\w*` matches `astroturfing`) STAY as-is — those
+ * are inflection/word-boundary semantics, NOT an evasion, and remain out of
+ * scope (a disguised token is closed; an inflected distinct word is not).
  *
  * The homoglyph / diacritic spans are built with String.fromCharCode so the
  * source stays fully ASCII and the exact non-ASCII code point is unambiguous to
@@ -39,6 +44,9 @@ function isCaught(span: string, stack: readonly RegExp[]): boolean {
 
 const CYRILLIC_SMALL_O = String.fromCharCode(0x043e); // homoglyph of ASCII 'o'
 const LATIN_I_WITH_ACUTE = String.fromCharCode(0x00ed); // diacritic variant of 'i'
+const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b); // invisible in-token insertion
+// Fullwidth (NFKD-folding) variant of 'troll' — U+FF54 U+FF52 U+FF4F U+FF4C U+FF4C.
+const FULLWIDTH_TROLL = String.fromCharCode(0xff54, 0xff52, 0xff4f, 0xff4c, 0xff4c);
 
 // ─────────────────────────────────────────────────────────────────────────
 // EDGE-case-insensitive — POSITIVE CONTROL. The `i` flag means case is NOT an
@@ -51,38 +59,65 @@ Deno.test('EDGE-case-insensitive — an upper/mixed-case DOCTRINE token is still
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// EDGE-homoglyph — a Cyrillic-homoglyph variant of a hard token is NOT caught.
-// The ASCII `[^a-z0-9]` boundary + literal ASCII token have no homoglyph reach.
-// CURRENT BEHAVIOR, OUT OF SCOPE TO CHANGE HERE; closing it is a pattern-engine
-// card.
+// EDGE-homoglyph — a Cyrillic-homoglyph variant of a hard token is now CAUGHT.
+// BOUNDARY MOVED by OPS-MCP-BAN-SCAN-NORMALIZATION: step 4 of normalizeForBanScan
+// folds the Cyrillic-o (U+043E) to ASCII 'o', so the normalized scan sees the
+// real token. The pattern array is byte-unchanged; the matcher is raw-OR-
+// normalized (tighten-only). Previously pinned NOT-caught at #578.
 // ─────────────────────────────────────────────────────────────────────────
 
-Deno.test('EDGE-homoglyph — a Cyrillic-o variant of `troll` is NOT caught (honest unclosed gap)', () => {
-  // 'tr' + U+043E (Cyrillic small letter o) + 'll' — not the ASCII token.
+Deno.test('EDGE-homoglyph — a Cyrillic-o variant of `troll` IS caught (boundary moved by OPS-MCP-BAN-SCAN-NORMALIZATION)', () => {
+  // 'tr' + U+043E (Cyrillic small letter o) + 'll' — normalizes to the ASCII token.
   const homoglyph = `such a tr${CYRILLIC_SMALL_O}ll move here`;
-  assertEquals(isCaught(homoglyph, J_STACK), false);
+  assertEquals(isCaught(homoglyph, J_STACK), true);
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// EDGE-diacritic — a diacritic variant of a hard token is NOT caught.
-// CURRENT BEHAVIOR, OUT OF SCOPE TO CHANGE HERE; closing it is a pattern-engine
-// card.
+// EDGE-diacritic — a diacritic variant of a hard token is now CAUGHT.
+// BOUNDARY MOVED by OPS-MCP-BAN-SCAN-NORMALIZATION: step 3 (NFKD + combining-mark
+// strip) decomposes U+00ED to 'i' + combining acute and drops the accent, so the
+// normalized scan sees the real token. Pattern array byte-unchanged; raw-OR-
+// normalized (tighten-only). Previously pinned NOT-caught at #578.
 // ─────────────────────────────────────────────────────────────────────────
 
-Deno.test('EDGE-diacritic — a diacritic variant of `winner` is NOT caught (honest unclosed gap)', () => {
-  // 'w' + U+00ED (Latin small letter i with acute) + 'nner' — not the ASCII token.
+Deno.test('EDGE-diacritic — a diacritic variant of `winner` IS caught (boundary moved by OPS-MCP-BAN-SCAN-NORMALIZATION)', () => {
+  // 'w' + U+00ED (Latin small letter i with acute) + 'nner' — normalizes to the ASCII token.
   const diacritic = `the w${LATIN_I_WITH_ACUTE}nner is decided`;
-  assertEquals(isCaught(diacritic, DOCTRINE_STACK), false);
+  assertEquals(isCaught(diacritic, DOCTRINE_STACK), true);
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// EDGE-leet — a leetspeak variant of a hard token is NOT caught.
-// CURRENT BEHAVIOR, OUT OF SCOPE TO CHANGE HERE; closing it is a pattern-engine
-// card.
+// EDGE-leet — a leetspeak variant of a hard token is now CAUGHT.
+// BOUNDARY MOVED by OPS-MCP-BAN-SCAN-NORMALIZATION: step 5 (adjacency-gated leet
+// map) maps the letter-adjacent '0' to 'o' ('tr0ll' → 'troll'), so the
+// normalized scan sees the real token. Pattern array byte-unchanged; raw-OR-
+// normalized (tighten-only). Previously pinned NOT-caught at #578.
 // ─────────────────────────────────────────────────────────────────────────
 
-Deno.test('EDGE-leet — a leetspeak variant of `troll` (zero-for-o) is NOT caught (honest unclosed gap)', () => {
-  assertEquals(isCaught('what a tr0ll move', J_STACK), false);
+Deno.test('EDGE-leet — a leetspeak variant of `troll` (zero-for-o) IS caught (boundary moved by OPS-MCP-BAN-SCAN-NORMALIZATION)', () => {
+  assertEquals(isCaught('what a tr0ll move', J_STACK), true);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// EDGE-zero-width — an in-token zero-width insertion is now CAUGHT.
+// OPS-MCP-BAN-SCAN-NORMALIZATION step 2 strips the explicit zero-width set
+// ('t' + U+200B + 'roll' → 'troll'). New edge pinned by this card.
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('EDGE-zero-width — an in-token U+200B insertion in `troll` IS caught (OPS-MCP-BAN-SCAN-NORMALIZATION)', () => {
+  const zeroWidth = `such a t${ZERO_WIDTH_SPACE}roll move`;
+  assertEquals(isCaught(zeroWidth, J_STACK), true);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// EDGE-fullwidth — an NFKD fullwidth variant of a hard token is now CAUGHT.
+// OPS-MCP-BAN-SCAN-NORMALIZATION step 3 (NFKD) folds fullwidth Latin forms to
+// ASCII (ｔｒｏｌｌ → 'troll'). New edge pinned by this card.
+// ─────────────────────────────────────────────────────────────────────────
+
+Deno.test('EDGE-fullwidth — an NFKD fullwidth variant of `troll` IS caught (OPS-MCP-BAN-SCAN-NORMALIZATION)', () => {
+  const fullwidth = `what a ${FULLWIDTH_TROLL} move`;
+  assertEquals(isCaught(fullwidth, J_STACK), true);
 });
 
 // ─────────────────────────────────────────────────────────────────────────

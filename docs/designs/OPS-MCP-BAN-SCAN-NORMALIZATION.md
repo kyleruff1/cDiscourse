@@ -1,6 +1,6 @@
 # OPS-MCP-BAN-SCAN-NORMALIZATION — close the regex-evasion gaps in the ban-scan layer
 
-**Status:** Design draft
+**Status:** Implemented (2026-06-12). See "Implementation actuals" at the bottom.
 **Epic:** Epic 12 — MCP / semantic-referee track (OPS hardening sub-track)
 **Release:** OPS hardening (rejection-granularity follow-up chain: #576 J key-level → #577 A–J widening → #578 fixture/tripwire corpus → live probe → **this card**)
 **Issue:** No standalone GitHub issue URL was supplied to the designer. The card is named at two places in-tree: `OPS-MCP-SOFT-PARAPHRASE-ADVERSARIAL-FIXTURE` (the #578 files) records each evasion gap as "OUT OF SCOPE TO CHANGE HERE; closing it is a pattern-engine card" (`mcp-server/tests/softParaphraseRegexBoundaryHonesty.test.ts:11-14,:56-57,:69-70,:81-82`), and the live-probe audit names it as follow-up candidate (a): "the pattern-engine card for unicode/leet evasions (already named at #578)" (`docs/audits/OPS-MCP-SOFT-PARAPHRASE-LIVE-PROBE-SMOKE-2026-06-11.md:73`).
@@ -198,3 +198,17 @@ All new/changed tests are **Deno** (`mcp-server/tests/`); jest is untouched.
 2. Hit `/health` on the hosted endpoint → expect 200.
 
 No `npx supabase db push`, no Edge Function deploy, no env var, no secret rotation, no MCP-boolean smoke (no new booleans/prompts). The Deno test suite is the correctness proof; the post-merge readback confirms the deploy landed.
+
+---
+
+## Implementation actuals (2026-06-12)
+
+Implemented exactly per the design with the operator-confirmed D2 raw-OR-normalized union matcher. No redesign.
+
+- **New production module** `mcp-server/lib/banScanNormalize.ts` (~185 lines incl. the commented homoglyph + leet tables): `normalizeForBanScan` (5 fixed steps — lowercase → explicit zero-width strip → NFKD + `\p{M}` combining-mark strip → explicit Cyrillic/Greek homoglyph map → adjacency-gated leet map) and the shared `banScanMatches(text, patterns)` (raw scan first, then additive normalized scan; null-safe; `normalized === text` short-circuit for the bulk-ASCII case). Pure, zero deps, Deno-clean (`deno check` + `deno lint` clean).
+- **All eleven call sites routed through `banScanMatches`**: the ten `scanFamily<X>BooleanResponseForBanList` functions (each of the three field sites — evidenceSpan-in-loop, `serverName`, `classifierSetVersion`) + `findUncleanEvidenceSpanKeys`. The post-drop re-scan (`classifyArgumentBooleanObservations.ts`) needed no edit — it calls `providers.banListScan` + `findUncleanEvidenceSpanKeys`, so it routes through the matcher by construction (verified). `DOCTRINE_BAN_PATTERNS` and every `FAMILY_<X>_BAN_PATTERNS` are byte-unchanged (git diff confirms zero pattern-array hunks; the family-scan diffs are import + loop→matcher routing only; `path` strings and field order preserved exactly).
+- **Tests** `mcp-server/tests/banScanNormalize.test.ts` (new, 39 `Deno.test` cases): zero-width, NFKD/diacritic/fullwidth/ligature, homoglyph (incl. uppercase fold + legit Cyrillic word clean), adjacency-gated leet (incl. `Model 3` / `2019` / `Section 230` / `$5` / `co2` clean), tighten-only + monotonicity (incl. the boundary-faking `ro`+ZWSP+`bot` raw catch), idempotence, null/empty, false-positive guards, disguised-token collector⇔scan agreement (A/H/J), and the persisted-content-verbatim property.
+- **Documented flips** in `softParaphraseRegexBoundaryHonesty.test.ts`: the 3 EDGE pins (homoglyph / diacritic / leet) flipped `false → true` with boundary-moved notes naming this card; 2 new EDGE pins added (in-token zero-width + NFKD fullwidth). The case-insensitive positive control and the strict-boundary-asymmetry pins (`troll`≠`trolling`; `astroturf\w*` matches `astroturfing`) stay as-is.
+- **SURV tripwire re-verified (not edited):** all 20 soft exemplars stay clean under the union matcher; all 10 hard controls still caught. No STOP finding.
+
+**Estimates vs actuals (estimates retained above):** Deno **1700 → 1741, 0 failures** (+39 new file + 2 new EDGE pins; the design estimated ~1745). jest unchanged at **715 suites / 29620 + 1 skip, exit 0** (Deno scan untouched by jest). `npm run typecheck` exit 0. Scoped `deno lint` + `deno check` on new/touched files clean. Deno-deploy-bearing — operator steps above stand.

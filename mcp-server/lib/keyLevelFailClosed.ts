@@ -49,6 +49,7 @@
  */
 import type { McpBooleanObservationValidatedResponse } from './mcpBooleanObservationSchemaMirror.ts';
 import { DOCTRINE_BAN_PATTERNS } from './doctrineBanList.ts';
+import { banScanMatches } from './banScanNormalize.ts';
 import { FAMILY_E_BAN_PATTERNS } from './familyEBanListScan.ts';
 import { FAMILY_F_BAN_PATTERNS } from './familyFBanListScan.ts';
 import { FAMILY_G_BAN_PATTERNS } from './familyGBanListScan.ts';
@@ -144,11 +145,13 @@ export function findUncleanEvidenceSpanKeys(
   const dirty: string[] = [];
   for (const [rawKey, span] of Object.entries(spans)) {
     if (typeof span !== 'string') continue;
-    for (const pattern of patterns) {
-      if (pattern.test(span)) {
-        dirty.push(rawKey);
-        break;
-      }
+    // OPS-MCP-BAN-SCAN-NORMALIZATION: the shared raw-OR-normalized matcher (the
+    // single no-divergence choke point) replaces the inline raw-only loop. The
+    // pattern set is byte-unchanged; this only makes the same boundary
+    // evasion-resistant (homoglyph / diacritic / leet / zero-width). The
+    // `typeof span !== 'string'` skip above stays (MIX keyNull null-skip pin).
+    if (banScanMatches(span, patterns)) {
+      dirty.push(rawKey);
     }
   }
   return dirty.sort();
