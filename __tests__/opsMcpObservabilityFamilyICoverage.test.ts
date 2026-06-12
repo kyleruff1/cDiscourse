@@ -11,7 +11,7 @@
  *   - Group A: Q11 narrative regression.
  *   - Group B: Q14 CASE regression.
  *   - Group C: Q17 new file + Family I subset coverage.
- *   - Group D: cross-section invariants (SECTIONS length 18; ordered id
+ *   - Group D: cross-section invariants (SECTIONS length 19; ordered id
  *     list q01..q17; Q11/Q14/Q17 reference thread_topology; column shape).
  *   - Group E: fixture compatibility.
  *   - Group F: I verdict-adjacency doctrine self-check.
