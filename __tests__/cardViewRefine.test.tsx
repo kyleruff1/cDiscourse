@@ -321,6 +321,21 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
     expect(collectText(evidence)).toContain('M has a child typed challenge.');
   });
 
+  it('the evidence span renders as a marked QUOTATION (attribution frame + curly quotes) — OPS-MCP-EVIDENCE-SPAN-QUOTATION-FRAMING', () => {
+    const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    const text = collectText(
+      getByTestId('card-detail-classifier-evidence-machine_observation:persisted:res-1:msg-active'),
+    );
+    // The view renders the model's framed string (single source: markToChip).
+    expect(text).toContain('From this move’s text:');
+    expect(text).toContain('“'); // U+201C open
+    expect(text).toContain('”'); // U+201D close
+    // The verbatim span is still present, now inside the quotes.
+    expect(text).toContain('“M has a child typed challenge.”');
+    // The old reason-label framing is gone.
+    expect(text).not.toContain('Why this fired:');
+  });
+
   it('Family I NOW surfaces on the card classifier zone (PR #562); Family J never does', () => {
     // OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: Family I (thread_topology) is now
     // production-enabled, so a seeded Family I rendered_now mark surfaces under

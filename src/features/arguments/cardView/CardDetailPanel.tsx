@@ -35,7 +35,6 @@ import {
   TOUCH_TARGET,
   TYPOGRAPHY,
 } from '../../../lib/designTokens';
-import { CARD_CLASSIFIER_EVIDENCE_PREFIX } from './cardClassifierStripModel';
 import { CardStepReferenceHeader } from './CardStepReferenceHeader';
 import type { CardClassifierChip } from './cardClassifierStripModel';
 import type { CardMappingChip, CardMappingSectionModel } from './cardMappingSectionModel';
@@ -166,9 +165,10 @@ function ClassifierLabel({
   chip: CardClassifierChip;
   isWide?: boolean;
 }): React.ReactElement {
-  const evidenceText = chip.evidenceSpan
-    ? `${CARD_CLASSIFIER_EVIDENCE_PREFIX} ${chip.evidenceSpan}`
-    : null;
+  // The framed display string (attribution frame + verbatim span in curly
+  // quotes) is built ONCE in `markToChip` (single source of truth for the
+  // capped strip + the uncapped hub). The view just renders it.
+  const evidenceText = chip.evidenceSpanFramed;
   return (
     <View
       style={styles.classifierRow}
@@ -224,8 +224,9 @@ function ClassifierLabel({
  * The heading is NEUTRAL ("Classifier observations") — never "Add Classifier"
  * (that implies a mutation). The advisory caption stays "What the referee
  * noticed — advisory, not a verdict." Each group has a plain-language family
- * heading; chips keep confidence PIPS + evidence spans. Only A–G families
- * survive the model's explicit family gate, so H/I/J never render here.
+ * heading; chips keep confidence PIPS + evidence spans. Only A–I families
+ * survive the model's explicit family gate (only Family J /
+ * `sensitive_composer` is excluded), so J never renders here.
  */
 function HubClassifierZone({
   model,
@@ -299,7 +300,8 @@ function HubClassifierZone({
  *   - The advisory caption frames the section ("what the referee noticed —
  *     advisory, not a verdict.").
  *   - Empty / none → a teaching empty state (never "clean" / "no issues").
- *   - A-G only; H/I/J never (the model already drops them). No `inactive_reason`.
+ *   - Production families only (A–I); the frozen Family J (`sensitive_composer`)
+ *     is dropped by the defensive gate. No `inactive_reason`.
  *
  * Visible by default on the active card (check #14 — no tap, no disclosure).
  */
@@ -846,7 +848,7 @@ function ClassifierColumn({
   return (
     <View style={styles.flankColumn} testID="card-detail-classifier-column">
       {/* CVDH-001 Slice 2, ask iii — all-families family-grouped classifier
-          observations (A–G gated, uncapped). Stylized flags/labels/banners.
+          observations (A–I gated, uncapped). Stylized flags/labels/banners.
           CARD-VIEW-REFINE-001 — wide layout spreads chips horizontally + puts
           evidence inline. NOT REGRESSED by Slice B — the combination section
           below is an ADDITIVE richer-label sibling. */}

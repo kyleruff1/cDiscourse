@@ -10,7 +10,9 @@
  *     number/score
  *   - the ≤240-char `evidenceSpan` (carried additively on the mark by
  *     `mapPersistedObservationRowsToNodeLabelMarks`) — surfaced on the
- *     card prefixed "Why this fired:".
+ *     card as a marked QUOTATION of the move's own text (the framed
+ *     display string `evidenceSpanFramed`: an attribution frame + the
+ *     verbatim span wrapped in curly quote marks).
  *
  * Pipeline (mirrors `NodeLabelStrip.computeNodeLabelStripDescriptors` but
  * targets `selected_context` and reads confidence/evidenceSpan directly):
@@ -65,8 +67,19 @@ export const CARD_CLASSIFIER_ADVISORY_CAPTION =
 export const CARD_CLASSIFIER_EMPTY_STATE =
   'No classifier signals yet on this move.';
 
-/** Prefix applied to the evidence span when a chip expands. */
-export const CARD_CLASSIFIER_EVIDENCE_PREFIX = 'Why this fired:';
+/** Attribution FRAME prepended to the evidence span: it presents the span
+ *  as a marked quotation of the move's OWN text, never as a machine-stated
+ *  reason (doctrine §1 — attributive provenance, not a verdict). Combined
+ *  with the curly quote marks below in `markToChip`. The curly apostrophe
+ *  (U+2019) matches the `'From the move’s lifecycle'` provenance constant. */
+export const CARD_CLASSIFIER_EVIDENCE_PREFIX = 'From this move’s text:';
+
+/** Curly quotation marks (U+201C / U+201D) that wrap the verbatim span in
+ *  `evidenceSpanFramed`, mirroring the parent-bubble quote precedent in
+ *  `CardDetailPanel.tsx` (`“${bubble.quote.quote}”`). Exported so the frame
+ *  ban-list test can import and scan them. */
+export const EVIDENCE_QUOTE_OPEN = '“';
+export const EVIDENCE_QUOTE_CLOSE = '”';
 
 /**
  * CARD-VIEW-REFINE-001 — plain-language source-provenance labels.
@@ -139,9 +152,17 @@ export interface CardClassifierChip {
   confidencePips: 1 | 2 | 3 | null;
   /** Locked plain-language confidence word for screen readers. */
   confidenceLabel: string | null;
-  /** ≤240-char evidence span (no prefix; the UI prepends the prefix).
-   *  null when the mark carried no span. */
+  /** ≤240-char evidence span, RAW (verbatim, unaltered; the framed display
+   *  string is `evidenceSpanFramed`). null when the mark carried no span. */
   evidenceSpan: string | null;
+  /** The display string the UI renders: the attribution frame
+   *  (`CARD_CLASSIFIER_EVIDENCE_PREFIX`) + the raw span wrapped in curly
+   *  quotation marks, e.g. `From this move’s text: “…astroturfed…”`. null
+   *  when `evidenceSpan` is null. Built in `markToChip` so the framing has
+   *  ONE source of truth (the capped strip AND the uncapped hub both render
+   *  this field). The raw span is inserted verbatim — no inner-quote
+   *  normalization, no trim, no re-truncation. */
+  evidenceSpanFramed: string | null;
   /** True when tapping the chip should expand the evidence span. */
   isExpandable: boolean;
   /** Pre-built screen-reader label. */
@@ -204,10 +225,19 @@ export function markToChip(mark: NodeLabelMark): CardClassifierChip {
   const confidenceLabel = confidence ? CONFIDENCE_LABEL[confidence] : null;
   const evidenceSpan = readEvidenceSpan(mark);
   const isExpandable = evidenceSpan != null;
+  // Frame the raw span as a marked QUOTATION of the move's own text: the
+  // attribution prefix + curly quote marks. The span is inserted VERBATIM
+  // (no inner-quote normalization, no trim, no re-truncation) — it is a
+  // quoted excerpt and must not be mutated (doctrine §10a). Built here so the
+  // capped strip AND the uncapped hub share ONE framing source.
+  const evidenceSpanFramed =
+    evidenceSpan != null
+      ? `${CARD_CLASSIFIER_EVIDENCE_PREFIX} ${EVIDENCE_QUOTE_OPEN}${evidenceSpan}${EVIDENCE_QUOTE_CLOSE}`
+      : null;
 
   const taxonomyWord = taxonomy === 'observation' ? 'Machine observation' : 'User allegation';
   const pipsPhrase = confidenceLabel ? `, ${confidenceLabel}` : '';
-  const spanPhrase = isExpandable ? '. Tap to see why this fired.' : '';
+  const spanPhrase = isExpandable ? '. Tap to see the quoted text from this move.' : '';
   const accessibilityLabel = `${taxonomyWord}: ${mark.label}${pipsPhrase}${spanPhrase}`;
 
   return {
@@ -221,6 +251,7 @@ export function markToChip(mark: NodeLabelMark): CardClassifierChip {
     confidencePips,
     confidenceLabel,
     evidenceSpan,
+    evidenceSpanFramed,
     isExpandable,
     accessibilityLabel,
   };
@@ -307,7 +338,7 @@ export function buildCardClassifierStrip(
  * `filterMarksBySurface(_, 'selected_context')` → `dedupePerNodeMarks`) —
  * the §10a disposition gate (composer_only / inspect_only / future_source
  * dropped) is applied; the cap (step 5) is NOT. The hub builder
- * (`buildHubClassifierGroups`) then applies the EXPLICIT A–G family gate +
+ * (`buildHubClassifierGroups`) then applies the EXPLICIT A–I family gate +
  * per-family grouping on top of these marks.
  *
  * Returns `[]` for every degenerate input (missing active id, no marks).
