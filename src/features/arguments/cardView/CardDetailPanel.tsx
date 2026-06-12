@@ -36,6 +36,8 @@ import {
   TYPOGRAPHY,
 } from '../../../lib/designTokens';
 import { CardStepReferenceHeader } from './CardStepReferenceHeader';
+import { RefereeCardView } from './RefereeCardView';
+import type { DisagreementContract, MoveSuggestion } from '../../refereeLoop';
 import type { CardClassifierChip } from './cardClassifierStripModel';
 import type { CardMappingChip, CardMappingSectionModel } from './cardMappingSectionModel';
 import type { CardDetailViewModel } from './cardDetailModel';
@@ -110,6 +112,19 @@ export interface CardDetailPanelProps {
    *  message via the SAME path the side rail uses. Required (with viewerRole)
    *  for the inline ActionsZone to render. */
   onRailAction?: (code: RailActionCode, ctx: { activeMessageId: string | null }) => void;
+  /** REF-003 — the ACTIVE node's derived Open Issue (Disagreement Contract).
+   *  When supplied, a full-width Referee Card slot renders ABOVE the raw
+   *  classifier strip (between the parent-bubble slot and the render-order
+   *  regions). Omitted → the slot renders nothing, byte-equivalent to the
+   *  pre-REF-003 panel (#504's five zones unchanged). The card consumes ONLY
+   *  the contract's plain-language view-model fields; it never mounts a second
+   *  RefereeBannerView and never maps over raw observation marks. */
+  refereeCard?: DisagreementContract | null;
+  /** REF-003 — fired when a zone-3 next-move button is pressed on the Referee
+   *  Card. v1 deep-links to the existing composer entry point; REF-004 swaps
+   *  the surface handler for full Act-popout routing (this leaf prop is
+   *  stable). Omitted → buttons render but pressing them is a no-op. */
+  onRefereeMove?: (move: MoveSuggestion) => void;
   testID?: string;
 }
 
@@ -927,6 +942,8 @@ export function CardDetailPanel({
   viewerRole,
   bubbleActor,
   onRailAction,
+  refereeCard,
+  onRefereeMove,
   testID,
 }: CardDetailPanelProps): React.ReactElement {
   const layout = hubColumnLayout(
@@ -996,6 +1013,21 @@ export function CardDetailPanel({
           onActivateAncestor={onActivateAncestor}
         />
       </View>
+      {/* REF-003 — the synthesized one-state Referee Card, a full-width band
+          ABOVE the raw classifier strip in BOTH the stacked and wide layouts
+          (REF-001's "synthesized layer above #504's raw classifier strip").
+          Renders only when the surface supplies a derived issue for the active
+          node; omitted → nothing (the slot is inert), so #504's five zones are
+          byte-unchanged. */}
+      {refereeCard != null ? (
+        <View style={styles.refereeCardSlot} testID="card-detail-referee-card-slot">
+          <RefereeCardView
+            issue={refereeCard}
+            onMove={onRefereeMove}
+            testID="referee-card-view"
+          />
+        </View>
+      ) : null}
       {renderOrder.map((region) => regionFor(region))}
     </View>
   );
@@ -1020,6 +1052,14 @@ const styles = StyleSheet.create({
   // the entire first flex row in the wide layout so the three columns wrap
   // beneath it; in the stacked layout it is simply the first column-child.
   parentBubbleSlot: {
+    flexBasis: '100%',
+    width: '100%',
+  },
+  // REF-003 — the full-width slot that holds the synthesized Referee Card.
+  // `flexBasis: '100%'` forces the slot to take the entire flex row in the
+  // wide layout so the render-order columns wrap BENEATH it (the card sits
+  // above the raw classifier strip in both layouts).
+  refereeCardSlot: {
     flexBasis: '100%',
     width: '100%',
   },
