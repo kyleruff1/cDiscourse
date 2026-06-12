@@ -27,6 +27,7 @@ import { CardDetailPanel } from './cardView/CardDetailPanel';
 import type { CardDetailViewModel } from './cardView/cardDetailModel';
 import type { CardMappingSectionModel } from './cardView/cardMappingSectionModel';
 import type { RailActionCode, RailViewerRole } from './railActionCategories';
+import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
 
 interface Props {
   viewModel: ArgumentBubbleViewModel;
@@ -56,6 +57,13 @@ interface Props {
    *  the SAME path the side rail uses. Forwarded to the panel's inline
    *  ActionsZone; absent → no ActionsZone. */
   onRailAction?: (code: RailActionCode, ctx: { activeMessageId: string | null }) => void;
+  /** REF-003 — derived Open Issue for the active node. Forwarded into the
+   *  CardDetailPanel's Referee Card slot ONLY when showCardDetail (active
+   *  card). Omitted / non-active → no Referee Card. */
+  refereeCard?: DisagreementContract | null;
+  /** REF-003 — zone-3 move dispatch; bound to this card's messageId, mirroring
+   *  the onRailAction closure. */
+  onRefereeMove?: (move: MoveSuggestion, ctx: { activeMessageId: string | null }) => void;
 }
 
 export function ArgumentBubbleCard({
@@ -70,6 +78,8 @@ export function ArgumentBubbleCard({
   maxHeight,
   viewerRole,
   onRailAction,
+  refereeCard,
+  onRefereeMove,
 }: Props) {
   const isOwn = vm.actor === 'self';
   // CARD-VIEW-DATA-001 — the exploded detail renders only on the active
@@ -160,6 +170,14 @@ export function ArgumentBubbleCard({
             onRailAction={
               onRailAction
                 ? (code) => onRailAction(code, { activeMessageId: vm.messageId })
+                : undefined
+            }
+            // REF-003 — the active node's derived issue + its zone-3 move
+            // dispatch, bound to this card's messageId exactly as onRailAction.
+            refereeCard={refereeCard ?? null}
+            onRefereeMove={
+              onRefereeMove
+                ? (move) => onRefereeMove(move, { activeMessageId: vm.messageId })
                 : undefined
             }
             testID={`card-detail-panel-${vm.messageId}`}

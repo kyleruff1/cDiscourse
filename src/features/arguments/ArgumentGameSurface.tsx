@@ -163,10 +163,19 @@ import type { ArgumentType as ConstitutionArgumentType } from '../../domain/cons
 import {
   NodeLabelInspectGroups,
   NodeLabelStrip,
+  adaptAllSourcesForNode,
   adaptSemanticRefereeSourceComposer,
   toAnnotationChipDescriptors,
 } from '../nodeLabels';
 import type { AnnotationChipDescriptor } from '../nodeAnnotations';
+// REF-003 — Referee Card surface for the ACTIVE node. The surface derives the
+// Open Issue (Disagreement Contract) at render time from data it already holds
+// (no fetch, no Edge read, no classifier call, no persistence) via the pure
+// assembly helper, then the shipped REF-002 `buildOpenIssue`. The card is
+// advisory and NEVER in any submit path.
+import { buildOpenIssue } from '../refereeLoop';
+import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
+import { buildRefereeCardInput } from './cardView/refereeCardAssembly';
 
 interface Props {
   debate: {
@@ -960,6 +969,145 @@ export function ArgumentGameSurface({
     return 'participant_other';
   }, [resolvedViewerRole, activeViewModel?.actor]);
 
+  // ── REF-003 — Referee Card issue for the ACTIVE node ──
+  //
+  // DERIVED-ONLY, POST-STORAGE, DISPLAY-ONLY. Memoized on the SAME upstream
+  // maps as `activeCardDetail` (+ the constitution rules + the refereeBanner
+  // prop) so a late classifier result (a new `persistedObservationsByArgumentId`
+  // entry or an updated `refereeBanner`) re-derives the card on the next
+  // render — no imperative refresh, no subscription. The assembly helper is
+  // pure (no fetch, no Edge, no classifier call); REF-002's `buildOpenIssue`
+  // runs the Act / suggested joins internally with the engine + role hard
+  // gates. The card is NEVER in any submit path. `null` when no active node.
+  const refereeCardIssue = useMemo<DisagreementContract | null>(() => {
+    if (!activeMessageId) return null;
+
+    const lifecycleSnapshot = lifecycleMap.byMessage.get(activeMessageId) ?? null;
+    const clusterId = lifecycleSnapshot?.clusterId ?? null;
+    const clusterSummary = clusterId
+      ? lifecycleMap.byCluster.get(clusterId) ?? null
+      : null;
+    const clusterMetadata = clusterId
+      ? metadataLedger.byCluster.get(clusterId) ?? null
+      : null;
+    const moveLinkage = metadataLedger.byMessage.get(activeMessageId) ?? null;
+
+    // All debts attached to the node; the assembly helper OPEN-filters.
+    const nodeDebts = getNodeEvidenceDebtSummary(activeMessageId, evidenceDebts).debts;
+
+    // Source-chain status — the cluster's worst evidence status (a real
+    // SourceChainStatus); null when no cluster summary exists. (The per-node
+    // TimelineEvidenceContract carries the shape/ring flags, not a status
+    // enum, so the cluster summary is the in-scope SourceChainStatus source.)
+    const sourceChainStatus = clusterSummary?.worstEvidenceStatus ?? null;
+
+    // Side comparison vs the parent (off the stored rows). Conservative
+    // `false` when either side is unknown — side alone never implies support.
+    const activeMsg = sorted.find((m) => m.id === activeMessageId) ?? null;
+    const parentMsg =
+      activeMsg && activeMsg.parentId
+        ? sorted.find((m) => m.id === activeMsg.parentId) ?? null
+        : null;
+    const sameSideAsParent =
+      activeMsg != null &&
+      parentMsg != null &&
+      activeMsg.side != null &&
+      parentMsg.side != null &&
+      activeMsg.side === parentMsg.side;
+
+    // carriesSupportEvidence — has support artifacts AND is evidence-shaped.
+    const artifacts = artifactsByMessageId[activeMessageId] ?? [];
+    const carriesSupportEvidence =
+      artifacts.length > 0 && activeMsg?.argumentType === 'evidence';
+
+    const manualTagEntries = manualTagsByMessageId.get(activeMessageId) ?? [];
+    const manualTagCodes = manualTagEntries.map((e) => e.code);
+    const autoMetadataCodes =
+      metadataLedger.byMessage
+        .get(activeMessageId)
+        ?.autoDerivedMetadata.map((entry) => entry.code) ?? [];
+
+    // Adapt the per-node marks at the PUBLIC `timeline_node` surface (already
+    // Family-J-gated, highest confidence floor) — the SAME surface
+    // NodeLabelStrip uses, NOT the composer surface. Split machine-kind vs
+    // user-kind (REF-002 keeps Observations and Allegations separate; the card
+    // renders zero Allegations).
+    const perNode = adaptAllSourcesForNode({
+      manualTagEntries,
+      autoMetadataCodes,
+      clusterState: lifecycleSnapshot?.clusterState ?? 'open',
+      messageContribution: lifecycleSnapshot?.messageContribution ?? null,
+      messageId: activeMessageId,
+      persistedClassifierRows:
+        persistedObservationsByArgumentId?.[activeMessageId] ?? [],
+      surface: 'timeline_node',
+    });
+    const machineObservationMarks = [
+      ...perNode.autoMetadataMarks,
+      ...perNode.lifecycleMarks,
+      ...perNode.rawClassifierMarks,
+    ];
+    const userAllegationMarks = perNode.manualTagMarks;
+
+    // Reserved / conservative suggestion inputs (the `SuggestionDerivationInput`
+    // contract marks them "reserved"; zone 3 pads regardless).
+    const activeNode =
+      timelineMap.nodes.find((n) => n.messageId === activeMessageId) ?? null;
+    const isOnSideBranch = activeNode ? activeNode.lane !== 0 : false;
+    const isTangent =
+      manualTagCodes.includes('tangent') ||
+      autoMetadataCodes.includes('branch_suggested');
+    const activePathDepth = activeNode?.depth ?? 0;
+    const isNoRebuttal =
+      Boolean(lifecycleSnapshot?.opensRequest) ||
+      autoMetadataCodes.includes('no_response_after_n_turns');
+
+    const assembled = buildRefereeCardInput({
+      roomId: debate.id,
+      activeMessageId,
+      storedArgumentType: (activeMsg?.argumentType ?? null) as ArgumentType | null,
+      parentType: activeParentType,
+      sameSideAsParent,
+      carriesSupportEvidence,
+      viewerRole: boardActRole,
+      rules: constitution.activeRules,
+      lifecycleSnapshot,
+      clusterSummary,
+      clusterMetadata,
+      moveLinkage,
+      openEvidenceDebts: nodeDebts,
+      sourceChainStatus,
+      manualTagCodes,
+      autoMetadataCodes,
+      machineObservationMarks,
+      userAllegationMarks,
+      bannerSelection: refereeBanner ?? null,
+      targetExcerpt: activeMsg?.body ?? null,
+      quoteAnchor: null,
+      isOnSideBranch,
+      isTangent,
+      activePathDepth,
+      isNoRebuttal,
+    });
+    if (!assembled) return null;
+    return buildOpenIssue(assembled);
+  }, [
+    activeMessageId,
+    lifecycleMap,
+    metadataLedger,
+    evidenceDebts,
+    sorted,
+    artifactsByMessageId,
+    manualTagsByMessageId,
+    persistedObservationsByArgumentId,
+    timelineMap,
+    activeParentType,
+    boardActRole,
+    constitution.activeRules,
+    refereeBanner,
+    debate.id,
+  ]);
+
   // "Acting on" label for the board-level Act mount. The composer's
   // `composerActingOnModel.deriveComposerActingOnLabel` is the same
   // helper UX-001.3's `ComposerContextStrip` consumes; reusing it
@@ -1228,6 +1376,25 @@ export function ArgumentGameSurface({
     const ctrl = railActionToBubbleControl(code);
     if (ctrl && ctx.activeMessageId) handleAction(ctrl, ctx.activeMessageId);
   }, [onJoinSide, onShareRoom, mode, handleAction]);
+
+  // REF-003 — zone-3 next-move dispatch from the Referee Card. v1 deep-links
+  // through the EXISTING composer entry point the board-level Act mount
+  // already uses: `actEntryToQuickAction` → `quickActionToPreset` →
+  // `handleAction('reply', …, preset)` (no new composer path, no new preset).
+  // When `actEntryToQuickAction` has no mapping (a governance entry) the
+  // handler is a no-op — such a move never appears as a button anyway
+  // (`nextBestMoves` is the constructive subset). REF-004 swaps THIS handler
+  // body for full Act-popout routing; the leaf `RefereeCardView.onMove`
+  // contract is unchanged.
+  const handleRefereeMove = useCallback(
+    (move: MoveSuggestion, _ctx: { activeMessageId: string | null }) => {
+      const quickAction = actEntryToQuickAction(move.actEntryId);
+      if (quickAction === null) return;
+      const preset = quickActionToPreset(quickAction as QuickActionLabel, activeParentType);
+      handleAction('reply', activeMessageId ?? '', preset);
+    },
+    [activeMessageId, activeParentType, handleAction],
+  );
 
   const handleDeletionSuccess = useCallback(() => {
     // Caller is responsible for re-fetching deletionRequestedMap; we just close.
@@ -1598,6 +1765,12 @@ export function ArgumentGameSurface({
               // MOVES (Constitution-governed), not classifier verdicts.
               viewerRole={resolvedViewerRole}
               onRailAction={handleRailAction}
+              // REF-003 — the synthesized Referee Card for the active card,
+              // derived POST-STORAGE above. Display-only; the Stack forwards it
+              // to the active card only. Zone-3 moves deep-link through the
+              // existing composer entry point (handleRefereeMove).
+              activeRefereeCard={refereeCardIssue}
+              onRefereeMove={handleRefereeMove}
             />
             {/* Stage 6.4: legacy chip cluster is hidden in observer mode;
                 the action rail below is the single entry point for both

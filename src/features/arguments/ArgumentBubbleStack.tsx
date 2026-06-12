@@ -32,6 +32,7 @@ import {
 import type { CardDetailViewModel } from './cardView/cardDetailModel';
 import type { CardMappingSectionModel } from './cardView/cardMappingSectionModel';
 import type { RailActionCode, RailViewerRole } from './railActionCategories';
+import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
 
 interface Props {
   viewModels: ArgumentBubbleViewModel[];
@@ -70,6 +71,16 @@ interface Props {
     code: RailActionCode,
     ctx: { activeMessageId: string | null },
   ) => void;
+  /** REF-003 — derived Open Issue for the ACTIVE card. The Stack computes
+   *  nothing; it forwards this to the active card only
+   *  (`t.isActive ? activeRefereeCard : null`), mirroring activeCardDetail.
+   *  Omitted → no Referee Card. */
+  activeRefereeCard?: DisagreementContract | null;
+  /** REF-003 — zone-3 move dispatch for the active card; pure pass-through. */
+  onRefereeMove?: (
+    move: MoveSuggestion,
+    ctx: { activeMessageId: string | null },
+  ) => void;
 }
 
 export function ArgumentBubbleStack({
@@ -85,6 +96,8 @@ export function ArgumentBubbleStack({
   windowWidth,
   viewerRole,
   onRailAction,
+  activeRefereeCard,
+  onRefereeMove,
 }: Props) {
   const activeIndex = useMemo(() => {
     const i = viewModels.findIndex((v) => v.messageId === activeMessageId);
@@ -193,6 +206,11 @@ export function ArgumentBubbleStack({
                 // card only). Pure pass-through; absent → no ActionsZone.
                 viewerRole={t.isActive ? viewerRole : undefined}
                 onRailAction={t.isActive ? onRailAction : undefined}
+                // REF-003 — the synthesized Referee Card + its zone-3 move
+                // dispatch, forwarded to the active card only (same gating as
+                // the detail model).
+                refereeCard={t.isActive ? activeRefereeCard : null}
+                onRefereeMove={t.isActive ? onRefereeMove : undefined}
               />
             </View>
           );
