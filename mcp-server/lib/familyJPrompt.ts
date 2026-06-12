@@ -54,6 +54,7 @@
  *     credits engagement, never assigns truth value.
  */
 import { FAMILY_J_PROMPT_ENTRIES, FAMILY_J_RAW_KEYS } from './familyJKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /** MAX_TOKENS for the Family J response. 5 keys; positives are sparse. */
 export const FAMILY_J_MAX_TOKENS = 1500;
@@ -219,10 +220,11 @@ export const FAMILY_J_SPAN_REMINDERS: Readonly<Record<string, string>> = Object.
  *      (the structural-feature↔characterization doctrine anchors)
  *   4. Pre-emit FINAL CHECK block (BINDING): before emitting, re-scan EVERY
  *      evidenceSpan against the banned person-directed terms; narrow or flip to
- *      false. Positioned as the lead-in to the response-shape instruction so it is
- *      the LAST instruction the model reads before producing the JSON (the #388
- *      order-sensitivity mitigation's second leg).
- *   5. Response-shape instruction (verbatim JSON example, classifierSetVersion family-j-v1)
+ *      false. Positioned as the doctrine-scan lead-in to the response-shape example
+ *      (the #388 order-sensitivity mitigation's second leg); the shared modelInfo
+ *      emission directive then sits between this block and the JSON example.
+ *   5. Shared modelInfo emission directive, then the response-shape instruction
+ *      (verbatim JSON example, classifierSetVersion family-j-v1)
  *   6. Conservative-positives bias reminder (0 to 1 features)
  *   7. The slur-in-input handling instruction (detect the feature, never echo the slur)
  *   8. The SPAN-SELECTION RULE block (BINDING, all J keys): shortest sub-span →
@@ -326,6 +328,8 @@ JSON object — no prose, no markdown, no code fence, no chain-of-thought.
 FINAL CHECK (BINDING): before emitting, re-scan EVERY evidenceSpan value you are about to output
 against the banned person-directed terms; if ANY span contains one, NARROW that span or flip that
 key to false. An output with even one unclean span is rejected whole.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}

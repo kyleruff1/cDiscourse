@@ -51,6 +51,7 @@
  *     advisory; popularity / engagement is NOT evidence.
  */
 import { FAMILY_D_PROMPT_ENTRIES, FAMILY_D_RAW_KEYS } from './familyDKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /**
  * MAX_TOKENS for the Family D response. Per Stage 2B operator decision:
@@ -158,7 +159,7 @@ export interface ValidatedFamilyDRequest {
  *   2. Definitions + examples + false-positive guards block (one per requested key)
  *   3. Note about Subset path (8 deterministic keys excluded; classifier does NOT see them)
  *   4. Note about anti-amplification anchor and doctrine-risk keys
- *   5. Response-shape instruction (verbatim JSON example)
+ *   5. Shared modelInfo emission directive, then the response-shape instruction (verbatim JSON example)
  *   6. Conservative-positives bias reminder (0 to 3 evidence signals)
  *   7. The input (move text, parent text, thread context)
  *
@@ -257,6 +258,8 @@ been said elsewhere. None of these is a verdict on either participant.
 Answer each evidence-source-chain question above with true or false for
 the move below. Return ONLY a single JSON object — no prose, no markdown,
 no code fence, no chain-of-thought.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}

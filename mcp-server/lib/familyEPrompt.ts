@@ -36,6 +36,7 @@
  *     scheme; critical question lives in Family F.
  */
 import { FAMILY_E_PROMPT_ENTRIES, FAMILY_E_RAW_KEYS } from './familyEKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /** MAX_TOKENS for the Family E response. 19 keys × ~85 tokens + overhead. */
 export const FAMILY_E_MAX_TOKENS = 1500;
@@ -138,7 +139,7 @@ export interface ValidatedFamilyERequest {
  *   2. Definitions + examples + false-positive guards block (one per requested key)
  *   3. Note about scheme-as-descriptive cross-key framing (doctrine anchors for
  *      slippery_slope / abductive / analogy)
- *   4. Response-shape instruction (verbatim JSON example)
+ *   4. Shared modelInfo emission directive, then the response-shape instruction (verbatim JSON example)
  *   5. Conservative-positives bias reminder (0 to 2 schemes)
  *   6. The input (move text, parent text, thread context)
  *
@@ -224,6 +225,8 @@ a SCHEME, not a fallacy. analogy_reasoning_present is a SCHEME (Walton), not a f
 
 Answer each argument-scheme question above with true or false for the move below.
 Return ONLY a single JSON object — no prose, no markdown, no code fence, no chain-of-thought.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}

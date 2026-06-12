@@ -49,6 +49,7 @@
  *   verdict-adjacent candidate `repeats_prior_point` before this card.)
  */
 import { FAMILY_I_PROMPT_ENTRIES, FAMILY_I_RAW_KEYS } from './familyIKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /** MAX_TOKENS for the Family I response. 6 keys; positives are sparse. */
 export const FAMILY_I_MAX_TOKENS = 1500;
@@ -171,7 +172,7 @@ export interface ValidatedFamilyIRequest {
  *   2. Definitions + examples + false-positive guards block (one per requested key)
  *   3. Note about thread-topology-as-descriptive-structure cross-key framing
  *      (the topology↔verdict doctrine anchors)
- *   4. Response-shape instruction (verbatim JSON example)
+ *   4. Shared modelInfo emission directive, then the response-shape instruction (verbatim JSON example)
  *   5. Conservative-positives bias reminder (0 to 2 relations)
  *   6. The input (move text, parent text, thread context)
  *
@@ -260,6 +261,8 @@ adjudication of which option wins.
 Answer each thread-topology question above with true (the move exhibits the relation) or false
 (the relation is absent OR not applicable to this move) for the move below. Return ONLY a
 single JSON object — no prose, no markdown, no code fence, no chain-of-thought.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}

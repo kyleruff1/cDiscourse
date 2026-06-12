@@ -22,6 +22,7 @@
  *     module is server-side only; never imported into src/ or app/.
  */
 import { FAMILY_A_PROMPT_ENTRIES, FAMILY_A_RAW_KEYS } from './familyAKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /** MAX_TOKENS for the Family A response. 19 keys × ~80 tokens + overhead. */
 export const FAMILY_A_MAX_TOKENS = 1500;
@@ -94,7 +95,7 @@ export interface ValidatedFamilyARequest {
  *   1. Structural questions block (rawKey: booleanQuestion for each requested key)
  *   2. Definitions + examples + false-positive guards block (one per requested key)
  *   3. Note about has_rebuttal / has_counter_rebuttal / rebutted limitations
- *   4. Response-shape instruction (verbatim JSON example)
+ *   4. Shared modelInfo emission directive, then the response-shape instruction (verbatim JSON example)
  *   5. Conservative-positives bias reminder
  *   6. The input (move text, parent text, thread context)
  *
@@ -176,6 +177,8 @@ skip your judgement.
 
 Answer each structural question above with true or false for the move below.
 Return ONLY a single JSON object — no prose, no markdown, no code fence, no chain-of-thought.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}

@@ -32,6 +32,7 @@
  *     per-rawKey prompt entry's `falsePositiveGuards` field.
  */
 import { FAMILY_B_PROMPT_ENTRIES, FAMILY_B_RAW_KEYS } from './familyBKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /** MAX_TOKENS for the Family B response. 17 keys × ~80 tokens + overhead. */
 export const FAMILY_B_MAX_TOKENS = 1500;
@@ -118,7 +119,7 @@ export interface ValidatedFamilyBRequest {
  *   1. Disagreement-axis questions block (rawKey: booleanQuestion for each requested key)
  *   2. Definitions + examples + false-positive guards block (one per requested key)
  *   3. Note about umbrella + 13 sub-axes (replaces Family A's auto_metadata note)
- *   4. Response-shape instruction (verbatim JSON example)
+ *   4. Shared modelInfo emission directive, then the response-shape instruction (verbatim JSON example)
  *   5. Conservative-positives bias reminder (0 to 3 disagreement sub-axes)
  *   6. The input (move text, parent text, thread context)
  *
@@ -207,6 +208,8 @@ when it genuinely applies. Answer each independently — do not auto-cascade.
 
 Answer each disagreement-axis question above with true or false for the move below.
 Return ONLY a single JSON object — no prose, no markdown, no code fence, no chain-of-thought.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}
