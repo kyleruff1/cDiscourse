@@ -59,6 +59,14 @@ import { BANNER_TONE_GLYPH_CHAR } from '../../refereeBanners/RefereeBannerView';
  */
 export const REFEREE_CARD_EMPTY_STATE = 'No referee notes yet on this move.';
 
+/**
+ * REF-004 — the two non-Act navigation verbs the card's secondary affordance
+ * row dispatches: open Inspect on the active node, or focus the board on the
+ * issue. Combined under ONE optional `onRefereeNavigate` prop to keep the
+ * additive plumbing footprint to one prop per level.
+ */
+export type RefereeNavVerb = 'inspect' | 'focus_on_board';
+
 export interface RefereeCardViewProps {
   /** The REF-002 derived issue for the ACTIVE node. The component derives the
    *  RefereeCardViewModel via the shipped `buildRefereeCardViewModel`. */
@@ -66,6 +74,10 @@ export interface RefereeCardViewProps {
   /** v1 deep-link handler for a zone-3 move button. REF-004 swaps the surface
    *  implementation for full Act-popout routing; this leaf signature is stable. */
   onMove?: (move: MoveSuggestion) => void;
+  /** REF-004 — secondary navigation affordances (Inspect / Focus on board).
+   *  When omitted, the secondary row does not render → byte-equivalent to
+   *  REF-003 (pinned by the REF-003 direct-render suites). */
+  onRefereeNavigate?: (verb: RefereeNavVerb) => void;
   /** Accepted for parity; the card never animates (reduce-motion is a no-op). */
   reduceMotionOverride?: boolean;
   testID?: string;
@@ -74,6 +86,7 @@ export interface RefereeCardViewProps {
 export function RefereeCardView({
   issue,
   onMove,
+  onRefereeNavigate,
   reduceMotionOverride,
   testID,
 }: RefereeCardViewProps): React.ReactElement | null {
@@ -101,6 +114,12 @@ export function RefereeCardView({
       : null;
 
   const hasMoves = vm.zone3Moves.length > 0;
+
+  // REF-004 — the secondary navigation affordance row renders only when the
+  // surface opts in by supplying `onRefereeNavigate`. "Focus on board" is
+  // additionally gated on a real target node (nothing to jump to otherwise).
+  const showNav = onRefereeNavigate != null;
+  const showFocus = showNav && issue.targetNodeId != null;
 
   return (
     <View
@@ -174,6 +193,38 @@ export function RefereeCardView({
               <Text style={styles.moveLabel}>{move.label}</Text>
             </Pressable>
           ))}
+        </View>
+      ) : null}
+
+      {/* REF-004 — secondary navigation affordance row (Inspect / Focus on
+          board). Visually subordinate to the zone-3 moves; wraps on narrow
+          viewports. Renders only when `onRefereeNavigate` is supplied. */}
+      {showNav ? (
+        <View style={styles.navRow} testID="referee-card-nav-row">
+          <Pressable
+            style={styles.navButton}
+            onPress={() => onRefereeNavigate?.('inspect')}
+            accessibilityRole="button"
+            accessibilityLabel="View the full detail for this open issue"
+            accessibilityState={{ disabled: false }}
+            hitSlop={TOUCH_TARGET.hitSlopAll}
+            testID="referee-card-nav-inspect"
+          >
+            <Text style={styles.navLabel}>View details</Text>
+          </Pressable>
+          {showFocus ? (
+            <Pressable
+              style={styles.navButton}
+              onPress={() => onRefereeNavigate?.('focus_on_board')}
+              accessibilityRole="button"
+              accessibilityLabel="Focus the board on this open issue"
+              accessibilityState={{ disabled: false }}
+              hitSlop={TOUCH_TARGET.hitSlopAll}
+              testID="referee-card-nav-focus"
+            >
+              <Text style={styles.navLabel}>Focus on board</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -250,5 +301,29 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.popoutBody.fontSize,
     lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
     fontWeight: '700',
+  },
+  // REF-004 — secondary affordance row. Subordinate to the zone-3 moves:
+  // transparent fill + lighter border + secondary text + chip-size label.
+  navRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  navButton: {
+    minHeight: TOUCH_TARGET.minSizePx,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.s,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.md,
+    borderWidth: BORDER_WIDTH.sm,
+    borderColor: SURFACE_TOKENS.border,
+    backgroundColor: 'transparent',
+  },
+  navLabel: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '600',
   },
 });

@@ -137,6 +137,9 @@ import type {
 } from './oneBox/actPopoutModel';
 import { actEntryToQuickAction } from './oneBox/actPopoutModel';
 import type { GoJumpTarget, GoLens } from './oneBox/goPopoutModel';
+// REF-004 — map an active Open Issue's IssueState onto an existing Go lens
+// (dims, never hides). Pure model addition; no new FocusLensId.
+import { issueStateToGoLens } from './oneBox/goPopoutModel';
 import { quickActionToPreset, type QuickActionLabel } from './quickActionPresets';
 import { deriveComposerActingOnLabel } from './composer/composerActingOnModel';
 import { useConstitution } from './useConstitution';
@@ -176,6 +179,11 @@ import type { AnnotationChipDescriptor } from '../nodeAnnotations';
 import { buildOpenIssue } from '../refereeLoop';
 import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
 import { buildRefereeCardInput } from './cardView/refereeCardAssembly';
+// REF-004 — the Inspect-only Open Issue detail sibling overlay + the Referee
+// Card navigation-verb type. The overlay is the single home for the issue's
+// raw provenance; it mounts beside the existing Inspect sibling overlays.
+import { InspectOpenIssueDetail } from './cardView/InspectOpenIssueDetail';
+import type { RefereeNavVerb } from './cardView/RefereeCardView';
 
 interface Props {
   debate: {
@@ -1377,23 +1385,37 @@ export function ArgumentGameSurface({
     if (ctrl && ctx.activeMessageId) handleAction(ctrl, ctx.activeMessageId);
   }, [onJoinSide, onShareRoom, mode, handleAction]);
 
-  // REF-003 — zone-3 next-move dispatch from the Referee Card. v1 deep-links
-  // through the EXISTING composer entry point the board-level Act mount
-  // already uses: `actEntryToQuickAction` → `quickActionToPreset` →
-  // `handleAction('reply', …, preset)` (no new composer path, no new preset).
-  // When `actEntryToQuickAction` has no mapping (a governance entry) the
-  // handler is a no-op — such a move never appears as a button anyway
-  // (`nextBestMoves` is the constructive subset). REF-004 swaps THIS handler
-  // body for full Act-popout routing; the leaf `RefereeCardView.onMove`
-  // contract is unchanged.
-  const handleRefereeMove = useCallback(
-    (move: MoveSuggestion, _ctx: { activeMessageId: string | null }) => {
-      const quickAction = actEntryToQuickAction(move.actEntryId);
-      if (quickAction === null) return;
-      const preset = quickActionToPreset(quickAction as QuickActionLabel, activeParentType);
+  // REF-004 — the SINGLE Act entry→box bridge. Extracted verbatim from the
+  // board-Act `handleBoardActSelectBoxType` body so "Act changes the issue" is
+  // ONE code path: `actEntryToQuickAction(entryId)` → `quickActionToPreset` →
+  // `handleAction('reply', activeMessageId ?? '', preset)` (the EXISTING
+  // composer-open path; no submit, no new preset, no new fetch, no engine/role
+  // gate call). A `null` quickAction (the non-padded `reply` /
+  // `respond_to_concession` / `offer_concession` entries) opens the composer
+  // with no forced preset — identical to the board Act path.
+  const enterBoxForActEntry = useCallback(
+    (entryId: ActEntryId) => {
+      const quickAction = actEntryToQuickAction(entryId);
+      const preset =
+        quickAction !== null
+          ? quickActionToPreset(quickAction as QuickActionLabel, activeParentType)
+          : null;
       handleAction('reply', activeMessageId ?? '', preset);
     },
     [activeMessageId, activeParentType, handleAction],
+  );
+
+  // REF-003 → REF-004 — zone-3 next-move dispatch from the Referee Card, now
+  // routed through the SAME `enterBoxForActEntry` bridge the board Act mount
+  // uses (no parallel composer path). Recovery routes (`branch_tangent`,
+  // engine-valid by construction) arrive here too and enter the engine-valid
+  // branch box. The leaf `RefereeCardView.onMove` signature is unchanged
+  // (REF-003 handler-swap contract).
+  const handleRefereeMove = useCallback(
+    (move: MoveSuggestion, _ctx: { activeMessageId: string | null }) => {
+      enterBoxForActEntry(move.actEntryId);
+    },
+    [enterBoxForActEntry],
   );
 
   const handleDeletionSuccess = useCallback(() => {
@@ -1428,30 +1450,16 @@ export function ArgumentGameSurface({
 
   const handleBoardActSelectBoxType = useCallback(
     (entryId: ActEntryId) => {
-      // box-opening entries map to a QuickActionLabel via the existing
-      // pure helper; the host (App.tsx) consumes the preset via its
-      // composer-preset state. For `reply` / `offer_concession` /
-      // `respond_to_concession` the helper returns null — the composer
-      // opens with no forced preset.
-      const quickAction = actEntryToQuickAction(entryId);
-      const preset =
-        quickAction !== null
-          ? quickActionToPreset(quickAction as QuickActionLabel, activeParentType)
-          : null;
-      // Route through handleAction so the existing composer flow
-      // (replyTarget + composer mode + draft registry) picks up the
-      // preset. `reply` is the canonical control name the room shell
-      // already uses to mean "open the composer for this message".
-      if (activeMessageId) {
-        handleAction('reply', activeMessageId, preset);
-      } else {
-        // No active node: target the room itself. The existing
-        // composer flow handles this via composerPreset.
-        handleAction('reply', '', preset);
-      }
+      // REF-004 — delegate to the shared `enterBoxForActEntry` bridge (the
+      // extracted body: actEntryToQuickAction(entryId) → quickActionToPreset →
+      // handleAction('reply', activeMessageId ?? '', preset)), then close the
+      // board Act menu. Behavior is byte-equivalent to the pre-REF-004 inline
+      // body (the prior `if (activeMessageId) … else handleAction('reply', '',
+      // …)` collapses to `activeMessageId ?? ''`).
+      enterBoxForActEntry(entryId);
       setBoardActVisible(false);
     },
-    [activeMessageId, activeParentType, handleAction],
+    [enterBoxForActEntry],
   );
 
   const handleBoardActDirectAction = useCallback(
@@ -1529,6 +1537,44 @@ export function ArgumentGameSurface({
       setGoVisible(false);
     },
     [latestId, timelineMap.rootMessageId],
+  );
+
+  // REF-004 — Inspect handoff. Opens the EXISTING Inspect popout on the active
+  // node; the InspectOpenIssueDetail sibling overlay (gated on inspectVisible +
+  // the active issue) then renders the issue's full detail + its Inspect-only
+  // raw provenance. Read-only for every role (no Act routing fires here).
+  const handleRefereeInspect = useCallback(() => {
+    setInspectVisible(true);
+  }, []);
+
+  // REF-004 — Go handoff. Jumps to the issue's target node and focuses the
+  // board by the issue's state-derived lens (`issueStateToGoLens`). A lens DIMS
+  // timeline nodes, so the board is switched to timeline view first; the lens
+  // can never hide a node (shipped applyTimelineLens has no 'hidden' emphasis).
+  // The affordance hides when `targetNodeId == null`, so this is never reached
+  // with a null target — the guard is defensive. Reads ONLY the procedural
+  // IssueState (no heat / popularity / strength signal).
+  const handleRefereeFocusIssue = useCallback(() => {
+    const issue = refereeCardIssue;
+    if (issue == null || issue.targetNodeId == null) return;
+    // Jump half — the existing activation path (mirrors handleGoJump).
+    setActiveMessageId(issue.targetNodeId);
+    setSelectionStatus('explicit');
+    setMicroMomentDismissed(true);
+    // A lens dims TIMELINE nodes — the board must be in timeline view to read.
+    if (mode !== 'timeline') setMode('timeline');
+    // Filter half — the existing setGoLens path the GoPopout's onSelectLens uses.
+    setGoLens(issueStateToGoLens(issue.state));
+  }, [refereeCardIssue, mode]);
+
+  // REF-004 — thin dispatcher threading the two non-Act verbs through the
+  // single `onRefereeNavigate` prop the plumbing chain carries.
+  const handleRefereeNavigate = useCallback(
+    (verb: RefereeNavVerb, _ctx: { activeMessageId: string | null }) => {
+      if (verb === 'inspect') handleRefereeInspect();
+      else handleRefereeFocusIssue();
+    },
+    [handleRefereeInspect, handleRefereeFocusIssue],
   );
 
   // ── UX-001.4 — A / I / G keyboard handler (web only) ──
@@ -1771,6 +1817,10 @@ export function ArgumentGameSurface({
               // existing composer entry point (handleRefereeMove).
               activeRefereeCard={refereeCardIssue}
               onRefereeMove={handleRefereeMove}
+              // REF-004 — Inspect ("View details") + Go ("Focus on board")
+              // verbs. Routes to the existing Inspect popout / setGoLens path;
+              // no new write path.
+              onRefereeNavigate={handleRefereeNavigate}
             />
             {/* Stage 6.4: legacy chip cluster is hidden in observer mode;
                 the action rail below is the single entry point for both
@@ -2118,6 +2168,18 @@ export function ArgumentGameSurface({
           messageId={activeMessageId}
           events={metadataLedger.metadataEvents}
           testID="metadata-diff-inspector"
+        />
+      ) : null}
+      {/* REF-004 — Open Issue Inspect detail. Mounted the SAME way as the two
+          overlays above: a self-contained, read-only sibling overlay gated on
+          Inspect being open AND an active issue. It is the SINGLE home for the
+          issue's raw provenance (issue.id + observation / allegation
+          sourceCodes) — REF-001's Inspect contract. The fixed 7-section
+          InspectPopout core is untouched. No Supabase, no fetch, no AI. */}
+      {inspectVisible && activeMessageId && refereeCardIssue != null ? (
+        <InspectOpenIssueDetail
+          issue={refereeCardIssue}
+          testID="ref004-inspect-open-issue-detail"
         />
       ) : null}
 

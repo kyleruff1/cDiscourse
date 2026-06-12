@@ -28,6 +28,7 @@ import type { CardDetailViewModel } from './cardView/cardDetailModel';
 import type { CardMappingSectionModel } from './cardView/cardMappingSectionModel';
 import type { RailActionCode, RailViewerRole } from './railActionCategories';
 import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
+import type { RefereeNavVerb } from './cardView/RefereeCardView';
 
 interface Props {
   viewModel: ArgumentBubbleViewModel;
@@ -64,6 +65,9 @@ interface Props {
   /** REF-003 — zone-3 move dispatch; bound to this card's messageId, mirroring
    *  the onRailAction closure. */
   onRefereeMove?: (move: MoveSuggestion, ctx: { activeMessageId: string | null }) => void;
+  /** REF-004 — Referee Card navigation verbs (Inspect / Focus on board); bound
+   *  to this card's messageId exactly as onRefereeMove. */
+  onRefereeNavigate?: (verb: RefereeNavVerb, ctx: { activeMessageId: string | null }) => void;
 }
 
 export function ArgumentBubbleCard({
@@ -80,6 +84,7 @@ export function ArgumentBubbleCard({
   onRailAction,
   refereeCard,
   onRefereeMove,
+  onRefereeNavigate,
 }: Props) {
   const isOwn = vm.actor === 'self';
   // CARD-VIEW-DATA-001 — the exploded detail renders only on the active
@@ -178,6 +183,13 @@ export function ArgumentBubbleCard({
             onRefereeMove={
               onRefereeMove
                 ? (move) => onRefereeMove(move, { activeMessageId: vm.messageId })
+                : undefined
+            }
+            // REF-004 — Inspect / Focus-on-board verbs, bound to this card's
+            // messageId exactly as onRefereeMove.
+            onRefereeNavigate={
+              onRefereeNavigate
+                ? (verb) => onRefereeNavigate(verb, { activeMessageId: vm.messageId })
                 : undefined
             }
             testID={`card-detail-panel-${vm.messageId}`}
