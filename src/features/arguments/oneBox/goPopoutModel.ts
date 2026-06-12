@@ -48,6 +48,10 @@ import {
   type GalleryDensityMode,
 } from '../timelineDensityLensModel';
 import type { BoxView } from './boxModel';
+// REF-004 — `IssueState` is a TYPE-ONLY import (erased at build → no runtime
+// coupling, no import cycle: goPopoutModel never appears in refereeLoop's
+// runtime graph). It keys `issueStateToGoLens` only.
+import type { IssueState } from '../../refereeLoop';
 
 /**
  * The two stage-lens `FocusLensId`s the Go popout maps onto — `needs_response`
@@ -292,6 +296,48 @@ export function goEntryToLens(entryId: GoEntryId): GoLens | null {
     default:
       return null;
   }
+}
+
+// ── Open-Issue state → Go lens (REF-004) ───────────────────────
+
+/**
+ * REF-004 — map an active Open Issue's `IssueState` onto the EXISTING Go
+ * lens that best focuses comparable nodes. The 8 states collapse onto the
+ * three timeline-meaningful Go lenses; NO new `FocusLensId`, NO
+ * `timelineDensityLensModel` change, NO new Go popout entry.
+ *
+ *   - `open`              → `unresolved`  (needs_response — dims to open states)
+ *   - `source_requested`  → `evidence`    (evidence_requested)
+ *   - `quote_requested`   → `evidence`    (evidence_requested)
+ *   - `answered`          → `active_path` (focus the path to the active node)
+ *   - `narrowed`          → `active_path` (focus the active issue branch)
+ *   - `conceded`          → `active_path`
+ *   - `synthesis_ready`   → `active_path` (focus the synthesis cluster path)
+ *   - `moved_on`          → `active_path` (branched/tangent → focus the branch)
+ *
+ * Doctrine (cdiscourse-doctrine §2/§3): reads ONLY the procedural
+ * `IssueState` — never heat, popularity, virality, or a strength band. The
+ * resulting `GoLens` is applied by the shipped `applyTimelineLens`, whose
+ * `LensEmphasis` is only `'bright' | 'dimmed'` — it DIMS, never hides.
+ */
+export const ISSUE_STATE_TO_GO_LENS: Readonly<Record<IssueState, GoLens>> = Object.freeze({
+  open: 'unresolved',
+  source_requested: 'evidence',
+  quote_requested: 'evidence',
+  answered: 'active_path',
+  narrowed: 'active_path',
+  conceded: 'active_path',
+  synthesis_ready: 'active_path',
+  moved_on: 'active_path',
+});
+
+/**
+ * Pure, total over `IssueState`. Returns an EXISTING `GoLens` (one of
+ * `active_path` / `unresolved` / `evidence` — all dim, never hide). No
+ * branch: a direct frozen-map lookup.
+ */
+export function issueStateToGoLens(state: IssueState): GoLens {
+  return ISSUE_STATE_TO_GO_LENS[state];
 }
 
 // ── Entry definitions ──────────────────────────────────────────

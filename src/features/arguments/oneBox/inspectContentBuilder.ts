@@ -30,6 +30,17 @@
 import type { SidecarViewModel } from '../argumentReplySidecarModel';
 import { toAnnotationChipDescriptors } from '../../nodeAnnotations/inspectSectionChipDescriptors';
 import type { InspectSectionContent } from './inspectPopoutModel';
+// REF-004 — the Open Issue's frozen plain-language label maps + the
+// `DisagreementContract` type. The runtime edge
+// `inspectContentBuilder → refereeLoop → {actPopoutModel, suggestedMovesModel}`
+// is acyclic (nothing in that chain imports inspectContentBuilder).
+import {
+  AXIS_LABEL,
+  BURDEN_LABEL,
+  ISSUE_STATE_LABEL,
+  RELATION_LABEL,
+  type DisagreementContract,
+} from '../../refereeLoop';
 
 /** Builder input — every field optional / nullable. */
 export interface InspectContentBuilderInput {
@@ -170,4 +181,61 @@ export function buildInspectContent(
   }
 
   return out;
+}
+
+// ── REF-004 — Open Issue Inspect detail (the raw-provenance home) ───
+
+/**
+ * REF-004 — the Open Issue's Inspect detail. REF-001's Inspect contract
+ * makes Inspect the ONLY home for raw family IDs / rawKeys / `sourceCode`s;
+ * this shape carries the issue's plain-language labels (top) PLUS the raw
+ * provenance that may appear nowhere else. It is consumed by the
+ * `InspectOpenIssueDetail` overlay, which renders inside Inspect only.
+ *
+ * Pure: consumes `DisagreementContract` fields verbatim; re-derives nothing.
+ * The plain-language lines read REF-002's frozen label maps (ban-list
+ * clean). `rawObservationCodes` (machine) and `rawAllegationCodes` (user)
+ * stay SEPARATE — Family J is already gated out of `refereeObservations`
+ * upstream by REF-002, so it can never reach `rawObservationCodes`.
+ */
+export interface InspectOpenIssueDetail {
+  /** Plain-language relation line (e.g. "Asks for source"). */
+  relationLine: string;
+  /** Plain-language axis line (e.g. "Evidence"). */
+  axisLine: string;
+  /** Plain-language burden line (e.g. "Source owed"). */
+  burdenLine: string;
+  /** Plain-language state line (e.g. "Source requested"). */
+  stateLine: string;
+  /** Raw issue id ("issue:<nodeId>:<relation>:<discriminator>") — Inspect-only. */
+  rawIssueId: string;
+  /** Machine Observation sourceCodes (banner/family codes) — Inspect-only. */
+  rawObservationCodes: ReadonlyArray<string>;
+  /** User Allegation sourceCodes — Inspect-only; kept separate from machine. */
+  rawAllegationCodes: ReadonlyArray<string>;
+  /** false → the overlay renders a one-line "no provenance" note. */
+  hasRawProvenance: boolean;
+}
+
+/**
+ * Build the Open Issue's Inspect detail. Total, pure — no AI, no network,
+ * no `Date.now()`. The raw codes it surfaces are rendered ONLY by the
+ * Inspect-gated `InspectOpenIssueDetail` overlay (never on the public card).
+ */
+export function buildInspectOpenIssueDetail(
+  issue: DisagreementContract,
+): InspectOpenIssueDetail {
+  const rawObservationCodes = issue.refereeObservations.map((o) => o.sourceCode);
+  const rawAllegationCodes = issue.userAllegations.map((a) => a.sourceCode);
+  return {
+    relationLine: RELATION_LABEL[issue.relationToParent],
+    axisLine: AXIS_LABEL[issue.axis],
+    burdenLine: BURDEN_LABEL[issue.burden],
+    stateLine: ISSUE_STATE_LABEL[issue.state],
+    rawIssueId: issue.id,
+    rawObservationCodes,
+    rawAllegationCodes,
+    hasRawProvenance:
+      rawObservationCodes.length > 0 || rawAllegationCodes.length > 0,
+  };
 }
