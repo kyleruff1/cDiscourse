@@ -375,3 +375,11 @@ See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur
 > `node scripts/github/agentIssueRunner.js ledger --dry` re-derives the Not-Started rows from open issues. Diff against `docs/product-status-ledger.md` and propose appended rows for any open issue that's missing.
 >
 > Also: for any row in the ledger whose status disagrees with the live GitHub Project (Status field), flag the disagreement and propose the correction. Do not edit the ledger automatically — append-only by hand after operator review.
+
+---
+
+## Prompt REF-1 — Launch the REF disagreement-loop slate (filed 2026-06-12)
+
+> The Disagreement-Loop / Referee-Surface slate is filed: REF-001 #584 · REF-002 #585 · REF-003 #586 · REF-004 #587 · REF-005 #588 · REF-006 #589 · REF-ADR-001 #590, all on Project #1 at Phase=Backlog.
+> Planning artifact: `docs/roadmap-expansions/2026-06-12-disagreement-loop-referee-surface-roadmap.md` (sequencing, DAG, doctrine constraints, operator launch checklist §12). Run index: `docs/designs/SPRINT-2026-06-12-REF-SLATE-INDEX.md`.
+> Next pipeline entry: `spawn-card.ps1 REF-001` (designer, GATE A). Optionally ratify REF-ADR-001 first — it is a soft, non-blocking input to REF-001.
