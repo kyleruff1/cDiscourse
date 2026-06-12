@@ -22,13 +22,17 @@
  * whole-packet scan can never diverge. A per-family `FamilyProviders` collector
  * field was REJECTED (it duplicates wiring per family for identical logic).
  *
- * Scope decision (J-only enablement on a shared mechanism): the mechanism is
- * family-agnostic, but key-level drop is ENABLED initially for Family J
- * (`sensitive_composer`) ONLY — `KEY_LEVEL_FAIL_CLOSED_FAMILIES`. J is
- * admin-validation-only (`productionEnabled:false`), so enabling key-level drop
- * for J has ZERO production blast radius. Widening to A–I (production-enabled)
- * is a separate, production-touching follow-up gated by its own
- * cdiscourse-doctrine §10a + production review.
+ * Scope (OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING): the mechanism is
+ * family-agnostic and key-level drop is now ENABLED for ALL TEN registered
+ * families (A–J) via `KEY_LEVEL_FAIL_CLOSED_FAMILIES`. The J-only first ship
+ * (PR #576) was live-proven on the admin-validation-only `sensitive_composer`
+ * family; this widening lifts that bound to the production families (A–I) after
+ * the live proof. Production semantics are IDENTICAL to J's — the only delta
+ * for the production families is that an unclean key now dies ALONE (clean
+ * siblings survive) instead of failing the whole packet, and the production
+ * queue-drainer path persists the drop names on its SUCCESS branch
+ * (`finalize_classifier_job` gains an additive `p_dropped_unclean_span_keys`).
+ * The §10a doctrine-review merge gate from the J card carries forward.
  *
  * Doctrine anchors:
  *   - cdiscourse-doctrine §1 — omission ASSERTS NOTHING; coerce-to-false (which
@@ -45,31 +49,85 @@
  */
 import type { McpBooleanObservationValidatedResponse } from './mcpBooleanObservationSchemaMirror.ts';
 import { DOCTRINE_BAN_PATTERNS } from './doctrineBanList.ts';
+import { FAMILY_E_BAN_PATTERNS } from './familyEBanListScan.ts';
+import { FAMILY_F_BAN_PATTERNS } from './familyFBanListScan.ts';
+import { FAMILY_G_BAN_PATTERNS } from './familyGBanListScan.ts';
+import { FAMILY_H_BAN_PATTERNS } from './familyHBanListScan.ts';
+import { FAMILY_I_BAN_PATTERNS } from './familyIBanListScan.ts';
 import { FAMILY_J_BAN_PATTERNS } from './familyJBanListScan.ts';
 
 /**
  * The family set for which an unclean evidenceSpan key is dropped by OMISSION
- * rather than failing the whole packet. Family J (`sensitive_composer`) only on
- * first ship — it is admin-validation-only, so this has zero production blast
- * radius. Widening is a separate review-gated follow-up.
+ * rather than failing the whole packet.
+ *
+ * OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING: extended from J-only to ALL TEN
+ * registered families (A–J). The J-only mechanism (PR #576) was live-proven on
+ * the admin-validation-only sensitive_composer family with zero production
+ * blast radius; this widening lifts that bound to the production families after
+ * the live proof. Production semantics are IDENTICAL to J's: every span is
+ * still scanned against the byte-unchanged ban-list, no unclean span ever
+ * reaches the wire / Edge / database / client, and the change is fail-CLOSED
+ * (an unclean key is omitted, never coerced into a fabricated finding). The
+ * difference for A–I is purely that an unclean key now dies ALONE (clean
+ * siblings survive) instead of killing the whole packet — and that the
+ * production queue-drainer path now persists the drop names on its SUCCESS
+ * branch (omission + alert-never-gate observability covers production volumes).
  */
 export const KEY_LEVEL_FAIL_CLOSED_FAMILIES: ReadonlySet<string> = new Set([
-  'sensitive_composer',
+  'parent_relation', // Family A
+  'disagreement_axis', // Family B
+  'misunderstanding_repair', // Family C
+  'evidence_source_chain', // Family D
+  'argument_scheme', // Family E
+  'critical_question', // Family F
+  'resolution_progress', // Family G
+  'claim_clarity', // Family H
+  'thread_topology', // Family I
+  'sensitive_composer', // Family J
 ]);
 
 /**
  * The combined ban-pattern set for a key-level-fail-closed family — the SAME
- * `[...DOCTRINE_BAN_PATTERNS, ...FAMILY_J_BAN_PATTERNS]` stack that
- * `scanFamilyJBooleanResponseForBanList` builds internally, so the per-key drop
- * decision and the whole-packet scan are constructed from the identical two
- * byte-unchanged exported constants and can never diverge. Returns `null` for a
- * family not in `KEY_LEVEL_FAIL_CLOSED_FAMILIES`.
+ * stack the family's `scanFamily<X>BooleanResponseForBanList` builds internally,
+ * so the per-key drop decision and the whole-packet scan are constructed from
+ * the identical byte-unchanged exported constants and can NEVER diverge (the
+ * design's no-divergence rule). Returns `null` for a family not in
+ * `KEY_LEVEL_FAIL_CLOSED_FAMILIES`.
+ *
+ * Pattern-stack provenance (verified against each scan module, byte-for-byte):
+ *   - A–D (parent_relation, disagreement_axis, misunderstanding_repair,
+ *     evidence_source_chain) scan with `DOCTRINE_BAN_PATTERNS` ALONE — those
+ *     four modules export no family-specific pattern array (none exists).
+ *   - E–J each scan with `[...DOCTRINE_BAN_PATTERNS, ...FAMILY_<X>_BAN_PATTERNS]`
+ *     and export their `FAMILY_<X>_BAN_PATTERNS` constant, which is imported
+ *     here unchanged. The ban patterns themselves are NEVER modified by this
+ *     card — this function only re-composes the already-exported constants.
  */
 export function banPatternsForKeyLevelFamily(family: string): readonly RegExp[] | null {
-  if (family === 'sensitive_composer') {
-    return [...DOCTRINE_BAN_PATTERNS, ...FAMILY_J_BAN_PATTERNS];
+  switch (family) {
+    // Families A–D: shared doctrine patterns only (no family-specific array).
+    case 'parent_relation':
+    case 'disagreement_axis':
+    case 'misunderstanding_repair':
+    case 'evidence_source_chain':
+      return [...DOCTRINE_BAN_PATTERNS];
+    // Families E–J: shared doctrine patterns + the family's own extensions,
+    // in the SAME order the family's scan composes them.
+    case 'argument_scheme':
+      return [...DOCTRINE_BAN_PATTERNS, ...FAMILY_E_BAN_PATTERNS];
+    case 'critical_question':
+      return [...DOCTRINE_BAN_PATTERNS, ...FAMILY_F_BAN_PATTERNS];
+    case 'resolution_progress':
+      return [...DOCTRINE_BAN_PATTERNS, ...FAMILY_G_BAN_PATTERNS];
+    case 'claim_clarity':
+      return [...DOCTRINE_BAN_PATTERNS, ...FAMILY_H_BAN_PATTERNS];
+    case 'thread_topology':
+      return [...DOCTRINE_BAN_PATTERNS, ...FAMILY_I_BAN_PATTERNS];
+    case 'sensitive_composer':
+      return [...DOCTRINE_BAN_PATTERNS, ...FAMILY_J_BAN_PATTERNS];
+    default:
+      return null;
   }
-  return null;
 }
 
 /**
