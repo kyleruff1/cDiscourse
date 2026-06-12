@@ -16,7 +16,11 @@ import type { ArgumentBubbleControl, ArgumentBubbleViewModel } from './argumentG
 const CONTROL_LABEL: Record<ArgumentBubbleControl, string> = {
   reply: 'Reply',
   disagree: 'Disagree',
-  flag: 'Flag',
+  // REF-005 — the bare "Flag" chip is replaced by the structured
+  // "Request review / Mark concern" entry. The chip relabels here and the
+  // host (ArgumentGameSurface) rebinds the `flag` control to open the
+  // 3-step RequestReviewComposer instead of firing an immediate notify.
+  flag: 'Request review',
   ask_for_source: 'Ask for source',
   ask_for_quote: 'Ask for quote',
   branch: 'Branch',

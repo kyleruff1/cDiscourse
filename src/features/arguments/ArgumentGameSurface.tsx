@@ -14,6 +14,11 @@ import { useHeaderBreakpoint } from '../../hooks/useHeaderBreakpoint';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
+// REF-005 — the structured "Request review / Mark concern" composer. A
+// presentational sibling overlay (like the deletion sheet); it owns no
+// persistence and fires no hide/delete path. The loose `flag` affordances
+// route here instead of an immediate notify.
+import { RequestReviewComposer } from '../requestReview';
 import { buildSidecarViewModel } from './argumentReplySidecarModel';
 import { TimelineSelectedReadoutPanel } from './TimelineSelectedReadoutPanel';
 import {
@@ -418,6 +423,11 @@ export function ArgumentGameSurface({
     entryHint ? 'entry_hint' : 'default_latest',
   );
   const [deletionTarget, setDeletionTarget] = useState<string | null>(null);
+  // REF-005 — target message id for the structured Request-review composer.
+  // Null = composer closed. Opening it replaces the old loose `flag` notify;
+  // the composer decides routing on submit (claim-level → disagreement loop;
+  // moderator-queue → the existing review callback). Nothing hides here.
+  const [requestReviewTarget, setRequestReviewTarget] = useState<string | null>(null);
   // SC-004 — currently-selected target for the action dock. Null = no
   // selection, no dock. Mutually exclusive with the SC-002 popover; opening
   // the popover dismisses the dock and vice versa.
@@ -1279,6 +1289,25 @@ export function ArgumentGameSurface({
     onAction?.(control, messageId, preset);
   }, [onAction]);
 
+  // REF-005 — bubble / popover control interceptor. The `flag` control opens
+  // the structured Request-review composer (by setting the target message id)
+  // instead of firing the loose `handleAction('flag')` notify; every other
+  // control delegates to the existing handleAction path unchanged. Used by the
+  // active-bubble chip cluster AND the timeline node popover (both previously
+  // routed a bare `flag` straight to the host). `setRequestReviewTarget` is a
+  // stable state setter, so it is not a hook dependency.
+  const handleBubbleAction = useCallback((
+    control: ArgumentBubbleControl,
+    messageId: string,
+    preset?: MoveDraftPatch | null,
+  ) => {
+    if (control === 'flag') {
+      setRequestReviewTarget(messageId);
+      return;
+    }
+    handleAction(control, messageId, preset);
+  }, [handleAction]);
+
   // SC-004 — Dock action dispatch. Maps the 15-code SC-004 vocabulary onto
   // the existing handleAction path (which routes to the composer +
   // submit-argument Edge Function) plus the BR-001 / Cards-detail surface
@@ -1329,7 +1358,8 @@ export function ArgumentGameSurface({
       return;
     }
     if (action === 'flag') {
-      handleAction('flag', targetMessageId);
+      // REF-005 — open the structured composer instead of the loose notify.
+      setRequestReviewTarget(targetMessageId);
       return;
     }
     if (action === 'reply') {
@@ -1470,7 +1500,8 @@ export function ArgumentGameSurface({
       // other direct entries (`make_private`) are room-scoped and not
       // wired through this surface (DebateDetailHeader owns them).
       if (entryId === 'flag' && activeMessageId) {
-        handleAction('flag', activeMessageId);
+        // REF-005 — open the structured composer instead of the loose notify.
+        setRequestReviewTarget(activeMessageId);
       } else if (entryId === 'view_qualifiers' && activeMessageId) {
         handleAction('view_qualifiers', activeMessageId);
       } else if (entryId === 'request_deletion' && activeMessageId) {
@@ -1829,7 +1860,7 @@ export function ArgumentGameSurface({
             {activeViewModel && resolvedViewerRole === 'participant' ? (
               <ArgumentBubbleActions
                 viewModel={activeViewModel}
-                onAction={handleAction}
+                onAction={handleBubbleAction}
               />
             ) : null}
           </>
@@ -1866,7 +1897,7 @@ export function ArgumentGameSurface({
               onToggleMode={handleToggleMode}
               activeViewModel={activeViewModel}
               totalCount={timelineMap.nodes.length}
-              onAction={handleAction}
+              onAction={handleBubbleAction}
               onOpenDetails={(id) => {
                 setActiveMessageId(id);
                 setSelectionStatus('explicit');
@@ -2221,6 +2252,38 @@ export function ArgumentGameSurface({
           argumentId={deletionTarget}
           onClose={() => setDeletionTarget(null)}
           onSuccess={handleDeletionSuccess}
+        />
+      )}
+
+      {/* REF-005 — the structured "Request review / Mark concern" composer.
+          A composer-side sibling overlay (like the deletion sheet); it is
+          shown only on the actor's own surface and never on a target's node.
+          On submit it routes via the SHIPPED disagreement loop (claim-level
+          remedies) or the EXISTING, unchanged "Send for review" callback
+          (moderator-queue remedies). It owns no persistence and fires no
+          hide/delete path — REF-005B adds the persisted moderator queue. */}
+      {requestReviewTarget && (
+        <RequestReviewComposer
+          visible
+          targetNodeId={requestReviewTarget}
+          initialQuote={sorted.find((m) => m.id === requestReviewTarget)?.body ?? ''}
+          onRouteToActEntry={(actEntryId) => {
+            // Claim-level remedy → the SAME enterBoxForActEntry bridge the
+            // board Act mount + REF-003/REF-004 Referee Card use. The
+            // resulting move is engine-gated like any ordinary post.
+            enterBoxForActEntry(actEntryId);
+            setRequestReviewTarget(null);
+          }}
+          onSendForModeratorReview={() => {
+            // v1 interim: the existing, unchanged "Send for review" callback
+            // (handleAction('flag', …) → host onAction). Nothing hides
+            // automatically; a human moderator acts. REF-005B replaces this
+            // with the persisted, RLS-gated moderator concern queue.
+            if (requestReviewTarget) handleAction('flag', requestReviewTarget);
+            setRequestReviewTarget(null);
+          }}
+          onCancel={() => setRequestReviewTarget(null)}
+          testID="request-review-composer"
         />
       )}
     </View>
