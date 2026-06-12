@@ -34,6 +34,7 @@ import {
   FAMILY_J_CLASSIFIER_SET_VERSION,
 } from '../lib/familyJKeys.ts';
 import { DOCTRINE_BAN_PATTERNS } from '../lib/doctrineBanList.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from '../lib/modelInfoEmissionDirective.ts';
 import { FAMILY_A_SYSTEM_PROMPT } from '../lib/familyAPrompt.ts';
 import { FAMILY_B_SYSTEM_PROMPT } from '../lib/familyBPrompt.ts';
 import { FAMILY_C_SYSTEM_PROMPT } from '../lib/familyCPrompt.ts';
@@ -694,5 +695,53 @@ Deno.test('ORDER-ROBUSTNESS: per-key reminders + FINAL CHECK block carry zero ba
         throw new Error(`instruction text leaks banned token "${token}": ${sample}`);
       }
     }
+  }
+});
+
+// OPS-MCP-MODELINFO-SHAPE-REINFORCEMENT — the shared response-envelope emission
+// directive is interpolated AFTER the FINAL CHECK block and immediately before
+// the response-shape JSON example. Additive: the response-shape example and the
+// FINAL CHECK block are unchanged; both BINDING rules sit adjacent to the JSON.
+Deno.test('MODELINFO-SHAPE: Family J user prompt carries the modelInfo emission directive after FINAL CHECK and immediately before the response-shape example', () => {
+  const prompt = buildFamilyJUserPrompt(buildRequest());
+  const directiveIndex = prompt.indexOf(MODEL_INFO_EMISSION_DIRECTIVE);
+  if (directiveIndex < 0) {
+    throw new Error('Family J user prompt missing the modelInfo emission directive');
+  }
+  const definitionsIndex = prompt.indexOf('Definitions and examples');
+  const anchorIndex = prompt.indexOf('The object MUST conform to this shape:');
+  const finalCheckIndex = prompt.indexOf(
+    'FINAL CHECK (BINDING): before emitting, re-scan EVERY evidenceSpan value you are about to output',
+  );
+  if (!(definitionsIndex < finalCheckIndex)) {
+    throw new Error('FINAL CHECK must follow the definitions block');
+  }
+  if (!(finalCheckIndex < directiveIndex)) {
+    throw new Error('FINAL CHECK must precede the modelInfo emission directive');
+  }
+  if (!(directiveIndex < anchorIndex)) {
+    throw new Error('directive must appear before the response-shape example');
+  }
+  const between = prompt.slice(directiveIndex + MODEL_INFO_EMISSION_DIRECTIVE.length, anchorIndex);
+  if (between.trim() !== '') {
+    throw new Error('directive is not immediately before the response-shape example');
+  }
+});
+
+Deno.test('MODELINFO-SHAPE: Family J response-shape JSON example is unchanged by the directive', () => {
+  const prompt = buildFamilyJUserPrompt(buildRequest());
+  for (
+    const fragment of [
+      '"provider": "mcp"',
+      '"serverName": "<server identifier>"',
+      '"classifierSetVersion": "family-j-v1"',
+    ]
+  ) {
+    if (!prompt.includes(fragment)) {
+      throw new Error(`Family J response-shape example missing/altered fragment: ${fragment}`);
+    }
+  }
+  if (prompt.split(MODEL_INFO_EMISSION_DIRECTIVE).length !== 2) {
+    throw new Error('the modelInfo emission directive must appear exactly once');
   }
 });

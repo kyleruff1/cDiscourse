@@ -71,3 +71,17 @@ No code change, no migration, no Edge/Deno deploy, no routing or registry change
 - **Primary question answered for this sample: zero soft-paraphrase survivors observed live** (0/57 spans carried model-authored person/intent content). **n-limited honesty: 7 args / 57 spans / one room / one model window — this is evidence of absence in-sample, NOT proof of absence.** The deterministic tripwire corpus (#578) remains the standing guard on the pattern boundary; the human L5 audit remains the sole live backstop for the soft class.
 - The model's observed span behavior on A–I is excerpt-quotation (with minor stitching/annotation), not free characterization — consistent with the §10a "structural feature of the move's own text" doctrine.
 - Named follow-up candidates (all operator-gated, none authorized here): (a) the pattern-engine card for unicode/leet evasions (already named at #578); (b) a cross-family list-union doctrine decision card (should structural families ban person-directed tokens from other families' lists in their *span* scans? — a real trade-off: it would drop verbatim quotes of public text); (c) A–I `modelInfo` prompt-side non-echo reinforcement.
+
+---
+
+## Amendment (2026-06-11, post-source-verification) — the Phase-5 dead-letter mechanism RE-TYPED
+
+**Prior typing (Phase 5):** the model's own `modelInfo` *free-text* picked up a ban-listed characterization. **Corrected typing: structural `must be plain object` failure (single producer), not a ban-scan hit** — `modelInfo` is NOT free text. Its schema is `{ provider: 'mcp', serverName: string, classifierSetVersion: string }` (`mcp-server/lib/mcpBooleanObservationSchemaMirror.ts:277-305`); doctrine ban-scan hits on `modelInfo` report SUBFIELD paths (`modelInfo.serverName` / `modelInfo.classifierSetVersion`, `family*BanListScan.ts:49-61`). The bare path `'modelInfo'` recorded for this dead-letter has exactly ONE producer: the structural validator return `{ ok:false, path:'modelInfo', detail:'must be plain object' }` (`mcpBooleanObservationSchemaMirror.ts:279-281`).
+
+**Reproduction:** a fresh Edge `admin_validation` re-run today (run `3ff1ba04`) reproduced it — `serverReason: 'validation_failed'`, `path: 'modelInfo'` — the 5th consecutive deterministic failure on this exact stored input (`2c6d9ca1` × `disagreement_axis`, family B). NOT transport, NOT a ban-scan hit.
+
+**Mechanism:** under this adversarial input, family B's model output omits `modelInfo` entirely or emits it as a non-object, deterministically. Packet-level fail-closed correctly refuses (nothing persists); the cost is one lost classification for that family on that input.
+
+**Verdict impact: none.** The PASS verdict and the fail-closed conclusion stand unchanged — the guard worked exactly as designed. The "ban-listed characterization in `modelInfo` free-text" inference was wrong (there is no free text in `modelInfo`).
+
+**Scoped follow-up (its own card — OPS-MCP-MODELINFO-SHAPE-REINFORCEMENT, the J FINAL-CHECK / STRICT-shape precedent):** prompt-side `modelInfo` EMISSION-SHAPE reinforcement for A–J (always emit the literal `modelInfo` envelope, even under hostile/uncertain input) — an `mcp-server` prompt change, Deno-deploy-bearing. The substance is response-envelope **shape**, not non-echo. **The validator gate is never relaxed.**

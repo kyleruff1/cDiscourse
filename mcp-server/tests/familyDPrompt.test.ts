@@ -38,6 +38,7 @@ import {
   FAMILY_D_CLASSIFIER_SET_VERSION,
 } from '../lib/familyDKeys.ts';
 import { DOCTRINE_BAN_PATTERNS } from '../lib/doctrineBanList.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from '../lib/modelInfoEmissionDirective.ts';
 import { FAMILY_A_SYSTEM_PROMPT } from '../lib/familyAPrompt.ts';
 import { FAMILY_B_SYSTEM_PROMPT } from '../lib/familyBPrompt.ts';
 import { FAMILY_C_SYSTEM_PROMPT } from '../lib/familyCPrompt.ts';
@@ -535,5 +536,46 @@ Deno.test('DOCTRINE BAN-LIST scan: Family D user prompt contains no banned token
       }
       if (globalPattern.lastIndex === match.index) globalPattern.lastIndex += 1;
     }
+  }
+});
+
+// OPS-MCP-MODELINFO-SHAPE-REINFORCEMENT — the shared response-envelope emission
+// directive is interpolated immediately before the response-shape JSON example.
+// Additive: the response-shape example itself is unchanged.
+Deno.test('MODELINFO-SHAPE: Family D user prompt carries the modelInfo emission directive immediately before the response-shape example', () => {
+  const prompt = buildFamilyDUserPrompt(buildRequest());
+  const directiveIndex = prompt.indexOf(MODEL_INFO_EMISSION_DIRECTIVE);
+  if (directiveIndex < 0) {
+    throw new Error('Family D user prompt missing the modelInfo emission directive');
+  }
+  const definitionsIndex = prompt.indexOf('Definitions and examples');
+  const anchorIndex = prompt.indexOf('The object MUST conform to this shape:');
+  if (!(directiveIndex > definitionsIndex)) {
+    throw new Error('directive must appear after the definitions block');
+  }
+  if (!(directiveIndex < anchorIndex)) {
+    throw new Error('directive must appear before the response-shape example');
+  }
+  const between = prompt.slice(directiveIndex + MODEL_INFO_EMISSION_DIRECTIVE.length, anchorIndex);
+  if (between.trim() !== '') {
+    throw new Error('directive is not immediately before the response-shape example');
+  }
+});
+
+Deno.test('MODELINFO-SHAPE: Family D response-shape JSON example is unchanged by the directive', () => {
+  const prompt = buildFamilyDUserPrompt(buildRequest());
+  for (
+    const fragment of [
+      '"provider": "mcp"',
+      '"serverName": "<server identifier>"',
+      '"classifierSetVersion": "family-d-v1"',
+    ]
+  ) {
+    if (!prompt.includes(fragment)) {
+      throw new Error(`Family D response-shape example missing/altered fragment: ${fragment}`);
+    }
+  }
+  if (prompt.split(MODEL_INFO_EMISSION_DIRECTIVE).length !== 2) {
+    throw new Error('the modelInfo emission directive must appear exactly once');
   }
 });

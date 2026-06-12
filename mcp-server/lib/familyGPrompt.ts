@@ -49,6 +49,7 @@
  *     Procedural closure, NEVER adjudication or "settled in X's favor".
  */
 import { FAMILY_G_PROMPT_ENTRIES, FAMILY_G_RAW_KEYS } from './familyGKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /** MAX_TOKENS for the Family G response. 21-key Subset served in 2 batches (16 + 5); positives are sparse. */
 export const FAMILY_G_MAX_TOKENS = 1500;
@@ -157,7 +158,7 @@ export interface ValidatedFamilyGRequest {
  *   2. Definitions + examples + false-positive guards block (one per requested key)
  *   3. Note about resolution-progress-as-descriptive-convergence-state cross-key framing
  *      (the resolution<->verdict doctrine anchors)
- *   4. Response-shape instruction (verbatim JSON example)
+ *   4. Shared modelInfo emission directive, then the response-shape instruction (verbatim JSON example)
  *   5. Conservative-positives bias reminder (0 to 2 states)
  *   6. The input (move text, parent text, thread context)
  *
@@ -248,6 +249,8 @@ in X's favor.
 Answer each resolution-progress question above with true (the move exhibits the state) or false
 (the state is absent OR not applicable to this move) for the move below. Return ONLY a single JSON
 object — no prose, no markdown, no code fence, no chain-of-thought.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}

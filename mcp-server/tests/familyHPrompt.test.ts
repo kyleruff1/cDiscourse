@@ -31,6 +31,7 @@ import {
   FAMILY_H_CLASSIFIER_SET_VERSION,
 } from '../lib/familyHKeys.ts';
 import { DOCTRINE_BAN_PATTERNS } from '../lib/doctrineBanList.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from '../lib/modelInfoEmissionDirective.ts';
 import { FAMILY_A_SYSTEM_PROMPT } from '../lib/familyAPrompt.ts';
 import { FAMILY_B_SYSTEM_PROMPT } from '../lib/familyBPrompt.ts';
 import { FAMILY_C_SYSTEM_PROMPT } from '../lib/familyCPrompt.ts';
@@ -529,5 +530,46 @@ Deno.test('Family H 4 HIGHEST-risk keys each carry the "MUST NOT contain" enumer
         `${rawKey} falsePositiveGuards missing "MUST NOT contain" enumeration (HIGHEST-risk binding)`,
       );
     }
+  }
+});
+
+// OPS-MCP-MODELINFO-SHAPE-REINFORCEMENT — the shared response-envelope emission
+// directive is interpolated immediately before the response-shape JSON example.
+// Additive: the response-shape example itself is unchanged.
+Deno.test('MODELINFO-SHAPE: Family H user prompt carries the modelInfo emission directive immediately before the response-shape example', () => {
+  const prompt = buildFamilyHUserPrompt(buildRequest());
+  const directiveIndex = prompt.indexOf(MODEL_INFO_EMISSION_DIRECTIVE);
+  if (directiveIndex < 0) {
+    throw new Error('Family H user prompt missing the modelInfo emission directive');
+  }
+  const definitionsIndex = prompt.indexOf('Definitions and examples');
+  const anchorIndex = prompt.indexOf('The object MUST conform to this shape:');
+  if (!(directiveIndex > definitionsIndex)) {
+    throw new Error('directive must appear after the definitions block');
+  }
+  if (!(directiveIndex < anchorIndex)) {
+    throw new Error('directive must appear before the response-shape example');
+  }
+  const between = prompt.slice(directiveIndex + MODEL_INFO_EMISSION_DIRECTIVE.length, anchorIndex);
+  if (between.trim() !== '') {
+    throw new Error('directive is not immediately before the response-shape example');
+  }
+});
+
+Deno.test('MODELINFO-SHAPE: Family H response-shape JSON example is unchanged by the directive', () => {
+  const prompt = buildFamilyHUserPrompt(buildRequest());
+  for (
+    const fragment of [
+      '"provider": "mcp"',
+      '"serverName": "<server identifier>"',
+      '"classifierSetVersion": "family-h-v1"',
+    ]
+  ) {
+    if (!prompt.includes(fragment)) {
+      throw new Error(`Family H response-shape example missing/altered fragment: ${fragment}`);
+    }
+  }
+  if (prompt.split(MODEL_INFO_EMISSION_DIRECTIVE).length !== 2) {
+    throw new Error('the modelInfo emission directive must appear exactly once');
   }
 });

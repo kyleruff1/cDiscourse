@@ -33,6 +33,7 @@ import {
   FAMILY_E_CLASSIFIER_SET_VERSION,
 } from '../lib/familyEKeys.ts';
 import { DOCTRINE_BAN_PATTERNS } from '../lib/doctrineBanList.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from '../lib/modelInfoEmissionDirective.ts';
 import { FAMILY_A_SYSTEM_PROMPT } from '../lib/familyAPrompt.ts';
 import { FAMILY_B_SYSTEM_PROMPT } from '../lib/familyBPrompt.ts';
 import { FAMILY_C_SYSTEM_PROMPT } from '../lib/familyCPrompt.ts';
@@ -749,5 +750,46 @@ Deno.test('Family E user prompt: declares per-rawKey shape reinforcement for abd
         `RAWKEY-SHAPE REINFORCEMENT for abductive_explanation_present introduces banned token matching ${re}`,
       );
     }
+  }
+});
+
+// OPS-MCP-MODELINFO-SHAPE-REINFORCEMENT — the shared response-envelope emission
+// directive is interpolated immediately before the response-shape JSON example.
+// Additive: the response-shape example itself is unchanged.
+Deno.test('MODELINFO-SHAPE: Family E user prompt carries the modelInfo emission directive immediately before the response-shape example', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  const directiveIndex = prompt.indexOf(MODEL_INFO_EMISSION_DIRECTIVE);
+  if (directiveIndex < 0) {
+    throw new Error('Family E user prompt missing the modelInfo emission directive');
+  }
+  const definitionsIndex = prompt.indexOf('Definitions and examples');
+  const anchorIndex = prompt.indexOf('The object MUST conform to this shape:');
+  if (!(directiveIndex > definitionsIndex)) {
+    throw new Error('directive must appear after the definitions block');
+  }
+  if (!(directiveIndex < anchorIndex)) {
+    throw new Error('directive must appear before the response-shape example');
+  }
+  const between = prompt.slice(directiveIndex + MODEL_INFO_EMISSION_DIRECTIVE.length, anchorIndex);
+  if (between.trim() !== '') {
+    throw new Error('directive is not immediately before the response-shape example');
+  }
+});
+
+Deno.test('MODELINFO-SHAPE: Family E response-shape JSON example is unchanged by the directive', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  for (
+    const fragment of [
+      '"provider": "mcp"',
+      '"serverName": "<server identifier>"',
+      '"classifierSetVersion": "family-e-v1"',
+    ]
+  ) {
+    if (!prompt.includes(fragment)) {
+      throw new Error(`Family E response-shape example missing/altered fragment: ${fragment}`);
+    }
+  }
+  if (prompt.split(MODEL_INFO_EMISSION_DIRECTIVE).length !== 2) {
+    throw new Error('the modelInfo emission directive must appear exactly once');
   }
 });

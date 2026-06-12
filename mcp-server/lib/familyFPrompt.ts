@@ -52,6 +52,7 @@
  *     claim?", NEVER as "this claim is unwarranted".
  */
 import { FAMILY_F_PROMPT_ENTRIES, FAMILY_F_RAW_KEYS } from './familyFKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /** MAX_TOKENS for the Family F response. 17 keys × ~85 tokens + overhead. */
 export const FAMILY_F_MAX_TOKENS = 1500;
@@ -170,7 +171,7 @@ export interface ValidatedFamilyFRequest {
  *      consequence_probability_unclear / analogy_mapping_missing /
  *      alternative_explanation_available / causal_mechanism_missing /
  *      authority_basis_missing / missing_warrant)
- *   4. Response-shape instruction (verbatim JSON example)
+ *   4. Shared modelInfo emission directive, then the response-shape instruction (verbatim JSON example)
  *   5. Conservative-positives bias reminder (0 to 2 CQs)
  *   6. The input (move text, parent text, thread context)
  *
@@ -274,6 +275,8 @@ even when phrased politely.
 Answer each critical question above with true (CQ unmet by this move) or false (CQ met OR
 not applicable to this move) for the move below. Return ONLY a single JSON object — no
 prose, no markdown, no code fence, no chain-of-thought.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}

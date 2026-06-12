@@ -36,6 +36,7 @@
  *     handling at familyAPrompt.ts:169-175.
  */
 import { FAMILY_C_PROMPT_ENTRIES, FAMILY_C_RAW_KEYS } from './familyCKeys.ts';
+import { MODEL_INFO_EMISSION_DIRECTIVE } from './modelInfoEmissionDirective.ts';
 
 /** MAX_TOKENS for the Family C response. 20 keys × ~85 tokens + overhead. */
 export const FAMILY_C_MAX_TOKENS = 1500;
@@ -130,7 +131,7 @@ export interface ValidatedFamilyCRequest {
  *   2. Definitions + examples + false-positive guards block (one per requested key)
  *   3. Note about clarified lifecycle (tree-dependent; FALSE-low when no cluster context)
  *   4. Note about repair-positive cross-key framing (4 doctrine-risk anchors)
- *   5. Response-shape instruction (verbatim JSON example)
+ *   5. Shared modelInfo emission directive, then the response-shape instruction (verbatim JSON example)
  *   6. Conservative-positives bias reminder (0 to 2 repair signals)
  *   7. The input (move text, parent text, thread context)
  *
@@ -222,6 +223,8 @@ different scopes, which is a structural fact, not a fault.
 
 Answer each repair-grounding question above with true or false for the move below.
 Return ONLY a single JSON object — no prose, no markdown, no code fence, no chain-of-thought.
+
+${MODEL_INFO_EMISSION_DIRECTIVE}
 
 The object MUST conform to this shape:
 ${responseShape}
