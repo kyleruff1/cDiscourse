@@ -265,6 +265,23 @@ export function AdminClassifierHealthTab() {
         <CountList title="By failure detail reason" buckets={verdict.byFailureDetailReason} testID="group-failure-detail-reason" emptyHint="failure_detail is mostly empty until the direct-dispatch fill lands." />
       </View>
 
+      {/* Unclean-span key drops — advisory; counts only. */}
+      <View style={styles.card} testID="admin-classifier-health-unclean-span-drops">
+        <Text style={styles.cardTitle}>Unclean-span key drops</Text>
+        <Text style={styles.cardHelp}>
+          Counts a key the server set aside on a successful run because its
+          evidence span tripped the doctrine scan. The sibling keys still
+          posted. A sustained rate on one key is a prompt-iteration signal —
+          advisory only, never a control, and it never blocks a post.
+        </Text>
+        <CountList
+          title="By dropped key"
+          buckets={verdict.byUncleanSpanKeyDrop}
+          testID="group-unclean-span-key-drop"
+          emptyHint="No keys set aside in scope."
+        />
+      </View>
+
       <Text style={styles.footnote}>
         Read-only diagnostic. Counts describe transport and lifecycle health
         only — never who is right, never a score, never a block. The classifier

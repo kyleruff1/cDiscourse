@@ -59,6 +59,9 @@ export function buildClassifierHealthCsv(verdict: ClassifierHealthVerdict): stri
     verdict.byRunMode,
     verdict.byFamily,
     verdict.byFailureDetailReason,
+    // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — per-rawKey unclean-span drop counts
+    // (group `unclean_span_key_drop`). NAMES + counts only; never a span.
+    verdict.byUncleanSpanKeyDrop,
   ];
   for (const axis of axes) {
     for (const bucket of axis) {

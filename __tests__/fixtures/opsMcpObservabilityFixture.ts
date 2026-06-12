@@ -656,6 +656,15 @@ export const FIXTURE_SECTIONS_DATA: Record<string, ReadonlyArray<Record<string, 
       subset_membership: 'ai_classifier_subset',
     }),
   ]),
+  'q18-unclean-span-key-drops-by-family': Object.freeze([
+    Object.freeze({
+      family: 'sensitive_composer',
+      run_mode: 'admin_validation',
+      dropped_raw_key: 'needs_pre_send_pause',
+      runs_with_drop: 2,
+      distinct_arguments: 2,
+    }),
+  ]),
 });
 
 /**
@@ -681,4 +690,5 @@ export const FIXTURE_EMPTY_SECTIONS_DATA: Record<string, ReadonlyArray<Record<st
   'q15-family-d-subset-coverage': Object.freeze([]),
   'q16-family-g-subset-coverage': Object.freeze([]),
   'q17-family-i-subset-coverage': Object.freeze([]),
+  'q18-unclean-span-key-drops-by-family': Object.freeze([]),
 });

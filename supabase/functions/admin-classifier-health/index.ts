@@ -76,7 +76,7 @@ import type {
  * the title (per the #476 migration comment); only counts are surfaced.
  */
 const RUN_COLUMNS =
-  'status, state, failure_reason, failure_sub_reason, dead_letter_reason, run_mode, requested_families, family, started_at, completed_at, failure_detail';
+  'status, state, failure_reason, failure_sub_reason, dead_letter_reason, run_mode, requested_families, family, started_at, completed_at, failure_detail, dropped_unclean_span_keys';
 const RUN_COLUMNS_WITH_DEBATE = `${RUN_COLUMNS}, debates(title, run_tag)`;
 
 /** Cap the rows pulled per request — an aggregate read, not a row dump. */
@@ -131,6 +131,14 @@ function toModelRow(raw: Record<string, unknown>): ClassifierHealthRunRow {
     started_at: typeof raw.started_at === 'string' ? raw.started_at : null,
     completed_at: typeof raw.completed_at === 'string' ? raw.completed_at : null,
     failure_detail: readFailureDetailAllowListed(raw.failure_detail),
+    // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — read the audit text[] as rawKey NAMES
+    // only. A non-array (NULL) becomes null; non-string entries are dropped. The
+    // model counts these per-key; the panel never echoes a span.
+    dropped_unclean_span_keys: Array.isArray(raw.dropped_unclean_span_keys)
+      ? (raw.dropped_unclean_span_keys as unknown[]).filter(
+          (k): k is string => typeof k === 'string',
+        )
+      : null,
     debate_title: debateTitle,
     debate_run_tag: debateRunTag,
   };

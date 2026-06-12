@@ -284,8 +284,27 @@ describe('MCP-021B — MCP-021A registry files byte-equal', () => {
 });
 
 describe('MCP-021B — MCP-021A schema + taxonomy unchanged', () => {
-  it('RO-17 — mcpBooleanObservationSchema.ts unchanged', () => {
-    expect(gitDiffFromMain('src/features/nodeLabels/mcpBooleanObservationSchema.ts')).toBe('');
+  // RO-17 — byte-equal boundary relaxed 2026-06-11 (OPS-MCP-KEY-LEVEL-FAIL-CLOSED).
+  // RO-17 originally asserted mcpBooleanObservationSchema.ts was byte-equal to
+  // main, proving the long-merged MCP-021B card touched no schema surface. The
+  // ratified OPS-MCP-KEY-LEVEL-FAIL-CLOSED design (docs/designs/) adds the
+  // OPTIONAL, ADDITIVE `keysDroppedForUncleanSpan` wire field (key names only,
+  // never span content) to this file per its 10-file mirror enumeration.
+  // Mirrors the RO-7..RO-13 relaxation pattern: the MCP-021B boundary is
+  // historical; relaxed to an ADDITIVE-ONLY well-formedness check so the
+  // designed schema-mirror change lands without a spurious read-only-boundary
+  // failure. The file must still export the schema-version const, the parser,
+  // the sanitizer, and the response interface (additive, never removal/rename).
+  it('RO-17 — mcpBooleanObservationSchema.ts is well-formed + additive (MCP-021A baseline preserved)', () => {
+    const content = readFileSync(
+      join(ROOT, 'src/features/nodeLabels/mcpBooleanObservationSchema.ts'),
+      'utf8',
+    );
+    expect(content).toContain('MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION');
+    expect(content).toContain('export function parseMcpBooleanObservationResponse');
+    expect(content).toContain('export function sanitizeMcpBooleanObservationResponse');
+    expect(content).toContain('export interface McpBooleanObservationResponse');
+    expect(content).toContain('checkedRawKeys');
   });
 
   it('RO-18 — userAllegationRegistry.ts unchanged', () => {

@@ -11,7 +11,7 @@
  *   - Group A: Q11 narrative regression.
  *   - Group B: Q14 CASE regression.
  *   - Group C: Q17 new file + Family I subset coverage.
- *   - Group D: cross-section invariants (SECTIONS length 18; ordered id
+ *   - Group D: cross-section invariants (SECTIONS length 19; ordered id
  *     list q01..q17; Q11/Q14/Q17 reference thread_topology; column shape).
  *   - Group E: fixture compatibility.
  *   - Group F: I verdict-adjacency doctrine self-check.
@@ -342,12 +342,12 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-I-COVERAGE — Group C: Q17 Family I subs
 /* ------------------------------------------------------------------ */
 
 describe('OPS-MCP-OBSERVABILITY-FAMILY-I-COVERAGE — Group D: cross-section invariants', () => {
-  it('SECTIONS length is now 18 (q17 appended)', () => {
+  it('SECTIONS length is now 19 (q18 unclean-span-key-drops appended by OPS-MCP-KEY-LEVEL-FAIL-CLOSED)', () => {
     const lib = require(path.join(REPO, 'scripts', 'ops', 'mcp-observability-report-lib.cjs'));
-    expect((lib.SECTIONS as Array<unknown>).length).toBe(18);
+    expect((lib.SECTIONS as Array<unknown>).length).toBe(19);
   });
 
-  it('SECTIONS section ids are stable, unique, and ordered (q01..q17 with q02b)', () => {
+  it('SECTIONS section ids are stable, unique, and ordered (q01..q18 with q02b)', () => {
     const lib = require(path.join(REPO, 'scripts', 'ops', 'mcp-observability-report-lib.cjs'));
     const ids = (lib.SECTIONS as Array<{ id: string }>).map((s) => s.id);
     expect(ids).toEqual([
@@ -369,6 +369,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-I-COVERAGE — Group D: cross-section inv
       'q15-family-d-subset-coverage',
       'q16-family-g-subset-coverage',
       'q17-family-i-subset-coverage',
+      'q18-unclean-span-key-drops-by-family',
     ]);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -469,7 +470,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-I-COVERAGE — Group E: fixture compatibi
     expect(md).toContain('## Family I 6-key subset coverage');
   });
 
-  it('runner JSON artifact has 18 sections including q17-family-i-subset-coverage', () => {
+  it('runner JSON artifact has 19 sections including q17-family-i-subset-coverage', () => {
     const lib = require(path.join(REPO, 'scripts', 'ops', 'mcp-observability-report-lib.cjs'));
     const json = lib.buildJsonArtifact({
       sectionsData: FIXTURE_SECTIONS_DATA,
@@ -478,7 +479,7 @@ describe('OPS-MCP-OBSERVABILITY-FAMILY-I-COVERAGE — Group E: fixture compatibi
       generatedAt: FIXTURE_GENERATED_AT,
       defaultTimeWindowDays: 7,
     });
-    expect(json.sections).toHaveLength(18);
+    expect(json.sections).toHaveLength(19);
     const q17 = json.sections.find(
       (s: { id: string }) => s.id === 'q17-family-i-subset-coverage',
     );

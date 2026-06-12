@@ -408,6 +408,18 @@ export async function classifyOneArgumentCore(
     { surface: 'inspect' },
   );
 
+  // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — the server-sourced unclean-span drop list
+  // (rawKey NAMES only) rides through the merge + sanitize. Persist it ONLY on a
+  // SUCCESS run that actually dropped ≥1 key; otherwise leave the column NULL
+  // (the INSERT is byte-equal to today). This is the run-row audit signal that a
+  // key-level fail-closed drop happened on a SUCCESS run.
+  const droppedUncleanSpanKeys: string[] | null =
+    runStatus === 'success' &&
+    Array.isArray(sanitized.keysDroppedForUncleanSpan) &&
+    sanitized.keysDroppedForUncleanSpan.length > 0
+      ? [...sanitized.keysDroppedForUncleanSpan]
+      : null;
+
   const runWrite = await persistRun({
     debateId: context.debateId,
     argumentId,
@@ -423,6 +435,9 @@ export async function classifyOneArgumentCore(
     // batch (batchIndex / batchTotal / reason). NULL on the all-success path
     // so a fully-successful run's INSERT is byte-equal to today.
     ...(partialFailureDetail !== null ? { failureDetail: partialFailureDetail } : {}),
+    // Key-level fail-closed audit column — names only; only on a SUCCESS run
+    // with ≥1 drop. Omitted otherwise (column stays NULL; INSERT byte-equal).
+    ...(droppedUncleanSpanKeys !== null ? { droppedUncleanSpanKeys } : {}),
     startedAt,
     completedAt,
   });

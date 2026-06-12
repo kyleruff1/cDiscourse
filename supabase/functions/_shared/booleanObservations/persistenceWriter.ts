@@ -56,6 +56,16 @@ export interface PersistRunInput {
    */
   failureSubReason?: string | null; // → failure_sub_reason (text)
   failureDetail?: Record<string, unknown> | null; // → failure_detail (jsonb)
+  /**
+   * OPS-MCP-KEY-LEVEL-FAIL-CLOSED — ADDITIVE, optional. The server-sourced
+   * rawKey NAMES the MCP server dropped by OMISSION because their evidenceSpan
+   * tripped the doctrine ban-scan (key-level fail-closed; Family J only on
+   * first ship). Written ONLY on a SUCCESS run that actually dropped ≥1 key;
+   * omitted otherwise (the conditional spread below leaves the column absent
+   * from the INSERT payload → it stays NULL, byte-equal to today). NAMES ONLY —
+   * never a span, never a body. → dropped_unclean_span_keys (text[]).
+   */
+  droppedUncleanSpanKeys?: string[] | null;
   /** ISO-8601 timestamp. */
   startedAt: string;
   /** ISO-8601 timestamp; nullable while run is in-flight. */
@@ -113,6 +123,13 @@ export async function persistRun(input: PersistRunInput): Promise<PersistRunResu
       : {}),
     ...(input.failureDetail !== undefined
       ? { failure_detail: input.failureDetail }
+      : {}),
+    // OPS-MCP-KEY-LEVEL-FAIL-CLOSED — write the audit column ONLY when the
+    // caller supplies it (a SUCCESS run that dropped ≥1 unclean-span key), so a
+    // run with zero drops produces a BYTE-EQUAL INSERT payload to today and the
+    // column stays at its NULL default.
+    ...(input.droppedUncleanSpanKeys !== undefined
+      ? { dropped_unclean_span_keys: input.droppedUncleanSpanKeys }
       : {}),
     started_at: input.startedAt,
     completed_at: input.completedAt,
