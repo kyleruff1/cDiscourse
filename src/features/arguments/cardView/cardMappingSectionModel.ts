@@ -115,7 +115,8 @@ export interface CardMappingSectionModel {
 
 /** A result is renderable on the card iff it is a machine observation with a
  *  plain-language (non-internal-code) display + short label AND its family is
- *  not a frozen H/I/J family (defensive). Pure. */
+ *  not the frozen Family J (`sensitive_composer`; the FROZEN_HIJ_FAMILIES
+ *  constant keeps its historical name but is J-only — defensive). Pure. */
 function isRenderableResult(result: ObservationMappingResult): boolean {
   if (!result || result.kind !== 'machine_observation') return false;
   const label =
