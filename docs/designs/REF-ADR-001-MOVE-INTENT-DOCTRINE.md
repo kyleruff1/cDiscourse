@@ -1,6 +1,6 @@
 # REF-ADR-001 — Move-intent doctrine: channels as the user-facing layer (Constitution v1.1 disposition)
 
-**Status:** PROPOSED — awaiting operator ratification at this PR's GATE-C read. This ADR ships no code and no copy; **the merge of this PR is itself the ratification act** (docs-only but operative-semantics → operator-gated merge per `docs/core/pipeline-governance-contract.md` §5). The operator ratification block at the foot of this doc records that act.
+**Status:** RATIFIED — operator ratification given 2026-06-12 (recorded below; the GATE-C merge of PR #598 executes it). This ADR ships no code and no copy; **the merge of this PR is itself the ratification act** (docs-only but operative-semantics → operator-gated merge per `docs/core/pipeline-governance-contract.md` §5). The operator ratification block at the foot of this doc records that act.
 **Epic:** Rules UX · **Priority:** P2 · **Effort:** S · **Lane:** docs-only ADR (operator-ratified) · **Release:** —
 **Issue:** https://github.com/kyleruff1/cDiscourse/issues/590
 **Card type:** doctrine decision record. This card writes exactly two files: this ADR and its pointer stub (`docs/designs/REF-ADR-001.md`). Zero production-file change, zero tests, no migration, no deploy.
@@ -171,7 +171,7 @@ REF-001 explicitly records this disposition as a soft input and proceeds in para
 
 **Operator ratification (filled at the GATE-C merge):**
 
-> Ratified by: __________________  ·  Date: __________  ·  Merge SHA: __________  ·  Notes: __________
+> Ratified by: operator (Kyler) · Date: 2026-06-12 · Merge: PR #598 (the GATE-C merge executing this ratification) · Notes: Operator confirms Option 0 — the move-intent doctrine lives beside the Constitution. Constitution v1 remains byte-unchanged; the stored type registry and transition matrix remain the validation layer; RULE-005 channels are canonized as the user-facing move-intent vocabulary; type codes stay out of drafting copy; `replies` remains an internal fallback relation; the matrix is hidden affordance + recovery, not the user's primary drafting model.
 
 ---
 
