@@ -304,6 +304,10 @@ async function processOneJob(
         failureSubReason: null,
         deadLetterReason: null,
         observations: classify.observations,
+        // OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING: the success-only audit list
+        // (rawKey NAMES, or NULL on zero drops). Written to
+        // dropped_unclean_span_keys on the SUCCESS branch of the finalizer.
+        droppedUncleanSpanKeys: classify.keysDroppedForUncleanSpan,
       });
       // Carry-forward #1: a FALSE return = lost lease → NOT a success.
       return finalized ? 'succeeded' : 'lost_lease';
@@ -484,6 +488,14 @@ interface FinalizeJobInput {
    * so a succeeded row's failure_detail stays NULL).
    */
   failureDetail?: RunRowFailureDetail | null;
+  /**
+   * OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING: the leak-safe rawKey NAMES the MCP
+   * server dropped by key-level fail-closed on a SUCCESS classify. ADDITIVE;
+   * passed ONLY on the success finalize (→ written to dropped_unclean_span_keys
+   * on the SUCCESS branch). NULL/absent on terminal-failure + zero-drop success
+   * (→ the column stays NULL). NAMES only — never a span / body / verdict.
+   */
+  droppedUncleanSpanKeys?: string[] | null;
 }
 
 /**
@@ -508,6 +520,7 @@ async function finalizeJob(
       p_dead_letter_reason: input.deadLetterReason,
       p_observations: input.observations ?? [],
       p_failure_detail: input.failureDetail ?? null,
+      p_dropped_unclean_span_keys: input.droppedUncleanSpanKeys ?? null,
     });
     if (error) return false;
     return data === true;

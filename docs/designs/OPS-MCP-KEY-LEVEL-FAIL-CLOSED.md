@@ -369,3 +369,68 @@ This design REDEFINES `checkedRawKeys` from "attempted" to "cleanly assessed". T
 card MUST inventory every existing consumer of `checkedRawKeys` and confirm none reads it alone as
 an attempted-count (the key-set-coordination validator at `mcpBooleanObservationSchemaMirror.ts:218-265`
 and any Edge/jest mirror assertions are the named starting points).
+
+---
+
+## Widening (A–J) — implemented 2026-06-11 (OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING)
+
+**Decision recital.** The "Scope decision" and "Out of scope" sections above bound the
+first ship to **Family J only** (admin-validation-only; zero production blast radius)
+and explicitly deferred A–I key-level drop to "a separate, production-touching follow-up
+requiring its own §10a + production review and the `finalize_classifier_job` re-create."
+That follow-up — **OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING** — is now implemented. The
+J-only bound is **lifted** after the live proof of the J mechanism (PR #576): the
+mechanism was always built family-agnostic (the shared dispatcher tail +
+`KEY_LEVEL_FAIL_CLOSED_FAMILIES` named set), and the widening flips the named set on for
+all ten registered families.
+
+**Production semantics are IDENTICAL to J's.** This widening relaxes **nothing** that
+§"Doctrine analysis" established:
+
+1. **Ban patterns byte-unchanged.** No `family*BanListScan.ts` module was modified — every
+   pattern the collector needs was already exported (`DOCTRINE_BAN_PATTERNS` for A–D, which
+   carry no family-specific array; `FAMILY_<X>_BAN_PATTERNS` for E–J). `keyLevelFailClosed.ts`
+   only RE-COMPOSES those already-exported constants per family, in the SAME order each
+   family's scan composes them. All ten scan modules + `doctrineBanList.ts` are byte-identical
+   to the pre-card tree (`git hash-object` proven).
+2. **No-divergence holds per family.** `banPatternsForKeyLevelFamily(family)` returns the exact
+   stack the family's `scanFamily<X>BooleanResponseForBanList` builds, so the per-key drop
+   decision and the whole-packet scan can never disagree (the rule is extended to a per-family
+   test: source+flags equality AND a collector⇔scan agreement proof on a dirty span, for all
+   ten families).
+3. **Fail-closed, omission-only.** An unclean key is omitted (never returns, never persists its
+   span); coerce-to-false stays rejected. The only behavioral delta for A–I is that an unclean
+   key now dies ALONE — the clean siblings (independently verified clean) survive — instead of
+   killing the whole packet.
+
+**The production queue-drainer re-create (the deferred work).** A–I are production-enabled and
+run through the queue drainer (`claim_classifier_jobs → classify → finalize_classifier_job`),
+NOT the direct-dispatch path. So the finalizer's SUCCESS branch must now persist the drop
+names. Sequential migration `20260611000002_ops_mcp_key_level_fail_closed_widening_finalizer.sql`
+re-creates `finalize_classifier_job` from the CURRENT 9-arg body (`20260602000001`, NOT the
+8-arg `20260528000022`) with ONE additive trailing param `p_dropped_unclean_span_keys text[]
+DEFAULT NULL`, written to `dropped_unclean_span_keys` on the SUCCESS branch only; the
+TERMINAL-FAILURE branch is byte-faithful (still `failure_detail = p_failure_detail`, does not
+touch the new column). No ALTER TABLE — the column already exists from `20260611000001`. The
+drainer threads the field on its SUCCESS finalize (`classifierDrainerClassify.ts` →
+`classifierDrainerCore.ts` → the 10-arg RPC); the Edge DIRECT path was already family-agnostic
+and threaded by the J ship.
+
+**Observability covers production volumes.** Q18 (`scripts/ops/sql/18-…`) already groups by
+family and reads any family's `dropped_unclean_span_keys`; the admin-health
+`byUncleanSpanKeyDrop` bucket is already family-agnostic — both required no change. The
+drop-RATE remains **advisory, never a gate** (consistent with §"Observability"): a sustained
+per-key drop-rate on a production family is the operator's signal that prompt iteration is
+warranted for that key's span-anchoring; it never auto-gates, auto-disarms, or flips a family
+posture.
+
+**Unchanged postures.** `engine.ts`, the family registry (every `productionEnabled` /
+`adminValidationEnabled` flag byte-unchanged — **J stays admin-validation-only**), and routing
+are untouched. The §10a doctrine-review merge gate from the J card carries forward to this
+widening.
+
+**Verification.** Deno server suite 1638 / 0 (+41 vs 1597); full jest 714 suites / 29607 passed
++ 1 pre-existing skip (+2 suites / +40 vs 712 / 29567); typecheck clean; per-file eslint + deno
+lint clean. Operator follow-up: apply `20260611000002` (`npx supabase db push --linked`) BEFORE
+merging the drainer code; verify the 10-arg overload; THEN merge (heightened migration-bearing
+verification applies).

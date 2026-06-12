@@ -83,7 +83,21 @@ export interface DrainerFinalizeObservation {
  *                          retry policy.
  */
 export type DrainerClassifyResult =
-  | { kind: 'classified'; observations: DrainerFinalizeObservation[] }
+  | {
+      kind: 'classified';
+      observations: DrainerFinalizeObservation[];
+      /**
+       * OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING: the server-sourced unclean-span
+       * drop list (rawKey NAMES only) that rode through the merge + sanitize on
+       * the SUCCESS path. The drainer threads this to finalize_classifier_job's
+       * `p_dropped_unclean_span_keys` so the run row's `dropped_unclean_span_keys`
+       * audit column is populated on a SUCCESS run that dropped >= 1 key. NULL
+       * (the common case) ⇒ zero keys dropped ⇒ the column stays NULL, exactly
+       * as the direct-dispatch path does. NAMES only — never a span / body /
+       * verdict (cdiscourse-doctrine §1/§10a).
+       */
+      keysDroppedForUncleanSpan: string[] | null;
+    }
   | { kind: 'argument_missing' }
   | { kind: 'unavailable'; adapterResult: Extract<BooleanObservationAdapterResult, { kind: 'unavailable' }> };
 
@@ -203,10 +217,22 @@ export async function classifyJobForFinalize(
     });
   }
 
+  // OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING — carry the server-sourced
+  // unclean-span drop list (rawKey NAMES only) off the SANITIZED (post-merge)
+  // response so the drainer's SUCCESS finalize can persist it to the run row's
+  // dropped_unclean_span_keys column. Pass NULL (not []) when zero keys dropped,
+  // so a zero-drop success leaves the column NULL — byte-identical to the
+  // direct-dispatch path's omit-on-zero behavior.
+  const keysDroppedForUncleanSpan: string[] | null =
+    Array.isArray(sanitized.keysDroppedForUncleanSpan) &&
+    sanitized.keysDroppedForUncleanSpan.length > 0
+      ? [...sanitized.keysDroppedForUncleanSpan]
+      : null;
+
   // A succeeded classify with zero positive observations is valid (Source 6
   // renders nothing) — the finalizer writes zero result rows + flips the run
   // row to succeeded, exactly as the direct path allows. (schema_version is
   // carried by the run row, set at enqueue; the finalizer reads it off the
   // locked run row, so the drainer never re-supplies it.)
-  return { kind: 'classified', observations };
+  return { kind: 'classified', observations, keysDroppedForUncleanSpan };
 }

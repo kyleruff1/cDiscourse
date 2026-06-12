@@ -502,4 +502,28 @@ describe('MCP-BATCHING — keysDroppedForUncleanSpan union (key-level fail-close
     const { merged } = edgeMergeBatchResponses(outcomes, 'arg-1');
     expect(merged.keysDroppedForUncleanSpan).toEqual(['needs_pre_send_pause']);
   });
+
+  // OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING — Family D (evidence_source_chain) is
+  // the 22-key family the Edge splits 22→16+6. A drop in EACH batch must union
+  // across the split so a production D run that drops one key in each batch
+  // records BOTH names on the run row. This is the production-bearing batching
+  // path the widening enables for D.
+  it('KLF-4 [D 22 -> 16+6] — a drop in EACH of the two D batches unions across the split', () => {
+    const keys = makeKeys(22); // D's Subset size (the 22-key family).
+    const batches = edgeChunkRawKeys(keys);
+    // Confirm the D split shape is exactly 16 + 6 (the documented split).
+    expect(batches.length).toBe(2);
+    expect(batches[0].rawKeys.length).toBe(16);
+    expect(batches[1].rawKeys.length).toBe(6);
+    // Each batch drops a DIFFERENT key (disjoint chunks → the union is a
+    // de-duplicated concatenation, sorted).
+    const firstKey = batches[0].rawKeys[0];
+    const secondKey = batches[1].rawKeys[0];
+    const outcomes = [
+      droppedOutcome(batches[0], [firstKey]),
+      droppedOutcome(batches[1], [secondKey]),
+    ];
+    const { merged } = edgeMergeBatchResponses(outcomes, 'arg-d');
+    expect(merged.keysDroppedForUncleanSpan).toEqual([firstKey, secondKey].sort());
+  });
 });

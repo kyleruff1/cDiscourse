@@ -83,10 +83,18 @@ const DIRTY_PAUSE_SPAN =
 // UNIT — KEY_LEVEL_FAIL_CLOSED_FAMILIES + banPatternsForKeyLevelFamily
 // ─────────────────────────────────────────────────────────────────────────
 
-Deno.test('KEY_LEVEL_FAIL_CLOSED_FAMILIES enables Family J ONLY (zero production blast radius)', () => {
+// OPS-MCP-KEY-LEVEL-FAIL-CLOSED-WIDENING — RETARGETED. This test previously
+// pinned the J-ONLY membership ("Family J ONLY; A–I return false;
+// banPatternsForKeyLevelFamily('parent_relation') === null"). The widening
+// intentionally lifts that bound to all ten families (a designed behavior
+// change, not a weakening — the ban patterns + re-scan are unchanged). J stays
+// a member (its key-drop behavior, proven below, is byte-unchanged); A–I are
+// now members too. The full per-family no-divergence proof lives in
+// keyLevelFailClosedWidening.test.ts.
+Deno.test('KEY_LEVEL_FAIL_CLOSED_FAMILIES enables ALL TEN families (widening); J unchanged', () => {
   assertEquals(KEY_LEVEL_FAIL_CLOSED_FAMILIES.has('sensitive_composer'), true);
   for (
-    const other of [
+    const fam of [
       'parent_relation',
       'disagreement_axis',
       'misunderstanding_repair',
@@ -98,9 +106,12 @@ Deno.test('KEY_LEVEL_FAIL_CLOSED_FAMILIES enables Family J ONLY (zero production
       'thread_topology',
     ]
   ) {
-    assertEquals(KEY_LEVEL_FAIL_CLOSED_FAMILIES.has(other), false);
+    assertEquals(KEY_LEVEL_FAIL_CLOSED_FAMILIES.has(fam), true);
+    // A widened family now resolves a non-null pattern stack (no longer null).
+    assertEquals(banPatternsForKeyLevelFamily(fam) !== null, true);
   }
-  assertEquals(banPatternsForKeyLevelFamily('parent_relation'), null);
+  // A string outside the ten registered families still resolves null.
+  assertEquals(banPatternsForKeyLevelFamily('not_a_family'), null);
 });
 
 Deno.test('banPatternsForKeyLevelFamily(J) is the SAME stack the scan uses (no divergence by construction)', () => {
