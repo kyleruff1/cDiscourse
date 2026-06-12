@@ -23,9 +23,10 @@
  *     looks like an internal snake_case code is DROPPED (the evaluator already
  *     guarantees this, but the card never echoes a raw code — mirrors the
  *     §10a posture of the existing classifier strip).
- *   - DEFENSIVE A-G-only guard: the registry is A-G-only, but any result whose
- *     `familyKey` references a frozen H/I/J family is DROPPED so the card can
- *     never surface H/I/J even if a future registry edit slips one in.
+ *   - DEFENSIVE production-roster guard: the registry is the A–I production
+ *     roster, but any result whose `familyKey` references the frozen Family J
+ *     (`sensitive_composer`) is DROPPED so the card can never surface J even
+ *     if a future registry edit slips one in.
  *   - All output is `machine_observation`; no `inactive_reason` / "why hidden"
  *     copy is ever emitted (§10a).
  *
@@ -127,9 +128,10 @@ function isRenderableResult(result: ObservationMappingResult): boolean {
   if (looksLikeInternalCode(label) || looksLikeInternalCode(shortLabel)) {
     return false;
   }
-  // A-G only — drop anything referencing a frozen H/I/J family even though
-  // the registry never authors one (the `${famA}+${famB}` cross-family key
-  // is split so either half tripping the set drops the chip).
+  // Production roster only (A–I) — drop anything referencing the frozen
+  // Family J even though the registry never authors one (the
+  // `${famA}+${famB}` cross-family key is split so either half tripping the
+  // set drops the chip).
   const familyKey = typeof result.familyKey === 'string' ? result.familyKey : '';
   for (const part of familyKey.split('+')) {
     if (FROZEN_HIJ_FAMILY_SET.has(part)) return false;

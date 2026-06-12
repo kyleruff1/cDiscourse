@@ -145,7 +145,7 @@ export interface CardDetailViewModel {
   /** ask v — Standing / Tone / Heat strip (plain-language), or null when
    *  no active node is available (degenerate input). */
   standingToneHeat: DetailStandingToneHeatStrip | null;
-  /** ask iii — all-families family-grouped classifiers (A–G gated). */
+  /** ask iii — all-families family-grouped classifiers (A–I gated). */
   hubClassifier: HubClassifierGroupsModel;
   /** ask ii — full semantic tags, doctrine-grouped. */
   fullTags: DetailFullTagsModel;
@@ -335,7 +335,7 @@ export function buildCardDetailViewModel(
   const standingToneHeat =
     sthNode && sthVm ? buildStandingToneHeatStrip(sthVm, sthNode) : null;
 
-  // ask iii — all-families family-grouped classifiers (A–G gated, uncapped).
+  // ask iii — all-families family-grouped classifiers (A–I gated, uncapped).
   // Reuses the SAME classifier input as the capped strip; the family gate +
   // grouping live in the shared `buildHubClassifier`.
   const hubClassifier = buildHubClassifier(classifierInput);
