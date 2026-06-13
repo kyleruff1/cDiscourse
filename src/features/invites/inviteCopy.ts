@@ -150,6 +150,9 @@ const ERROR_CODE_MAP: Readonly<Record<string, string>> = {
   not_allowed_to_invite: INVITE_PANEL_COPY.notAllowedNotice,
   room_archived: 'This argument was archived — you can\'t add people now.',
   room_closed: 'This argument is settled — you can\'t add people now.',
+  // ARG-ROOM-006 item (g): the room already holds its one live invite (to
+  // anyone). Neutral copy that names no one — no enumeration.
+  room_already_has_invite: 'This argument already has an invite waiting.',
   invite_not_visible: 'You cannot manage this invite.',
   not_pending: 'This invite is no longer pending.',
   invite_revoked: 'This invite is no longer active.',

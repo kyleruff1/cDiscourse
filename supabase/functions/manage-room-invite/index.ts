@@ -273,8 +273,21 @@ async function handleCreate(
     .single();
 
   if (insertErr || !inserted) {
-    // A unique-violation here means the partial unique index fired —
-    // re-read and return idempotently.
+    // A unique-violation here means one of the two partial-unique indexes
+    // on argument_room_invites fired:
+    //
+    //   (1) argument_room_invites_one_live (debate_id, invitee_email_lower)
+    //       WHERE status='pending' — the SAME address already holds a live
+    //       invite. This is a race against the step-7 idempotent read; the
+    //       same-address re-read below finds the row and returns it
+    //       idempotently (reused: true). Behavior unchanged.
+    //
+    //   (2) argument_room_invites_one_live_per_room (debate_id) WHERE
+    //       status='pending' (ARG-ROOM-002) — the room already holds its ONE
+    //       live invite, possibly to a DIFFERENT address. The same-address
+    //       re-read finds nothing, so before this fix it fell through to a
+    //       500 mislabel. It is a known business-rule collision, not an
+    //       internal error — relabel it to a neutral 409 (ARG-ROOM-006 item g).
     const { data: raced } = await svc
       .from('argument_room_invites')
       .select('id, status, expires_at')
@@ -291,7 +304,28 @@ async function handleCreate(
         reused: true,
       });
     }
-    return internalError('invite_insert_failed');
+
+    // ARG-ROOM-006 item (g): disambiguate the per-room one-live-invite
+    // collision (index 2 above) from a genuine insert failure. Count pending
+    // invites for the room by debate_id ONLY — head:true returns NO row
+    // bodies, so no email / token / who-was-invited is read or leaked (no
+    // enumeration). A pending invite to SOMEONE means the room already has
+    // its single live invite: return a neutral 409 that names no one, rather
+    // than the pre-002 mislabel (a 500, or "you already invited THIS address").
+    const { count: pendingForRoom } = await svc
+      .from('argument_room_invites')
+      .select('id', { count: 'exact', head: true })
+      .eq('debate_id', body.debateId)
+      .eq('status', 'pending');
+    if ((pendingForRoom ?? 0) > 0) {
+      return jsonError(
+        409,
+        'room_already_has_invite',
+        'This argument already has an invite waiting.',
+      );
+    }
+
+    return internalError('invite_insert_failed'); // genuine failure
   }
 
   // 9) Build the link from the request origin. The deployed origin is

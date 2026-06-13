@@ -88,6 +88,7 @@ function collectAllStrings(): string[] {
     'not_allowed_to_invite',
     'room_archived',
     'room_closed',
+    'room_already_has_invite', // ARG-ROOM-006 item (g)
     'invite_revoked',
     'invite_expired',
     'invite_already_accepted',

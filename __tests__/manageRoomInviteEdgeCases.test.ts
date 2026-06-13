@@ -241,3 +241,59 @@ describe('§10 edge cases — race conditions + idempotency', () => {
     expect(acceptRegion).toContain("'23505'");
   });
 });
+
+// ── ARG-ROOM-006 item (g) — per-room one-live-invite 23505 relabel ──
+//
+// After ARG-ROOM-002's argument_room_invites_one_live_per_room index
+// (debate_id WHERE status='pending'), a create insert can 23505 because the
+// room already has its ONE live invite — possibly to a DIFFERENT address.
+// Before the relabel the same-address re-read found nothing and the path
+// fell through to internalError('invite_insert_failed') (a 500 mislabel).
+// The relabel returns a neutral 409 room_already_has_invite that names no one.
+describe('ARG-ROOM-006 item (g) — create 23505 relabel', () => {
+  const createRegion = regionFor('handleCreate');
+
+  it('same-address race is still handled idempotently (regression — unchanged)', () => {
+    // The same-email re-read + reused:true path is preserved verbatim.
+    expect(createRegion).toMatch(/raced[\s\S]*?reused: true/);
+    expect(createRegion).toContain("eq('invitee_email_lower', inviteeEmailLower)");
+  });
+
+  it('counts pending invites for the room by debate_id ONLY (the per-room index)', () => {
+    // A head:true count keyed on debate_id + status='pending' — NOT scoped
+    // to invitee_email_lower — distinguishes the per-room collision.
+    expect(createRegion).toMatch(/count:\s*pendingForRoom/);
+    expect(createRegion).toMatch(/\{\s*count:\s*'exact',\s*head:\s*true\s*\}/);
+    // The count query must be debate_id + status only (no email filter on it).
+    const countQuery =
+      createRegion.match(/count:\s*pendingForRoom[\s\S]*?;\n/)?.[0] ?? '';
+    expect(countQuery).toContain("eq('debate_id', body.debateId)");
+    expect(countQuery).toContain("eq('status', 'pending')");
+    expect(countQuery).not.toContain('invitee_email_lower');
+  });
+
+  it('returns a neutral 409 room_already_has_invite when a pending invite exists', () => {
+    expect(createRegion).toMatch(/pendingForRoom\s*\?\?\s*0\)\s*>\s*0/);
+    expect(createRegion).toMatch(/jsonError\(\s*409,\s*'room_already_has_invite'/);
+  });
+
+  it('the relabel message names no email / address (no enumeration)', () => {
+    // Extract the room_already_has_invite jsonError message string.
+    const msgMatch = createRegion.match(
+      /jsonError\(\s*409,\s*'room_already_has_invite',\s*'([^']+)'/,
+    );
+    expect(msgMatch).not.toBeNull();
+    const msg = (msgMatch![1] || '').toLowerCase();
+    expect(msg.length).toBeGreaterThan(0);
+    expect(msg).not.toContain('@');
+    expect(msg).not.toContain('address');
+    expect(msg).not.toContain('email');
+    // Must not echo the invitee variable / column either.
+    expect(msg).not.toContain('invitee');
+  });
+
+  it('preserves the genuine-failure path (no pending → invite_insert_failed)', () => {
+    // The real 500 is still returned when no pending invite exists for the room.
+    expect(createRegion).toContain("internalError('invite_insert_failed')");
+  });
+});
