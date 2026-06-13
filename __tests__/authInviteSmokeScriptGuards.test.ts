@@ -148,19 +148,39 @@ describe('resolvePlan — live-send + batch gating', () => {
 });
 
 describe('secret hygiene', () => {
-  it('fingerprint never echoes the raw value', () => {
-    const fp = smoke.fingerprint('super-secret-service-role-value-1234');
-    expect(fp.present).toBe(true);
-    expect(JSON.stringify(fp)).not.toContain('super-secret-service-role-value-1234');
+  it('fingerprint exposes ONLY present + length — never the value or any character of it', () => {
+    const secret = 'Zx9Q-vault-Kp7m-secret-tail';
+    const fp = smoke.fingerprint(secret);
+    expect(fp).toEqual({ present: true, length: secret.length });
+    // No char preview at all: neither a prefix nor a suffix nor an `fp` field.
+    expect(fp).not.toHaveProperty('fp');
+    const json = JSON.stringify(fp);
+    expect(json).not.toContain(secret);
+    expect(json).not.toContain(secret.slice(0, 4)); // no prefix
+    expect(json).not.toContain(secret.slice(-4)); // no suffix
     expect(smoke.fingerprint('').present).toBe(false);
   });
 
-  it('buildRedactedPlan fingerprints credentials and never carries a raw password', () => {
+  it('buildRedactedPlan never carries a password or access-token fragment (prefix/suffix/whole)', () => {
     const plan = { mode: 'live_single', targets: ['kyleruff+devtest99@gmail.com'], redirectHost: 'dev-cdiscourse.netlify.app', smtpPosture: 'custom' };
-    const env = { CDISCOURSE_ADMIN_PASSWORD: 'hunter2-the-real-password', EXPO_PUBLIC_SUPABASE_URL: 'https://abc.supabase.co' };
+    const pwd = 'Wn4t-the-actual-passw0rd-2026';
+    const token = 'sbp_aabbccdd11223344eeff5566';
+    const env = {
+      CDISCOURSE_ADMIN_PASSWORD: pwd,
+      CDISCOURSE_ADMIN_EMAIL: 'cdiscourse-admin-bot@example.com',
+      EXPO_PUBLIC_SUPABASE_URL: 'https://abc.supabase.co',
+      SUPABASE_ACCESS_TOKEN: token,
+    };
+    const json = JSON.stringify(smoke.buildRedactedPlan(plan, env));
+    for (const secret of [pwd, token]) {
+      expect(json).not.toContain(secret);
+      expect(json).not.toContain(secret.slice(0, 4)); // no prefix preview
+      expect(json).not.toContain(secret.slice(-4)); // no suffix preview
+    }
     const redacted = smoke.buildRedactedPlan(plan, env);
-    expect(JSON.stringify(redacted)).not.toContain('hunter2-the-real-password');
-    expect(redacted.credentials.adminPassword.present).toBe(true);
+    expect(redacted.credentials.adminPassword).toEqual({ present: true, length: pwd.length });
+    expect(redacted.credentials.adminEmail.present).toBe(true);
+    expect(redacted.credentials.adminEmail).not.toHaveProperty('fp');
   });
 
   it('the script introduces NO service-role lane (no SERVICE_ROLE / service_role in source)', () => {

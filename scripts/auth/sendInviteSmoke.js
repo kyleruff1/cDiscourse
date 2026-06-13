@@ -51,17 +51,17 @@ const ALLOWED_REDIRECT_HOSTS = Object.freeze([
 const SEED_EMAIL_RE = /^kyleruff\+devtest(\d{1,3})@gmail\.com$/;
 const MAX_BATCH = 5; // hard cap — never infer a large range.
 
-/** Presence + length + 4-char prefix/suffix fingerprint ONLY. Never the value. */
+/**
+ * Presence + length ONLY — never the value, and never any character of it.
+ * (AUTH-URL-CONFIG-AND-RESEED-2026-06-13 hardening: the prior 4-char
+ * prefix/suffix preview exposed too many characters of short secrets like a
+ * password or access token. Diagnostics now carry no value fragment at all.)
+ */
 function fingerprint(value) {
   if (value === undefined || value === null || value === '') {
     return { present: false };
   }
-  const s = String(value);
-  return {
-    present: true,
-    length: s.length,
-    fp: s.length <= 8 ? '****' : `${s.slice(0, 4)}…${s.slice(-4)}`,
-  };
+  return { present: true, length: String(value).length };
 }
 
 /** True for the kyleruff+devtestNN@gmail.com plus-address shape. */
