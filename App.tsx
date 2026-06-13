@@ -36,6 +36,12 @@ import type { GalleryEntryHint } from './src/features/debates/conversationGaller
 // the GalleryEntryHint that the room shell consumes; the NotificationDeepLink
 // input is imported from the notifications module (read-only).
 import { buildDeepLinkEntryHint } from './src/features/debates/deepLinkEntryHint';
+// ARG-ROOM-006 (item c) — pure deep-link access resolver + the cause-neutral
+// "unavailable" notice. A requested room id absent from the RLS-filtered list
+// resolves to `unavailable` (IDENTICAL for private-no-access and nonexistent —
+// the no-enumeration guarantee). No RLS change; pure client logic.
+import { resolveRoomDeepLinkAccess } from './src/features/debates/roomAccessModel';
+import { RoomUnavailableNotice } from './src/features/debates/RoomUnavailableNotice';
 import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
 import { ArgumentTreeScreen } from './src/features/arguments';
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
@@ -509,6 +515,9 @@ function MainAppShell({
   // tab-host pattern is preserved.
   const notifications = useNotifications(state.snapshot.userId);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  // ARG-ROOM-006 (item c) — the cause-neutral "unavailable" notice for a deep
+  // link whose room id is not in the RLS-filtered `debates` list.
+  const [roomUnavailableOpen, setRoomUnavailableOpen] = useState(false);
   const handleOpenNotificationDeepLink = React.useCallback(
     (link: NotificationDeepLink, _n: RoomNotification): void => {
       // Close the list, then select the debate.
@@ -522,8 +531,26 @@ function MainAppShell({
       // returns null and the room mounts with the latest move active as
       // before.
       setNotificationsOpen(false);
+      // ARG-ROOM-006 (item c) — if the room id is absent from the RLS-filtered
+      // list, surface the cause-neutral "unavailable" notice instead of
+      // silently dropping to the gallery. `unavailable` is IDENTICAL for a
+      // private room the viewer cannot see AND a nonexistent/typo'd id — the
+      // no-enumeration guarantee. No RLS change: QOL-039 already withheld it.
+      const access = resolveRoomDeepLinkAccess({
+        requestedDebateId: link.debateId,
+        loadedDebateIds: debates.map((d) => d.id),
+      });
+      if (access.outcome === 'unavailable') {
+        setRoomUnavailableOpen(true);
+        return;
+      }
       const target = debates.find((d) => d.id === link.debateId);
-      if (!target) return;
+      if (!target) {
+        // Defensive: `resolved` implies the id is present. If it somehow is
+        // not, fall back to the same neutral notice (never a silent drop).
+        setRoomUnavailableOpen(true);
+        return;
+      }
       const side = target.myParticipantSide ?? 'observer';
       setEntryHint(buildDeepLinkEntryHint(link));
       selectDebate(target, side);
@@ -1032,6 +1059,15 @@ function MainAppShell({
 
         {!aboutOpen && activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
       </View>
+
+      {/* ARG-ROOM-006 (item c) — deep-link "unavailable" notice. Cause-neutral;
+          identical for a private room the viewer cannot see and a nonexistent
+          id (no enumeration). Shown only when a deep link resolves away. */}
+      <RoomUnavailableNotice
+        visible={roomUnavailableOpen}
+        onDismiss={() => setRoomUnavailableOpen(false)}
+        reduceMotion={preferences.effectiveReduceMotion}
+      />
     </SafeAreaView>
   );
 }
