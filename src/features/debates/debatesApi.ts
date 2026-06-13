@@ -1,4 +1,8 @@
 import { supabase, SUPABASE_CONFIGURED } from '../../lib/supabase';
+// ARG-ROOM-004 — extract the raw token from the create-time inviteLink so the
+// create-time notification can pass it to the gated transports. Pure parser;
+// no React, no network.
+import { parseInviteDeepLink } from '../invites/inviteDeepLink';
 import type {
   Debate,
   CreateDebateInput,
@@ -185,6 +189,46 @@ export async function createArgumentRoom(
 }
 
 /**
+ * ARG-ROOM-004 — fire the create-time invitee notification (best-effort).
+ *
+ * `create-argument-room` stays enumeration-safe + branch-free by contract (it
+ * never decides new-vs-existing). So after it mints the room + invite, the
+ * client triggers `room-notifications` — the seam that already holds the
+ * new-vs-existing `listUsers` split + the gated existing-user Resend transport,
+ * plus the gated new-user Auth-invite bridge. BOTH transports are OFF by
+ * default, so this call is DORMANT (no email) until the operator flips a gate.
+ *
+ * BEST-EFFORT by design: it NEVER throws and its result is discarded, so a
+ * slow / failed / dormant send never blocks room creation, never rolls back the
+ * created room/invite, and never leaks existing-vs-new to the inviter (the
+ * create response is already enumeration-safe; this response is not surfaced).
+ * The raw token rides in the request body to a JWT-authed, caller=inviter-
+ * authorized function and is never logged client-side.
+ */
+export async function notifyCreateTimeInvite(input: {
+  debateId: string;
+  inviteId: string;
+  inviteToken: string;
+  roomIsPrivate: boolean;
+}): Promise<void> {
+  if (!SUPABASE_CONFIGURED) return;
+  try {
+    await supabase.functions.invoke('room-notifications', {
+      body: {
+        type: 'invite',
+        debateId: input.debateId,
+        inviteId: input.inviteId,
+        inviteToken: input.inviteToken,
+        meta: { roomIsPrivate: input.roomIsPrivate },
+      },
+    });
+  } catch {
+    // Best-effort: never block create. The inviter's copyable link is the
+    // fallback and the invite row stays retryable.
+  }
+}
+
+/**
  * Back-compatible creation wrapper. Keeps the `(input, userId)` signature the
  * live surface (`useDebates().create` -> `StartArgumentPage`) already uses, but
  * routes through the server-authoritative `createArgumentRoom` Edge path
@@ -228,6 +272,24 @@ export async function createDebate(
         debateError?.message ??
         'The argument was created, but could not be loaded. Refresh to see it.',
     };
+  }
+
+  // ARG-ROOM-004 — fire the create-time invitee notification (best-effort,
+  // fire-and-forget). The room + invite are already durably committed above,
+  // so this never blocks the create return and a failed send never rolls back
+  // the room. The raw token rides in the create-time `inviteLink` (the only
+  // place it exists client-side); we extract it for the gated transports.
+  // Both transports default OFF → dormant on merge.
+  if (created.data.inviteId && created.data.inviteLink) {
+    const parsedToken = parseInviteDeepLink(created.data.inviteLink);
+    if (parsedToken) {
+      void notifyCreateTimeInvite({
+        debateId: created.data.debateId,
+        inviteId: created.data.inviteId,
+        inviteToken: parsedToken.token,
+        roomIsPrivate: input.visibility === 'private',
+      });
+    }
   }
 
   return { ok: true, data: mapDebateRow(debate as DebateRow, 'moderator') };
