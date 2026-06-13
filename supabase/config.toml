@@ -250,10 +250,15 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# AUTH-INVITE-BRANDED-SMOKE-2026-06-13 — branded CDiscourse invite email.
+# Local dev (`supabase start`) reads this template directly. The HOSTED project's
+# "Invite user" template is a SEPARATE Dashboard/`supabase config push` action
+# (operator-gated by CDISCOURSE_ALLOW_AUTH_TEMPLATE_UPDATE) — editing this file
+# does not change the hosted template. See
+# docs/testing-runs/2026-06-13-auth-branded-invite-smoke.md § hosted sync.
+[auth.email.template.invite]
+subject = "You're invited to CDiscourse"
+content_path = "./supabase/templates/invite.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

@@ -1,0 +1,133 @@
+<!--
+  CDiscourse — branded "Invite user" email template (AUTH-INVITE-BRANDED-SMOKE-2026-06-13).
+
+  This file is the body of the Supabase Auth "Invite user" email. It is rendered
+  by Supabase when `auth.admin.inviteUserByEmail(email, { redirectTo })` fires
+  (see supabase/functions/admin-users/index.ts handleInviteUser). The invite
+  link/token NEVER enters app code — Supabase substitutes `{{ .ConfirmationURL }}`
+  server-side and owns the link. That is the doctrine-required source of truth.
+
+  Variables used (Supabase "Invite" template):
+    {{ .ConfirmationURL }} — the one-time invite link (CTA + plain fallback).
+    {{ .Email }}           — the invited recipient address (shown in the safety note only).
+
+  Doctrine (cdiscourse-doctrine): no truth/verdict/winner/loser/accusation copy,
+  no manipulative urgency, no raw internal codes. Plain language only.
+
+  Email-client constraints: table layout, inline CSS, max-width container,
+  bulletproof CTA with a >=44px tap target, accessible contrast. The hosted
+  "Invite" template is HTML-only (config.toml `content_path`); the in-body plain
+  link is the fallback for clients that strip the button.
+-->
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="x-ua-compatible" content="IE=edge" />
+    <title>You're invited to CDiscourse</title>
+    <style>
+      /* Progressive enhancement only — every critical style is also inlined below. */
+      @media (max-width: 600px) {
+        .cd-container { width: 100% !important; }
+        .cd-pad { padding-left: 24px !important; padding-right: 24px !important; }
+        .cd-cta { display: block !important; width: 100% !important; }
+      }
+    </style>
+  </head>
+  <body style="margin:0; padding:0; background-color:#f4f5f7; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
+    <!-- Preheader: shown in the inbox preview, hidden in the body. -->
+    <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#f4f5f7;">
+      Your invitation to CDiscourse — a workspace for structured, focused disagreement.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f5f7;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" class="cd-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:12px; overflow:hidden; border:1px solid #e3e6ea;">
+
+            <!-- Brand header -->
+            <tr>
+              <td class="cd-pad" style="padding:32px 40px 8px 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                <span style="display:inline-block; font-size:20px; line-height:24px; font-weight:700; color:#1f2a37; letter-spacing:-0.2px;">CDiscourse</span>
+              </td>
+            </tr>
+
+            <!-- Headline -->
+            <tr>
+              <td class="cd-pad" style="padding:8px 40px 0 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                <h1 style="margin:0; font-size:24px; line-height:30px; font-weight:700; color:#111827;">You're invited to CDiscourse</h1>
+              </td>
+            </tr>
+
+            <!-- Purpose + value prop -->
+            <tr>
+              <td class="cd-pad" style="padding:16px 40px 0 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                <p style="margin:0 0 16px 0; font-size:16px; line-height:24px; color:#374151;">
+                  You've been invited to join CDiscourse — a workspace for structured disagreement.
+                </p>
+                <p style="margin:0 0 16px 0; font-size:16px; line-height:24px; color:#374151;">
+                  Here, a disagreement stays focused on the things that actually move it forward: the
+                  <strong>claim</strong> under dispute, the <strong>sources</strong> and <strong>quotes</strong>
+                  behind it, its <strong>scope</strong>, and the clearest <strong>next move</strong>. It keeps
+                  the conversation on the point, not on the people.
+                </p>
+              </td>
+            </tr>
+
+            <!-- CTA button (bulletproof, >=44px tap target) -->
+            <tr>
+              <td class="cd-pad" style="padding:8px 40px 8px 40px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" bgcolor="#2563eb" style="border-radius:8px;">
+                      <a class="cd-cta" href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer"
+                         style="display:inline-block; min-height:24px; padding:14px 28px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:16px; line-height:24px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:8px;">
+                        Accept invite
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Plain fallback link (clients that strip buttons) -->
+            <tr>
+              <td class="cd-pad" style="padding:8px 40px 0 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                <p style="margin:0 0 6px 0; font-size:13px; line-height:20px; color:#6b7280;">
+                  If the button doesn't work, copy and paste this link into your browser:
+                </p>
+                <p style="margin:0; font-size:13px; line-height:20px; word-break:break-all;">
+                  <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+
+            <!-- Safety note -->
+            <tr>
+              <td class="cd-pad" style="padding:24px 40px 0 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                <p style="margin:0; font-size:13px; line-height:20px; color:#6b7280;">
+                  This invitation was sent to {{ .Email }} and is meant only for you. If you weren't
+                  expecting it, you can safely ignore this email — no account is created until you accept.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td class="cd-pad" style="padding:24px 40px 32px 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; border-top:1px solid #eef0f2;">
+                <p style="margin:16px 0 0 0; font-size:12px; line-height:18px; color:#9ca3af;">
+                  Need help? Reply to this email and the CDiscourse team will follow up.
+                </p>
+                <p style="margin:8px 0 0 0; font-size:12px; line-height:18px; color:#9ca3af;">
+                  CDiscourse — structured disagreement, focused on the claim.
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
