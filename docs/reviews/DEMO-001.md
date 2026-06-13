@@ -1,7 +1,7 @@
 # DEMO-001 — Review
 
-**Verdict:** Changes requested (light; single coverage/accuracy item)
-**Risk classification:** **UI/fixture-only — YES (automerge-eligible on safety grounds).**
+**Verdict:** **Approve** (delta re-review 2026-06-12 — review §1 closed; see "Delta re-review" at the bottom). Prior round: Changes requested (light; single coverage/accuracy item).
+**Risk classification:** **UI/fixture-only — YES (automerge-eligible on safety grounds).** Re-confirmed at delta: the two fix commits add a test file + a status-doc wording fix only — strictly safer than the base diff.
 **Reviewer agent run:** 2026-06-12
 **Branch:** feat/DEMO-001-recruitable-debate-demo-corridor-fi
 **Design:** docs/designs/DEMO-001.md
@@ -88,3 +88,82 @@ The one thing standing between this and a clean Approve is a named design edge c
 - **Stand-in framing (operator-overridable):** the corridor mounts as a stand-in participant (`viewerRole='participant'`, `participantSide='affirmative'`) so the four real moves are reachable without a "Join" beat; the strict-observer-with-inline-Join alternative (+~15s) remains the fallback if the posture reads wrong to investors.
 - **REF-006 (#589) dogfood handoff:** the timed <3-min pass runs against this shipped corridor (a usability session, not a deploy); see Suggestion 1 for the move-timing note.
 - Post-merge: standard worktree cleanup per roadmap-reviewer.md § "Post-merge worktree cleanup (operator step)".
+
+---
+
+## Delta re-review (2026-06-12)
+
+**Scope.** Re-review of the two fix commits since the prior round (`e54d6e7`):
+`ade5e2d` (new `__tests__/demoCorridorEngineValidity.test.tsx`) and `43c9774`
+(status-wording correction). All other prior-round findings stand unchanged.
+**Outcome: §1 is genuinely closed — verdict flips to Approve.**
+
+**Delta diff (`e54d6e7..43c9774`) — boundary clean.** `--stat` shows exactly
+two files: `__tests__/demoCorridorEngineValidity.test.tsx` (+273) and
+`docs/core/current-status.md` (+1/-1). No production code, no guard, no
+fixture, no `App.tsx` touched. This is a test-and-doc-only delta — strictly
+safer than the already-safe base.
+
+**The new test drives the REAL engine chain (no mocked engine) — VERIFIED.**
+- *Part A (per-preset, pure):* `draftFromPreset` builds each move's draft from
+  the SHIPPED `quickActionToPreset(DEMO_MOVE_TO_QUICK_ACTION[move], …)` (the
+  same mapping `DemoComposerPanel.tsx:49` seeds), parented to
+  `DEMO_PARENT_ARGUMENT` — confirmed to be the fixture's **disputed sub-claim**
+  (a `rebuttal`, child of root, `id = DEMO_MSG.claim`; `demoFixtureRoom.ts:310-332`
+  comments it "the node every demo move acts on"). `evalAllowPost` runs the
+  real `buildEvaluationInput` + `evaluateArgumentDraft` from
+  `src/domain/constitution`. The four module-level mocks (async-storage,
+  `edgeFunctions.submitArgumentDraft` spy, `supabase` `SUPABASE_CONFIGURED`/auth,
+  `useConstitution`) shape only Part B's render; **none mocks the engine,
+  `quickActionToPreset`, or `buildEvaluationInput`** — Part A imports and calls
+  them directly. The honest negatives are pinned: `add_evidence` as-offered →
+  `allowPost: false` (no body/receipt), `branch` preset → `quickActionToPreset`
+  returns `null` (verified at `quickActionPresets.ts:143-145`) → not yet
+  Post-able; both reach `true` only with the corridor-instructed completion
+  (receipt+body / chosen type+body). The roll-up test asserts all four
+  completed drafts yield `allowPost: true`.
+- *Part B (assembled, real OneBox):* mounts the real `DemoCorridorScreen` →
+  real `OneBox`, walks to `choose_move`, picks `ask_source`, asserts the real
+  `one-box` renders, completes the move through the real composer controls
+  (Clarification type + body + Affirmative side), asserts the real "Post move"
+  button's `accessibilityState.disabled === false` (the production
+  `canSubmit`/`allowPost` gate genuinely opened — not a no-op), presses it, then
+  asserts (i) the corridor advanced to `issue_state_change`
+  (`CORRIDOR_COPY.issueStateChangeLines[0]` = "Your move is on the record.",
+  confirmed `corridorModel.ts:126-128`), the composer is gone, and (ii)
+  `submitArgumentDraft` was **never called**. The advance seam is now
+  integration-pinned, not inspection-only — exactly the gap §1 named.
+- No `.skip`/`.only`/`xit`/`xdescribe`; no guard loosened. Read in full.
+
+**Status wording now accurate — VERIFIED.** The overstated "engine `allowPost`
+per move is pinned" is replaced with a precise, substantiated claim: only
+`ask_source`/`narrow` are immediately Post-able; `add_evidence`/`branch` reach
+`allowPost: true` only after the corridor-instructed completion; each is proven
+by the per-preset test plus the assembled real-Post regression. The count is
+corrected to the measured `745 / 30245 (+1 skip) / +7 suites / +90 tests`.
+
+**Gates re-run by the reviewer (exact numbers).**
+
+| Gate | Result |
+|---|---|
+| targeted (`npx jest demoCorridor DemoCorridor demoCorridorEngineValidity --silent`) | **pass** — 7 suites / 90 tests (exit 0) |
+| full (`npx jest --silent`) | **pass** — **745 suites / 30245 passed + 1 skip (30246 total)** (exit 0); matches expected exactly; +7 suites / +90 tests over the prior 738/30155 baseline |
+| typecheck (`npx tsc --noEmit`) | **pass** (exit 0) |
+| eslint (`npx eslint __tests__/demoCorridorEngineValidity.test.tsx`) | **pass** (exit 0) |
+
+**Test-coverage checklist item resolved.** The prior `[~]` edge case
+("prefilled draft engine-invalid → Post button disabled") is now `[x]`:
+`evaluateArgumentDraft`-per-preset proves the validity gradient, and the
+assembled real-Post press exercises the production `canSubmit` gate end-to-end.
+
+**Residual / non-blocking.** Suggestions 1–2 from the prior round still stand
+(REF-006 timed dogfood should clock an immediately-valid move; `onSubmitSuccess`
+remains harmless dead-weight under the suppressor). The stray untracked file
+`docs/testing-runs/2026-06-13-xai-adversarial-bot-corpus-dry.md` is still in the
+worktree, still not part of this branch's commits — flagging again so the
+operator does not sweep it into the PR.
+
+**Verdict: Approve.** §1 is closed by code, not by hand-waving; doctrine,
+secrets, and submit-chain inertness findings from the prior round are unchanged
+and unaffected by a test-and-doc delta. Operator next steps above are unchanged
+(push + PR; no deploy; merge is not a deploy).
