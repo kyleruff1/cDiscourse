@@ -19,7 +19,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { StartArgumentPage } from '../src/features/arguments/startArgument/StartArgumentPage';
-import type { Debate, CreateDebateInput } from '../src/features/debates/types';
+import type { Debate, CreateDebateInput, CreatedRoom } from '../src/features/debates/types';
 import {
   deriveArgumentRoomCreation,
   plainLanguageForCreationReason,
@@ -48,10 +48,19 @@ function fakeDebate(overrides: Partial<Debate> = {}): Debate {
   };
 }
 
+/**
+ * ARG-ROOM-008 — `onCreate` now resolves to a `CreatedRoom` (debate + the
+ * one-time inviteLink). These tests pass a null link (no create-time box); the
+ * box behaviour lives in `startArgumentInviteLinkBox.test`.
+ */
+function fakeCreated(inviteLink: string | null = null): CreatedRoom {
+  return { debate: fakeDebate(), inviteLink };
+}
+
 /** Render with the declaration already filled so the ONLY remaining gate on
  *  submit is the visibility/invite creation matrix. */
 function renderForm() {
-  const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeDebate());
+  const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeCreated());
   const onCreated = jest.fn();
   const utils = render(
     <StartArgumentPage onCreate={onCreate} onCreated={onCreated} onCancel={jest.fn()} />,
@@ -206,7 +215,7 @@ describe('StartArgumentPage capacity explainer', () => {
 
 describe('StartArgumentPage submit — threads visibility + one invite', () => {
   it('calls onCreate with an explicit visibility and the normalized invite, then navigates', async () => {
-    const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeDebate());
+    const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeCreated());
     const onCreated = jest.fn();
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCreated={onCreated} onCancel={jest.fn()} />,
@@ -226,7 +235,7 @@ describe('StartArgumentPage submit — threads visibility + one invite', () => {
   });
 
   it('does not call onCreate when Private has no invite (submit disabled)', async () => {
-    const onCreate = jest.fn(async () => fakeDebate());
+    const onCreate = jest.fn(async () => fakeCreated());
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCancel={jest.fn()} />,
     );
@@ -238,7 +247,7 @@ describe('StartArgumentPage submit — threads visibility + one invite', () => {
   });
 
   it('threads NO invite on the Public no-email path', async () => {
-    const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeDebate());
+    const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeCreated());
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCreated={jest.fn()} onCancel={jest.fn()} />,
     );
@@ -254,7 +263,7 @@ describe('StartArgumentPage submit — threads visibility + one invite', () => {
   });
 
   it('renders no account-enumeration copy after creating with an invite (generic post-create)', async () => {
-    const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeDebate());
+    const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeCreated());
     const { getByTestId, queryByText } = render(
       <StartArgumentPage onCreate={onCreate} onCreated={jest.fn()} onCancel={jest.fn()} />,
     );

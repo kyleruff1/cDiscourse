@@ -388,7 +388,12 @@ describe('createDebate — routes through create-argument-room (no direct insert
     expect((mockState.invokes[0].body as { visibility: string }).visibility).toBe('public');
     // No direct `debates` insert from the client (the RPC does it under service-role).
     expect(mockState.calls.find((c) => c.table === 'debates' && c.op === 'insert')).toBeUndefined();
-    if (res.ok) expect(res.data.visibility).toBe('public');
+    // ARG-ROOM-008 — the success result is now a `CreatedRoom` (debate + the
+    // one-time inviteLink). No invite here, so inviteLink is null.
+    if (res.ok) {
+      expect(res.data.debate.visibility).toBe('public');
+      expect(res.data.inviteLink).toBeNull();
+    }
   });
 
   it('passes visibility="private" when the input requests private', async () => {
@@ -404,7 +409,7 @@ describe('createDebate — routes through create-argument-room (no direct insert
     );
     expect(res.ok).toBe(true);
     expect((mockState.invokes[0].body as { visibility: string }).visibility).toBe('private');
-    if (res.ok) expect(res.data.visibility).toBe('private');
+    if (res.ok) expect(res.data.debate.visibility).toBe('private');
   });
 
   // ── ARG-ROOM-003 — the live create surface threads its one optional invite
@@ -437,6 +442,13 @@ describe('createDebate — routes through create-argument-room (no direct insert
     expect(body.visibility).toBe('private');
     // createArgumentRoom trims + defaults intendedSeat to 'respondent'.
     expect(body.invite).toEqual({ email: 'guest@example.com', intendedSeat: 'respondent' });
+    // ARG-ROOM-008 — the raw one-time inviteLink rides through to the caller in
+    // the `CreatedRoom` result (it is no longer discarded). The create surface
+    // renders it once, inviter-only.
+    if (res.ok) {
+      expect(res.data.inviteLink).toBe('https://app.example/invite/tok');
+      expect(res.data.debate.visibility).toBe('private');
+    }
   });
 
   it('omits invite from the Edge body when no invite is supplied', async () => {
