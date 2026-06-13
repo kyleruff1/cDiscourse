@@ -480,12 +480,13 @@ async function handleInvite(
     }
   }
 
-  let delivered = 0;
   if (inviteeUserId) {
     // EXISTING-account invitee. Create the in-app notification keyed to
     // that user (the canonical surface). Author = the inviter; the dedupe
     // step inside resolveRecipients strips the inviter from recipients.
-    delivered = await insertRows([inviteeUserId], {
+    // The insert count is intentionally NOT captured/surfaced — see the
+    // branch-independent return below (no existing-vs-new enumeration).
+    await insertRows([inviteeUserId], {
       debate_id: invite.debate_id,
       argument_id: null,
       type: 'invite',
@@ -538,9 +539,12 @@ async function handleInvite(
     }
   }
 
-  // Branch-INDEPENDENT status (no enumeration): dormant → not_configured,
-  // any transport armed → queued. Never derived from which branch ran.
-  return ok<RoomNotificationResponse>({ delivered, notification: resolveInviteNotificationStatus() });
+  // Branch-INDEPENDENT response (no enumeration): BOTH `delivered` and the
+  // notification status are constant across existing-vs-new, so the inviter
+  // cannot infer whether the invitee already has an account. The in-app bell
+  // above is still delivered to an existing invitee; its count is simply not
+  // surfaced. notification: dormant → not_configured, any armed → queued.
+  return ok<RoomNotificationResponse>({ delivered: 0, notification: resolveInviteNotificationStatus() });
 }
 
 async function handleInviteAcceptedByInvitee(

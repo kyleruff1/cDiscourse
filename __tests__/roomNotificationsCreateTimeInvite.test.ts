@@ -90,8 +90,13 @@ describe('ARG-ROOM-004 — uniform notification (no enumeration)', () => {
     expect(HANDLE_INVITE).toContain('notification: resolveInviteNotificationStatus()');
     // The pre-ARG-ROOM-004 per-branch leak (`notification: emailStatus`) is gone.
     expect(HANDLE_INVITE).not.toContain('notification: emailStatus');
-    // Response still carries the shipped shape.
-    expect(HANDLE_INVITE).toContain('delivered, notification');
+    // Response is branch-INDEPENDENT (no enumeration): `delivered` is a constant,
+    // NOT the in-app insert count, so the inviter cannot infer existing-vs-new
+    // (the account-existence oracle from the design review is closed).
+    expect(HANDLE_INVITE).toContain('delivered: 0, notification: resolveInviteNotificationStatus()');
+    // The pre-fix leak (delivered = insertRows(...) surfaced in the response) is gone.
+    expect(HANDLE_INVITE).not.toMatch(/delivered\s*=\s*await insertRows/);
+    expect(HANDLE_INVITE).not.toContain('{ delivered, notification');
   });
 
   it('resolveInviteNotificationStatus reads ONLY the env gates (branch-independent)', () => {

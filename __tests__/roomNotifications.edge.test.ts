@@ -61,10 +61,11 @@ describe('room-notifications — handler structure', () => {
   });
 
   it('responds with { delivered } only (never returns recipient lists)', () => {
-    // The success response shape returns `delivered: <count>`
-    // and, for the invite trigger, the `notification` status.
+    // The success response shape returns `delivered: <count>` for the
+    // notification triggers and, for the invite trigger, a branch-INDEPENDENT
+    // `delivered: 0, notification` (constant — no existing-vs-new enumeration).
     // It NEVER includes a list of recipient ids or emails.
-    expect(SRC).toContain('delivered, notification');
+    expect(SRC).toContain('delivered: 0, notification');
     // Find every ok<RoomNotificationResponse>(…) call and
     // assert the body literal contains only { delivered, … }
     // with no recipient/email keys.
