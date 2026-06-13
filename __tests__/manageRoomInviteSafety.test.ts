@@ -160,6 +160,7 @@ describe('manage-room-invite — error shape', () => {
       'not_allowed_to_invite',
       'room_archived',
       'room_closed',
+      'room_already_has_invite', // ARG-ROOM-006 item (g)
       'not_pending',
       'invite_revoked',
       'invite_expired',

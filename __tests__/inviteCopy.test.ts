@@ -145,6 +145,36 @@ describe('plainLanguageForInviteError', () => {
     expect(plainLanguageForInviteError(undefined)).toBeTruthy();
     expect(plainLanguageForInviteError('')).toBeTruthy();
   });
+
+  // ── ARG-ROOM-006 item (g): per-room one-live-invite collision relabel ──
+  describe('room_already_has_invite (item g)', () => {
+    it('maps to neutral plain-language copy, never the raw code', () => {
+      const msg = plainLanguageForInviteError('room_already_has_invite');
+      expect(msg).toBe('This argument already has an invite waiting.');
+      // The raw code never reaches the user (doctrine §9).
+      expect(msg).not.toContain('room_already_has_invite');
+      // No snake_case leak.
+      expect(msg).not.toMatch(/[a-z]+_[a-z]+/);
+    });
+
+    it('is NOT the generic insert-failed fallback (the relabel is distinct copy)', () => {
+      const collision = plainLanguageForInviteError('room_already_has_invite');
+      const genericInsertFail = plainLanguageForInviteError('invite_insert_failed');
+      const unknownFallback = plainLanguageForInviteError('totally_unknown_code');
+      expect(collision).not.toBe(genericInsertFail);
+      expect(collision).not.toBe(unknownFallback);
+    });
+
+    it('does NOT reveal who was invited (no enumeration) — names no email/address', () => {
+      const msg = plainLanguageForInviteError('room_already_has_invite').toLowerCase();
+      // The pre-002 mislabel said "you already invited THIS address"; the
+      // relabel must not reference a specific invitee, address, or email.
+      expect(msg).not.toContain('@');
+      expect(msg).not.toContain('address');
+      expect(msg).not.toContain('email');
+      expect(msg).not.toContain('this person');
+    });
+  });
 });
 
 describe('validateInviteEmailInput', () => {
