@@ -21,18 +21,20 @@ Argument-room creation with **public/private visibility, one direct email invite
 |---|---|---|---|---|---|---|
 | ARG-ROOM-ADR-001 | [#611](https://github.com/kyleruff1/cDiscourse/issues/611) | [ADR-001](./ARG-ROOM-ADR-001-VISIBILITY-CAPACITY-INVITE-DOCTRINE.md) | [review](../reviews/ARG-ROOM-ADR-001-design-review.md) | P0 / S / Med | docs-only ADR | Designed + reviewed |
 | ARG-ROOM-001 | [#612](https://github.com/kyleruff1/cDiscourse/issues/612) | [001](./ARG-ROOM-001-CREATION-MATRIX-AND-MODEL.md) | [review](../reviews/ARG-ROOM-001-design-review.md) | P0 / M / Low | pure TS | Designed + reviewed |
-| ARG-ROOM-002 | [#613](https://github.com/kyleruff1/cDiscourse/issues/613) | [002](./ARG-ROOM-002-BACKEND-VISIBILITY-CAPACITY-INVITES.md) | [review](../reviews/ARG-ROOM-002-design-review.md) | P0 / XL / High | migration+RLS+Edge · **GATE-C** | Implemented — `feat/ARG-ROOM-002-backend-enforcement`, pending GATE-C merge/deploy |
-| ARG-ROOM-003 | [#614](https://github.com/kyleruff1/cDiscourse/issues/614) | [003](./ARG-ROOM-003-CREATE-ROOM-UX.md) | [review](../reviews/ARG-ROOM-003-design-review.md) | P0 / L / Med | UI | Designed + reviewed |
-| ARG-ROOM-004 | [#615](https://github.com/kyleruff1/cDiscourse/issues/615) | [004](./ARG-ROOM-004-INVITE-ACCEPTANCE-AND-EMAIL-TRANSPORT.md) | [review](../reviews/ARG-ROOM-004-design-review.md) | P0 / L / High | orchestration + return-path · **GATE-C** | Implemented — `feat/ARG-ROOM-004-invite-acceptance-email`, DORMANT (both transport gates OFF), pending GATE-C merge/deploy. Seam: orchestration runs in `room-notifications` `handleInvite` (create-argument-room is contractually branch-free), triggered post-create |
-| ARG-ROOM-005 | [#616](https://github.com/kyleruff1/cDiscourse/issues/616) | (later) | (later) | P1 / L / High | pure model + read-only UI | Filed |
-| ARG-ROOM-006 | [#617](https://github.com/kyleruff1/cDiscourse/issues/617) | (later) | (later) | P1 / M / Med | UI + `manage-room-invite` | Filed |
-| ARG-ROOM-007 | [#618](https://github.com/kyleruff1/cDiscourse/issues/618) | (later) | (later) | P1 / S / Low | pure copy + ban-list | Filed |
+| ARG-ROOM-002 | [#613](https://github.com/kyleruff1/cDiscourse/issues/613) | [002](./ARG-ROOM-002-BACKEND-VISIBILITY-CAPACITY-INVITES.md) | [review](../reviews/ARG-ROOM-002-design-review.md) | P0 / XL / High | migration+RLS+Edge · **GATE-C** | ✅ Merged + deployed + smoked 7/7 (`2fe6331`) |
+| ARG-ROOM-003 | [#614](https://github.com/kyleruff1/cDiscourse/issues/614) | [003](./ARG-ROOM-003-CREATE-ROOM-UX.md) | [review](../reviews/ARG-ROOM-003-design-review.md) | P0 / L / Med | UI | ✅ Merged (`8929bde`); frontend deploy gated on #625/QOL-040 |
+| ARG-ROOM-004 | [#615](https://github.com/kyleruff1/cDiscourse/issues/615) | [004](./ARG-ROOM-004-INVITE-ACCEPTANCE-AND-EMAIL-TRANSPORT.md) | [review](../reviews/ARG-ROOM-004-design-review.md) | P0 / L / High | orchestration + return-path · **GATE-C** | Implementing → PR (lands dormant) |
+| ARG-ROOM-005 — Public slot claiming | [#616](https://github.com/kyleruff1/cDiscourse/issues/616) | [005](./ARG-ROOM-005-PUBLIC-SLOT-CLAIMING.md) | [review](../reviews/ARG-ROOM-005-design-review.md) | P1 / L / High | client + tests · STANDARD | Designed + reviewed (rescoped) |
+| ARG-ROOM-006 — Visibility/feed/access | [#617](https://github.com/kyleruff1/cDiscourse/issues/617) | [006](./ARG-ROOM-006-VISIBILITY-FEED-ACCESS.md) | [review](../reviews/ARG-ROOM-006-design-review.md) | P1 / M / Med | client + 1 GATE-C item (23505) | Designed + reviewed (rescoped) |
+| ARG-ROOM-007 — Live-smoke matrix | [#618](https://github.com/kyleruff1/cDiscourse/issues/618) | [007](./ARG-ROOM-007-LIVE-SMOKE-MATRIX.md) | [review](../reviews/ARG-ROOM-007-design-review.md) | P1 / S / Low | dry harness · live run operator-armed | Designed + reviewed (rescoped) |
+
+> **005/006/007 rescoped by operator 2026-06-13:** 005 = public participant slot claiming (was seat surfacing); 006 = visibility/feed/access integration incl. the 23505 relabel (was invite lifecycle); 007 = live-smoke matrix (was copy pass). Invite lifecycle (revoke/resend) deferred to a later card. All 3 reviews: approve-with-nits.
 
 All eight on **Project #1** — Phase=Backlog, Release=6.7, Epic=Rules UX (ARG-ROOM-004 = Interaction).
 
 ## Build order
 
-ADR-001 → 001 → 002 *(GATE-C)* → {003, 005, 007} → {004 *(GATE-C)*, 006}.
+ADR-001 ✅ → 001 ✅ → 002 ✅ *(GATE-C, deployed)* → 003 ✅ → 004 *(GATE-C, dormant → PR)* → 005 → 006 *(+ one GATE-C item: 23505)* → 007 *(live-smoke, operator-armed)*. (Operator-set sequential order, 2026-06-13.)
 
 ## Key reconciliation
 
