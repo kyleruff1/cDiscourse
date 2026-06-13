@@ -242,6 +242,64 @@ function regressionCheckIds() {
   return SMOKE_CHECKS.filter((c) => c.regression).map((c) => c.id);
 }
 
+/**
+ * ARG-ROOM-007A — self-assertion. Map a check's ACTUAL result to PASS / FAIL.
+ * PURE: no network, no clock. The runner uses this so create-path checks
+ * self-assert instead of emitting TBD. An UNEXPECTED `422 validation_failed`
+ * (the contract expects 200/400/403 but the request shape was wrong) is a FAIL
+ * the runner exits nonzero on — that is exactly the bug ARG-ROOM-007A closes.
+ *
+ * `actual` shapes (both supported):
+ *   - Edge call:   { status: number, body: object | null }
+ *   - door probe:  { refused: boolean, code: string }   (R3 direct-insert refusal)
+ *
+ * A check's `expected` is the wire contract:
+ *   { status }            — HTTP status only
+ *   { status, code }      — status + (body.error OR body.status)
+ *   { sqlState }          — PG SQLSTATE (R3 direct-insert refusal)
+ *   { sqlState, code }    — PG SQLSTATE + neutral code (cap trigger)
+ *
+ * Returns { result: 'PASS' | 'FAIL', detail, unexpected422 }.
+ */
+function assertOutcome(check, actual) {
+  const exp = (check && check.expected) || {};
+  const a = actual || {};
+  const body = a.body && typeof a.body === 'object' ? a.body : {};
+  const status = typeof a.status === 'number' ? a.status : undefined;
+  // A reply code can live in body.error (refusals) OR body.status (accept → 'accepted').
+  const bodyCode = body.error || body.status || null;
+  const unexpected422 = status === 422 && exp.status !== 422;
+
+  // ── SQLSTATE contract (R3 door probe; cap trigger). ──
+  if (exp.sqlState) {
+    const code = a.code || (body && body.code) || a.sqlState || null;
+    const refusedOk = check && check.id === 'direct-debates-insert-refused' ? a.refused === true : true;
+    const ok = refusedOk && code === exp.sqlState;
+    return makeOutcome(ok, `expected sqlState ${exp.sqlState}, got ${code || '(none)'}`, unexpected422);
+  }
+
+  // ── status (+ optional code) contract. ──
+  let ok = status === exp.status;
+  let detail = `expected status ${exp.status}`;
+  if (exp.code) {
+    detail += ` code ${exp.code}`;
+    if (ok) ok = bodyCode === exp.code;
+  }
+  // A one-invite create must carry an opaque inviteId (the reserved seat).
+  const isOneInviteCreate = check && (check.id === 'public-one-invite-create' || check.id === 'private-one-invite-create');
+  if (ok && isOneInviteCreate) {
+    ok = Boolean(body.inviteId);
+  }
+  detail += `; got status ${status === undefined ? '(none)' : status}`;
+  if (bodyCode) detail += ` code ${bodyCode}`;
+  if (isOneInviteCreate) detail += ` inviteId ${body.inviteId ? 'set' : 'null'}`;
+  return makeOutcome(ok, detail, unexpected422);
+}
+
+function makeOutcome(ok, detail, unexpected422) {
+  return { result: ok ? 'PASS' : 'FAIL', detail, unexpected422: Boolean(unexpected422) };
+}
+
 module.exports = {
   SMOKE_CHECKS,
   VERIFY_MODES,
@@ -251,4 +309,5 @@ module.exports = {
   gateDependentChecks,
   coreCheckIds,
   regressionCheckIds,
+  assertOutcome,
 };

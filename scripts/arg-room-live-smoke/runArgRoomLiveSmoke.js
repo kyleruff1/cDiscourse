@@ -42,10 +42,18 @@ const {
   buildRedactedPlan,
   planCheckExecution,
 } = require('./plan.js');
-const { SMOKE_CHECKS, findCheck } = require('./smokeMatrix.js');
+const { SMOKE_CHECKS, findCheck, assertOutcome } = require('./smokeMatrix.js');
 const { renderReport, scanForSecretLeak } = require('./report.js');
 
 const SMOKE_LABEL = '[ARG-ROOM-007 smoke 2026-06-13]';
+// REQUIRED by the create-argument-room contract (title + resolution + visibility
+// are all required; the deployed schema is .strict()). Omitting this is the
+// ARG-ROOM-007A bug that 422'd every create. Person-neutral, structural copy.
+const SMOKE_RESOLUTION = 'ARG-ROOM-007 smoke — structural seat / visibility verification (test room).';
+// The harness simulates a web client. create-argument-room builds the create-time
+// inviteLink from the request Origin; without one the link (and thus the raw token
+// the accept-path checks need) is null. functions.invoke forwards this header.
+const SMOKE_ORIGIN = 'https://cdiscourse-smoke.local';
 
 /**
  * Self-contained dotenv reader. Deliberately NOT importing
@@ -130,9 +138,15 @@ async function signInClient(createClient, url, anon, account) {
   return client;
 }
 
-/** Invoke a deployed Edge, returning { status, body }. functions.invoke sets the caller's auth internally. */
-async function invokeEdge(client, name, body) {
-  const { data, error } = await client.functions.invoke(name, { body });
+/**
+ * Invoke a deployed Edge, returning { status, body }. functions.invoke sets the
+ * caller's auth internally. Optional `headers` lets a create call send an Origin
+ * so the Edge can build the create-time inviteLink (the raw token lives ONLY in
+ * that link; without an Origin the link is null and the accept path is untestable).
+ */
+async function invokeEdge(client, name, body, headers) {
+  const opts = headers ? { body, headers } : { body };
+  const { data, error } = await client.functions.invoke(name, opts);
   if (error && error.context && typeof error.context.status === 'number') {
     let parsed = null;
     try {
@@ -146,11 +160,19 @@ async function invokeEdge(client, name, body) {
   return { status: 200, body: data };
 }
 
-/** Extract the `?invite=<token>` token from a create-time inviteLink (creator-only surface). */
+/**
+ * Extract the raw token from a create-time inviteLink (creator-only surface).
+ * create-argument-room / manage-room-invite emit a PATH-style link
+ * `<origin>/invite/<rawToken>`; the 004 auth-bridge uses a QUERY form
+ * `?invite=<rawToken>`. Handle both (path first, query fallback).
+ */
 function tokenFromInviteLink(inviteLink) {
   if (typeof inviteLink !== 'string') return null;
   try {
-    return new URL(inviteLink).searchParams.get('invite');
+    const u = new URL(inviteLink);
+    const pathMatch = u.pathname.match(/\/invite\/([A-Za-z0-9_-]+)\/?$/);
+    if (pathMatch) return pathMatch[1];
+    return u.searchParams.get('invite');
   } catch {
     return null;
   }
@@ -221,15 +243,31 @@ async function runLive(plan, env, args) {
     evidence: '--four-deployed flag + operator confirmation',
   });
 
+  // ARG-ROOM-007A — self-assertion tallies. A FAIL (incl. any UNEXPECTED 422)
+  // sets a nonzero exit; no check is ever an unearned PASS.
+  const stats = { pass: 0, fail: 0, unexpected422: 0 };
+  const regStats = { pass: 0, fail: 0, unexpected422: 0 };
+  const tally = (outcome) => {
+    if (outcome.result === 'PASS') stats.pass += 1;
+    else {
+      stats.fail += 1;
+      if (outcome.unexpected422) stats.unexpected422 += 1;
+    }
+  };
+
+  // record() now ASSERTS actual vs the check's expected wire contract (status +
+  // optional code + inviteId for one-invite creates) instead of emitting TBD.
   const record = (check, status, body, actualLabel) => {
     captured.push({ check: check.id, status, body });
+    const outcome = assertOutcome(check, { status, body });
+    tally(outcome);
     results.push({
       num: check.id,
       title: check.title,
       accts: check.accountsNeeded,
       expected: JSON.stringify(check.expected),
-      actual: actualLabel,
-      result: 'TBD (operator verifies vs RLS read)',
+      actual: outcome.result === 'PASS' ? actualLabel : `${actualLabel} — ${outcome.detail}`,
+      result: outcome.result,
     });
   };
 
@@ -257,6 +295,7 @@ async function runLive(plan, env, args) {
         const r = await invokeEdge(creatorClient, 'create-argument-room', {
           visibility: 'public',
           title: `${SMOKE_LABEL} public-no-invite`,
+          resolution: SMOKE_RESOLUTION,
         });
         record(check, r.status, r.body, `status ${r.status}`);
       } else if (check.id === 'public-one-invite-create' || check.id === 'private-one-invite-create') {
@@ -264,6 +303,7 @@ async function runLive(plan, env, args) {
         const r = await invokeEdge(creatorClient, 'create-argument-room', {
           visibility,
           title: `${SMOKE_LABEL} ${visibility}-one-invite`,
+          resolution: SMOKE_RESOLUTION,
           invite: { email: invitee.email },
         });
         const tok = tokenFromInviteLink(r.body && r.body.inviteLink);
@@ -273,6 +313,7 @@ async function runLive(plan, env, args) {
         const r = await invokeEdge(creatorClient, 'create-argument-room', {
           visibility: 'private',
           title: `${SMOKE_LABEL} private-no-invite`,
+          resolution: SMOKE_RESOLUTION,
         });
         record(check, r.status, r.body, `status ${r.status}, code ${r.body && r.body.error}`);
       } else if (check.id === 'reserved-invite-seat-acceptance') {
@@ -280,8 +321,9 @@ async function runLive(plan, env, args) {
         const created = await invokeEdge(creatorClient, 'create-argument-room', {
           visibility: 'private',
           title: `${SMOKE_LABEL} accept-flow`,
+          resolution: SMOKE_RESOLUTION,
           invite: { email: invitee.email },
-        });
+        }, { Origin: SMOKE_ORIGIN });
         const tok = tokenFromInviteLink(created.body && created.body.inviteLink);
         if (tok) ownTokens.push(tok);
         let acceptStatus = 0;
@@ -300,8 +342,9 @@ async function runLive(plan, env, args) {
         const created = await invokeEdge(creatorClient, 'create-argument-room', {
           visibility: 'private',
           title: `${SMOKE_LABEL} wrong-user`,
+          resolution: SMOKE_RESOLUTION,
           invite: { email: invitee.email },
-        });
+        }, { Origin: SMOKE_ORIGIN });
         const tok = tokenFromInviteLink(created.body && created.body.inviteLink);
         if (tok) ownTokens.push(tok);
         let st = 0;
@@ -318,7 +361,7 @@ async function runLive(plan, env, args) {
             title: check.title,
             accts: check.accountsNeeded,
             expected: JSON.stringify(check.expected),
-            actual: 'SKIP — needs a third distinct account',
+            actual: 'SKIP — needs a third distinct account; covered_by: manage-room-invite invite_email_mismatch unit + 002 email-binding',
             result: 'SKIP',
           });
           continue;
@@ -329,8 +372,9 @@ async function runLive(plan, env, args) {
         const created = await invokeEdge(creatorClient, 'create-argument-room', {
           visibility: 'private',
           title: `${SMOKE_LABEL} no-leak`,
+          resolution: SMOKE_RESOLUTION,
           invite: { email: invitee.email },
-        });
+        }, { Origin: SMOKE_ORIGIN });
         const tok = tokenFromInviteLink(created.body && created.body.inviteLink);
         if (tok) ownTokens.push(tok);
         const debateId = created.body && created.body.debateId;
@@ -357,6 +401,69 @@ async function runLive(plan, env, args) {
         });
       }
     }
+
+    // ── Regression re-checks (R1/R2/R3) — self-asserted (cheap; full contract).
+    // R1 proves an EXPECTED 422 is NOT scored as an unexpected-422 failure;
+    // R2/R3 re-prove self-invite refusal + the dropped direct-insert door. None
+    // of these create a room (all are rejection / refusal paths).
+    const recordReg = (check, status, body, label) => {
+      captured.push({ check: check.id, status, body });
+      const outcome = assertOutcome(check, { status, body });
+      if (outcome.result === 'PASS') regStats.pass += 1;
+      else {
+        regStats.fail += 1;
+        if (outcome.unexpected422) regStats.unexpected422 += 1;
+      }
+      results.push({
+        num: check.id,
+        title: check.title,
+        accts: check.accountsNeeded,
+        expected: JSON.stringify(check.expected),
+        actual: outcome.result === 'PASS' ? label : `${label} — ${outcome.detail}`,
+        result: outcome.result,
+      });
+    };
+
+    // R1 — two-or-more invites (legacy `invites: [...]` shape) → strict-schema 422.
+    const r1 = findCheck('max-one-direct-invite');
+    const r1res = await invokeEdge(creatorClient, 'create-argument-room', {
+      visibility: 'public',
+      title: `${SMOKE_LABEL} R1-two-invites`,
+      resolution: SMOKE_RESOLUTION,
+      invites: [{ email: invitee.email }, { email: creator.email }],
+    });
+    recordReg(r1, r1res.status, r1res.body, `status ${r1res.status}, code ${r1res.body && r1res.body.error}`);
+
+    // R2 — invite addressed to the caller → 400 cannot_invite_self (no room made).
+    const r2 = findCheck('self-invite-refused');
+    const r2res = await invokeEdge(creatorClient, 'create-argument-room', {
+      visibility: 'public',
+      title: `${SMOKE_LABEL} R2-self`,
+      resolution: SMOKE_RESOLUTION,
+      invite: { email: creator.email },
+    });
+    recordReg(r2, r2res.status, r2res.body, `status ${r2res.status}, code ${r2res.body && r2res.body.error}`);
+
+    // R3 — direct client debates INSERT → 42501 (the dropped ARG-ROOM-002 door).
+    const r3 = findCheck('direct-debates-insert-refused');
+    const probe = await probeDoorRefusal(creatorClient);
+    captured.push({ check: r3.id, status: probe.refused ? 'refused' : 'inserted', body: { code: probe.code } });
+    const o3 = assertOutcome(r3, probe);
+    if (o3.result === 'PASS') regStats.pass += 1;
+    else {
+      regStats.fail += 1;
+      if (o3.unexpected422) regStats.unexpected422 += 1;
+    }
+    results.push({
+      num: r3.id,
+      title: r3.title,
+      accts: r3.accountsNeeded,
+      expected: JSON.stringify(r3.expected),
+      actual: o3.result === 'PASS'
+        ? `refused=${probe.refused} code=${probe.code}`
+        : `refused=${probe.refused} code=${probe.code} — ${o3.detail}`,
+      result: o3.result,
+    });
   } finally {
     await creatorClient.auth.signOut().catch(() => {});
   }
@@ -372,10 +479,21 @@ async function runLive(plan, env, args) {
   const report = renderReport({
     headSha: env.CDISCOURSE_SMOKE_HEAD_SHA || null,
     harnessCmd: 'node scripts/arg-room-live-smoke/runArgRoomLiveSmoke.js --live',
-    gatesArmed: { inviteEmail: env.INVITE_EMAIL_ENABLED === 'true', newUserSend: args.fourDeployed },
+    // Both gates report their ACTUAL local env posture (default OFF). The
+    // new-user send gate is INVITE_AUTH_BRIDGE_ENABLED — NOT the --four-deployed
+    // assertion flag (that only says the operator believes 004 is deployed).
+    gatesArmed: {
+      inviteEmail: env.INVITE_EMAIL_ENABLED === 'true',
+      newUserSend: env.INVITE_AUTH_BRIDGE_ENABLED === 'true',
+    },
     accountCount: plan.accountCount,
     accountsLabel: 'admin + accounts A/B/C [+ D/E]',
-    outcome: { passed: 'TBD', total: 12, regressionPassed: 'TBD', regressionTotal: 3 },
+    outcome: {
+      passed: stats.pass,
+      total: stats.pass + stats.fail,
+      regressionPassed: regStats.pass,
+      regressionTotal: regStats.pass + regStats.fail,
+    },
     preconditions,
     results,
     noLeak,
@@ -384,6 +502,30 @@ async function runLive(plan, env, args) {
   console.log('\n[arg-room-smoke] captured responses scanned for secret leakage:', leaks.length === 0 ? 'CLEAN' : 'LEAK');
   console.log('\n[arg-room-smoke] report block (paste into docs/testing-runs/2026-06-13-arg-room-live-smoke.md):\n');
   console.log(report);
+
+  // ── ARG-ROOM-007A: real PASS/FAIL exit. A FAIL (esp. an UNEXPECTED 422) is a
+  // nonzero exit — the harness can no longer exit 0 while masking a broken
+  // create path. Secret leakage is also fatal.
+  const totalFail = stats.fail + regStats.fail;
+  const totalU422 = stats.unexpected422 + regStats.unexpected422;
+  console.log(
+    `\n[arg-room-smoke] self-assert: core ${stats.pass} PASS / ${stats.fail} FAIL · ` +
+      `regression ${regStats.pass} PASS / ${regStats.fail} FAIL`,
+  );
+  if (totalU422 > 0) {
+    console.error(
+      `[arg-room-smoke] ${totalU422} UNEXPECTED 422 validation_failed — request shape does NOT match the create-argument-room contract.`,
+    );
+  }
+  if (leaks.length > 0) {
+    console.error(`[arg-room-smoke] SECRET LEAK in ${leaks.length} captured value(s) — failing.`);
+    process.exitCode = 1;
+  }
+  if (totalFail > 0) {
+    console.error(`[arg-room-smoke] FAIL: ${totalFail} check(s) did not match the deployed contract.`);
+    process.exitCode = 1;
+  }
+
   console.log(
     '\n[arg-room-smoke] live run done. DISARM: archive every "' + SMOKE_LABEL + '" room (status flip, never hard delete),' +
       ' revoke leftover pending invites, return INVITE_EMAIL_ENABLED to OFF, unset CDISCOURSE_ALLOW_ARG_ROOM_LIVE_SMOKE.',

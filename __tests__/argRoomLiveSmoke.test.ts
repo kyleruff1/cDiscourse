@@ -64,6 +64,10 @@ interface MatrixModule {
   gateDependentChecks(): string[];
   coreCheckIds(): string[];
   regressionCheckIds(): string[];
+  assertOutcome(
+    check: SmokeCheck,
+    actual: { status?: number; body?: Record<string, unknown> | null; refused?: boolean; code?: string },
+  ): { result: 'PASS' | 'FAIL'; detail: string; unexpected422: boolean };
 }
 interface PlanModule {
   fingerprint(value: unknown): Fingerprint;
@@ -180,6 +184,82 @@ describe('smokeMatrix — the 12-check matrix is complete + well-formed', () => 
     for (const c of matrix.SMOKE_CHECKS) {
       expect([1, 2, 6]).toContain(c.accountsNeeded);
     }
+  });
+});
+
+// ── smokeMatrix — assertOutcome self-assertion (ARG-ROOM-007A) ──
+
+describe('smokeMatrix — assertOutcome (real PASS/FAIL, no unearned PASS)', () => {
+  const find = (id: string) => matrix.findCheck(id)!;
+
+  it('PASS when a status-only check matches (public no-invite → 200)', () => {
+    const o = matrix.assertOutcome(find('public-no-invite-create'), { status: 200, body: { debateId: 'x' } });
+    expect(o.result).toBe('PASS');
+    expect(o.unexpected422).toBe(false);
+  });
+
+  it('FAIL + unexpected422 when a 200-expecting create returns 422 (the ARG-ROOM-007A bug)', () => {
+    const o = matrix.assertOutcome(find('public-no-invite-create'), {
+      status: 422,
+      body: { error: 'validation_failed' },
+    });
+    expect(o.result).toBe('FAIL');
+    expect(o.unexpected422).toBe(true);
+  });
+
+  it('FAIL when private-no-invite returns 422 instead of 400/private_requires_invite', () => {
+    const o = matrix.assertOutcome(find('private-no-invite-reject'), {
+      status: 422,
+      body: { error: 'validation_failed' },
+    });
+    expect(o.result).toBe('FAIL');
+    expect(o.unexpected422).toBe(true);
+  });
+
+  it('PASS when private-no-invite returns the correct 400/private_requires_invite', () => {
+    const o = matrix.assertOutcome(find('private-no-invite-reject'), {
+      status: 400,
+      body: { error: 'private_requires_invite' },
+    });
+    expect(o.result).toBe('PASS');
+  });
+
+  it('FAIL when status matches but the code does not', () => {
+    const o = matrix.assertOutcome(find('private-no-invite-reject'), {
+      status: 400,
+      body: { error: 'some_other_code' },
+    });
+    expect(o.result).toBe('FAIL');
+    expect(o.unexpected422).toBe(false);
+  });
+
+  it('one-invite create requires an inviteId — 200 without inviteId is a FAIL', () => {
+    expect(matrix.assertOutcome(find('public-one-invite-create'), { status: 200, body: { inviteId: 'abc' } }).result).toBe('PASS');
+    expect(matrix.assertOutcome(find('public-one-invite-create'), { status: 200, body: {} }).result).toBe('FAIL');
+    expect(matrix.assertOutcome(find('private-one-invite-create'), { status: 200, body: { inviteId: 'abc' } }).result).toBe('PASS');
+  });
+
+  it('accept check matches the body.status code (reserved → accepted)', () => {
+    const o = matrix.assertOutcome(find('reserved-invite-seat-acceptance'), { status: 200, body: { status: 'accepted' } });
+    expect(o.result).toBe('PASS');
+    expect(matrix.assertOutcome(find('reserved-invite-seat-acceptance'), { status: 0, body: null }).result).toBe('FAIL');
+  });
+
+  it('R1 — an EXPECTED 422 is a PASS and is NOT flagged unexpected422', () => {
+    const o = matrix.assertOutcome(find('max-one-direct-invite'), { status: 422, body: { error: 'validation_failed' } });
+    expect(o.result).toBe('PASS');
+    expect(o.unexpected422).toBe(false);
+  });
+
+  it('R3 — door probe PASS only when refused with SQLSTATE 42501', () => {
+    expect(matrix.assertOutcome(find('direct-debates-insert-refused'), { refused: true, code: '42501' }).result).toBe('PASS');
+    expect(matrix.assertOutcome(find('direct-debates-insert-refused'), { refused: false, code: undefined }).result).toBe('FAIL');
+    expect(matrix.assertOutcome(find('direct-debates-insert-refused'), { refused: true, code: '23514' }).result).toBe('FAIL');
+  });
+
+  it('wrong-user recovery PASS only on 403/invite_email_mismatch', () => {
+    expect(matrix.assertOutcome(find('wrong-user-invite-recovery'), { status: 403, body: { error: 'invite_email_mismatch' } }).result).toBe('PASS');
+    expect(matrix.assertOutcome(find('wrong-user-invite-recovery'), { status: 200, body: { status: 'accepted' } }).result).toBe('FAIL');
   });
 });
 
@@ -409,7 +489,12 @@ describe('runner — source guards', () => {
     expect(runner.SMOKE_LABEL).toContain('ARG-ROOM-007');
   });
 
-  it('tokenFromInviteLink extracts only the ?invite= token', () => {
+  it('tokenFromInviteLink extracts the token from BOTH the path and query forms', () => {
+    // The deployed create-argument-room / manage-room-invite emit a PATH-style
+    // link `<origin>/invite/<token>` — the format the harness actually receives.
+    expect(runner.tokenFromInviteLink('https://cdiscourse-smoke.local/invite/ABC123def_token-45')).toBe('ABC123def_token-45');
+    expect(runner.tokenFromInviteLink('https://x.app/invite/tok99/')).toBe('tok99');
+    // The 004 auth-bridge query form is still supported as a fallback.
     expect(runner.tokenFromInviteLink('https://x.supabase.co/auth/callback?invite=abc123')).toBe('abc123');
     expect(runner.tokenFromInviteLink('not a url')).toBeNull();
     expect(runner.tokenFromInviteLink(null)).toBeNull();
@@ -427,17 +512,37 @@ describe('runner — source guards', () => {
     expect(RUNNER_SRC).not.toMatch(/Bearer/);
   });
 
-  it('the harness NEVER sets INVITE_EMAIL_ENABLED or touches INVITE_AUTH_BRIDGE_ENABLED', () => {
+  it('the harness NEVER ARMS INVITE_EMAIL_ENABLED or INVITE_AUTH_BRIDGE_ENABLED (read-for-report is allowed)', () => {
     for (const src of [RUNNER_SRC, PLAN_SRC]) {
-      // no assignment to the email gate (a read `=== 'true'` is allowed)
+      // No ASSIGNMENT to either gate. A read (`=== 'true'`) to report the gate's
+      // posture in the header is the safe, intent-preserving pattern — the harness
+      // must never SET a gate, only observe it (ARG-ROOM-007A: report honesty).
       expect(src).not.toMatch(/INVITE_EMAIL_ENABLED\s*=[^=]/);
-      // the auth-bridge gate name must never appear at all
-      expect(src).not.toMatch(/INVITE_AUTH_BRIDGE_ENABLED/);
+      expect(src).not.toMatch(/INVITE_AUTH_BRIDGE_ENABLED\s*=[^=]/);
     }
   });
 
   it('creates rooms ONLY via the create-argument-room Edge', () => {
     expect(RUNNER_SRC).toContain("'create-argument-room'");
+  });
+
+  it('every create-argument-room body carries the required resolution field (ARG-ROOM-007A)', () => {
+    // The deployed schema requires title + resolution + visibility (.strict()).
+    // Omitting resolution was the 422 bug; pin that every create body includes it.
+    const createBodies = RUNNER_SRC.match(/'create-argument-room',\s*\{[\s\S]*?\}\)/g) || [];
+    expect(createBodies.length).toBeGreaterThanOrEqual(6);
+    for (const body of createBodies) {
+      expect(body).toContain('resolution');
+    }
+    expect(RUNNER_SRC).toContain('SMOKE_RESOLUTION');
+  });
+
+  it('self-asserts real PASS/FAIL and exits nonzero on failure (no unearned PASS / no masked 422)', () => {
+    expect(RUNNER_SRC).toContain('assertOutcome');
+    expect(RUNNER_SRC).toContain('process.exitCode = 1');
+    expect(RUNNER_SRC).toMatch(/unexpected422|UNEXPECTED 422/);
+    // The old blanket TBD result for create checks is gone.
+    expect(RUNNER_SRC).not.toContain("result: 'TBD (operator verifies vs RLS read)'");
   });
 
   it('uses exactly one direct debates insert, and it is the R3 door-refusal probe', () => {
