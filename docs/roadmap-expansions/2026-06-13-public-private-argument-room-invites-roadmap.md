@@ -27,7 +27,14 @@ Argument-room **creation with public/private visibility, one direct email invite
 | Public | 1 | 1 | 3 | 5 | **Yes** |
 | any | 2+ | — | — | — | **No** — max one direct invite |
 
-"Active participant" = a `debate_participants` row whose `side` is `affirmative | negative | moderator` (i.e. NOT `observer`). A live, unaccepted `argument_room_invites` row **reserves** one seat against the cap so the invitee can always accept; accepting consumes-not-double-counts; expire/revoke reopens the seat. Observers are unlimited and never occupy a seat.
+**The four seat states (the heart of the feature — never collapse them):**
+
+1. **Active participant** — a `debate_participants` row whose `side` is `affirmative | negative | moderator` (i.e. NOT `observer`). Counts against the cap (2 private / 5 public).
+2. **Observer / reader** — present but `side = observer`. **Not** an active participant; **unlimited**; never occupies a seat. `public` does **not** mean an unbounded comment thread — observers are uncapped, active participants are not.
+3. **Pending reserved invite seat** — a live, unaccepted `argument_room_invites` row. **Reserves** one of the cap's seats so the invitee can always accept; accepting consumes-not-double-counts (status flips + participant inserts in one transaction, never transiently exceeding the cap); expire/revoke reopens the seat.
+4. **Open public seat** — `cap − active − reserved`. The remaining slots a non-invited user may self-claim (public only; a private room has zero open seats once its one invite is reserved).
+
+`public ≠ unbounded thread` and `private ≠ hidden solo note`: a public room is a **capped active-participant** room with unlimited observers; a private room is a 1v1 that **requires** its one invite. Distinguishing these four states is what ARG-ROOM-002 (server enforcement) and ARG-ROOM-005 (surfacing) exist to make real.
 
 ---
 
@@ -103,6 +110,19 @@ Despite the scaffolding, **none of the product contract is actually enforced or 
 ### 4.3 Two doctrines that silently disagree with the server (the thing ADR-001 fixes)
 
 The product *says* public rooms are bounded and private rooms are 1v1-invited; the server enforces neither. `public ≠ unrestricted thread` (today public participation is unbounded server-side) and `private ≠ hidden solo draft` (today private is just a read-hidden room with no invite requirement). ADR-001 is the one binding statement of operative truth the four enforcement/exposure cards consume and must not re-litigate.
+
+### 4.4 Adjacent-issue reconciliation — #508 (verdict: AMEND / adjacent)
+
+A collision check surfaced open issue **#508 (ADMIN-ARGS-ROOM-GROUPING-001)**. It is **adjacent prior art, not the owner** of this slate's territory, and the slate does **not** fold into it.
+
+- **What #508 is:** an admin **read-path presentation** card — collapse the Admin → Arguments table by conversation (one expandable group per debate instead of one row per message), reusing `conversationGalleryModel` grouping. `area:admin`, `ux`, pure-TS view-model, `src`-only.
+- **What #508 does NOT own:** public/private creation visibility, the capacity cap (private 2 / public 5), the direct-invite rule, reserved-seat semantics, or the active-vs-observer-vs-reserved-vs-open distinction. The only overlap is the word "room" and the shared `conversationGalleryModel` grouping seam.
+- **Verdict: AMEND / adjacent.** #508 stays open and independent. The canonical visibility/capacity/direct-invite **doctrine** is ARG-ROOM-ADR-001 (#611); the canonical **validator** is ARG-ROOM-001 (#612). Future ARG-ROOM implementation may reuse safe room/invite/grouping seams from #508/QOL work, but the matrix is **not** written into #508. A reconciliation comment is posted on #508 (`#508#issuecomment-4697904199`).
+
+### 4.5 External dependency ledger (record-only — does NOT block design or non-live implementation)
+
+- **Hosted Auth URL-config + invite re-seed lane (separate ops lane, NOT this slate's job).** The branded-invite → callback → account-creation loop is proven end-to-end on the deployed app (devtest98, `docs/testing-runs/2026-06-13-auth-live-invite-seed-smoke.md`), and the smoke-script credential-diagnostics hardening merged as **#609** (fingerprints → present+length only). A *further* hosted Management-API config write was gated/halted because `SUPABASE_ACCESS_TOKEN` + `CDISCOURSE_ALLOW_SUPABASE_AUTH_URL_CONFIG_UPDATE` were absent in-session. **For this slate:** only the final **live smoke** step depends on the hosted Auth config being correct and a fresh devtest alias completing end-to-end. The ADR, the pure validator, the backend/RLS enforcement (testable locally), the create UI, and the invite-acceptance wiring can all be designed and implemented (non-live) **without** touching hosted config. **No hosted Supabase config mutation, re-seed, live invite smoke, or Management-API work belongs in the docs/issue-filing run or in any non-live implementation card** — cite the dependency, do not solve it here.
+- **Email transport stays gated + default OFF** (QOL-040 #209 owns the flip; the ARG-ROOM-004 review additionally requires an in-function gate on the new-user Auth-invite branch so 004a lands dormant).
 
 ---
 

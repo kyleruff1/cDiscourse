@@ -348,3 +348,36 @@ Test-count note: target roughly +40 new tests in the new suite; the publicSeatMo
 - **OQ3 — multi-address policy.** Reject the whole field on 2+ addresses (`too_many_invites`, chosen) vs. accept-first-ignore-rest? Recommendation: reject (no silent drop).
 - **OQ4 — private atomicity.** The matrix encodes that a private room requires one invite at creation; whether the create + invite is one atomic Edge transaction or a client create followed by `createRoomInvite` is the enforcement card's call. Flag for that card; ARG-ROOM-001 only encodes the rule.
 - **OQ5 — copy home.** The two new strings live co-located in the new module (self-contained + scanned). `gameCopy.ts` (`ROOM_VISIBILITY_COPY`, gameCopy.ts:1604-1672) is the established room-copy home — move them there if the operator prefers one copy surface. Recommendation: co-locate now, lift later if a UI card consolidates.
+
+---
+
+## Operator-ratified acceptance (2026-06-13) — BINDING
+
+The operator pinned the validator's behavior with concrete examples. These are the **binding acceptance contract**; where they differ from the design's earlier analysis on surface shape, **these win**. The design's reasoning above remains valid background.
+
+**Canonical input shape:** `directInviteEmails: string[]` (an array, **max length 1**) — supersedes the earlier `directInviteEmail: string | null` "Alternatives" note. The array form is the public contract the UI passes and the backend mirrors; the validator detects `length > 1` and rejects with `too_many_direct_invites`. (Downstream the wire may still carry a single `inviteeEmail` — single-email transport parity is preserved internally; only the validator's *input* is the array.)
+
+**Canonical reject reasons:** `private_requires_invite`, `too_many_direct_invites`, `invalid_email`, `self_invite`. (The design's `too_many_invites` is the same reason — use the ratified name `too_many_direct_invites`.)
+
+**The five binding examples (pin the product in code before any backend/UI work):**
+
+```ts
+deriveArgumentRoomCreation({ visibility: 'private', directInviteEmails: [] })
+// INVALID — reason: 'private_requires_invite'
+
+deriveArgumentRoomCreation({ visibility: 'private', directInviteEmails: ['a@example.com'] })
+// VALID — capacity 2, reservedInviteSeats 1, openSlots 0
+
+deriveArgumentRoomCreation({ visibility: 'public', directInviteEmails: [] })
+// VALID — capacity 5, reservedInviteSeats 0, openSlots 4
+
+deriveArgumentRoomCreation({ visibility: 'public', directInviteEmails: ['a@example.com'] })
+// VALID — capacity 5, reservedInviteSeats 1, openSlots 3
+
+deriveArgumentRoomCreation({ visibility: 'public', directInviteEmails: ['a@example.com', 'b@example.com'] })
+// INVALID — reason: 'too_many_direct_invites'
+```
+
+`openSlots` is the operator's name for the design's `openParticipantSlotsAfterCreation` (same field — keep one name, expose `openSlots` in the public type). The UI imports this validator; the backend (ARG-ROOM-002) has its own server validation but **must match the same matrix**, mirrored by tests.
+
+**The four seat states are binding and must not be collapsed (the heart of the feature):** *active participant* (counts against the cap), *observer/reader* (uncapped, never a seat), *pending reserved invite seat* (held against the cap until accept/expire/revoke), *open public seat* (`cap − active − reserved`, self-claimable on public only). `public` is a **capped active-participant** room with unlimited observers — **not** an unbounded comment thread; `private` is a 1v1 that **requires** its one invite — **not** a hidden solo note. See roadmap §1 "The four seat states."
