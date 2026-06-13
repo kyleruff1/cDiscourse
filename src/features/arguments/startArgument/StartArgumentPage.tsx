@@ -34,7 +34,16 @@ import {
 } from 'react-native';
 import { SURFACE_TOKENS, CONTROL, SPACING, RADIUS, TOUCH_TARGET } from '../../../lib/designTokens';
 import { pickDisplayTitle } from '../../debates/debateTitleHelpers';
-import type { CreateDebateInput, Debate } from '../../debates/types';
+import type { CreateDebateInput, Debate, RoomVisibility } from '../../debates/types';
+import {
+  deriveArgumentRoomCreation,
+  plainLanguageForCreationReason,
+} from '../../debates/argumentRoomCreationMatrix';
+import {
+  ARGUMENT_ROOM_CREATE_COPY,
+  ROOM_VISIBILITY_COPY,
+  fillArgumentRoomCapacityCopy,
+} from '../gameCopy';
 import {
   ARGUMENT_SCHEME_OPTIONS,
   DISAGREEMENT_CAUSE_OPTIONS,
@@ -100,6 +109,12 @@ interface StartArgumentPageProps {
 
 export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgumentPageProps) {
   const [declaration, setDeclaration] = useState('');
+  // ARG-ROOM-003 — visibility defaults to Private per the binding creation
+  // matrix ("YES (default)" row). A fresh page therefore starts with submit
+  // DISABLED until the author adds one invite email (private 1v1) or switches
+  // to Public. The form always passes an EXPLICIT visibility to createDebate.
+  const [visibility, setVisibility] = useState<RoomVisibility>('private');
+  const [inviteEmail, setInviteEmail] = useState('');
   const [surface, setSurface] = useState<StartArgumentSurface>('timeline');
   const [argumentScheme, setArgumentScheme] = useState<ArgumentSchemeId>('unspecified');
   const [disagreementStrategy, setDisagreementStrategy] =
@@ -109,10 +124,51 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = isStartArgumentDraftSubmittable({ declaration }) && !submitting;
+  // ARG-ROOM-001 owns the rule; the UI only renders its output. A multi-
+  // address paste in the SINGLE field is split + counted INSIDE the validator
+  // (→ `too_many_direct_invites`, never a generic invalid-email), so the
+  // field's raw value is handed over as a one-element array.
+  const creation = deriveArgumentRoomCreation({
+    visibility,
+    directInviteEmails: inviteEmail.trim().length > 0 ? [inviteEmail] : [],
+  });
+  // Capacity preview: when the current input is valid the validator's seat
+  // fields are authoritative; when it is not yet valid (e.g. a half-typed
+  // email) preview the SAME visibility with no invite so the explainer never
+  // shows the zeroed reject counts. Either way the cap comes from the
+  // validator — never a second hard-coded number.
+  const capacityPreview = creation.valid
+    ? creation
+    : deriveArgumentRoomCreation({ visibility, directInviteEmails: [] });
+  const capacityText =
+    visibility === 'private'
+      ? ARGUMENT_ROOM_CREATE_COPY.capacity_private
+      : fillArgumentRoomCapacityCopy(
+          capacityPreview.reservedInviteSeats === 1
+            ? ARGUMENT_ROOM_CREATE_COPY.capacity_public_reserved
+            : ARGUMENT_ROOM_CREATE_COPY.capacity_public_open,
+          { capacity: capacityPreview.capacity, open: capacityPreview.openSlots },
+        );
+  const inviteHelper =
+    visibility === 'private'
+      ? ARGUMENT_ROOM_CREATE_COPY.invite_helper_private
+      : ARGUMENT_ROOM_CREATE_COPY.invite_helper_public;
+  // The single disabled-reason line, mapped from the validator's stable reason
+  // code through the shipped plain-language mapper (raw codes never echoed).
+  const creationReasonCopy = creation.valid
+    ? null
+    : plainLanguageForCreationReason(creation.reason);
+
+  const canSubmit =
+    isStartArgumentDraftSubmittable({ declaration }) && creation.valid && !submitting;
 
   const handleSubmit = async () => {
-    if (!isStartArgumentDraftSubmittable({ declaration })) return;
+    // Disabled unless the declaration is present AND the creation matrix
+    // validates (visibility + the optional one invite). Guard again here so a
+    // programmatic press can never bypass the matrix.
+    if (!isStartArgumentDraftSubmittable({ declaration }) || !creation.valid || submitting) {
+      return;
+    }
     setSubmitting(true);
     setError(null);
     // The declaration is the proposition (resolution); a short title is
@@ -124,6 +180,15 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
       title: pickDisplayTitle({ rootBody: trimmed }),
       resolution: trimmed,
       description: '',
+      // ARG-ROOM-003 — always pass an EXPLICIT visibility (never rely on the
+      // API's public default), and thread the one optional invite atomically
+      // when the validator accepted a normalised address. ARG-ROOM-002 writes
+      // room + creator + the one invite in a single transaction, so there is
+      // no "room exists but invite failed" state to recover from.
+      visibility,
+      ...(creation.normalisedDirectInviteEmail
+        ? { invite: { email: creation.normalisedDirectInviteEmail } }
+        : {}),
     };
     try {
       // NAV-START-ARGUMENT-001: the EXISTING creation path. No classifier,
@@ -173,6 +238,79 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
             accessibilityHint={COPY.declarationHelper}
             testID="start-argument-declaration"
           />
+        </View>
+
+        {/* ── Who can join (visibility + one invite + capacity) ── */}
+        <View style={styles.section} testID="start-argument-who-can-join">
+          <Text style={styles.sectionLabel}>{ARGUMENT_ROOM_CREATE_COPY.who_can_join_label}</Text>
+          <Text style={styles.helper}>{ARGUMENT_ROOM_CREATE_COPY.who_can_join_helper}</Text>
+
+          {/* Visibility radiogroup. The ANNOUNCED label is join-framed (not the
+              reused "Who can see this argument" read-access phrase) so it stays
+              coherent inside the "Who can join" section for a screen reader. */}
+          <View
+            style={styles.surfaceRow}
+            accessibilityRole="radiogroup"
+            accessibilityLabel={ARGUMENT_ROOM_CREATE_COPY.visibility_group_a11y}
+            testID="start-argument-visibility-group"
+          >
+            <VisibilityOption
+              value="public"
+              label={ROOM_VISIBILITY_COPY.option_public_label}
+              helper={ROOM_VISIBILITY_COPY.option_public_helper}
+              selected={visibility === 'public'}
+              onSelect={setVisibility}
+              testID="start-argument-visibility-public"
+            />
+            <VisibilityOption
+              value="private"
+              label={ROOM_VISIBILITY_COPY.option_private_label}
+              helper={ROOM_VISIBILITY_COPY.option_private_helper}
+              selected={visibility === 'private'}
+              onSelect={setVisibility}
+              testID="start-argument-visibility-private"
+            />
+          </View>
+
+          {/* One direct-invite email field — no "add another". */}
+          <View style={styles.inviteBlock} testID="start-argument-invite">
+            <Text style={styles.inviteLabel}>{ARGUMENT_ROOM_CREATE_COPY.invite_field_label}</Text>
+            <Text style={styles.helper}>{inviteHelper}</Text>
+            <TextInput
+              value={inviteEmail}
+              onChangeText={(v) => {
+                setInviteEmail(v);
+                if (error) setError(null);
+              }}
+              placeholder={ARGUMENT_ROOM_CREATE_COPY.invite_field_placeholder}
+              placeholderTextColor={SURFACE_TOKENS.placeholder}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.inviteInput}
+              accessibilityLabel={ARGUMENT_ROOM_CREATE_COPY.invite_field_label}
+              testID="start-argument-invite-email"
+            />
+            {/* The single disabled-reason line, shown as VISIBLE text (color is
+                never the only signal) with a polite live region. For a 2+
+                paste this carries the specific too_many_direct_invites copy,
+                not the generic invalid-email string. */}
+            {creationReasonCopy ? (
+              <Text
+                style={styles.inviteReason}
+                accessibilityLiveRegion="polite"
+                testID="start-argument-create-reason"
+              >
+                {creationReasonCopy}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Capacity explainer — the cap + open-seat numbers come from the
+              validator output, not a literal in the copy. */}
+          <Text style={styles.capacity} testID="start-argument-capacity">
+            {capacityText}
+          </Text>
         </View>
 
         {/* ── Surface selector (drives landing route) ─────────── */}
@@ -355,6 +493,53 @@ function SurfaceOption({
   );
 }
 
+// ── Visibility option (radio) ─────────────────────────────────────
+// ARG-ROOM-003 — lifts the structure/semantics of the shipped QOL-039
+// visibility radio onto the live dark surface (reusing the in-file
+// `surface*` styles rather than the orphaned light-theme StyleSheet). Role
+// `radio`, `accessibilityState.selected`, a >= 44px hit target, and a
+// ● / ○ glyph + bolder label carry the selection — color is never the only
+// signal.
+
+function VisibilityOption({
+  value,
+  label,
+  helper,
+  selected,
+  onSelect,
+  testID,
+}: {
+  value: RoomVisibility;
+  label: string;
+  helper: string;
+  selected: boolean;
+  onSelect: (v: RoomVisibility) => void;
+  testID: string;
+}) {
+  return (
+    <Pressable
+      onPress={() => onSelect(value)}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${label}. ${helper}`}
+      hitSlop={TOUCH_TARGET.hitSlopCompact}
+      style={[styles.surfaceOption, selected && styles.surfaceOptionSelected]}
+      testID={testID}
+    >
+      <View style={styles.surfaceOptionHeader}>
+        {/* Shape glyph (●/○) + bolder label carry selection — not color alone. */}
+        <Text style={[styles.surfaceCheck, selected && styles.surfaceCheckOn]}>
+          {selected ? '●' : '○'}
+        </Text>
+        <Text style={[styles.surfaceLabel, selected && styles.surfaceLabelSelected]}>
+          {label}
+        </Text>
+      </View>
+      <Text style={styles.surfaceHelper}>{helper}</Text>
+    </Pressable>
+  );
+}
+
 // ── Taxonomy chip (single-select within a group) ──────────────────
 
 function TaxonomyChip({
@@ -453,6 +638,26 @@ const styles = StyleSheet.create({
   surfaceLabel: { fontSize: 14, fontWeight: '600', color: SURFACE_TOKENS.textSecondary },
   surfaceLabelSelected: { fontWeight: '800', color: SURFACE_TOKENS.textPrimary },
   surfaceHelper: { fontSize: 11, color: SURFACE_TOKENS.textMuted, lineHeight: 15 },
+
+  // Who-can-join: one direct-invite field + capacity explainer.
+  inviteBlock: { marginTop: SPACING.m, gap: SPACING.xs },
+  inviteLabel: { fontSize: 14, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
+  inviteInput: {
+    marginTop: SPACING.xs,
+    minHeight: 44,
+    backgroundColor: SURFACE_TOKENS.inputBg,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: SURFACE_TOKENS.inputBorder,
+    paddingHorizontal: SPACING.m,
+    paddingVertical: SPACING.s,
+    fontSize: 15,
+    color: SURFACE_TOKENS.textPrimary,
+  },
+  // Disabled-reason / inline-validation text. Amber (not error-red) — it is a
+  // "you can't start yet, here's why" explainer as often as an email error.
+  inviteReason: { fontSize: 12, color: '#fcd34d', lineHeight: 16, marginTop: SPACING.xs },
+  capacity: { fontSize: 12, color: SURFACE_TOKENS.textSecondary, lineHeight: 16, marginTop: SPACING.s },
 
   // Taxonomy.
   taxonomyGroup: { marginTop: SPACING.m, gap: SPACING.xs },

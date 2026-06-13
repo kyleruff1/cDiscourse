@@ -407,6 +407,50 @@ describe('createDebate — routes through create-argument-room (no direct insert
     if (res.ok) expect(res.data.visibility).toBe('private');
   });
 
+  // ── ARG-ROOM-003 — the live create surface threads its one optional invite
+  //    through this wrapper into the SAME atomic Edge call. ──
+  it('threads input.invite into the create-argument-room body (atomic, one call)', async () => {
+    mockState.invokeResult = {
+      data: { debateId: 'd9', visibility: 'private', inviteId: 'inv-9', inviteLink: 'https://app.example/invite/tok' },
+      error: null,
+    };
+    mockState.results['debates'] = { data: debateRow({ id: 'd9', visibility: 'private' }), error: null };
+
+    const res = await createDebate(
+      {
+        title: 'T',
+        resolution: 'R',
+        description: '',
+        visibility: 'private',
+        invite: { email: 'guest@example.com' },
+      },
+      'u1',
+    );
+    expect(res.ok).toBe(true);
+    // Exactly ONE Edge call — no separate invite call (no two-step sequence).
+    expect(mockState.invokes.length).toBe(1);
+    expect(mockState.invokes[0].fn).toBe('create-argument-room');
+    const body = mockState.invokes[0].body as {
+      visibility: string;
+      invite?: { email: string; intendedSeat: string };
+    };
+    expect(body.visibility).toBe('private');
+    // createArgumentRoom trims + defaults intendedSeat to 'respondent'.
+    expect(body.invite).toEqual({ email: 'guest@example.com', intendedSeat: 'respondent' });
+  });
+
+  it('omits invite from the Edge body when no invite is supplied', async () => {
+    mockState.invokeResult = {
+      data: { debateId: 'd1', visibility: 'public', inviteId: null, inviteLink: null },
+      error: null,
+    };
+    mockState.results['debates'] = { data: debateRow({ visibility: 'public' }), error: null };
+
+    await createDebate({ title: 'T', resolution: 'R', description: '', visibility: 'public' }, 'u1');
+    const body = mockState.invokes[0].body as { invite?: unknown };
+    expect(body.invite).toBeUndefined();
+  });
+
   it('coerces unexpected visibility input back to "public" defensively', async () => {
     mockState.invokeResult = {
       data: { debateId: 'd1', visibility: 'public', inviteId: null, inviteLink: null },

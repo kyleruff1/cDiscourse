@@ -204,6 +204,11 @@ export async function createDebate(
     resolution: input.resolution,
     description: input.description,
     visibility: input.visibility === 'private' ? 'private' : 'public',
+    // ARG-ROOM-003 — thread the one optional direct invite from the create
+    // surface into the SAME atomic Edge call. Omitted entirely when absent so
+    // the public/no-invite body is unchanged. `createArgumentRoom` trims the
+    // email and defaults `intendedSeat` to `'respondent'`.
+    ...(input.invite ? { invite: input.invite } : {}),
   });
   if (!created.ok) return { ok: false, error: created.error };
 

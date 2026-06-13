@@ -104,6 +104,10 @@ describe('StartArgumentPage — submit uses the existing creation path', () => {
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCancel={jest.fn()} />,
     );
+    // ARG-ROOM-003 — the visibility selector now defaults to Private (submit
+    // is disabled until an invite is added). This test only cares about the
+    // resolution/title threading, so switch to Public to enable submit.
+    fireEvent.press(getByTestId('start-argument-visibility-public'));
     fireEvent.changeText(
       getByTestId('start-argument-declaration'),
       'Cars should yield to bikes in protected lanes.',
@@ -116,6 +120,10 @@ describe('StartArgumentPage — submit uses the existing creation path', () => {
     expect(input.resolution).toBe('Cars should yield to bikes in protected lanes.');
     // A title is derived from the declaration (no separate title field).
     expect(input.title.length).toBeGreaterThan(0);
+    // ARG-ROOM-003 — the form always passes an EXPLICIT visibility, and threads
+    // no invite when the field is empty.
+    expect(input.visibility).toBe('public');
+    expect(input.invite).toBeUndefined();
   });
 });
 
@@ -129,6 +137,9 @@ describe('StartArgumentPage — selected surface controls the landing route', ()
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCreated={onCreated} onCancel={jest.fn()} />,
     );
+    // ARG-ROOM-003 — switch to Public so submit is enabled (default is Private,
+    // which requires an invite); this test is about the surface hand-off only.
+    fireEvent.press(getByTestId('start-argument-visibility-public'));
     fireEvent.changeText(getByTestId('start-argument-declaration'), 'A declaration.');
     await act(async () => {
       fireEvent.press(getByTestId('start-argument-submit'));
@@ -143,6 +154,8 @@ describe('StartArgumentPage — selected surface controls the landing route', ()
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCreated={onCreated} onCancel={jest.fn()} />,
     );
+    // ARG-ROOM-003 — switch to Public so submit is enabled (default Private).
+    fireEvent.press(getByTestId('start-argument-visibility-public'));
     fireEvent.press(getByTestId('start-argument-surface-card'));
     fireEvent.changeText(getByTestId('start-argument-declaration'), 'A declaration.');
     await act(async () => {
@@ -159,6 +172,8 @@ describe('StartArgumentPage — selected surface controls the landing route', ()
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCreated={onCreated} onCancel={jest.fn()} />,
     );
+    // ARG-ROOM-003 — switch to Public so submit is enabled (default Private).
+    fireEvent.press(getByTestId('start-argument-visibility-public'));
     fireEvent.changeText(getByTestId('start-argument-declaration'), 'A declaration.');
     await act(async () => {
       fireEvent.press(getByTestId('start-argument-submit'));
