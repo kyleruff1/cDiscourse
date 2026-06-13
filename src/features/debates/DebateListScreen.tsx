@@ -15,6 +15,11 @@ import type { Debate, CreateDebateInput, ParticipantSide } from './types';
 import type { JoinAttemptResult } from './useDebates';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
 import { tableFillContentContainerStyle, flexTableColumnStyle } from '../../lib/responsiveTable';
+// ARG-ROOM-006 (items a/e/f) — public/private access badge + plain-language
+// access line on each list row (parity with the gallery). No counts are loaded
+// here, so the deriver degrades public rooms to `public_open` (no enumeration).
+import { deriveRoomAccessView } from './roomAccessModel';
+import { ROOM_VISIBILITY_COPY } from '../arguments/gameCopy';
 
 type DebateSortField = 'updated_at' | 'created_at';
 type DebateSortDirection = 'desc' | 'asc';
@@ -130,13 +135,24 @@ function DebateRow({ debate, onPress }: DebateRowProps) {
   const sideText = debate.myParticipantSide ? SIDE_LABEL[debate.myParticipantSide] : '—';
   const hasUpdated = Boolean(debate.updatedAt);
   const updatedDisplay = hasUpdated ? debate.updatedAt : debate.createdAt;
+  const accessView = deriveRoomAccessView({
+    visibility: debate.visibility === 'private' ? 'private' : 'public',
+    openStatus: debate.status,
+    isMember: debate.myParticipantSide != null,
+    activeCount: null,
+    reservedCount: null,
+  });
+  const isPrivate = debate.visibility === 'private';
+  const visibilityA11y = isPrivate
+    ? ROOM_VISIBILITY_COPY.badge_private_a11y
+    : ROOM_VISIBILITY_COPY.option_public_helper;
 
   return (
     <Pressable
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       onPress={() => onPress(debate)}
       accessibilityRole="button"
-      accessibilityLabel={`Open argument: ${debate.title}`}
+      accessibilityLabel={`${accessView.badgeLabel} · Open argument: ${debate.title}`}
     >
       <View style={[styles.cell, { width: COL.status }]}>
         <View style={styles.cardStatus}>
@@ -148,8 +164,26 @@ function DebateRow({ debate, onPress }: DebateRowProps) {
         <Text style={styles.sideText}>{sideText}</Text>
       </View>
       <View style={[styles.cell, styles.cellDebate, flexTableColumnStyle(COL.debate)]}>
-        <Text style={styles.title} numberOfLines={1}>{debate.title}</Text>
+        <View style={styles.titleRow}>
+          {/* ARG-ROOM-006 (item f) — access badge; text carries the meaning. */}
+          <View
+            style={[styles.visibilityPill, isPrivate && styles.visibilityPillPrivate]}
+            accessibilityLabel={visibilityA11y}
+            testID={`debates-cell-visibility-${debate.id}`}
+          >
+            <Text style={styles.visibilityPillText}>{accessView.badgeLabel}</Text>
+          </View>
+          <Text style={styles.title} numberOfLines={1}>{debate.title}</Text>
+        </View>
         <Text style={styles.resolution} numberOfLines={2}>{debate.resolution}</Text>
+        {/* ARG-ROOM-006 (items e/f) — plain-language access/seat line. */}
+        <Text
+          style={styles.accessLine}
+          numberOfLines={1}
+          testID={`debates-cell-access-${debate.id}`}
+        >
+          {accessView.accessLine}
+        </Text>
       </View>
       <View
         style={[styles.cell, { width: COL.created }]}
@@ -428,8 +462,14 @@ const styles = StyleSheet.create({
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusText: { fontSize: 12, color: '#6b7280', fontWeight: '500' },
   sideText: { fontSize: 12, fontWeight: '700', color: '#4f46e5' },
-  title: { fontSize: 13, fontWeight: '700', color: '#111827' },
+  title: { fontSize: 13, fontWeight: '700', color: '#111827', flexShrink: 1 },
   resolution: { fontSize: 12, color: '#6b7280', lineHeight: 16 },
+  // ARG-ROOM-006 — access badge + line (light-theme parity with the gallery).
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  visibilityPill: { backgroundColor: '#ccfbf1', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999 },
+  visibilityPillPrivate: { backgroundColor: '#ede9fe' },
+  visibilityPillText: { fontSize: 9, fontWeight: '800', color: '#111827', textTransform: 'uppercase', letterSpacing: 0.3 },
+  accessLine: { fontSize: 11, color: '#6b7280', marginTop: 3 },
   timeAbsolute: { fontSize: 11, color: '#111827', fontVariant: ['tabular-nums'] as ['tabular-nums'] },
   timeRelative: { fontSize: 10, color: '#6b7280' },
   fallbackHint: { fontSize: 9, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 },
