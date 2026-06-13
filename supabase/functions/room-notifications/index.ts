@@ -59,6 +59,7 @@ import {
   internalError,
 } from '../_shared/http.ts';
 import { createCallerClient, createServiceClient } from '../_shared/supabaseClients.ts';
+import { INVITE_TOKEN_MIN_LENGTH, INVITE_TOKEN_MAX_LENGTH } from '../_shared/inviteTokenShape.ts';
 
 // ── Trigger discriminator ────────────────────────────────────
 
@@ -99,6 +100,19 @@ interface RoomNotificationRequestBody {
   argumentId?: string | null;
   /** For invite: the invite row id (so the function can resolve invitee email + inviter display name). */
   inviteId?: string;
+  /**
+   * ARG-ROOM-004 — for the create-time `invite` trigger ONLY: the RAW invite
+   * token (the reconciliation seam). The raw token is unrecoverable from the
+   * stored hash, so the create surface — which already holds it in the
+   * create-time `inviteLink` response — passes it here so the gated transports
+   * can build a working link:
+   *   - existing-user Resend email link `<origin>/invite/<token>`, and
+   *   - new-user Auth-invite redirect `<origin>/auth/callback?invite=<token>`.
+   * It is validated by shape, used ONLY to build those server-side links, and
+   * NEVER logged or returned. Absent/invalid → the transports degrade to no
+   * link (the inviter's copyable link still works).
+   */
+  inviteToken?: string | null;
   /** For invite_accepted_by_invitee: the invite row id (so the function can resolve the inviter id). */
   meta?: NotificationMetaInput;
 }
@@ -161,6 +175,84 @@ function parseMeta(input: unknown): NotificationMetaInput {
   if (typeof m.actorNameVisible === 'boolean') out.actorNameVisible = m.actorNameVisible;
   if (typeof m.actorDisplayName === 'string') out.actorDisplayName = m.actorDisplayName.slice(0, 80);
   return out;
+}
+
+// ── ARG-ROOM-004 — create-time invite transport gates + link builders ──
+//
+// Both transports are OFF by default. The create surface triggers this
+// function after `create-argument-room` mints the room + invite (that function
+// stays enumeration-safe + branch-free by contract — the new-vs-existing
+// decision is made HERE, where the service-role + caller=inviter authorization
+// already lives). Both gates default OFF so a merge lands DORMANT (no send).
+
+/** Existing-user Resend transport gate (QOL-040). Default OFF. */
+function isInviteEmailEnabled(): boolean {
+  return (Deno.env.get('INVITE_EMAIL_ENABLED') || '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * ARG-ROOM-004 — new-user Auth-invite bridge gate. Default OFF. The hosted
+ * Supabase Auth email is demonstrably LIVE, so this in-function gate is what
+ * keeps `inviteUserByEmail` from sending real invite emails on merge. The
+ * operator flips it only after the bridge round-trip is smoke-verified.
+ */
+function isInviteAuthBridgeEnabled(): boolean {
+  return (Deno.env.get('INVITE_AUTH_BRIDGE_ENABLED') || '').trim().toLowerCase() === 'true';
+}
+
+/**
+ * The inviter-facing `notification` status for the `invite` trigger, derived
+ * from a SINGLE branch-INDEPENDENT gate-posture predicate — never from which
+ * branch ran nor a per-branch transport return. So existing-vs-new is
+ * indistinguishable (no enumeration), including in any interim state where
+ * only one gate is armed. Dormant (both gates OFF) → `not_configured`; any
+ * gate armed → `queued` (the `sent`-vs-`queued` deliverability distinction is
+ * deliberately collapsed so per-branch deliverability cannot leak).
+ */
+function resolveInviteNotificationStatus(): InviteEmailStatus {
+  return isInviteEmailEnabled() || isInviteAuthBridgeEnabled() ? 'queued' : 'not_configured';
+}
+
+/** base64url token shape (mirrors src/features/invites/inviteDeepLink.ts). */
+function isValidBridgeToken(token: unknown): token is string {
+  if (typeof token !== 'string') return false;
+  if (token.length < INVITE_TOKEN_MIN_LENGTH || token.length > INVITE_TOKEN_MAX_LENGTH) return false;
+  return /^[A-Za-z0-9_-]+$/.test(token);
+}
+
+/** Sanitise a request origin to a bare `proto//host` (mirrors create-argument-room). */
+function sanitiseOriginForLink(origin: string): string | null {
+  if (!origin) return null;
+  const trimmed = origin.trim();
+  if (trimmed.length === 0) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  const proto = parsed.protocol.toLowerCase();
+  if (proto !== 'https:' && proto !== 'http:') return null;
+  if (!parsed.host) return null;
+  return `${proto}//${parsed.host.toLowerCase()}`;
+}
+
+/** Existing-user email link `<origin>/invite/<token>`. Null when either input is unusable. */
+function buildInviteLinkFromOrigin(requestOrigin: string, token: string | null | undefined): string | null {
+  const safeOrigin = sanitiseOriginForLink(requestOrigin);
+  if (!safeOrigin || !isValidBridgeToken(token)) return null;
+  return `${safeOrigin}/invite/${token}`;
+}
+
+/**
+ * New-user Auth-invite redirect `<origin>/auth/callback?invite=<token>`. The
+ * `?invite=` query is the bridge the client's `extractBridgedInviteToken`
+ * reads at cold start. Null when either input is unusable.
+ */
+function buildBridgeRedirect(requestOrigin: string, token: string | null | undefined): string | null {
+  const safeOrigin = sanitiseOriginForLink(requestOrigin);
+  if (!safeOrigin || !isValidBridgeToken(token)) return null;
+  return `${safeOrigin}/auth/callback?invite=${token}`;
 }
 
 /**
@@ -321,6 +413,7 @@ async function maybeSendInviteEmail(input: {
 async function handleInvite(
   body: RoomNotificationRequestBody,
   callerId: string,
+  requestOrigin: string,
 ): Promise<Response> {
   if (!body.inviteId || !isUuid(body.inviteId)) return badRequest('invite_id_required');
 
@@ -389,9 +482,9 @@ async function handleInvite(
 
   let delivered = 0;
   if (inviteeUserId) {
-    // Existing-account case: create the in-app notification keyed
-    // to that user. Author = the inviter; the dedupe step inside
-    // resolveRecipients strips the inviter from recipients.
+    // EXISTING-account invitee. Create the in-app notification keyed to
+    // that user (the canonical surface). Author = the inviter; the dedupe
+    // step inside resolveRecipients strips the inviter from recipients.
     delivered = await insertRows([inviteeUserId], {
       debate_id: invite.debate_id,
       argument_id: null,
@@ -401,29 +494,53 @@ async function handleInvite(
         ...(roomIsPrivate ? { roomIsPrivate: true } : {}),
       },
     });
+
+    // Gated Resend email (INVITE_EMAIL_ENABLED, off by default → no
+    // network). ARG-ROOM-004 reconciliation: the email now carries a
+    // WORKING link built from the (validated) raw token + request origin —
+    // closing the QOL-040 inviteLink-null gap. The per-branch transport
+    // return is intentionally NOT used for the response status (see
+    // resolveInviteNotificationStatus) so existing-vs-new cannot leak.
+    const { data: inviterProfile } = await svc
+      .from('profiles')
+      .select('id, display_name, role')
+      .eq('id', invite.invited_by)
+      .maybeSingle<ProfileRow>();
+    await maybeSendInviteEmail({
+      inviteId: invite.id,
+      recipientEmail: inviteeEmail,
+      inviterDisplayName: inviterProfile?.display_name || null,
+      roomTitle,
+      inviteLink: buildInviteLinkFromOrigin(requestOrigin, body.inviteToken),
+      roomIsPrivate,
+    });
+  } else if (isInviteAuthBridgeEnabled()) {
+    // BRAND-NEW invitee (no account). Gated behind INVITE_AUTH_BRIDGE_ENABLED
+    // (default OFF → DORMANT: no Auth invite is sent on merge). The hosted
+    // Supabase Auth email is LIVE, so this in-function gate is what holds the
+    // live send for the operator's explicit flip. When armed, send the
+    // Supabase Auth "Invite user" email, whose CTA returns to
+    // `<origin>/auth/callback?invite=<token>` so the shipped #607/#608 chain
+    // auto-accepts the reserved seat after set-password. inviteUserByEmail
+    // creates the auth.users row — the sanctioned seam because this function
+    // already holds a service-role client AND re-derived caller=inviter
+    // authorization above. Best-effort: a failed/rate-limited send never
+    // blocks; the inviter's copyable link is the fallback. Token + email are
+    // NEVER logged.
+    const redirectTo = buildBridgeRedirect(requestOrigin, body.inviteToken);
+    if (redirectTo) {
+      try {
+        await svc.auth.admin.inviteUserByEmail(inviteeEmail, { redirectTo });
+      } catch {
+        // Benign causes: hosted Auth rate limit, or a race where the account
+        // was created between the lookup and here. Seat + link are unaffected.
+      }
+    }
   }
 
-  // Email channel (gated). Send regardless of in-app delivery —
-  // the email is the primary path for a brand-new-user invitee.
-  // For existing-account invitees, the email is a nice-to-have
-  // notification that lands in their inbox; the in-app row is
-  // the canonical surface.
-  const { data: inviterProfile } = await svc
-    .from('profiles')
-    .select('id, display_name, role')
-    .eq('id', invite.invited_by)
-    .maybeSingle<ProfileRow>();
-  const inviteLink: string | null = null; // The invite link is not exposed via this function — it lives in inviter's create-time response.
-  const emailStatus = await maybeSendInviteEmail({
-    inviteId: invite.id,
-    recipientEmail: inviteeEmail,
-    inviterDisplayName: inviterProfile?.display_name || null,
-    roomTitle,
-    inviteLink,
-    roomIsPrivate,
-  });
-
-  return ok<RoomNotificationResponse>({ delivered, notification: emailStatus });
+  // Branch-INDEPENDENT status (no enumeration): dormant → not_configured,
+  // any transport armed → queued. Never derived from which branch ran.
+  return ok<RoomNotificationResponse>({ delivered, notification: resolveInviteNotificationStatus() });
 }
 
 async function handleInviteAcceptedByInvitee(
@@ -707,6 +824,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const auth = req.headers.get('authorization') || req.headers.get('Authorization');
   if (!auth) return unauthorized();
+  // ARG-ROOM-004 — the deployed SPA origin (used to build the create-time
+  // invite links server-side; never read from .env). Same posture as
+  // create-argument-room / manage-room-invite.
+  const requestOrigin = req.headers.get('origin') || req.headers.get('Origin') || '';
 
   let raw: unknown;
   try {
@@ -730,13 +851,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     debateId: body.debateId,
     argumentId: typeof body.argumentId === 'string' ? body.argumentId : null,
     inviteId: typeof body.inviteId === 'string' ? body.inviteId : undefined,
+    // ARG-ROOM-004 — pass the raw token through ONLY when its shape is valid;
+    // it is used solely to build server-side links + redirect, never logged.
+    inviteToken: isValidBridgeToken(body.inviteToken) ? body.inviteToken : null,
     meta: body.meta,
   };
 
   try {
     switch (safeBody.type) {
       case 'invite':
-        return await handleInvite(safeBody, callerId);
+        return await handleInvite(safeBody, callerId, requestOrigin);
       case 'invite_accepted_by_invitee':
         return await handleInviteAcceptedByInvitee(safeBody, callerId);
       case 'argument_settled':
