@@ -10,7 +10,23 @@ module.exports = [
     // `artifacts/**` holds gitignored throwaway build output — including the
     // AN-003 §5 `tsc` emit dir (`artifacts/diagnostics/tree-playability-build/`).
     // ESLint must never lint generated build artifacts.
-    ignores: ['node_modules/**', '.expo/**', 'dist/**', 'web-build/**', 'artifacts/**', 'mcp-server/**', '*.config.js'],
+    //
+    // `.claude/**` holds transient agent git WORKTREES (full repo copies under
+    // `.claude/worktrees/`) plus skills/agents docs — never source to lint. The
+    // top-level `mcp-server/**` ignore does NOT match nested worktree copies
+    // (`.claude/worktrees/X/mcp-server/`), so without this their tests leak into
+    // the lint and fail on unrelated WIP. `.claude-tmp/**` is throwaway scratch.
+    ignores: [
+      'node_modules/**',
+      '.expo/**',
+      'dist/**',
+      'web-build/**',
+      'artifacts/**',
+      'mcp-server/**',
+      '.claude/**',
+      '.claude-tmp/**',
+      '*.config.js',
+    ],
   },
   {
     files: ['**/*.{ts,tsx}'],
