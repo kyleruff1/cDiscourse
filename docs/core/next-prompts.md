@@ -390,3 +390,11 @@ See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur
 
 > The "See how it works" corridor (DEMO-001) is shipped and the REF-006 instrument is green (745 suites / 30245 passed + 1 skip @ `ae157d7`). The agent-side dogfood triage ran in **Mode C** — no human-comprehension evidence can be produced by an automated agent (the app is a rendered Expo RN surface; the rubric is perceptual). Report: `docs/testing-runs/2026-06-13-REF-006-founder-operator-dogfood.md`.
 > **Next action is human, not a card:** the operator runs the 8-item dry walk-through in `docs/testing-runs/REF-006-usability-smoke-protocol.md` (§ "Operator dry walk-through"), solo, on a build; then 1–3 first-timers or paste notes back for a Mode B encoding. The next product card (COPY-POLISH / REF-006-RAIL-ITERATION / DEMO-001-POLISH / REF-005B / BETA-READINESS) is chosen from *those* findings — `NO CARD YET` until then.
+
+---
+
+## Prompt ARG-ROOM-1 — Launch the public/private argument-room invite slate (filed 2026-06-13)
+
+> The public/private argument-room invite slate is filed: ARG-ROOM-ADR-001 #611 · ARG-ROOM-001 #612 · ARG-ROOM-002 #613 · ARG-ROOM-003 #614 · ARG-ROOM-004 #615 · ARG-ROOM-005 #616 · ARG-ROOM-006 #617 · ARG-ROOM-007 #618, all on Project #1 at Phase=Backlog / Release=6.7 (Epic=Rules UX; ARG-ROOM-004=Interaction).
+> Planning artifact: `docs/roadmap-expansions/2026-06-13-public-private-argument-room-invites-roadmap.md` (binding creation matrix, build-on-shipped inventory, divergence ledger incl. public cap 6→5, dependency DAG). Run index: `docs/designs/ARG-ROOM-VISIBILITY-INVITE-SLATE-2026-06-13-INDEX.md`. Five GATE-A design docs + reviews shipped (ADR-001, 001, 002, 003, 004); cards 005–007 are filed, designs later.
+> Build order: ADR-001 → 001 → 002 (GATE-C) → {003, 005, 007} → {004 (GATE-C), 006}. Next pipeline entry: `spawn-card.ps1 ARG-ROOM-001` (designer→implementer; ADR-001 is a soft, non-blocking input). **ARG-ROOM-002 and ARG-ROOM-004 are GATE-C** — Supabase migration + Edge; the GitHub integration auto-applies on merge (merge = deploy), so those two merge only under an explicit operator gate.
