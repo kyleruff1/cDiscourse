@@ -46,6 +46,9 @@ import type { TimelineDensityMode } from './timelineNodeVisualModel';
 import { ArgumentScoreTracker } from './ArgumentScoreTracker';
 import { ArgumentSideActionRail, railActionToBubbleControl } from './ArgumentSideActionRail';
 import type { RailActionCode, RailViewerRole } from './ArgumentSideActionRail';
+import { SeatAvailabilityStrip } from './SeatAvailabilityStrip';
+import { buildSeatAvailabilityViewModel } from '../debates/seatClaimModel';
+import type { SeatAvailability } from '../debates/seatClaimModel';
 import type { ArgumentTag, ArgumentFlag } from './types';
 import type { ParticipantSide } from '../debates/types';
 import type { GalleryEntryHint } from '../debates/conversationGalleryModel';
@@ -350,6 +353,15 @@ interface Props {
    * disabled-with-reason when omitted (back-compat for older callers).
    */
   onLeaveRoom?: () => void;
+  /**
+   * ARG-ROOM-005 — live public-room seat availability, derived by the room
+   * shell (App.tsx) from the active-participant count + the room visibility +
+   * the viewer's side. When present, the surface renders the read-only seat
+   * strip and drives the rail's full-room state (disabled Join chips + nudge).
+   * Absent (older callers, private rooms, tests) => no strip, chips enabled
+   * (byte-identical to the pre-ARG-ROOM-005 surface).
+   */
+  seatAvailability?: SeatAvailability | null;
 }
 
 export function ArgumentGameSurface({
@@ -383,8 +395,15 @@ export function ArgumentGameSurface({
   onComposerExpand,
   composerResolution,
   onLeaveRoom,
+  seatAvailability,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // ARG-ROOM-005 — read-only seat-availability display + rail full-room state.
+  // Verdict-free; built from the pure model, never re-derived here. Null when
+  // the room shell does not surface seats (private rooms, older callers).
+  const seatAvailabilityViewModel = seatAvailability
+    ? buildSeatAvailabilityViewModel(seatAvailability, participantSide ?? null)
+    : null;
   // UX-001.4 — band drives the per-menu presentation variant via
   // `menuPresentationModel.resolveMenuPresentation`. UX-001.1's
   // useHeaderBreakpoint is the single source of truth for the band.
@@ -2210,6 +2229,14 @@ export function ArgumentGameSurface({
         onMove={handleOpenIssueMove}
       />
 
+      {/* ARG-ROOM-005 — read-only public seat-availability strip. Open-slot
+          count / "Room full — observe" + the viewer's own state line. Counts
+          only, never identities. Rendered only when the room shell surfaces
+          seats (public rooms). */}
+      {seatAvailabilityViewModel ? (
+        <SeatAvailabilityStrip viewModel={seatAvailabilityViewModel} />
+      ) : null}
+
       {/* Stage 6.4 / SC-005 — Side action rail. Collapsed by default for
           observers; SC-005 renders it as a contextual dock (side-anchored
           on wide viewports, a capped bottom sheet on narrow ones) and folds
@@ -2235,6 +2262,11 @@ export function ArgumentGameSurface({
         isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded}
         onExpandedChange={handleRailExpandedChange}
         startArgumentAction={startArgumentAction}
+        // ARG-ROOM-005 — when the room is full the Join For / Join Against
+        // chips render disabled + a verdict-free observe nudge; Watch stays
+        // enabled. Undefined (no seatAvailability) => chips enabled.
+        canClaimActiveSeat={seatAvailability ? seatAvailability.canClaimActiveSeat : undefined}
+        fullRoomNotice={seatAvailabilityViewModel?.fullRoomObserveNudge ?? null}
       />
 
       {/* UX-001.4 — Board-level Act / Inspect / Go trigger row. Sits
