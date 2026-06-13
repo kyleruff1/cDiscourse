@@ -11,6 +11,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { Debate, CreateDebateInput, ParticipantSide } from './types';
+import type { JoinAttemptResult } from './useDebates';
 // NAV-START-ARGUMENT-001 Slice A — the New Argument surface is replaced by
 // the declaration-first Start Argument page. CreateDebateForm is no longer
 // rendered here.
@@ -55,7 +56,7 @@ interface Props {
   error: string | null;
   onRefresh: () => void;
   onCreate: (input: CreateDebateInput) => Promise<Debate | null>;
-  onJoin: (debateId: string, side: ParticipantSide) => Promise<ParticipantSide | null>;
+  onJoin: (debateId: string, side: ParticipantSide) => Promise<JoinAttemptResult>;
   /**
    * Stage 6.4: optional entry-hint argument lets the room shell pre-activate
    * the right message and show a micro-moment label. Existing callers can
@@ -218,7 +219,9 @@ export function ConversationGalleryScreen({
       <JoinDebatePanel
         debate={joiningDebate}
         onJoin={async (side: ParticipantSide) => {
-          const joinedSide = await onJoin(joiningDebate.id, side);
+          // ARG-ROOM-005 — a full room degrades to observe (handled in the
+          // room shell); the gallery panel only opens the room on a taken seat.
+          const { side: joinedSide } = await onJoin(joiningDebate.id, side);
           if (joinedSide) {
             onSelect(joiningDebate, joinedSide);
             setJoiningDebate(null);

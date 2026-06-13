@@ -16,6 +16,7 @@ import { getKnownChildCount } from './argumentCache';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import type { Debate } from '../debates/types';
+import type { SeatAvailability } from '../debates/seatClaimModel';
 import type { GalleryEntryHint } from '../debates/conversationGalleryModel';
 import type { ArgumentRow } from './types';
 import type { ArgumentMessageInput, ArgumentBubbleControl, ArgumentSurfaceMode } from './argumentGameSurfaceModel';
@@ -92,9 +93,16 @@ interface Props {
    * optional; when omitted, the Go entry renders disabled-with-reason.
    */
   onLeaveRoom?: () => void;
+  /**
+   * ARG-ROOM-005 — live public-room seat availability, derived by the room
+   * shell (App.tsx). Forwarded verbatim to the game surface, which renders the
+   * read-only seat strip + drives the rail's full-room state. Optional;
+   * omitted => no strip, Join chips enabled (back-compat).
+   */
+  seatAvailability?: SeatAvailability | null;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability }: Props) {
   const {
     cache,
     viewport,
@@ -156,6 +164,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         onActiveMessageChange={onActiveMessageChange}
         onComposerExpand={onComposerExpand}
         onLeaveRoom={onLeaveRoom}
+        seatAvailability={seatAvailability}
       />
     );
   }
@@ -303,9 +312,11 @@ interface FullRoomGameSurfaceMountProps {
   onComposerExpand?: () => void;
   /** UX-001.4 — Go popout Leave-room callback (App.tsx::handleLeaveRoom). */
   onLeaveRoom?: () => void;
+  /** ARG-ROOM-005 — public-room seat availability (forwarded to the surface). */
+  seatAvailability?: SeatAvailability | null;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -516,6 +527,7 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         onComposerExpand={onComposerExpand}
         composerResolution={debate.resolution ?? null}
         onLeaveRoom={onLeaveRoom}
+        seatAvailability={seatAvailability}
         // MCP-019 — banner / override slice for the move just posted.
         // Both are null when the semantic layer is off (the v1 default).
         refereeBanner={refereeMoveState?.banner ?? null}

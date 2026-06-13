@@ -1,7 +1,19 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAppSession } from '../session/useAppSession';
 import { listDebates, createDebate, joinDebate } from './debatesApi';
+import type { JoinOutcomeKind } from './seatClaimModel';
 import type { Debate, CreateDebateInput, ParticipantSide } from './types';
+
+/**
+ * ARG-ROOM-005 — the result of a claim attempt. `side` is the side the viewer
+ * ends up on (null when no seat was taken); `outcome` carries the classified
+ * seat outcome so the room shell can degrade `room_full` to the observe
+ * affordance instead of dead-ending or showing a generic error.
+ */
+export interface JoinAttemptResult {
+  side: ParticipantSide | null;
+  outcome: JoinOutcomeKind;
+}
 
 export interface UseDebatesResult {
   debates: Debate[];
@@ -9,7 +21,7 @@ export interface UseDebatesResult {
   error: string | null;
   refresh: () => Promise<void>;
   create: (input: CreateDebateInput) => Promise<Debate | null>;
-  join: (debateId: string, side: ParticipantSide) => Promise<ParticipantSide | null>;
+  join: (debateId: string, side: ParticipantSide) => Promise<JoinAttemptResult>;
 }
 
 export function useDebates(): UseDebatesResult {
@@ -52,8 +64,8 @@ export function useDebates(): UseDebatesResult {
   );
 
   const join = useCallback(
-    async (debateId: string, side: ParticipantSide): Promise<ParticipantSide | null> => {
-      if (!userId) return null;
+    async (debateId: string, side: ParticipantSide): Promise<JoinAttemptResult> => {
+      if (!userId) return { side: null, outcome: 'unavailable' };
       const result = await joinDebate(debateId, side, userId);
       if (result.ok) {
         setDebates((prev) =>
@@ -61,10 +73,15 @@ export function useDebates(): UseDebatesResult {
             d.id === debateId ? { ...d, myParticipantSide: result.data.side } : d,
           ),
         );
-        return result.data.side;
+        return { side: result.data.side, outcome: result.outcome };
       }
-      setError(result.error);
-      return null;
+      // ARG-ROOM-005 — a full room is NOT an error; it degrades to the observe
+      // affordance (the room shell handles `room_full`). Only genuine failures
+      // raise the generic error banner.
+      if (result.outcome !== 'room_full') {
+        setError(result.error);
+      }
+      return { side: null, outcome: result.outcome };
     },
     [userId],
   );

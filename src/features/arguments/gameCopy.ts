@@ -944,6 +944,29 @@ export const OBSERVER_COPY = {
   askQuoteHelp: 'Ask the speaker to quote the exact passage.',
 } as const;
 
+// ── ARG-ROOM-005 — public seat-claim copy ───────────────────────
+//
+// The minimal seat-availability vocabulary surfaced when a public room shows
+// open-slot count + the observe affordance. Owned MINIMALLY here so ARG-ROOM-005
+// stays testable + ban-list-covered; ARG-ROOM-007 consolidates the final
+// capacity/visibility vocabulary and may rename / move this block (flagged in
+// the 007 design). The observe label itself reuses `OBSERVER_COPY.watch` /
+// `OBSERVER_COPY.enterRoom` — these strings only name the seat facts.
+//
+// Doctrine (§1): every value is person-neutral and verdict-free. "full" and
+// "observe" are STRUCTURAL seat facts, never judgments — a full room is not a
+// loss and observing is a first-class state, not a demotion. No snake_case, no
+// verdict / amplification / person-attribution tokens (scanned by
+// `_forbiddenSeatClaimTokens` in `__tests__/seatClaimModel.doctrine.test.ts`).
+export const SEAT_CLAIM_COPY = Object.freeze({
+  openSeatsZero: 'No open seats',
+  openSeatsOne: '1 open seat',
+  openSeatsMany: '{count} open seats',
+  fullRoomObserve: 'This argument is full. You can still watch.',
+  youAreActive: "You're in this argument.",
+  youAreWatching: "You're watching.",
+});
+
 // ── META-1E — Cards-detail metadata diff inspector copy ─────────
 //
 // The only user-facing strings the metadata diff inspector authors. Per

@@ -179,6 +179,17 @@ interface Props {
    *  actionBar. When provided, renders as a primary chip in the dock.
    *  When omitted, no CTA renders. */
   startArgumentAction?: { label: string; onPress: () => void } | null;
+
+  // ── ARG-ROOM-005 new props (all optional → backward compatible) ──
+  /** Whether the viewer can claim an active seat right now. `false` => the
+   *  room's active seats are full (or a reserved invite holds the last seat),
+   *  so the join_aff / join_neg chips render DISABLED and the full-room nudge
+   *  shows; `watch` stays enabled. `undefined` / `true` => chips enabled
+   *  (the pre-ARG-ROOM-005 behavior). */
+  canClaimActiveSeat?: boolean;
+  /** Verdict-free full-room nudge ("This argument is full. You can still
+   *  watch."), surfaced under the dock when `canClaimActiveSeat === false`. */
+  fullRoomNotice?: string | null;
 }
 
 /** Slide travel distance (logical px) for the narrow-sheet open animation. */
@@ -198,6 +209,8 @@ export function ArgumentSideActionRail({
   isAnyPanelOpen,
   onExpandedChange,
   startArgumentAction,
+  canClaimActiveSeat,
+  fullRoomNotice,
 }: Props) {
   // SC-005 keeps the Stage 6.4 collapse contract verbatim — `collapsed`
   // state seeded from `defaultCollapsed ?? (viewerRole === 'observer')`.
@@ -324,10 +337,16 @@ export function ArgumentSideActionRail({
 
   const handleActionPress = useCallback(
     (code: RailActionCode) => {
+      // ARG-ROOM-005 — a full room blocks the active-seat claim. Watch / Share /
+      // Reply are unaffected; the Join chips are also visually + a11y disabled.
+      // This guard makes the no-dispatch deterministic regardless of platform.
+      if ((code === 'join_aff' || code === 'join_neg') && canClaimActiveSeat === false) {
+        return;
+      }
       setHelperHint(null);
       onAction(code, { activeMessageId: activeMessageId ?? null, bubbleActor, viewerRole });
     },
-    [onAction, activeMessageId, bubbleActor, viewerRole],
+    [onAction, activeMessageId, bubbleActor, viewerRole, canClaimActiveSeat],
   );
 
   // ── collapsed render ──
@@ -419,32 +438,59 @@ export function ArgumentSideActionRail({
               </Text>
             ) : null}
             <View style={styles.sectionChips}>
-              {section.actions.map((a) => (
-                <Pressable
-                  key={`rail-${a.code}`}
-                  style={[
-                    styles.actionChip,
-                    a.tone === 'primary' && styles.actionChipPrimary,
-                    a.tone === 'warning' && styles.actionChipWarning,
-                    a.tone === 'critical' && styles.actionChipCritical,
-                  ]}
-                  onPress={() => handleActionPress(a.code)}
-                  onLongPress={() => setHelperHint(a.helper)}
-                  accessibilityRole="button"
-                  accessibilityLabel={a.label}
-                  accessibilityHint={a.helper}
-                  accessibilityState={{ expanded: true }}
-                  testID={`rail-action-${a.code}`}
-                >
-                  <Text style={styles.actionLabel} numberOfLines={1}>
-                    {a.label}
-                  </Text>
-                </Pressable>
-              ))}
+              {section.actions.map((a) => {
+                // ARG-ROOM-005 — when the room's active seats are full, the
+                // Join For / Join Against chips render DISABLED (hitSlop +
+                // 44×44 preserved); Watch / Share / Reply stay enabled. The
+                // chip is disabled ONLY when canClaimActiveSeat is explicitly
+                // false (undefined => back-compat, chips enabled).
+                const isJoinChip = a.code === 'join_aff' || a.code === 'join_neg';
+                const isClaimBlocked = isJoinChip && canClaimActiveSeat === false;
+                return (
+                  <Pressable
+                    key={`rail-${a.code}`}
+                    style={[
+                      styles.actionChip,
+                      a.tone === 'primary' && styles.actionChipPrimary,
+                      a.tone === 'warning' && styles.actionChipWarning,
+                      a.tone === 'critical' && styles.actionChipCritical,
+                      isClaimBlocked && styles.actionChipDisabled,
+                    ]}
+                    onPress={() => handleActionPress(a.code)}
+                    onLongPress={() => setHelperHint(a.helper)}
+                    disabled={isClaimBlocked}
+                    accessibilityRole="button"
+                    accessibilityLabel={a.label}
+                    accessibilityHint={a.helper}
+                    accessibilityState={{ expanded: true, disabled: isClaimBlocked }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    testID={`rail-action-${a.code}`}
+                  >
+                    <Text
+                      style={[styles.actionLabel, isClaimBlocked && styles.actionLabelDisabled]}
+                      numberOfLines={1}
+                    >
+                      {a.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         ))}
       </ScrollView>
+      {/* ARG-ROOM-005 — full-room observe nudge. Verdict-free; announced
+          politely so screen-reader users learn the room is full without
+          per-render chatter. */}
+      {canClaimActiveSeat === false && fullRoomNotice ? (
+        <Text
+          style={styles.fullRoomNotice}
+          testID="rail-full-room-notice"
+          accessibilityLiveRegion="polite"
+        >
+          {fullRoomNotice}
+        </Text>
+      ) : null}
       {helperHint ? (
         <Text style={styles.helperHint} testID="rail-helper-hint">
           {helperHint}
@@ -576,6 +622,19 @@ const styles = StyleSheet.create({
   actionChipCritical: { backgroundColor: '#7f1d1d' },
   startChip: { alignSelf: 'stretch', marginBottom: 8 },
   actionLabel: { color: '#f8fafc', fontWeight: '800' as const, fontSize: 13 },
+
+  // ARG-ROOM-005 — disabled Join chip when the room is full. The label is
+  // dimmed AND the chip carries accessibilityState.disabled, so the "can't
+  // claim" signal is not color-only (a screen reader hears it too).
+  actionChipDisabled: { backgroundColor: '#111827', opacity: 0.5 },
+  actionLabelDisabled: { color: '#94a3b8' },
+
+  fullRoomNotice: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    marginTop: 4,
+    paddingHorizontal: 2,
+  },
 
   helperHint: {
     color: '#cbd5e1',

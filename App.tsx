@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState, useRef } from 'react';
 import {
+  AccessibilityInfo,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -20,6 +21,14 @@ import { isAuthCallbackPath } from './src/lib/auth/parseAuthCallbackUrl';
 import { LoadingNotice } from './src/components/LoadingNotice';
 import { useAuthSession } from './src/features/auth/useAuthSession';
 import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate, useRoomContract } from './src/features/debates';
+// ARG-ROOM-005 — public seat claiming: live active-participant count + the
+// pure seat-availability model + the post-claim side-effect resolver.
+import {
+  useActiveParticipantCount,
+  deriveSeatAvailability,
+  resolveJoinSideEffect,
+} from './src/features/debates';
+import type { ParticipantSide } from './src/features/debates';
 import { ConversationGalleryScreen } from './src/features/debates/ConversationGalleryScreen';
 import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
 // QOL-040.3 — pure helper that builds the entry hint from a notification
@@ -55,7 +64,7 @@ import type { ArgumentViewMode } from './src/features/arguments/ArgumentTreeScre
 import type { MoveDraftPatch } from './src/features/arguments/conversationMoves';
 import { TAB_LABELS, getVisibleTabs } from './src/features/arguments/roomNavigation';
 import type { ArgumentRoomTab } from './src/features/arguments/roomNavigation';
-import { ROOM_COPY } from './src/features/arguments/gameCopy';
+import { ROOM_COPY, SEAT_CLAIM_COPY } from './src/features/arguments/gameCopy';
 // UX-001.2 — VIEW_MODE_COPY is consumed inside DebateDetailHeader's compact
 // strip; App.tsx no longer renders the toggle so only the default is needed.
 import { DEFAULT_VIEW_MODE } from './src/features/arguments/viewModeCopy';
@@ -691,6 +700,25 @@ function MainAppShell({
     viewerUserId: state.snapshot.userId || null,
   });
 
+  // ARG-ROOM-005 — live public-room seat availability. The hook is called
+  // unconditionally (Rules of Hooks); an empty roomId yields a 0 count. The
+  // seat-availability preview is derived ONLY for PUBLIC rooms (the claim flow
+  // is a public-room feature). A public viewer always passes
+  // knownReservedInviteCount = 0 — reserved invites are RLS-hidden, so a room
+  // with a hidden reserved invite and one with a genuinely-open seat render
+  // identically (no differential signal); the deployed ARG-ROOM-002 trigger
+  // stays authoritative on claim.
+  const seatCount = useActiveParticipantCount(currentDebate?.id ?? null);
+  const seatAvailability =
+    currentDebate && currentDebate.visibility === 'public'
+      ? deriveSeatAvailability({
+          visibility: 'public',
+          activeParticipantCount: seatCount.activeParticipantCount,
+          knownReservedInviteCount: 0,
+          viewerSide: participantSide as ParticipantSide | null,
+        })
+      : null;
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
@@ -937,8 +965,19 @@ function MainAppShell({
               reduceMotionOverride={preferences.effectiveReduceMotion}
               onJoinSide={async (side) => {
                 if (!currentDebate) return;
-                const joined = await join(currentDebate.id, side);
-                if (joined) selectDebate(currentDebate, joined);
+                // ARG-ROOM-005 — classify the claim result. A full room (active
+                // seats taken, or a reserved invite holding the last seat)
+                // degrades GRACEFULLY to observe: stay in read mode, refresh the
+                // seat strip so it reads "Room full — observe", and announce it
+                // politely — never a dead-end, never a generic error.
+                const result = await join(currentDebate.id, side);
+                const effect = resolveJoinSideEffect(result);
+                if (effect.kind === 'select_side') {
+                  selectDebate(currentDebate, effect.side);
+                } else if (effect.kind === 'full_room_observe') {
+                  seatCount.refresh();
+                  AccessibilityInfo.announceForAccessibility(SEAT_CLAIM_COPY.fullRoomObserve);
+                }
               }}
               // SC-005 — the old separate bottom actionBar is gone; the
               // "Start an argument" CTA now folds into the side action
@@ -956,6 +995,10 @@ function MainAppShell({
               // UX-001.4 — Go popout's "Leave argument" entry calls the
               // existing handleLeaveRoom path (not a new room-exit path).
               onLeaveRoom={handleLeaveRoom}
+              // ARG-ROOM-005 — public seat availability drives the read-only
+              // seat strip + the rail's full-room state (disabled Join chips +
+              // observe nudge). Null for private rooms.
+              seatAvailability={seatAvailability}
             />
 
             {/* COMPOSER-002 — in-room composer dock. Overlays the room
