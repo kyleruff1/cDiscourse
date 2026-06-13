@@ -72,6 +72,11 @@ import {
   type PrimaryNavSection,
 } from './src/features/navigation';
 import type { ConversationGallerySection } from './src/features/debates/conversationGalleryModel';
+// DEMO-001 — Recruitable Debate Demo Corridor. A deterministic, no-provider,
+// no-spend first-run walkthrough reached from the gallery toolbar. Renders as
+// a routed sub-screen (state-flag nav, mirroring `aboutOpen`); the production
+// gallery / room are unchanged when the corridor is closed.
+import { DemoCorridorScreen, CORRIDOR_COPY } from './src/features/demoCorridor';
 import { BRAND } from './src/lib/designTokens';
 // PR-001 — "My preferences" popout. The header gear opens a core Modal
 // bottom-sheet of device-local UI preferences. No router, no new dep.
@@ -430,6 +435,10 @@ function MainAppShell({
   const [galleryLane, setGalleryLane] = useState<ConversationGallerySection | 'all'>('all');
   const [startArgumentOpen, setStartArgumentOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  // DEMO-001 — whether the Recruitable Debate Demo Corridor is showing.
+  // Mirrors `aboutOpen`: a state-flag routed sub-screen, no router. Production
+  // never sets this except via the gallery-toolbar "See how it works" trigger.
+  const [demoCorridorOpen, setDemoCorridorOpen] = useState(false);
   const refreshTreeRef = useRef<(() => void) | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
@@ -694,18 +703,26 @@ function MainAppShell({
       ) : null}
 
       <View style={styles.body}>
+        {/* DEMO-001 — Recruitable Debate Demo Corridor. Reached from the
+            gallery-toolbar "See how it works" trigger. Renders above all
+            Arguments-tab surfaces (mirrors `aboutOpen`); "Jump into a real
+            room →" / Close returns to the live gallery (state-only, no
+            router). Deterministic, no-provider, no-spend. */}
+        {demoCorridorOpen && (
+          <DemoCorridorScreen onExit={() => setDemoCorridorOpen(false)} />
+        )}
         {/* NAV-START-ARGUMENT-001 Slice B — public About screen. Reached from
             the upper-right About item in the global header. Renders above all
             Arguments-tab surfaces; "Back" returns to the gallery (state-only,
             no router). Public — no admin / debug / classifier content. */}
-        {aboutOpen && (
+        {!demoCorridorOpen && aboutOpen && (
           <AboutScreen onBack={() => handlePrimaryNav('browse_arguments')} />
         )}
         {/* QOL-040 — notification list screen. Renders as a routed
             sub-screen on top of the Arguments tab when the user
             taps the "Notifications" trigger in the gallery
             toolbar. Closing the list returns to the gallery. */}
-        {!aboutOpen && activeTab === 'arguments' && notificationsOpen && (
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && notificationsOpen && (
           <NotificationListScreen
             notifications={notifications.notifications}
             unreadCount={notifications.unreadCount}
@@ -718,7 +735,7 @@ function MainAppShell({
           />
         )}
         {/* Arguments tab: Conversation Gallery (no room selected). */}
-        {!aboutOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && (
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && (
           <View style={styles.galleryWithToolbar}>
             {/* QOL-040 — gallery toolbar exposes the
                 "Notifications" entry. The badge mirrors the tab
@@ -739,6 +756,21 @@ function MainAppShell({
                 <View style={styles.tabBadgeSlot}>
                   <NotificationBadge unreadCount={notifications.unreadCount} testID="notification-badge-toolbar" />
                 </View>
+              </Pressable>
+              {/* DEMO-001 — "See how it works" opens the Recruitable Debate
+                  Demo Corridor (a deterministic, no-provider walkthrough).
+                  Non-modal, observer-first posture (Stage 6.4): a plain
+                  toolbar Pressable, not a "choose side" modal. */}
+              <Pressable
+                style={styles.notificationsTrigger}
+                onPress={() => setDemoCorridorOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={CORRIDOR_COPY.entryAccessibilityLabel}
+                accessibilityHint="A short guided walkthrough of one disagreement, using the real room."
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                testID="open-demo-corridor-trigger"
+              >
+                <Text style={styles.notificationsTriggerText}>{CORRIDOR_COPY.entryLabel}</Text>
               </Pressable>
             </View>
             <ConversationGalleryScreen
@@ -801,7 +833,7 @@ function MainAppShell({
             QOL-040 — the room is hidden while the notification list
             sub-screen is open. NAV-START-ARGUMENT-001 Slice B — and while
             the public About screen is open. */}
-        {!aboutOpen && activeTab === 'arguments' && hasDebate && currentDebate && !notificationsOpen && (
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && hasDebate && currentDebate && !notificationsOpen && (
           <View style={styles.debateRoom}>
             {/* UX-001.2 — compact room/context strip. Replaces the old
                 two-row DebateDetailHeader + roomToolbar with a single-row
