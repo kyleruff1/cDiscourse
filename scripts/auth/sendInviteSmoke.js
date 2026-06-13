@@ -217,7 +217,6 @@ module.exports = {
 
 // ── CLI entry (network only on the live path; nothing runs on require) ──
 if (require.main === module) {
-  /* eslint-disable no-console */
   (async () => {
     const args = parseArgs(process.argv.slice(2));
     const plan = resolvePlan(args, process.env);
@@ -280,5 +279,4 @@ if (require.main === module) {
     console.error('[invite-smoke] unexpected error:', err && err.message ? err.message : String(err));
     process.exitCode = 1;
   });
-  /* eslint-enable no-console */
 }
