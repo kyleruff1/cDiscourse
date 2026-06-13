@@ -51,6 +51,17 @@ export interface CreateDebateInput {
    * — nothing is being revoked at creation.
    */
   visibility?: RoomVisibility;
+  /**
+   * ARG-ROOM-003 — optional single direct invite supplied at creation. When
+   * present it is threaded ATOMICALLY into the `create-argument-room` Edge
+   * call (debate + creator + the one invite in a single transaction), so there
+   * is no "room created but invite failed" intermediate state. The binding
+   * matrix (private => one invite, <= 1 invite, no self-invite) is enforced
+   * server-side by ARG-ROOM-002; the client form gates the friendly first
+   * pass off the shared `deriveArgumentRoomCreation` validator. `intendedSeat`
+   * is optional — the wrapper defaults it to `'respondent'`.
+   */
+  invite?: { email: string; intendedSeat?: 'respondent' | 'co_primary' };
 }
 
 export interface JoinResult {
