@@ -47,6 +47,13 @@ export {
   type ParsedInviteDeepLink,
 } from './inviteDeepLink';
 
+// ARG-ROOM-004 — the `/auth/callback?invite=<token>` → seat bridge extractor +
+// the combined cold-start resolver App.tsx consumes.
+export {
+  extractBridgedInviteToken,
+  resolveColdStartInviteToken,
+} from './bridgedInviteToken';
+
 export {
   PENDING_INVITE_INTENT_FRESHNESS_MS,
   PENDING_INVITE_INTENT_STORAGE_KEY,
