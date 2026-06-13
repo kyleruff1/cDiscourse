@@ -383,3 +383,10 @@ See `.claude/skills/bot-provocateur/SKILL.md` and `.claude/skills/bot-revocateur
 > The Disagreement-Loop / Referee-Surface slate is filed: REF-001 #584 · REF-002 #585 · REF-003 #586 · REF-004 #587 · REF-005 #588 · REF-006 #589 · REF-ADR-001 #590, all on Project #1 at Phase=Backlog.
 > Planning artifact: `docs/roadmap-expansions/2026-06-12-disagreement-loop-referee-surface-roadmap.md` (sequencing, DAG, doctrine constraints, operator launch checklist §12). Run index: `docs/designs/SPRINT-2026-06-12-REF-SLATE-INDEX.md`.
 > Next pipeline entry: `spawn-card.ps1 REF-001` (designer, GATE A). Optionally ratify REF-ADR-001 first — it is a soft, non-blocking input to REF-001.
+
+---
+
+## Prompt REF-2 — REF-006 founder/operator dogfood is staged (2026-06-13)
+
+> The "See how it works" corridor (DEMO-001) is shipped and the REF-006 instrument is green (745 suites / 30245 passed + 1 skip @ `ae157d7`). The agent-side dogfood triage ran in **Mode C** — no human-comprehension evidence can be produced by an automated agent (the app is a rendered Expo RN surface; the rubric is perceptual). Report: `docs/testing-runs/2026-06-13-REF-006-founder-operator-dogfood.md`.
+> **Next action is human, not a card:** the operator runs the 8-item dry walk-through in `docs/testing-runs/REF-006-usability-smoke-protocol.md` (§ "Operator dry walk-through"), solo, on a build; then 1–3 first-timers or paste notes back for a Mode B encoding. The next product card (COPY-POLISH / REF-006-RAIL-ITERATION / DEMO-001-POLISH / REF-005B / BETA-READINESS) is chosen from *those* findings — `NO CARD YET` until then.
