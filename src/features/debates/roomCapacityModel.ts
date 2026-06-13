@@ -101,3 +101,26 @@ export function canJoinActive(
   const reserved = Number.isFinite(reservedInvites) ? Math.max(0, reservedInvites) : 0;
   return active + reserved + 1 <= cap;
 }
+
+/**
+ * ARG-ROOM-005 — open ACTIVE slots remaining right now: `max(0, cap - active -
+ * reserved)`. The pure twin of the SQL `cap - active - reserved` and the
+ * arithmetic companion of `canJoinActive`: by construction
+ *
+ *   openActiveSlots(active, reserved, cap) >= 1  ⟺  canJoinActive(active, reserved, cap) === true
+ *
+ * Negative / non-finite inputs clamp to 0 (defensive; the SQL counts are always
+ * >= 0). Used by the seat strip to render "N open seats" / "No open seats".
+ * It SURFACES availability only — it never re-enforces the cap (the deployed
+ * ARG-ROOM-002 trigger is authoritative).
+ */
+export function openActiveSlots(
+  activeCount: number,
+  reservedInvites: number,
+  cap: number,
+): number {
+  const active = Number.isFinite(activeCount) ? Math.max(0, activeCount) : 0;
+  const reserved = Number.isFinite(reservedInvites) ? Math.max(0, reservedInvites) : 0;
+  const capSafe = Number.isFinite(cap) ? cap : 0;
+  return Math.max(0, capSafe - active - reserved);
+}
