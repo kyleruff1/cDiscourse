@@ -196,6 +196,12 @@ export const PLAIN_LANGUAGE_COPY = {
   // Participant / role
   observer: 'Watching',
   moderator: 'Observer',
+  // ARG-ROOM-002 — room creation / capacity denial codes. Surfaced to the
+  // creator when the create-argument-room Edge Function (or its RPC / the
+  // capacity trigger) refuses. Structural availability, NEVER a verdict on a
+  // person; "full" is a seat fact. Ban-list clean, no snake_case leak.
+  private_requires_invite: 'A private argument needs one person invited to start it.',
+  room_capacity_reached: 'This argument already has the most people it can hold.',
   // ADMIN-ARGS-INACTIVE-001 — admin-only lifecycle visibility state codes.
   // Surfaced in admin row detail + audit; NEVER on a target argument's
   // public-facing node (doctrine §10a sensitive composer-only). Plain

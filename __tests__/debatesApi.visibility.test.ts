@@ -94,6 +94,7 @@ jest.mock('../src/lib/supabase', () => {
 import {
   listDebates,
   createDebate,
+  createArgumentRoom,
   transitionRoomToPrivate,
   isAlreadyJoinedError,
 } from '../src/features/debates/debatesApi';
@@ -298,111 +299,146 @@ describe('listDebates — inactive_at round-trip (#514 / ADMIN-CONV-INACTIVE-VIS
   });
 });
 
-// ── createDebate ──────────────────────────────────────────────
+// ── createArgumentRoom (ARG-ROOM-002 — server-authoritative Edge path) ──
 
-describe('createDebate — visibility on insert', () => {
-  beforeEach(() => {
-    mockState.results['constitution_versions'] = {
-      data: { id: 'const-1' },
+function debateRow(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 'd1',
+    created_by: 'u1',
+    title: 'T',
+    resolution: 'R',
+    description: '',
+    status: 'open',
+    constitution_id: 'const-1',
+    created_at: '2026-06-13T00:00:00Z',
+    updated_at: '2026-06-13T00:00:00Z',
+    visibility: 'public',
+    inactive_at: null,
+    ...over,
+  };
+}
+
+describe('createArgumentRoom — calls the create-argument-room Edge Function', () => {
+  it('invokes create-argument-room with a public/no-invite body (NOT a direct insert)', async () => {
+    mockState.invokeResult = {
+      data: { debateId: 'd1', visibility: 'public', inviteId: null, inviteLink: null },
       error: null,
     };
-    mockState.results['debate_participants'] = { data: null, error: null };
+    const res = await createArgumentRoom({ title: ' T ', resolution: ' R ', description: '', visibility: 'public' });
+    expect(res.ok).toBe(true);
+
+    // Function-invoke path was used; no direct `debates` insert from the client.
+    expect(mockState.invokes.length).toBe(1);
+    expect(mockState.invokes[0].fn).toBe('create-argument-room');
+    const body = mockState.invokes[0].body as { title: string; visibility: string; invite?: unknown };
+    expect(body.title).toBe('T'); // trimmed
+    expect(body.visibility).toBe('public');
+    expect(body.invite).toBeUndefined();
+    expect(mockState.calls.find((c) => c.table === 'debates' && c.op === 'insert')).toBeUndefined();
+
+    if (res.ok) {
+      expect(res.data.debateId).toBe('d1');
+      expect(res.data.inviteLink).toBeNull();
+    }
   });
 
-  it('passes visibility="public" by default on the insert payload', async () => {
-    mockState.results['debates'] = {
-      data: {
-        id: 'd1',
-        created_by: 'u1',
-        title: 'T',
-        resolution: 'R',
-        description: '',
-        status: 'open',
-        constitution_id: 'const-1',
-        created_at: '2026-05-24T00:00:00Z',
-        updated_at: '2026-05-24T00:00:00Z',
-        visibility: 'public',
-      },
+  it('threads a single trimmed invite (default intendedSeat) for a private room', async () => {
+    mockState.invokeResult = {
+      data: { debateId: 'd2', visibility: 'private', inviteId: 'inv-1', inviteLink: 'https://app.example/invite/tok' },
       error: null,
     };
+    const res = await createArgumentRoom({
+      title: 'T',
+      resolution: 'R',
+      visibility: 'private',
+      invite: { email: '  Foo@Example.com  ' },
+    });
+    expect(res.ok).toBe(true);
+    const body = mockState.invokes[0].body as { visibility: string; invite: { email: string; intendedSeat: string } };
+    expect(body.visibility).toBe('private');
+    // Trimmed but NOT lowercased on the client — the Edge function lowercases.
+    expect(body.invite).toEqual({ email: 'Foo@Example.com', intendedSeat: 'respondent' });
+    if (res.ok) {
+      expect(res.data.inviteId).toBe('inv-1');
+      expect(res.data.inviteLink).toContain('/invite/');
+    }
+  });
+
+  it('surfaces a neutral error (no raw code) when the Edge Function errors', async () => {
+    mockState.invokeResult = { data: null, error: { message: 'boom' } };
+    const res = await createArgumentRoom({ title: 'T', resolution: 'R', visibility: 'public' });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).not.toMatch(/_/); // no snake_case internal code leak
+  });
+});
+
+// ── createDebate (back-compat wrapper now routes through the Edge path) ──
+
+describe('createDebate — routes through create-argument-room (no direct insert)', () => {
+  it('passes visibility="public" by default and returns the loaded room', async () => {
+    mockState.invokeResult = {
+      data: { debateId: 'd1', visibility: 'public', inviteId: null, inviteLink: null },
+      error: null,
+    };
+    mockState.results['debates'] = { data: debateRow({ visibility: 'public' }), error: null };
+
     const res = await createDebate({ title: 'T', resolution: 'R', description: '' }, 'u1');
     expect(res.ok).toBe(true);
-    const insertCall = mockState.calls.find((c) => c.table === 'debates' && c.op === 'insert');
-    expect((insertCall?.payload as { visibility: string }).visibility).toBe('public');
+    expect(mockState.invokes[0].fn).toBe('create-argument-room');
+    expect((mockState.invokes[0].body as { visibility: string }).visibility).toBe('public');
+    // No direct `debates` insert from the client (the RPC does it under service-role).
+    expect(mockState.calls.find((c) => c.table === 'debates' && c.op === 'insert')).toBeUndefined();
     if (res.ok) expect(res.data.visibility).toBe('public');
   });
 
   it('passes visibility="private" when the input requests private', async () => {
-    mockState.results['debates'] = {
-      data: {
-        id: 'd1',
-        created_by: 'u1',
-        title: 'T',
-        resolution: 'R',
-        description: '',
-        status: 'open',
-        constitution_id: 'const-1',
-        created_at: '2026-05-24T00:00:00Z',
-        updated_at: '2026-05-24T00:00:00Z',
-        visibility: 'private',
-      },
+    mockState.invokeResult = {
+      data: { debateId: 'd1', visibility: 'private', inviteId: null, inviteLink: null },
       error: null,
     };
+    mockState.results['debates'] = { data: debateRow({ visibility: 'private' }), error: null };
+
     const res = await createDebate(
       { title: 'T', resolution: 'R', description: '', visibility: 'private' },
       'u1',
     );
     expect(res.ok).toBe(true);
-    const insertCall = mockState.calls.find((c) => c.table === 'debates' && c.op === 'insert');
-    expect((insertCall?.payload as { visibility: string }).visibility).toBe('private');
+    expect((mockState.invokes[0].body as { visibility: string }).visibility).toBe('private');
     if (res.ok) expect(res.data.visibility).toBe('private');
   });
 
   it('coerces unexpected visibility input back to "public" defensively', async () => {
-    mockState.results['debates'] = {
-      data: {
-        id: 'd1',
-        created_by: 'u1',
-        title: 'T',
-        resolution: 'R',
-        description: '',
-        status: 'open',
-        constitution_id: 'const-1',
-        created_at: '2026-05-24T00:00:00Z',
-        updated_at: '2026-05-24T00:00:00Z',
-        visibility: 'public',
-      },
+    mockState.invokeResult = {
+      data: { debateId: 'd1', visibility: 'public', inviteId: null, inviteLink: null },
       error: null,
     };
+    mockState.results['debates'] = { data: debateRow({ visibility: 'public' }), error: null };
+
     const res = await createDebate(
       // @ts-expect-error — intentionally bad input
       { title: 'T', resolution: 'R', description: '', visibility: 'totally_invalid' },
       'u1',
     );
     expect(res.ok).toBe(true);
-    const insertCall = mockState.calls.find((c) => c.table === 'debates' && c.op === 'insert');
-    expect((insertCall?.payload as { visibility: string }).visibility).toBe('public');
+    expect((mockState.invokes[0].body as { visibility: string }).visibility).toBe('public');
   });
 
-  it('selects visibility in the returning columns', async () => {
-    mockState.results['debates'] = {
-      data: {
-        id: 'd1',
-        created_by: 'u1',
-        title: 'T',
-        resolution: 'R',
-        description: '',
-        status: 'open',
-        constitution_id: 'const-1',
-        created_at: '2026-05-24T00:00:00Z',
-        updated_at: '2026-05-24T00:00:00Z',
-        visibility: 'public',
-      },
+  it('selects the visibility column when loading the created room', async () => {
+    mockState.invokeResult = {
+      data: { debateId: 'd1', visibility: 'public', inviteId: null, inviteLink: null },
       error: null,
     };
+    mockState.results['debates'] = { data: debateRow(), error: null };
+
     await createDebate({ title: 'T', resolution: 'R', description: '' }, 'u1');
-    const insertCall = mockState.calls.find((c) => c.table === 'debates' && c.op === 'insert');
-    expect(insertCall?.columns).toContain('visibility');
+    const selectCall = mockState.calls.find((c) => c.table === 'debates' && c.op === 'select');
+    expect(selectCall?.columns).toContain('visibility');
+  });
+
+  it('surfaces a neutral error when the Edge create fails', async () => {
+    mockState.invokeResult = { data: null, error: { message: 'forbidden' } };
+    const res = await createDebate({ title: 'T', resolution: 'R', description: '' }, 'u1');
+    expect(res.ok).toBe(false);
   });
 });
 

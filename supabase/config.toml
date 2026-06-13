@@ -447,6 +447,19 @@ verify_jwt = true
 [functions.record-visibility-transition]
 verify_jwt = true
 
+# ARG-ROOM-002 (#613) — create-argument-room. Server-authoritative room
+# creation. verify_jwt = true: every call requires a valid JWT. The function
+# ALSO validates the JWT via createCallerClient + getUser (defense-in-depth)
+# to resolve the caller id + email, enforces the binding creation matrix
+# (private => invite, <= 1 invite, no self-invite), mints the optional invite
+# token in Deno, and calls the SECURITY DEFINER `create_argument_room` RPC via
+# service-role. After this card's migration drops the client `debates` INSERT
+# policy, this function (its RPC) is the ONLY room creator. Registration here is
+# what makes it auto-deploy on merge (the Supabase GitHub integration keys off
+# the root [functions.*] blocks).
+[functions.create-argument-room]
+verify_jwt = true
+
 # MCP-021C-EDGE — classify-argument-boolean-observations. Admin-gated for
 # BOTH production and admin_validation modes at this ship per Decision 7.
 # verify_jwt is true; requireAdmin(req) inside the function enforces the
