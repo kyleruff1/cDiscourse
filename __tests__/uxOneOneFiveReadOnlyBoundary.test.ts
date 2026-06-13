@@ -85,7 +85,16 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   'src/features/arguments/oneBox/OneBox.tsx',
 
   // 3-gate model + Act/Go popouts (UX-001.4 menu chassis)
-  'src/features/arguments/oneBox/actPopoutModel.ts',
+  // NOTE: `src/features/arguments/oneBox/actPopoutModel.ts` was removed
+  // from the zero-diff boundary by the operator-authorized REF-005
+  // follow-up (2026-06-12): REF-005's design §8 specifies the bounded
+  // `flag`-entry relabel (label -> "Request review", accessibilityLabel
+  // -> "Open a structured concern about this move"; id / kind /
+  // opensBoxType / argumentType unchanged), which a zero-diff pin
+  // cannot admit. The file's load-bearing contract stays pinned by
+  // `actPopoutModel.test.ts` (3-gate behavior + entry table) and
+  // `oneBoxCopyBanList.test.ts` (copy ban-list), plus the ActEntryId
+  // export assertion below.
   'src/features/arguments/oneBox/ActPopout.tsx',
   'src/features/arguments/oneBox/GoPopout.tsx',
   'src/features/arguments/oneBox/Popout.tsx',
