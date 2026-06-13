@@ -142,10 +142,17 @@ function DebateRow({ debate, onPress }: DebateRowProps) {
     activeCount: null,
     reservedCount: null,
   });
-  const isPrivate = debate.visibility === 'private';
+  // Private chrome (pill fill + a11y) from the access VIEW, not raw visibility —
+  // no enumeration re-leak for private_no_access (matches its empty badge); only
+  // a confirmed member (private_member) gets the private pill + label.
+  const isPrivate = accessView.state === 'private_member';
+  // private_no_access → empty badge → neutral (empty) a11y (no "private"
+  // enumeration, no false "public" implication).
   const visibilityA11y = isPrivate
     ? ROOM_VISIBILITY_COPY.badge_private_a11y
-    : ROOM_VISIBILITY_COPY.option_public_helper;
+    : accessView.badgeLabel
+      ? ROOM_VISIBILITY_COPY.option_public_helper
+      : '';
 
   return (
     <Pressable

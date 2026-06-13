@@ -79,6 +79,24 @@ describe('ConversationGalleryScreen — private card the viewer is in (items b /
   });
 });
 
+describe('ConversationGalleryScreen — private card the viewer is NOT in (private_no_access; no enumeration)', () => {
+  it('renders an EMPTY badge + never the "Private" label or a11y (a private room must not reveal it is private to a non-member)', () => {
+    // A private card reaching a non-member's gallery — the RLS-bypass defense seam,
+    // or a member whose join has not yet propagated into joinedDebateIds — must show
+    // NO private chrome: empty badge text AND no "this argument is private" a11y.
+    // (Pre-fix the pill fill + a11y came from raw visibility and re-leaked "private"
+    // despite the empty badge text.)
+    const { getByTestId } = renderGallery(
+      [debate({ id: 'priv-x', title: 'Hidden private room', visibility: 'private', myParticipantSide: null })],
+      [], // NOT joined → hasUserJoined false → private_no_access
+    );
+    const badge = getByTestId('gallery-card-visibility-priv-x');
+    expect(within(badge).queryByText(ROOM_VISIBILITY_COPY.option_private_label)).toBeNull();
+    expect(badge.props.accessibilityLabel).not.toBe(ROOM_VISIBILITY_COPY.badge_private_a11y);
+    expect(badge.props.accessibilityLabel).toBe('');
+  });
+});
+
 describe('ConversationGalleryScreen — card a11y label announces visibility', () => {
   it('the card Pressable accessibilityLabel begins with the visibility badge text', () => {
     const { getByTestId } = renderGallery([debate({ id: 'pub-1' })]);

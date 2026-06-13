@@ -531,10 +531,20 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
     activeCount: null,
     reservedCount: null,
   });
-  const isPrivate = card.visibility === 'private';
+  // Private chrome (pill fill + a11y) is sourced from the access VIEW, not raw
+  // visibility: a private room the viewer is not a member of (private_no_access —
+  // the RLS-bypass defense seam, or a member whose join has not yet propagated)
+  // must show NO "Private" pill/label, matching its empty badge (no enumeration).
+  // Only a confirmed member (private_member) gets the private chrome.
+  const isPrivate = accessView.state === 'private_member';
+  // private_no_access has an EMPTY badge (badgeLabel === ''); give it a neutral
+  // (empty) a11y rather than the public helper, so it neither announces "private"
+  // (enumeration) nor falsely implies the room is public.
   const visibilityA11y = isPrivate
     ? ROOM_VISIBILITY_COPY.badge_private_a11y
-    : ROOM_VISIBILITY_COPY.option_public_helper;
+    : accessView.badgeLabel
+      ? ROOM_VISIBILITY_COPY.option_public_helper
+      : '';
   /*
    * GAME-008 — the gallery card has the title but no loaded per-author bot
    * hints, so it uses the design's documented no-query degraded fallback:

@@ -20,9 +20,14 @@
  *                                   `unavailable` — IDENTICAL for private-no-access
  *                                   AND nonexistent (the no-enumeration guarantee
  *                                   by construction; no new RLS needed).
- *   - `feedVisibilityForCard`     — belt-and-suspenders discovery-feed predicate;
- *                                   every private card is hidden from the public
- *                                   lanes (mirrors `classifyCardToSection` :1543).
+ *   - `feedVisibilityForCard`     — a tested discovery-feed predicate mirroring
+ *                                   `classifyCardToSection` :1543 (private -> hidden
+ *                                   from public lanes). NOTE: the ACTIVE hiding is
+ *                                   QOL-039 RLS (primary) + `classifyCardToSection`
+ *                                   (routes private -> my_rooms). This predicate is
+ *                                   NOT yet wired into the gallery filter; it is
+ *                                   available as a defense-in-depth layer, not a
+ *                                   second active guard today.
  *   - `deriveGalleryActionLabel`  — the ONE action-label policy, shared by the
  *                                   gallery card + the access view (no drift).
  *
@@ -31,10 +36,12 @@
  *    is a verdict (§1). "Full" is a seat fact, never a loss. Observers are
  *    UNCAPPED — `canObserve` is ALWAYS true for a readable room (§ roadmap 1).
  *  - No enumeration (§ roadmap 5): a non-member NEVER learns a private room
- *    exists. `resolveRoomDeepLinkAccess` collapses private-no-access and
- *    nonexistent into one `unavailable` outcome; `feedVisibilityForCard` hides
- *    every private card from discovery; `private_no_access` emits NO "Private"
- *    badge and a cause-neutral line.
+ *    exists. The ACTIVE guards are QOL-039 RLS + `classifyCardToSection` (private
+ *    -> my_rooms, never a public lane); `resolveRoomDeepLinkAccess` collapses
+ *    private-no-access and nonexistent into one `unavailable` outcome; the gallery
+ *    + list source their private chrome from the access VIEW, so `private_no_access`
+ *    emits NO "Private" badge / pill / a11y, only a cause-neutral line.
+ *    `feedVisibilityForCard` mirrors the hiding rule (defense-in-depth, available).
  *  - Heat / popularity NEVER reach this model — it reads counts + the cap only.
  *  - Single source of truth for the cap + seat math: this module IMPORTS
  *    `roomActiveSeatCap` / `canJoinActive` / `openActiveSlots` (the same

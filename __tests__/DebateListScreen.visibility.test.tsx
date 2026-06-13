@@ -60,4 +60,17 @@ describe('DebateListScreen — visibility badge + access line', () => {
       ROOM_ACCESS_COPY.private_member_line,
     );
   });
+
+  it('a private row the viewer is NOT in renders an EMPTY badge + never the Private a11y (no enumeration)', () => {
+    // private_no_access (non-member) must not paint the private pill or announce
+    // "this argument is private" — it sources chrome from the access view, not raw
+    // visibility (matches the empty badge).
+    const { getByTestId } = renderList([
+      debate({ id: 'd-priv-x', visibility: 'private', myParticipantSide: null }),
+    ]);
+    const badge = getByTestId('debates-cell-visibility-d-priv-x');
+    expect(within(badge).queryByText(ROOM_VISIBILITY_COPY.option_private_label)).toBeNull();
+    expect(badge.props.accessibilityLabel).not.toBe(ROOM_VISIBILITY_COPY.badge_private_a11y);
+    expect(badge.props.accessibilityLabel).toBe('');
+  });
 });
