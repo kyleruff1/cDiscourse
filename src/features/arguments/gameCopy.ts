@@ -1678,6 +1678,69 @@ export const ROOM_VISIBILITY_LABEL: Readonly<Record<'public' | 'private', string
   });
 
 /**
+ * ARG-ROOM-003 — copy for the "Who can join" section on the live create
+ * surface (`StartArgumentPage`). The visibility OPTION labels/helpers reuse
+ * `ROOM_VISIBILITY_COPY` (already ban-list scanned); this block owns only the
+ * create-time framing that surface adds: the section heading, the one
+ * direct-invite field, and the capacity explainer.
+ *
+ * Doctrine:
+ *  - Verdict-free / person-neutral. Scanned by
+ *    `__tests__/argumentRoomCreateCopyDoctrine.test.ts` against the same
+ *    forbidden tokens as the invite layer (incl. `challenger` / `opponent`)
+ *    and an account-enumeration token list (never `existing` / `new user` /
+ *    `account` / `registered`).
+ *  - The "Who can see this argument" radiogroup label (`ROOM_VISIBILITY_COPY
+ *    .group_label`) is a READ-ACCESS phrase; announcing it inside a
+ *    participation ("Who can join") section reads incoherently to a screen
+ *    reader. `visibility_group_a11y` is the JOIN-framed label this surface
+ *    gives the radiogroup instead (design-review comment #3).
+ *  - The capacity cap is NEVER hard-coded here: `capacity_public_*` carry a
+ *    `{capacity}` / `{open}` placeholder filled from the
+ *    `deriveArgumentRoomCreation` output, so the reconciled 5 (vs the legacy
+ *    GAME-005 6) has exactly one source of truth — the validator.
+ */
+export const ARGUMENT_ROOM_CREATE_COPY = Object.freeze({
+  // Section
+  who_can_join_label: 'Who can join',
+  who_can_join_helper:
+    'Pick who can find this argument. You can invite one person as you start.',
+  // JOIN-framed radiogroup label (reconciles with the "Who can join" section
+  // so a screen reader announces a participation label, not a read-access one).
+  visibility_group_a11y: 'Who can join this argument',
+
+  // One direct-invite field (create-time framing; helper varies by visibility)
+  invite_field_label: 'Invite one person (email)',
+  invite_field_placeholder: 'name@example.com',
+  invite_helper_private: 'A private argument needs one person. Add their email.',
+  invite_helper_public:
+    'Optional. Add one person to save them a seat — or leave this empty.',
+
+  // Capacity explainer. The numbers ({capacity} / {open}) are filled from the
+  // validator output — never written as a literal here.
+  capacity_private: 'Just the two of you. Invite one person to start.',
+  capacity_public_open:
+    'Up to {capacity} people can take part. {open} seats stay open for the first to reply.',
+  capacity_public_reserved:
+    'Up to {capacity} people can take part. One seat is saved for the person you invite; {open} stay open for the first to reply.',
+} as const);
+
+/**
+ * ARG-ROOM-003 — fill the `{capacity}` / `{open}` placeholders in a capacity
+ * explainer string with the validator's own numbers. Kept tiny + pure so the
+ * "form drives off the validator, not a hard-coded cap" test can pin that the
+ * rendered number is exactly the validator's `capacity` / `openSlots`.
+ */
+export function fillArgumentRoomCapacityCopy(
+  template: string,
+  values: { capacity: number; open: number },
+): string {
+  return template
+    .replace('{capacity}', String(values.capacity))
+    .replace('{open}', String(values.open));
+}
+
+/**
  * META-1B — Plain-language strings for the realtime point-tags layer.
  *
  * The realtime channel makes other participants' tag changes visible
