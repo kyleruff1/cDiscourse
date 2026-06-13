@@ -1693,6 +1693,36 @@ export const ROOM_VISIBILITY_COPY = Object.freeze({
   no_access_body: 'It is private — only invited people can read it.',
 } as const);
 
+/**
+ * ARG-ROOM-006 — Room access / feed / seat-state copy.
+ *
+ * Authored beside `ROOM_VISIBILITY_COPY` (the same module the ban-list +
+ * plain-language tests scan). Every string describes ACCESS (public/private)
+ * or SEAT ACTIVITY (open/reserved/full) — never a verdict, never a person,
+ * never heat/popularity. Scanned by `__tests__/roomAccessModel.test.ts`
+ * (ban-list + non-internal-code). ARG-ROOM-007 owns final vocabulary polish;
+ * 006 authors only what it needs to function.
+ *
+ * Doctrine — no enumeration: the `unavailable_*` pair is the CAUSE-NEUTRAL
+ * deep-link state. It is IDENTICAL for a private-no-access room and a
+ * nonexistent/typo'd id — it must NEVER assert "it is private" (that would
+ * confirm a private room exists at the URL, a soft enumeration). The existing
+ * `ROOM_VISIBILITY_COPY.no_access_*` (which DOES assert "It is private") is
+ * reserved for the positive-knowledge member view, NOT the deep-link path.
+ */
+export const ROOM_ACCESS_COPY = Object.freeze({
+  // Public access lines (one per public_* state).
+  public_open_line: 'Open seat — observe or step in.',
+  public_reserved_line: 'A seat is saved for an invited person. You can still observe.',
+  public_full_line: 'Seats are full — you can still observe.',
+  // Private (member view; the chip reuses ROOM_VISIBILITY_COPY.badge_private).
+  private_member_line: 'Private — you are in this argument.',
+  // Unified deep-link "unavailable" — IDENTICAL for nonexistent and
+  // private-no-access (no enumeration; never asserts the room is private).
+  unavailable_title: 'This argument isn’t available',
+  unavailable_body: 'This link may not work, or the argument may be limited to its members.',
+} as const);
+
 /** Plain-language labels for the visibility taxonomy. Toggled-radio chip. */
 export const ROOM_VISIBILITY_LABEL: Readonly<Record<'public' | 'private', string>> =
   Object.freeze({
