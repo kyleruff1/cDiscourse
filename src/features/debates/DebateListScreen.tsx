@@ -12,6 +12,7 @@ import { LoadingNotice } from '../../components/LoadingNotice';
 import { CreateDebateForm } from './CreateDebateForm';
 import { JoinDebatePanel } from './JoinDebatePanel';
 import type { Debate, CreateDebateInput, ParticipantSide } from './types';
+import type { JoinAttemptResult } from './useDebates';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
 import { tableFillContentContainerStyle, flexTableColumnStyle } from '../../lib/responsiveTable';
 
@@ -24,7 +25,7 @@ interface Props {
   error: string | null;
   onRefresh: () => void;
   onCreate: (input: CreateDebateInput) => Promise<Debate | null>;
-  onJoin: (debateId: string, side: ParticipantSide) => Promise<ParticipantSide | null>;
+  onJoin: (debateId: string, side: ParticipantSide) => Promise<JoinAttemptResult>;
   onSelect: (debate: Debate, side: ParticipantSide) => void;
 }
 
@@ -230,7 +231,9 @@ export function DebateListScreen({
 
   const handleJoin = async (side: ParticipantSide) => {
     if (!joiningDebate) return;
-    const actualSide = await onJoin(joiningDebate.id, side);
+    // ARG-ROOM-005 — a full room degrades to observe in the room shell; the
+    // list panel opens the room only when a seat was actually taken.
+    const { side: actualSide } = await onJoin(joiningDebate.id, side);
     if (actualSide) {
       onSelect({ ...joiningDebate, myParticipantSide: actualSide }, actualSide);
     }

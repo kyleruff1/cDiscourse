@@ -179,3 +179,35 @@ export type {
   DeriveArgumentRoomCreationOptions,
   ArgumentRoomCreationDerived,
 } from './argumentRoomCreationMatrix';
+
+// ARG-ROOM-002 — pure capacity twin of the SQL enforcement.
+export {
+  roomActiveSeatCap,
+  isCreationValid,
+  openSlotsAfterCreate,
+  canJoinActive,
+  openActiveSlots,
+} from './roomCapacityModel';
+
+// ARG-ROOM-005 — public participant seat-claim model + the live-room
+// active-participant count read.
+export {
+  isActiveParticipantSide,
+  deriveSeatAvailability,
+  classifyJoinOutcome,
+  buildSeatAvailabilityViewModel,
+  resolveJoinSideEffect,
+  _forbiddenSeatClaimTokens,
+} from './seatClaimModel';
+export type {
+  SeatAvailabilityInput,
+  SeatAvailability,
+  SeatAvailabilityViewModel,
+  JoinOutcomeKind,
+  JoinSuccessOutcome,
+  JoinSideEffect,
+} from './seatClaimModel';
+export { useActiveParticipantCount } from './useActiveParticipantCount';
+export type { UseActiveParticipantCountResult } from './useActiveParticipantCount';
+export type { JoinAttemptResult } from './useDebates';
+export type { JoinDebateResult } from './debatesApi';

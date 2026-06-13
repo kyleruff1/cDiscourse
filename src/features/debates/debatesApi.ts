@@ -3,6 +3,14 @@ import { supabase, SUPABASE_CONFIGURED } from '../../lib/supabase';
 // create-time notification can pass it to the gated transports. Pure parser;
 // no React, no network.
 import { parseInviteDeepLink } from '../invites/inviteDeepLink';
+// ARG-ROOM-005 — classify a join write error into a seat outcome (room_full /
+// already_* / unavailable / error) WITHOUT surfacing any count or DETAIL. Pure;
+// no React, no network.
+import {
+  classifyJoinOutcome,
+  type JoinOutcomeKind,
+  type JoinSuccessOutcome,
+} from './seatClaimModel';
 import type {
   Debate,
   CreateDebateInput,
@@ -295,13 +303,31 @@ export async function createDebate(
   return { ok: true, data: mapDebateRow(debate as DebateRow, 'moderator') };
 }
 
+/**
+ * ARG-ROOM-005 — `joinDebate` result, widened (client-only) to carry the
+ * classified seat outcome alongside the existing `JoinResult`. A failed CLAIM
+ * is not always an error: a full room (`room_full`) degrades gracefully to the
+ * observe affordance rather than the generic error banner. The shared
+ * `DebateApiResult<T>` is left untouched; this is a local discriminant.
+ */
+export type JoinDebateResult =
+  | { ok: true; data: JoinResult; outcome: JoinSuccessOutcome }
+  | { ok: false; error: string; outcome: JoinOutcomeKind };
+
 export async function joinDebate(
   debateId: string,
   side: ParticipantSide,
   userId: string,
-): Promise<DebateApiResult<JoinResult>> {
-  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+): Promise<JoinDebateResult> {
+  if (!SUPABASE_CONFIGURED) {
+    return { ok: false, error: 'Supabase is not configured.', outcome: 'unavailable' };
+  }
 
+  // ARG-ROOM-005 — STILL the single `debate_participants` INSERT. The claim
+  // path never writes `argument_room_invites`, so a public join can never steal
+  // the reserved invite seat (proof 7). The cap is enforced by the deployed
+  // ARG-ROOM-002 BEFORE INSERT trigger; we surface + classify its refusal, we
+  // never re-enforce it.
   const { error } = await supabase
     .from('debate_participants')
     .insert({ debate_id: debateId, user_id: userId, side });
@@ -315,12 +341,17 @@ export async function joinDebate(
         .eq('user_id', userId)
         .single();
       const existingSide = ((existing as { side?: string } | null)?.side ?? side) as ParticipantSide;
-      return { ok: true, data: { side: existingSide, alreadyJoined: true } };
+      // 23505 ⇒ already seated; the existing row's side decides active vs observer.
+      const classified = classifyJoinOutcome(error, existingSide);
+      const outcome: JoinSuccessOutcome =
+        classified === 'already_observer' ? 'already_observer' : 'already_active';
+      return { ok: true, data: { side: existingSide, alreadyJoined: true }, outcome };
     }
-    return { ok: false, error: error.message };
+    // Classify WITHOUT reading error.details (the trigger DETAIL is discarded).
+    return { ok: false, error: error.message, outcome: classifyJoinOutcome(error) };
   }
 
-  return { ok: true, data: { side, alreadyJoined: false } };
+  return { ok: true, data: { side, alreadyJoined: false }, outcome: 'claimed' };
 }
 
 // ── QOL-039 — Room visibility transition ──────────────────────
