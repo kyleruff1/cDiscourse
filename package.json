@@ -49,6 +49,8 @@
     "bot:fixture:xai-adversarial:50": "node scripts/bot-fixtures/runXaiAdversarialBotCorpus.js --pilot --scenarios 50 --max-depth 10",
     "bot:fixture:xai-thread:dry": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --dry --rooms 3 --candidate-posts 30 --top-replies 12 --max-depth 5 --source-mode synthetic",
     "bot:fixture:xai-thread:3": "node scripts/bot-fixtures/runXaiAdversarialThreadCorpus.js --pilot --rooms 3 --candidate-posts 30 --top-replies 12 --max-depth 5 --source-mode xai_live --provider xai_responses",
+    "smoke:arg-room:dry": "node scripts/arg-room-live-smoke/runArgRoomLiveSmoke.js",
+    "smoke:arg-room:live": "node scripts/arg-room-live-smoke/runArgRoomLiveSmoke.js --live --four-deployed",
     "skills:validate": "node scripts/skills/validateBotSkills.js",
     "ux:terminology:audit": "node scripts/ux/auditUserFacingTerminology.js",
     "engagement:intel:xai:adversarial:dry": "node scripts/engagement-intelligence/xaiAdversarialSourceHarvest.js --stories 5 --replies 3 --dry",
