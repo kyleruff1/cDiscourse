@@ -25,6 +25,19 @@ export function validateAuthInput(email: string, password: string): string | nul
   return null;
 }
 
+/**
+ * AUTH-CALLBACK-CONSUMER-001 — password-only validator (the password half of
+ * `validateAuthInput`), reused by the set-password form and the
+ * `setInvitedUserPassword` wrapper so the screen and the wrapper agree on the
+ * minimum. Pure — no network. Returns a user-facing error string or null.
+ */
+export function validateNewPassword(password: string): string | null {
+  if (typeof password !== 'string' || password.length < 6) {
+    return 'Password must be at least 6 characters.';
+  }
+  return null;
+}
+
 // ── Error mapping ─────────────────────────────────────────────
 
 function mapAuthError(message: string): AuthError {
@@ -131,6 +144,36 @@ export async function sendPasswordResetEmail(email: string): Promise<AuthResult>
     email,
     redirectTo ? { redirectTo } : undefined,
   );
+
+  if (error) {
+    return { ok: false, error: mapAuthError(error.message), message: error.message };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * AUTH-CALLBACK-CONSUMER-001 — set the password for the currently
+ * authenticated (invited, passwordless) user. Wraps
+ * `supabase.auth.updateUser({ password })`. Requires a live session, which
+ * `consumeAuthCallback` established by calling `setSession` on the invite
+ * fragment tokens.
+ *
+ * Doctrine: the password is sent ONLY into `updateUser` — it is never logged,
+ * persisted, or returned in a diagnostic. The raw Supabase error message is
+ * mapped to a code via `mapAuthError`; the screen shows plain copy, never the
+ * raw message.
+ */
+export async function setInvitedUserPassword(password: string): Promise<AuthResult> {
+  if (!SUPABASE_CONFIGURED) {
+    return {
+      ok: false,
+      error: 'config_missing',
+      message: 'Supabase is not configured. Copy .env.example to .env and fill in your project URL and anon key.',
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
     return { ok: false, error: mapAuthError(error.message), message: error.message };

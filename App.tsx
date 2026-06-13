@@ -11,6 +11,12 @@ import { AppSessionProvider } from './src/features/session/AppSessionProvider';
 import { useAppSession } from './src/features/session/useAppSession';
 import { SessionDebugPanel } from './src/features/session/SessionDebugPanel';
 import { AuthScreen } from './src/features/auth/AuthScreen';
+// AUTH-CALLBACK-CONSUMER-001 — the Supabase invite/confirmation redirect lands
+// on `/auth/callback`. AuthCallbackScreen consumes that URL into a session (or
+// a plain recoverable error) and hosts the invited-user set-password step.
+// isAuthCallbackPath is the pure path test captured synchronously at App boot.
+import { AuthCallbackScreen } from './src/features/auth/AuthCallbackScreen';
+import { isAuthCallbackPath } from './src/lib/auth/parseAuthCallbackUrl';
 import { LoadingNotice } from './src/components/LoadingNotice';
 import { useAuthSession } from './src/features/auth/useAuthSession';
 import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate, useRoomContract } from './src/features/debates';
@@ -109,6 +115,18 @@ function AppRoot() {
   const userId = state.snapshot.userId;
   const signedIn =
     state.status !== 'unconfigured' && state.status !== 'signed_out';
+
+  // AUTH-CALLBACK-CONSUMER-001 — capture a `/auth/callback` navigation
+  // SYNCHRONOUSLY at first render (in the useState initializer, before any
+  // effect runs) so the implicit-flow fragment token is read before anything
+  // can strip or race it. Web-only: native (`typeof window === 'undefined'`)
+  // never activates the branch, so iOS/Android boot is unchanged. The flag is
+  // flipped off by the AuthCallbackScreen onDone callback after it clears the URL.
+  const [authCallback, setAuthCallback] = useState<{ active: boolean; url: string }>(() => {
+    if (typeof window === 'undefined') return { active: false, url: '' };
+    const { pathname, href } = window.location;
+    return isAuthCallbackPath(pathname) ? { active: true, url: href } : { active: false, url: '' };
+  });
 
   // PR-001 — preferences hook + popout open state live at the root so
   // the header trigger and the popout overlay share one source of
@@ -269,7 +287,22 @@ function AppRoot() {
   ) : undefined;
 
   let content: React.ReactNode;
-  if (state.status === 'unconfigured') {
+  if (authCallback.active) {
+    // AUTH-CALLBACK-CONSUMER-001 — highest priority. If we are on
+    // /auth/callback, that is unambiguously the flow to run: the screen
+    // consumes the URL into a session (or a plain recoverable error) and, for
+    // an invited (passwordless) user, hosts the required set-password step.
+    // On Continue / Return it clears the URL via history.replaceState and
+    // flips this flag so AppRoot routes normally afterward. The session the
+    // consume establishes flows through the existing AppSessionProvider
+    // onAuthStateChange listener for free.
+    content = (
+      <AuthCallbackScreen
+        capturedUrl={authCallback.url}
+        onDone={() => setAuthCallback({ active: false, url: '' })}
+      />
+    );
+  } else if (state.status === 'unconfigured') {
     content = <LoadingNotice message="Starting…" />;
   } else if (pendingInviteIntent) {
     // QOL-038 — InviteRedeemGate runs ABOVE both the AuthScreen and
@@ -308,11 +341,16 @@ function AppRoot() {
   // the non-shell session states (unconfigured / signed_out / invite),
   // where there is no authenticated primary nav to integrate. This avoids a
   // double header while keeping AppHeader mounted from App.tsx.
-  const showRootHeader = !(
-    state.status !== 'unconfigured' &&
-    state.status !== 'signed_out' &&
-    !pendingInviteIntent
-  );
+  // AUTH-CALLBACK-CONSUMER-001 — the callback screen is one of the non-shell
+  // session states, so the bare AppHeader still docks above it (the shell owns
+  // its own integrated masthead; the callback screen does not).
+  const showRootHeader =
+    authCallback.active ||
+    !(
+      state.status !== 'unconfigured' &&
+      state.status !== 'signed_out' &&
+      !pendingInviteIntent
+    );
 
   // BRAND-001 — global dark backdrop. AppHeader docks at the top of every
   // screen. The DevEnvironmentBanner mount was removed (see import-block
