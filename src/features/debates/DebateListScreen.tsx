@@ -11,7 +11,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { CreateDebateForm } from './CreateDebateForm';
 import { JoinDebatePanel } from './JoinDebatePanel';
-import type { Debate, CreateDebateInput, ParticipantSide } from './types';
+import type { Debate, CreateDebateInput, CreatedRoom, ParticipantSide } from './types';
 import type { JoinAttemptResult } from './useDebates';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
 import { tableFillContentContainerStyle, flexTableColumnStyle } from '../../lib/responsiveTable';
@@ -29,7 +29,10 @@ interface Props {
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
-  onCreate: (input: CreateDebateInput) => Promise<Debate | null>;
+  // ARG-ROOM-008 — resolves to a `CreatedRoom`; this legacy (dev-only) list
+  // surface uses only the `.debate` to open the room and does not render the
+  // create-time invite-link box (that surface is StartArgumentPage).
+  onCreate: (input: CreateDebateInput) => Promise<CreatedRoom | null>;
   onJoin: (debateId: string, side: ParticipantSide) => Promise<JoinAttemptResult>;
   onSelect: (debate: Debate, side: ParticipantSide) => void;
 }
@@ -263,10 +266,12 @@ export function DebateListScreen({
   };
 
   const handleCreate = async (input: CreateDebateInput) => {
-    const debate = await onCreate(input);
+    // ARG-ROOM-008 — `onCreate` now resolves to a `CreatedRoom`; this dev-only
+    // list opens the new room directly (it does not surface the invite link).
+    const created = await onCreate(input);
     setShowCreate(false);
-    if (debate) {
-      onSelect(debate, 'moderator');
+    if (created) {
+      onSelect(created.debate, 'moderator');
     }
   };
 

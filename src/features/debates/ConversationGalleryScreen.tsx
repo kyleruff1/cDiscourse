@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { Debate, CreateDebateInput, ParticipantSide } from './types';
+import type { Debate, CreateDebateInput, CreatedRoom, ParticipantSide } from './types';
 import type { JoinAttemptResult } from './useDebates';
 // NAV-START-ARGUMENT-001 Slice A — the New Argument surface is replaced by
 // the declaration-first Start Argument page. CreateDebateForm is no longer
@@ -60,7 +60,10 @@ interface Props {
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
-  onCreate: (input: CreateDebateInput) => Promise<Debate | null>;
+  // ARG-ROOM-008 — resolves to a `CreatedRoom` (debate + one-time inviteLink)
+  // so StartArgumentPage can render the create-time copy-link box once. The
+  // gallery passes this straight through to the page.
+  onCreate: (input: CreateDebateInput) => Promise<CreatedRoom | null>;
   onJoin: (debateId: string, side: ParticipantSide) => Promise<JoinAttemptResult>;
   /**
    * Stage 6.4: optional entry-hint argument lets the room shell pre-activate
