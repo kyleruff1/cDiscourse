@@ -21,7 +21,7 @@ import path from 'path';
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { StartArgumentPage } from '../src/features/arguments/startArgument/StartArgumentPage';
-import type { Debate, CreateDebateInput } from '../src/features/debates/types';
+import type { Debate, CreateDebateInput, CreatedRoom } from '../src/features/debates/types';
 import type { StartArgumentSurface } from '../src/features/arguments/startArgument/startArgumentTaxonomy';
 
 function fakeDebate(overrides: Partial<Debate> = {}): Debate {
@@ -39,6 +39,15 @@ function fakeDebate(overrides: Partial<Debate> = {}): Debate {
     visibility: 'public',
     ...overrides,
   };
+}
+
+/**
+ * ARG-ROOM-008 — `onCreate` now resolves to a `CreatedRoom` (debate + the
+ * one-time create-time inviteLink). The link is null here; the create-time
+ * invite-link box behaviour is exercised in `startArgumentInviteLinkBox.test`.
+ */
+function fakeCreated(inviteLink: string | null = null): CreatedRoom {
+  return { debate: fakeDebate(), inviteLink };
 }
 
 describe('StartArgumentPage — render', () => {
@@ -75,7 +84,7 @@ describe('StartArgumentPage — render', () => {
 
 describe('StartArgumentPage — declaration is required', () => {
   it('does NOT call the creation path when the declaration is empty', async () => {
-    const onCreate = jest.fn(async () => fakeDebate());
+    const onCreate = jest.fn(async () => fakeCreated());
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCancel={jest.fn()} />,
     );
@@ -86,7 +95,7 @@ describe('StartArgumentPage — declaration is required', () => {
   });
 
   it('does NOT call the creation path when the declaration is whitespace only', async () => {
-    const onCreate = jest.fn(async () => fakeDebate());
+    const onCreate = jest.fn(async () => fakeCreated());
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCancel={jest.fn()} />,
     );
@@ -100,7 +109,7 @@ describe('StartArgumentPage — declaration is required', () => {
 
 describe('StartArgumentPage — submit uses the existing creation path', () => {
   it('calls onCreate with the declaration as the resolution', async () => {
-    const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeDebate());
+    const onCreate = jest.fn(async (_input: CreateDebateInput) => fakeCreated());
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCancel={jest.fn()} />,
     );
@@ -129,7 +138,7 @@ describe('StartArgumentPage — submit uses the existing creation path', () => {
 
 describe('StartArgumentPage — selected surface controls the landing route', () => {
   it('default surface is timeline', async () => {
-    const onCreate = jest.fn(async () => fakeDebate());
+    const onCreate = jest.fn(async () => fakeCreated());
     const surfaces: StartArgumentSurface[] = [];
     const onCreated = jest.fn((_d: Debate, s: StartArgumentSurface) => {
       surfaces.push(s);
@@ -149,7 +158,7 @@ describe('StartArgumentPage — selected surface controls the landing route', ()
   });
 
   it('choosing Card lands the author on the card surface', async () => {
-    const onCreate = jest.fn(async () => fakeDebate());
+    const onCreate = jest.fn(async () => fakeCreated());
     const onCreated = jest.fn();
     const { getByTestId } = render(
       <StartArgumentPage onCreate={onCreate} onCreated={onCreated} onCancel={jest.fn()} />,

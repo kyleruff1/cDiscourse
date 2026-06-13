@@ -34,7 +34,7 @@ import {
 } from 'react-native';
 import { SURFACE_TOKENS, CONTROL, SPACING, RADIUS, TOUCH_TARGET } from '../../../lib/designTokens';
 import { pickDisplayTitle } from '../../debates/debateTitleHelpers';
-import type { CreateDebateInput, Debate, RoomVisibility } from '../../debates/types';
+import type { CreateDebateInput, CreatedRoom, Debate, RoomVisibility } from '../../debates/types';
 import {
   deriveArgumentRoomCreation,
   plainLanguageForCreationReason,
@@ -44,6 +44,11 @@ import {
   ROOM_VISIBILITY_COPY,
   fillArgumentRoomCapacityCopy,
 } from '../gameCopy';
+// ARG-ROOM-008 — REUSE the shipped copy-link affordance copy (QOL-038). The
+// create-time success box renders the SAME "Copy invite link" / "Copied" labels
+// the in-room InvitePanel uses, so there is one copy-link vocabulary. This is a
+// type-erased copy-constant import — no supabase client, no Edge helper.
+import { INVITE_PANEL_COPY } from '../../invites/inviteCopy';
 import {
   ARGUMENT_SCHEME_OPTIONS,
   DISAGREEMENT_CAUSE_OPTIONS,
@@ -92,8 +97,12 @@ interface StartArgumentPageProps {
    * The EXISTING creation path — the same `useDebates().create` →
    * `createDebate` the old New Argument surface used. The page does NOT
    * invent a new creation channel.
+   *
+   * ARG-ROOM-008 — it now resolves to a `CreatedRoom` (the new `Debate` plus
+   * the one-time create-time `inviteLink`). When the link is present the page
+   * shows it once, inviter-only, before handing off to `onCreated`.
    */
-  onCreate: (input: CreateDebateInput) => Promise<Debate | null>;
+  onCreate: (input: CreateDebateInput) => Promise<CreatedRoom | null>;
   /**
    * Landing-route hand-off. Called after a successful create with the
    * created debate and the chosen surface, so the caller can open the room
@@ -123,6 +132,19 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
     useState<DisagreementCauseId>('unspecified');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // ARG-ROOM-008 — the one-time create-time invite-link success state. Set ONLY
+  // when a create returned a raw `inviteLink` (private always; public-with-
+  // invite). It holds the link, the created room, and the chosen surface so the
+  // landing hand-off can fire on "Continue". The raw link lives only in this
+  // in-memory state (mirrors InvitePanel's `lastInviteLink`) — it is never
+  // logged and never written to storage. Clearing it on Continue/dismiss means
+  // it is NOT re-exposed.
+  const [createdInvite, setCreatedInvite] = useState<{
+    debate: Debate;
+    surface: StartArgumentSurface;
+    inviteLink: string;
+  } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // ARG-ROOM-001 owns the rule; the UI only renders its output. A multi-
   // address paste in the SINGLE field is split + counted INSIDE the validator
@@ -196,7 +218,21 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
       // (server-side, via the existing path) is the sole submission gate.
       const created = await onCreate(input);
       if (created) {
-        onCreated?.(created, surface);
+        // ARG-ROOM-008 — when the create returned a one-time invite link
+        // (private always; public-with-invite), show the copy-link box FIRST
+        // and defer the landing hand-off until "Continue". The link is the only
+        // client-side moment that token exists, so navigating straight into the
+        // room would strand the invitee (the in-room InvitePanel cannot mint a
+        // second link). With no link (public, no invite) navigate immediately.
+        if (created.inviteLink) {
+          setCreatedInvite({
+            debate: created.debate,
+            surface,
+            inviteLink: created.inviteLink,
+          });
+        } else {
+          onCreated?.(created.debate, surface);
+        }
       } else {
         setError(COPY.submitError);
       }
@@ -206,7 +242,82 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
     setSubmitting(false);
   };
 
+  // ARG-ROOM-008 — copy feedback only. No clipboard import: the link renders as
+  // selectable <Text> the user long-presses to copy (mirrors InvitePanel's
+  // handleCopyLink). The raw token is NEVER passed to console / a logger.
+  const handleCopyInviteLink = () => {
+    setLinkCopied(true);
+  };
+
+  // ARG-ROOM-008 — one-time: clearing `createdInvite` removes the link from
+  // state so it is not re-exposed, then hands off to the landing route.
+  const handleContinueAfterInvite = () => {
+    const handoff = createdInvite;
+    setCreatedInvite(null);
+    setLinkCopied(false);
+    if (handoff) onCreated?.(handoff.debate, handoff.surface);
+  };
+
   const strategyGroups = groupDisagreementStrategiesByCluster();
+
+  // ARG-ROOM-008 — one-time create-time invite-link success state. Replaces the
+  // whole form (the room is already created) and is reachable ONLY by the
+  // creator who just submitted, so the link is inviter-only by construction.
+  // The raw link renders as selectable <Text>; "Continue" clears it (not
+  // re-exposed) and hands off to the room. No console, no storage.
+  if (createdInvite) {
+    return (
+      <View style={styles.screen} testID="start-argument-invite-success">
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>
+            {ARGUMENT_ROOM_CREATE_COPY.invite_link_box_title}
+          </Text>
+        </View>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.inviteLinkBox} testID="start-argument-invite-link-box">
+            <Text style={styles.helper}>
+              {ARGUMENT_ROOM_CREATE_COPY.invite_link_box_helper}
+            </Text>
+            <Text
+              style={styles.inviteLinkText}
+              selectable
+              testID="start-argument-invite-link-text"
+            >
+              {createdInvite.inviteLink}
+            </Text>
+            <Pressable
+              onPress={handleCopyInviteLink}
+              accessibilityRole="button"
+              accessibilityLabel={INVITE_PANEL_COPY.copyLinkButton}
+              hitSlop={TOUCH_TARGET.hitSlopCompact}
+              style={({ pressed }) => [styles.inviteLinkCopyBtn, pressed && styles.pressed]}
+              testID="start-argument-invite-link-copy"
+            >
+              <Text style={styles.inviteLinkCopyBtnText}>
+                {linkCopied ? INVITE_PANEL_COPY.copyLinkSuccess : INVITE_PANEL_COPY.copyLinkButton}
+              </Text>
+            </Pressable>
+          </View>
+
+          <Pressable
+            onPress={handleContinueAfterInvite}
+            accessibilityRole="button"
+            accessibilityLabel={ARGUMENT_ROOM_CREATE_COPY.invite_link_continue_label}
+            style={({ pressed }) => [styles.submit, pressed && styles.pressed]}
+            testID="start-argument-invite-link-continue"
+          >
+            <Text style={styles.submitLabel}>
+              {ARGUMENT_ROOM_CREATE_COPY.invite_link_continue_label}
+            </Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen} testID="start-argument-page">
@@ -658,6 +769,36 @@ const styles = StyleSheet.create({
   // "you can't start yet, here's why" explainer as often as an email error.
   inviteReason: { fontSize: 12, color: '#fcd34d', lineHeight: 16, marginTop: SPACING.xs },
   capacity: { fontSize: 12, color: SURFACE_TOKENS.textSecondary, lineHeight: 16, marginTop: SPACING.s },
+
+  // ARG-ROOM-008 — one-time create-time invite-link box (mirrors the dark
+  // InvitePanel link-box styling). The link is monospace + selectable so it can
+  // be long-pressed/copied; the copy control meets the 44px target via hitSlop
+  // plus minHeight.
+  inviteLinkBox: {
+    backgroundColor: SURFACE_TOKENS.elevated,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: SURFACE_TOKENS.border,
+    padding: SPACING.m,
+    gap: SPACING.s,
+  },
+  inviteLinkText: {
+    fontSize: 13,
+    color: SURFACE_TOKENS.textPrimary,
+    fontFamily: 'monospace',
+    lineHeight: 18,
+  },
+  inviteLinkCopyBtn: {
+    minHeight: 44,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: SURFACE_TOKENS.border,
+    backgroundColor: SURFACE_TOKENS.raised,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.m,
+  },
+  inviteLinkCopyBtnText: { fontSize: 14, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
 
   // Taxonomy.
   taxonomyGroup: { marginTop: SPACING.m, gap: SPACING.xs },

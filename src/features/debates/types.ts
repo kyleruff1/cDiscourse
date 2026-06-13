@@ -64,6 +64,23 @@ export interface CreateDebateInput {
   invite?: { email: string; intendedSeat?: 'respondent' | 'co_primary' };
 }
 
+/**
+ * ARG-ROOM-008 — the result of a successful room creation: the loaded
+ * `Debate` plus the OPTIONAL one-time create-time invite link.
+ *
+ * `inviteLink` carries the RAW token and is returned to the CREATOR exactly
+ * once at create time (it mirrors `CreateArgumentRoomResult.inviteLink`). It is
+ * never stored, never logged, and never re-fetchable — the one-pending-invite-
+ * per-room index means the in-room InvitePanel cannot mint a second link, so
+ * this is the only client-side moment the link exists. `null` when the room was
+ * created with no invite (public, no email). The create surface renders a
+ * one-time copy-link box from it, inviter-only, then discards it on dismiss.
+ */
+export interface CreatedRoom {
+  debate: Debate;
+  inviteLink: string | null;
+}
+
 export interface JoinResult {
   side: ParticipantSide;
   alreadyJoined: boolean;

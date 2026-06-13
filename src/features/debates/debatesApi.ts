@@ -14,6 +14,7 @@ import {
 import type {
   Debate,
   CreateDebateInput,
+  CreatedRoom,
   ParticipantSide,
   JoinResult,
   DebateApiResult,
@@ -244,11 +245,19 @@ export async function notifyCreateTimeInvite(input: {
  * auto-join. The creator's identity is taken from the JWT inside the Edge
  * Function, so the `userId` argument is retained ONLY for signature
  * compatibility and is intentionally unused here.
+ *
+ * ARG-ROOM-008 — the success result now carries the one-time create-time
+ * `inviteLink` ALONGSIDE the loaded `Debate` (a `CreatedRoom`), instead of
+ * discarding it. The raw link is the only client-side moment that token exists;
+ * the create surface renders it once (inviter-only) so a private room created
+ * with invite email OFF still has a reachable invitee. We never log or persist
+ * it here — it rides through to the caller unchanged. The ARG-ROOM-004
+ * fire-and-forget notify path below is untouched.
  */
 export async function createDebate(
   input: CreateDebateInput,
   _userId: string,
-): Promise<DebateApiResult<Debate>> {
+): Promise<DebateApiResult<CreatedRoom>> {
   if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
 
   const created = await createArgumentRoom({
@@ -300,7 +309,17 @@ export async function createDebate(
     }
   }
 
-  return { ok: true, data: mapDebateRow(debate as DebateRow, 'moderator') };
+  // ARG-ROOM-008 — return the raw create-time `inviteLink` alongside the
+  // loaded room. `null` when there was no invite (public, no email). The link
+  // is NOT logged or persisted here; the create surface renders it once,
+  // inviter-only, then discards it.
+  return {
+    ok: true,
+    data: {
+      debate: mapDebateRow(debate as DebateRow, 'moderator'),
+      inviteLink: created.data.inviteLink,
+    },
+  };
 }
 
 /**

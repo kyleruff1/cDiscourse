@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAppSession } from '../session/useAppSession';
 import { listDebates, createDebate, joinDebate } from './debatesApi';
 import type { JoinOutcomeKind } from './seatClaimModel';
-import type { Debate, CreateDebateInput, ParticipantSide } from './types';
+import type { Debate, CreateDebateInput, CreatedRoom, ParticipantSide } from './types';
 
 /**
  * ARG-ROOM-005 — the result of a claim attempt. `side` is the side the viewer
@@ -20,7 +20,13 @@ export interface UseDebatesResult {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  create: (input: CreateDebateInput) => Promise<Debate | null>;
+  /**
+   * ARG-ROOM-008 — resolves to a `CreatedRoom` (the new `Debate` plus the
+   * one-time create-time `inviteLink`) so the create surface can render the
+   * invite-link box once. `null` on failure / no session. The raw link is
+   * passed through untouched — never logged or persisted by the hook.
+   */
+  create: (input: CreateDebateInput) => Promise<CreatedRoom | null>;
   join: (debateId: string, side: ParticipantSide) => Promise<JoinAttemptResult>;
 }
 
@@ -50,11 +56,13 @@ export function useDebates(): UseDebatesResult {
   }, [refresh]);
 
   const create = useCallback(
-    async (input: CreateDebateInput): Promise<Debate | null> => {
+    async (input: CreateDebateInput): Promise<CreatedRoom | null> => {
       if (!userId) return null;
       const result = await createDebate(input, userId);
       if (result.ok) {
-        setDebates((prev) => [result.data, ...prev]);
+        // ARG-ROOM-008 — prepend the new room for the list; pass the whole
+        // `CreatedRoom` (debate + one-time inviteLink) back to the caller.
+        setDebates((prev) => [result.data.debate, ...prev]);
         return result.data;
       }
       setError(result.error);
