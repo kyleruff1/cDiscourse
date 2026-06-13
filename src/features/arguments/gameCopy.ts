@@ -1778,6 +1778,16 @@ export const ARGUMENT_ROOM_CREATE_COPY = Object.freeze({
     'Up to {capacity} people can take part. {open} seats stay open for the first to reply.',
   capacity_public_reserved:
     'Up to {capacity} people can take part. One seat is saved for the person you invite; {open} stay open for the first to reply.',
+
+  // ARG-ROOM-008 — one-time create-time invite link. Shown to the CREATOR once
+  // on the post-create success state when the room was made with an invite
+  // (private always; public-with-invite). The raw link is shown once and never
+  // re-fetchable, so the copy says so plainly. Generic — it names no one and
+  // reveals nothing about whether the invitee already has an account.
+  invite_link_box_title: 'Your invite link',
+  invite_link_box_helper:
+    'Copy this link and send it to the person you invited. It is shown once — you will not see it again after you continue.',
+  invite_link_continue_label: 'Continue to the argument',
 } as const);
 
 /**
