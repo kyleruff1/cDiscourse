@@ -113,7 +113,7 @@ describe('PublicRoomMetricsStrip — render contract via the view-model', () => 
   it('renders seat count + chime-in count from the view-model', () => {
     const seatMap = seatMapWith([]);
     const vm = buildPublicRoomMetricsViewModel(seatMap, []);
-    expect(vm.seatCountLabel).toBe('3 of 6 seats active');
+    expect(vm.seatCountLabel).toBe('3 of 5 seats active');
     expect(vm.chimeInCountLabel).toBe('1 person chiming in');
   });
 

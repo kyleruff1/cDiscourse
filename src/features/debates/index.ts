@@ -157,3 +157,25 @@ export type {
   BotRoomEligibilityResult,
   AssertBotRoomEligibilityInput,
 } from './botRoomPolicyModel';
+
+// ARG-ROOM-001 — argument-room creation matrix (pure shared validator).
+export {
+  deriveArgumentRoomCreation,
+  fitsPublicCapacity,
+  fitsPrivateCapacity,
+  plainLanguageForCreationReason,
+  ARGUMENT_ROOM_CREATION_COPY,
+  ALL_ARGUMENT_ROOM_CREATION_REJECT_REASONS,
+  PUBLIC_ACTIVE_PARTICIPANT_CAP,
+  PRIVATE_ACTIVE_PARTICIPANT_CAP,
+  MAX_DIRECT_INVITES_AT_CREATION,
+  _forbiddenArgumentRoomCreationTokens,
+} from './argumentRoomCreationMatrix';
+export type {
+  ArgumentRoomVisibility,
+  ArgumentRoomCapacity,
+  ArgumentRoomCreationRejectReason,
+  ArgumentRoomCreationIntent,
+  DeriveArgumentRoomCreationOptions,
+  ArgumentRoomCreationDerived,
+} from './argumentRoomCreationMatrix';
