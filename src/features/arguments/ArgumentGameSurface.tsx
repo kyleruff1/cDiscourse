@@ -38,6 +38,7 @@ import {
   type ArgumentBubbleControl,
   type ArgumentMessageInput,
   type ArgumentSurfaceMode,
+  type ArgumentTimelineMapNode,
 } from './argumentGameSurfaceModel';
 import { computeParticipantTrends } from './argumentScoreModel';
 import { resolveStackKeyEffect } from './stackKeyboardSwipeModel';
@@ -189,6 +190,23 @@ import { buildRefereeCardInput } from './cardView/refereeCardAssembly';
 // raw provenance; it mounts beside the existing Inspect sibling overlays.
 import { InspectOpenIssueDetail } from './cardView/InspectOpenIssueDetail';
 import type { RefereeNavVerb } from './cardView/RefereeCardView';
+// REF-006-RAIL — the room-wide Open Issues rail. A PURE PROJECTION over many
+// nodes already-derived OpenIssue objects: the REF-002 `buildOpenIssue` stays
+// the single derivation home (the host builds each candidate issue via the
+// same `buildRefereeCardInput` → `buildOpenIssue` path the active Referee Card
+// uses); the rail only filters → orders → caps → shapes rows and reuses the
+// shipped jump / Inspect / Act-move mechanics. No new routing, no derivation,
+// no persistence. Display-only, post-storage, never in any submit path.
+import { OpenIssuesRail } from './openIssuesRail/OpenIssuesRail';
+import {
+  buildOpenIssuesLedger,
+  CANDIDATE_SIGNAL_TAGS,
+  CLOSED_LIFECYCLE_STATES,
+  OPEN_ISSUES_RAIL_BUILD_CAP,
+  type OpenIssueLedgerCandidate,
+  type OpenIssueLedgerEntry,
+  type OpenIssuesLedger,
+} from './openIssuesRail/openIssuesRailModel';
 
 interface Props {
   debate: {
@@ -432,6 +450,12 @@ export function ArgumentGameSurface({
   // selection, no dock. Mutually exclusive with the SC-002 popover; opening
   // the popover dismisses the dock and vice versa.
   const [selectedDockTarget, setSelectedDockTarget] = useState<TimelineNodeActionDockTarget | null>(null);
+  // REF-006-RAIL — bottom-chrome single-owner coordination. The Open Issues
+  // rail and the side action rail are mutually exclusive: when one expands the
+  // other force-collapses (via its `isAnyPanelOpen` prop). Both default false
+  // so the surface is byte-identical when neither rail is expanded.
+  const [openIssuesRailExpanded, setOpenIssuesRailExpanded] = useState(false);
+  const [sideRailExpanded, setSideRailExpanded] = useState(false);
   // UX-001.2 — microMoment dismissed on first meaningful Timeline interaction.
   // The banner is transient: it shows on deep-link entry (driven by
   // `entryHint.verbPhrase`) and disappears the moment the user activates a
@@ -533,6 +557,30 @@ export function ArgumentGameSurface({
     // 'normal' (44px) when the preference is undefined.
     density: density ?? 'normal',
   }), [enrichedMessages, currentUserId, activeMessageId, density]);
+
+  // REF-006-RAIL — O(1) lookup maps. Replace the O(n) `sorted.find` /
+  // `timelineMap.nodes.find` scans in the per-node referee assembly (and the
+  // active-node parent-type derivation) with constant-time `Map.get` — a free
+  // de-quadratic win and the prerequisite for per-candidate assembly without
+  // O(n²) cost.
+  const messageById = useMemo(() => {
+    const m = new Map<string, ArgumentMessageInput>();
+    for (const msg of sorted) m.set(msg.id, msg);
+    return m;
+  }, [sorted]);
+  const nodeByMessageId = useMemo(() => {
+    const m = new Map<string, ArgumentTimelineMapNode>();
+    for (const n of timelineMap.nodes) m.set(n.messageId, n);
+    return m;
+  }, [timelineMap]);
+  // REF-006-RAIL — chronological position (recency) per message id. Higher =
+  // more recent. Built once from `chronologicalIds`; the rail recency-desc
+  // tiebreak reads this (never heat / popularity / a strength band).
+  const recencyIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    chronologicalIds.forEach((id, i) => m.set(id, i));
+    return m;
+  }, [chronologicalIds]);
 
   // EV-002 — Build the artifact map once per render from each message's
   // optional `attachedEvidence` payload (typed defensively). Empty /
@@ -970,13 +1018,12 @@ export function ArgumentGameSurface({
   // no node is selected (Act on the room itself).
   const activeParentType = useMemo<ConstitutionArgumentType | null>(() => {
     if (!activeMessageId) return null;
-    const node = timelineMap.nodes.find((n) => n.messageId === activeMessageId);
+    // REF-006-RAIL — O(1) map lookups replace the prior O(n) finds (byte-equiv).
+    const node = nodeByMessageId.get(activeMessageId);
     if (!node) return null;
-    const parentMsg = node.parentId
-      ? sorted.find((m) => m.id === node.parentId)
-      : null;
+    const parentMsg = node.parentId ? messageById.get(node.parentId) : null;
     return (parentMsg?.argumentType ?? null) as ConstitutionArgumentType | null;
-  }, [activeMessageId, timelineMap, sorted]);
+  }, [activeMessageId, nodeByMessageId, messageById]);
 
   // Board-level Act mount: target kind + role classification. `actor`
   // is the canonical view-model field — `self` means own bubble.
@@ -997,134 +1044,224 @@ export function ArgumentGameSurface({
   // pure (no fetch, no Edge, no classifier call); REF-002's `buildOpenIssue`
   // runs the Act / suggested joins internally with the engine + role hard
   // gates. The card is NEVER in any submit path. `null` when no active node.
+  // REF-006-RAIL — per-node parent argument type (O(1)). Generalizes
+  // `activeParentType` to an arbitrary message so the candidate assembly and
+  // the move bridge can resolve a target parent type without scanning.
+  const parentTypeForMessage = useCallback(
+    (messageId: string): ArgumentType | null => {
+      const node = nodeByMessageId.get(messageId);
+      const parentMsg = node && node.parentId ? messageById.get(node.parentId) : null;
+      return (parentMsg?.argumentType ?? null) as ArgumentType | null;
+    },
+    [nodeByMessageId, messageById],
+  );
+
+  // REF-006-RAIL — the EXTRACTED active-node assembly body, parameterized by
+  // `messageId` + `bannerSelection`. The active-node Referee Card memo and the
+  // rail per-candidate builds share ONE code path (no duplicated gathering).
+  // The active node passes its real `refereeBanner`; candidate nodes pass
+  // `bannerSelection: null` (which keeps the candidate memo independent of
+  // `activeMessageId` — candidate issues never depend on the active node
+  // banner). Byte-equivalent to the prior inline body for the active node.
+  const assembleRefereeCardInputForMessage = useCallback(
+    (messageId: string, bannerSelection: BannerSelectionResult | null) => {
+      const lifecycleSnapshot = lifecycleMap.byMessage.get(messageId) ?? null;
+      const clusterId = lifecycleSnapshot?.clusterId ?? null;
+      const clusterSummary = clusterId
+        ? lifecycleMap.byCluster.get(clusterId) ?? null
+        : null;
+      const clusterMetadata = clusterId
+        ? metadataLedger.byCluster.get(clusterId) ?? null
+        : null;
+      const moveLinkage = metadataLedger.byMessage.get(messageId) ?? null;
+
+      // All debts attached to the node; the assembly helper OPEN-filters.
+      const nodeDebts = getNodeEvidenceDebtSummary(messageId, evidenceDebts).debts;
+
+      // Source-chain status — the cluster's worst evidence status (a real
+      // SourceChainStatus); null when no cluster summary exists.
+      const sourceChainStatus = clusterSummary?.worstEvidenceStatus ?? null;
+
+      // Side comparison vs the parent (off the stored rows). Conservative
+      // `false` when either side is unknown — side alone never implies support.
+      const activeMsg = messageById.get(messageId) ?? null;
+      const parentMsg =
+        activeMsg && activeMsg.parentId
+          ? messageById.get(activeMsg.parentId) ?? null
+          : null;
+      const sameSideAsParent =
+        activeMsg != null &&
+        parentMsg != null &&
+        activeMsg.side != null &&
+        parentMsg.side != null &&
+        activeMsg.side === parentMsg.side;
+
+      // carriesSupportEvidence — has support artifacts AND is evidence-shaped.
+      const artifacts = artifactsByMessageId[messageId] ?? [];
+      const carriesSupportEvidence =
+        artifacts.length > 0 && activeMsg?.argumentType === 'evidence';
+
+      const manualTagEntries = manualTagsByMessageId.get(messageId) ?? [];
+      const manualTagCodes = manualTagEntries.map((e) => e.code);
+      const autoMetadataCodes =
+        metadataLedger.byMessage
+          .get(messageId)
+          ?.autoDerivedMetadata.map((entry) => entry.code) ?? [];
+
+      // Adapt the per-node marks at the PUBLIC `timeline_node` surface (already
+      // Family-J-gated). Split machine-kind vs user-kind (REF-002 keeps
+      // Observations and Allegations separate; the rail renders zero Allegations).
+      const perNode = adaptAllSourcesForNode({
+        manualTagEntries,
+        autoMetadataCodes,
+        clusterState: lifecycleSnapshot?.clusterState ?? 'open',
+        messageContribution: lifecycleSnapshot?.messageContribution ?? null,
+        messageId,
+        persistedClassifierRows:
+          persistedObservationsByArgumentId?.[messageId] ?? [],
+        surface: 'timeline_node',
+      });
+      const machineObservationMarks = [
+        ...perNode.autoMetadataMarks,
+        ...perNode.lifecycleMarks,
+        ...perNode.rawClassifierMarks,
+      ];
+      const userAllegationMarks = perNode.manualTagMarks;
+
+      // Reserved / conservative suggestion inputs (the `SuggestionDerivationInput`
+      // contract marks them "reserved"; zone 3 pads regardless).
+      const node = nodeByMessageId.get(messageId) ?? null;
+      const isOnSideBranch = node ? node.lane !== 0 : false;
+      const isTangent =
+        manualTagCodes.includes('tangent') ||
+        autoMetadataCodes.includes('branch_suggested');
+      const activePathDepth = node?.depth ?? 0;
+      const isNoRebuttal =
+        Boolean(lifecycleSnapshot?.opensRequest) ||
+        autoMetadataCodes.includes('no_response_after_n_turns');
+
+      return buildRefereeCardInput({
+        roomId: debate.id,
+        activeMessageId: messageId,
+        storedArgumentType: (activeMsg?.argumentType ?? null) as ArgumentType | null,
+        parentType: parentTypeForMessage(messageId),
+        sameSideAsParent,
+        carriesSupportEvidence,
+        viewerRole: boardActRole,
+        rules: constitution.activeRules,
+        lifecycleSnapshot,
+        clusterSummary,
+        clusterMetadata,
+        moveLinkage,
+        openEvidenceDebts: nodeDebts,
+        sourceChainStatus,
+        manualTagCodes,
+        autoMetadataCodes,
+        machineObservationMarks,
+        userAllegationMarks,
+        bannerSelection,
+        targetExcerpt: activeMsg?.body ?? null,
+        quoteAnchor: null,
+        isOnSideBranch,
+        isTangent,
+        activePathDepth,
+        isNoRebuttal,
+      });
+    },
+    [
+      lifecycleMap,
+      metadataLedger,
+      evidenceDebts,
+      artifactsByMessageId,
+      manualTagsByMessageId,
+      persistedObservationsByArgumentId,
+      messageById,
+      nodeByMessageId,
+      boardActRole,
+      constitution.activeRules,
+      debate.id,
+      parentTypeForMessage,
+    ],
+  );
+
   const refereeCardIssue = useMemo<DisagreementContract | null>(() => {
     if (!activeMessageId) return null;
-
-    const lifecycleSnapshot = lifecycleMap.byMessage.get(activeMessageId) ?? null;
-    const clusterId = lifecycleSnapshot?.clusterId ?? null;
-    const clusterSummary = clusterId
-      ? lifecycleMap.byCluster.get(clusterId) ?? null
-      : null;
-    const clusterMetadata = clusterId
-      ? metadataLedger.byCluster.get(clusterId) ?? null
-      : null;
-    const moveLinkage = metadataLedger.byMessage.get(activeMessageId) ?? null;
-
-    // All debts attached to the node; the assembly helper OPEN-filters.
-    const nodeDebts = getNodeEvidenceDebtSummary(activeMessageId, evidenceDebts).debts;
-
-    // Source-chain status — the cluster's worst evidence status (a real
-    // SourceChainStatus); null when no cluster summary exists. (The per-node
-    // TimelineEvidenceContract carries the shape/ring flags, not a status
-    // enum, so the cluster summary is the in-scope SourceChainStatus source.)
-    const sourceChainStatus = clusterSummary?.worstEvidenceStatus ?? null;
-
-    // Side comparison vs the parent (off the stored rows). Conservative
-    // `false` when either side is unknown — side alone never implies support.
-    const activeMsg = sorted.find((m) => m.id === activeMessageId) ?? null;
-    const parentMsg =
-      activeMsg && activeMsg.parentId
-        ? sorted.find((m) => m.id === activeMsg.parentId) ?? null
-        : null;
-    const sameSideAsParent =
-      activeMsg != null &&
-      parentMsg != null &&
-      activeMsg.side != null &&
-      parentMsg.side != null &&
-      activeMsg.side === parentMsg.side;
-
-    // carriesSupportEvidence — has support artifacts AND is evidence-shaped.
-    const artifacts = artifactsByMessageId[activeMessageId] ?? [];
-    const carriesSupportEvidence =
-      artifacts.length > 0 && activeMsg?.argumentType === 'evidence';
-
-    const manualTagEntries = manualTagsByMessageId.get(activeMessageId) ?? [];
-    const manualTagCodes = manualTagEntries.map((e) => e.code);
-    const autoMetadataCodes =
-      metadataLedger.byMessage
-        .get(activeMessageId)
-        ?.autoDerivedMetadata.map((entry) => entry.code) ?? [];
-
-    // Adapt the per-node marks at the PUBLIC `timeline_node` surface (already
-    // Family-J-gated, highest confidence floor) — the SAME surface
-    // NodeLabelStrip uses, NOT the composer surface. Split machine-kind vs
-    // user-kind (REF-002 keeps Observations and Allegations separate; the card
-    // renders zero Allegations).
-    const perNode = adaptAllSourcesForNode({
-      manualTagEntries,
-      autoMetadataCodes,
-      clusterState: lifecycleSnapshot?.clusterState ?? 'open',
-      messageContribution: lifecycleSnapshot?.messageContribution ?? null,
-      messageId: activeMessageId,
-      persistedClassifierRows:
-        persistedObservationsByArgumentId?.[activeMessageId] ?? [],
-      surface: 'timeline_node',
-    });
-    const machineObservationMarks = [
-      ...perNode.autoMetadataMarks,
-      ...perNode.lifecycleMarks,
-      ...perNode.rawClassifierMarks,
-    ];
-    const userAllegationMarks = perNode.manualTagMarks;
-
-    // Reserved / conservative suggestion inputs (the `SuggestionDerivationInput`
-    // contract marks them "reserved"; zone 3 pads regardless).
-    const activeNode =
-      timelineMap.nodes.find((n) => n.messageId === activeMessageId) ?? null;
-    const isOnSideBranch = activeNode ? activeNode.lane !== 0 : false;
-    const isTangent =
-      manualTagCodes.includes('tangent') ||
-      autoMetadataCodes.includes('branch_suggested');
-    const activePathDepth = activeNode?.depth ?? 0;
-    const isNoRebuttal =
-      Boolean(lifecycleSnapshot?.opensRequest) ||
-      autoMetadataCodes.includes('no_response_after_n_turns');
-
-    const assembled = buildRefereeCardInput({
-      roomId: debate.id,
-      activeMessageId,
-      storedArgumentType: (activeMsg?.argumentType ?? null) as ArgumentType | null,
-      parentType: activeParentType,
-      sameSideAsParent,
-      carriesSupportEvidence,
-      viewerRole: boardActRole,
-      rules: constitution.activeRules,
-      lifecycleSnapshot,
-      clusterSummary,
-      clusterMetadata,
-      moveLinkage,
-      openEvidenceDebts: nodeDebts,
-      sourceChainStatus,
-      manualTagCodes,
-      autoMetadataCodes,
-      machineObservationMarks,
-      userAllegationMarks,
-      bannerSelection: refereeBanner ?? null,
-      targetExcerpt: activeMsg?.body ?? null,
-      quoteAnchor: null,
-      isOnSideBranch,
-      isTangent,
-      activePathDepth,
-      isNoRebuttal,
-    });
+    const assembled = assembleRefereeCardInputForMessage(activeMessageId, refereeBanner ?? null);
     if (!assembled) return null;
     return buildOpenIssue(assembled);
+  }, [activeMessageId, assembleRefereeCardInputForMessage, refereeBanner]);
+
+  // REF-006-RAIL — the candidate build (memoized on the data maps but NOT on
+  // `activeMessageId`). Layer 1 is a cheap O(n) pre-filter (lifecycle / debt /
+  // tag presence — no `buildOpenIssue`, no `adaptAllSourcesForNode`); only the
+  // ≤ K most-recent survivors are assembled + built (each `bannerSelection:
+  // null`, so the build never depends on the active node banner). Changing
+  // the active node does NOT rebuild these issues.
+  const openIssueCandidates = useMemo<{
+    built: ReadonlyArray<{ issue: DisagreementContract; recencyIndex: number }>;
+    omittedCandidateCount: number;
+  }>(() => {
+    // Layer 1 — cheap candidate pre-filter (a conservative superset).
+    const candidateIds: string[] = [];
+    for (const node of timelineMap.nodes) {
+      const id = node.messageId;
+      const hasOpenDebt = getNodeEvidenceDebtSummary(id, evidenceDebts).hasOpenDebt;
+      const clusterState = lifecycleMap.byMessage.get(id)?.clusterState ?? 'open';
+      const lifecycleOpen = !CLOSED_LIFECYCLE_STATES.has(clusterState);
+      const manualCodes = (manualTagsByMessageId.get(id) ?? []).map((e) => e.code);
+      const autoCodes =
+        metadataLedger.byMessage.get(id)?.autoDerivedMetadata.map((e) => e.code) ?? [];
+      const hasLiveTag =
+        manualCodes.some((c) => CANDIDATE_SIGNAL_TAGS.has(c)) ||
+        autoCodes.some((c) => CANDIDATE_SIGNAL_TAGS.has(c));
+      if (hasOpenDebt || lifecycleOpen || hasLiveTag) candidateIds.push(id);
+    }
+
+    // Cap at the K most-recent candidates (recency = chronological position).
+    const indexed = candidateIds.map((id) => ({
+      id,
+      recencyIndex: recencyIndexById.get(id) ?? -1,
+    }));
+    indexed.sort((a, b) => b.recencyIndex - a.recencyIndex);
+    const capped = indexed.slice(0, OPEN_ISSUES_RAIL_BUILD_CAP);
+    const omittedCandidateCount = indexed.length - capped.length;
+
+    // Layer 1.5 — build each capped candidate OpenIssue (bannerSelection: null).
+    const built: Array<{ issue: DisagreementContract; recencyIndex: number }> = [];
+    for (const { id, recencyIndex } of capped) {
+      const assembled = assembleRefereeCardInputForMessage(id, null);
+      if (!assembled) continue;
+      const issue = buildOpenIssue(assembled);
+      if (issue) built.push({ issue, recencyIndex });
+    }
+    return { built, omittedCandidateCount };
   }, [
-    activeMessageId,
-    lifecycleMap,
-    metadataLedger,
-    evidenceDebts,
-    sorted,
-    artifactsByMessageId,
-    manualTagsByMessageId,
-    persistedObservationsByArgumentId,
     timelineMap,
-    activeParentType,
-    boardActRole,
-    constitution.activeRules,
-    refereeBanner,
-    debate.id,
+    evidenceDebts,
+    lifecycleMap,
+    manualTagsByMessageId,
+    metadataLedger,
+    recencyIndexById,
+    assembleRefereeCardInputForMessage,
   ]);
+
+  // REF-006-RAIL — the thin ledger overlay: apply the cheap `isActive` flag,
+  // then filter (`isOpenIssue`) → order → cap → shape in the pure iterator.
+  // Depends on `activeMessageId` (the cheap overlay) but NOT on the expensive
+  // candidate build, so selection changes re-run only this O(K log K) pass.
+  const openIssuesLedger = useMemo<OpenIssuesLedger>(() => {
+    const candidates: OpenIssueLedgerCandidate[] = openIssueCandidates.built.map(
+      ({ issue, recencyIndex }) => ({
+        issue,
+        recencyIndex,
+        isActive: issue.targetNodeId === activeMessageId,
+      }),
+    );
+    return buildOpenIssuesLedger(candidates, {
+      maxEntries: OPEN_ISSUES_RAIL_BUILD_CAP,
+      omittedCandidateCount: openIssueCandidates.omittedCandidateCount,
+    });
+  }, [openIssueCandidates, activeMessageId]);
 
   // "Acting on" label for the board-level Act mount. The composer's
   // `composerActingOnModel.deriveComposerActingOnLabel` is the same
@@ -1423,14 +1560,21 @@ export function ArgumentGameSurface({
   // gate call). A `null` quickAction (the non-padded `reply` /
   // `respond_to_concession` / `offer_concession` entries) opens the composer
   // with no forced preset — identical to the board Act path.
+  // REF-006-RAIL — generalized with optional explicit target args. Existing
+  // call sites pass no extra args → `targetMessageId`/`targetParentType` are
+  // undefined → `activeMessageId ?? ''` / `activeParentType` (byte-identical
+  // behavior). The Open Issues rail passes an explicit target node + its
+  // parent type so a move can open the composer on a NON-active node.
   const enterBoxForActEntry = useCallback(
-    (entryId: ActEntryId) => {
+    (entryId: ActEntryId, targetMessageId?: string, targetParentType?: ArgumentType | null) => {
+      const messageId = targetMessageId ?? activeMessageId ?? '';
+      const parentType = targetParentType !== undefined ? targetParentType : activeParentType;
       const quickAction = actEntryToQuickAction(entryId);
       const preset =
         quickAction !== null
-          ? quickActionToPreset(quickAction as QuickActionLabel, activeParentType)
+          ? quickActionToPreset(quickAction as QuickActionLabel, parentType)
           : null;
-      handleAction('reply', activeMessageId ?? '', preset);
+      handleAction('reply', messageId, preset);
     },
     [activeMessageId, activeParentType, handleAction],
   );
@@ -1464,8 +1608,61 @@ export function ArgumentGameSurface({
   // clear the node target here and feed `isAnyPanelOpen` back. Carrying a
   // separate `railExpanded` state would be dead duplication.)
   const handleRailExpandedChange = useCallback((expanded: boolean) => {
+    // REF-006-RAIL — also track the side rail expansion so the Open Issues
+    // rail can mutually exclude it (two bottom rails never both expand).
+    setSideRailExpanded(expanded);
     if (expanded) setSelectedDockTarget(null);
   }, []);
+
+  // REF-006-RAIL — the Open Issues rail expand/collapse coordinator. Mirrors
+  // `handleRailExpandedChange`: expanding the Open Issues rail clears the node
+  // dock target AND force-collapses the side action rail (via its
+  // `isAnyPanelOpen` prop). Both rails stay collapsed-by-default.
+  const handleOpenIssuesRailExpandedChange = useCallback((expanded: boolean) => {
+    setOpenIssuesRailExpanded(expanded);
+    if (expanded) setSelectedDockTarget(null);
+  }, []);
+
+  // REF-006-RAIL — Open Issues rail "Go to point" (jump). Reuses the
+  // `handleRefereeFocusIssue` mechanics for an ARBITRARY target node: set the
+  // active node, switch to Timeline so the lens can dim, and apply the
+  // issue state-derived Go lens. Reads ONLY the procedural IssueState.
+  const handleOpenIssueFocus = useCallback(
+    (entry: OpenIssueLedgerEntry) => {
+      if (!entry.targetNodeId) return;
+      setActiveMessageId(entry.targetNodeId);
+      setSelectionStatus('explicit');
+      setMicroMomentDismissed(true);
+      if (mode !== 'timeline') setMode('timeline');
+      setGoLens(issueStateToGoLens(entry.state));
+    },
+    [mode],
+  );
+
+  // REF-006-RAIL — Open Issues rail "Details" (Inspect). Sets the active node
+  // and opens the SHIPPED Inspect popout; the `InspectOpenIssueDetail` sibling
+  // overlay re-derives on the new active node. Read-only for every role.
+  const handleOpenIssueInspect = useCallback((entry: OpenIssueLedgerEntry) => {
+    if (!entry.targetNodeId) return;
+    setActiveMessageId(entry.targetNodeId);
+    setSelectionStatus('explicit');
+    setInspectVisible(true);
+  }, []);
+
+  // REF-006-RAIL — Open Issues rail next-move chip. Routes through the SAME
+  // `enterBoxForActEntry` bridge the board Act mount + Referee Card use, with
+  // the row target node + its parent type. The move is an engine + role
+  // survivor by construction (REF-002 `nextBestMoves`), so the composer can
+  // never open a box the engine would reject.
+  const handleOpenIssueMove = useCallback(
+    (entry: OpenIssueLedgerEntry, move: MoveSuggestion) => {
+      if (!entry.targetNodeId) return;
+      setActiveMessageId(entry.targetNodeId);
+      setSelectionStatus('explicit');
+      enterBoxForActEntry(move.actEntryId, entry.targetNodeId, parentTypeForMessage(entry.targetNodeId));
+    },
+    [enterBoxForActEntry, parentTypeForMessage],
+  );
 
   // ── UX-001.4 — Board menu callbacks ──
   //
@@ -1993,6 +2190,26 @@ export function ArgumentGameSurface({
         />
       ) : null}
 
+      {/* REF-006-RAIL — the room-wide Open Issues ledger. Collapsed-by-default
+          bottom chrome (below the Timeline), mounted as a sibling IMMEDIATELY
+          above the side action rail. Reuses the SC-005 dock chassis layout;
+          its three verbs (jump / Inspect / Act move) route through the shipped
+          handlers. Mutual exclusion with the side action rail reuses the
+          shipped single-owner pattern (`isAnyPanelOpen` + `onExpandedChange`).
+          It sits below the Timeline, so it contributes ZERO to the UX-001.2
+          first-row offset cap. */}
+      <OpenIssuesRail
+        ledger={openIssuesLedger}
+        windowWidth={windowWidth}
+        windowHeight={windowHeight}
+        reduceMotionOverride={reduceMotionOverride}
+        isAnyPanelOpen={Boolean(selectedDockTarget) || sideRailExpanded}
+        onExpandedChange={handleOpenIssuesRailExpandedChange}
+        onJump={handleOpenIssueFocus}
+        onInspect={handleOpenIssueInspect}
+        onMove={handleOpenIssueMove}
+      />
+
       {/* Stage 6.4 / SC-005 — Side action rail. Collapsed by default for
           observers; SC-005 renders it as a contextual dock (side-anchored
           on wide viewports, a capped bottom sheet on narrow ones) and folds
@@ -2012,7 +2229,10 @@ export function ArgumentGameSurface({
         // (per the design's edge-case table) rather than "Actions on this
         // point" the moment the room mounts.
         hasSelectedNode={Boolean(selectedDockTarget)}
-        isAnyPanelOpen={Boolean(selectedDockTarget)}
+        // REF-006-RAIL — also force-collapse when the Open Issues rail is
+        // expanded (two bottom rails never both expand). `openIssuesRailExpanded`
+        // defaults false → byte-identical when the rail is collapsed.
+        isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded}
         onExpandedChange={handleRailExpandedChange}
         startArgumentAction={startArgumentAction}
       />
