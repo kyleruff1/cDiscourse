@@ -122,6 +122,80 @@ function validateRedirectTo(url) {
   return { ok: true, host: parsed.host };
 }
 
+// ── ARG-ROOM-004 — `?invite=<token>` bridge-redirect dry assertion ──
+//
+// The new-user Auth-invite CTA returns to `<origin>/auth/callback?invite=<token>`.
+// Review finding #5: this dry assertion must validate against the HOSTED
+// `additional_redirect_urls` allow-list (supabase/config.toml :164-170 / hosted
+// readback) — NOT the script's local ALLOWED_REDIRECT_HOSTS, which has drifted
+// (it lists `dev.cdiscourse.com`, absent from config.toml). So we derive the
+// hosts from the config file and assert the bridge redirect against THOSE.
+
+/**
+ * Parse the `additional_redirect_urls = [ ... ]` array out of a config.toml
+ * string and return the concrete (non-wildcard) hosts it allows. A `/**`
+ * path-glob suffix is stripped; bare wildcard HOSTS (`*--…`) are skipped (they
+ * cannot be matched exactly and are covered by their concrete sibling entry).
+ * Pure — the caller reads the file and passes the text in.
+ */
+function deriveHostedRedirectHosts(configTomlText) {
+  if (typeof configTomlText !== 'string') return [];
+  const blockMatch = configTomlText.match(/additional_redirect_urls\s*=\s*\[([\s\S]*?)\]/);
+  if (!blockMatch) return [];
+  const urls = blockMatch[1].match(/"([^"]+)"/g) || [];
+  const hosts = [];
+  for (const quoted of urls) {
+    const raw = quoted.slice(1, -1).replace(/\/\*\*$/, '').replace(/\/$/, '');
+    let parsed;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      continue;
+    }
+    // Skip wildcard hosts — a concrete redirect can never equal `*--host`.
+    if (parsed.host.includes('*')) continue;
+    if (!hosts.includes(parsed.host)) hosts.push(parsed.host);
+  }
+  return hosts;
+}
+
+/**
+ * Validate a `?invite=<token>` bridge redirect against an explicit allow-list
+ * of hosts (use `deriveHostedRedirectHosts(config.toml)`). Requires https (or
+ * localhost http), an allow-listed host, the `/auth/callback` path, and a
+ * present, plausibly-shaped `invite` query token. The token VALUE is never
+ * returned — only presence + length, mirroring the no-secret diagnostics
+ * posture. Returns { ok, reason?, host?, inviteTokenLength? }.
+ */
+function validateBridgeRedirect(url, allowedHosts) {
+  if (typeof url !== 'string' || url.length === 0) {
+    return { ok: false, reason: 'redirect_missing' };
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, reason: 'redirect_unparseable' };
+  }
+  const isLocalhostHttp = parsed.protocol === 'http:' && parsed.host === 'localhost:8081';
+  if (parsed.protocol !== 'https:' && !isLocalhostHttp) {
+    return { ok: false, reason: 'redirect_not_https' };
+  }
+  const hosts = Array.isArray(allowedHosts) ? allowedHosts : [];
+  if (!hosts.includes(parsed.host)) {
+    return { ok: false, reason: 'redirect_host_not_allowlisted' };
+  }
+  if (parsed.pathname !== '/auth/callback') {
+    return { ok: false, reason: 'redirect_path_not_callback' };
+  }
+  const token = parsed.searchParams.get('invite');
+  if (!token || token.length < 32 || token.length > 64 || !/^[A-Za-z0-9_-]+$/.test(token)) {
+    return { ok: false, reason: 'invite_token_shape_invalid' };
+  }
+  // Never return the token VALUE — length only (no-secret diagnostics).
+  return { ok: true, host: parsed.host, inviteTokenLength: token.length };
+}
+
 /** Parse argv (after `node script.js`). Pure. */
 function parseArgs(argv) {
   const out = { dryRun: true, live: false, email: null, range: null, redirectTo: null, smtpPosture: 'unknown', allowNonDevtest: false, reinvite: false };
@@ -210,6 +284,8 @@ module.exports = {
   validateTargetEmail,
   expandBatchRange,
   validateRedirectTo,
+  deriveHostedRedirectHosts,
+  validateBridgeRedirect,
   parseArgs,
   resolvePlan,
   buildRedactedPlan,

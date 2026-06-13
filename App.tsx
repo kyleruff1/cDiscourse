@@ -44,7 +44,7 @@ import { InvitePanel } from './src/features/invites/InvitePanel';
 // `inviteOpen` state.
 import { InviteRedeemGate } from './src/features/invites/InviteRedeemGate';
 import {
-  parseInviteDeepLink,
+  resolveColdStartInviteToken,
   buildPendingInviteIntent,
   loadPendingInviteIntentFromStorage,
   savePendingInviteIntentToStorage,
@@ -157,26 +157,33 @@ function AppRoot() {
     };
   }, [signedIn, userId]);
 
-  // ── QOL-038 — invite deep-link capture ─────────────────────
-  // On cold start, parse window.location for an `/invite/<token>`
-  // and capture it into the pendingInviteIntent slice + the
-  // dedicated device-local storage key. The intent flows through
-  // the SIGNED_OUT → SIGNED_IN reducer transition (the headline
-  // preservation property in sessionReducer.ts) so the
-  // accept-on-first-signed-in trigger can fire after a fresh
-  // sign-up. Native scheme (cdiscourse://invite/<token>) capture
-  // is left for a follow-up — Expo Linking integration is a
-  // dependency-level change beyond this card.
+  // ── QOL-038 + ARG-ROOM-004 — invite deep-link / bridge capture ──
+  // On cold start, parse window.location for an invite token in EITHER
+  // shape and capture it into the pendingInviteIntent slice + the
+  // dedicated device-local storage key:
+  //   - QOL-038      `/invite/<token>` deep-link path (shared link), and
+  //   - ARG-ROOM-004 `/auth/callback?invite=<token>` bridge query (the
+  //     redirect a brand-new invitee lands on from the Supabase Auth
+  //     invite email; the higher-priority AuthCallbackScreen runs first
+  //     for the set-password step, then this captured intent drives the
+  //     shipped auto-accept once the URL is cleared).
+  // The intent flows through the SIGNED_OUT → SIGNED_IN reducer
+  // transition (the headline preservation property in sessionReducer.ts)
+  // so the accept-on-first-signed-in trigger can fire after a fresh
+  // sign-up. Native scheme (cdiscourse://invite/<token>) capture is left
+  // for a follow-up — Expo Linking integration is a dependency-level
+  // change beyond this card.
   React.useEffect(() => {
     let cancelled = false;
     void (async () => {
       const nowIso = new Date().toISOString();
-      // 1) Parse the cold-start URL. Web only here; native path is
-      //    follow-up. parseInviteDeepLink NEVER throws.
+      // 1) Resolve the cold-start token from either shape. Web only here;
+      //    native path is follow-up. resolveColdStartInviteToken NEVER
+      //    throws and reads only the query for the bridge (never the
+      //    implicit-flow `#access_token=…` fragment secrets).
       let token: string | null = null;
       if (typeof window !== 'undefined' && window.location?.href) {
-        const parsed = parseInviteDeepLink(window.location.href);
-        if (parsed) token = parsed.token;
+        token = resolveColdStartInviteToken(window.location.href);
       }
       if (token) {
         try {
