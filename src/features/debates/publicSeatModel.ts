@@ -6,7 +6,7 @@
  * follow-up persistence card needs it server-side.
  *
  * This model EXTENDS the GAME-004 1v1 room contract (`roomContractModel.ts`):
- * seats 1 and 2 are GAME-004's Initiator + Primary Opponent; seats 3..6 are
+ * seats 1 and 2 are GAME-004's Initiator + Primary Opponent; seats 3..5 are
  * GAME-005's chime-in seats. It CONSUMES BR-004's branch grammar
  * (`CollapsedBranchSummary`, `BranchDirection`) — it does not re-derive branch
  * direction or rebuild a collapse mechanism.
@@ -56,10 +56,15 @@ export type SeatRole = 'initiator' | 'primary_opponent' | 'chime_in';
 
 /**
  * Active-seat cap for a public room. Seat 1 OP, seat 2 Primary Opponent,
- * seats 3-6 chime-ins. Beyond the cap -> observer. Single named constant so
- * a tuning card is one edit (OD-1 confirms; the card proposes 6).
+ * seats 3-5 chime-ins. Beyond the cap -> observer. Single named constant so
+ * a tuning card is one edit.
+ *
+ * ARG-ROOM-001 reconcile (roadmap 2026-06-13 §4.1 divergence ledger):
+ * reconciled 6 -> 5 so the public active-participant cap is ONE source of
+ * truth, shared with `argumentRoomCreationMatrix.PUBLIC_ACTIVE_PARTICIPANT_CAP`
+ * (a parity test pins both to 5). Public chime-in capacity is now 5 - 2 = 3.
  */
-export const PUBLIC_ROOM_SEAT_CAP = 6;
+export const PUBLIC_ROOM_SEAT_CAP = 5;
 
 /**
  * The number of seats reserved for the two primary parties. Seats 3..N are
@@ -119,7 +124,7 @@ export type ObserverFallbackReason = 'overflow' | 'governance';
 export interface MovedToObserverRecord {
   userId: string;
   /**
-   * 'overflow'  — arrived after the 6-seat cap was full; never held a seat.
+   * 'overflow'  — arrived after the 5-seat cap was full; never held a seat.
    * 'governance'— held a chime-in seat; both primaries marked the chime-in
    *               'off the current thread' within the window.
    */
@@ -234,7 +239,7 @@ export interface GovernanceActorResult {
 
 /** One row in the read-time public-room metrics strip. Pure data, no JSX. */
 export interface PublicRoomMetricsViewModel {
-  /** "4 of 6 seats active" — plain language, never a leaderboard. */
+  /** "4 of 5 seats active" — plain language, never a leaderboard. */
   seatCountLabel: string;
   /** "2 people chiming in" — count only, never ranked. */
   chimeInCountLabel: string;

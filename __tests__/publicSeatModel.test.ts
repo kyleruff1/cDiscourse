@@ -136,7 +136,7 @@ describe('buildPublicRoomSeatMap — primary seats', () => {
   });
 });
 
-// ── buildPublicRoomSeatMap — chime-in seats 3..6 ────────────────
+// ── buildPublicRoomSeatMap — chime-in seats 3..5 ────────────────
 
 describe('buildPublicRoomSeatMap — chime-in claim order', () => {
   function chimeIn(userId: string, createdAt: string): RoomArgumentInput {
@@ -149,7 +149,7 @@ describe('buildPublicRoomSeatMap — chime-in claim order', () => {
     });
   }
 
-  it('chime-ins fill seats 3..6 in first-qualifying-move chronological order', () => {
+  it('chime-ins fill seats 3..5 in first-qualifying-move chronological order', () => {
     const c1 = chimeIn('u-c1', '2026-05-20T02:00:00.000Z');
     const c2 = chimeIn('u-c2', '2026-05-20T03:00:00.000Z');
     const args = [ROOT, OPP_REPLY, c2, c1]; // pass out of order
@@ -167,8 +167,8 @@ describe('buildPublicRoomSeatMap — chime-in claim order', () => {
     expect(seat3?.role).toBe('chime_in');
   });
 
-  it('exactly 6 distinct qualifying participants: cap reached, 0 open seats', () => {
-    const chimeIns = ['u-c1', 'u-c2', 'u-c3', 'u-c4'].map((u, i) =>
+  it('exactly 5 distinct qualifying participants: cap reached, 0 open seats', () => {
+    const chimeIns = ['u-c1', 'u-c2', 'u-c3'].map((u, i) =>
       chimeIn(u, `2026-05-20T0${2 + i}:00:00.000Z`),
     );
     const args = [ROOT, OPP_REPLY, ...chimeIns];
@@ -184,7 +184,7 @@ describe('buildPublicRoomSeatMap — chime-in claim order', () => {
     expect(map.openChimeInSeatCount).toBe(0);
   });
 
-  it('9-chime-in swarm: seats 3-6 hold the first 4, the rest overflow', () => {
+  it('7-chime-in swarm: seats 3-5 hold the first 3, the rest overflow', () => {
     const chimeIns = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'].map((u, i) =>
       chimeIn(`u-${u}`, `2026-05-20T0${2 + i}:00:00.000Z`),
     );
@@ -200,9 +200,9 @@ describe('buildPublicRoomSeatMap — chime-in claim order', () => {
     const seatedChimeIns = map.activeSeats
       .filter((s) => s.role === 'chime_in')
       .map((s) => s.userId);
-    expect(seatedChimeIns).toEqual(['u-c1', 'u-c2', 'u-c3', 'u-c4']);
+    expect(seatedChimeIns).toEqual(['u-c1', 'u-c2', 'u-c3']);
     const overflow = map.movedToObserver.filter((r) => r.reason === 'overflow');
-    expect(overflow.map((r) => r.userId)).toEqual(['u-c5', 'u-c6', 'u-c7']);
+    expect(overflow.map((r) => r.userId)).toEqual(['u-c4', 'u-c5', 'u-c6', 'u-c7']);
   });
 
   it('a non-qualifying first move (too short) never claims a seat', () => {
@@ -664,7 +664,7 @@ describe('buildPublicRoomMetricsViewModel', () => {
       nowMs: NOW,
     });
     const vm = buildPublicRoomMetricsViewModel(seatMap, []);
-    expect(vm.seatCountLabel).toBe('4 of 6 seats active');
+    expect(vm.seatCountLabel).toBe('4 of 5 seats active');
     expect(vm.chimeInCountLabel).toBe('2 people chiming in');
   });
 
@@ -837,8 +837,8 @@ describe('governanceReactionLabel + constants', () => {
     }
   });
 
-  it('PUBLIC_ROOM_SEAT_CAP is 6 and PRIMARY_SEAT_COUNT is 2', () => {
-    expect(PUBLIC_ROOM_SEAT_CAP).toBe(6);
+  it('PUBLIC_ROOM_SEAT_CAP is 5 and PRIMARY_SEAT_COUNT is 2', () => {
+    expect(PUBLIC_ROOM_SEAT_CAP).toBe(5);
     expect(PRIMARY_SEAT_COUNT).toBe(2);
   });
 });
