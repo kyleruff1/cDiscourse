@@ -104,48 +104,126 @@ export async function listDebates(userId: string): Promise<DebateApiResult<Debat
   return { ok: true, data: debates };
 }
 
+// ── ARG-ROOM-002 — server-authoritative room creation ─────────
+
+/** Column projection for a single `debates` row (shared by reads). */
+const DEBATE_ROW_COLUMNS =
+  'id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at';
+
+/**
+ * ARG-ROOM-002 — input to the server-authoritative create path. The chosen
+ * visibility plus an OPTIONAL single direct invite (max one per room). The
+ * binding matrix (private => invite, <= 1 invite, no self-invite) is enforced
+ * SERVER-SIDE by the `create-argument-room` Edge Function + its RPC; this is
+ * the advisory client shape (mirrors `argumentRoomCreationMatrix`).
+ */
+export interface CreateArgumentRoomInput {
+  title: string;
+  resolution: string;
+  description?: string;
+  visibility: RoomVisibility;
+  invite?: { email: string; intendedSeat?: 'respondent' | 'co_primary' };
+}
+
+/**
+ * The `create-argument-room` Edge Function response. `inviteLink` carries the
+ * raw token and is returned to the CREATOR exactly once at create time — never
+ * stored, never logged, never re-fetchable. Null when there is no invite.
+ */
+export interface CreateArgumentRoomResult {
+  debateId: string;
+  visibility: RoomVisibility;
+  inviteId: string | null;
+  inviteLink: string | null;
+}
+
+/**
+ * Create an argument room through the server-authoritative
+ * `create-argument-room` Edge Function. After ARG-ROOM-002's migration drops
+ * the client `debates` INSERT policy, this Edge path (its SECURITY DEFINER RPC)
+ * is the ONLY room creator — a direct client `debates` insert is refused by
+ * RLS. The function atomically inserts the room + the creator participant +
+ * (optionally) the one invite, enforcing private => invite and <= 1 invite.
+ * The client never holds a service-role key.
+ */
+export async function createArgumentRoom(
+  input: CreateArgumentRoomInput,
+): Promise<DebateApiResult<CreateArgumentRoomResult>> {
+  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+
+  const visibility: RoomVisibility = input.visibility === 'private' ? 'private' : 'public';
+  const body: Record<string, unknown> = {
+    title: input.title.trim(),
+    resolution: input.resolution.trim(),
+    description: (input.description ?? '').trim(),
+    visibility,
+  };
+  if (input.invite) {
+    body.invite = {
+      email: input.invite.email.trim(),
+      intendedSeat: input.invite.intendedSeat ?? 'respondent',
+    };
+  }
+
+  const { data, error } = await supabase.functions.invoke<CreateArgumentRoomResult>(
+    'create-argument-room',
+    { body },
+  );
+
+  if (error || !data) {
+    // Neutral, plain-language fallback — never echo a raw internal code
+    // (doctrine §9). The denial codes (`private_requires_invite`,
+    // `room_capacity_reached`) map through `gameCopy.toPlainLanguage` for the
+    // create surface that wants tailored copy.
+    return {
+      ok: false,
+      error: error?.message ?? 'Could not create the argument. Try again in a moment.',
+    };
+  }
+
+  return { ok: true, data };
+}
+
+/**
+ * Back-compatible creation wrapper. Keeps the `(input, userId)` signature the
+ * live surface (`useDebates().create` -> `StartArgumentPage`) already uses, but
+ * routes through the server-authoritative `createArgumentRoom` Edge path
+ * instead of the (now-removed) direct client `debates` insert + creator
+ * auto-join. The creator's identity is taken from the JWT inside the Edge
+ * Function, so the `userId` argument is retained ONLY for signature
+ * compatibility and is intentionally unused here.
+ */
 export async function createDebate(
   input: CreateDebateInput,
-  userId: string,
+  _userId: string,
 ): Promise<DebateApiResult<Debate>> {
   if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
 
-  const { data: constitutionRow, error: constError } = await supabase
-    .from('constitution_versions')
-    .select('id')
-    .eq('active', true)
-    .single();
+  const created = await createArgumentRoom({
+    title: input.title,
+    resolution: input.resolution,
+    description: input.description,
+    visibility: input.visibility === 'private' ? 'private' : 'public',
+  });
+  if (!created.ok) return { ok: false, error: created.error };
 
-  if (constError || !constitutionRow) {
-    return { ok: false, error: 'No active constitution found. Ask an admin to publish one.' };
-  }
-
-  // QOL-039 — visibility defaults to 'public' (today's behavior). Private-
-  // from-creation rooms set this explicitly on the input.
-  const visibility: RoomVisibility = input.visibility === 'private' ? 'private' : 'public';
-
+  // Load the created room to return the full `Debate` shape. The creator was
+  // auto-joined as `moderator` by the RPC, so myParticipantSide is 'moderator'.
+  // RLS lets the creator read their own room.
   const { data: debate, error: debateError } = await supabase
     .from('debates')
-    .insert({
-      created_by: userId,
-      title: input.title.trim(),
-      resolution: input.resolution.trim(),
-      description: input.description.trim(),
-      status: 'open',
-      constitution_id: (constitutionRow as { id: string }).id,
-      visibility,
-    })
-    .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at')
+    .select(DEBATE_ROW_COLUMNS)
+    .eq('id', created.data.debateId)
     .single();
 
   if (debateError || !debate) {
-    return { ok: false, error: debateError?.message ?? 'Failed to create argument.' };
+    return {
+      ok: false,
+      error:
+        debateError?.message ??
+        'The argument was created, but could not be loaded. Refresh to see it.',
+    };
   }
-
-  // Auto-join the creator as moderator (non-fatal if it fails).
-  await supabase
-    .from('debate_participants')
-    .insert({ debate_id: (debate as DebateRow).id, user_id: userId, side: 'moderator' });
 
   return { ok: true, data: mapDebateRow(debate as DebateRow, 'moderator') };
 }
