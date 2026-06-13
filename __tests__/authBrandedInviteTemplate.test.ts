@@ -128,3 +128,73 @@ describe('invite template wiring — supabase/config.toml', () => {
     expect(CONFIG).toMatch(/^subject = "You're invited to CDiscourse"/m);
   });
 });
+
+// ── Malformed-markup guards (AUTH-INVITE-TEMPLATE-GUARDS-2026-06-13) ──
+// These pin the mechanical integrity of the rendered HTML so a future edit that
+// corrupts a container attribute, an href, or a template variable is caught by
+// jest rather than only in a live email client.
+describe('branded invite template — malformed-markup guards', () => {
+  const OPEN_TAGS = TEMPLATE.match(/<[a-zA-Z][^>]*>/g) ?? [];
+
+  it('the main 600px container table is intact (clean border="0" + max-width, no corrupted attribute)', () => {
+    const containerLine = TEMPLATE.split('\n').find((l) => l.includes('class="cd-container"'));
+    expect(containerLine).toBeDefined();
+    // Each attribute is well-formed: name="value" with a closing quote.
+    expect(containerLine).toMatch(/border="0"/);
+    expect(containerLine).toMatch(/max-width:600px/);
+    // No corrupted border attribute, e.g. border="0th… (digit/quote then junk).
+    expect(containerLine).not.toMatch(/border="0[^"]/);
+  });
+
+  it('contains no unterminated/corrupted attribute quotes in any open tag', () => {
+    for (const tag of OPEN_TAGS) {
+      // Strip the leading "<name" and trailing ">"; every remaining double-quote
+      // must pair up (even count) so no attribute value is left unterminated.
+      const quoteCount = (tag.match(/"/g) ?? []).length;
+      expect(quoteCount % 2).toBe(0);
+    }
+  });
+
+  it('every href in the template is exactly the ConfirmationURL variable (no malformed or stray link target)', () => {
+    const hrefs = TEMPLATE.match(/href="[^"]*"/g) ?? [];
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(href).toBe('href="{{ .ConfirmationURL }}"');
+    }
+  });
+
+  it('every {{ … }} template variable is one of the allowed, correctly-spelled set', () => {
+    // Catches typos (e.g. {{ .ConfirmationUrl }}), unsupported variables
+    // ({{ .TokenHash }}, {{ .RedirectTo }}), and malformed brace/space forms.
+    const ALLOWED = new Set(['{{ .ConfirmationURL }}', '{{ .Email }}']);
+    const vars = TEMPLATE.match(/\{\{[^}]*\}\}/g) ?? [];
+    expect(vars.length).toBeGreaterThan(0);
+    for (const v of vars) {
+      expect(ALLOWED.has(v)).toBe(true);
+    }
+  });
+
+  it('every Supabase variable name uses the canonical {{ .X }} wrapper (catches single-brace/zero-space typos)', () => {
+    // After removing the canonical forms, the Supabase variable NAMES must not
+    // appear anywhere — a leftover `.ConfirmationURL` / `.Email` would mean a
+    // mis-wrapped form like `{ .ConfirmationURL }` or `{{.ConfirmationURL}}`.
+    // (This is name-scoped so legitimate CSS braces — e.g. `{ .cd-container` —
+    // never trip it.)
+    const stripped = TEMPLATE.replace(/\{\{ \.(?:ConfirmationURL|Email) \}\}/g, '');
+    expect(stripped).not.toMatch(/\.ConfirmationURL/);
+    expect(stripped).not.toMatch(/\.Email/);
+  });
+
+  it('the CTA anchor and the visible fallback link both resolve to ConfirmationURL', () => {
+    // CTA button anchor.
+    expect(TEMPLATE).toMatch(/<a[^>]+class="cd-cta"[^>]+href="\{\{ \.ConfirmationURL \}\}"/);
+    // Visible fallback: an anchor whose href AND text are the ConfirmationURL.
+    expect(TEMPLATE).toMatch(/<a href="\{\{ \.ConfirmationURL \}\}"[^>]*>\{\{ \.ConfirmationURL \}\}<\/a>/);
+  });
+
+  it('has balanced <table> open/close tags (no truncated container)', () => {
+    const opens = (TEMPLATE.match(/<table\b/g) ?? []).length;
+    const closes = (TEMPLATE.match(/<\/table>/g) ?? []).length;
+    expect(opens).toBe(closes);
+  });
+});
