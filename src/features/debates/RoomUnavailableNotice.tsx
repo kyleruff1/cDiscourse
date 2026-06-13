@@ -50,20 +50,17 @@ export function RoomUnavailableNotice({
             style={styles.dismissButton}
             onPress={onDismiss}
             accessibilityRole="button"
-            accessibilityLabel={DISMISS_LABEL}
+            accessibilityLabel={ROOM_ACCESS_COPY.unavailable_dismiss}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             testID="room-unavailable-dismiss"
           >
-            <Text style={styles.dismissText}>{DISMISS_LABEL}</Text>
+            <Text style={styles.dismissText}>{ROOM_ACCESS_COPY.unavailable_dismiss}</Text>
           </Pressable>
         </View>
       </View>
     </Modal>
   );
 }
-
-/** Neutral escape-hatch label — mirrors the InviteRedeemGate "go home" hatch. */
-const DISMISS_LABEL = 'Back to my arguments';
 
 const styles = StyleSheet.create({
   backdrop: {

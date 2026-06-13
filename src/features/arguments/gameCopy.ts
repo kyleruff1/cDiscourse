@@ -1721,6 +1721,8 @@ export const ROOM_ACCESS_COPY = Object.freeze({
   // private-no-access (no enumeration; never asserts the room is private).
   unavailable_title: 'This argument isn’t available',
   unavailable_body: 'This link may not work, or the argument may be limited to its members.',
+  // Neutral escape hatch — matches the InviteRedeemGate "go home" wording.
+  unavailable_dismiss: 'Go to my arguments',
 } as const);
 
 /** Plain-language labels for the visibility taxonomy. Toggled-radio chip. */

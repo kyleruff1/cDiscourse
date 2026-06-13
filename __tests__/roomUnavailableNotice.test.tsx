@@ -34,7 +34,7 @@ describe('RoomUnavailableNotice', () => {
     const { getByTestId } = render(<RoomUnavailableNotice visible onDismiss={onDismiss} />);
     const btn = getByTestId('room-unavailable-dismiss');
     expect(btn.props.accessibilityRole).toBe('button');
-    expect(String(btn.props.accessibilityLabel).length).toBeGreaterThan(0);
+    expect(btn.props.accessibilityLabel).toBe(ROOM_ACCESS_COPY.unavailable_dismiss);
     // 44×44 target via visual min-height + hitSlop.
     expect(btn.props.hitSlop).toEqual({ top: 12, bottom: 12, left: 12, right: 12 });
     fireEvent.press(btn);
