@@ -337,10 +337,16 @@ export function ArgumentSideActionRail({
 
   const handleActionPress = useCallback(
     (code: RailActionCode) => {
+      // ARG-ROOM-005 — a full room blocks the active-seat claim. Watch / Share /
+      // Reply are unaffected; the Join chips are also visually + a11y disabled.
+      // This guard makes the no-dispatch deterministic regardless of platform.
+      if ((code === 'join_aff' || code === 'join_neg') && canClaimActiveSeat === false) {
+        return;
+      }
       setHelperHint(null);
       onAction(code, { activeMessageId: activeMessageId ?? null, bubbleActor, viewerRole });
     },
-    [onAction, activeMessageId, bubbleActor, viewerRole],
+    [onAction, activeMessageId, bubbleActor, viewerRole, canClaimActiveSeat],
   );
 
   // ── collapsed render ──
@@ -450,12 +456,12 @@ export function ArgumentSideActionRail({
                       a.tone === 'critical' && styles.actionChipCritical,
                       isClaimBlocked && styles.actionChipDisabled,
                     ]}
-                    onPress={isClaimBlocked ? undefined : () => handleActionPress(a.code)}
-                    onLongPress={() => setHelperHint(isClaimBlocked ? (fullRoomNotice ?? a.helper) : a.helper)}
+                    onPress={() => handleActionPress(a.code)}
+                    onLongPress={() => setHelperHint(a.helper)}
                     disabled={isClaimBlocked}
                     accessibilityRole="button"
                     accessibilityLabel={a.label}
-                    accessibilityHint={isClaimBlocked ? (fullRoomNotice ?? a.helper) : a.helper}
+                    accessibilityHint={a.helper}
                     accessibilityState={{ expanded: true, disabled: isClaimBlocked }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     testID={`rail-action-${a.code}`}
