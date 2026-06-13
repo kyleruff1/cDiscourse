@@ -43,6 +43,11 @@ import {
   type GalleryTagInput,
   type GallerySectionDefinition,
 } from './conversationGalleryModel';
+// ARG-ROOM-006 — the access/feed/seat-state view-model. The gallery is a
+// non-differential surface (no active/reserved counts loaded), so the deriver
+// degrades public rooms to `public_open` and never enumerates reserved seats.
+import { deriveRoomAccessView } from './roomAccessModel';
+import { ROOM_VISIBILITY_COPY } from '../arguments/gameCopy';
 
 interface Props {
   debates: Debate[];
@@ -515,6 +520,31 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
   const headline = BUCKET_HEADLINE[card.bucket];
   const tempLabel = TEMPERAMENT_LABEL[card.temperament];
   const botKindLabel = getBotOrTestDebateLabel(card.title);
+  // ARG-ROOM-006 (items a/e/f) — access view from the card's visibility +
+  // status. The gallery loads no active/reserved counts, so counts are null:
+  // the deriver degrades public rooms to `public_open` (never enumerates a
+  // reserved seat it cannot see). `isMember` is the gallery's `hasUserJoined`.
+  const accessView = deriveRoomAccessView({
+    visibility: card.visibility === 'private' ? 'private' : 'public',
+    openStatus: card.openStatus,
+    isMember: card.hasUserJoined,
+    activeCount: null,
+    reservedCount: null,
+  });
+  // Private chrome (pill fill + a11y) is sourced from the access VIEW, not raw
+  // visibility: a private room the viewer is not a member of (private_no_access —
+  // the RLS-bypass defense seam, or a member whose join has not yet propagated)
+  // must show NO "Private" pill/label, matching its empty badge (no enumeration).
+  // Only a confirmed member (private_member) gets the private chrome.
+  const isPrivate = accessView.state === 'private_member';
+  // private_no_access has an EMPTY badge (badgeLabel === ''); give it a neutral
+  // (empty) a11y rather than the public helper, so it neither announces "private"
+  // (enumeration) nor falsely implies the room is public.
+  const visibilityA11y = isPrivate
+    ? ROOM_VISIBILITY_COPY.badge_private_a11y
+    : accessView.badgeLabel
+      ? ROOM_VISIBILITY_COPY.option_public_helper
+      : '';
   /*
    * GAME-008 — the gallery card has the title but no loaded per-author bot
    * hints, so it uses the design's documented no-query degraded fallback:
@@ -549,8 +579,8 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
     [card.debateId, card.title],
   );
   const accessibilityLabel = botKindLabel
-    ? `${headline} · ${card.title} · Test room (${botKindLabel})`
-    : `${headline} · ${card.title}`;
+    ? `${accessView.badgeLabel} · ${headline} · ${card.title} · Test room (${botKindLabel})`
+    : `${accessView.badgeLabel} · ${headline} · ${card.title}`;
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
@@ -562,6 +592,15 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
       <View style={styles.cardHeaderRow}>
         <View style={styles.cardHeadlineWrap}>
           <Text style={styles.cardHeadline}>{headline}</Text>
+        </View>
+        {/* ARG-ROOM-006 (item f) — public/private access badge. Text carries
+            the meaning (color is not the only signal). */}
+        <View
+          style={[styles.visibilityPill, isPrivate && styles.visibilityPillPrivate]}
+          accessibilityLabel={visibilityA11y}
+          testID={`gallery-card-visibility-${card.debateId}`}
+        >
+          <Text style={styles.visibilityPillText}>{accessView.badgeLabel}</Text>
         </View>
         {botKindLabel ? (
           <View style={styles.botPill} testID={`gallery-card-bot-${card.debateId}`}>
@@ -634,10 +673,14 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
         </View>
       ) : null}
 
+      {/* ARG-ROOM-006 (items e/f) — plain-language access/seat line. Observers
+          stay uncapped: a "full" public card still reads observe-friendly. */}
+      <Text style={styles.accessLine} testID={`gallery-card-access-${card.debateId}`}>
+        {accessView.accessLine}
+      </Text>
+
       <View style={styles.actionRow}>
-        <Text style={styles.actionText}>
-          {card.hasUserJoined ? 'Continue →' : card.openStatus === 'open' ? 'Observe →' : 'Open →'}
-        </Text>
+        <Text style={styles.actionText}>{accessView.actionLabel}</Text>
         {!card.hasUserJoined && card.openStatus === 'open' ? (
           <Text style={styles.actionTextSecondary}>Jump in from inside</Text>
         ) : null}
@@ -711,6 +754,11 @@ const styles = StyleSheet.create({
   tempPillText: { color: '#94a3b8', fontSize: 10, fontWeight: '700' as const },
   botPill: { backgroundColor: '#78350f', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   botPillText: { color: '#fef3c7', fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
+  // ARG-ROOM-006 — public/private access badge. Public + private use distinct
+  // fills AND distinct text, so meaning survives a grayscale snapshot.
+  visibilityPill: { backgroundColor: '#134e4a', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  visibilityPillPrivate: { backgroundColor: '#4c1d95' },
+  visibilityPillText: { color: '#e2e8f0', fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
 
   cardTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '700' as const, marginTop: 6 },
   starter: { color: '#64748b', fontSize: 11, marginTop: 2 },
@@ -732,6 +780,7 @@ const styles = StyleSheet.create({
   signalChipPositive: { backgroundColor: '#064e3b' },
   signalChipText: { color: '#f8fafc', fontSize: 9, fontWeight: '700' as const },
 
+  accessLine: { color: '#94a3b8', fontSize: 11, lineHeight: 16, marginTop: 8 },
   actionRow: { marginTop: 8, alignItems: 'flex-end' },
   actionText: { color: '#a5b4fc', fontWeight: '800' as const, fontSize: 12 },
   actionTextSecondary: { color: '#64748b', fontSize: 10, marginTop: 2 },
