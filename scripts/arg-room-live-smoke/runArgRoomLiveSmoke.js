@@ -50,6 +50,10 @@ const SMOKE_LABEL = '[ARG-ROOM-007 smoke 2026-06-13]';
 // are all required; the deployed schema is .strict()). Omitting this is the
 // ARG-ROOM-007A bug that 422'd every create. Person-neutral, structural copy.
 const SMOKE_RESOLUTION = 'ARG-ROOM-007 smoke — structural seat / visibility verification (test room).';
+// The harness simulates a web client. create-argument-room builds the create-time
+// inviteLink from the request Origin; without one the link (and thus the raw token
+// the accept-path checks need) is null. functions.invoke forwards this header.
+const SMOKE_ORIGIN = 'https://cdiscourse-smoke.local';
 
 /**
  * Self-contained dotenv reader. Deliberately NOT importing
@@ -134,9 +138,15 @@ async function signInClient(createClient, url, anon, account) {
   return client;
 }
 
-/** Invoke a deployed Edge, returning { status, body }. functions.invoke sets the caller's auth internally. */
-async function invokeEdge(client, name, body) {
-  const { data, error } = await client.functions.invoke(name, { body });
+/**
+ * Invoke a deployed Edge, returning { status, body }. functions.invoke sets the
+ * caller's auth internally. Optional `headers` lets a create call send an Origin
+ * so the Edge can build the create-time inviteLink (the raw token lives ONLY in
+ * that link; without an Origin the link is null and the accept path is untestable).
+ */
+async function invokeEdge(client, name, body, headers) {
+  const opts = headers ? { body, headers } : { body };
+  const { data, error } = await client.functions.invoke(name, opts);
   if (error && error.context && typeof error.context.status === 'number') {
     let parsed = null;
     try {
@@ -150,11 +160,19 @@ async function invokeEdge(client, name, body) {
   return { status: 200, body: data };
 }
 
-/** Extract the `?invite=<token>` token from a create-time inviteLink (creator-only surface). */
+/**
+ * Extract the raw token from a create-time inviteLink (creator-only surface).
+ * create-argument-room / manage-room-invite emit a PATH-style link
+ * `<origin>/invite/<rawToken>`; the 004 auth-bridge uses a QUERY form
+ * `?invite=<rawToken>`. Handle both (path first, query fallback).
+ */
 function tokenFromInviteLink(inviteLink) {
   if (typeof inviteLink !== 'string') return null;
   try {
-    return new URL(inviteLink).searchParams.get('invite');
+    const u = new URL(inviteLink);
+    const pathMatch = u.pathname.match(/\/invite\/([A-Za-z0-9_-]+)\/?$/);
+    if (pathMatch) return pathMatch[1];
+    return u.searchParams.get('invite');
   } catch {
     return null;
   }
@@ -305,7 +323,7 @@ async function runLive(plan, env, args) {
           title: `${SMOKE_LABEL} accept-flow`,
           resolution: SMOKE_RESOLUTION,
           invite: { email: invitee.email },
-        });
+        }, { Origin: SMOKE_ORIGIN });
         const tok = tokenFromInviteLink(created.body && created.body.inviteLink);
         if (tok) ownTokens.push(tok);
         let acceptStatus = 0;
@@ -326,7 +344,7 @@ async function runLive(plan, env, args) {
           title: `${SMOKE_LABEL} wrong-user`,
           resolution: SMOKE_RESOLUTION,
           invite: { email: invitee.email },
-        });
+        }, { Origin: SMOKE_ORIGIN });
         const tok = tokenFromInviteLink(created.body && created.body.inviteLink);
         if (tok) ownTokens.push(tok);
         let st = 0;
@@ -356,7 +374,7 @@ async function runLive(plan, env, args) {
           title: `${SMOKE_LABEL} no-leak`,
           resolution: SMOKE_RESOLUTION,
           invite: { email: invitee.email },
-        });
+        }, { Origin: SMOKE_ORIGIN });
         const tok = tokenFromInviteLink(created.body && created.body.inviteLink);
         if (tok) ownTokens.push(tok);
         const debateId = created.body && created.body.debateId;

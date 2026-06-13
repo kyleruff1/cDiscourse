@@ -489,7 +489,12 @@ describe('runner — source guards', () => {
     expect(runner.SMOKE_LABEL).toContain('ARG-ROOM-007');
   });
 
-  it('tokenFromInviteLink extracts only the ?invite= token', () => {
+  it('tokenFromInviteLink extracts the token from BOTH the path and query forms', () => {
+    // The deployed create-argument-room / manage-room-invite emit a PATH-style
+    // link `<origin>/invite/<token>` — the format the harness actually receives.
+    expect(runner.tokenFromInviteLink('https://cdiscourse-smoke.local/invite/ABC123def_token-45')).toBe('ABC123def_token-45');
+    expect(runner.tokenFromInviteLink('https://x.app/invite/tok99/')).toBe('tok99');
+    // The 004 auth-bridge query form is still supported as a fallback.
     expect(runner.tokenFromInviteLink('https://x.supabase.co/auth/callback?invite=abc123')).toBe('abc123');
     expect(runner.tokenFromInviteLink('not a url')).toBeNull();
     expect(runner.tokenFromInviteLink(null)).toBeNull();
