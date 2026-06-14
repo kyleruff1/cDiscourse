@@ -8,7 +8,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { consumeAuthCallback } from '../src/features/auth/consumeAuthCallback';
+import { consumeAuthCallback, DEFAULT_CONSUME_TIMEOUT_MS } from '../src/features/auth/consumeAuthCallback';
 import type { AuthCallbackClient } from '../src/features/auth/consumeAuthCallback';
 import type { AuthCallbackParsed } from '../src/lib/auth/parseAuthCallbackUrl';
 
@@ -23,6 +23,11 @@ function makeClient(overrides: Partial<AuthCallbackClient> = {}): jest.Mocked<Au
     exchangeCodeForSession: jest.fn().mockResolvedValue({ data: { session: {} }, error: null }),
     ...overrides,
   } as jest.Mocked<AuthCallbackClient>;
+}
+
+/** A promise that never settles — simulates a hung GoTrue fetch (no timeout in the SDK). */
+function hung(): Promise<{ data: { session: unknown | null }; error: { message: string } | null }> {
+  return new Promise(() => {});
 }
 
 const tokens = (type: string | null): AuthCallbackParsed => ({
@@ -131,6 +136,37 @@ describe('consumeAuthCallback — setSession / exchange error mapping', () => {
     const client = makeClient({ exchangeCodeForSession: jest.fn().mockRejectedValue(new Error('boom')) });
     const out = await consumeAuthCallback({ client, parsed: code('invite') });
     expect(out).toEqual({ status: 'error', reason: 'network' });
+  });
+});
+
+describe('consumeAuthCallback — timeout guard (AUTH-CALLBACK-TIMEOUT-001)', () => {
+  it('tokens: a hung setSession resolves to error:network within timeoutMs (no infinite hang)', async () => {
+    const client = makeClient({ setSession: jest.fn().mockReturnValue(hung()) });
+    const out = await consumeAuthCallback({ client, parsed: tokens('invite'), timeoutMs: 20 });
+    expect(out).toEqual({ status: 'error', reason: 'network' });
+  });
+
+  it('code: a hung exchangeCodeForSession resolves to error:network within timeoutMs', async () => {
+    const client = makeClient({ exchangeCodeForSession: jest.fn().mockReturnValue(hung()) });
+    const out = await consumeAuthCallback({ client, parsed: code('invite'), timeoutMs: 20 });
+    expect(out).toEqual({ status: 'error', reason: 'network' });
+  });
+
+  it('empty: a hung getSession resolves to error:network within timeoutMs', async () => {
+    const client = makeClient({ getSession: jest.fn().mockReturnValue(hung()) });
+    const out = await consumeAuthCallback({ client, parsed: { kind: 'empty' }, timeoutMs: 20 });
+    expect(out).toEqual({ status: 'error', reason: 'network' });
+  });
+
+  it('a fast client still resolves normally well before the timeout (no false timeout)', async () => {
+    const out = await consumeAuthCallback({ client: makeClient(), parsed: tokens('invite'), timeoutMs: 5000 });
+    expect(out).toEqual({ status: 'needs_password' });
+  });
+
+  it('exports a bounded default timeout', () => {
+    expect(typeof DEFAULT_CONSUME_TIMEOUT_MS).toBe('number');
+    expect(DEFAULT_CONSUME_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(DEFAULT_CONSUME_TIMEOUT_MS).toBeLessThanOrEqual(30_000);
   });
 });
 
