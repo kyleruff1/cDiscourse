@@ -66,6 +66,16 @@ export function AuthScreen() {
         <ErrorNotice message="Supabase is not configured. Copy .env.example to .env and fill in EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY." />
       )}
 
+      {/* UX-COPY-001 — first-run value proposition. Explains the pseudo-mediator
+          premise before sign-up: structure the argument, never rule on it. */}
+      <View style={styles.valueProp} testID="auth-value-prop">
+        <Text style={styles.valuePropLead}>Work through hard disagreements, one point at a time.</Text>
+        <Text style={styles.valuePropBody}>
+          Respond to a specific point, follow the evidence, and see what stays unresolved. The app keeps
+          the argument structured and anchored to the point — it does not take sides or hand down a ruling.
+        </Text>
+      </View>
+
       <TextInputField
         label="Email"
         value={email}
@@ -116,4 +126,7 @@ const styles = StyleSheet.create({
   confirmTitle: { fontSize: 20, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, marginBottom: 12 },
   confirmBody: { fontSize: 15, color: SURFACE_TOKENS.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 24 },
   emailHighlight: { color: CONTROL.primary.bg, fontWeight: '600' },
+  valueProp: { paddingBottom: 16, gap: 6 },
+  valuePropLead: { fontSize: 16, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, lineHeight: 22 },
+  valuePropBody: { fontSize: 14, color: SURFACE_TOKENS.textSecondary, lineHeight: 20 },
 });
