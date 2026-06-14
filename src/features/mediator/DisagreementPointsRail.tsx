@@ -54,6 +54,7 @@ import {
   DISAGREEMENT_POINTS_RAIL_INITIAL_ROWS,
   evidenceRequestCountLabel,
 } from './mediatorRailCopy';
+import { getEvidenceDebtForPoint, type PointEvidenceDisplay } from './evidenceDebtDisplay';
 
 const SHEET_SLIDE_TRAVEL = 48;
 
@@ -297,6 +298,7 @@ export function DisagreementPointsRail({
               point={point}
               isActive={activeNodeId != null && point.memberNodeIds.includes(activeNodeId)}
               nextStepLabel={nextStepLabelFor(point.id)}
+              evidence={getEvidenceDebtForPoint(board, point.id)}
               onJump={onJump}
             />
           ))}
@@ -338,6 +340,8 @@ interface DisagreementPointRowProps {
   point: DisagreementPoint;
   isActive: boolean;
   nextStepLabel: string;
+  /** UX-MEDIATOR-003 — compact evidence display for the point, or null. */
+  evidence?: PointEvidenceDisplay | null;
   onJump?: (nodeId: string) => void;
 }
 
@@ -345,6 +349,7 @@ function DisagreementPointRow({
   point,
   isActive,
   nextStepLabel,
+  evidence,
   onJump,
 }: DisagreementPointRowProps): React.ReactElement {
   const stateLabel = displaySafe(point.plainLabel);
@@ -392,6 +397,18 @@ function DisagreementPointRow({
         {evidenceLine.length > 0 ? (
           <Text style={styles.evidenceLine} numberOfLines={1} testID={`disagreement-points-rail-evidence-${point.id}`}>
             {evidenceLine}
+          </Text>
+        ) : null}
+
+        {/* UX-MEDIATOR-003 — what evidence would help (structural; never a proof demand). */}
+        {evidence && evidence.kindsLine.length > 0 ? (
+          <Text style={styles.evidenceLine} numberOfLines={2} testID={`disagreement-points-rail-evidence-help-${point.id}`}>
+            {`${DISAGREEMENT_POINTS_RAIL_COPY.evidenceHelp}: ${evidence.kindsLine}`}
+          </Text>
+        ) : null}
+        {evidence?.isBlocked ? (
+          <Text style={styles.blockedPathLine} numberOfLines={1} testID={`disagreement-points-rail-blocked-${point.id}`}>
+            {DISAGREEMENT_POINTS_RAIL_COPY.blockedEvidencePath}
           </Text>
         ) : null}
 
@@ -547,6 +564,14 @@ const styles = StyleSheet.create({
   evidenceLine: {
     color: SURFACE_TOKENS.textMuted,
     fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+  },
+  // UX-MEDIATOR-003 — blocked evidence path: attention tone via the focus-ring
+  // color + weight (not color alone — the explicit "Blocked evidence path"
+  // word carries the meaning).
+  blockedPathLine: {
+    color: SURFACE_TOKENS.focusRing,
+    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontWeight: '700',
   },
   jumpHint: {
     color: SURFACE_TOKENS.focusRing,
