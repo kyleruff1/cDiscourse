@@ -91,6 +91,8 @@ import {
 // members)) and rebuilds whenever the target / actor / upstream inputs
 // change.
 import { buildPointLifecycleMap } from '../lifecycle';
+import { DisagreementPointsRail } from '../mediator/DisagreementPointsRail';
+import { deriveRoomMediatorBoardState } from '../mediator/roomMediatorAdapter';
 import { buildMoveMetadataLedger, getManualTagPlainLabel } from '../metadata';
 // META-1E — Cards-detail metadata diff inspector. Imported directly by path
 // (the `../metadata` barrel stays React-free). Mounts as a sibling overlay
@@ -475,6 +477,10 @@ export function ArgumentGameSurface({
   // so the surface is byte-identical when neither rail is expanded.
   const [openIssuesRailExpanded, setOpenIssuesRailExpanded] = useState(false);
   const [sideRailExpanded, setSideRailExpanded] = useState(false);
+  // UX-MEDIATOR-005 — Disagreement Points rail expanded state. Third member of
+  // the single-owner bottom-rail mutual-exclusion group; defaults false so the
+  // surface is byte-identical when the rail is collapsed.
+  const [disagreementPointsRailExpanded, setDisagreementPointsRailExpanded] = useState(false);
   // UX-001.2 — microMoment dismissed on first meaningful Timeline interaction.
   // The banner is transient: it shows on deep-link entry (driven by
   // `entryHint.verbPhrase`) and disappears the moment the user activates a
@@ -665,6 +671,23 @@ export function ArgumentGameSurface({
       artifactsByMessageId: artifactsByMessageIdMap,
     }),
     [timelineMap, artifactsByMessageIdMap],
+  );
+
+  // UX-MEDIATOR-005 — Read-only mediator board for the Disagreement Points
+  // rail. A pure projection over the data already built in-room (timeline map,
+  // LIFE-001 lifecycle map, EV-003 evidence debts, persisted A–I observations).
+  // No new fetch, no mutation, never a submission gate. The adapter delegates to
+  // the merged deriveMediatorBoardState (UX-MEDIATOR-001) — no duplicated logic.
+  const mediatorBoard = useMemo(
+    () => deriveRoomMediatorBoardState({
+      debateId: debate.id,
+      timelineMap,
+      lifecycle: lifecycleMap,
+      evidenceDebts,
+      persistedObservationsByArgumentId: persistedObservationsByArgumentId ?? null,
+      activeNodeId: activeMessageId,
+    }),
+    [debate.id, timelineMap, lifecycleMap, evidenceDebts, persistedObservationsByArgumentId, activeMessageId],
   );
 
   // META-1A — Convert persisted point_tags rows into the META-001
@@ -2222,11 +2245,33 @@ export function ArgumentGameSurface({
         windowWidth={windowWidth}
         windowHeight={windowHeight}
         reduceMotionOverride={reduceMotionOverride}
-        isAnyPanelOpen={Boolean(selectedDockTarget) || sideRailExpanded}
+        isAnyPanelOpen={Boolean(selectedDockTarget) || sideRailExpanded || disagreementPointsRailExpanded}
         onExpandedChange={handleOpenIssuesRailExpandedChange}
         onJump={handleOpenIssueFocus}
         onInspect={handleOpenIssueInspect}
         onMove={handleOpenIssueMove}
+      />
+
+      {/* UX-MEDIATOR-005 — Disagreement Points rail. Read-only, collapsed-by-
+          default bottom chrome that lists the room's live disagreement points
+          (one structural state badge each) with a one-line "what would help
+          next?" + a "View in timeline" jump. Joins the single-owner
+          mutual-exclusion group with the Open Issues + side action rails. Pure
+          projection over MediatorBoardState (UX-MEDIATOR-001) — read-only, never
+          a submission gate; the only verb is a navigation jump. */}
+      <DisagreementPointsRail
+        board={mediatorBoard}
+        viewerRole={resolvedViewerRole}
+        activeNodeId={activeMessageId}
+        windowWidth={windowWidth}
+        windowHeight={windowHeight}
+        reduceMotionOverride={reduceMotionOverride}
+        isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded || sideRailExpanded}
+        onExpandedChange={setDisagreementPointsRailExpanded}
+        onJump={(nodeId) => {
+          setActiveMessageId(nodeId);
+          setSelectionStatus('explicit');
+        }}
       />
 
       {/* ARG-ROOM-005 — read-only public seat-availability strip. Open-slot
@@ -2259,7 +2304,7 @@ export function ArgumentGameSurface({
         // REF-006-RAIL — also force-collapse when the Open Issues rail is
         // expanded (two bottom rails never both expand). `openIssuesRailExpanded`
         // defaults false → byte-identical when the rail is collapsed.
-        isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded}
+        isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded || disagreementPointsRailExpanded}
         onExpandedChange={handleRailExpandedChange}
         startArgumentAction={startArgumentAction}
         // ARG-ROOM-005 — when the room is full the Join For / Join Against
