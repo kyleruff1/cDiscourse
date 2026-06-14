@@ -1,17 +1,20 @@
 /**
- * QOL-040 — email scaffold behaviour matrix tests for
- * `maybeSendInviteEmail` in supabase/functions/room-notifications/index.ts.
+ * QOL-040 / EMAIL-TRANSPORT-001 — email scaffold behaviour matrix tests for the
+ * existing-user invite send in supabase/functions/room-notifications/index.ts.
  *
- * The function file uses Deno-only imports and cannot be loaded
- * by Jest. We assert the four matrix cases by source-scanning
- * the helper's control-flow shape — the same pattern the
- * roomNotifications.edge.test.ts file uses.
+ * The function file uses Deno-only imports and cannot be loaded by Jest. We
+ * assert the matrix by source-scanning the control-flow shape — the same
+ * pattern the roomNotifications.edge.test.ts file uses.
  *
- * Matrix:
- *   1. INVITE_EMAIL_ENABLED unset or !== 'true' → 'not_configured', NO network call
- *   2. INVITE_EMAIL_ENABLED='true' + (RESEND_API_KEY missing OR INVITE_EMAIL_FROM missing) → 'not_configured', NO network call
- *   3. INVITE_EMAIL_ENABLED='true' + Resend 2xx → 'sent'
- *   4. INVITE_EMAIL_ENABLED='true' + Resend non-2xx OR exception → 'queued'
+ * EMAIL-TRANSPORT-001 re-point: the inline Resend fetch was lifted into the
+ * shared `_shared/email/` module. The fetch-shape matrix (gate -> key/from ->
+ * 2xx/non-2xx/exception) now lives in `resendProviderRequest.test.ts` +
+ * `emailMasterGate.test.ts` (which exercise the real modules, not a scan).
+ * `maybeSendInviteEmail` is now a thin BEHAVIOR-PRESERVING wrapper:
+ *   1. per-feature + master gate (isInviteEmailEnabled) -> not_configured, no send
+ *   2. renders via renderArgumentRoomInviteEmail
+ *   3. dispatches through the single sendTransactionalEmail seam
+ *   4. maps the audit-safe status back to the QOL-038 union (sent | not_configured | queued)
  */
 import fs from 'fs';
 import path from 'path';
@@ -38,134 +41,80 @@ function helperBody(src: string): string {
 
 const HELPER = helperBody(SRC);
 
-describe('maybeSendInviteEmail — matrix case 1: feature flag off → not_configured, no network call', () => {
-  it('reads INVITE_EMAIL_ENABLED first', () => {
-    // The very first env read must be the feature flag.
-    const envReadMatches = HELPER.match(/Deno\.env\.get\('([^']+)'\)/g) || [];
-    expect(envReadMatches.length).toBeGreaterThan(0);
-    expect(envReadMatches[0]).toBe("Deno.env.get('INVITE_EMAIL_ENABLED')");
+describe('maybeSendInviteEmail — gate: per-feature + master gate off → not_configured, no send', () => {
+  it('returns not_configured early when the product-lane gate is not armed', () => {
+    // isInviteEmailEnabled composes CDISCOURSE_EMAIL_TRANSPORT_ENABLED &&
+    // INVITE_EMAIL_ENABLED. The guard returns not_configured BEFORE any render
+    // or dispatch.
+    expect(HELPER).toMatch(/if \(!isInviteEmailEnabled\(\)\) return 'not_configured';/);
+    const gateIdx = HELPER.search(/isInviteEmailEnabled\(\)/);
+    const dispatchIdx = HELPER.indexOf('sendTransactionalEmail(');
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(gateIdx).toBeLessThan(dispatchIdx);
   });
 
-  it('returns not_configured early when the flag is not the literal "true"', () => {
-    expect(HELPER).toMatch(/enabled !== 'true'/);
-    // The early return MUST come before the API key + from
-    // reads, and before any fetch call.
-    const enabledCheckIdx = HELPER.search(/enabled !== 'true'/);
-    const fetchIdx = HELPER.indexOf('fetch(');
-    expect(enabledCheckIdx).toBeLessThan(fetchIdx);
-  });
-});
-
-describe('maybeSendInviteEmail — matrix case 2: flag on but key/from missing → not_configured, no network call', () => {
-  it('checks RESEND_API_KEY and INVITE_EMAIL_FROM after the feature flag', () => {
-    expect(HELPER).toContain("Deno.env.get('RESEND_API_KEY')");
-    expect(HELPER).toContain("Deno.env.get('INVITE_EMAIL_FROM')");
-  });
-
-  it('returns not_configured when either is missing, BEFORE the fetch call', () => {
-    expect(HELPER).toMatch(/if \(!apiKey \|\| !from\)/);
-    const missingConfigIdx = HELPER.search(/if \(!apiKey \|\| !from\)/);
-    const fetchIdx = HELPER.indexOf('fetch(');
-    expect(missingConfigIdx).toBeGreaterThan(-1);
-    expect(missingConfigIdx).toBeLessThan(fetchIdx);
-  });
-
-  it('logs a structured "missing configuration" entry on this path (no key value in the log)', () => {
-    expect(HELPER).toContain('invite_email_missing_configuration');
-    // The log payload must declare booleans for the presence of
-    // api key / from, NOT the values themselves.
-    const logBlock = HELPER.slice(
-      HELPER.indexOf('invite_email_missing_configuration'),
-      HELPER.indexOf('invite_email_missing_configuration') + 400,
-    );
-    expect(logBlock).toMatch(/hasApiKey: Boolean\(apiKey\)/);
-    expect(logBlock).toMatch(/hasFrom: Boolean\(from\)/);
+  it('returns not_configured for an empty recipient before any dispatch', () => {
+    expect(HELPER).toMatch(/if \(!recipient\) return 'not_configured';/);
+    const recipIdx = HELPER.search(/if \(!recipient\)/);
+    const dispatchIdx = HELPER.indexOf('sendTransactionalEmail(');
+    expect(recipIdx).toBeGreaterThan(-1);
+    expect(recipIdx).toBeLessThan(dispatchIdx);
   });
 });
 
-describe('maybeSendInviteEmail — matrix case 3: 2xx → sent', () => {
-  it('POSTs to Resend with the Authorization header built in-place', () => {
-    expect(HELPER).toContain('https://api.resend.com/emails');
-    expect(HELPER).toContain('Bearer ${apiKey}');
+describe('maybeSendInviteEmail — delegates to the shared transactional seam', () => {
+  it('renders the invite via the shared renderArgumentRoomInviteEmail', () => {
+    expect(HELPER).toContain('renderArgumentRoomInviteEmail(');
+    // The visibility is mapped from roomIsPrivate (no enumeration of seat etc).
+    expect(HELPER).toMatch(/roomVisibility: input\.roomIsPrivate \? 'private' : 'public'/);
   });
 
-  it("returns 'sent' on res.ok", () => {
-    // After `if (!res.ok) { … return 'queued' }` the function
-    // returns 'sent'.
-    expect(HELPER).toMatch(/return 'sent';/);
+  it('dispatches through sendTransactionalEmail (the single seam), not an inline fetch', () => {
+    expect(HELPER).toContain('sendTransactionalEmail(');
+    // The inline Resend fetch + Bearer header must be GONE from this file.
+    expect(HELPER).not.toContain('api.resend.com');
+    expect(HELPER).not.toContain('Bearer ${apiKey}');
+    expect(SRC).not.toContain('api.resend.com');
   });
 });
 
-describe('maybeSendInviteEmail — matrix case 4: non-2xx → queued', () => {
-  it("returns 'queued' on res.ok === false", () => {
-    expect(HELPER).toMatch(/if \(!res\.ok\)/);
-    const failIdx = HELPER.search(/if \(!res\.ok\)/);
-    const queuedAfterFail = HELPER.indexOf("return 'queued'", failIdx);
-    expect(queuedAfterFail).toBeGreaterThan(failIdx);
+describe('maybeSendInviteEmail — maps the audit-safe result to the QOL-038 union', () => {
+  it("maps 'sent' -> 'sent'", () => {
+    expect(HELPER).toMatch(/case 'sent':\s*\n\s*return 'sent';/);
   });
 
-  it('drains the response body without echoing it', () => {
-    expect(HELPER).toContain('await res.text()');
+  it("maps 'skipped_gate_off' and 'not_configured' -> 'not_configured'", () => {
+    expect(HELPER).toContain("case 'skipped_gate_off':");
+    expect(HELPER).toContain("case 'not_configured':");
+    // both fall through to the same return.
+    const block = HELPER.slice(HELPER.indexOf("case 'skipped_gate_off':"));
+    expect(block).toMatch(/case 'skipped_gate_off':\s*\n\s*case 'not_configured':\s*\n\s*return 'not_configured';/);
   });
 
-  it("returns 'queued' on fetch exception (catch branch)", () => {
-    // Catch branch must return 'queued' (not 'sent', not throw).
-    const catchIdx = HELPER.indexOf('catch (err)');
-    expect(catchIdx).toBeGreaterThan(-1);
-    const catchBlock = HELPER.slice(catchIdx, catchIdx + 400);
-    expect(catchBlock).toContain("return 'queued'");
+  it("maps 'failed_sanitized' and 'blocked_banned_copy' -> 'queued'", () => {
+    expect(HELPER).toContain("case 'failed_sanitized':");
+    expect(HELPER).toContain("case 'blocked_banned_copy':");
+    // The failure tail returns 'queued'.
+    const failIdx = HELPER.indexOf("case 'failed_sanitized':");
+    const queuedIdx = HELPER.indexOf("return 'queued';", failIdx);
+    expect(queuedIdx).toBeGreaterThan(failIdx);
   });
 
-  it('logs a structured "send failed" entry without echoing the body or the api key', () => {
+  it('logs a structured failure entry without echoing the key/body/recipient', () => {
     expect(HELPER).toContain('invite_email_send_failed');
-    expect(HELPER).toContain('invite_email_send_exception');
-    // The two structured log entries must not reference the API
-    // key, the recipient email, or the response body.
-    for (const tag of ['invite_email_send_failed', 'invite_email_send_exception']) {
-      const start = HELPER.indexOf(tag);
-      const block = HELPER.slice(start, start + 400);
-      expect(block).not.toMatch(/apiKey/);
-      expect(block).not.toMatch(/recipient/);
-      // The body itself must not be interpolated.
-      expect(block).not.toMatch(/await res\.text\(\)/);
-    }
+    const start = HELPER.indexOf('invite_email_send_failed');
+    const block = HELPER.slice(start, start + 400);
+    expect(block).not.toMatch(/apiKey/);
+    expect(block).not.toMatch(/recipient/);
+    expect(block).not.toMatch(/res\.text\(\)/);
   });
 });
 
-describe('maybeSendInviteEmail — copy', () => {
-  it('the email subject is neutral CDiscourse framing (no challenge / game)', () => {
-    expect(HELPER).toContain("'You were invited to respond to an argument.'");
-    // Subject must not contain banned framing.
-    const subjectLine = HELPER.split('\n').find((l) => l.includes("'You were invited"));
-    expect(subjectLine).toBeDefined();
-    const lower = (subjectLine || '').toLowerCase();
-    expect(lower).not.toMatch(/challenge/);
-    expect(lower).not.toMatch(/game/);
-    expect(lower).not.toMatch(/debate/);
-  });
-
-  it('uses QOL-035 terminology — "argument" not "debate" in user-facing copy', () => {
-    // The subject and bodyText assembly must use "argument".
-    // The variable name `roomTitle` is engineering — fine. The
-    // user-visible strings ('Room:', the subject) must use
-    // "argument".
-    const subjectMatch = HELPER.match(/'You were invited[^']*'/);
-    expect(subjectMatch).toBeDefined();
-    expect((subjectMatch || [''])[0].toLowerCase()).toContain('argument');
-  });
-});
-
-describe('maybeSendInviteEmail — InviteEmailStatus union shape', () => {
+describe('maybeSendInviteEmail — InviteEmailStatus union shape (unchanged)', () => {
   it('matches QOL-038 contract: sent | not_configured | queued', () => {
-    // The union literal must be exactly these three values, in
-    // any order. We assert by checking each value present and
-    // none beyond the three.
+    // The union literal must be exactly these three values. The refactor
+    // preserves the caller-facing union; the new audit-safe statuses live in
+    // the shared module's EmailSendStatus, not here.
     expect(SRC).toMatch(/type InviteEmailStatus = 'sent' \| 'not_configured' \| 'queued'/);
-    // The exhaustive check: no additional 'failed_sanitized' or
-    // 'error' value — those are values used by
-    // request-argument-deletion's helper but they were
-    // deliberately NOT inherited (the QOL-038 contract is
-    // sent | not_configured | queued).
-    expect(SRC).not.toContain("'failed_sanitized'");
   });
 });
