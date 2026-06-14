@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { makeTimeoutFetch } from './timeoutFetch';
 
 /**
  * Runtime-env shim shape written by the Cloud Run entrypoint (HOST-001).
@@ -75,5 +76,12 @@ export const supabase = createClient(
       persistSession: true,
       detectSessionInUrl: false,
     },
+    // AUTH-FETCH-TIMEOUT-001 — wrap the platform fetch so a stalled GoTrue /
+    // PostgREST / Storage request aborts instead of hanging forever (auth-js's
+    // fetch has no timeout). Defense-in-depth beneath AUTH-CALLBACK-TIMEOUT-001's
+    // consume-layer guard. Guarded for environments without a global fetch.
+    ...(typeof fetch !== 'undefined'
+      ? { global: { fetch: makeTimeoutFetch(fetch) } }
+      : {}),
   },
 );
