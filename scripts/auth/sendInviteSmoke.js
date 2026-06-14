@@ -272,6 +272,55 @@ function buildRedactedPlan(plan, env) {
       adminEmail: fingerprint(env.CDISCOURSE_ADMIN_EMAIL),
       adminPassword: fingerprint(env.CDISCOURSE_ADMIN_PASSWORD),
     },
+    // EMAIL-TRANSPORT-001 — the Lane-B (product email) posture, surfaced in the
+    // dry plan so the operator can confirm the master gate is OFF before any
+    // hosted change. No secret value is read — only presence + the gate state.
+    productEmail: describeProductEmailPosture(env),
+  };
+}
+
+// ── EMAIL-TRANSPORT-001 — Lane-B product-email dry posture ──
+//
+// Pure description of the product-email transport gate posture from env. NO
+// network, NO send capability — this only reports what `sendTransactionalEmail`
+// WOULD do given the current gates, so the operator sees the inert default
+// before arming anything. The provider key VALUE is never read (presence only).
+
+/**
+ * Predict the product-email transport outcome from the gate env, mirroring the
+ * Edge orchestrator's gate ladder (master gate -> provider key + FROM ->
+ * recipient). Returns the neutral status only — never a recipient, body, or
+ * key. Pure: env is passed in.
+ *
+ *   - 'skipped_gate_off'  — CDISCOURSE_EMAIL_TRANSPORT_ENABLED !== 'true' (default).
+ *   - 'not_configured'    — master ON but RESEND_API_KEY or CDISCOURSE_EMAIL_FROM missing.
+ *   - 'ready'             — master ON + key + FROM present (would attempt a send).
+ */
+function predictProductEmailStatus(env) {
+  const master = (env.CDISCOURSE_EMAIL_TRANSPORT_ENABLED || '').trim().toLowerCase() === 'true';
+  if (!master) return 'skipped_gate_off';
+  const hasKey = Boolean((env.RESEND_API_KEY || '').trim());
+  const hasFrom = Boolean((env.CDISCOURSE_EMAIL_FROM || '').trim());
+  if (!hasKey || !hasFrom) return 'not_configured';
+  return 'ready';
+}
+
+/**
+ * A redacted, no-secret description of the product-email posture for the dry
+ * plan. Presence-only fingerprints for the key + sender identity; the
+ * per-feature + smoke-arming flags as booleans; the predicted status.
+ */
+function describeProductEmailPosture(env) {
+  return {
+    masterGateEnabled: (env.CDISCOURSE_EMAIL_TRANSPORT_ENABLED || '').trim().toLowerCase() === 'true',
+    inviteEmailEnabled: (env.INVITE_EMAIL_ENABLED || '').trim().toLowerCase() === 'true',
+    smokeArmed: env.CDISCOURSE_ALLOW_EMAIL_TRANSPORT_SMOKE === '1',
+    batchArmed: env.CDISCOURSE_ALLOW_EMAIL_TRANSPORT_BATCH === '1',
+    provider: (env.CDISCOURSE_EMAIL_PROVIDER || 'resend').trim().toLowerCase(),
+    resendKey: fingerprint(env.RESEND_API_KEY),
+    senderFrom: fingerprint(env.CDISCOURSE_EMAIL_FROM),
+    replyTo: fingerprint(env.CDISCOURSE_EMAIL_REPLY_TO),
+    predictedStatus: predictProductEmailStatus(env),
   };
 }
 
@@ -289,6 +338,8 @@ module.exports = {
   parseArgs,
   resolvePlan,
   buildRedactedPlan,
+  predictProductEmailStatus,
+  describeProductEmailPosture,
 };
 
 // ── CLI entry (network only on the live path; nothing runs on require) ──
