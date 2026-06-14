@@ -67,9 +67,11 @@ import {
 
 const COPY = {
   screenTitle: 'Start an argument',
-  declarationLabel: 'Declaration',
-  declarationHelper: 'State the claim, question, or position you want to examine.',
-  declarationPlaceholder: 'What do you want to put forward?',
+  declarationLabel: 'Your point',
+  // UX-SIMPLIFY-001 — a clear, question-framed first-point prompt. People
+  // respond to a specific point, so name the point/claim others will answer.
+  declarationHelper: 'State the point or claim others will respond to. People respond to specific points.',
+  declarationPlaceholder: 'What point are you starting with?',
   surfaceSectionLabel: 'Open into',
   surfaceSectionHelper: 'Choose the view you land in. It is the same argument either way.',
   surfaceTimelineLabel: 'Timeline',
