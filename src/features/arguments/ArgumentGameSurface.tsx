@@ -93,6 +93,8 @@ import {
 import { buildPointLifecycleMap } from '../lifecycle';
 import { DisagreementPointsRail } from '../mediator/DisagreementPointsRail';
 import { deriveRoomMediatorBoardState } from '../mediator/roomMediatorAdapter';
+import { MediatorNodeMarker } from '../mediator/MediatorNodeMarker';
+import { getNodeMediatorMarker } from '../mediator/nodeMediatorMarkers';
 import { buildMoveMetadataLedger, getManualTagPlainLabel } from '../metadata';
 // META-1E — Cards-detail metadata diff inspector. Imported directly by path
 // (the `../metadata` barrel stays React-free). Mounts as a sibling overlay
@@ -2166,6 +2168,16 @@ export function ArgumentGameSurface({
                 (was above). The component itself is unchanged — only
                 its mount site moves. */}
             <ArgumentScoreTracker trends={participantTrends} />
+            {/* UX-MEDIATOR-002 — compact node-level mediator marker for the
+                active node, beside the node-label strip. Read-only, exactly one
+                primary state (priority-selected from the already-derived
+                board's markupByNodeId), suppressed for ordinary open/resolved
+                nodes. Self-hides when no actionable state — zero change to
+                ArgumentTimelineMap, never a submission gate. */}
+            <MediatorNodeMarker
+              marker={getNodeMediatorMarker(mediatorBoard, activeMessageId)}
+              testID="mediator-node-marker-active"
+            />
             {/* UX-001.5A — Node label strip for the active node. 1+1+
                 overflow. Renders nothing when no node is active or
                 when no labels apply at the timeline_node surface.
