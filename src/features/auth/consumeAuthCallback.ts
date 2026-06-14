@@ -72,15 +72,51 @@ function mapConsumeError(message: string | null | undefined): AuthCallbackErrorR
 }
 
 /**
+ * Default ceiling for the injected client call. supabase-js's GoTrue fetch
+ * (`getSession` / `setSession` / `exchangeCodeForSession` → `GET /auth/v1/user`)
+ * has NO timeout or AbortSignal of its own, and an in-context auth lock held by
+ * a concurrent `autoRefreshToken` tick can queue `setSession` behind a hung
+ * request with no steal-recovery. Without this guard a stalled GoTrue response
+ * pins AuthCallbackScreen on its 'checking' state forever (the observed
+ * AUTH-CALLBACK-TIMEOUT-001 hang). 12s is comfortably above a healthy round-trip
+ * yet bounded — on timeout the screen falls to its recoverable error phase.
+ */
+export const DEFAULT_CONSUME_TIMEOUT_MS = 12_000;
+
+/** Unique sentinel returned by `raceWithTimeout` when the work loses the race. */
+const CONSUME_TIMEOUT = Symbol('consume_timeout');
+
+/**
+ * Resolve to the work's result, or to CONSUME_TIMEOUT if it does not settle
+ * within `timeoutMs`. Never rejects (a rejecting `work` is the caller's concern;
+ * here it propagates and is caught by the caller's try/catch). The timer is
+ * always cleared so a fast resolve leaves no dangling handle.
+ */
+async function raceWithTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<T | typeof CONSUME_TIMEOUT> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<typeof CONSUME_TIMEOUT>((resolve) => {
+    timer = setTimeout(() => resolve(CONSUME_TIMEOUT), timeoutMs);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * Consume a parsed callback. Deterministic; the only network is the injected
  * client call. Never throws — a rejected client promise is caught and mapped
- * to a `network` error.
+ * to a `network` error. Every awaited client call is bounded by `timeoutMs`
+ * (default DEFAULT_CONSUME_TIMEOUT_MS); a stall maps to a `network` error so the
+ * screen recovers instead of hanging (AUTH-CALLBACK-TIMEOUT-001).
  */
 export async function consumeAuthCallback(input: {
   client: AuthCallbackClient;
   parsed: AuthCallbackParsed;
+  timeoutMs?: number;
 }): Promise<AuthCallbackOutcome> {
-  const { client, parsed } = input;
+  const { client, parsed, timeoutMs = DEFAULT_CONSUME_TIMEOUT_MS } = input;
 
   // 1. error — no client call; recoverable → expired copy, else link_invalid.
   if (parsed.kind === 'error') {
@@ -97,9 +133,10 @@ export async function consumeAuthCallback(input: {
   //    e.g. a refresh after a successful consume cleared the URL).
   if (parsed.kind === 'empty') {
     try {
-      const { data, error } = await client.getSession();
-      if (error) return { status: 'error', reason: mapConsumeError(error.message) };
-      return data?.session
+      const res = await raceWithTimeout(client.getSession(), timeoutMs);
+      if (res === CONSUME_TIMEOUT) return { status: 'error', reason: 'network' };
+      if (res.error) return { status: 'error', reason: mapConsumeError(res.error.message) };
+      return res.data?.session
         ? { status: 'already_session' }
         : { status: 'error', reason: 'link_invalid' };
     } catch {
@@ -110,11 +147,12 @@ export async function consumeAuthCallback(input: {
   // 4. tokens — implicit-flow fragment. Establish the session via setSession.
   if (parsed.kind === 'tokens') {
     try {
-      const { error } = await client.setSession({
-        access_token: parsed.accessToken,
-        refresh_token: parsed.refreshToken,
-      });
-      if (error) return { status: 'error', reason: mapConsumeError(error.message) };
+      const res = await raceWithTimeout(
+        client.setSession({ access_token: parsed.accessToken, refresh_token: parsed.refreshToken }),
+        timeoutMs,
+      );
+      if (res === CONSUME_TIMEOUT) return { status: 'error', reason: 'network' };
+      if (res.error) return { status: 'error', reason: mapConsumeError(res.error.message) };
       return isInvite(parsed.type) ? { status: 'needs_password' } : { status: 'success' };
     } catch {
       return { status: 'error', reason: 'network' };
@@ -123,8 +161,9 @@ export async function consumeAuthCallback(input: {
 
   // 5. code — defensive PKCE branch. Same success/error handling as tokens.
   try {
-    const { error } = await client.exchangeCodeForSession(parsed.code);
-    if (error) return { status: 'error', reason: mapConsumeError(error.message) };
+    const res = await raceWithTimeout(client.exchangeCodeForSession(parsed.code), timeoutMs);
+    if (res === CONSUME_TIMEOUT) return { status: 'error', reason: 'network' };
+    if (res.error) return { status: 'error', reason: mapConsumeError(res.error.message) };
     return isInvite(parsed.type) ? { status: 'needs_password' } : { status: 'success' };
   } catch {
     return { status: 'error', reason: 'network' };
