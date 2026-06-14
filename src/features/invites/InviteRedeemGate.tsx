@@ -39,7 +39,9 @@ import {
   type LookupInviteByTokenResponse,
   type LookupInviteStatus,
 } from './inviteApi';
-import { INVITE_REDEEM_COPY, plainLanguageForInviteError } from './inviteCopy';
+import { INVITE_CREDENTIAL_COPY, INVITE_REDEEM_COPY, plainLanguageForInviteError } from './inviteCopy';
+import { InviteCredentialStep } from './InviteCredentialStep';
+import type { InviteCredentialMode } from './inviteCredentialModel';
 import { SURFACE_TOKENS, STATUS, CONTROL } from '../../lib/designTokens';
 
 export interface InviteRedeemGateProps {
@@ -85,6 +87,11 @@ const INITIAL: GateState = {
 export function InviteRedeemGate(props: InviteRedeemGateProps) {
   const { token, signedIn, viewerEmail, onAccepted, onExit } = props;
   const [state, setState] = useState<GateState>(INITIAL);
+  // EMAIL-TRANSPORT-002 (Option B) — when a signed-out invitee picks
+  // "create my account" (or "sign in") on the two-path SignedOutPrompt,
+  // the in-place credential step is mounted WITHOUT leaving /invite. null
+  // = no credential step shown (the default two-path prompt renders).
+  const [credentialMode, setCredentialMode] = useState<InviteCredentialMode | null>(null);
 
   // 1) Resolve the token.
   const runLookup = useCallback(async () => {
@@ -125,6 +132,46 @@ export function InviteRedeemGate(props: InviteRedeemGateProps) {
     // returns invite_email_mismatch on a mismatch.
     void runAccept();
   }, [state.phase, state.lookup, signedIn, viewerEmail, runAccept]);
+
+  // EMAIL-TRANSPORT-002 — once a session is established (provision +
+  // sign-in, or sign-in), the parent re-renders with signedIn=true; the
+  // credential step is no longer needed. Drop it so the auto-accept
+  // effect above takes over off the live session.
+  useEffect(() => {
+    if (signedIn && credentialMode !== null) {
+      setCredentialMode(null);
+    }
+  }, [signedIn, credentialMode]);
+
+  // The credential step (Option B) — shown ONLY for a signed-out, live
+  // pending invite once the invitee picks a path. It owns the
+  // provision_and_accept + sign-in calls; on success it clears itself
+  // (the effect above) and the gate auto-accepts off the live session.
+  const showCredentialStep =
+    credentialMode !== null &&
+    !signedIn &&
+    state.phase === 'lookup_ok' &&
+    !!state.lookup &&
+    state.lookup.status === 'pending';
+  if (showCredentialStep && state.lookup) {
+    return (
+      <InviteCredentialStep
+        token={token}
+        roomTitle={state.lookup.room?.title || '(this argument)'}
+        inviterDisplayName={state.lookup.room?.invitedByDisplayName ?? null}
+        initialMode={credentialMode ?? 'create'}
+        onCredentialsEstablished={() => {
+          // The session will flip signedIn=true via the parent's auth
+          // listener; clear the step and re-resolve so the gate's
+          // auto-accept fires. (Defensive: if the parent is slow, the
+          // effect above also clears credentialMode on signedIn.)
+          setCredentialMode(null);
+          void runLookup();
+        }}
+        onExit={onExit}
+      />
+    );
+  }
 
   // ── Render branches ────────────────────────────────────────
 
@@ -189,9 +236,11 @@ export function InviteRedeemGate(props: InviteRedeemGateProps) {
     <LookupOkBranch
       lookup={lookup}
       signedIn={signedIn}
-      onPromptSignIn={() =>
-        props.onPromptSignIn({ invitedEmail: null, preferSignUp: !signedIn })
-      }
+      // EMAIL-TRANSPORT-002 — the two in-place paths. "Create my account"
+      // mounts the credential step IN the gate (token never leaves
+      // /invite). "Sign in" mounts the same step in sign-in sub-mode.
+      onCreateAccount={() => setCredentialMode('create')}
+      onSignInExisting={() => setCredentialMode('signin')}
       onExit={onExit}
     />
   );
@@ -202,11 +251,20 @@ export function InviteRedeemGate(props: InviteRedeemGateProps) {
 interface LookupOkBranchProps {
   lookup: LookupInviteByTokenResponse;
   signedIn: boolean;
-  onPromptSignIn: () => void;
+  /** EMAIL-TRANSPORT-002 — mount the in-place credential step (create). */
+  onCreateAccount: () => void;
+  /** EMAIL-TRANSPORT-002 — mount the in-place credential step (sign in). */
+  onSignInExisting: () => void;
   onExit: () => void;
 }
 
-function LookupOkBranch({ lookup, signedIn, onPromptSignIn, onExit }: LookupOkBranchProps) {
+function LookupOkBranch({
+  lookup,
+  signedIn,
+  onCreateAccount,
+  onSignInExisting,
+  onExit,
+}: LookupOkBranchProps) {
   switch (lookup.status as LookupInviteStatus) {
     case 'pending':
       // Signed-in pending is handled by the auto-accept effect above;
@@ -216,7 +274,8 @@ function LookupOkBranch({ lookup, signedIn, onPromptSignIn, onExit }: LookupOkBr
           <SignedOutPrompt
             roomTitle={lookup.room?.title || '(this argument)'}
             inviter={lookup.room?.invitedByDisplayName || 'A CDiscourse user'}
-            onContinue={onPromptSignIn}
+            onCreateAccount={onCreateAccount}
+            onSignInExisting={onSignInExisting}
             onExit={onExit}
           />
         );
@@ -302,7 +361,7 @@ function AcceptErrorBranch(props: AcceptErrorBranchProps) {
   if (errorCode === 'unauthorized') {
     // The session expired mid-accept. Send the user back to sign in.
     return (
-      <SignedOutPrompt
+      <SessionExpiredPrompt
         roomTitle={lookup?.room?.title || '(this argument)'}
         inviter={lookup?.room?.invitedByDisplayName || 'A CDiscourse user'}
         onContinue={props.onPromptSignIn}
@@ -326,7 +385,71 @@ interface BasePanelProps {
   onExit: () => void;
 }
 
-function SignedOutPrompt(props: { roomTitle: string; inviter: string; onContinue: () => void } & BasePanelProps) {
+/**
+ * EMAIL-TRANSPORT-002 — the signed-out pending panel now offers TWO
+ * in-place paths instead of a single "Continue → AuthScreen":
+ *   - "Create my account" → mounts the credential step (create mode).
+ *   - "I already have an account — sign in" → credential step (sign-in mode).
+ * Both stay on /invite; the token never leaves the gate. The universal
+ * "Go to my arguments" escape hatch is preserved.
+ */
+function SignedOutPrompt(
+  props: {
+    roomTitle: string;
+    inviter: string;
+    onCreateAccount: () => void;
+    onSignInExisting: () => void;
+  } & BasePanelProps,
+) {
+  return (
+    <Screen title="">
+      <ScrollView contentContainerStyle={styles.layoutBody} testID="invite-redeem-signed-out">
+        <Text style={styles.layoutTitle}>
+          {INVITE_REDEEM_COPY.signedOutInvite(props.roomTitle, props.inviter)}
+        </Text>
+        <View style={styles.layoutButtons}>
+          <Pressable
+            style={styles.btnPrimary}
+            onPress={props.onCreateAccount}
+            accessibilityRole="button"
+            accessibilityLabel={INVITE_CREDENTIAL_COPY.submitButton}
+            testID="invite-redeem-create-account"
+          >
+            <Text style={styles.btnPrimaryText}>{INVITE_CREDENTIAL_COPY.submitButton}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.btnSecondary}
+            onPress={props.onSignInExisting}
+            accessibilityRole="button"
+            accessibilityLabel={INVITE_CREDENTIAL_COPY.haveAccountLabel}
+            testID="invite-redeem-signin-existing"
+          >
+            <Text style={styles.btnSecondaryText}>{INVITE_CREDENTIAL_COPY.haveAccountLabel}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.btnSecondary}
+            onPress={props.onExit}
+            accessibilityRole="button"
+            accessibilityLabel={INVITE_REDEEM_COPY.goHomeButton}
+            testID="invite-redeem-exit-button"
+          >
+            <Text style={styles.btnSecondaryText}>{INVITE_REDEEM_COPY.goHomeButton}</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+/**
+ * The session-expired-mid-accept recovery (errorCode === 'unauthorized').
+ * Distinct from SignedOutPrompt: the user already had a session that
+ * lapsed, so route them to the normal AuthScreen sign-in via
+ * onContinue. Single-path, unchanged behavior from the pre-002 path.
+ */
+function SessionExpiredPrompt(
+  props: { roomTitle: string; inviter: string; onContinue: () => void } & BasePanelProps,
+) {
   return (
     <PanelLayout
       title={INVITE_REDEEM_COPY.signedOutInvite(props.roomTitle, props.inviter)}

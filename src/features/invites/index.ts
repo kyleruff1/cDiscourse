@@ -9,9 +9,23 @@ export { InvitePanel } from './InvitePanel';
 export { InviteRedeemGate } from './InviteRedeemGate';
 export type { InviteRedeemGateProps } from './InviteRedeemGate';
 
+// EMAIL-TRANSPORT-002 (Option B) — the in-place new-user credential step.
+export { InviteCredentialStep } from './InviteCredentialStep';
+export type { InviteCredentialStepProps } from './InviteCredentialStep';
+export {
+  validateInviteCredentialForm,
+  mapProvisionOutcomeToStep,
+  mapSignInOutcomeToStep,
+  credentialCopyForMode,
+  type InviteCredentialMode,
+  type InviteCredentialStepState,
+  type CredentialOutcomeInput,
+} from './inviteCredentialModel';
+
 export {
   INVITE_PANEL_COPY,
   INVITE_REDEEM_COPY,
+  INVITE_CREDENTIAL_COPY,
   INVITE_EMAIL_SUBJECT,
   BANNED_INVITE_FRAMING,
   buildInviteEmailBody,
@@ -73,6 +87,7 @@ export {
   listInvitesForDebate,
   lookupInviteByToken,
   acceptRoomInvite,
+  provisionAndAcceptInvite,
   type AcceptRoomInviteInput,
   type AcceptRoomInviteResponse,
   type CreateRoomInviteInput,
@@ -83,6 +98,8 @@ export {
   type LookupInviteByTokenInput,
   type LookupInviteByTokenResponse,
   type LookupInviteStatus,
+  type ProvisionAndAcceptInviteInput,
+  type ProvisionAndAcceptInviteResponse,
   type RevokeRoomInviteInput,
   type RevokeRoomInviteResponse,
 } from './inviteApi';

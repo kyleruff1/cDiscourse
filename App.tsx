@@ -270,13 +270,22 @@ function AppRoot() {
     dispatch({ type: 'SIGNED_OUT' });
   }, [dispatch, signedIn]);
 
-  const handleInvitePromptSignIn = React.useCallback(() => {
-    // The Auth screen renders next when status === 'signed_out'.
-    // Nothing extra to do from the gate — the gate is dismissed by
-    // virtue of the next render skipping it (it shows when status is
-    // signed_out but only via the InviteRedeemGate branch below).
-    dispatch({ type: 'SIGNED_OUT' });
-  }, [dispatch]);
+  const handleInvitePromptSignIn = React.useCallback(
+    (_input: { invitedEmail: string | null; preferSignUp: boolean }) => {
+      // EMAIL-TRANSPORT-002 — the gate's primary new-user / sign-in paths
+      // are now handled IN PLACE by InviteCredentialStep (the credential
+      // step never leaves /invite). This callback remains the fallback for
+      // the gate's session-expired-mid-accept recovery (AcceptErrorBranch
+      // → SessionExpiredPrompt): drop to the generic AuthScreen. The
+      // `invitedEmail` / `preferSignUp` hint is consumed here (no
+      // enumeration — `invitedEmail` is always null from the gate, which
+      // never learns the invited address; the hint exists for a future
+      // invite-aware AuthScreen, explicitly out of scope this card).
+      void _input;
+      dispatch({ type: 'SIGNED_OUT' });
+    },
+    [dispatch],
+  );
 
   // BRAND-001 — Tapping the header logo deselects the active debate and
   // returns to the gallery. Implemented by re-dispatching SIGNED_IN
