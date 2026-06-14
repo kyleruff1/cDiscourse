@@ -1,13 +1,20 @@
 /**
- * Edge Function: manage-room-invite (QOL-038)
+ * Edge Function: manage-room-invite (QOL-038 + EMAIL-TRANSPORT-002)
  *
- * Five actions on argument_room_invites:
+ * Six actions on argument_room_invites:
  *
- *   - create           — mint a new pending invite (JWT required).
- *   - revoke           — flip pending → revoked (JWT required).
- *   - list_for_debate  — RLS-filtered list for the open room (JWT required).
- *   - lookup_by_token  — UNAUTHENTICATED — token possession is the auth.
- *   - accept           — turn a token + signed-in user into a participant.
+ *   - create               — mint a new pending invite (JWT required).
+ *   - revoke               — flip pending → revoked (JWT required).
+ *   - list_for_debate      — RLS-filtered list for the open room (JWT required).
+ *   - lookup_by_token      — UNAUTHENTICATED — token possession is the auth.
+ *   - accept               — turn a token + signed-in user into a participant.
+ *   - provision_and_accept — EMAIL-TRANSPORT-002 (Option B). UNAUTHENTICATED:
+ *                            the token + typed email + typed password ARE the
+ *                            auth. Enforces email-binding BEFORE provisioning,
+ *                            mints a brand-new confirmed user via service-role
+ *                            auth.admin, enrols the seat, and returns NO
+ *                            session / JWT / token (the client signs in
+ *                            normally afterward with the password it set).
  *
  * Security model (per cdiscourse-doctrine + supabase-edge-contract):
  *   - verify_jwt = false in config.toml. Auth is enforced per-action inside
@@ -100,6 +107,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return await handleLookupByToken(body);
       case 'accept':
         return await handleAccept(body, authHeader);
+      case 'provision_and_accept':
+        // EMAIL-TRANSPORT-002 (Option B) — callable WITHOUT a JWT (the
+        // token + typed email + typed password ARE the auth). Email-binding
+        // is enforced BEFORE any account is provisioned.
+        return await handleProvisionAndAccept(body);
     }
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -610,12 +622,43 @@ async function handleAccept(
     return jsonError(409, 'room_closed', 'This argument is settled — you cannot join now.');
   }
 
-  // Enrol the invitee as a primary participant. Pick the OPPOSITE of the
-  // room creator's side so the GAME-004 contract treats the invitee as
-  // the claimable opponent seat. If the creator has no side row yet,
-  // default to 'negative' (the responder/opposing side). The
-  // (debate_id, user_id) PK makes a double-insert a no-op via 23505 —
-  // accept is idempotent.
+  // Enrol the invitee + flip the invite to accepted (shared with
+  // provision_and_accept). The (debate_id, user_id) PK makes a
+  // double-insert a no-op via 23505 — accept is idempotent.
+  const enrolFail = await enrolAndFlipInvite(svc, invite, debate, callerId);
+  if (enrolFail) return enrolFail;
+
+  return ok({
+    debateId: invite.debate_id,
+    status: 'accepted',
+    enteredAsParticipant: true,
+    intendedSeat: invite.intended_seat,
+  });
+}
+
+/**
+ * Shared enrolment + invite-flip + audit, used by BOTH `handleAccept`
+ * and `handleProvisionAndAccept`. Picks the OPPOSITE of the room
+ * creator's side so the GAME-004 contract treats the invitee as the
+ * claimable opponent seat (creator with no side row yet → default
+ * 'negative', the responder/opposing side).
+ *
+ * Returns a Response ONLY on a hard enrolment failure; returns null on
+ * success (the caller emits the success body). The invite-flip is
+ * best-effort (the participant row is the load-bearing artifact); a flip
+ * failure is logged via a stable label (never the token/email) and does
+ * not block success.
+ *
+ * `svc` is a service-role client; the caller has already passed the
+ * per-action authorization gate (email-binding + room-open) before
+ * calling this.
+ */
+async function enrolAndFlipInvite(
+  svc: ReturnType<typeof createServiceClient>,
+  invite: InviteRow,
+  debate: DebateRow,
+  callerId: string,
+): Promise<Response | null> {
   const { data: creatorPart } = await svc
     .from('debate_participants')
     .select('side')
@@ -663,6 +706,131 @@ async function handleAccept(
     emailDomain: emailDomain(invite.invitee_email_lower),
   });
 
+  return null;
+}
+
+// ── provision_and_accept (UNAUTHENTICATED — EMAIL-TRANSPORT-002 Option B) ──
+//
+// A brand-new invitee (no CDiscourse account) sets credentials in-place on
+// the app-owned /invite/<token> redemption route. The token + the typed
+// email + the typed password ARE the auth — there is NO JWT.
+//
+// Security spine, in this exact order:
+//   1) Look up the invite by token_hash; run the same live-status checks
+//      handleAccept does (not-found / revoked / expired / already-accepted /
+//      room archived/closed).
+//   2) EMAIL-BINDING FIRST — require typedEmail.toLowerCase() ===
+//      invitee_email_lower BEFORE any account is created. A wrong email can
+//      NEVER provision an account. The binding is never weakened.
+//   3) Provision the brand-new user via service-role auth.admin.createUser
+//      with email_confirm:true (so the account is usable immediately, with
+//      no confirmation email round-trip). On an already-existing address,
+//      return a distinct `account_exists` code so the client routes to
+//      sign-in. This is NOT enumeration: the caller already typed the email
+//      + password themselves; the unauthenticated lookup_by_token shape is
+//      unchanged.
+//   4) Enrol the seat + flip the invite (the shared enrolAndFlipInvite).
+//   5) Return NO session / JWT / token — { debateId, status: 'accepted' }.
+//      The client then performs its own signInWithEmailPassword to obtain a
+//      session. The function NEVER returns or logs a JWT / refresh token /
+//      the raw token / the password.
+
+async function handleProvisionAndAccept(
+  body: Extract<ManageRoomInviteRequest, { action: 'provision_and_accept' }>,
+): Promise<Response> {
+  const typedEmailLower = body.email.trim().toLowerCase();
+  const tokenHash = await hashInviteToken(body.token);
+
+  // 1) Service-role read — no JWT; the token IS the auth.
+  const svc = createServiceClient();
+  const { data: invite, error: inviteErr } = await svc
+    .from('argument_room_invites')
+    .select('id, debate_id, invited_by, invitee_email_lower, invitee_profile_id, intended_seat, status, token_hash, created_at, expires_at, accepted_at, revoked_at')
+    .eq('token_hash', tokenHash)
+    .maybeSingle<InviteRow>();
+  if (inviteErr) return internalError('invite_lookup_failed');
+  if (!invite) return jsonError(404, 'invite_not_found', 'We could not open that invite link.');
+
+  // Live-status checks — identical to handleAccept.
+  const nowMs = Date.now();
+  const expiresMs = Date.parse(invite.expires_at);
+  if (invite.status === 'revoked') {
+    return jsonError(409, 'invite_revoked', 'This invite is no longer active.');
+  }
+  if (
+    invite.status === 'expired' ||
+    (invite.status === 'pending' && (!Number.isFinite(expiresMs) || expiresMs < nowMs))
+  ) {
+    return jsonError(409, 'invite_expired', 'This invite has expired.');
+  }
+  if (invite.status === 'accepted') {
+    // Already redeemed by someone. A brand-new provisioning is not the
+    // right path — route the caller to sign in (their account, if any,
+    // already exists or the seat is taken). Neutral, no enumeration.
+    return jsonError(409, 'invite_already_accepted', 'This invite has already been used.');
+  }
+
+  // 2) EMAIL-BINDING — enforced BEFORE provisioning. A wrong email never
+  //    creates an account. This is the security spine and is never weakened.
+  if (!typedEmailLower || typedEmailLower !== invite.invitee_email_lower) {
+    return jsonError(403, 'invite_email_mismatch', 'This invite was sent to a different email address.');
+  }
+
+  // Room must still be open — checked BEFORE provisioning so a closed
+  // room never mints an account.
+  const { data: debate } = await svc
+    .from('debates')
+    .select('id, status, created_by, title')
+    .eq('id', invite.debate_id)
+    .maybeSingle<DebateRow>();
+  if (!debate) return jsonError(404, 'invite_not_found', 'We could not open that invite link.');
+  if (debate.status === 'archived') {
+    return jsonError(409, 'room_archived', 'This argument was archived and is no longer active.');
+  }
+  if (debate.status === 'locked' || debate.status === 'settled') {
+    return jsonError(409, 'room_closed', 'This argument is settled — you cannot join now.');
+  }
+
+  // 3) Provision the brand-new confirmed user. email_confirm:true makes
+  //    the account usable immediately with no confirmation-email round-trip
+  //    (the EMAIL-TRANSPORT-002 decoupling). The password is passed ONLY
+  //    into createUser — it is never logged, persisted elsewhere, or echoed.
+  const { data: createdRes, error: createErr } = await svc.auth.admin.createUser({
+    email: invite.invitee_email_lower,
+    password: body.password,
+    email_confirm: true,
+  });
+
+  if (createErr) {
+    // An address that already has an account → route the caller to sign
+    // in. This is NOT enumeration via the unauthenticated lookup: the
+    // caller themselves typed the email + password (they already know if
+    // it's theirs), and lookup_by_token's shape is unchanged.
+    const msg = (createErr.message || '').toLowerCase();
+    const status = (createErr as { status?: number }).status;
+    if (
+      msg.includes('already') ||
+      msg.includes('registered') ||
+      msg.includes('exists') ||
+      status === 422
+    ) {
+      return jsonError(409, 'account_exists', 'You already have an account — sign in instead.');
+    }
+    // Any other provisioning failure is a neutral, stable code.
+    return jsonError(500, 'provision_failed', 'We could not finish setting up your account. Try again.');
+  }
+
+  const newUserId = createdRes?.user?.id;
+  if (!newUserId) {
+    return jsonError(500, 'provision_failed', 'We could not finish setting up your account. Try again.');
+  }
+
+  // 4) Enrol the seat + flip the invite (the shared helper).
+  const enrolFail = await enrolAndFlipInvite(svc, invite, debate, newUserId);
+  if (enrolFail) return enrolFail;
+
+  // 5) Return NO session / JWT / token. The client signs in normally with
+  //    the password it just set to obtain its own session.
   return ok({
     debateId: invite.debate_id,
     status: 'accepted',

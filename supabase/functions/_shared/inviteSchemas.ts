@@ -49,12 +49,36 @@ const AcceptInvite = z.object({
   token: Token,
 });
 
+/**
+ * EMAIL-TRANSPORT-002 (Option B) — server-side new-user provisioning +
+ * acceptance in one call. The token + the typed email + the typed
+ * password are the auth (no JWT). The handler enforces email-binding
+ * BEFORE provisioning, mints the account via service-role
+ * `auth.admin.createUser`, enrols the seat, and returns NO session /
+ * JWT / token — the client then signs in normally with the password it
+ * just set.
+ *
+ * `Password` enforces the same minimum the client `validateNewPassword`
+ * and the DB `minimum_password_length = 6` use, with a sane upper bound
+ * (Supabase Auth caps password length at 72 bytes for bcrypt; 128 chars
+ * is a generous client-facing cap).
+ */
+const Password = z.string().min(6).max(128);
+
+const ProvisionAndAccept = z.object({
+  action: z.literal('provision_and_accept'),
+  token: Token,
+  email: Email,
+  password: Password,
+});
+
 export const ManageRoomInviteRequestSchema = z.discriminatedUnion('action', [
   CreateInvite,
   RevokeInvite,
   ListForDebate,
   LookupByToken,
   AcceptInvite,
+  ProvisionAndAccept,
 ]);
 
 export type ManageRoomInviteRequest = z.infer<typeof ManageRoomInviteRequestSchema>;

@@ -170,6 +170,10 @@ describe('§5.4 lookup_by_token — unauthenticated + minimal projection', () =>
 
 describe('§5.5 accept — auth + email-binding + enrolment', () => {
   const region = regionFor('handleAccept');
+  // EMAIL-TRANSPORT-002 — the enrolment + invite-flip is now a shared
+  // helper reused by provision_and_accept; the §5.5 enrolment assertions
+  // scan it (the contract is unchanged, the implementation is shared).
+  const enrolRegion = regionFor('enrolAndFlipInvite');
 
   it('returns 401 on missing JWT', () => {
     expect(region).toMatch(/if \(!authHeader\) return unauthorized\(\)/);
@@ -208,17 +212,141 @@ describe('§5.5 accept — auth + email-binding + enrolment', () => {
     expect(region).toContain('room_closed');
   });
 
-  it('enrols the participant via service-role client', () => {
-    expect(region).toMatch(/svc[\s\S]{0,400}\.from\('debate_participants'\)[\s\S]{0,200}\.insert/);
+  it('delegates enrolment + invite-flip to the shared enrolAndFlipInvite helper', () => {
+    // EMAIL-TRANSPORT-002 refactor: the enrolment + flip moved into a
+    // shared helper reused by provision_and_accept. handleAccept must
+    // still call it (same contract, one implementation).
+    expect(region).toContain('enrolAndFlipInvite(svc, invite, debate, callerId)');
   });
 
-  it('flips the invite to accepted via service-role client', () => {
-    expect(region).toMatch(/svc[\s\S]{0,200}\.from\('argument_room_invites'\)[\s\S]{0,200}\.update/);
+  it('enrols the participant via service-role client (in the shared helper)', () => {
+    expect(enrolRegion).toMatch(
+      /svc[\s\S]{0,400}\.from\('debate_participants'\)[\s\S]{0,200}\.insert/,
+    );
+  });
+
+  it('flips the invite to accepted via service-role client (in the shared helper)', () => {
+    expect(enrolRegion).toMatch(
+      /svc[\s\S]{0,200}\.from\('argument_room_invites'\)[\s\S]{0,200}\.update/,
+    );
   });
 
   it('the participant insert tolerates a unique-violation (already a participant)', () => {
-    // 23505 = Postgres unique_violation.
-    expect(region).toContain("'23505'");
+    // 23505 = Postgres unique_violation. Now in the shared helper.
+    expect(enrolRegion).toContain("'23505'");
+  });
+});
+
+// ── EMAIL-TRANSPORT-002 (Option B) provision_and_accept ────────
+//
+// The new-user server-side provisioning + acceptance path. The token +
+// typed email + typed password ARE the auth (no JWT). The security spine
+// is email-binding-BEFORE-provisioning, and the response carries NO
+// session / JWT / token.
+describe('EMAIL-TRANSPORT-002 — provision_and_accept (Option B)', () => {
+  const region = regionFor('handleProvisionAndAccept');
+
+  it('the handler exists as a named async function', () => {
+    expect(region.length).toBeGreaterThan(0);
+    expect(SRC).toMatch(/async function handleProvisionAndAccept\b/);
+  });
+
+  it('is routed in the action switch', () => {
+    expect(SRC).toContain("case 'provision_and_accept'");
+  });
+
+  it('does NOT require a JWT (no createCallerClient / getUser — the token+email+password is the auth)', () => {
+    expect(region).not.toContain('createCallerClient');
+    expect(region).not.toMatch(/auth\.getUser\(\)/);
+  });
+
+  it('uses the service-role client for the privileged provision + enrol', () => {
+    expect(region).toContain('createServiceClient');
+  });
+
+  it('returns 404 invite_not_found for an unknown token', () => {
+    expect(region).toContain('invite_not_found');
+  });
+
+  it('runs the live-status checks (revoked / expired / already-accepted)', () => {
+    expect(region).toContain('invite_revoked');
+    expect(region).toContain('invite_expired');
+    expect(region).toContain('invite_already_accepted');
+  });
+
+  it('ENFORCES email-binding BEFORE provisioning (the binding precedes auth.admin.createUser)', () => {
+    const bindingIdx = region.indexOf('invite_email_mismatch');
+    const createIdx = region.indexOf('auth.admin.createUser');
+    expect(bindingIdx).toBeGreaterThan(-1);
+    expect(createIdx).toBeGreaterThan(-1);
+    // The email-binding 403 must appear BEFORE the createUser call in the
+    // source — a wrong email can never reach provisioning.
+    expect(bindingIdx).toBeLessThan(createIdx);
+  });
+
+  it('compares the TYPED email (lower-cased) to invitee_email_lower for the binding', () => {
+    expect(region).toMatch(/typedEmailLower[\s\S]{0,80}!==[\s\S]{0,80}invitee_email_lower/);
+  });
+
+  it('checks the room is open BEFORE provisioning (room_archived / room_closed precede createUser)', () => {
+    const archivedIdx = region.indexOf('room_archived');
+    const createIdx = region.indexOf('auth.admin.createUser');
+    expect(archivedIdx).toBeGreaterThan(-1);
+    expect(archivedIdx).toBeLessThan(createIdx);
+  });
+
+  it('provisions a CONFIRMED user via service-role auth.admin.createUser({ email_confirm: true })', () => {
+    expect(region).toContain('auth.admin.createUser');
+    expect(region).toMatch(/email_confirm:\s*true/);
+  });
+
+  it('maps an already-existing address to a neutral account_exists code (no enumeration via lookup)', () => {
+    expect(region).toContain('account_exists');
+  });
+
+  it('reuses the shared enrolAndFlipInvite enrolment (no duplicate participant logic)', () => {
+    expect(region).toContain('enrolAndFlipInvite');
+  });
+
+  it('returns NO session / JWT / token in the response (client signs in separately)', () => {
+    // The success ok({...}) body must contain debateId + status, and must
+    // NOT contain any session/jwt/token/access/refresh field.
+    const okMatch = region.match(/return ok\(\{[\s\S]*?\}\);/g) || [];
+    expect(okMatch.length).toBeGreaterThan(0);
+    for (const body of okMatch) {
+      const lower = body.toLowerCase();
+      expect(lower).not.toContain('session');
+      expect(lower).not.toContain('jwt');
+      expect(lower).not.toContain('access_token');
+      expect(lower).not.toContain('refresh_token');
+      expect(lower).not.toMatch(/\btoken\b/);
+    }
+    // The success body still carries the debateId so the client can open
+    // the room.
+    expect(region).toMatch(/debateId:\s*invite\.debate_id/);
+  });
+
+  it('never logs the password or the raw token (no console.* mentions either)', () => {
+    const lines = region.split('\n');
+    for (const line of lines) {
+      if (!/console\./.test(line)) continue;
+      const lower = line.toLowerCase();
+      expect(lower).not.toContain('password');
+      expect(lower).not.toContain('token');
+    }
+    // And the password is passed ONLY into createUser, never into a log.
+    expect(region).toMatch(/password:\s*body\.password/);
+  });
+
+  it('email-binding 403 message names no banned framing token', () => {
+    const msgMatch = region.match(
+      /jsonError\(\s*403,\s*'invite_email_mismatch',\s*'([^']+)'/,
+    );
+    expect(msgMatch).not.toBeNull();
+    const msg = (msgMatch![1] || '').toLowerCase();
+    for (const token of ['winner', 'loser', 'liar', 'challenger', 'opponent']) {
+      expect(msg).not.toContain(token);
+    }
   });
 });
 
@@ -236,9 +364,10 @@ describe('§10 edge cases — race conditions + idempotency', () => {
   });
 
   it('§10 row 6 — invitee already a participant in the room is a no-op insert', () => {
-    const acceptRegion = regionFor('handleAccept');
-    // unique-violation tolerated by 23505 branch.
-    expect(acceptRegion).toContain("'23505'");
+    // The unique-violation (23505) tolerance now lives in the shared
+    // enrolAndFlipInvite helper (reused by accept + provision_and_accept).
+    const enrolRegion = regionFor('enrolAndFlipInvite');
+    expect(enrolRegion).toContain("'23505'");
   });
 });
 
