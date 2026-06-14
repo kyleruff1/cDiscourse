@@ -1,0 +1,319 @@
+/**
+ * UX-MEDIATOR-001 — Mediator board state: types (pure TypeScript).
+ *
+ * The mediator board is a READ-ONLY PROJECTION. It turns the existing
+ * pure-TS derived models — the point lifecycle map (LIFE-001,
+ * `pointLifecycleModel.ts`), the evidence-debt list (EV-003,
+ * `evidenceDebtModel.ts`) — plus persisted machine observations
+ * (MCP-021B, families A–I) into one JSON-serializable board state that a
+ * later UI card (Disagreement Points rail, Evidence Debt surface,
+ * Structured Impasse banner) can render.
+ *
+ * Doctrine anchor — read before changing anything here:
+ *
+ *   1. **This is not a truth oracle.** No state, label, or field declares who
+ *      is right/wrong, true/false, winner/loser, or infers intent / labels a
+ *      person. The deterministic Constitution engine remains the sole
+ *      submission gate; this module NEVER blocks, routes, delays, or gates a
+ *      post. It only re-reads what already happened.
+ *   2. **Popularity / heat / strength bands never feed it.** The projection
+ *      reads move STRUCTURE (lifecycle clusters, evidence debts, classifier
+ *      observations) — never `standingBand` / `toneBand` / `temperatureBand`
+ *      / engagement.
+ *   3. **Uncertainty is preserved, not collapsed.** Every point carries a
+ *      `confidence` that may be `unknown`; when inputs do not support a
+ *      specific dispute kind the state falls back to `open`, never to a
+ *      stronger claim.
+ *   4. **Observation-driven, never invented.** Definition / scope / blocked /
+ *      recollection markers are emitted ONLY when a supporting persisted
+ *      observation or debt status exists. Claim-identity and a recollection
+ *      detector are deferred (UX-MEDIATOR future cards); the types exist but
+ *      `accounts_differ` is never synthesized from absent input.
+ *
+ * Pure TS. No React. No Supabase. No fetch. No MCP call. No clock. No
+ * randomness. No mutation of any input. JSON-serializable in and out.
+ * Consumes persisted machine observations only.
+ */
+import type { EvidenceDebt, EvidenceDebtKind, EvidenceDebtStatus } from '../evidence/evidenceDebtModel';
+import type { PointLifecycleMap, PointLifecycleState } from '../lifecycle/pointLifecycleModel';
+import type { MachineObservationFamily } from '../nodeLabels/nodeLabelTypes';
+
+// ── Confidence ────────────────────────────────────────────────
+
+/**
+ * Confidence in a derived mediator state. `unknown` is a first-class value
+ * (doctrine §3 — preserve uncertainty). Persisted observation rows carry
+ * `low | medium | high`; a derived point with no supporting observation may
+ * be `unknown`.
+ */
+export type MediatorConfidence = 'low' | 'medium' | 'high' | 'unknown';
+
+// ── State vocabulary ──────────────────────────────────────────
+
+/**
+ * The mediator state code for a disagreement point. Each value is a
+ * STRUCTURAL state, never a verdict. Mapped to plain language by
+ * `plainLanguageForMediatorState` (ban-list scanned by tests).
+ */
+export type MediatorStateCode =
+  | 'open' // an active disagreement with no more specific signal yet
+  | 'needs_evidence' // an open source/quote/evidence obligation is owed
+  | 'evidence_blocked' // a request was declined / the record is unavailable
+  | 'key_detail_unavailable' // a pivotal detail cannot be settled from available record
+  | 'definition_not_shared' // a term is used two ways; no shared definition confirmed
+  | 'scope_mismatch' // the reply addresses a broader/narrower claim than the point
+  | 'missing_mechanism' // a causal conclusion depends on an unstated step
+  | 'value_tradeoff' // the disagreement is a priority/tradeoff, not a provable fact
+  | 'narrowed' // a concession/narrowing happened; a smaller disagreement remains
+  | 'off_point' // a move does not address the point it replies to
+  | 'accounts_differ' // difference of recollection (deferred detector; type reserved)
+  | 'structured_impasse' // good-form exchange, no available pathway, clash remains
+  | 'resolved_or_settled'; // confirmed / synthesized / admin-resolved
+
+/** Frozen list of every state code. Tests iterate this. */
+export const ALL_MEDIATOR_STATE_CODES: ReadonlyArray<MediatorStateCode> = Object.freeze([
+  'open',
+  'needs_evidence',
+  'evidence_blocked',
+  'key_detail_unavailable',
+  'definition_not_shared',
+  'scope_mismatch',
+  'missing_mechanism',
+  'value_tradeoff',
+  'narrowed',
+  'off_point',
+  'accounts_differ',
+  'structured_impasse',
+  'resolved_or_settled',
+]);
+
+/** The kind of disagreement a point is about (projected from the lifecycle axis). */
+export type DisagreementPointKind =
+  | 'fact'
+  | 'definition'
+  | 'scope'
+  | 'causal'
+  | 'value'
+  | 'evidence'
+  | 'logic'
+  | 'recollection'
+  | 'unaxed';
+
+// ── Inputs (narrow adapter boundary) ──────────────────────────
+
+/**
+ * Narrow node metadata the projection needs. The caller maps a full
+ * `ArgumentTimelineMapNode` (+ the argument row's `targetExcerpt`) down to
+ * this shape so the mediator core never imports the surface/React layer.
+ */
+export interface MediatorGraphNode {
+  messageId: string;
+  parentId: string | null;
+  ordinal: number;
+  /** Cluster id — equals `branchRootMessageId` in the surface/lifecycle model. */
+  branchRootMessageId: string;
+  kindLabel: string;
+  sideLabel: string;
+  isRoot: boolean;
+  replyCount: number;
+  descendantCount: number;
+  /** The parent excerpt this move claims to address, when known. */
+  targetExcerpt?: string | null;
+}
+
+/**
+ * A persisted machine-observation row, narrowed to what the projection
+ * reads. The production `MachineObservationResultRow` (MCP-021B) is
+ * structurally assignable to this. The caller passes PRODUCTION rows only
+ * (run_mode filtering happens upstream).
+ */
+export interface MediatorObservationInput {
+  argumentId: string;
+  family: MachineObservationFamily;
+  rawKey: string;
+  confidence: MediatorConfidence;
+}
+
+/**
+ * The projection input. The caller builds `lifecycle` (via
+ * `buildPointLifecycleMap`) and `evidenceDebts` (via `deriveEvidenceDebts`)
+ * from the room's rows and passes them in alongside the narrow node list.
+ * The mediator core re-reads them; it never re-derives or calls a deriver,
+ * keeping it a pure projection over already-derived state.
+ */
+export interface MediatorGraphInput {
+  debateId: string;
+  nodes: ReadonlyArray<MediatorGraphNode>;
+  lifecycle: PointLifecycleMap;
+  evidenceDebts: ReadonlyArray<EvidenceDebt>;
+}
+
+export interface MediatorBoardOptions {
+  /** When set, biases `nextAction` toward the point containing this node. */
+  activeNodeId?: string | null;
+}
+
+// ── Output marker types ───────────────────────────────────────
+
+export interface PointAnchor {
+  nodeId: string;
+  parentNodeId: string | null;
+  /** What the point's root move claims to address, when known. */
+  targetExcerpt: string | null;
+}
+
+export interface DisagreementPoint {
+  /** Stable id — equals the lifecycle cluster id (`branchRootMessageId`). */
+  id: string;
+  anchor: PointAnchor;
+  kind: DisagreementPointKind;
+  state: MediatorStateCode;
+  plainLabel: string;
+  /** The underlying lifecycle state, for traceability (never rendered raw). */
+  lifecycleState: PointLifecycleState;
+  confidence: MediatorConfidence;
+  /** Ids of open evidence debts attached to this point's nodes. */
+  openEvidenceDebtIds: ReadonlyArray<string>;
+  /** Chronological member message ids (includes the point root). */
+  memberNodeIds: ReadonlyArray<string>;
+  /** True when the state is an advisory (impasse / off-point / etc.). */
+  isAdvisory: boolean;
+}
+
+export interface NodeDeviation {
+  kind: 'off_point' | 'scope_mismatch';
+  plainLabel: string;
+  /** Doctrine: deviations are advisory; the user can always post anyway. */
+  postAnywayAlwaysAvailable: true;
+}
+
+export interface MediatorMarkup {
+  nodeId: string;
+  /** The point (cluster) this node belongs to. */
+  pointId: string;
+  /** The single primary state chip a node shows (the point's state). */
+  primaryState: MediatorStateCode;
+  /** Non-null only when this specific move is off-point / scope-mismatched. */
+  deviation: NodeDeviation | null;
+  /** Worst open evidence-debt status on this node, when any. */
+  evidenceDebtChipStatus: EvidenceDebtStatus | null;
+  confidence: MediatorConfidence;
+}
+
+export interface EvidenceDebtView {
+  debtId: string;
+  nodeId: string;
+  pointId: string;
+  kind: EvidenceDebtKind;
+  status: EvidenceDebtStatus;
+  isOpen: boolean;
+  /** True when the obligation is declined (`unresolved`) or record-limited. */
+  isBlocked: boolean;
+  plainLabel: string;
+}
+
+export interface BlockedEvidencePath {
+  pointId: string;
+  nodeId: string;
+  /** The debt this blockage is tied to, when one exists. */
+  debtId: string | null;
+  /** A plain-language artifact category, never a demand for disclosure. */
+  artifactCategory: string | null;
+  plainLabel: string;
+}
+
+export interface DefinitionMismatch {
+  pointId: string;
+  nodeId: string;
+  /** True when a shared definition was proposed but not confirmed. */
+  proposedButNotConfirmed: boolean;
+  confidence: MediatorConfidence;
+}
+
+export interface ScopeMismatch {
+  pointId: string;
+  nodeId: string;
+  confidence: MediatorConfidence;
+}
+
+export interface RecollectionConflict {
+  pointId: string;
+  /** Memory-claim node ids. Empty in v1 (detector deferred). */
+  memoryNodeIds: ReadonlyArray<string>;
+  /** Verifiable-claim node ids. Empty in v1. */
+  verifiableNodeIds: ReadonlyArray<string>;
+  confidence: MediatorConfidence;
+}
+
+export interface NonProvableKeyDetail {
+  pointId: string;
+  nodeId: string;
+  /** Nodes whose interpretation depends on the unprovable detail. */
+  dependentNodeIds: ReadonlyArray<string>;
+}
+
+export type ResolutionPathwayStepCode =
+  | 'provide_source'
+  | 'define_term'
+  | 'narrow_or_branch'
+  | 'respond_to_point'
+  | 'name_tradeoff'
+  | 'supply_mechanism'
+  | 'await_record';
+
+export interface ResolutionPathwayStep {
+  code: ResolutionPathwayStepCode;
+  plainLabel: string;
+  /** True when the step is something a participant can do now. */
+  available: boolean;
+}
+
+export interface ResolutionPathway {
+  pointId: string;
+  steps: ReadonlyArray<ResolutionPathwayStep>;
+  /** False => a candidate structured impasse (no available pathway). */
+  anyAvailable: boolean;
+}
+
+export interface StructuredImpasse {
+  pointId: string;
+  /** Both sides followed the form (lifecycle reached exhaustion). */
+  followedForm: true;
+  /** No pathway is available right now. */
+  openPathwayExists: false;
+  /** The remaining unresolved member node ids. */
+  remainingClaimNodeIds: ReadonlyArray<string>;
+  plainLabel: string;
+}
+
+export interface MediatorNextAction {
+  /** The point this action advances, or null when none is open. */
+  pointId: string | null;
+  code: ResolutionPathwayStepCode | 'none';
+  plainPrompt: string;
+}
+
+/**
+ * The full board state. ALL keyed collections are plain objects / arrays
+ * (NOT Map) so the whole structure is JSON-serializable round-trip
+ * (a Map would serialize to `{}`).
+ */
+export interface MediatorBoardState {
+  debateId: string;
+  points: ReadonlyArray<DisagreementPoint>;
+  /** Keyed by node id. Plain object for JSON-serializability. */
+  markupByNodeId: Readonly<Record<string, MediatorMarkup>>;
+  evidenceDebts: ReadonlyArray<EvidenceDebtView>;
+  blockedEvidencePaths: ReadonlyArray<BlockedEvidencePath>;
+  definitionMismatches: ReadonlyArray<DefinitionMismatch>;
+  scopeMismatches: ReadonlyArray<ScopeMismatch>;
+  /** Empty in v1 — recollection detector is a deferred future card. */
+  recollectionConflicts: ReadonlyArray<RecollectionConflict>;
+  nonProvableKeyDetails: ReadonlyArray<NonProvableKeyDetail>;
+  impasses: ReadonlyArray<StructuredImpasse>;
+  /** Keyed by point id. Plain object for JSON-serializability. */
+  pathwaysByPointId: Readonly<Record<string, ResolutionPathway>>;
+  nextAction: MediatorNextAction | null;
+  /** Stable hash of the inputs (mirrors the lifecycle map's inputHash). */
+  inputHash: string;
+}
