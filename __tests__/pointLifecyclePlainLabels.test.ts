@@ -76,7 +76,10 @@ describe('LIFE-001 plain-language mapping', () => {
     expect(PLAIN_LANGUAGE_COPY['synthesis']).toBe('Resolved');
     expect(PLAIN_LANGUAGE_COPY['concession']).toBe('Conceded');
     expect(PLAIN_LANGUAGE_COPY['observer']).toBe('Watching');
-    expect(PLAIN_LANGUAGE_COPY['moderator']).toBe('Observer');
+    // UX-SIMPLIFY-002A — the participant SIDE `moderator` is the room
+    // creator/host (active, cap-counted seat), not a read-only watcher, so it
+    // displays as "Host" (was the misleading "Observer").
+    expect(PLAIN_LANGUAGE_COPY['moderator']).toBe('Host');
   });
 
   it('all 18 + archived lifecycle states are present in PLAIN_LANGUAGE_COPY', () => {

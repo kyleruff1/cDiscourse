@@ -47,9 +47,11 @@ describe('toPlainLanguage', () => {
     expect(toPlainLanguage('submit_failed')).toContain('Posting failed');
   });
 
-  it('maps role codes for normal users (moderator → Observer; observer → Watching)', () => {
+  it('maps role codes for normal users (moderator → Host; observer → Watching)', () => {
     expect(toPlainLanguage('observer')).toBe('Watching');
-    expect(toPlainLanguage('moderator')).toBe('Observer');
+    // UX-SIMPLIFY-002A — the participant SIDE `moderator` is the room
+    // creator/host (active, cap-counted seat), not a read-only watcher.
+    expect(toPlainLanguage('moderator')).toBe('Host');
   });
 
   it('maps semantic-corpus axes (source_chain → Source trail, anti_amplification → Popularity is not proof)', () => {

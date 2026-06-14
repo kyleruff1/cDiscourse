@@ -195,7 +195,15 @@ export const PLAIN_LANGUAGE_COPY = {
   three_in_a_row_failures: 'Posting kept failing — try a different angle.',
   // Participant / role
   observer: 'Watching',
-  moderator: 'Observer',
+  // UX-SIMPLIFY-002A — the participant SIDE `moderator` is the ROOM CREATOR /
+  // HOST: the create-argument-room RPC auto-joins the creator as side
+  // 'moderator', and that side holds an ACTIVE, cap-counted seat
+  // (isActiveParticipantSide). It is therefore NOT a read-only watcher and must
+  // not display as "Observer" — that word belongs to the genuine read-only
+  // `observer` side above ("Watching"). This SIDE is orthogonal to the platform
+  // app-role `moderator`/`admin` (profiles.role / is_moderator_or_admin), which
+  // stays "Moderator" via formatProfileRole / formatActorRole — untouched here.
+  moderator: 'Host',
   // ARG-ROOM-002 — room creation / capacity denial codes. Surfaced to the
   // creator when the create-argument-room Edge Function (or its RPC / the
   // capacity trigger) refuses. Structural availability, NEVER a verdict on a
