@@ -23,6 +23,10 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
   activeSuffix: 'Currently active',
   /** Overflow reveal word. */
   overflowWord: 'more',
+  /** UX-MEDIATOR-003 — evidence-debt section lead-in. */
+  evidenceHelp: 'Evidence that would help',
+  /** UX-MEDIATOR-003 — blocked / unavailable evidence path. */
+  blockedEvidencePath: 'Blocked evidence path',
 });
 
 /** Rows shown before the in-panel "+N more" reveal. */
