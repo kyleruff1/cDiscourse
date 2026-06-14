@@ -36,7 +36,6 @@
  */
 import type { EvidenceDebt, EvidenceDebtKind, EvidenceDebtStatus } from '../evidence/evidenceDebtModel';
 import type { PointLifecycleMap, PointLifecycleState } from '../lifecycle/pointLifecycleModel';
-import type { MachineObservationFamily } from '../nodeLabels/nodeLabelTypes';
 
 // ── Confidence ────────────────────────────────────────────────
 
@@ -129,7 +128,12 @@ export interface MediatorGraphNode {
  */
 export interface MediatorObservationInput {
   argumentId: string;
-  family: MachineObservationFamily;
+  /**
+   * The observation family identifier (a `MachineObservationFamily` value,
+   * carried as a string to match the persisted `MachineObservationResultRow`
+   * shape). The projection keys its decisions off `rawKey`, not `family`.
+   */
+  family: string;
   rawKey: string;
   confidence: MediatorConfidence;
 }
