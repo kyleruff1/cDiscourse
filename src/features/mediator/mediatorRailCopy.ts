@@ -27,6 +27,21 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
   evidenceHelp: 'Evidence that would help',
   /** UX-MEDIATOR-003 — blocked / unavailable evidence path. */
   blockedEvidencePath: 'Blocked evidence path',
+  /** UX-MEDIATOR-004 — definition/scope bridge lead-in. */
+  clarifyPoint: 'Clarify the point',
+  // UX-MEDIATOR-004 — bridge prompts are ADVISORY guidance, never a posting
+  // gate. The phrasing deliberately avoids "before continuing" / "first" so it
+  // never reads as a precondition to posting (doctrine §1 — the board never
+  // blocks). It mirrors the collaborative tone of MEDIATOR_STATE_HELPER.
+  /** UX-MEDIATOR-004 — definition bridge prompt (advisory, never a gate). */
+  definitionBridge: 'Definition needed — pin down the term together.',
+  /** UX-MEDIATOR-004 — scope bridge prompt (advisory, never a gate). */
+  scopeBridge: 'Scope mismatch — narrow the point or branch a separate claim.',
+  /** UX-MEDIATOR-004 — secondary bridge note lead-in (shown only when both apply). */
+  alsoPrefix: 'Also',
+  /** UX-MEDIATOR-004 — short labels for the secondary bridge note. */
+  definitionShort: 'Definition needed',
+  scopeShort: 'Scope mismatch',
 });
 
 /** Rows shown before the in-panel "+N more" reveal. */

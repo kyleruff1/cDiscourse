@@ -55,6 +55,10 @@ import {
   evidenceRequestCountLabel,
 } from './mediatorRailCopy';
 import { getEvidenceDebtForPoint, type PointEvidenceDisplay } from './evidenceDebtDisplay';
+import {
+  getDefinitionScopeBridgeForPoint,
+  type PointBridgeDisplay,
+} from './definitionScopeBridgeDisplay';
 
 const SHEET_SLIDE_TRAVEL = 48;
 
@@ -299,6 +303,7 @@ export function DisagreementPointsRail({
               isActive={activeNodeId != null && point.memberNodeIds.includes(activeNodeId)}
               nextStepLabel={nextStepLabelFor(point.id)}
               evidence={getEvidenceDebtForPoint(board, point.id)}
+              bridge={getDefinitionScopeBridgeForPoint(board, point.id)}
               onJump={onJump}
             />
           ))}
@@ -342,6 +347,8 @@ interface DisagreementPointRowProps {
   nextStepLabel: string;
   /** UX-MEDIATOR-003 — compact evidence display for the point, or null. */
   evidence?: PointEvidenceDisplay | null;
+  /** UX-MEDIATOR-004 — compact definition/scope bridge for the point, or null. */
+  bridge?: PointBridgeDisplay | null;
   onJump?: (nodeId: string) => void;
 }
 
@@ -350,6 +357,7 @@ function DisagreementPointRow({
   isActive,
   nextStepLabel,
   evidence,
+  bridge,
   onJump,
 }: DisagreementPointRowProps): React.ReactElement {
   const stateLabel = displaySafe(point.plainLabel);
@@ -392,6 +400,38 @@ function DisagreementPointRow({
           <Text style={styles.nextStep} numberOfLines={2}>
             {`${DISAGREEMENT_POINTS_RAIL_COPY.whatHelps} ${nextStepLabel}`}
           </Text>
+        ) : null}
+
+        {/* UX-MEDIATOR-004 — definition/scope bridge: actionable clarification
+            guidance (structural; never a verdict, never a posting gate). */}
+        {bridge ? (
+          <View style={styles.bridgeWrap} testID={`disagreement-points-rail-bridge-${point.id}`}>
+            <Text style={styles.bridgeLead} numberOfLines={1}>
+              {DISAGREEMENT_POINTS_RAIL_COPY.clarifyPoint}
+            </Text>
+            <Text
+              style={styles.bridgePrompt}
+              numberOfLines={2}
+              testID={`disagreement-points-rail-bridge-primary-${point.id}`}
+            >
+              {bridge.primary === 'definition'
+                ? DISAGREEMENT_POINTS_RAIL_COPY.definitionBridge
+                : DISAGREEMENT_POINTS_RAIL_COPY.scopeBridge}
+            </Text>
+            {bridge.secondary ? (
+              <Text
+                style={styles.bridgeSecondary}
+                numberOfLines={1}
+                testID={`disagreement-points-rail-bridge-secondary-${point.id}`}
+              >
+                {`${DISAGREEMENT_POINTS_RAIL_COPY.alsoPrefix}: ${
+                  bridge.secondary === 'definition'
+                    ? DISAGREEMENT_POINTS_RAIL_COPY.definitionShort
+                    : DISAGREEMENT_POINTS_RAIL_COPY.scopeShort
+                }`}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
 
         {evidenceLine.length > 0 ? (
@@ -560,6 +600,27 @@ const styles = StyleSheet.create({
     color: SURFACE_TOKENS.textSecondary,
     fontSize: TYPOGRAPHY.chipLabel.fontSize,
     lineHeight: TYPOGRAPHY.chipLabel.lineHeight + 2,
+  },
+  // UX-MEDIATOR-004 — definition/scope bridge. A compact guidance block: a
+  // bold "Clarify the point" lead-in + one actionable prompt, with an optional
+  // one-line secondary note only when both definition and scope apply.
+  bridgeWrap: {
+    marginTop: 2,
+    gap: 2,
+  },
+  bridgeLead: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    fontWeight: '800',
+  },
+  bridgePrompt: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight + 2,
+  },
+  bridgeSecondary: {
+    color: SURFACE_TOKENS.textMuted,
+    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
   },
   evidenceLine: {
     color: SURFACE_TOKENS.textMuted,
