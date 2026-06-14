@@ -241,6 +241,31 @@ otp_length = 6
 otp_expiry = 3600
 
 # Use a production-ready SMTP server
+#
+# EMAIL-TRANSPORT-001 — CDiscourse-owned email transport (two lanes).
+#
+#   Lane A (Supabase Auth: invite / recovery / magic-link / confirmation /
+#   email-change) is delivered via CUSTOM SMTP so Supabase stays the token
+#   owner. Custom SMTP is a HOSTED action (Dashboard -> Authentication ->
+#   Emails/SMTP, or the runbook's gated Management-API path) -- NOT a
+#   config.toml edit, because the SMTP password is a secret. Editing the block
+#   below does NOT change the hosted project. See
+#   docs/runbooks/email-provider-setup.md sections 3-4.
+#
+#   Lane B (CDiscourse product email: ARG-ROOM invites) is delivered from the
+#   `room-notifications` Edge function via the provider HTTP API (Deno fetch),
+#   through the shared module `supabase/functions/_shared/email/`. It is gated
+#   by the MASTER switch `CDISCOURSE_EMAIL_TRANSPORT_ENABLED` (server-side
+#   secret, default OFF) composed with the per-feature `INVITE_EMAIL_ENABLED`
+#   -- BOTH required to send. Provider key (`RESEND_API_KEY`) + sender identity
+#   (`CDISCOURSE_EMAIL_FROM` / `CDISCOURSE_EMAIL_REPLY_TO`) are server-side
+#   secrets, never in this file. The new-user Auth bridge
+#   (`INVITE_AUTH_BRIDGE_ENABLED`) is Lane A and stays an INDEPENDENT gate.
+#
+#   Other Auth templates (recovery / magic-link / confirmation / email-change)
+#   are a documented FOLLOW-UP; only the branded invite template ships now
+#   (registered below). See docs/designs/EMAIL-TRANSPORT-001.md.
+#
 # [auth.email.smtp]
 # enabled = true
 # host = "smtp.sendgrid.net"

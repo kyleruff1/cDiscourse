@@ -111,51 +111,65 @@ describe('room-notifications — logging rules (doctrine §5.7)', () => {
 });
 
 describe('room-notifications — email scaffold (gated, off by default)', () => {
+  // EMAIL-TRANSPORT-001 re-point: the inline Resend fetch + Bearer header moved
+  // into the shared `_shared/email/` module. The fetch-shape assertions FOLLOW
+  // the code to resendProvider.ts / sendTransactionalEmail.ts (asserted in
+  // resendProviderRequest.test.ts + emailMasterGate.test.ts +
+  // roomNotifications.email.safety.test.ts). These room-notifications scans now
+  // assert the wrapper delegates correctly and carries no inline send.
+  const PROVIDER_SRC = fs.readFileSync(
+    path.join(process.cwd(), 'supabase', 'functions', '_shared', 'email', 'resendProvider.ts'),
+    'utf8',
+  );
+  const ORCH_SRC = fs.readFileSync(
+    path.join(process.cwd(), 'supabase', 'functions', '_shared', 'email', 'sendTransactionalEmail.ts'),
+    'utf8',
+  );
+
   it('declares maybeSendInviteEmail as a named async function', () => {
     expect(SRC).toMatch(/async function maybeSendInviteEmail\b/);
   });
 
-  it('gates on INVITE_EMAIL_ENABLED env var (returns not_configured when unset)', () => {
+  it('gates the product lane on the composed master + per-feature gate (default OFF)', () => {
+    // isInviteEmailEnabled now composes CDISCOURSE_EMAIL_TRANSPORT_ENABLED &&
+    // INVITE_EMAIL_ENABLED — both required, both default OFF.
+    expect(SRC).toContain("Deno.env.get('CDISCOURSE_EMAIL_TRANSPORT_ENABLED')");
     expect(SRC).toContain("Deno.env.get('INVITE_EMAIL_ENABLED')");
-    // The check: anything other than the literal string 'true'
-    // returns 'not_configured'.
-    expect(SRC).toMatch(/enabled !== 'true'/);
-    expect(SRC).toContain("return 'not_configured'");
+    expect(SRC).toMatch(/return master && perFeature;/);
+    // The wrapper returns not_configured when the gate is off (no send).
+    expect(SRC).toMatch(/if \(!isInviteEmailEnabled\(\)\) return 'not_configured';/);
   });
 
-  it('gates on RESEND_API_KEY and INVITE_EMAIL_FROM env vars', () => {
-    expect(SRC).toContain("Deno.env.get('RESEND_API_KEY')");
-    expect(SRC).toContain("Deno.env.get('INVITE_EMAIL_FROM')");
-    // Missing either env var → not_configured (no network call).
-    expect(SRC).toMatch(/if \(!apiKey \|\| !from\)/);
+  it('delegates the send through the shared sendTransactionalEmail seam (no inline fetch)', () => {
+    expect(SRC).toContain('sendTransactionalEmail(');
+    expect(SRC).toContain('renderArgumentRoomInviteEmail(');
+    // The inline Resend fetch + Bearer header are GONE from this file.
+    expect(SRC).not.toContain('https://api.resend.com/emails');
+    expect(SRC).not.toContain('Bearer ${apiKey}');
   });
 
-  it('POSTs to Resend with the Authorization header built in-place (never assigned to a var that lands in a log)', () => {
-    expect(SRC).toContain("https://api.resend.com/emails");
-    // The Authorization header MUST be built in-place inside the
-    // headers object literal. Find every line that contains the
-    // string `Bearer ${apiKey}` and assert it sits inside an
-    // object literal (not in a logger / console call).
-    const authLine = SRC.split('\n').find((l) => l.includes('Bearer ${apiKey}'));
+  it('the shared orchestrator enforces the master gate first, then the provider/FROM (no network when off)', () => {
+    expect(ORCH_SRC).toContain('CDISCOURSE_EMAIL_TRANSPORT_ENABLED');
+    expect(ORCH_SRC).toContain("status: 'skipped_gate_off'");
+    expect(ORCH_SRC).toContain("status: 'not_configured'");
+    expect(ORCH_SRC).toContain('CDISCOURSE_EMAIL_FROM');
+  });
+
+  it('the shared Resend provider POSTs with the Authorization header built in-place', () => {
+    expect(PROVIDER_SRC).toContain('https://api.resend.com/emails');
+    const authLine = PROVIDER_SRC.split('\n').find((l) => l.includes('Bearer ${apiKey}'));
     expect(authLine).toBeDefined();
     expect(authLine?.toLowerCase()).not.toMatch(/console\./);
   });
 
-  it('on Resend non-2xx response: drains body without echoing it; returns queued', () => {
-    expect(SRC).toContain("if (!res.ok)");
-    expect(SRC).toContain("await res.text()");
-    expect(SRC).toContain("return 'queued'");
+  it('the shared Resend provider drains the body without echoing it', () => {
+    expect(PROVIDER_SRC).toContain('if (!res.ok)');
+    expect(PROVIDER_SRC).toContain('await res.text()');
+    expect(PROVIDER_SRC).toContain("status: 'failed_sanitized'");
+    expect(PROVIDER_SRC).toContain("status: 'sent'");
   });
 
-  it('on Resend exception: returns queued', () => {
-    expect(SRC).toMatch(/} catch \(err\) \{[\s\S]*return 'queued';[\s\S]*\}/);
-  });
-
-  it('on Resend 2xx: returns sent', () => {
-    expect(SRC).toContain("return 'sent'");
-  });
-
-  it('the InviteEmailStatus union is exactly sent | not_configured | queued', () => {
+  it('the InviteEmailStatus union is exactly sent | not_configured | queued (caller surface unchanged)', () => {
     expect(SRC).toMatch(/type InviteEmailStatus = 'sent' \| 'not_configured' \| 'queued'/);
   });
 });

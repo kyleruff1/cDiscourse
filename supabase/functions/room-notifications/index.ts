@@ -60,6 +60,13 @@ import {
 } from '../_shared/http.ts';
 import { createCallerClient, createServiceClient } from '../_shared/supabaseClients.ts';
 import { INVITE_TOKEN_MIN_LENGTH, INVITE_TOKEN_MAX_LENGTH } from '../_shared/inviteTokenShape.ts';
+// EMAIL-TRANSPORT-001 — the shared, swappable product-email module. The Resend
+// `fetch()` + Bearer header now live ONLY in `_shared/email/resendProvider.ts`;
+// this function calls the single `sendTransactionalEmail` seam so the two
+// cannot drift. Behavior-preserving: the existing-user branch, the gate
+// posture, and the branch-independent response are unchanged.
+import { sendTransactionalEmail } from '../_shared/email/sendTransactionalEmail.ts';
+import { renderArgumentRoomInviteEmail } from '../_shared/email/emailTemplates.ts';
 
 // ── Trigger discriminator ────────────────────────────────────
 
@@ -185,9 +192,23 @@ function parseMeta(input: unknown): NotificationMetaInput {
 // decision is made HERE, where the service-role + caller=inviter authorization
 // already lives). Both gates default OFF so a merge lands DORMANT (no send).
 
-/** Existing-user Resend transport gate (QOL-040). Default OFF. */
+/**
+ * Existing-user product invite email gate.
+ *
+ * EMAIL-TRANSPORT-001 — the effective product-lane send predicate is now
+ * `CDISCOURSE_EMAIL_TRANSPORT_ENABLED === 'true' && INVITE_EMAIL_ENABLED === 'true'`
+ * (BOTH required). The new master gate (`CDISCOURSE_EMAIL_TRANSPORT_ENABLED`,
+ * default OFF) is the lane-wide kill switch; `INVITE_EMAIL_ENABLED` (QOL-040,
+ * default OFF) stays the per-feature switch. This is a deliberate, documented
+ * gate-composition change (design §"Gating model"): to keep existing-user
+ * invite email behaving as before, the operator sets BOTH. The actual send is
+ * additionally guarded inside `sendTransactionalEmail` by the same master gate,
+ * so this predicate and the orchestrator agree.
+ */
 function isInviteEmailEnabled(): boolean {
-  return (Deno.env.get('INVITE_EMAIL_ENABLED') || '').trim().toLowerCase() === 'true';
+  const master = (Deno.env.get('CDISCOURSE_EMAIL_TRANSPORT_ENABLED') || '').trim().toLowerCase() === 'true';
+  const perFeature = (Deno.env.get('INVITE_EMAIL_ENABLED') || '').trim().toLowerCase() === 'true';
+  return master && perFeature;
 }
 
 /**
@@ -301,23 +322,28 @@ async function insertRows(
 // ── Email scaffold (gated, off by default) ───────────────────
 
 /**
- * Send the invite email via Resend, mirroring
- * `request-argument-deletion`'s `maybeSendAdminNotification`
- * pattern. Off by default — the operator flips
- * INVITE_EMAIL_ENABLED + RESEND_API_KEY + INVITE_EMAIL_FROM per
- * environment after deliverability setup.
+ * Send the existing-user product invite email.
  *
- * Returns:
- *   - 'not_configured' when any gate fails (flag off, missing key,
- *     missing from). NO network call.
- *   - 'sent' on Resend 2xx.
- *   - 'queued' on Resend non-2xx OR exception. The in-app row
- *     already landed; this status simply tells the caller the
- *     email-channel attempt failed so the operator can later
- *     reconcile.
+ * EMAIL-TRANSPORT-001 — BEHAVIOR-PRESERVING refactor: the inline Resend
+ * `fetch()` body was lifted into the shared, swappable `_shared/email/` module.
+ * This wrapper now renders via `renderArgumentRoomInviteEmail` and dispatches
+ * through the single `sendTransactionalEmail` seam, then maps the audit-safe
+ * `EmailSendResult.status` back to the QOL-038 `InviteEmailStatus` union so the
+ * caller surface (`resolveInviteNotificationStatus` + the branch-independent
+ * response) is unchanged. The product-lane gate is now
+ * `CDISCOURSE_EMAIL_TRANSPORT_ENABLED && INVITE_EMAIL_ENABLED` (see
+ * `isInviteEmailEnabled`); the orchestrator enforces the same master gate so
+ * an OFF master always short-circuits with no network.
  *
- * NEVER logs: Authorization header, API key, response body, raw
- * recipient email.
+ * Status mapping (audit-safe → caller union):
+ *   - 'sent'                                       -> 'sent'
+ *   - 'skipped_gate_off' | 'not_configured'        -> 'not_configured' (NO network)
+ *   - 'failed_sanitized' | 'blocked_banned_copy'   -> 'queued'  (in-app row already
+ *                                                     landed; operator reconciles)
+ *
+ * NEVER logs: Authorization header, API key, response body, raw recipient
+ * email. The shared provider drains the body without echoing it; the key + the
+ * `Bearer` header live ONLY in `_shared/email/resendProvider.ts`.
  */
 async function maybeSendInviteEmail(input: {
   inviteId: string;
@@ -327,84 +353,43 @@ async function maybeSendInviteEmail(input: {
   inviteLink: string | null;
   roomIsPrivate: boolean;
 }): Promise<InviteEmailStatus> {
-  const enabled = (Deno.env.get('INVITE_EMAIL_ENABLED') || '').trim().toLowerCase();
-  if (enabled !== 'true') return 'not_configured';
-
-  const apiKey = (Deno.env.get('RESEND_API_KEY') || '').trim();
-  const from = (Deno.env.get('INVITE_EMAIL_FROM') || '').trim();
-  if (!apiKey || !from) {
-    // Structured log entry — note the key value is NOT in the line.
-    // eslint-disable-next-line no-console
-    console.error('invite_email_missing_configuration', {
-      inviteIdShort: shortId(input.inviteId),
-      hasApiKey: Boolean(apiKey),
-      hasFrom: Boolean(from),
-    });
-    return 'not_configured';
-  }
+  // Per-feature gate (composed with the master gate inside isInviteEmailEnabled).
+  if (!isInviteEmailEnabled()) return 'not_configured';
 
   const recipient = (input.recipientEmail || '').trim();
   if (!recipient) return 'not_configured';
 
-  const subject = 'You were invited to respond to an argument.';
-  const room = (input.roomTitle || '').trim() || 'an argument';
-  const inviter = (input.inviterDisplayName || '').trim();
-  const safeLine = (s: string) => s.replace(/<[^>]*>/g, '').replace(/[\x00-\x1F\x7F]/g, '').slice(0, 200);
-  const introLine = inviter
-    ? `${safeLine(inviter)} invited you to respond to an argument on CDiscourse.`
-    : 'Someone invited you to respond to an argument on CDiscourse.';
-  const privacyLine = input.roomIsPrivate
-    ? 'This is a private argument — only invited participants can see it.'
-    : '';
-  const linkLine = input.inviteLink ? `Open the argument: ${input.inviteLink}` : '';
+  // The redemption URL the email CTA points at is the app-controlled
+  // `<origin>/invite/<token>` route (already built by buildInviteLinkFromOrigin
+  // upstream). Absent => an empty URL; the orchestrator still renders neutral
+  // copy and the inviter's copyable link is the fallback.
+  const rendered = renderArgumentRoomInviteEmail({
+    roomTitle: input.roomTitle,
+    roomVisibility: input.roomIsPrivate ? 'private' : 'public',
+    inviterDisplayName: input.inviterDisplayName,
+    redemptionUrl: input.inviteLink || '',
+  });
 
-  const bodyText = [
-    introLine,
-    '',
-    `Room: ${safeLine(room)}`,
-    privacyLine,
-    linkLine,
-    '',
-    'You can ignore this email if you were not expecting it. The link expires after 14 days.',
-  ]
-    .filter((s) => s.length > 0 || s === '')
-    .join('\n');
+  const result = await sendTransactionalEmail({ to: recipient, rendered });
 
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        // Authorization header is built in-place; the key is
-        // never logged or assigned to a variable that lands in
-        // a log line.
-        authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from,
-        to: [recipient],
-        subject,
-        text: bodyText,
-      }),
-    });
-    if (!res.ok) {
-      // Drain body without echoing it.
-      try { await res.text(); } catch { /* swallow */ }
+  switch (result.status) {
+    case 'sent':
+      return 'sent';
+    case 'skipped_gate_off':
+    case 'not_configured':
+      return 'not_configured';
+    case 'failed_sanitized':
+    case 'blocked_banned_copy':
+    default:
+      // The in-app bell already landed; report 'queued' so the operator can
+      // reconcile. The provider class is intentionally not surfaced here (the
+      // result is audit-safe; nothing recipient/body/key-bearing is logged).
       // eslint-disable-next-line no-console
       console.error('invite_email_send_failed', {
         inviteIdShort: shortId(input.inviteId),
-        status: res.status,
+        outcome: result.status,
       });
       return 'queued';
-    }
-    return 'sent';
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('invite_email_send_exception', {
-      inviteIdShort: shortId(input.inviteId),
-      message: err instanceof Error ? err.message.slice(0, 120) : 'unknown',
-    });
-    return 'queued';
   }
 }
 
