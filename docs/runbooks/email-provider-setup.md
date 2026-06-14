@@ -49,17 +49,19 @@ Add these records on the sending domain. Use a dedicated subdomain (`mail.cdisco
 
 These are Supabase **Edge Function** secrets for Lane B (the product HTTP API) and the gating model. Run each `secrets set` and paste the value when prompted; do NOT put a value on the command line.
 
+> Note: `supabase secrets set/unset/list` operate on the **linked** project by default — there is no `--linked` flag for them (passing it is silently rejected: it prints help and sets nothing). Use `--project-ref <ref>` only to target a non-linked project. (`supabase db push` does accept `--linked`; the `secrets` subcommands do not.)
+
 ```powershell
 # Lane B / gating secrets (server-side only). Provider key value typed on stdin.
-npx supabase secrets set CDISCOURSE_EMAIL_PROVIDER=resend --linked
-npx supabase secrets set CDISCOURSE_EMAIL_FROM="CDiscourse <invites@mail.cdiscourse.com>" --linked
-npx supabase secrets set CDISCOURSE_EMAIL_REPLY_TO="support@cdiscourse.com" --linked
+npx supabase secrets set CDISCOURSE_EMAIL_PROVIDER=resend
+npx supabase secrets set CDISCOURSE_EMAIL_FROM="CDiscourse <invites@mail.cdiscourse.com>"
+npx supabase secrets set CDISCOURSE_EMAIL_REPLY_TO="support@cdiscourse.com"
 
 # RESEND_API_KEY already exists on the linked project. ONLY if rotating:
-#   npx supabase secrets set RESEND_API_KEY --linked         # then paste the value on stdin
+#   npx supabase secrets set RESEND_API_KEY         # then paste the value on stdin
 # Postmark alternative (instead of RESEND_API_KEY):
-#   npx supabase secrets set CDISCOURSE_EMAIL_PROVIDER=postmark --linked
-#   npx supabase secrets set POSTMARK_SERVER_TOKEN --linked  # then paste the value on stdin
+#   npx supabase secrets set CDISCOURSE_EMAIL_PROVIDER=postmark
+#   npx supabase secrets set POSTMARK_SERVER_TOKEN  # then paste the value on stdin
 ```
 
 - [ ] `CDISCOURSE_EMAIL_PROVIDER` set (`resend` or `postmark`).
@@ -171,10 +173,10 @@ Remove-Item Env:\CDISCOURSE_ALLOW_INVITE_SEND_SMOKE
 
 ```powershell
 # Arm the product transport master gate + the smoke target (server-side):
-npx supabase secrets set CDISCOURSE_EMAIL_TRANSPORT_ENABLED=true --linked
-npx supabase secrets set INVITE_EMAIL_ENABLED=true --linked          # both required for the product lane
-npx supabase secrets set CDISCOURSE_ALLOW_EMAIL_TRANSPORT_SMOKE=1 --linked
-npx supabase secrets set CDISCOURSE_EMAIL_SMOKE_TARGET=kyleruff+emailtransport01@gmail.com --linked
+npx supabase secrets set CDISCOURSE_EMAIL_TRANSPORT_ENABLED=true
+npx supabase secrets set INVITE_EMAIL_ENABLED=true          # both required for the product lane
+npx supabase secrets set CDISCOURSE_ALLOW_EMAIL_TRANSPORT_SMOKE=1
+npx supabase secrets set CDISCOURSE_EMAIL_SMOKE_TARGET=kyleruff+emailtransport01@gmail.com
 ```
 Then trigger ONE existing-user room invite to that address (via the app or the extended `sendInviteSmoke.js` Lane-B dry/live plan) and confirm the product email.
 
@@ -186,9 +188,9 @@ Then trigger ONE existing-user room invite to that address (via the app or the e
 
 ```powershell
 # Disarm the single-target smoke gate; arm batch ONLY now:
-npx supabase secrets unset CDISCOURSE_ALLOW_EMAIL_TRANSPORT_SMOKE --linked
-npx supabase secrets unset CDISCOURSE_EMAIL_SMOKE_TARGET --linked
-npx supabase secrets set CDISCOURSE_ALLOW_EMAIL_TRANSPORT_BATCH=1 --linked
+npx supabase secrets unset CDISCOURSE_ALLOW_EMAIL_TRANSPORT_SMOKE
+npx supabase secrets unset CDISCOURSE_EMAIL_SMOKE_TARGET
+npx supabase secrets set CDISCOURSE_ALLOW_EMAIL_TRANSPORT_BATCH=1
 ```
 - [ ] `CDISCOURSE_EMAIL_TRANSPORT_ENABLED=true` (product lane master switch).
 - [ ] `INVITE_EMAIL_ENABLED=true` (existing-user product invite — both required).
@@ -201,7 +203,7 @@ npx supabase secrets set CDISCOURSE_ALLOW_EMAIL_TRANSPORT_BATCH=1 --linked
 
 To instantly stop ALL product email without a deploy:
 ```powershell
-npx supabase secrets set CDISCOURSE_EMAIL_TRANSPORT_ENABLED=false --linked
+npx supabase secrets set CDISCOURSE_EMAIL_TRANSPORT_ENABLED=false
 ```
 This returns `skipped_gate_off` from `sendTransactionalEmail` (no network). To stop the new-user Auth bridge: `INVITE_AUTH_BRIDGE_ENABLED=false`. To revert Auth emails to the built-in service: disable Custom SMTP in the Dashboard (the rate limit returns, but it is a safe fallback).
 
@@ -210,6 +212,6 @@ This returns `skipped_gate_off` from `sendTransactionalEmail` (no network). To s
 ## 8. Provider swap (Resend → Postmark) summary
 
 1. Verify `mail.cdiscourse.com` under Postmark; publish Postmark's SPF/DKIM/return-path records.
-2. `npx supabase secrets set CDISCOURSE_EMAIL_PROVIDER=postmark --linked` + `POSTMARK_SERVER_TOKEN` (stdin).
+2. `npx supabase secrets set CDISCOURSE_EMAIL_PROVIDER=postmark` + `POSTMARK_SERVER_TOKEN` (stdin).
 3. Repoint Custom SMTP (Section 4) at `smtp.postmarkapp.com` with the Postmark server token.
 4. Re-run the Section 6 seed smoke before going live. No product code change is required — the factory selects the Postmark module.
