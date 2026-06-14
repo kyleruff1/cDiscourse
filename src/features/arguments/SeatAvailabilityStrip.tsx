@@ -31,6 +31,11 @@ export function SeatAvailabilityStrip({ viewModel, testID }: Props) {
       accessibilityRole="summary"
       accessibilityLabel={viewModel.accessibilityLabel}
     >
+      {/* UX-SIMPLIFY-002B — "N of M active seats": the capacity context the
+          open-slot count alone lacks. Active = For / Against / Host. */}
+      <Text style={styles.activeSeats} testID="seat-availability-active-label">
+        {viewModel.activeSeatsLabel}
+      </Text>
       <Text
         style={[styles.openSeats, viewModel.isFull && styles.openSeatsFull]}
         testID="seat-availability-open-label"
@@ -42,6 +47,11 @@ export function SeatAvailabilityStrip({ viewModel, testID }: Props) {
           {viewModel.fullRoomObserveNudge}
         </Text>
       ) : null}
+      {/* UX-SIMPLIFY-002B — readers/watchers are uncapped and never consume an
+          active seat. Static clarity line; muted secondary cue. */}
+      <Text style={styles.readersNote} testID="seat-availability-readers-note">
+        {viewModel.readersNote}
+      </Text>
       <Text style={styles.viewerState} testID="seat-availability-viewer-state">
         {viewModel.viewerStateLabel}
       </Text>
@@ -64,10 +74,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#1f2937',
   },
+  // UX-SIMPLIFY-002B — the active-seat capacity line leads the strip.
+  activeSeats: { color: '#e2e8f0', fontSize: 13, fontWeight: '700' as const },
   openSeats: { color: '#e2e8f0', fontSize: 13, fontWeight: '700' as const },
   // Full state changes the TEXT ("No open seats" + the nudge), not just the
   // color; the muted color is a secondary cue only.
   openSeatsFull: { color: '#94a3b8' },
   nudge: { color: '#cbd5e1', fontSize: 12 },
+  // UX-SIMPLIFY-002B — readers note: muted secondary clarity, never an alert.
+  readersNote: { color: '#94a3b8', fontSize: 12 },
   viewerState: { color: '#94a3b8', fontSize: 12 },
 });

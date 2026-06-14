@@ -72,6 +72,14 @@ describe('SeatAvailabilityStrip — rendering', () => {
     expect(queryByTestId('seat-availability-full-nudge')).toBeNull();
   });
 
+  it('UX-SIMPLIFY-002B — shows the "N of M active seats" line + the readers note', () => {
+    const { getByTestId } = render(<SeatAvailabilityStrip viewModel={vmFor(1, null)} />);
+    expect(getByTestId('seat-availability-active-label').props.children).toBe('1 of 5 active seats');
+    expect(getByTestId('seat-availability-readers-note').props.children).toBe(
+      'Readers do not use active seats',
+    );
+  });
+
   it('shows the observe nudge when the room is full and the viewer is not active', () => {
     const { getByTestId } = render(<SeatAvailabilityStrip viewModel={vmFor(5, null)} />);
     expect(getByTestId('seat-availability-full-nudge').props.children).toBe(

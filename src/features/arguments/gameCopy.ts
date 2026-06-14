@@ -973,6 +973,14 @@ export const SEAT_CLAIM_COPY = Object.freeze({
   fullRoomObserve: 'This argument is full. You can still watch.',
   youAreActive: "You're in this argument.",
   youAreWatching: "You're watching.",
+  // UX-SIMPLIFY-002B — public-room seat/voice clarity. The active-seat summary
+  // gives the capacity context the open-slot count alone lacks ("N of M"); the
+  // readers note states that watching/reading is uncapped and does not consume
+  // an active seat. Both are structural seat facts, never verdicts. `{active}` /
+  // `{cap}` are placeholders — the cap is the single source of truth from
+  // `roomActiveSeatCap`, never a literal in this copy.
+  activeSeatsSummary: '{active} of {cap} active seats',
+  readersNote: 'Readers do not use active seats',
 });
 
 // ── META-1E — Cards-detail metadata diff inspector copy ─────────

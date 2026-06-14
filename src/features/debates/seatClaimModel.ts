@@ -227,6 +227,17 @@ export function classifyJoinOutcome(
 export interface SeatAvailabilityViewModel {
   /** "3 open seats" / "1 open seat" / "No open seats". Count only. */
   openSeatsLabel: string;
+  /**
+   * UX-SIMPLIFY-002B — "N of M active seats". Gives the capacity context the
+   * open-slot count alone lacks. Active participants (For / Against / Host) of
+   * the active-seat cap; the cap is the single source of truth (`a.cap`).
+   */
+  activeSeatsLabel: string;
+  /**
+   * UX-SIMPLIFY-002B — "Readers do not use active seats". A static clarity line
+   * that watching/reading is uncapped and separate from active participation.
+   */
+  readersNote: string;
   isFull: boolean;
   /** The full-room observe nudge when full + viewer not active, else null. */
   fullRoomObserveNudge: string | null;
@@ -245,6 +256,20 @@ function openSeatsLabel(openSlots: number): string {
 }
 
 /**
+ * UX-SIMPLIFY-002B — "{active} of {cap} active seats". The active-participant
+ * count of the cap, both read straight from the already-derived
+ * `SeatAvailability` (the cap is the single source of truth from
+ * `roomActiveSeatCap`; this helper authors no literal). Active participants are
+ * For / Against / Host (`isActiveParticipantSide`); observers/readers are not
+ * counted and never consume a seat. Count only, never a ranking.
+ */
+export function formatActiveSeatSummary(a: SeatAvailability): string {
+  return SEAT_CLAIM_COPY.activeSeatsSummary
+    .replace('{active}', String(a.activeParticipantCount))
+    .replace('{cap}', String(a.cap));
+}
+
+/**
  * Build the read-only seat-availability display view-model. Verdict-free;
  * counts only, never identities. `viewerSide` distinguishes the viewer-state
  * line: an active participant (affirmative / negative / moderator) reads "You're
@@ -256,6 +281,8 @@ export function buildSeatAvailabilityViewModel(
   viewerSide: ParticipantSide | null,
 ): SeatAvailabilityViewModel {
   const seatsLabel = openSeatsLabel(a.openSlots);
+  const activeSeatsLabel = formatActiveSeatSummary(a);
+  const readersNote = SEAT_CLAIM_COPY.readersNote;
   const fullRoomObserveNudge = a.observeIsOnlyOption
     ? SEAT_CLAIM_COPY.fullRoomObserve
     : null;
@@ -263,14 +290,22 @@ export function buildSeatAvailabilityViewModel(
     ? SEAT_CLAIM_COPY.youAreActive
     : SEAT_CLAIM_COPY.youAreWatching;
 
-  // Lead with the observe nudge when full; with the open-slot count otherwise.
-  const head = fullRoomObserveNudge ?? `${seatsLabel}.`;
-  const accessibilityLabel = [head, viewerStateLabel]
+  // Lead with the "N of M active seats" capacity context, then the observe
+  // nudge (when full) or the open-slot count, the readers note, and the
+  // viewer's own state. All count-only, never a ranking.
+  const accessibilityLabel = [
+    `${activeSeatsLabel}.`,
+    fullRoomObserveNudge ?? `${seatsLabel}.`,
+    `${readersNote}.`,
+    viewerStateLabel,
+  ]
     .filter((part) => part.length > 0)
     .join(' ');
 
   return {
     openSeatsLabel: seatsLabel,
+    activeSeatsLabel,
+    readersNote,
     isFull: a.isFull,
     fullRoomObserveNudge,
     viewerStateLabel,
