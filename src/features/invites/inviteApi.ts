@@ -110,6 +110,34 @@ export interface AcceptRoomInviteResponse {
   intendedSeat: IntendedSeat;
 }
 
+/**
+ * EMAIL-TRANSPORT-002 (Option B) — provision a brand-new user + accept in
+ * one server-side call. The token + typed email + typed password are sent
+ * to the Edge Function over TLS; the function enforces email-binding
+ * BEFORE provisioning and returns NO session / JWT / token. The client
+ * then performs a normal `signInWithEmailPassword` to obtain its own
+ * session.
+ *
+ * The password is passed ONLY to this wrapper → the Edge Function body.
+ * It is never logged, persisted, or echoed by this client.
+ */
+export interface ProvisionAndAcceptInviteInput {
+  token: string;
+  email: string;
+  password: string;
+}
+
+/**
+ * The provision_and_accept response carries NO session, JWT, or token —
+ * the same neutral shape as `accept`. The client signs in separately.
+ */
+export interface ProvisionAndAcceptInviteResponse {
+  debateId: string;
+  status: 'accepted';
+  enteredAsParticipant: true;
+  intendedSeat: IntendedSeat;
+}
+
 // ── Internal invoke helper ───────────────────────────────────
 
 async function invoke<T>(body: Record<string, unknown>): Promise<InviteApiResult<T>> {
@@ -185,4 +213,26 @@ export async function acceptRoomInvite(
   input: AcceptRoomInviteInput,
 ): Promise<InviteApiResult<AcceptRoomInviteResponse>> {
   return invoke<AcceptRoomInviteResponse>({ action: 'accept', token: input.token });
+}
+
+/**
+ * EMAIL-TRANSPORT-002 (Option B) — server-side new-user provisioning +
+ * acceptance. Routes through the same `manage-room-invite` Edge Function.
+ * The Edge Function enforces email-binding BEFORE provisioning and
+ * returns NO session/token; the caller signs in separately.
+ *
+ * This wrapper, like every other in this file, NEVER imports a
+ * service-role key and NEVER inserts directly — it only invokes the Edge
+ * Function. The password is forwarded to the function body and is not
+ * logged or stored here.
+ */
+export async function provisionAndAcceptInvite(
+  input: ProvisionAndAcceptInviteInput,
+): Promise<InviteApiResult<ProvisionAndAcceptInviteResponse>> {
+  return invoke<ProvisionAndAcceptInviteResponse>({
+    action: 'provision_and_accept',
+    token: input.token,
+    email: input.email,
+    password: input.password,
+  });
 }
