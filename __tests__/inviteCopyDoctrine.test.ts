@@ -25,6 +25,7 @@ import {
   INVITE_EMAIL_SUBJECT,
   INVITE_PANEL_COPY,
   INVITE_REDEEM_COPY,
+  INVITE_CREDENTIAL_COPY,
   buildInviteEmailBody,
   plainLanguageForInviteError,
 } from '../src/features/invites/inviteCopy';
@@ -71,6 +72,25 @@ function collectAllStrings(): string[] {
     }
   }
 
+  // EMAIL-TRANSPORT-002 — credential step copy (strings + function outputs).
+  for (const [key, v] of Object.entries(INVITE_CREDENTIAL_COPY)) {
+    if (typeof v === 'string') {
+      out.push(v);
+    } else if (typeof v === 'function') {
+      const fn = v as (...args: string[]) => string;
+      // `body` / `signInBody` take (roomTitle, inviter).
+      if (key === 'body' || key === 'signInBody') {
+        out.push(fn('A room title', 'Alex'));
+      } else {
+        try {
+          out.push(fn('A', 'B'));
+        } catch {
+          // ignore — defensive
+        }
+      }
+    }
+  }
+
   // Email subject + body
   out.push(INVITE_EMAIL_SUBJECT);
   out.push(
@@ -103,6 +123,10 @@ function collectAllStrings(): string[] {
     'invite_lookup_failed',
     'invite_revoke_failed',
     'enrolment_failed',
+    // EMAIL-TRANSPORT-002 (Option B) codes.
+    'account_exists',
+    'provision_failed',
+    'weak_password',
   ]) {
     out.push(plainLanguageForInviteError(code));
   }

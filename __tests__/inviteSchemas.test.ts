@@ -57,12 +57,24 @@ const AcceptInvite = z.object({
   token: Token,
 });
 
+// EMAIL-TRANSPORT-002 (Option B) — mirror of the new provision_and_accept
+// action. If you change the Edge Function schema, mirror the change here.
+const Password = z.string().min(6).max(128);
+
+const ProvisionAndAccept = z.object({
+  action: z.literal('provision_and_accept'),
+  token: Token,
+  email: Email,
+  password: Password,
+});
+
 const ManageRoomInviteRequestSchema = z.discriminatedUnion('action', [
   CreateInvite,
   RevokeInvite,
   ListForDebate,
   LookupByToken,
   AcceptInvite,
+  ProvisionAndAccept,
 ]);
 
 const VALID_TOKEN = 'aB12345678901234567890123456789012345678901';
@@ -188,6 +200,77 @@ describe('manage-room-invite — accept schema', () => {
       ManageRoomInviteRequestSchema.parse({
         action: 'accept',
         token: 'A'.repeat(INVITE_TOKEN_MAX_LENGTH + 1),
+      }),
+    ).toThrow();
+  });
+});
+
+describe('manage-room-invite — provision_and_accept schema (EMAIL-TRANSPORT-002)', () => {
+  it('accepts a valid token + email + password', () => {
+    const parsed = ManageRoomInviteRequestSchema.parse({
+      action: 'provision_and_accept',
+      token: VALID_TOKEN,
+      email: 'alice@example.com',
+      password: 'secret123',
+    });
+    expect(parsed).toEqual({
+      action: 'provision_and_accept',
+      token: VALID_TOKEN,
+      email: 'alice@example.com',
+      password: 'secret123',
+    });
+  });
+
+  it('rejects a too-short password (< 6)', () => {
+    expect(() =>
+      ManageRoomInviteRequestSchema.parse({
+        action: 'provision_and_accept',
+        token: VALID_TOKEN,
+        email: 'alice@example.com',
+        password: 'short',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects an over-long password (> 128)', () => {
+    expect(() =>
+      ManageRoomInviteRequestSchema.parse({
+        action: 'provision_and_accept',
+        token: VALID_TOKEN,
+        email: 'alice@example.com',
+        password: 'a'.repeat(129),
+      }),
+    ).toThrow();
+  });
+
+  it('rejects an invalid email', () => {
+    expect(() =>
+      ManageRoomInviteRequestSchema.parse({
+        action: 'provision_and_accept',
+        token: VALID_TOKEN,
+        email: 'not-an-email',
+        password: 'secret123',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects a malformed token', () => {
+    expect(() =>
+      ManageRoomInviteRequestSchema.parse({
+        action: 'provision_and_accept',
+        token: 'short',
+        email: 'alice@example.com',
+        password: 'secret123',
+      }),
+    ).toThrow();
+  });
+
+  it('rejects a missing password', () => {
+    expect(() =>
+      ManageRoomInviteRequestSchema.parse({
+        action: 'provision_and_accept',
+        token: VALID_TOKEN,
+        email: 'alice@example.com',
       }),
     ).toThrow();
   });

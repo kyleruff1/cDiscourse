@@ -11,9 +11,18 @@
 import React from 'react';
 import { render, waitFor } from '@testing-library/react-native';
 
+// EMAIL-TRANSPORT-002 — the gate now statically imports InviteCredentialStep,
+// which pulls in the auth module chain (supabase → async-storage) at load.
+// Mock the native module so this signed-in-mismatch render test (which never
+// reaches the credential step) can load. No assertion is changed.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 jest.mock('../src/features/invites/inviteApi', () => ({
   lookupInviteByToken: jest.fn(),
   acceptRoomInvite: jest.fn(),
+  provisionAndAcceptInvite: jest.fn(),
 }));
 
 import { InviteRedeemGate } from '../src/features/invites/InviteRedeemGate';

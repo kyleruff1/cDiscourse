@@ -138,6 +138,33 @@ export const INVITE_REDEEM_COPY = {
 } as const;
 
 /**
+ * EMAIL-TRANSPORT-002 (Option B) — the in-place "Create your account"
+ * step shown on the /invite/<token> route for a brand-new invitee.
+ * Verdict-free; scanned by the inviteCopyDoctrine ban-list test. Shows
+ * only room context + account fields — no heat, no score, no standing.
+ */
+export const INVITE_CREDENTIAL_COPY = {
+  heading: 'Create your account to join',
+  body: (roomTitle: string, inviter: string): string =>
+    `${inviter} invited you to respond to an argument: "${roomTitle}". Set a password to create your account and join.`,
+  emailLabel: 'The email this invite was sent to',
+  emailPlaceholder: 'name@example.com',
+  emailHelp: 'Use the exact address the invite was sent to.',
+  passwordLabel: 'Choose a password',
+  passwordPlaceholder: 'At least 6 characters',
+  submitButton: 'Create account & join',
+  submittingButton: 'Joining…',
+  // The "I already have an account" affordance — switches to sign-in.
+  haveAccountLabel: 'I already have an account — sign in',
+  signInButton: 'Sign in & join',
+  signInHeading: 'Sign in to join',
+  signInBody: (roomTitle: string, inviter: string): string =>
+    `${inviter} invited you to respond to an argument: "${roomTitle}". Sign in with the email this invite was sent to.`,
+  useNewAccountLabel: 'I need to create an account',
+  exitButton: 'Go to my arguments',
+} as const;
+
+/**
  * Map an Edge Function error code to plain-language UI copy. The fallback
  * for an unknown code is a generic message — the raw code is NEVER
  * echoed to the user (doctrine §9).
@@ -168,6 +195,10 @@ const ERROR_CODE_MAP: Readonly<Record<string, string>> = {
   invite_lookup_failed: 'We could not open that invite. Try again.',
   invite_revoke_failed: 'We could not revoke that invite. Try again.',
   enrolment_failed: 'We could not join the argument. Try again.',
+  // EMAIL-TRANSPORT-002 (Option B) — provision_and_accept codes.
+  account_exists: 'You already have an account — sign in instead.',
+  provision_failed: 'We could not finish setting up your account. Try again.',
+  weak_password: 'Password must be at least 6 characters.',
 };
 
 /** Returns plain-language copy for an Edge Function error code. */
