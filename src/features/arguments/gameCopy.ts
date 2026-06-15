@@ -1788,12 +1788,14 @@ export const ARGUMENT_ROOM_CREATE_COPY = Object.freeze({
     'Optional. Add one person to save them a seat — or leave this empty.',
 
   // Capacity explainer. The numbers ({capacity} / {open}) are filled from the
-  // validator output — never written as a literal here.
+  // validator output — never written as a literal here. UX-SIMPLIFY-001 adds
+  // the #652 clarity that watching is separate from active seats: readers do
+  // not consume a seat. Active seats are capped; reading/watching is not.
   capacity_private: 'Just the two of you. Invite one person to start.',
   capacity_public_open:
-    'Up to {capacity} people can take part. {open} seats stay open for the first to reply.',
+    'Up to {capacity} people can take an active seat. {open} stay open for the first to reply. Readers can watch without using a seat.',
   capacity_public_reserved:
-    'Up to {capacity} people can take part. One seat is saved for the person you invite; {open} stay open for the first to reply.',
+    'Up to {capacity} people can take an active seat. One is saved for the person you invite; {open} stay open for the first to reply. Readers can watch without using a seat.',
 
   // ARG-ROOM-008 — one-time create-time invite link. Shown to the CREATOR once
   // on the post-create success state when the room was made with an invite

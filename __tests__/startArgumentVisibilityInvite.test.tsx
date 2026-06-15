@@ -209,6 +209,25 @@ describe('StartArgumentPage capacity explainer', () => {
     expect(text).toContain(String(derived.capacity)); // reconciled 5
     expect(text).toContain(String(derived.openSlots)); // 4 open
   });
+
+  it('UX-SIMPLIFY-001 — public capacity copy says readers can watch without using a seat', () => {
+    const { getByTestId } = renderForm();
+    fireEvent.press(getByTestId('start-argument-visibility-public'));
+    const text = String(getByTestId('start-argument-capacity').props.children);
+    expect(text).toContain('active seat');
+    expect(text).toContain('Readers can watch without using a seat');
+  });
+});
+
+// ── UX-SIMPLIFY-001 — clearer first-point prompt ──────────────────
+
+describe('StartArgumentPage first-point prompt', () => {
+  it('uses a question-framed declaration placeholder', () => {
+    const { getByTestId } = renderForm();
+    expect(getByTestId('start-argument-declaration').props.placeholder).toBe(
+      'What point are you starting with?',
+    );
+  });
 });
 
 // ── Submit threading + generic post-create (no enumeration) ───────
