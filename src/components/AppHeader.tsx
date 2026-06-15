@@ -121,21 +121,34 @@ const PROMINENT_HEADER_HEIGHT_PX = PROMINENT_LOGO_HEIGHT_PX + 8;
 const LOGO_ASPECT_RATIO = 1.5;
 const HEADER_HORIZONTAL_BUDGET_PX = 24; // root paddingHorizontal (12 + 12)
 const MIN_PHONE_LOGO_HEIGHT_PX = 96; // still a prominent, legible brand mark
+// UX-MOBILE-004 (supersedes the UX-MOBILE-001 phone behavior) — live 390/300
+// measurement confirmed #654 removed the body overflow, but the phone masthead
+// stayed prominent-but-TALL (fitted ~244px at 390), eating the mobile first
+// screen ("desktop canvas squeezed into mobile"). The logo is product guidance,
+// NOT a fixed-pixel mandate: on phone we now cap the logo to a COMPACT height so
+// the masthead leaves room for the first interactive content, while tablet /
+// wide keep the prominent 288px. Width still never exceeds the viewport.
+const MAX_PHONE_LOGO_HEIGHT_PX = 160;
 
 /**
  * Resolve the rendered masthead logo height for a band + viewport width.
- * Tablet / wide keep the prominent 288 px logo. Phone fits the logo to the
- * available width (viewport − header padding) so its width (height × 1.5)
- * never exceeds the screen, clamped to [MIN_PHONE_LOGO_HEIGHT_PX, prominent].
- * A non-positive width (SSR / static first paint) keeps the prominent size;
- * hydration corrects it. Pure + deterministic (unit-tested).
+ *
+ * - Tablet / wide keep the prominent 288px logo (it physically fits).
+ * - Phone uses a COMPACT cap (`MAX_PHONE_LOGO_HEIGHT_PX`) AND fits the logo to
+ *   the available width (viewport − header padding) so its rendered width
+ *   (height × 1.5) never exceeds the screen, clamped to
+ *   [MIN_PHONE_LOGO_HEIGHT_PX, MAX_PHONE_LOGO_HEIGHT_PX].
+ * - A non-positive width (SSR / static first paint) keeps the prominent size;
+ *   hydration corrects it.
+ *
+ * Pure + deterministic (unit-tested).
  */
 export function resolveMastheadLogoHeightPx(band: Band, viewportWidth: number): number {
   if (band !== 'phone') return PROMINENT_LOGO_HEIGHT_PX;
   if (!(viewportWidth > 0)) return PROMINENT_LOGO_HEIGHT_PX;
   const available = Math.max(0, viewportWidth - HEADER_HORIZONTAL_BUDGET_PX);
   const fitted = Math.floor(available / LOGO_ASPECT_RATIO);
-  return Math.max(MIN_PHONE_LOGO_HEIGHT_PX, Math.min(PROMINENT_LOGO_HEIGHT_PX, fitted));
+  return Math.max(MIN_PHONE_LOGO_HEIGHT_PX, Math.min(MAX_PHONE_LOGO_HEIGHT_PX, fitted));
 }
 
 export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props) {
