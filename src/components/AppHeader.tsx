@@ -34,7 +34,7 @@
  * `BRAND.typography.wordmarkFallback[band]` size.
  */
 import React from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { TextStyle } from 'react-native';
 import { BRAND } from '../lib/designTokens';
 import type { Band } from '../hooks/useHeaderBreakpoint';
@@ -109,11 +109,44 @@ const PROMINENT_LOGO_HEIGHT_PX = 288;
 // Header total height therefore = 288 + 8 = 296.
 const PROMINENT_HEADER_HEIGHT_PX = PROMINENT_LOGO_HEIGHT_PX + 8;
 
+// UX-MOBILE-001 (TICKET-001/002) — the logo Image renders at width =
+// height × 1.5 (natural 3:2 aspect). At the prominent 288 px height that is
+// 432 px wide, which EXCEEDS a 390 px phone viewport and forces body-level
+// horizontal scroll. The prominent masthead is a logged operator decision and
+// is PRESERVED on tablet / wide (where it physically fits); on phone the logo
+// is fitted to the viewport so its rendered width can never exceed the screen.
+// A 432 px-wide logo cannot coexist with "no horizontal overflow at 390 px",
+// so phone is the one band where the size is adapted — everywhere it fits, the
+// prominent decision is honored unchanged.
+const LOGO_ASPECT_RATIO = 1.5;
+const HEADER_HORIZONTAL_BUDGET_PX = 24; // root paddingHorizontal (12 + 12)
+const MIN_PHONE_LOGO_HEIGHT_PX = 96; // still a prominent, legible brand mark
+
+/**
+ * Resolve the rendered masthead logo height for a band + viewport width.
+ * Tablet / wide keep the prominent 288 px logo. Phone fits the logo to the
+ * available width (viewport − header padding) so its width (height × 1.5)
+ * never exceeds the screen, clamped to [MIN_PHONE_LOGO_HEIGHT_PX, prominent].
+ * A non-positive width (SSR / static first paint) keeps the prominent size;
+ * hydration corrects it. Pure + deterministic (unit-tested).
+ */
+export function resolveMastheadLogoHeightPx(band: Band, viewportWidth: number): number {
+  if (band !== 'phone') return PROMINENT_LOGO_HEIGHT_PX;
+  if (!(viewportWidth > 0)) return PROMINENT_LOGO_HEIGHT_PX;
+  const available = Math.max(0, viewportWidth - HEADER_HORIZONTAL_BUDGET_PX);
+  const fitted = Math.floor(available / LOGO_ASPECT_RATIO);
+  return Math.max(MIN_PHONE_LOGO_HEIGHT_PX, Math.min(PROMINENT_LOGO_HEIGHT_PX, fitted));
+}
+
 export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props) {
   const source = logoSource ?? DEFAULT_LOGO;
   const { band } = useHeaderBreakpoint();
-  const logoHeightPx = PROMINENT_LOGO_HEIGHT_PX;
-  const headerHeightPx = PROMINENT_HEADER_HEIGHT_PX;
+  // UX-MOBILE-001 — fit the logo to the viewport on phone so its rendered
+  // width (height × 1.5) cannot force body-level horizontal scroll. Tablet /
+  // wide keep the prominent operator-decided size.
+  const { width: viewportWidth } = useWindowDimensions();
+  const logoHeightPx = resolveMastheadLogoHeightPx(band, viewportWidth);
+  const headerHeightPx = logoHeightPx + 8;
   // Operator request 2026-05-26: the layout is now always stacked — logo
   // on top, tagline tucked underneath. The Stage 2 inline-on-wide layout
   // is retired alongside the band-specific logo sizes.
@@ -163,7 +196,10 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props
               // and "centering" the logo inside that whitespace.
               style={{
                 height: logoHeightPx,
-                width: logoHeightPx * 1.5,
+                width: logoHeightPx * LOGO_ASPECT_RATIO,
+                // UX-MOBILE-001 — hard cap so the logo can never exceed the
+                // viewport width even if the fitted height math is off.
+                maxWidth: '100%',
               }}
               resizeMode="contain"
               accessibilityLabel="CivilDiscourse"

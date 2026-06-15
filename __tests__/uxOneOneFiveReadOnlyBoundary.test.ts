@@ -64,7 +64,17 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   // `docs/designs/UX-001.7.md` §19.B for the resolution rationale.
 
   // UX-001.2 Timeline files
-  'src/features/arguments/ArgumentTimelineMap.tsx',
+  // NOTE: `src/features/arguments/ArgumentTimelineMap.tsx` was removed from the
+  // zero-diff boundary by the operator-authorized UX-MOBILE-001 card
+  // (2026-06-15). TICKET-004 (P1, GATE-C) explicitly requires the thread /
+  // timeline toolbar controls to meet a >= 44×44 touch target on mobile; the
+  // edit is a purely additive, presentational `hitSlop` change (the sub-floor
+  // `{left:4,right:4}` controls + the per-node info icon now use
+  // `TOUCH_TARGET.hitSlopAll`), with no API / behavior change. The file's
+  // load-bearing contract stays pinned by `argumentTimelineMap.test.ts`, and
+  // the touch-target change itself is pinned by
+  // `uxMobile001MobileHardening.test.ts`. Mirrors the prior operator-authorized
+  // AppHeader / designTokens relaxations above.
   'src/features/arguments/ArgumentScoreTracker.tsx',
   'src/features/debates/DebateDetailHeader.tsx',
   'src/features/arguments/timelineViewportLayoutModel.ts',
