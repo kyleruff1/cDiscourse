@@ -46,7 +46,7 @@ export function AccountScreen({ onSignOut, signOutLoading }: Props) {
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{error}</Text>
           <Text style={styles.errorHint}>
-            If this persists, your profile row may be missing. Use the Supabase Dashboard to backfill it.
+            If this keeps happening, contact support and we&apos;ll get your account details restored.
           </Text>
         </View>
       )}
@@ -67,9 +67,8 @@ export function AccountScreen({ onSignOut, signOutLoading }: Props) {
           </View>
 
           <View style={styles.noteCard}>
-            <Text style={styles.noteText}>
-              Role changes and account management are handled through the Supabase Dashboard. See{' '}
-              <Text style={styles.noteCode}>docs/account-operations.md</Text> for backend ops.
+            <Text style={styles.noteText} testID="account-role-help">
+              Contact support to change your role.
             </Text>
           </View>
         </>
@@ -129,8 +128,8 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 24,
   },
-  noteText: { fontSize: 12, color: STATUS.success.fg, lineHeight: 18 },
-  noteCode: { fontFamily: 'monospace', fontSize: 11 },
+  // UX-MOBILE-001 (TICKET-005) — body help text >= 14px for mobile legibility.
+  noteText: { fontSize: 14, color: STATUS.success.fg, lineHeight: 20 },
   errorBox: {
     backgroundColor: STATUS.danger.bg,
     borderRadius: 10,
@@ -140,7 +139,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: { fontSize: 13, color: STATUS.danger.fg, fontWeight: '600', marginBottom: 4 },
-  errorHint: { fontSize: 12, color: STATUS.danger.fg, lineHeight: 18 },
+  errorHint: { fontSize: 14, color: STATUS.danger.fg, lineHeight: 20 },
   // Sign Out — destructive, bordered (not a full-bleed red flood) per BRAND-002.
   signOutButton: {
     backgroundColor: CONTROL.danger.bg,

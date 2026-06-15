@@ -77,7 +77,7 @@ import {
   deriveTimelineNodeVisualStyle,
   type TimelineNodeVisualStyle,
 } from './timelineNodeVisualModel';
-import { GLOW, RECEIPT_MARK } from '../../lib/designTokens';
+import { GLOW, RECEIPT_MARK, TOUCH_TARGET } from '../../lib/designTokens';
 // UX-001.2 — Band-aware internal top offset for the Timeline rail.
 // Replaces the legacy `top: 120` literal that gave the above-rail bands
 // vertical space. Bands now overlay the rail's y-range with
@@ -396,6 +396,9 @@ function NodeDot({
           accessibilityRole="button"
           accessibilityLabel="Open per-node popover"
           testID={`timeline-node-info-${node.messageId}`}
+          // UX-MOBILE-001 (TICKET-004) — the 22×22 info icon needs hitSlop to
+          // reach a >= 44 effective touch target on mobile.
+          hitSlop={TOUCH_TARGET.hitSlopAll}
           style={styles.infoIcon}
         >
           <Text style={styles.infoIconText}>i</Text>
@@ -993,7 +996,7 @@ export function ArgumentTimelineMap({
           accessibilityRole="button"
           accessibilityLabel="Previous message"
           accessibilityState={{ disabled: isAtFirst }}
-          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          hitSlop={TOUCH_TARGET.hitSlopAll}
           testID="timeline-prev"
         >
           <Text style={styles.controlChipText}>‹</Text>
@@ -1004,7 +1007,7 @@ export function ArgumentTimelineMap({
           accessibilityRole="button"
           accessibilityLabel="Next message"
           accessibilityState={{ disabled: isAtLatest }}
-          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          hitSlop={TOUCH_TARGET.hitSlopAll}
           testID="timeline-next"
         >
           <Text style={styles.controlChipText}>›</Text>
@@ -1014,7 +1017,7 @@ export function ArgumentTimelineMap({
           onPress={handleJumpLatest}
           accessibilityRole="button"
           accessibilityLabel="Jump to latest message"
-          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          hitSlop={TOUCH_TARGET.hitSlopAll}
           testID="timeline-jump-latest"
         >
           <Text style={styles.controlChipText}>⏭</Text>
@@ -1025,7 +1028,7 @@ export function ArgumentTimelineMap({
             onPress={onJumpToRoot}
             accessibilityRole="button"
             accessibilityLabel="Back to opening claim"
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            hitSlop={TOUCH_TARGET.hitSlopAll}
             testID="timeline-jump-root"
           >
             <Text style={styles.controlChipText}>↑</Text>
@@ -1037,7 +1040,7 @@ export function ArgumentTimelineMap({
             onPress={onToggleMode}
             accessibilityRole="button"
             accessibilityLabel="Switch to cards mode"
-            hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            hitSlop={TOUCH_TARGET.hitSlopAll}
             testID="timeline-toggle-mode"
           >
             <Text style={styles.controlChipText}>↺</Text>

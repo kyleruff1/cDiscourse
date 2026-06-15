@@ -5,6 +5,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { TOUCH_TARGET } from '../../lib/designTokens';
 import {
   getRootMoveOptions,
   getReplyMoveOptions,
@@ -91,6 +92,9 @@ export function ConversationMoveNavigator({ parentArgument, rules, onApplyPatch 
               accessibilityRole="button"
               accessibilityLabel={opt.label}
               accessibilityState={{ selected: isSelected }}
+              // UX-MOBILE-001 (TICKET-004) — lift the compact chip to a >= 44
+              // effective touch target on mobile.
+              hitSlop={TOUCH_TARGET.hitSlopCompact}
             >
               <Text style={[styles.moveChipText, isSelected && styles.moveChipTextSelected]}>
                 {opt.shortLabel}
@@ -118,6 +122,9 @@ export function ConversationMoveNavigator({ parentArgument, rules, onApplyPatch 
                   accessibilityRole="radio"
                   accessibilityLabel={opt.label}
                   accessibilityState={{ selected: isSelected }}
+                  // UX-MOBILE-001 (TICKET-004) — lift the ~23px axis chip to a
+                  // >= 44 effective touch target on mobile.
+                  hitSlop={TOUCH_TARGET.hitSlopCompact}
                 >
                   <Text style={[styles.axisChipText, isSelected && styles.axisChipTextSelected]}>
                     {opt.shortLabel}
