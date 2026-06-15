@@ -7,7 +7,7 @@ import { ErrorNotice } from '../../components/ErrorNotice';
 import { SUPABASE_CONFIGURED } from '../../lib/supabase';
 import { validateAuthInput } from './authApi';
 import { useAuthSession } from './useAuthSession';
-import { SURFACE_TOKENS, CONTROL } from '../../lib/designTokens';
+import { SURFACE_TOKENS, CONTROL, BRAND } from '../../lib/designTokens';
 
 type Mode = 'signin' | 'signup';
 
@@ -67,8 +67,12 @@ export function AuthScreen() {
       )}
 
       {/* UX-COPY-001 — first-run value proposition. Explains the pseudo-mediator
-          premise before sign-up: structure the argument, never rule on it. */}
+          premise before sign-up: structure the argument, never rule on it.
+          UX-BRAND-001 — presented as a restrained premium card: a soft gold
+          surface tint + gold hairline, a small gold accent rule, and the lead
+          in antique gold (contrast-safe at 8.3:1 on the dark backdrop). */}
       <View style={styles.valueProp} testID="auth-value-prop">
+        <View style={styles.valuePropAccent} testID="auth-value-prop-accent" />
         <Text style={styles.valuePropLead}>Work through hard disagreements, one point at a time.</Text>
         <Text style={styles.valuePropBody}>
           Respond to a specific point, follow the evidence, and see what stays unresolved. The app keeps
@@ -126,7 +130,33 @@ const styles = StyleSheet.create({
   confirmTitle: { fontSize: 20, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, marginBottom: 12 },
   confirmBody: { fontSize: 15, color: SURFACE_TOKENS.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 24 },
   emailHighlight: { color: CONTROL.primary.bg, fontWeight: '600' },
-  valueProp: { paddingBottom: 16, gap: 6 },
-  valuePropLead: { fontSize: 16, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, lineHeight: 22 },
-  valuePropBody: { fontSize: 14, color: SURFACE_TOKENS.textSecondary, lineHeight: 20 },
+  // UX-BRAND-001 — premium value-prop card: soft gold surface tint + gold
+  // hairline border, generous padding, with a small gold accent rule above the
+  // lead. Restrained — gold is the lead + the thin rule + the card edge only.
+  valueProp: {
+    marginBottom: 20,
+    gap: 10,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: BRAND.accent.goldSoft,
+    borderWidth: 1,
+    borderColor: BRAND.accent.goldBorder,
+  },
+  valuePropAccent: {
+    width: 40,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: BRAND.accent.gold,
+  },
+  // Antique-gold lead, editorial weight + letter-spacing. Contrast-safe
+  // (~8.3:1 on the dark backdrop — clears AA + AAA for normal text).
+  valuePropLead: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: BRAND.accent.gold,
+    lineHeight: 24,
+    letterSpacing: 0.2,
+  },
+  // Body stays the readable neutral secondary tone — legibility over color.
+  valuePropBody: { fontSize: 14, color: SURFACE_TOKENS.textSecondary, lineHeight: 21 },
 });

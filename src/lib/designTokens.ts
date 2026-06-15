@@ -154,6 +154,25 @@ export const BRAND = {
   accent: {
     cream:         '#F5EDE0',
     creamHairline: 'rgba(245, 237, 224, 0.18)',
+    // UX-BRAND-001 — restrained gold accent system drawn from the logo's
+    // subtle gold hue. Gold is an ACCENT, never the palette: small accent
+    // lines, muted heading/value-prop emphasis, premium card borders/tints,
+    // selected/focus nuance. NOT garish yellow, NOT casino gold.
+    //   - `gold` is the antique-gold accent for TEXT on the dark app bg.
+    //     Measured contrast ≈ 8.3:1 vs `surface.app` (#08060F) — clears WCAG
+    //     AA (4.5) and AAA (7) for normal text, so it is safe for the
+    //     sign-in value-prop lead.
+    //   - `goldMuted` is a slightly softer accent for secondary flourishes.
+    //   - `goldDeep` is the dark gold/brown reserved for text on a LIGHT fill
+    //     (none today; provided so a future bright surface has an accessible
+    //     gold text tone instead of reaching for `gold`).
+    //   - `goldSoft` is a low-opacity gold SURFACE tint for premium cards.
+    //   - `goldBorder` is the gold HAIRLINE for premium card / divider edges.
+    gold:        '#C6A15B',
+    goldMuted:   '#B89A5E',
+    goldDeep:    '#7A5A24',
+    goldSoft:    'rgba(198, 161, 91, 0.10)',
+    goldBorder:  'rgba(198, 161, 91, 0.35)',
   },
   /** Header height target in dp/px (small / narrow breakpoint). */
   headerHeightPx: 64 as const,
