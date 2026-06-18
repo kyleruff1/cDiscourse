@@ -97,8 +97,8 @@
 | VOICE-ADR-001 | #658 | Speech-first input doctrine + no-audio privacy posture | P0 | S | docs ADR | No | Not eligible — operator-ratified (defines operative doctrine) | (root) | Backlog |
 | VOICE-001 | #659 | Speech + waveform architecture design | P0 | L | design | No | Eligible after reviewer PASS (design-only) | VOICE-ADR-001 | Backlog |
 | VOICE-002 | #660 | Native dependency + config plugin integration | P0 | M | native/config | **YES** | Not eligible — GATE-C (dev-build / config-plugin bearing) | VOICE-001 | Backlog |
-| VOICE-003 | #661 | Speech recognition session state machine + transcript artifact model | P0 | M | pure TS | No | Prefer eligible after reviewer PASS (pure model) | VOICE-002 | Backlog |
-| VOICE-004 | #662 | Audio metering + waveform artifact core | P0 | M | pure TS / adapter | No (unless native) | Prefer eligible after reviewer PASS; case-by-case if native lands in-card | VOICE-002 | Backlog |
+| VOICE-003 | #661 | Speech recognition session state machine + transcript artifact model | P0 | M | pure TS | No | Prefer eligible after reviewer PASS (pure model) | VOICE-ADR-001 (pure-TS; not blocked by the VOICE-002 native install) | Backlog |
+| VOICE-004 | #662 | Audio metering + waveform artifact core | P0 | M | pure TS / adapter | No (unless native) | Prefer eligible after reviewer PASS; case-by-case if native lands in-card | VOICE-ADR-001 (pure-TS; not blocked by the VOICE-002 native install) | Backlog |
 | VOICE-005 | #663 | Live waveform visualizer spike (expo-audio + Skia + SVG fallback) | P0 | M | UI spike | Case-by-case | Case-by-case (spike; native/Skia branch ⇒ GATE-C) | VOICE-004 | Backlog |
 | VOICE-006 | #664 | Waveform snapshot export spike (view-shot / fallback) | P1 | M | UI/dev-tooling spike | Case-by-case | Case-by-case (spike; capture path may be native) | VOICE-005 | Backlog |
 | VOICE-007 | #665 | Universal VoiceInput adapter for every argument entry surface | P0 | L | UI foundation | Case-by-case | Case-by-case (gate-adjacent UI foundation) | VOICE-003, VOICE-004 | Backlog |
@@ -111,16 +111,21 @@
 
 ---
 
-## 6. Dependency DAG (verbatim)
+## 6. Dependency DAG
+
+> **Superseded by VOICE-PATCH-001 (DAG correction)** — `docs/designs/VOICE-PATCH-001-DAG-AND-MEDIATOR-BRIDGE.md` §6.1. VOICE-001 is COMPLETE (merged #673). VOICE-003 and VOICE-004 are pure-TypeScript model cards (no native imports, no install, no config plugin, no dev build) and branch from VOICE-ADR-001 / VOICE-001 **before** the GATE-C VOICE-002 native install — they are NOT blocked by it. The corrected DAG below replaces the original `VOICE-002 -> {VOICE-003, VOICE-004}` ordering.
 
 ```
-VOICE-ADR-001 -> VOICE-001 -> VOICE-002 -> {VOICE-003, VOICE-004}
-VOICE-004 -> VOICE-005 -> VOICE-006
-{VOICE-003, VOICE-004} -> VOICE-007 -> VOICE-008 -> {VOICE-009 -> MCP-K-001 -> MCP-K-002, VOICE-010}
+VOICE-ADR-001 -> VOICE-001 (COMPLETE, #673)
+  -> VOICE-003 (pure TS) -> VOICE-004 (pure TS)
+       -> VOICE-002 (GATE-C: native dep / config plugin / dev build)
+            -> VOICE-007 -> VOICE-008 -> {VOICE-009 -> MCP-K-001 -> MCP-K-002, VOICE-010}
+VOICE-004 -> VOICE-005 -> VOICE-006        (spikes; after VOICE-002 lands the native modules)
+VOICE-002  MAY proceed right after VOICE-001 if the operator wants native work early (NOT required before the pure-TS models).
 AUDIO-001  (deferred, P3; does NOT block the main path)
 ```
 
-**DAG rules (all satisfied):** no P0 hard-depends on a P2/P3; no MCP implementation before artifact persistence (MCP-K-002 after VOICE-009 + MCP-K-001); no waveform snapshot required for basic speech entry; no audio playback required for anything; no native install before the architecture design (VOICE-001 before VOICE-002).
+**DAG rules (all satisfied):** no P0 hard-depends on a P2/P3; no MCP implementation before artifact persistence (MCP-K-002 after VOICE-009 + MCP-K-001); no waveform snapshot required for basic speech entry; no audio playback required for anything; no native install before the architecture design (VOICE-001 before VOICE-002); the pure-TS model cards (VOICE-003/004) are not gated behind the GATE-C native install (VOICE-PATCH-001 §6.1).
 
 ---
 
@@ -171,7 +176,7 @@ AUDIO-001  (deferred, P3; does NOT block the main path)
 ## 12. Recommended next command
 
 ```
-.\.claude\scripts\spawn-card.ps1 VOICE-001
+.\.claude\scripts\spawn-card.ps1 VOICE-003
 ```
 
-(VOICE-ADR-001 is the doctrine root; VOICE-001 is the first design card and the recommended first spawn after the ADR is ratified.)
+(VOICE-001 and VOICE-ADR-001 are **complete** — VOICE-001 merged as #673; the no-audio doctrine is formalized in VOICE-001 §17 + VOICE-PATCH-001. **VOICE-003** — the pure-TS speech session state machine + transcript artifact model — is the recommended next spawn: it is pure TypeScript with no native imports, no install, and no dev build, so it runs **before** the GATE-C VOICE-002 native install. See VOICE-PATCH-001 §6.1 for the corrected sequence.)

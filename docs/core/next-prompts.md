@@ -15,13 +15,13 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ## VOICE-SLATE-2026-06-13 — Speech-first voice input (NEW major product lane)
 
-The speech-first / voice-waveform slate is filed (issues **#658–#671** on Project #1; full plan in [`docs/roadmap-expansions/2026-06-13-speech-first-voice-waveform-roadmap.md`](../roadmap-expansions/2026-06-13-speech-first-voice-waveform-roadmap.md) + [`docs/designs/VOICE-SLATE-2026-06-13-INDEX.md`](../designs/VOICE-SLATE-2026-06-13-INDEX.md)). Speech-to-text becomes the primary argument-entry mode; text-only stays available for every entry window; raw audio is never stored/uploaded/replayed/sent to MCP. **Next major product lane — start here:**
+The speech-first / voice-waveform slate is filed (issues **#658–#671** on Project #1; full plan in [`docs/roadmap-expansions/2026-06-13-speech-first-voice-waveform-roadmap.md`](../roadmap-expansions/2026-06-13-speech-first-voice-waveform-roadmap.md) + [`docs/designs/VOICE-SLATE-2026-06-13-INDEX.md`](../designs/VOICE-SLATE-2026-06-13-INDEX.md); DAG correction + voice-to-mediator bridge in [`docs/designs/VOICE-PATCH-001-DAG-AND-MEDIATOR-BRIDGE.md`](../designs/VOICE-PATCH-001-DAG-AND-MEDIATOR-BRIDGE.md)). Speech-to-text becomes the primary argument-entry mode; text-only stays available for every entry window; raw audio is never stored/uploaded/replayed/sent to MCP. **Next major product lane — start here:**
 
 ```powershell
-.\.claude\scripts\spawn-card.ps1 VOICE-001
+.\.claude\scripts\spawn-card.ps1 VOICE-003
 ```
 
-Do **not** install packages first — the native install (VOICE-002) is GATE-C and comes AFTER the VOICE-001 architecture design.
+VOICE-001 is **done** (merged #673) and VOICE-ADR-001's no-audio doctrine is **formalized** (VOICE-001 §17 + VOICE-PATCH-001). **VOICE-003 and VOICE-004 are pure-TypeScript model cards** (speech session state machine + waveform artifact core) — no native imports, no install, no dev build — so they run **before** the GATE-C VOICE-002 native install. Do **not** install packages first — the native install (VOICE-002) is GATE-C and comes AFTER the pure-TS models (corrected sequence: VOICE-PATCH-001 §6.1).
 
 ---
 
