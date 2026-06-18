@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet, useWindowDimensions } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { TextInputField } from '../../components/TextInputField';
@@ -7,8 +7,18 @@ import { ErrorNotice } from '../../components/ErrorNotice';
 import { SUPABASE_CONFIGURED } from '../../lib/supabase';
 import { validateAuthInput } from './authApi';
 import { useAuthSession } from './useAuthSession';
+import {
+  resolveSignInLockupWidthPx,
+  SIGNIN_LOCKUP_ASPECT_RATIO,
+} from './signInLockupModel';
 import { SURFACE_TOKENS, CONTROL, BRAND } from '../../lib/designTokens';
 import { AUTH_FIRST_RUN_COPY } from '../../lib/brandCopy';
+
+// UX-BRAND-ASSETS-001 — the cream "CivilDiscourse" horizontal lockup
+// (swan-on-rock outline + wordmark) rendered on the Sign In hero ONLY.
+// The masthead/header logo (`civic-discourse-logo.png` wired into
+// AppHeader) is a SEPARATE asset and is untouched by this card.
+const SIGNIN_LOCKUP = require('../../assets/branding/lockup-horizontal.png');
 
 type Mode = 'signin' | 'signup';
 
@@ -21,6 +31,11 @@ export function AuthScreen() {
   const [emailSent, setEmailSent] = useState(false);
 
   const { loading, error: authError, signIn, signUp } = useAuthSession();
+  // UX-BRAND-ASSETS-001 — responsive lockup width: clamped to the card's
+  // available width and capped so the cream mark never overflows or
+  // creates a mobile edge gutter at any viewport.
+  const { width: viewportWidth } = useWindowDimensions();
+  const lockupWidthPx = resolveSignInLockupWidthPx(viewportWidth);
 
   const handleSubmit = async () => {
     const vErr = validateAuthInput(email.trim(), password);
@@ -73,12 +88,34 @@ export function AuthScreen() {
           judge framing. No voice copy (voice is not shipped).
           UX-BRAND-001 — presented as a restrained premium card: a soft gold
           surface tint + gold hairline, a small gold accent rule, and the lead
-          in antique gold (contrast-safe at 8.3:1 on the dark backdrop). */}
+          in antique gold (contrast-safe at 8.3:1 on the dark backdrop).
+          UX-BRAND-ASSETS-001 — the visible TEXT brand wordmark is replaced by
+          the cream horizontal lockup IMAGE (swan-on-rock + "CivilDiscourse"
+          wordmark) on a dark brand-field backing band so the cream art reads
+          like the on-black reference. The image carries the brand name via
+          accessibilityLabel so screen readers still announce it; there is NO
+          duplicate visible text wordmark. The header logo is untouched. */}
       <View style={styles.valueProp} testID="auth-value-prop">
+        <View style={styles.lockupBacking} testID="auth-brand-lockup-backing">
+          <Image
+            source={SIGNIN_LOCKUP}
+            // Responsive: width is clamped to the card's available width and
+            // capped (resolveSignInLockupWidthPx); aspectRatio preserves the
+            // intrinsic ~1499/388 proportion and `contain` guarantees no
+            // horizontal overflow / edge gutter at any viewport.
+            style={{
+              width: lockupWidthPx,
+              aspectRatio: SIGNIN_LOCKUP_ASPECT_RATIO,
+              maxWidth: '100%',
+            }}
+            resizeMode="contain"
+            accessibilityRole="image"
+            accessibilityLabel={AUTH_FIRST_RUN_COPY.brand}
+            accessible
+            testID="auth-brand-lockup"
+          />
+        </View>
         <View style={styles.valuePropAccent} testID="auth-value-prop-accent" />
-        <Text style={styles.valuePropBrand} testID="auth-value-prop-brand">
-          {AUTH_FIRST_RUN_COPY.brand}
-        </Text>
         <Text style={styles.valuePropLead} testID="auth-value-prop-lead">
           {AUTH_FIRST_RUN_COPY.tagline}
         </Text>
@@ -158,14 +195,22 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: BRAND.accent.gold,
   },
-  // Product wordmark on the first-run card — cream, editorial weight,
-  // so the brand reads first. Cream (text.primary) clears AA on the
-  // dark backdrop (>14:1).
-  valuePropBrand: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-    color: BRAND.text.primary,
+  // UX-BRAND-ASSETS-001 — dark backing band for the cream lockup. The
+  // value-prop card sits on a 10%-opacity gold tint over the near-black
+  // app field; this explicit `BRAND.surface.app.bg` band guarantees the
+  // cream art reads like the on-black reference regardless of the card
+  // tint. Self-stretch + flex-start so the contained mark sits middle-left
+  // on its own dark plate. The lockup art is the cream `BRAND.text.primary`
+  // tone on the `surface.app` field, which clears AA by a wide margin
+  // (>14:1).
+  lockupBacking: {
+    alignSelf: 'stretch',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: BRAND.surface.app.bg,
+    marginBottom: 2,
   },
   // Antique-gold lead, editorial weight + letter-spacing. Contrast-safe
   // (~8.3:1 on the dark backdrop — clears AA + AAA for normal text).
