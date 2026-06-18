@@ -13,6 +13,18 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
+## VOICE-SLATE-2026-06-13 — Speech-first voice input (NEW major product lane)
+
+The speech-first / voice-waveform slate is filed (issues **#658–#671** on Project #1; full plan in [`docs/roadmap-expansions/2026-06-13-speech-first-voice-waveform-roadmap.md`](../roadmap-expansions/2026-06-13-speech-first-voice-waveform-roadmap.md) + [`docs/designs/VOICE-SLATE-2026-06-13-INDEX.md`](../designs/VOICE-SLATE-2026-06-13-INDEX.md)). Speech-to-text becomes the primary argument-entry mode; text-only stays available for every entry window; raw audio is never stored/uploaded/replayed/sent to MCP. **Next major product lane — start here:**
+
+```powershell
+.\.claude\scripts\spawn-card.ps1 VOICE-001
+```
+
+Do **not** install packages first — the native install (VOICE-002) is GATE-C and comes AFTER the VOICE-001 architecture design.
+
+---
+
 ## Prompt OPS-MCP-STAGE-2-5PCT — Launch-time 5% queue-routing ramp (⚠️ GATED — do NOT start until the precondition holds)
 
 > **This card authorizes nothing by existing.** It is the paste-ready template for the FUTURE 5% ramp, bound by the operator-ratified gate semantics in `docs/designs/OPS-MCP-CUTOVER-GATE-CRITERIA-CONSOLIDATION.md` (§C + §F-5, ratified 2026-06-03). As of 2026-06-03 the cutover state is `PASS-STAGE-1-PLUMBING / INSUFFICIENT-ORGANIC-VOLUME` with **0 organic** routed args and routing **disarmed to baseline** — so precondition (a) below is **NOT yet met** and this card waits.
