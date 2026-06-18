@@ -17,8 +17,10 @@ import {
 } from '../src/features/auth/signInLockupModel';
 
 describe('UX-BRAND-ASSETS-001 — sizing constants', () => {
-  it('aspect ratio matches the intrinsic ~1499/388 lockup proportion', () => {
-    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeCloseTo(1499 / 388, 5);
+  it('aspect ratio matches the intrinsic ~800/260 gold lockup proportion', () => {
+    // UX-BRAND-ASSETS-002 — re-cut from the grey 1499×388 lockup to the
+    // trimmed gold 800×260 lockup (aspect ≈ 3.077).
+    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeCloseTo(800 / 260, 5);
     // It is a wide horizontal lockup, so aspect ratio > 3.
     expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeGreaterThan(3);
   });
@@ -97,8 +99,8 @@ describe('UX-BRAND-ASSETS-001 — resolveSignInLockupHeightPx (explicit height)'
   // RNW does NOT honor an aspectRatio style on an Image to derive its
   // height from width, so the consumer sets an EXPLICIT height. The height
   // helper must return width / aspect at every viewport so the rendered box
-  // preserves the lockup's ~1499/388 proportion instead of the PNG's
-  // intrinsic 388px height.
+  // preserves the lockup's ~800/260 proportion (UX-BRAND-ASSETS-002 gold
+  // lockup) instead of the PNG's intrinsic 260px height.
   const VIEWPORTS = [320, 360, 390, 414, 768, 1024] as const;
 
   for (const width of VIEWPORTS) {
@@ -109,9 +111,9 @@ describe('UX-BRAND-ASSETS-001 — resolveSignInLockupHeightPx (explicit height)'
       expect(height).toBeCloseTo(resolvedWidth / SIGNIN_LOCKUP_ASPECT_RATIO, 1);
       expect(height).toBeGreaterThan(0);
       expect(Number.isFinite(height)).toBe(true);
-      // The box is far shorter than the PNG's intrinsic 388px height — this
+      // The box is far shorter than the PNG's intrinsic 260px height — this
       // is the whole point of the fix (no stranded art in a tall band).
-      expect(height).toBeLessThan(388);
+      expect(height).toBeLessThan(260);
     });
   }
 

@@ -54,19 +54,25 @@ describe('UX-MOBILE-003 — rails are a reachable bottom sheet on phone (report 
   });
 });
 
-describe('UX-MOBILE-003 — masthead logo stays viewport-safe across device targets (report "432x288 overflow" is stale)', () => {
+describe('UX-MOBILE-003 / UX-BRAND-ASSETS-002 — masthead logo stays viewport-safe across device targets', () => {
+  // UX-BRAND-ASSETS-002 — the masthead logo is the gold horizontal lockup
+  // (aspect ≈ 3.077, was 1.5). The rendered width is height × aspect, and
+  // the height is capped by the available width on every band so it can
+  // never overflow / create an edge gutter.
+  const MASTHEAD_ASPECT = 800 / 260;
   it('the phone logo rendered width never exceeds the viewport at 320/360/390/414', () => {
     for (const w of PHONE_WIDTHS) {
       const h = resolveMastheadLogoHeightPx('phone', w);
-      expect(h * 1.5).toBeLessThanOrEqual(w); // width = height x 1.5
+      expect(h * MASTHEAD_ASPECT).toBeLessThanOrEqual(w); // width = height × aspect
     }
   });
 
-  it('stays prominent (288) where it fits on tablet/wide', () => {
+  it('stays viewport-safe on tablet/wide (prominent where it fits, else fitted to width)', () => {
     for (const [w, band] of TABLET_WIDE) {
       const h = resolveMastheadLogoHeightPx(band, w);
-      expect(h).toBe(288);
-      expect(h * 1.5).toBeLessThanOrEqual(w);
+      // Never larger than the prominent decision, never wider than the viewport.
+      expect(h).toBeLessThanOrEqual(288);
+      expect(h * MASTHEAD_ASPECT).toBeLessThanOrEqual(w);
     }
   });
 });

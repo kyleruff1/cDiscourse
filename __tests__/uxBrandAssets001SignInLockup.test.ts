@@ -135,7 +135,15 @@ describe('UX-BRAND-ASSETS-001 (f) — no stale visible "CDiscourse"', () => {
   });
 });
 
-describe('UX-BRAND-ASSETS-001 (g) — header / 2.3 MB logo NOT in this card diff', () => {
+describe('UX-BRAND-ASSETS-001 (g) — useHeaderBreakpoint NOT in this card diff', () => {
+  // UX-BRAND-ASSETS-002 — `src/components/AppHeader.tsx` and
+  // `assets/branding/civic-discourse-logo.png` were REMOVED from this
+  // zero-diff guard: UX-BRAND-ASSETS-002 deliberately swaps the masthead
+  // logo to the gold lockup and width-guards the masthead sizing for the
+  // wider 3.077 aspect (the gold lockup overflows otherwise). Those edits
+  // are pinned by appHeader.test.ts / appHeaderResponsiveLogo.test.ts /
+  // uxMobile003 / uxMobile004 / uxBrandAssets002GoldLockup.test.ts. The
+  // breakpoint hook stays untouched (the band resolution is unchanged).
   function diffAgainstMain(filePath: string): string {
     try {
       return execSync(`git diff main -- "${filePath}"`, {
@@ -149,26 +157,28 @@ describe('UX-BRAND-ASSETS-001 (g) — header / 2.3 MB logo NOT in this card diff
   }
 
   const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
-    'src/components/AppHeader.tsx',
-    'assets/branding/civic-discourse-logo.png',
     'src/hooks/useHeaderBreakpoint.ts',
   ]);
 
   for (const rel of READ_ONLY_PATHS) {
-    it(`${rel} is unchanged by UX-BRAND-ASSETS-001`, () => {
+    it(`${rel} is unchanged by UX-BRAND-ASSETS-001/002`, () => {
       expect(diffAgainstMain(rel)).toBe('');
     });
   }
 });
 
-describe('UX-BRAND-ASSETS-001 (h) — committed asset is the cream lockup', () => {
-  it('the lockup asset exists and is the ~129 KB cream horizontal lockup', () => {
+describe('UX-BRAND-ASSETS-001 (h) — committed asset is the gold lockup', () => {
+  // UX-BRAND-ASSETS-002 — the Sign In lockup is now the trimmed gold
+  // 800×260 lockup (was the grey 1499×388 / 128,937-byte lockup). It is
+  // still a small editorial PNG (< 200 KB), NOT the prior 2.3 MB scene.
+  it('the lockup asset exists and is the trimmed gold horizontal lockup', () => {
     const lockupPath = path.join(ROOT, 'assets', 'branding', 'lockup-horizontal.png');
     expect(fs.existsSync(lockupPath)).toBe(true);
     const size = fs.statSync(lockupPath).size;
-    expect(size).toBe(128937);
-    // It is NOT the 2.3 MB header scene.
-    expect(size).toBeLessThan(200000);
+    // A small editorial brand PNG, comfortably under the 200 KB editorial
+    // ceiling (it is NOT the prior 2.3 MB header scene).
+    expect(size).toBeGreaterThan(10_000);
+    expect(size).toBeLessThan(200_000);
   });
 
   it('it is a PNG (magic bytes)', () => {
@@ -178,9 +188,38 @@ describe('UX-BRAND-ASSETS-001 (h) — committed asset is the cream lockup', () =
     expect(Array.from(head)).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   });
 
-  it('the header logo asset is still the large 2.3 MB scene (untouched)', () => {
+  it('the lockup PNG is the gold 800×260 art (aspect ≈ 3.077)', () => {
+    const lockupPath = path.join(ROOT, 'assets', 'branding', 'lockup-horizontal.png');
+    const buf = fs.readFileSync(lockupPath);
+    const width = buf.readUInt32BE(16);
+    const height = buf.readUInt32BE(20);
+    expect(width).toBe(800);
+    expect(height).toBe(260);
+  });
+
+  it('the masthead header logo is now the small gold lockup (no longer the 2.3 MB scene)', () => {
+    // UX-BRAND-ASSETS-002 — the operator decision: the app masthead now
+    // shows the gold lockup, so civic-discourse-logo.png is the same small
+    // gold art, NOT the prior 2.3 MB grey water-scene.
     const headerLogo = path.join(ROOT, 'assets', 'branding', 'civic-discourse-logo.png');
     expect(fs.existsSync(headerLogo)).toBe(true);
-    expect(fs.statSync(headerLogo).size).toBeGreaterThan(2_000_000);
+    const size = fs.statSync(headerLogo).size;
+    expect(size).toBeGreaterThan(10_000);
+    expect(size).toBeLessThan(200_000);
+    const buf = fs.readFileSync(headerLogo);
+    expect(buf.readUInt32BE(16)).toBe(800);
+    expect(buf.readUInt32BE(20)).toBe(260);
+  });
+
+  it('the new gold bird mark asset is committed (420×315)', () => {
+    // UX-BRAND-ASSETS-002 — new tracked asset for "logo by itself" uses.
+    const markPath = path.join(ROOT, 'assets', 'branding', 'civildiscourse-mark.png');
+    expect(fs.existsSync(markPath)).toBe(true);
+    const buf = fs.readFileSync(markPath);
+    expect(Array.from(buf.subarray(0, 8))).toEqual([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    expect(buf.readUInt32BE(16)).toBe(420);
+    expect(buf.readUInt32BE(20)).toBe(315);
   });
 });
