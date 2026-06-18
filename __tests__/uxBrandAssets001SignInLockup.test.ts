@@ -69,9 +69,17 @@ describe('UX-BRAND-ASSETS-001 (a) — Sign In hero renders the lockup Image', ()
     expect(AUTH_CODE).toContain('source={SIGNIN_LOCKUP}');
   });
 
-  it('sizes the lockup responsively via the clamping helper + aspect ratio', () => {
+  it('sizes the lockup responsively via the clamping helper + EXPLICIT height', () => {
     expect(AUTH_CODE).toContain('resolveSignInLockupWidthPx');
-    expect(AUTH_CODE).toContain('SIGNIN_LOCKUP_ASPECT_RATIO');
+    // The height is set EXPLICITLY (width / aspect) rather than via an
+    // `aspectRatio` style: React Native Web does NOT honor `aspectRatio` to
+    // derive an Image's height from its width, which stranded the cream art
+    // in a box sized to the PNG's intrinsic 388px height. The fix computes
+    // the height from the width via resolveSignInLockupHeightPx and assigns
+    // it to the Image's `height` style; the `aspectRatio` style is gone.
+    expect(AUTH_CODE).toContain('resolveSignInLockupHeightPx');
+    expect(AUTH_CODE).toMatch(/height:\s*lockupHeightPx/);
+    expect(AUTH_CODE).not.toMatch(/aspectRatio:/);
     expect(AUTH_CODE).toContain('resizeMode="contain"');
     // A hard maxWidth cap so the Image can never exceed its container.
     expect(AUTH_CODE).toMatch(/maxWidth:\s*'100%'/);

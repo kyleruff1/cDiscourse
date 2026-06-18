@@ -9,7 +9,7 @@ import { validateAuthInput } from './authApi';
 import { useAuthSession } from './useAuthSession';
 import {
   resolveSignInLockupWidthPx,
-  SIGNIN_LOCKUP_ASPECT_RATIO,
+  resolveSignInLockupHeightPx,
 } from './signInLockupModel';
 import { SURFACE_TOKENS, CONTROL, BRAND } from '../../lib/designTokens';
 import { AUTH_FIRST_RUN_COPY } from '../../lib/brandCopy';
@@ -36,6 +36,7 @@ export function AuthScreen() {
   // creates a mobile edge gutter at any viewport.
   const { width: viewportWidth } = useWindowDimensions();
   const lockupWidthPx = resolveSignInLockupWidthPx(viewportWidth);
+  const lockupHeightPx = resolveSignInLockupHeightPx(viewportWidth);
 
   const handleSubmit = async () => {
     const vErr = validateAuthInput(email.trim(), password);
@@ -100,12 +101,16 @@ export function AuthScreen() {
           <Image
             source={SIGNIN_LOCKUP}
             // Responsive: width is clamped to the card's available width and
-            // capped (resolveSignInLockupWidthPx); aspectRatio preserves the
-            // intrinsic ~1499/388 proportion and `contain` guarantees no
-            // horizontal overflow / edge gutter at any viewport.
+            // capped (resolveSignInLockupWidthPx). The height is set EXPLICITLY
+            // from the width (resolveSignInLockupHeightPx = width / aspect)
+            // because React Native Web does NOT honor an `aspectRatio` style to
+            // derive an Image's height from its width — relying on it strands
+            // the cream art in a box sized to the PNG's intrinsic 388px height.
+            // `contain` still guards against any sub-pixel drift; maxWidth caps
+            // the Image so it can never exceed its container.
             style={{
               width: lockupWidthPx,
-              aspectRatio: SIGNIN_LOCKUP_ASPECT_RATIO,
+              height: lockupHeightPx,
               maxWidth: '100%',
             }}
             resizeMode="contain"

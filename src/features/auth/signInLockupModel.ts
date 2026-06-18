@@ -16,8 +16,13 @@
  *   capped at `MAX_SIGNIN_LOCKUP_WIDTH_PX` so it stays an editorial
  *   brand mark rather than stretching across a wide viewport.
  * - The intrinsic aspect ratio (`SIGNIN_LOCKUP_ASPECT_RATIO` ≈ 1499/388)
- *   is preserved by the consumer via `resizeMode="contain"` + the
- *   matching `aspectRatio` style; the height follows from the width.
+ *   is preserved by the consumer via an EXPLICIT `height` style derived
+ *   from the width (`resolveSignInLockupHeightPx`). React Native Web does
+ *   NOT honor an `aspectRatio` style to derive an Image's height from its
+ *   width — relying on it strands the cream art in a box sized to the
+ *   PNG's intrinsic 388 px height. The explicit height keeps the rendered
+ *   box at width / aspect on web AND native; `resizeMode="contain"` still
+ *   guards against any sub-pixel drift.
  * - SSR / static-export safety: a non-positive / non-finite width (the
  *   `width === 0` first paint on `react-native-web` static export) falls
  *   back to the cap so the first paint shows the polished brand mark; the
@@ -63,4 +68,28 @@ export function resolveSignInLockupWidthPx(viewportWidth: number): number {
   }
   const available = Math.max(0, viewportWidth - SIGNIN_LOCKUP_HORIZONTAL_BUDGET_PX);
   return Math.min(MAX_SIGNIN_LOCKUP_WIDTH_PX, available);
+}
+
+/**
+ * Resolve the rendered lockup height (logical px) for a viewport width.
+ *
+ * The height is the resolved width divided by the intrinsic aspect ratio,
+ * so the rendered box preserves the lockup's ~1499/388 proportion. This is
+ * set as an EXPLICIT `height` style on the consumer's `<Image>` because
+ * React Native Web does NOT honor an `aspectRatio` style to derive an
+ * Image's height from its width — without an explicit height the box
+ * renders at the PNG's intrinsic 388 px height and the cream art is
+ * stranded (letterboxed by `resizeMode="contain"`) in a huge empty band.
+ *
+ * Degenerate inputs (0 / NaN / Infinity) are handled exactly as the width
+ * helper handles them: `resolveSignInLockupWidthPx` falls back to the cap,
+ * so the height falls back to `MAX_SIGNIN_LOCKUP_WIDTH_PX / aspect`. The
+ * result is therefore always finite and positive.
+ *
+ * Rounded to 0.01 px so the value stays deterministic across platforms
+ * (no long binary fractions in the rendered style / snapshots).
+ */
+export function resolveSignInLockupHeightPx(viewportWidth: number): number {
+  const width = resolveSignInLockupWidthPx(viewportWidth);
+  return Math.round((width / SIGNIN_LOCKUP_ASPECT_RATIO) * 100) / 100;
 }
