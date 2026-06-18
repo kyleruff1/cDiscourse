@@ -10,6 +10,7 @@
  */
 import {
   resolveSignInLockupWidthPx,
+  resolveSignInLockupHeightPx,
   SIGNIN_LOCKUP_ASPECT_RATIO,
   MAX_SIGNIN_LOCKUP_WIDTH_PX,
   SIGNIN_LOCKUP_HORIZONTAL_BUDGET_PX,
@@ -89,5 +90,58 @@ describe('UX-BRAND-ASSETS-001 — SSR / first-paint safety', () => {
     expect(resolveSignInLockupWidthPx(Number.POSITIVE_INFINITY)).toBe(
       MAX_SIGNIN_LOCKUP_WIDTH_PX,
     );
+  });
+});
+
+describe('UX-BRAND-ASSETS-001 — resolveSignInLockupHeightPx (explicit height)', () => {
+  // RNW does NOT honor an aspectRatio style on an Image to derive its
+  // height from width, so the consumer sets an EXPLICIT height. The height
+  // helper must return width / aspect at every viewport so the rendered box
+  // preserves the lockup's ~1499/388 proportion instead of the PNG's
+  // intrinsic 388px height.
+  const VIEWPORTS = [320, 360, 390, 414, 768, 1024] as const;
+
+  for (const width of VIEWPORTS) {
+    it(`width=${width}: height ≈ resolvedWidth / aspect, positive + finite`, () => {
+      const resolvedWidth = resolveSignInLockupWidthPx(width);
+      const height = resolveSignInLockupHeightPx(width);
+      // Within rounding (the helper rounds to 0.01px).
+      expect(height).toBeCloseTo(resolvedWidth / SIGNIN_LOCKUP_ASPECT_RATIO, 1);
+      expect(height).toBeGreaterThan(0);
+      expect(Number.isFinite(height)).toBe(true);
+      // The box is far shorter than the PNG's intrinsic 388px height — this
+      // is the whole point of the fix (no stranded art in a tall band).
+      expect(height).toBeLessThan(388);
+    });
+  }
+
+  it('narrow phone (320): height follows the 248px available width', () => {
+    // width = 248; height = 248 / (1499/388) ≈ 64.20.
+    expect(resolveSignInLockupHeightPx(320)).toBeCloseTo(248 / SIGNIN_LOCKUP_ASPECT_RATIO, 1);
+  });
+
+  it('once the width cap engages, the height is the capped width / aspect', () => {
+    // width caps at 320; height = 320 / (1499/388) ≈ 82.83.
+    const cappedHeight = MAX_SIGNIN_LOCKUP_WIDTH_PX / SIGNIN_LOCKUP_ASPECT_RATIO;
+    expect(resolveSignInLockupHeightPx(414)).toBeCloseTo(cappedHeight, 1);
+    expect(resolveSignInLockupHeightPx(768)).toBeCloseTo(cappedHeight, 1);
+    expect(resolveSignInLockupHeightPx(1024)).toBeCloseTo(cappedHeight, 1);
+  });
+
+  it('monotonic: a wider viewport never returns a shorter height', () => {
+    let prev = 0;
+    for (const width of VIEWPORTS) {
+      const height = resolveSignInLockupHeightPx(width);
+      expect(height).toBeGreaterThanOrEqual(prev);
+      prev = height;
+    }
+  });
+
+  it('degenerate inputs fall back to the capped-width height (cap / aspect)', () => {
+    const cappedHeight = MAX_SIGNIN_LOCKUP_WIDTH_PX / SIGNIN_LOCKUP_ASPECT_RATIO;
+    expect(resolveSignInLockupHeightPx(0)).toBeCloseTo(cappedHeight, 1);
+    expect(resolveSignInLockupHeightPx(-100)).toBeCloseTo(cappedHeight, 1);
+    expect(resolveSignInLockupHeightPx(Number.NaN)).toBeCloseTo(cappedHeight, 1);
+    expect(resolveSignInLockupHeightPx(Number.POSITIVE_INFINITY)).toBeCloseTo(cappedHeight, 1);
   });
 });
