@@ -94,7 +94,7 @@
 | UX-DESIGN-PACKAGE-001 | #675 | Ingest + pin the CivilDiscourse v4 design package (canonical sha + assets + tokens map) | P0 | S | docs | No | Eligible after reviewer PASS (docs-only) | (root) | Backlog |
 | UX-COPY-001 | #676 | CivilDiscourse v4 copy overhaul — tagline swap, de-score surfaces, visible brand → CivilDiscourse, first-run (absorbs UX-FIRST-RUN-001) | P0 | M | UI-copy | No (defer identity rename) | Eligible after reviewer PASS (no deploy coupling) | UX-DESIGN-PACKAGE-001 | Backlog |
 | UX-COPY-DOCTRINE-001 | #677 | Doctrine-clean copy test harness (ban-list guard over visible strings) | P0 | S | copy-test | No | Eligible after reviewer PASS (test-only) | UX-COPY-001 | Backlog |
-| UX-BRAND-ASSETS-001 | #678 | CivilDiscourse v4 brand assets (crane mark, lockups, favicon/icon) | P0 | M | UI-assets | Case-by-case | Case-by-case (asset bytes; case-by-case if native icon/splash) | UX-DESIGN-PACKAGE-001 | Backlog |
+| UX-BRAND-ASSETS-001 | #678 | CivilDiscourse v4 brand assets (crane mark, lockups, favicon/icon) | P0 | M | UI-assets | Case-by-case | Case-by-case (asset bytes; case-by-case if native icon/splash) | UX-DESIGN-PACKAGE-001 | **Sign In lockup landed** (see note ↓); remaining (crane mark / favicon / icon / native) Backlog |
 | UX-TOKENS-001 | #679 | v4 design tokens — typography (Newsreader/Hanken/JetBrains), #1C1730 selected surface, axis-dot oklch, action vs gold roles | P1 | S | UI-tokens | No | Eligible after reviewer PASS | UX-DESIGN-PACKAGE-001 | Backlog |
 | UX-ROOM-1V1-CHIMEIN-001 | #680 | 1:1-first room model + bounded point-scoped chime-ins (absorbs UX-CHIMEIN-001) | P0 | L | UX-model | Case-by-case (YES if backend room/seat semantics change) | Not eligible if backend semantics change; else case-by-case | UX-DESIGN-PACKAGE-001 | Backlog |
 | UX-ROOM-SEATLINE-001 | #681 | Principal-voice seatline + observe-only / chime-in surface (UI) | P0 | M | UI | No (if UI-only) | Eligible after reviewer PASS if UI-only | UX-ROOM-1V1-CHIMEIN-001 | Backlog |
@@ -111,6 +111,23 @@
 | UX-TEST-001 | #692 | v4 UX test harness (sibling to REF-006 #589 human smoke — does not fold it) | P1 | L | test-harness | Operator-gated if auth | Eligible (testing; live/auth run operator-armed) | UX-MEDIATOR-002, UX-SELECTED-NODE-001, UX-ROOM-SEATLINE-001 | Backlog |
 | UX-ACCESSIBILITY-001 | #693 | v4 accessibility pass (tap targets, screen-reader, keyboard, reduce-motion) | P1 | M | UI-test | No | Eligible after reviewer PASS | UX-MEDIATOR-002, UX-SELECTED-NODE-001 | Backlog |
 | UX-OVERHAUL-SEQUENCE-001 | #694 | v4 overhaul sequencing + PM tracking card (the 7 operator decisions, order, gates) | P0 | S | docs-PM | No | Eligible after reviewer PASS (docs-only) | UX-DESIGN-PACKAGE-001 | Backlog |
+
+> **UX-BRAND-ASSETS-001 — Sign In lockup landed (2026-06-18).** Scope 1 of the
+> brand-asset card shipped: the cream horizontal lockup
+> (`lockup-horizontal.png`, 128,937 B) is git-tracked at
+> `assets/branding/lockup-horizontal.png` and wired into the **Sign In hero
+> ONLY** (`src/features/auth/AuthScreen.tsx`), replacing the visible TEXT
+> wordmark (the lockup carries the brand name via `accessibilityLabel`; no
+> duplicate visible wordmark). It sits on a dark `BRAND.surface.app.bg` backing
+> band; responsive width via the new pure-TS `src/features/auth/signInLockupModel.ts`
+> (`resolveSignInLockupWidthPx`, cap 320, `contain` + `aspectRatio` ≈ 1499/388 —
+> no overflow / edge gutter). The **header masthead logo**
+> (`civic-discourse-logo.png`, 2.3 MB, `AppHeader.tsx`) was DELIBERATELY NOT
+> touched — it was already shipped per #654. **Remaining UX-BRAND-ASSETS-001
+> scope still Backlog:** the crane mark (`civildiscourse-mark.png`), the
+> ink-variant lockup, `favicon.png` / `icon.png`, and any native
+> app-icon/adaptive-icon/splash work (the latter is GATE-C / native-bearing —
+> case-by-case per the table's GATE-C cell).
 
 ---
 
