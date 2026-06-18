@@ -109,46 +109,66 @@ const PROMINENT_LOGO_HEIGHT_PX = 288;
 // Header total height therefore = 288 + 8 = 296.
 const PROMINENT_HEADER_HEIGHT_PX = PROMINENT_LOGO_HEIGHT_PX + 8;
 
-// UX-MOBILE-001 (TICKET-001/002) — the logo Image renders at width =
-// height × 1.5 (natural 3:2 aspect). At the prominent 288 px height that is
-// 432 px wide, which EXCEEDS a 390 px phone viewport and forces body-level
-// horizontal scroll. The prominent masthead is a logged operator decision and
-// is PRESERVED on tablet / wide (where it physically fits); on phone the logo
-// is fitted to the viewport so its rendered width can never exceed the screen.
-// A 432 px-wide logo cannot coexist with "no horizontal overflow at 390 px",
-// so phone is the one band where the size is adapted — everywhere it fits, the
-// prominent decision is honored unchanged.
-const LOGO_ASPECT_RATIO = 1.5;
+// UX-BRAND-ASSETS-002 — the masthead logo is now the gold horizontal lockup
+// (`civic-discourse-logo.png`, 800×260, aspect ≈ 3.077). It is MUCH wider per
+// unit height than the prior grey water-scene (3:2 / aspect 1.5). The Image
+// renders at width = height × LOGO_ASPECT_RATIO, so at the prominent 288 px
+// height the gold lockup would be 288 × 3.077 ≈ 886 px wide — wider than every
+// supported viewport (it overflows even a 768 px tablet). The width-cap below
+// therefore applies to EVERY band (not just phone, as in UX-MOBILE-001): the
+// returned height is capped so its rendered width (height × aspect) can never
+// exceed the available header width. Where the prominent height physically
+// fits (wide, and tablet from ~1000 px up) the prominent decision is honored
+// unchanged; where it would overflow the logo is fitted to the available width
+// — preserving the #654 / UX-MOBILE-004 intent (no horizontal overflow, no
+// edge gutter, masthead never dominates the first screen).
+const LOGO_ASPECT_RATIO = 800 / 260; // ≈ 3.0769 (gold horizontal lockup)
 const HEADER_HORIZONTAL_BUDGET_PX = 24; // root paddingHorizontal (12 + 12)
-const MIN_PHONE_LOGO_HEIGHT_PX = 96; // still a prominent, legible brand mark
+const MIN_PHONE_LOGO_HEIGHT_PX = 64; // still a legible brand mark on a narrow phone
 // UX-MOBILE-004 (supersedes the UX-MOBILE-001 phone behavior) — live 390/300
 // measurement confirmed #654 removed the body overflow, but the phone masthead
-// stayed prominent-but-TALL (fitted ~244px at 390), eating the mobile first
-// screen ("desktop canvas squeezed into mobile"). The logo is product guidance,
-// NOT a fixed-pixel mandate: on phone we now cap the logo to a COMPACT height so
-// the masthead leaves room for the first interactive content, while tablet /
-// wide keep the prominent 288px. Width still never exceeds the viewport.
+// stayed prominent-but-TALL, eating the mobile first screen ("desktop canvas
+// squeezed into mobile"). The logo is product guidance, NOT a fixed-pixel
+// mandate: on phone we cap the logo to a COMPACT height so the masthead leaves
+// room for the first interactive content, while tablet / wide keep the
+// prominent 288px where it fits. Width still never exceeds the viewport.
 const MAX_PHONE_LOGO_HEIGHT_PX = 160;
 
 /**
  * Resolve the rendered masthead logo height for a band + viewport width.
  *
- * - Tablet / wide keep the prominent 288px logo (it physically fits).
- * - Phone uses a COMPACT cap (`MAX_PHONE_LOGO_HEIGHT_PX`) AND fits the logo to
- *   the available width (viewport − header padding) so its rendered width
- *   (height × 1.5) never exceeds the screen, clamped to
- *   [MIN_PHONE_LOGO_HEIGHT_PX, MAX_PHONE_LOGO_HEIGHT_PX].
- * - A non-positive width (SSR / static first paint) keeps the prominent size;
- *   hydration corrects it.
+ * UX-BRAND-ASSETS-002 — the gold lockup is aspect ≈ 3.077, so the prominent
+ * 288 px height would render ≈ 886 px wide and overflow every viewport. The
+ * height is therefore capped by the AVAILABLE WIDTH on every band:
  *
- * Pure + deterministic (unit-tested).
+ * - Compute `widthFit = floor(available / aspect)` — the tallest height whose
+ *   rendered width (height × aspect) still fits the available header width
+ *   (viewport − the 24 px header padding budget).
+ * - Tablet / wide: height = `min(PROMINENT_LOGO_HEIGHT_PX, widthFit)`. Where
+ *   the prominent height fits (wide; tablet once the viewport is wide enough)
+ *   the prominent 288 px is honored unchanged; on a narrow tablet the logo is
+ *   fitted to the width so it cannot overflow / create an edge gutter.
+ * - Phone: height = `clamp(widthFit, MIN_PHONE_LOGO_HEIGHT_PX,
+ *   MAX_PHONE_LOGO_HEIGHT_PX)` — a COMPACT cap so the masthead does not
+ *   dominate the mobile first screen, with a legibility floor.
+ * - A non-positive width (SSR / static first paint) keeps the prominent size;
+ *   hydration corrects it (`resolveBand(0) === 'wide'`, so this path is
+ *   effectively the wide first paint).
+ *
+ * The result ALWAYS satisfies `height × LOGO_ASPECT_RATIO <= available` for a
+ * positive viewport width (the width-cap never lets the rendered logo exceed
+ * the available header width). Pure + deterministic (unit-tested).
  */
 export function resolveMastheadLogoHeightPx(band: Band, viewportWidth: number): number {
-  if (band !== 'phone') return PROMINENT_LOGO_HEIGHT_PX;
   if (!(viewportWidth > 0)) return PROMINENT_LOGO_HEIGHT_PX;
   const available = Math.max(0, viewportWidth - HEADER_HORIZONTAL_BUDGET_PX);
-  const fitted = Math.floor(available / LOGO_ASPECT_RATIO);
-  return Math.max(MIN_PHONE_LOGO_HEIGHT_PX, Math.min(MAX_PHONE_LOGO_HEIGHT_PX, fitted));
+  const widthFit = Math.floor(available / LOGO_ASPECT_RATIO);
+  if (band !== 'phone') {
+    // Tablet / wide: prominent where it fits, else fitted to the width.
+    return Math.min(PROMINENT_LOGO_HEIGHT_PX, widthFit);
+  }
+  // Phone: compact cap + legibility floor, still fitted to the width.
+  return Math.max(MIN_PHONE_LOGO_HEIGHT_PX, Math.min(MAX_PHONE_LOGO_HEIGHT_PX, widthFit));
 }
 
 export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props) {

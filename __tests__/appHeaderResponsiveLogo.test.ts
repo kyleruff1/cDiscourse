@@ -1,24 +1,41 @@
 /**
- * UX-MOBILE-001 (TICKET-001/002) — responsive masthead logo sizing.
+ * UX-MOBILE-001 (TICKET-001/002) + UX-BRAND-ASSETS-002 — responsive
+ * masthead logo sizing.
  *
- * The logo Image renders at width = height × 1.5. At the prominent 288px height
- * that is 432px wide, which forces body-level horizontal scroll on a 390px
- * phone. resolveMastheadLogoHeightPx fits the logo to the viewport on phone so
- * its rendered width never exceeds the screen, while preserving the prominent
- * operator-decided size on tablet / wide.
+ * The logo Image renders at width = height × LOGO_ASPECT_RATIO.
+ * UX-BRAND-ASSETS-002 swapped the masthead logo to the gold horizontal
+ * lockup (800×260, aspect ≈ 3.077), which is MUCH wider per unit height
+ * than the prior grey scene (3:2 / aspect 1.5). At the prominent 288px
+ * height the gold lockup would be ≈ 886px wide and overflow EVERY
+ * viewport, so resolveMastheadLogoHeightPx now caps the height by the
+ * AVAILABLE WIDTH on every band (not just phone): the rendered width
+ * (height × aspect) can never exceed the viewport, while the prominent
+ * size is preserved where it physically fits (wide; tablet once the
+ * viewport is wide enough).
  */
 import { resolveMastheadLogoHeightPx } from '../src/components/AppHeader';
 import type { Band } from '../src/hooks/useHeaderBreakpoint';
 
-const ASPECT = 1.5;
+// UX-BRAND-ASSETS-002 — gold lockup aspect (was 1.5 for the grey scene).
+const ASPECT = 800 / 260;
 const PROMINENT = 288;
+const HEADER_PADDING = 24; // root paddingHorizontal (12 + 12)
 
-describe('UX-MOBILE-001 resolveMastheadLogoHeightPx', () => {
-  it('preserves the prominent logo on tablet and wide', () => {
+describe('UX-MOBILE-001 / UX-BRAND-ASSETS-002 resolveMastheadLogoHeightPx', () => {
+  it('preserves the prominent logo on tablet and wide WHERE IT FITS', () => {
+    // The prominent 288px gold lockup is 288 × 3.077 ≈ 886px wide; it only
+    // fits once the available width clears that, i.e. viewport ≳ 910px.
     for (const band of ['tablet', 'wide'] as Band[]) {
-      expect(resolveMastheadLogoHeightPx(band, 768)).toBe(PROMINENT);
+      expect(resolveMastheadLogoHeightPx(band, 1024)).toBe(PROMINENT);
       expect(resolveMastheadLogoHeightPx(band, 1440)).toBe(PROMINENT);
     }
+  });
+
+  it('caps the logo by available width on a NARROW tablet (it would otherwise overflow)', () => {
+    // 768px tablet: available = 744, fit = floor(744 / 3.077) = 241 < 288.
+    const h = resolveMastheadLogoHeightPx('tablet', 768);
+    expect(h).toBeLessThan(PROMINENT);
+    expect(h * ASPECT).toBeLessThanOrEqual(768 - HEADER_PADDING);
   });
 
   it('keeps the prominent size for a non-positive (SSR / static) width', () => {
@@ -26,26 +43,39 @@ describe('UX-MOBILE-001 resolveMastheadLogoHeightPx', () => {
     expect(resolveMastheadLogoHeightPx('wide', 0)).toBe(PROMINENT);
   });
 
-  it('fits the phone logo so its rendered width never exceeds the viewport', () => {
-    for (const width of [280, 320, 360, 390, 414, 480]) {
-      const h = resolveMastheadLogoHeightPx('phone', width);
+  it('fits the logo so its rendered width never exceeds the viewport at every band', () => {
+    const cases: Array<[Band, number]> = [
+      ['phone', 320],
+      ['phone', 360],
+      ['phone', 390],
+      ['phone', 414],
+      ['phone', 480],
+      ['tablet', 600],
+      ['tablet', 768],
+      ['tablet', 1024],
+      ['wide', 1280],
+      ['wide', 1440],
+    ];
+    for (const [band, width] of cases) {
+      const h = resolveMastheadLogoHeightPx(band, width);
       // Core acceptance: width (height × aspect) must fit within the viewport.
       expect(h * ASPECT).toBeLessThanOrEqual(width);
       // Never larger than the prominent size.
       expect(h).toBeLessThanOrEqual(PROMINENT);
+      expect(h).toBeGreaterThan(0);
     }
   });
 
   it('at the 390px target the fitted logo is well under the viewport', () => {
     const h = resolveMastheadLogoHeightPx('phone', 390);
-    expect(h * ASPECT).toBeLessThanOrEqual(390 - 24); // minus header padding
+    expect(h * ASPECT).toBeLessThanOrEqual(390 - HEADER_PADDING); // minus header padding
     expect(h).toBeGreaterThan(0);
   });
 
-  it('never shrinks the phone logo below a legible floor', () => {
+  it('never shrinks the phone logo below a legible floor while staying viewport-safe', () => {
     // Even on a very narrow phone the brand stays visible (and still fits).
-    const h = resolveMastheadLogoHeightPx('phone', 200);
-    expect(h).toBeGreaterThanOrEqual(96);
-    expect(h * ASPECT).toBeLessThanOrEqual(200);
+    const h = resolveMastheadLogoHeightPx('phone', 320);
+    expect(h).toBeGreaterThanOrEqual(64);
+    expect(h * ASPECT).toBeLessThanOrEqual(320);
   });
 });

@@ -369,19 +369,24 @@ function AppRoot() {
   // NAV-HEADER-INLINE-001 — the signed-in shell owns its own masthead so
   // the primary nav can render INSIDE the AppHeader container (the masthead
   // carries the nav). AppRoot therefore renders the bare AppHeader only for
-  // the non-shell session states (unconfigured / signed_out / invite),
-  // where there is no authenticated primary nav to integrate. This avoids a
+  // the non-shell session states (unconfigured / invite / callback), where
+  // there is no authenticated primary nav to integrate. This avoids a
   // double header while keeping AppHeader mounted from App.tsx.
   // AUTH-CALLBACK-CONSUMER-001 — the callback screen is one of the non-shell
   // session states, so the bare AppHeader still docks above it (the shell owns
   // its own integrated masthead; the callback screen does not).
+  //
+  // UX-BRAND-ASSETS-002 — the plain `signed_out` AuthScreen is the ONE
+  // non-shell state that NO LONGER docks the bare masthead. The Sign In
+  // screen already carries the gold lockup inside its value-prop card, so a
+  // second masthead lockup directly above it was a duplicative banner
+  // (operator: "remove it fully"). The bare masthead still docks for the
+  // loading (`unconfigured`), invite (`pendingInviteIntent`), and
+  // `/auth/callback` states, which have no in-content brand mark of their own.
   const showRootHeader =
     authCallback.active ||
-    !(
-      state.status !== 'unconfigured' &&
-      state.status !== 'signed_out' &&
-      !pendingInviteIntent
-    );
+    state.status === 'unconfigured' ||
+    Boolean(pendingInviteIntent);
 
   // BRAND-001 — global dark backdrop. AppHeader docks at the top of every
   // screen. The DevEnvironmentBanner mount was removed (see import-block
@@ -391,7 +396,9 @@ function AppRoot() {
   // NAV-HEADER-INLINE-001 — for the signed-in shell the masthead (with the
   // integrated primary nav) is rendered INSIDE MainAppShell, so AppRoot
   // skips its bare AppHeader there to avoid a double header. The bare
-  // header still renders for the unconfigured / signed_out / invite states.
+  // header still renders for the unconfigured / invite / callback states.
+  // UX-BRAND-ASSETS-002 — it no longer renders for the plain signed_out
+  // (Sign In) state; that screen carries its own in-content gold lockup.
   return (
     <SafeAreaView style={styles.appRoot}>
       {showRootHeader ? (
