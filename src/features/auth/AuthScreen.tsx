@@ -18,7 +18,7 @@ import { AUTH_FIRST_RUN_COPY } from '../../lib/brandCopy';
 // (swan-on-rock outline + wordmark) rendered on the Sign In hero ONLY.
 // The masthead/header logo (`civic-discourse-logo.png` wired into
 // AppHeader) is a SEPARATE asset and is untouched by this card.
-const SIGNIN_LOCKUP = require('../../assets/branding/lockup-horizontal.png');
+const SIGNIN_LOCKUP = require('../../../assets/branding/lockup-horizontal.png');
 
 type Mode = 'signin' | 'signup';
 
