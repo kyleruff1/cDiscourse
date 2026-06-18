@@ -179,8 +179,11 @@ describe('UX-001.1 — typography doctrine ban-list (§15)', () => {
     }
   });
 
-  it('Q8.13: BRAND.taglineText still equals the Stage 2 fixture (no shell-copy drift)', () => {
-    expect(BRAND.taglineText).toBe('Just get to the bottom of it');
+  it('Q8.13: BRAND.taglineText equals the UX-COPY-001 v4 fixture (no shell-copy drift)', () => {
+    // UX-COPY-001 — CivilDiscourse v4 copy overhaul retired the Stage 2
+    // "Just get to the bottom of it" tagline. The shell-copy-drift guard
+    // now pins the v4 primary tagline.
+    expect(BRAND.taglineText).toBe('A high-trust room for hard conversations.');
   });
 
   it('Q8.14: BRAND.surface.app.bg === "#08060F" (Stage 1 invariant)', () => {

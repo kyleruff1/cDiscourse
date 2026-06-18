@@ -147,7 +147,7 @@ export function ComposerValidationPanel({ result, source, onSuggestedMove }: Pro
         <View style={styles.topicSection}>
           <Text style={styles.topicHeader}>Topic coverage (dev)</Text>
           <View style={styles.topicScoreRow}>
-            <Text style={styles.topicLabel}>Score</Text>
+            <Text style={styles.topicLabel}>Topic fit</Text>
             <Text style={styles.topicValue}>{pct(tsc.score)} ({tsc.status})</Text>
           </View>
           {tsc.matchedTerms.length > 0 && (

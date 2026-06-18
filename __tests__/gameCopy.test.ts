@@ -68,7 +68,11 @@ describe('gameCopy', () => {
 
   describe('concession copy', () => {
     it('concession is self-directed (first person)', () => {
-      expect(CONCESSION_COPY.onlyMostlyWrong).toMatch(/I'm|I am/);
+      // UX-COPY-001 softened "I'm only MOSTLY wrong" -> "I overstated part of
+      // this" (no "wrong" verdict token). The doctrine intent — first person,
+      // self-directed — is preserved: both labels begin with "I ".
+      expect(CONCESSION_COPY.onlyMostlyWrong).toMatch(/^I /);
+      expect(CONCESSION_COPY.onlyMostlyWrong.toLowerCase()).not.toContain('wrong');
       expect(CONCESSION_COPY.misunderstoodContext).toMatch(/I /);
     });
 
@@ -82,9 +86,14 @@ describe('gameCopy', () => {
   });
 
   describe('status copy', () => {
-    it('uses "currently ahead" not "winner"', () => {
-      expect(STATUS_COPY.currentlyAhead).toContain('ahead');
+    it('uses de-scored structural "support" framing, not "ahead"/"winner"', () => {
+      // UX-COPY-001 de-scored the comparative-standing copy: "Currently ahead"
+      // -> "More support so far", "More supported" -> "Better supported point".
+      // No scoreboard / ahead / winner framing.
+      expect(STATUS_COPY.currentlyAhead.toLowerCase()).toContain('support');
+      expect(STATUS_COPY.currentlyAhead.toLowerCase()).not.toContain('ahead');
       expect(STATUS_COPY.currentlyAhead.toLowerCase()).not.toContain('winner');
+      expect(STATUS_COPY.moreSupported.toLowerCase()).toContain('support');
     });
 
     it('has peace treaty-ish copy', () => {

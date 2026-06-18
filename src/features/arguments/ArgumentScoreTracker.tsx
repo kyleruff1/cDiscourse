@@ -30,13 +30,13 @@ export function ArgumentScoreTracker({ trends }: Props) {
   if (trends.length === 0) {
     return (
       <View style={styles.root} testID="argument-score-tracker">
-        <Text style={styles.note}>Score tracker appears once messages exist.</Text>
+        <Text style={styles.note}>This appears once messages exist.</Text>
       </View>
     );
   }
   return (
     <View style={styles.root} testID="argument-score-tracker">
-      <Text style={styles.title} accessibilityLabel="score-tracker-title">Standings · gameplay analysis</Text>
+      <Text style={styles.title} accessibilityLabel="where the points stand">Where the points stand · gameplay analysis</Text>
       <View style={styles.row}>
         {trends.map((t) => {
           const color = standingBandColor(t.currentBand);

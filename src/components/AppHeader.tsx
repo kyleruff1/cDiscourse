@@ -76,8 +76,8 @@ const DEFAULT_LOGO = require('../../assets/branding/civic-discourse-logo.png');
 
 // BRAND-001 — composed accessibility label for screen readers. The
 // home pressable groups the logo + tagline into a single utterance so
-// VoiceOver / TalkBack reads "CivilDiscourse, Just get to the bottom
-// of it, button" exactly once.
+// VoiceOver / TalkBack reads "CivilDiscourse, A high-trust room for
+// hard conversations., button" exactly once.
 const HOME_ACCESSIBILITY_LABEL = `CivilDiscourse, ${APP_HEADER_TAGLINE_TEXT}`;
 
 /**
@@ -227,11 +227,13 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props
               CivilDiscourse
             </Text>
           )}
-          {/* Operator request 2026-05-26: tagline sits to the RIGHT of
-              the logo, anchored to the logo's bottom edge with only a
-              hair of horizontal gap. 10 px italic serif. The "..."
-              prefix mirrors the operator's verbatim copy
-              ("...Just get to the bottom of it"). */}
+          {/* UX-COPY-001: tagline sits to the RIGHT of the logo,
+              anchored to the logo's bottom edge with only a hair of
+              horizontal gap. 10 px italic serif. Renders the full
+              BRAND.taglineText fixture ("A high-trust room for hard
+              conversations.") with no leading-ellipsis fragment prefix
+              (the prior "..." fragment was tied to the retired
+              "...just get to the bottom of it" copy). */}
           <Text
             accessibilityRole="text"
             testID="app-header-tagline"
@@ -239,7 +241,7 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props
             numberOfLines={1}
             allowFontScaling
           >
-            {`...${APP_HEADER_TAGLINE_TEXT}`}
+            {APP_HEADER_TAGLINE_TEXT}
           </Text>
         </View>
       </Pressable>

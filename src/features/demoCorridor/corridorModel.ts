@@ -108,7 +108,7 @@ export interface CorridorView {
 export const CORRIDOR_COPY = Object.freeze({
   /** Gallery-toolbar entry affordance. */
   entryLabel: 'See how it works',
-  entryAccessibilityLabel: 'See how CDiscourse works — a short guided walkthrough',
+  entryAccessibilityLabel: 'See how CivilDiscourse works — a short guided walkthrough',
   /** Stand-in framing shown at the first beat (design open-question resolution). */
   standInFraming: 'Step into one side of a live dispute. You are a stand-in here — nothing you do leaves this walkthrough.',
 
@@ -156,7 +156,7 @@ export const CORRIDOR_COPY = Object.freeze({
   replay: 'Replay the walkthrough',
 
   /** Closing beat. */
-  closingHeadline: 'That is CDiscourse',
+  closingHeadline: 'That is CivilDiscourse',
   closingRecruitLine: 'Every disagreement becomes one clear, movable point.',
 });
 

@@ -75,7 +75,20 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   // the touch-target change itself is pinned by
   // `uxMobile001MobileHardening.test.ts`. Mirrors the prior operator-authorized
   // AppHeader / designTokens relaxations above.
-  'src/features/arguments/ArgumentScoreTracker.tsx',
+  // NOTE: `src/features/arguments/ArgumentScoreTracker.tsx` was removed
+  // from the zero-diff boundary by the operator-authorized UX-COPY-001
+  // card (CivilDiscourse v4 copy overhaul). UX-COPY-001 §3 explicitly
+  // requires de-scoring the visible labels in this component (the empty
+  // note "Score tracker appears once messages exist." -> doctrine-clean
+  // phrasing; the title "Standings · gameplay analysis" ->
+  // "Where the points stand · gameplay analysis"; the
+  // accessibilityLabel "score-tracker-title" -> "where the points
+  // stand"). The change is copy-only — the component shape, props,
+  // testID `argument-score-tracker`, scoring model, and band logic are
+  // all unchanged. The doctrine cleanliness of the rendered strings is
+  // pinned by `uxCopyOneCivilDiscourseRebrand.test.ts`. Mirrors the
+  // prior operator-authorized AppHeader / designTokens / TimelineMap /
+  // actPopoutModel relaxations above.
   'src/features/debates/DebateDetailHeader.tsx',
   'src/features/arguments/timelineViewportLayoutModel.ts',
   'src/features/arguments/TimelineSelectedReadoutPanel.tsx',
@@ -90,7 +103,16 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   'src/features/arguments/composer/useComposerFocusContext.ts',
   'src/features/arguments/composer/composerActingOnModel.ts',
   'src/features/arguments/composer/composerHaptics.ts',
-  'src/features/arguments/ComposerValidationPanel.tsx',
+  // NOTE: `src/features/arguments/ComposerValidationPanel.tsx` was
+  // removed from the zero-diff boundary by the operator-authorized
+  // UX-COPY-001 card. UX-COPY-001 §3 requires de-scoring the visible
+  // "Score" label in the __DEV__-only "Topic coverage (dev)" block
+  // (relabelled "Topic fit"). The change is copy-only and confined to a
+  // dev-build-gated readout — the validation behavior, props, section
+  // structure, and the non-dev rendered surface are unchanged. The
+  // doctrine cleanliness of the rendered strings is pinned by
+  // `uxCopyOneCivilDiscourseRebrand.test.ts`. Mirrors the prior
+  // operator-authorized relaxations above.
   'src/features/rulesUx/validationActionMap.ts',
   'src/features/arguments/oneBox/OneBox.tsx',
 

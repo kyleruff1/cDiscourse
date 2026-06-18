@@ -43,12 +43,12 @@ export function DevEnvironmentBanner({ env }: DevEnvironmentBannerProps): React.
     <View
       style={styles.banner}
       accessibilityRole="alert"
-      accessibilityLabel={`This is a non-production CDiscourse build (${envLabel}). Test data may be reset.`}
+      accessibilityLabel={`This is a non-production CivilDiscourse build (${envLabel}). Test data may be reset.`}
       testID="dev-environment-banner"
     >
       <View style={styles.row}>
         <View style={styles.tag} testID="dev-banner-env-tag">
-          <Text style={styles.tagText}>{`CDiscourse · ${envLabel}`}</Text>
+          <Text style={styles.tagText}>{`CivilDiscourse · ${envLabel}`}</Text>
         </View>
         <Text style={styles.buildText} testID="dev-banner-build">{buildLabel}</Text>
       </View>

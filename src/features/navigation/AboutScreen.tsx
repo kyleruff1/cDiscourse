@@ -45,7 +45,7 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
           CivilDiscourse
         </Text>
         <Text style={styles.tagline} accessibilityRole="text">
-          {`...${ABOUT_COPY.tagline}`}
+          {ABOUT_COPY.tagline}
         </Text>
 
         <Text style={styles.title} accessibilityRole="header">
