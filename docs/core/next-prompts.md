@@ -13,6 +13,20 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
+## CIVILDISCOURSE-V4-UX-OVERHAUL-2026-06-18 — design-package UX overhaul (NEWEST major lane)
+
+The CivilDiscourse v4 design package (canonical `CivilDiscourse v4.dc.html`) was ingested into a 20-card implementation slate — issues **#675–#694** on Project #1; the VOICE slate (#658–#671) was **amended, not duplicated**. Full plan: [`docs/designs/CIVILDISCOURSE-V4-UX-OVERHAUL-INDEX.md`](../designs/CIVILDISCOURSE-V4-UX-OVERHAUL-INDEX.md) · [roadmap](../roadmap-expansions/2026-06-18-civildiscourse-v4-ux-overhaul-roadmap.md) · [package inventory](../testing-runs/2026-06-18-civildiscourse-v4-design-package-inventory.md). Visible brand → CivilDiscourse (internal `cdiscourse` identifiers deferred per design L91). **Start here:**
+
+```powershell
+.\.claude\scripts\spawn-card.ps1 UX-DESIGN-PACKAGE-001   # pin the design package as source of UX truth
+.\.claude\scripts\spawn-card.ps1 UX-COPY-001             # visible-copy overhaul (tagline swap, de-score, brand)
+.\.claude\scripts\spawn-card.ps1 UX-MEDIATOR-001         # one-state-per-node (EXTENDS the shipped mediator stack)
+```
+
+GATE-C / operator-gated cards (do **not** auto-run): UX-ROOM-1V1-CHIMEIN-001 (if backend room/seat semantics change), UX-BRAND-ASSETS-001 (asset bytes / native icon), UX-TEST-001 (auth/data). The mediator cards EXTEND merged code — cross-ref, never re-implement.
+
+---
+
 ## VOICE-SLATE-2026-06-13 — Speech-first voice input (NEW major product lane)
 
 The speech-first / voice-waveform slate is filed (issues **#658–#671** on Project #1; full plan in [`docs/roadmap-expansions/2026-06-13-speech-first-voice-waveform-roadmap.md`](../roadmap-expansions/2026-06-13-speech-first-voice-waveform-roadmap.md) + [`docs/designs/VOICE-SLATE-2026-06-13-INDEX.md`](../designs/VOICE-SLATE-2026-06-13-INDEX.md); DAG correction + voice-to-mediator bridge in [`docs/designs/VOICE-PATCH-001-DAG-AND-MEDIATOR-BRIDGE.md`](../designs/VOICE-PATCH-001-DAG-AND-MEDIATOR-BRIDGE.md)). Speech-to-text becomes the primary argument-entry mode; text-only stays available for every entry window; raw audio is never stored/uploaded/replayed/sent to MCP. **Next major product lane — start here:**
