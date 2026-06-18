@@ -57,7 +57,7 @@ const AUTH_CODE = codeOnly(AUTH_SRC);
 
 describe('UX-BRAND-ASSETS-001 (a) — Sign In hero renders the lockup Image', () => {
   it('requires the committed lockup asset (not the header logo, not the ink variant)', () => {
-    expect(AUTH_CODE).toContain("require('../../assets/branding/lockup-horizontal.png')");
+    expect(AUTH_CODE).toContain("require('../../../assets/branding/lockup-horizontal.png')");
     expect(AUTH_CODE).not.toContain('civic-discourse-logo.png');
     expect(AUTH_CODE).not.toContain('lockup-horizontal-ink.png');
     expect(AUTH_CODE).not.toContain('civildiscourse-mark.png');
