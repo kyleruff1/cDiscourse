@@ -273,7 +273,7 @@ function LookupOkBranch({
         return (
           <SignedOutPrompt
             roomTitle={lookup.room?.title || '(this argument)'}
-            inviter={lookup.room?.invitedByDisplayName || 'A CDiscourse user'}
+            inviter={lookup.room?.invitedByDisplayName || 'A CivilDiscourse user'}
             onCreateAccount={onCreateAccount}
             onSignInExisting={onSignInExisting}
             onExit={onExit}
@@ -363,7 +363,7 @@ function AcceptErrorBranch(props: AcceptErrorBranchProps) {
     return (
       <SessionExpiredPrompt
         roomTitle={lookup?.room?.title || '(this argument)'}
-        inviter={lookup?.room?.invitedByDisplayName || 'A CDiscourse user'}
+        inviter={lookup?.room?.invitedByDisplayName || 'A CivilDiscourse user'}
         onContinue={props.onPromptSignIn}
         onExit={onExit}
       />

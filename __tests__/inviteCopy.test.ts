@@ -85,12 +85,12 @@ describe('INVITE_EMAIL_SUBJECT + buildInviteEmailBody', () => {
     expect(body).toContain('Alex');
   });
 
-  it('falls back to "A CDiscourse user" when no inviter name', () => {
+  it('falls back to "A CivilDiscourse user" when no inviter name', () => {
     const body = buildInviteEmailBody({
       roomTitle: 'Room 1',
       inviteLink: 'https://dev.cdiscourse.com/invite/xyz',
     });
-    expect(body).toContain('A CDiscourse user');
+    expect(body).toContain('A CivilDiscourse user');
   });
 
   it('falls back to "(this argument)" for empty title', () => {

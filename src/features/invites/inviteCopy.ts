@@ -61,9 +61,9 @@ export function buildInviteEmailBody(input: {
   const inviter =
     typeof input.invitedByDisplayName === 'string' && input.invitedByDisplayName.trim().length > 0
       ? input.invitedByDisplayName.trim()
-      : 'A CDiscourse user';
+      : 'A CivilDiscourse user';
   return [
-    `${inviter} invited you to respond to an argument on CDiscourse:`,
+    `${inviter} invited you to respond to an argument on CivilDiscourse:`,
     '',
     `"${title}"`,
     '',

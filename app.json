@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "CDiscourse",
+    "name": "CivilDiscourse",
     "slug": "expo-scaffold",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -24,7 +24,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "name": "CDiscourse",
+      "name": "CivilDiscourse",
       "favicon": "./assets/favicon.png"
     }
   }

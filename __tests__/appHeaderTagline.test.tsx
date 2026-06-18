@@ -58,8 +58,12 @@ function contrastRatio(fg: string, bg: string): number {
 // ── 1. Tagline fixture string ──────────────────────────────────────
 
 describe('BRAND-001 Stage 2 — tagline fixture contract', () => {
-  it('taglineText is the exact fixture "Just get to the bottom of it"', () => {
-    expect(BRAND.taglineText).toBe('Just get to the bottom of it');
+  it('taglineText is the exact v4 fixture "A high-trust room for hard conversations."', () => {
+    // UX-COPY-001 — CivilDiscourse v4 copy overhaul: the Stage 2
+    // "Just get to the bottom of it" fixture is retired in favour of
+    // the v4 primary tagline. The doctrine ban-list assertions below
+    // continue to guard the new string.
+    expect(BRAND.taglineText).toBe('A high-trust room for hard conversations.');
   });
 
   it('APP_HEADER_TAGLINE_TEXT re-export equals BRAND.taglineText', () => {

@@ -60,7 +60,7 @@ export const RECEIPT_COPY = {
 export const CONCESSION_COPY = {
   concedePoint: 'Concede the point',
   surrenderCompletely: 'Surrender completely',
-  onlyMostlyWrong: "I'm only MOSTLY wrong",
+  onlyMostlyWrong: "I overstated part of this",
   misunderstoodContext: 'I misunderstood the context',
   narrowDispute: 'Narrow the dispute',
   concessionSelfDirected: "I'm conceding this point.",
@@ -71,8 +71,10 @@ export const CONCESSION_COPY = {
 
 export const STATUS_COPY = {
   open: 'Open',
-  currentlyAhead: 'Currently ahead',
-  moreSupported: 'More supported',
+  // UX-COPY-001 — de-scored: comparative-standing copy reframed to
+  // structural "support" language (no scoreboard / ahead / winner framing).
+  currentlyAhead: 'More support so far',
+  moreSupported: 'Better supported point',
   needsReceipts: 'Needs receipts',
   offTrack: 'Off track',
   branchRecommended: 'Branch recommended',
@@ -296,7 +298,7 @@ export const PLAIN_LANGUAGE_COPY = {
   nicely_anchored: 'Nicely anchored to their words.',
   nice_narrowing: 'Nice narrowing move — the broader point holds.',
   concession_noted: 'Narrow concession noted — the broad point still stands.',
-  broad_point_set_down: 'Broad point set down — an honest move.',
+  broad_point_set_down: 'Broad point set down — a clarifying move.',
   clarification_in_play: "Good — that clears up what's being argued.",
   almost_a_synthesis: 'Almost a synthesis — name the shared point.',
   synthesis_named: 'Shared ground named — nice synthesis.',
@@ -1596,7 +1598,7 @@ export const ARGUMENT_MODE_COPY = Object.freeze({
   // contains no advice itself; no verdict, no alarm.
   disclaimer_co_parenting_custody:
     'This space is for talking through a co-parenting question together. ' +
-    'CDiscourse is not a law firm and does not give legal advice. Nothing ' +
+    'CivilDiscourse is not a law firm and does not give legal advice. Nothing ' +
     'here is a legal opinion, a custody recommendation, or a substitute for ' +
     'talking with a qualified family-law professional. For anything with ' +
     'legal weight, please speak with a licensed attorney in your area.',
@@ -1604,7 +1606,7 @@ export const ARGUMENT_MODE_COPY = Object.freeze({
   // given; contains no advice itself; no verdict, no alarm.
   disclaimer_relationship_repair:
     'This space is for talking through a disagreement in your own words. ' +
-    'CDiscourse is not a counseling or therapy service and does not give ' +
+    'CivilDiscourse is not a counseling or therapy service and does not give ' +
     'therapeutic, medical, or mental-health advice. Nothing here is a ' +
     'substitute for talking with a qualified counselor or therapist. If a ' +
     'conversation feels like more than this tool is for, please reach out ' +

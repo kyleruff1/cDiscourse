@@ -8,6 +8,7 @@ import { SUPABASE_CONFIGURED } from '../../lib/supabase';
 import { validateAuthInput } from './authApi';
 import { useAuthSession } from './useAuthSession';
 import { SURFACE_TOKENS, CONTROL, BRAND } from '../../lib/designTokens';
+import { AUTH_FIRST_RUN_COPY } from '../../lib/brandCopy';
 
 type Mode = 'signin' | 'signup';
 
@@ -66,17 +67,26 @@ export function AuthScreen() {
         <ErrorNotice message="Supabase is not configured. Copy .env.example to .env and fill in EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY." />
       )}
 
-      {/* UX-COPY-001 — first-run value proposition. Explains the pseudo-mediator
-          premise before sign-up: structure the argument, never rule on it.
+      {/* UX-COPY-001 — first-run / sign-in clarity (folds UX-FIRST-RUN-001).
+          Explains the product at a glance before sign-up: the brand, the v4
+          primary tagline, the three-beat value line, and the mediator-not-a-
+          judge framing. No voice copy (voice is not shipped).
           UX-BRAND-001 — presented as a restrained premium card: a soft gold
           surface tint + gold hairline, a small gold accent rule, and the lead
           in antique gold (contrast-safe at 8.3:1 on the dark backdrop). */}
       <View style={styles.valueProp} testID="auth-value-prop">
         <View style={styles.valuePropAccent} testID="auth-value-prop-accent" />
-        <Text style={styles.valuePropLead}>Work through hard disagreements, one point at a time.</Text>
-        <Text style={styles.valuePropBody}>
-          Respond to a specific point, follow the evidence, and see what stays unresolved. The app keeps
-          the argument structured and anchored to the point — it does not take sides or hand down a ruling.
+        <Text style={styles.valuePropBrand} testID="auth-value-prop-brand">
+          {AUTH_FIRST_RUN_COPY.brand}
+        </Text>
+        <Text style={styles.valuePropLead} testID="auth-value-prop-lead">
+          {AUTH_FIRST_RUN_COPY.tagline}
+        </Text>
+        <Text style={styles.valuePropBody} testID="auth-value-prop-subline">
+          {AUTH_FIRST_RUN_COPY.subline}
+        </Text>
+        <Text style={styles.valuePropBody} testID="auth-value-prop-footer">
+          {AUTH_FIRST_RUN_COPY.mediatorFooter}
         </Text>
       </View>
 
@@ -147,6 +157,15 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     backgroundColor: BRAND.accent.gold,
+  },
+  // Product wordmark on the first-run card — cream, editorial weight,
+  // so the brand reads first. Cream (text.primary) clears AA on the
+  // dark backdrop (>14:1).
+  valuePropBrand: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    color: BRAND.text.primary,
   },
   // Antique-gold lead, editorial weight + letter-spacing. Contrast-safe
   // (~8.3:1 on the dark backdrop — clears AA + AAA for normal text).

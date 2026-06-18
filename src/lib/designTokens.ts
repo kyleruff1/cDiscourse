@@ -201,7 +201,7 @@ export const BRAND = {
    * Stage 2 test pins this exact string and ban-lists it against
    * verdict / popularity vocabulary.
    */
-  taglineText: 'Just get to the bottom of it' as const,
+  taglineText: 'A high-trust room for hard conversations.' as const,
 
   // ── UX-001.1 — Phase 1 brand + app shell correction ──────────────
   //

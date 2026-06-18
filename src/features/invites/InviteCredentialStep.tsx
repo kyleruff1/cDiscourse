@@ -76,7 +76,7 @@ export function InviteCredentialStep(props: InviteCredentialStepProps) {
   const inviter =
     typeof inviterDisplayName === 'string' && inviterDisplayName.trim().length > 0
       ? inviterDisplayName.trim()
-      : 'A CDiscourse user';
+      : 'A CivilDiscourse user';
   const title = roomTitle && roomTitle.trim().length > 0 ? roomTitle : '(this argument)';
   const copy = credentialCopyForMode(mode);
   const submitting = step.kind === 'submitting';
