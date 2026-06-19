@@ -213,7 +213,10 @@ describe('UX-MEDIATOR-002 — Inspect detail reveals the preserved mediator reas
       />,
     );
     expect(getByText('Needs evidence')).toBeTruthy();
-    expect(getByText('A source or quote was asked for and is still owed.')).toBeTruthy();
+    // UX-MEDIATOR-003 — needs-evidence helper refined to the person-neutral
+    // "This point needs a source or record." structural-obligation copy.
+    expect(getByText(helperForMediatorState('needs_evidence'))).toBeTruthy();
+    expect(getByText('This point needs a source or record. A source would make this point easier to test.')).toBeTruthy();
     expect(getByText('What would help next: Provide a source')).toBeTruthy();
   });
 
@@ -319,9 +322,16 @@ describe('UX-MEDIATOR-002 — labels ban-list clean', () => {
           nextMoveLabel="Provide a source"
         />,
       ).toJSON();
+      // UX-MEDIATOR-003 — the blocked-state lead is the operator-locked temporal
+      // copy "…not available right now." `right` (verdict) stays banned, but the
+      // exact phrase "right now" is neutralized before the scan (temporal, not a
+      // verdict; same word, indistinguishable by form).
+      const safePhrases = ['right now'];
       for (const text of [...collectText(chip), ...collectText(detail)]) {
         const lower = text.toLowerCase();
-        for (const token of banned) expect(lower.includes(token)).toBe(false);
+        let scrubbed = lower;
+        for (const phrase of safePhrases) scrubbed = scrubbed.split(phrase).join('');
+        for (const token of banned) expect(scrubbed.includes(token)).toBe(false);
         expect(text).not.toMatch(/^[a-z]+_[a-z_]+$/); // no bare snake_case atom
       }
     }

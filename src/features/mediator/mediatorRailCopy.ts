@@ -46,8 +46,13 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
   overflowWord: 'more',
   /** UX-MEDIATOR-003 — evidence-debt section lead-in. */
   evidenceHelp: 'Evidence that would help',
-  /** UX-MEDIATOR-003 — blocked / unavailable evidence path. */
-  blockedEvidencePath: 'Blocked evidence path',
+  /**
+   * UX-MEDIATOR-003 (O-1) — blocked / unavailable evidence path. Kept in
+   * lockstep with `MEDIATOR_STATE_COPY.evidence_blocked` ("Evidence blocked")
+   * so the rail blocked line and the node chip use the SAME display label.
+   * Describes an unavailable PATH, never anyone's conduct.
+   */
+  blockedEvidencePath: 'Evidence blocked',
   /** UX-MEDIATOR-004 — definition/scope bridge lead-in. */
   clarifyPoint: 'Clarify the point',
   // UX-MEDIATOR-004 — bridge prompts are ADVISORY guidance, never a posting

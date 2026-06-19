@@ -91,19 +91,20 @@ describe('UX-MEDIATOR-003 DisagreementPointsRail evidence section', () => {
     expect(getByText('1 evidence request')).toBeTruthy(); // existing count line still renders
   });
 
-  it('renders "Blocked evidence path" when a blocked path is present', () => {
+  it('renders "Evidence blocked" when a blocked path is present', () => {
     const board = makeBoard({
       points: [makePoint({ id: 'p1', state: 'evidence_blocked', openEvidenceDebtIds: ['p1:debt'] })],
       evidenceDebts: [makeView({ pointId: 'p1', kind: 'receipt', status: 'unresolved', isBlocked: true })],
-      blockedEvidencePaths: [{ pointId: 'p1', nodeId: 'p1', debtId: 'p1:debt', artifactCategory: 'receipt', plainLabel: 'Blocked evidence path' }],
+      blockedEvidencePaths: [{ pointId: 'p1', nodeId: 'p1', debtId: 'p1:debt', artifactCategory: 'receipt', plainLabel: 'Evidence blocked' }],
     });
-    const { getByTestId, getAllByText } = render(
+    const { getByTestId, getAllByText, queryAllByText } = render(
       <DisagreementPointsRail board={board} defaultCollapsed={false} reduceMotionOverride />,
     );
     expect(getByTestId('disagreement-points-rail-blocked-p1')).toBeTruthy();
-    // The dedicated blocked line renders (the evidence_blocked state badge may
-    // also read the same words — at least one occurrence is required).
-    expect(getAllByText('Blocked evidence path').length).toBeGreaterThanOrEqual(1);
+    // UX-MEDIATOR-003 (O-1) — the dedicated blocked line uses the renamed v4
+    // label "Evidence blocked"; the old "Blocked evidence path" is gone.
+    expect(getAllByText('Evidence blocked').length).toBeGreaterThanOrEqual(1);
+    expect(queryAllByText('Blocked evidence path').length).toBe(0);
   });
 
   it('shows no evidence-help line for a point without open evidence debt', () => {
@@ -126,7 +127,7 @@ describe('UX-MEDIATOR-003 DisagreementPointsRail evidence section', () => {
         makeView({ pointId: 'p1', debtId: 'a', kind: 'source' }),
         makeView({ pointId: 'p1', debtId: 'b', kind: 'primary_record', isBlocked: true }),
       ],
-      blockedEvidencePaths: [{ pointId: 'p1', nodeId: 'p1', debtId: 'b', artifactCategory: 'primary record', plainLabel: 'Blocked evidence path' }],
+      blockedEvidencePaths: [{ pointId: 'p1', nodeId: 'p1', debtId: 'b', artifactCategory: 'primary record', plainLabel: 'Evidence blocked' }],
     });
     const tree = render(
       <DisagreementPointsRail board={board} defaultCollapsed={false} reduceMotionOverride />,

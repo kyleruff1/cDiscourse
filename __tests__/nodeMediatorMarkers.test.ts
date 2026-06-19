@@ -99,11 +99,12 @@ describe('UX-MEDIATOR-002 getNodeMediatorMarker', () => {
   });
 
   it('projects the v4 display vocabulary on the chip (O-1)', () => {
-    // key_detail_unavailable → evidence_blocked ("Blocked evidence path").
+    // key_detail_unavailable → evidence_blocked ("Evidence blocked").
+    // UX-MEDIATOR-003 (O-1) — the collapse case reads the renamed v4 label.
     const blocked = makeBoard([makeMarkup({ nodeId: 'k', primaryState: 'key_detail_unavailable' })]);
     const blockedMarker = getNodeMediatorMarker(blocked, 'k');
     expect(blockedMarker?.code).toBe('evidence_blocked');
-    expect(blockedMarker?.label).toBe('Blocked evidence path');
+    expect(blockedMarker?.label).toBe('Evidence blocked');
 
     // missing_mechanism is unchanged by the projection — keeps "Missing link".
     const link = makeBoard([makeMarkup({ nodeId: 'm', primaryState: 'missing_mechanism' })]);
