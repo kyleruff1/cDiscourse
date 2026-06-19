@@ -121,12 +121,19 @@ function bandSizing(band: Band): BandSizing {
   // Each Pressable preserves a 44×44 effective hit target via `hitSlop` even
   // when the visual minHeight is smaller. The chip text is hidden on phone
   // (icon-only) and shows short labels on tablet/wide.
+  // UX-BOARD-READABILITY-001 (2026-06-19): room title raised 13/14/15 -> 16/17/18
+  // so the room's primary heading no longer renders smaller than body copy.
+  // containerPaddingVertical (4/6/8) + rowMinHeight (36/38/42) are UNCHANGED
+  // so the strip-height cap arithmetic (<=48/56/64, pinned by
+  // uxOneOneTwoCompactStripHeight) still holds; the 16-18px title fits inside
+  // the row. Phone chip floor lifted 10 -> 11 for legibility. File-local
+  // literals only — no BRAND/TYPOGRAPHY token mutation.
   if (band === 'phone') {
     return {
       containerPaddingVertical: 4,
       rowMinHeight: 36,
-      titleFontSize: 13,
-      chipFontSize: 10,
+      titleFontSize: 16,
+      chipFontSize: 11,
       controlHitSlop: 6,
       showStatusChip: false,
       showSideChip: false,
@@ -136,7 +143,7 @@ function bandSizing(band: Band): BandSizing {
     return {
       containerPaddingVertical: 6,
       rowMinHeight: 38,
-      titleFontSize: 14,
+      titleFontSize: 17,
       chipFontSize: 11,
       controlHitSlop: 4,
       showStatusChip: true,
@@ -147,7 +154,7 @@ function bandSizing(band: Band): BandSizing {
   return {
     containerPaddingVertical: 8,
     rowMinHeight: 42,
-    titleFontSize: 15,
+    titleFontSize: 18,
     chipFontSize: 12,
     controlHitSlop: 2,
     showStatusChip: true,
@@ -253,7 +260,9 @@ export function DebateDetailHeader({
   );
 
   const titleStyle = useMemo(
-    () => [styles.title, { fontSize: sizing.titleFontSize }],
+    // UX-BOARD-READABILITY-001 (2026-06-19): explicit lineHeight ~fontSize+6 keeps
+    // the single-line title vertically centred within the unchanged row minHeight.
+    () => [styles.title, { fontSize: sizing.titleFontSize, lineHeight: sizing.titleFontSize + 6 }],
     [sizing.titleFontSize],
   );
 
@@ -268,9 +277,12 @@ export function DebateDetailHeader({
           hitSlop={{ top: sizing.controlHitSlop + 6, bottom: sizing.controlHitSlop + 6, left: sizing.controlHitSlop + 6, right: sizing.controlHitSlop + 6 }}
           testID="debate-detail-leave"
         >
-          <Text style={[styles.leaveGlyph, { fontSize: sizing.chipFontSize + 2 }]}>‹</Text>
+          {/* UX-BOARD-READABILITY-001 (2026-06-19): Leave is a core nav affordance;
+              lift glyph chipFontSize+2 -> +3 and the label chipFontSize -> +1 so
+              the back control clears the 10px caption floor. */}
+          <Text style={[styles.leaveGlyph, { fontSize: sizing.chipFontSize + 3 }]}>‹</Text>
           {band !== 'phone' ? (
-            <Text style={[styles.leaveText, { fontSize: sizing.chipFontSize }]}>Leave</Text>
+            <Text style={[styles.leaveText, { fontSize: sizing.chipFontSize + 1 }]}>Leave</Text>
           ) : null}
         </Pressable>
         <Text
