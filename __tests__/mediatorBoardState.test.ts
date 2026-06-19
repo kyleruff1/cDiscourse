@@ -13,9 +13,12 @@
  */
 import {
   ALL_MEDIATOR_STATE_CODES,
+  ALL_V4_MEDIATOR_STATE_CODES,
   MEDIATOR_STATE_COPY,
   MEDIATOR_STATE_HELPER,
   PATHWAY_STEP_COPY,
+  V4_DISPLAY_STATE_BY_CODE,
+  V4_PRIMARY_STATE_PRIORITY,
   _forbiddenMediatorTokens,
   deriveEvidenceDebt,
   deriveImpasseMarkers,
@@ -23,6 +26,7 @@ import {
   deriveOpenDisagreementPoints,
   deriveResolutionPathways,
   plainLanguageForMediatorState,
+  v4DisplayStateFor,
 } from '../src/features/mediator';
 import type {
   MediatorBoardState,
@@ -541,5 +545,96 @@ describe('UX-MEDIATOR-001 — public sub-functions', () => {
     const board = deriveMediatorBoardState(graph, []);
     expect(points.map((p) => p.state)).toEqual(board.points.map((p) => p.state));
     expect(Object.keys(pathways)).toEqual(Object.keys(board.pathwaysByPointId));
+  });
+});
+
+// ── 16. v4 13→9 display mapping is total + documented ──────────
+
+describe('UX-MEDIATOR-001 — v4 display mapping (13→9)', () => {
+  it('V4_DISPLAY_STATE_BY_CODE has a value for every one of the 13 internal codes', () => {
+    for (const code of ALL_MEDIATOR_STATE_CODES) {
+      expect(Object.prototype.hasOwnProperty.call(V4_DISPLAY_STATE_BY_CODE, code)).toBe(true);
+    }
+    // No extra keys beyond the 13.
+    expect(Object.keys(V4_DISPLAY_STATE_BY_CODE).sort()).toEqual(
+      [...ALL_MEDIATOR_STATE_CODES].sort(),
+    );
+  });
+
+  it('every display value is one of the nine v4 states or the terminal resolved atom', () => {
+    const allowed = new Set<string>([...ALL_V4_MEDIATOR_STATE_CODES, 'resolved_or_settled']);
+    for (const code of ALL_MEDIATOR_STATE_CODES) {
+      expect(allowed.has(v4DisplayStateFor(code))).toBe(true);
+    }
+  });
+
+  it('collapses the four superset codes exactly as the design specifies', () => {
+    expect(v4DisplayStateFor('key_detail_unavailable')).toBe('evidence_blocked');
+    expect(v4DisplayStateFor('value_tradeoff')).toBe('open'); // O-2
+    expect(v4DisplayStateFor('off_point')).toBe('scope_mismatch');
+    expect(v4DisplayStateFor('resolved_or_settled')).toBe('resolved_or_settled'); // terminal
+  });
+
+  it('keeps the nine live states as themselves (identity for the v4 vocabulary)', () => {
+    for (const code of ALL_V4_MEDIATOR_STATE_CODES) {
+      expect(v4DisplayStateFor(code)).toBe(code);
+    }
+  });
+
+  it('the v4 priority list is exactly the nine live states (no resolved_or_settled)', () => {
+    expect([...V4_PRIMARY_STATE_PRIORITY]).toEqual([...ALL_V4_MEDIATOR_STATE_CODES]);
+    expect(V4_PRIMARY_STATE_PRIORITY).not.toContain('resolved_or_settled');
+  });
+});
+
+// ── 17. missing_mechanism → "Missing link" label (O-1 rename) ──
+
+describe('UX-MEDIATOR-001 — missing_mechanism label rename', () => {
+  it('renders the v4 "Missing link" label (ban-list clean, no fallacy term)', () => {
+    const label = plainLanguageForMediatorState('missing_mechanism');
+    expect(label).toBe('Missing link');
+    const lower = label.toLowerCase();
+    for (const token of _forbiddenMediatorTokens()) {
+      expect(lower.includes(token)).toBe(false);
+    }
+    expect(lower).not.toContain('fallacy');
+    expect(label).not.toMatch(/_/);
+  });
+
+  it('surfaces "Missing link" on a causal point in the board (not a verdict)', () => {
+    const graph = makeGraph({
+      nodes: [makeNode({ messageId: 'n1', ordinal: 1, isRoot: true })],
+      clusters: [makeCluster({ clusterId: 'n1', state: 'rebutted', primaryAxis: 'causal' })],
+    });
+    const board = deriveMediatorBoardState(graph, []);
+    expect(board.points[0].state).toBe('missing_mechanism');
+    expect(board.points[0].plainLabel).toBe('Missing link');
+  });
+});
+
+// ── 18. one primary state per node (the v4 display projection) ──
+
+describe('UX-MEDIATOR-001 — one primary state per node', () => {
+  it('each markup carries exactly one primaryState that maps to exactly one v4 display state', () => {
+    const graph = makeGraph({
+      nodes: [
+        makeNode({ messageId: 'n1', ordinal: 1, isRoot: true }),
+        makeNode({ messageId: 'n2', ordinal: 2, parentId: 'n1', branchRootMessageId: 'n1' }),
+      ],
+      clusters: [makeCluster({ clusterId: 'n1', state: 'answered', messageIds: ['n1', 'n2'] })],
+      debts: [makeDebt({ id: 'd', nodeId: 'n1', status: 'requested' })],
+    });
+    const board = deriveMediatorBoardState(graph, [
+      makeObs('n2', 'disagreement_axis', 'disputes_scope'),
+    ]);
+    for (const id of Object.keys(board.markupByNodeId)) {
+      const code = board.markupByNodeId[id].primaryState;
+      expect(typeof code).toBe('string');
+      // a single code; its v4 projection is a single display atom
+      const display = v4DisplayStateFor(code);
+      expect(typeof display).toBe('string');
+      const allowed = new Set<string>([...ALL_V4_MEDIATOR_STATE_CODES, 'resolved_or_settled']);
+      expect(allowed.has(display)).toBe(true);
+    }
   });
 });

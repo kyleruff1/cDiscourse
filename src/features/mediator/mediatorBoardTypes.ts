@@ -86,6 +86,105 @@ export const ALL_MEDIATOR_STATE_CODES: ReadonlyArray<MediatorStateCode> = Object
   'resolved_or_settled',
 ]);
 
+// ── v4 display vocabulary (UX-MEDIATOR-001 precedence delta) ───
+//
+// The shipped 13-code `MediatorStateCode` is a SUPERSET kept for internal
+// traceability / Inspect. The CivilDiscourse v4 UX overhaul publishes a NINE
+// state DISPLAY vocabulary. This card adds:
+//   - `V4MediatorStateCode`         — the nine display states (a subset of 13).
+//   - `V4_PRIMARY_STATE_PRIORITY`   — the canonical highest-wins precedence.
+//   - `V4_DISPLAY_STATE_BY_CODE`    — the total 13→9 display mapping.
+// `point.state` is UNCHANGED (still one of the 13); these are an additive
+// parallel projection consumed via `v4DisplayStateFor` (no field added — O-3).
+//
+// Doctrine: the display vocabulary ranks STRUCTURE, never truth / a person /
+// who is winning. `resolved_or_settled` is terminal/suppressed — it is NOT a
+// live primary state and is excluded from the priority list.
+
+/**
+ * The nine v4 DISPLAY states (a subset of `MediatorStateCode`). Each is a
+ * structural state, never a verdict. `resolved_or_settled` is intentionally
+ * NOT a member — a resolved point is not an open disagreement.
+ */
+export type V4MediatorStateCode =
+  | 'structured_impasse'
+  | 'evidence_blocked'
+  | 'accounts_differ'
+  | 'definition_not_shared'
+  | 'scope_mismatch'
+  | 'missing_mechanism'
+  | 'needs_evidence'
+  | 'narrowed'
+  | 'open';
+
+/** Frozen list of the nine v4 display states. Tests iterate this. */
+export const ALL_V4_MEDIATOR_STATE_CODES: ReadonlyArray<V4MediatorStateCode> = Object.freeze([
+  'structured_impasse',
+  'evidence_blocked',
+  'accounts_differ',
+  'definition_not_shared',
+  'scope_mismatch',
+  'missing_mechanism',
+  'needs_evidence',
+  'narrowed',
+  'open',
+]);
+
+/**
+ * The canonical v4 precedence (HIGHEST wins). `decidePointState` builds a
+ * candidate set, applies Gate A (impasse demotion), then picks the highest
+ * code in THIS order that is a candidate. A strict total order → no ties.
+ *
+ *   1 structured_impasse  — terminal frame, ONLY when no pathway remains
+ *   2 evidence_blocked    — the record is unavailable
+ *   3 accounts_differ     — difference of recollection (detector deferred; never synthesized in v1)
+ *   4 definition_not_shared— wins over scope (shared terms unlock scope)
+ *   5 scope_mismatch
+ *   6 missing_mechanism   — display label "Missing link"
+ *   7 needs_evidence      — a source would move it forward
+ *   8 narrowed            — a repair, not a defeat
+ *   9 open                — default; preserves uncertainty
+ */
+export const V4_PRIMARY_STATE_PRIORITY: ReadonlyArray<V4MediatorStateCode> = Object.freeze([
+  'structured_impasse',
+  'evidence_blocked',
+  'accounts_differ',
+  'definition_not_shared',
+  'scope_mismatch',
+  'missing_mechanism',
+  'needs_evidence',
+  'narrowed',
+  'open',
+]);
+
+/**
+ * The total 13→9 display mapping. Defined over ALL 13 `MediatorStateCode`s so
+ * it is exhaustive (tested). The four superset codes collapse for DISPLAY only
+ * (the internal `point.state` keeps the precise code for Inspect):
+ *
+ *   key_detail_unavailable → evidence_blocked   (the record is unavailable)
+ *   value_tradeoff         → open               (a priorities difference, still open; O-2)
+ *   off_point              → scope_mismatch      (answers a broader/narrower claim)
+ *   resolved_or_settled    → resolved_or_settled (terminal/suppressed; not a live state)
+ */
+export const V4_DISPLAY_STATE_BY_CODE: Readonly<
+  Record<MediatorStateCode, V4MediatorStateCode | 'resolved_or_settled'>
+> = Object.freeze({
+  open: 'open',
+  needs_evidence: 'needs_evidence',
+  evidence_blocked: 'evidence_blocked',
+  key_detail_unavailable: 'evidence_blocked',
+  definition_not_shared: 'definition_not_shared',
+  scope_mismatch: 'scope_mismatch',
+  missing_mechanism: 'missing_mechanism',
+  value_tradeoff: 'open',
+  narrowed: 'narrowed',
+  off_point: 'scope_mismatch',
+  accounts_differ: 'accounts_differ',
+  structured_impasse: 'structured_impasse',
+  resolved_or_settled: 'resolved_or_settled',
+});
+
 /** The kind of disagreement a point is about (projected from the lifecycle axis). */
 export type DisagreementPointKind =
   | 'fact'

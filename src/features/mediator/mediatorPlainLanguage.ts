@@ -22,7 +22,7 @@ export const MEDIATOR_STATE_COPY: Readonly<Record<MediatorStateCode, string>> = 
   key_detail_unavailable: 'Key detail unavailable',
   definition_not_shared: 'Definition needed',
   scope_mismatch: 'Scope mismatch',
-  missing_mechanism: 'Missing mechanism',
+  missing_mechanism: 'Missing link',
   value_tradeoff: 'Value tradeoff',
   narrowed: 'Partially narrowed',
   off_point: 'Off-point response',
