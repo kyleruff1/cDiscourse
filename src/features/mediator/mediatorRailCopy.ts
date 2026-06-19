@@ -68,6 +68,18 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
   /** UX-MEDIATOR-004 — short labels for the secondary bridge note. */
   definitionShort: 'Definition not shared',
   scopeShort: 'Scope mismatch',
+  /**
+   * UX-IMPASSE-001 (#689) — dignified impasse row copy. Today the rail row for a
+   * structured-impasse point shows an EMPTY "Move forward:" because the only
+   * pathway step (`await_record`) is unavailable, so `nextStepLabelFor` returns
+   * `''`. Instead of an empty line, an impasse row shows a calm, complete
+   * statement: the disagreement is preserved + the reopen invitation. This is
+   * COPY on the existing row body — no new row, no relocation, no topology change.
+   * Kept in lockstep with `IMPASSE_SUBTYPE_COPY.structured_impasse` (one source of
+   * the dignified wording). Person-neutral, ban-list clean, advisory — never a gate.
+   */
+  impassePreserved: 'The disagreement is preserved.',
+  impasseReopen: 'Reopen with a source, shared definition, or narrower claim.',
 });
 
 /** Rows shown before the in-panel "+N more" reveal. */

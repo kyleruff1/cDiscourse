@@ -11,6 +11,11 @@ export {
   MEDIATOR_STATE_COPY,
   MEDIATOR_STATE_HELPER,
   PATHWAY_STEP_COPY,
+  // UX-IMPASSE-001 (#689) — dignified impasse-family copy + dormant subtype
+  // constants (the latter intentionally unwired → UX-IMPASSE-002 #710).
+  IMPASSE_SUBTYPE_COPY,
+  VALUE_TRADEOFF_DISPLAY_COPY,
+  KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY,
   plainLanguageForMediatorState,
   helperForMediatorState,
   plainLanguageForPathwayStep,
