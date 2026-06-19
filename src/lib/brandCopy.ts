@@ -14,9 +14,13 @@
  *   - "Mark the point, not the person." is the principle line — used
  *     SPARINGLY, never as the masthead tagline (that is `BRAND.taglineText`
  *     in designTokens.ts).
- *   - Voice is NOT shipped: there is no voice-first prompt. The
- *     three-beat line is "Mark the point. Respond clearly. See what
- *     remains unresolved."
+ *   - Voice is NOT shipped: there is no voice-first prompt.
+ *
+ * QUICK-COPY-001 — the Sign In value-prop card is the brand lockup + the
+ * primary tagline only. The three-beat sub-explanation and the mediator
+ * framing footer (and their `FIRST_RUN_SUBLINE` / `MEDIATOR_NOT_A_JUDGE`
+ * constants + `subline` / `mediatorFooter` keys) were removed; they had
+ * no other consumer.
  */
 
 /** Visible product name. One word. Never the repo/package identifier. */
@@ -30,24 +34,10 @@ export const PRODUCT_NAME = 'CivilDiscourse' as const;
 export const PRIMARY_TAGLINE = 'A high-trust room for hard conversations.' as const;
 
 /**
- * Three-beat value line for the sign-in / first-run surface. Replaces
- * any voice-first copy (voice is not shipped).
- */
-export const FIRST_RUN_SUBLINE =
-  'Mark the point. Respond clearly. See what remains unresolved.' as const;
-
-/**
  * Principle line. Use SPARINGLY (it is not the masthead tagline). It is
  * the dignity-pill phrase from the v4 design.
  */
 export const PRINCIPLE_MARK_THE_POINT = 'Mark the point, not the person.' as const;
-
-/**
- * Mediator-not-a-judge framing footer. Surfaces the structure of a
- * disagreement; never decides who is right.
- */
-export const MEDIATOR_NOT_A_JUDGE =
-  'A mediator, not a judge. We surface the structure of a disagreement — never who’s right.' as const;
 
 /**
  * Net-new mediator prompts from the v4 design (reserved reusable copy).
@@ -65,6 +55,4 @@ export const WHAT_WOULD_MOVE_THIS_FORWARD = 'What would move this forward' as co
 export const AUTH_FIRST_RUN_COPY = {
   brand: PRODUCT_NAME,
   tagline: PRIMARY_TAGLINE,
-  subline: FIRST_RUN_SUBLINE,
-  mediatorFooter: MEDIATOR_NOT_A_JUDGE,
 } as const;

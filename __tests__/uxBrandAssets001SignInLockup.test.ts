@@ -110,12 +110,17 @@ describe('UX-BRAND-ASSETS-001 (c) — no duplicate VISIBLE text wordmark in the 
   });
 });
 
-describe('UX-BRAND-ASSETS-001 (d) — tagline + three-beat remain as text', () => {
-  it('keeps the tagline + three-beat value line rendered as Text', () => {
+describe('UX-BRAND-ASSETS-001 (d) — tagline remains as text', () => {
+  it('keeps the tagline lead rendered as Text', () => {
     expect(AUTH_CODE).toContain('AUTH_FIRST_RUN_COPY.tagline');
-    expect(AUTH_CODE).toContain('AUTH_FIRST_RUN_COPY.subline');
     expect(AUTH_CODE).toContain('testID="auth-value-prop-lead"');
-    expect(AUTH_CODE).toContain('testID="auth-value-prop-subline"');
+  });
+
+  // QUICK-COPY-001 — the three-beat sub-explanation was removed (not hidden)
+  // and its reserved space collapsed. The subline Text + testID are gone.
+  it('no longer renders the three-beat sub-explanation', () => {
+    expect(AUTH_CODE).not.toContain('AUTH_FIRST_RUN_COPY.subline');
+    expect(AUTH_SRC).not.toContain('testID="auth-value-prop-subline"');
   });
 });
 

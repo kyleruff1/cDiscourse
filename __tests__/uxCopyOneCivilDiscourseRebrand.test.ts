@@ -136,11 +136,25 @@ describe('UX-COPY-001 (b) — retired tagline is absent from changed copy', () =
 });
 
 describe('UX-COPY-001 (c) — Sign In / first-run includes the high-trust tagline', () => {
-  it('brandCopy carries the v4 primary tagline + three-beat line + mediator framing', () => {
+  it('brandCopy carries the v4 primary tagline', () => {
     const brand = read('src/lib/brandCopy.ts');
     expect(brand).toContain('A high-trust room for hard conversations.');
-    expect(brand).toContain('Mark the point. Respond clearly. See what remains unresolved.');
-    expect(brand).toMatch(/mediator, not a judge/i);
+  });
+
+  // QUICK-COPY-001 — the three-beat sub-explanation + the mediator-not-a-judge
+  // footer were removed (constants + AUTH_FIRST_RUN_COPY keys) and the Sign In
+  // value-prop card is now the lockup + tagline only. They had no other
+  // consumer, so the constants are gone from brandCopy entirely.
+  it('brandCopy no longer carries the three-beat sub-explanation or mediator footer copy', () => {
+    const brand = read('src/lib/brandCopy.ts');
+    expect(brand).not.toContain('Mark the point. Respond clearly. See what remains unresolved.');
+    expect(brand).not.toMatch(/mediator, not a judge/i);
+    expect(brand).not.toMatch(/We surface the structure of a disagreement/i);
+    // The AUTH_FIRST_RUN_COPY block is the lockup brand + tagline only now.
+    expect(brand).toMatch(/brand:\s*PRODUCT_NAME/);
+    expect(brand).toMatch(/tagline:\s*PRIMARY_TAGLINE/);
+    expect(brand).not.toMatch(/subline:/);
+    expect(brand).not.toMatch(/mediatorFooter:/);
   });
 
   it('the masthead tagline fixture is the v4 high-trust line', () => {

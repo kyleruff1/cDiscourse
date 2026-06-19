@@ -84,9 +84,11 @@ export function AuthScreen() {
       )}
 
       {/* UX-COPY-001 — first-run / sign-in clarity (folds UX-FIRST-RUN-001).
-          Explains the product at a glance before sign-up: the brand, the v4
-          primary tagline, the three-beat value line, and the mediator-not-a-
-          judge framing. No voice copy (voice is not shipped).
+          QUICK-COPY-001 — the value-prop card is now the brand lockup + the v4
+          primary tagline ("A high-trust room for hard conversations.") only.
+          The three-beat sub-explanation and the mediator-not-a-judge footer
+          were removed and their reserved vertical space collapsed. No voice
+          copy (voice is not shipped).
           UX-BRAND-001 — presented as a restrained premium card: a soft gold
           surface tint + gold hairline, a small gold accent rule, and the lead
           in antique gold (contrast-safe at 8.3:1 on the dark backdrop).
@@ -123,12 +125,6 @@ export function AuthScreen() {
         <View style={styles.valuePropAccent} testID="auth-value-prop-accent" />
         <Text style={styles.valuePropLead} testID="auth-value-prop-lead">
           {AUTH_FIRST_RUN_COPY.tagline}
-        </Text>
-        <Text style={styles.valuePropBody} testID="auth-value-prop-subline">
-          {AUTH_FIRST_RUN_COPY.subline}
-        </Text>
-        <Text style={styles.valuePropBody} testID="auth-value-prop-footer">
-          {AUTH_FIRST_RUN_COPY.mediatorFooter}
         </Text>
       </View>
 
@@ -226,6 +222,4 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.2,
   },
-  // Body stays the readable neutral secondary tone — legibility over color.
-  valuePropBody: { fontSize: 14, color: SURFACE_TOKENS.textSecondary, lineHeight: 21 },
 });
