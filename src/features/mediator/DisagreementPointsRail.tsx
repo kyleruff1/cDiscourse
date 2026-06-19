@@ -262,6 +262,18 @@ export function DisagreementPointsRail({
     [board],
   );
 
+  // UX-IMPASSE-001 (#689) — true when the point's pathway has NO available step
+  // (`anyAvailable === false`). Read from the already-derived board; no new
+  // derivation. Pairs with a `structured_impasse` display state to render the
+  // dignified preserve/reopen line in place of an empty "Move forward:" row.
+  const pathwayAnyAvailableFor = useCallback(
+    (pointId: string): boolean => {
+      const pathway = board?.pathwaysByPointId?.[pointId];
+      return pathway?.anyAvailable === true;
+    },
+    [board],
+  );
+
   // ── collapsed render ──
   if (!expanded) {
     return (
@@ -353,6 +365,7 @@ export function DisagreementPointsRail({
               point={point}
               isActive={activeNodeId != null && point.memberNodeIds.includes(activeNodeId)}
               nextStepLabel={nextStepLabelFor(point.id)}
+              pathwayAnyAvailable={pathwayAnyAvailableFor(point.id)}
               evidence={getEvidenceDebtForPoint(board, point.id)}
               bridge={getDefinitionScopeBridgeForPoint(board, point.id)}
               onJump={onJump}
@@ -396,6 +409,12 @@ interface DisagreementPointRowProps {
   point: DisagreementPoint;
   isActive: boolean;
   nextStepLabel: string;
+  /**
+   * UX-IMPASSE-001 (#689) — whether the point's pathway has any available step.
+   * When false AND the display state is `structured_impasse`, the row renders the
+   * dignified preserve/reopen line instead of an empty "Move forward:".
+   */
+  pathwayAnyAvailable?: boolean;
   /** UX-MEDIATOR-003 — compact evidence display for the point, or null. */
   evidence?: PointEvidenceDisplay | null;
   /** UX-MEDIATOR-004 — compact definition/scope bridge for the point, or null. */
@@ -407,6 +426,7 @@ function DisagreementPointRow({
   point,
   isActive,
   nextStepLabel,
+  pathwayAnyAvailable,
   evidence,
   bridge,
   onJump,
@@ -418,6 +438,16 @@ function DisagreementPointRow({
   // UX-MEDIATOR-005 (O-4a) — dormant unless the (optional, not-yet-shipped)
   // contribution data marks this anchor as a chime-in.
   const showChimeIn = isChimeInAnchor(point.anchor);
+
+  // UX-IMPASSE-001 (#689) — a structured-impasse point with no available pathway
+  // step shows an empty "Move forward:" today (the only step is unavailable). Show
+  // the dignified preserve/reopen line instead. Keyed on the v4 DISPLAY state (so
+  // it matches the chip) + `anyAvailable === false`; guards against rendering on
+  // any non-impasse point. Copy on the existing row body — no new row/relocation.
+  const isImpasseNoPathway =
+    v4DisplayStateFor(point.state) === 'structured_impasse' &&
+    nextStepLabel.length === 0 &&
+    pathwayAnyAvailable !== true;
 
   return (
     <View style={[styles.row, isActive && styles.rowActive]} testID={`disagreement-points-rail-rowwrap-${point.id}`}>
@@ -456,6 +486,35 @@ function DisagreementPointRow({
           <Text style={styles.nextStep} numberOfLines={2}>
             {`${DISAGREEMENT_POINTS_RAIL_COPY.moveForward} ${nextStepLabel}`}
           </Text>
+        ) : null}
+
+        {/* UX-IMPASSE-001 (#689) — dignified impasse line: replaces the empty
+            "Move forward:" row for a structured-impasse point with no available
+            pathway step. A calm, complete statement (the disagreement is
+            preserved) + the reopen invitation. Structural guidance, never a gate;
+            `accessibilityRole="text"` (no interactive element added). */}
+        {isImpasseNoPathway ? (
+          <View
+            style={styles.impasseWrap}
+            testID={`disagreement-points-rail-impasse-${point.id}`}
+          >
+            <Text
+              style={styles.impassePreserved}
+              numberOfLines={1}
+              accessibilityRole="text"
+              testID={`disagreement-points-rail-impasse-preserved-${point.id}`}
+            >
+              {DISAGREEMENT_POINTS_RAIL_COPY.impassePreserved}
+            </Text>
+            <Text
+              style={styles.impasseReopen}
+              numberOfLines={2}
+              accessibilityRole="text"
+              testID={`disagreement-points-rail-impasse-reopen-${point.id}`}
+            >
+              {DISAGREEMENT_POINTS_RAIL_COPY.impasseReopen}
+            </Text>
+          </View>
         ) : null}
 
         {/* UX-MEDIATOR-004 — definition/scope bridge: actionable clarification
@@ -732,6 +791,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   nextStep: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight + 2,
+  },
+  // UX-IMPASSE-001 (#689) — dignified impasse line: a bold "preserved" lead-in +
+  // a muted reopen invitation. Mirrors the bridge block's calm two-line shape; no
+  // new color signal (text carries the meaning), no interactive element.
+  impasseWrap: {
+    marginTop: 2,
+    gap: 2,
+  },
+  impassePreserved: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    fontWeight: '800',
+  },
+  impasseReopen: {
     color: SURFACE_TOKENS.textSecondary,
     fontSize: TYPOGRAPHY.chipLabel.fontSize,
     lineHeight: TYPOGRAPHY.chipLabel.lineHeight + 2,

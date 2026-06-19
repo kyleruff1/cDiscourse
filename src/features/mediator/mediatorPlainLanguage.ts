@@ -63,11 +63,107 @@ export const MEDIATOR_STATE_HELPER: Readonly<Record<MediatorStateCode, string>> 
   scope_mismatch: 'A scope bridge keeps the reply anchored to the exact point.',
   missing_mechanism: 'The conclusion depends on a step that has not been spelled out.',
   value_tradeoff: 'This is a difference in priorities, not a point that more evidence settles.',
-  narrowed: 'Part of this was conceded or narrowed; a smaller disagreement remains.',
+  // UX-IMPASSE-001 (#689) — narrowing is PROGRESS, not a defeat. Lead aligned to
+  // the §4 operator-locked dignified wording: the disagreement got smaller and a
+  // remaining point is still open for a response. Person-neutral, ban-list clean.
+  narrowed: 'The disagreement is smaller now. Continue on the remaining point.',
   off_point: 'This does not address the point it replies to yet.',
   accounts_differ: 'The two sides recall this differently; separate memory from the record.',
-  structured_impasse: 'Both sides made the case and no new pathway is available at the moment.',
+  // UX-IMPASSE-001 (#689) — dignified structured-impasse lead + help, aligned to
+  // the §4 operator-locked wording. An impasse is a CALM, complete destination:
+  // the disagreement is preserved clearly and no available next move would test it
+  // further yet — never a deadlock / failure / verdict. The reopen line ("Reopen
+  // with a source, shared definition, or narrower claim.") is delivered through the
+  // next-move guidance + the rail row (IMPASSE_SUBTYPE_COPY.structured_impasse.next),
+  // so the helper sentence stays a tight lead + help.
+  structured_impasse: 'The disagreement is preserved. No available next move would test this point further yet.',
   resolved_or_settled: 'This point was settled, synthesized, or resolved.',
+});
+
+/**
+ * UX-IMPASSE-001 (#689) — Dignified impasse-family copy, keyed by the v4 DISPLAY
+ * state it dresses. `chip` mirrors `MEDIATOR_STATE_COPY` (UNCHANGED — the chip
+ * labels stay shipped so UX-MEDIATOR-002/005 label tests keep passing); `lead` /
+ * `help` / `next` are the §4 operator-locked, person-neutral, ban-list-clean
+ * strings. This is a one-source copy block so the Inspect / rail / next-move
+ * surfaces read the SAME dignified wording.
+ *
+ * `no_current_pathway` is a COPY KEY, not a new mediator state. It dresses a
+ * `structured_impasse` point with `pathway.anyAvailable === false`; per the
+ * design Q4 recommendation the surfaces FOLD it into the single Structured
+ * impasse chip (no chip soup) and keep this entry as a reserved alternate.
+ *
+ * Doctrine: impasse is a STRUCTURAL state, never a truth / verdict / defeat
+ * (cdiscourse-doctrine §1). Every line describes the disagreement's shape, never
+ * who is right; the board never blocks posting; all copy is advisory guidance.
+ */
+export const IMPASSE_SUBTYPE_COPY: Readonly<
+  Record<
+    'structured_impasse' | 'evidence_blocked' | 'narrowed' | 'no_current_pathway',
+    { chip: string; lead: string; help: string; next: string }
+  >
+> = Object.freeze({
+  structured_impasse: {
+    chip: MEDIATOR_STATE_COPY.structured_impasse, // 'Structured impasse' (unchanged)
+    lead: 'The disagreement is preserved.',
+    help: 'No available next move would test this point further yet.',
+    next: 'Reopen with a source, shared definition, or narrower claim.',
+  },
+  evidence_blocked: {
+    // KEEP the shipped UX-MEDIATOR-003 wording; mirrored here only so one-source
+    // reads stay in lockstep. Describes an unavailable PATH, never anyone's conduct.
+    chip: MEDIATOR_STATE_COPY.evidence_blocked, // 'Evidence blocked' (unchanged)
+    lead: 'The evidence path is not available right now.',
+    help: 'Name what kind of record would test this point, without demanding private access.',
+    next: 'Mark evidence unavailable, or branch the provable part.',
+  },
+  narrowed: {
+    // Concession is PROGRESS, not a defeat — the disagreement got smaller and a
+    // remaining point is still open.
+    chip: MEDIATOR_STATE_COPY.narrowed, // 'Partially narrowed' (shipped label kept)
+    lead: 'The disagreement is smaller now.',
+    help: 'Continue on the remaining point.',
+    next: 'Continue on the smaller point, or concede the resolved part.',
+  },
+  no_current_pathway: {
+    // Reserved alternate copy (folded into Structured impasse for the chip — Q4).
+    chip: MEDIATOR_STATE_COPY.structured_impasse, // folds into 'Structured impasse'
+    lead: 'No available step would test this further yet.',
+    help: 'The point can be reopened if a source, shared definition, or narrower claim appears.',
+    next: 'Preserve the disagreement.',
+  },
+});
+
+/**
+ * UX-IMPASSE-002 (#710): dormant — intentionally not surfaced; surfacing requires
+ * a v4DisplayStateFor map flip (deferred).
+ *
+ * `value_tradeoff` is computed internally but `V4_DISPLAY_STATE_BY_CODE.value_tradeoff`
+ * stays `'open'`, so a value-axis point shows as Open (no chip) today. This copy
+ * constant is authored so the future surfacing decision is a one-line map flip,
+ * NOT a re-author. It is NOT referenced from any render path in this card.
+ */
+export const VALUE_TRADEOFF_DISPLAY_COPY = Object.freeze({
+  chip: 'Different priorities',
+  lead: 'This is a value tradeoff.',
+  help: 'Name the priority at stake instead of asking for a source.',
+  next: 'State the tradeoff clearly.',
+});
+
+/**
+ * UX-IMPASSE-002 (#710): dormant — intentionally not surfaced; surfacing requires
+ * a v4DisplayStateFor map flip (deferred).
+ *
+ * `key_detail_unavailable` is computed internally but
+ * `V4_DISPLAY_STATE_BY_CODE.key_detail_unavailable` stays `'evidence_blocked'`,
+ * so it FOLDS into Evidence blocked for display today. Authored for the future
+ * distinct-surfacing decision; NOT referenced from any render path in this card.
+ */
+export const KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY = Object.freeze({
+  chip: 'Key detail unavailable',
+  lead: 'A key detail is not available.',
+  help: 'Branch the parts that can still be tested.',
+  next: 'Branch the provable part.',
 });
 
 /** Plain-language label for each resolution-pathway step. Ban-list clean. */
