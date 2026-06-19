@@ -11,6 +11,7 @@
  * no input mutation. Deterministic. JSON-serializable output.
  */
 import type { MediatorBoardState, MediatorStateCode } from './mediatorBoardTypes';
+import { v4DisplayStateFor } from './deriveMediatorBoardState';
 import { plainLanguageForMediatorState } from './mediatorPlainLanguage';
 
 export interface NodeMediatorMarker {
@@ -58,6 +59,15 @@ export function isShowableNodeMarker(code: MediatorStateCode): boolean {
  * no actionable mediator state. Considers the node's point-level
  * `primaryState` AND its node-specific `deviation` (off-point / scope) and
  * keeps the worst (highest-priority) one.
+ *
+ * UX-MEDIATOR-002 (O-1): selection + priority operate on the INTERNAL 13-code
+ * vocabulary (so `off_point` / `key_detail_unavailable` / `value_tradeoff` keep
+ * their precedence), then the chosen code is projected onto the v4 nine-state
+ * DISPLAY vocabulary via UX-MEDIATOR-001's `v4DisplayStateFor` for the chip
+ * `code` + `label`. The point's internal `point.state` is unchanged for
+ * Inspect / traceability. A code whose display projection collapses onto a
+ * non-actionable state (`value_tradeoff` → `open`) is suppressed — the node
+ * carries no chip — preserving the "ordinary open node has zero chip" rule.
  */
 export function getNodeMediatorMarker(
   board: MediatorBoardState | null | undefined,
@@ -76,11 +86,19 @@ export function getNodeMediatorMarker(
   for (const c of candidates) {
     if ((PRIORITY_RANK[c] ?? 0) > (PRIORITY_RANK[best] ?? 0)) best = c;
   }
+
+  // Project the selected internal code onto the v4 display vocabulary.
+  const displayCode = v4DisplayStateFor(best);
+  // The four superset codes collapse for DISPLAY; `value_tradeoff` → `open`
+  // (and the terminal `resolved_or_settled`) are non-actionable and carry no
+  // chip. `isShowableNodeMarker` is the single source of truth for "shows".
+  if (!isShowableNodeMarker(displayCode)) return null;
+
   return {
     nodeId,
-    code: best,
-    label: plainLanguageForMediatorState(best),
-    isImpasse: best === 'structured_impasse',
+    code: displayCode,
+    label: plainLanguageForMediatorState(displayCode),
+    isImpasse: displayCode === 'structured_impasse',
   };
 }
 
