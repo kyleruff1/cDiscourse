@@ -65,6 +65,23 @@ interface Props {
    */
   navSlot?: React.ReactNode;
   /**
+   * UX-ROOM-CHROME-001 — render the masthead in a COMPACT variant so the
+   * signed-in shell chrome is slim and the active board dominates the
+   * first screen. ADDITIVE + default `false`: when omitted / false the
+   * header is byte-identical to the prior prominent behavior (the
+   * ~288 px gold lockup, width-capped per band), so every existing
+   * caller + pinned test stays green.
+   *
+   * When `true`: the SAME gold lockup (`DEFAULT_LOGO`) renders at a
+   * COMPACT height (`COMPACT_LOGO_HEIGHT_PX`, still width-capped so the
+   * rendered width never exceeds the available header width → no
+   * horizontal overflow), the oversized prominent header padding is
+   * tightened, and the anchored tagline is omitted. The logo's
+   * `accessibilityLabel` / aria is preserved (the brand is still
+   * announced) and `navSlot` / `rightSlot` keep working.
+   */
+  compact?: boolean;
+  /**
    * Inject the resolved asset module for testing. The default uses the
    * canonical PNG at `assets/branding/civic-discourse-logo.png`.
    */
@@ -108,6 +125,13 @@ const PROMINENT_LOGO_HEIGHT_PX = 288;
 // Tight padding above and below: 4 px top + 4 px bottom = 8 px combined.
 // Header total height therefore = 288 + 8 = 296.
 const PROMINENT_HEADER_HEIGHT_PX = PROMINENT_LOGO_HEIGHT_PX + 8;
+
+// UX-ROOM-CHROME-001 — compact masthead height for the signed-in shell.
+// ~48 px keeps the gold lockup legible while leaving the active board the
+// first screen. It is still width-capped by resolveMastheadLogoHeightPx so
+// the rendered width (height × LOGO_ASPECT_RATIO ≈ 48 × 3.077 ≈ 148 px)
+// fits inside every supported viewport with room to spare.
+const COMPACT_LOGO_HEIGHT_PX = 48;
 
 // UX-BRAND-ASSETS-002 — the masthead logo is now the gold horizontal lockup
 // (`civic-discourse-logo.png`, 800×260, aspect ≈ 3.077). It is MUCH wider per
@@ -158,11 +182,31 @@ const MAX_PHONE_LOGO_HEIGHT_PX = 160;
  * The result ALWAYS satisfies `height × LOGO_ASPECT_RATIO <= available` for a
  * positive viewport width (the width-cap never lets the rendered logo exceed
  * the available header width). Pure + deterministic (unit-tested).
+ *
+ * UX-ROOM-CHROME-001 — the optional `compact` flag (default `false` so every
+ * existing 2-arg caller / test is byte-identical) targets the slim signed-in
+ * shell masthead: the height is `min(COMPACT_LOGO_HEIGHT_PX, widthFit)` on
+ * EVERY band, so the same gold lockup renders short (~48 px) while still being
+ * width-capped (it can never overflow). The prominent-path math below is
+ * untouched.
  */
-export function resolveMastheadLogoHeightPx(band: Band, viewportWidth: number): number {
-  if (!(viewportWidth > 0)) return PROMINENT_LOGO_HEIGHT_PX;
+export function resolveMastheadLogoHeightPx(
+  band: Band,
+  viewportWidth: number,
+  compact: boolean = false,
+): number {
+  if (!(viewportWidth > 0)) {
+    // SSR / static first paint: no measured width yet. Compact still wants a
+    // slim header; prominent keeps its prior fallback.
+    return compact ? COMPACT_LOGO_HEIGHT_PX : PROMINENT_LOGO_HEIGHT_PX;
+  }
   const available = Math.max(0, viewportWidth - HEADER_HORIZONTAL_BUDGET_PX);
   const widthFit = Math.floor(available / LOGO_ASPECT_RATIO);
+  if (compact) {
+    // Compact: short on every band, still fitted to the width so a very narrow
+    // viewport can never push the rendered logo past the available width.
+    return Math.min(COMPACT_LOGO_HEIGHT_PX, widthFit);
+  }
   if (band !== 'phone') {
     // Tablet / wide: prominent where it fits, else fitted to the width.
     return Math.min(PROMINENT_LOGO_HEIGHT_PX, widthFit);
@@ -171,14 +215,16 @@ export function resolveMastheadLogoHeightPx(band: Band, viewportWidth: number): 
   return Math.max(MIN_PHONE_LOGO_HEIGHT_PX, Math.min(MAX_PHONE_LOGO_HEIGHT_PX, widthFit));
 }
 
-export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props) {
+export function AppHeader({ onHomePress, rightSlot, navSlot, compact = false, logoSource }: Props) {
   const source = logoSource ?? DEFAULT_LOGO;
   const { band } = useHeaderBreakpoint();
   // UX-MOBILE-001 — fit the logo to the viewport on phone so its rendered
   // width (height × 1.5) cannot force body-level horizontal scroll. Tablet /
   // wide keep the prominent operator-decided size.
+  // UX-ROOM-CHROME-001 — `compact` collapses the masthead to the slim
+  // signed-in-shell height on every band (still width-capped).
   const { width: viewportWidth } = useWindowDimensions();
-  const logoHeightPx = resolveMastheadLogoHeightPx(band, viewportWidth);
+  const logoHeightPx = resolveMastheadLogoHeightPx(band, viewportWidth, compact);
   const headerHeightPx = logoHeightPx + 8;
   // Operator request 2026-05-26: the layout is now always stacked — logo
   // on top, tagline tucked underneath. The Stage 2 inline-on-wide layout
@@ -194,8 +240,21 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props
   // height (every prior consumer unchanged).
   const hasNav = navSlot != null;
   const isPhone = band === 'phone';
+  // UX-ROOM-CHROME-001 — root layout selection.
+  //   - compact + nav (signed-in shell): a slim nav-bearing root whose height
+  //     tracks the compacted logo (not the 296 px prominent minHeight) so the
+  //     active board dominates; phone still reflows column.
+  //   - prominent + nav: the prior NAV-HEADER-INLINE-001 layout (unchanged).
+  //   - no nav: the prior fixed-height masthead (unchanged).
   const rootStyle = hasNav
-    ? [styles.root, styles.rootWithNav, isPhone ? styles.rootWithNavPhone : null]
+    ? compact
+      ? [
+          styles.root,
+          styles.rootWithNavCompact,
+          { minHeight: headerHeightPx },
+          isPhone ? styles.rootWithNavPhone : null,
+        ]
+      : [styles.root, styles.rootWithNav, isPhone ? styles.rootWithNavPhone : null]
     : [styles.root, { height: headerHeightPx }];
 
   return (
@@ -251,18 +310,21 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, logoSource }: Props
               anchored to the logo's bottom edge with only a hair of
               horizontal gap. 10 px italic serif. Renders the full
               BRAND.taglineText fixture ("A high-trust room for hard
-              conversations.") with no leading-ellipsis fragment prefix
-              (the prior "..." fragment was tied to the retired
-              "...just get to the bottom of it" copy). */}
-          <Text
-            accessibilityRole="text"
-            testID="app-header-tagline"
-            style={styles.taglineInline}
-            numberOfLines={1}
-            allowFontScaling
-          >
-            {APP_HEADER_TAGLINE_TEXT}
-          </Text>
+              conversations.").
+              UX-ROOM-CHROME-001: omitted in the compact (signed-in
+              shell) variant so the masthead stays slim; the brand is
+              still announced via the logo's accessibilityLabel. */}
+          {compact ? null : (
+            <Text
+              accessibilityRole="text"
+              testID="app-header-tagline"
+              style={styles.taglineInline}
+              numberOfLines={1}
+              allowFontScaling
+            >
+              {APP_HEADER_TAGLINE_TEXT}
+            </Text>
+          )}
         </View>
       </Pressable>
       {/* NAV-HEADER-INLINE-001 — the primary navigation lives INSIDE the
@@ -322,6 +384,17 @@ const styles = StyleSheet.create({
     // masthead band): top-align the logo / nav / gear so the primary nav
     // sits in the top band to the right of the logo, NOT vertically centered
     // mid-height against the tall logo lockup.
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+  },
+  // UX-ROOM-CHROME-001 — compact nav-bearing masthead (signed-in shell).
+  // Same top-aligned single-row layout as rootWithNav but WITHOUT the
+  // 296 px prominent minHeight (the inline `minHeight: headerHeightPx`
+  // tracks the compacted logo) and with tighter vertical padding, so the
+  // chrome is slim and the active board is the first substantive screen.
+  rootWithNavCompact: {
+    height: undefined,
+    paddingVertical: 2,
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
   },
