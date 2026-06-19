@@ -17,8 +17,29 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
   unavailablePrimary: 'Disagreement points are not available for this view yet.',
   /** Per-point navigation (read-only; a jump, never a mutation). */
   viewInTimeline: 'View in timeline',
-  /** One-line "next step" lead-in. */
+  /**
+   * @deprecated UX-MEDIATOR-005 — superseded by `moveForward` as the v4 shared
+   * row lead-in. Kept exported (not deleted) to avoid breaking any consumer
+   * importing it; the rail now renders `moveForward`.
+   */
   whatHelps: 'What would help next?',
+  /**
+   * UX-MEDIATOR-005 — the v4 row "next step" lead-in (one shared lead-in for the
+   * sheet + side variants). Ban-list clean; advisory, never a posting gate.
+   */
+  moveForward: 'Move forward:',
+  /**
+   * UX-MEDIATOR-005 — the "· N total" header count framing suffix. Ban-list
+   * clean — a count word, never a verdict / score.
+   */
+  totalSuffix: 'total',
+  /**
+   * UX-MEDIATOR-005 — dormant contribution marker (rendered ONLY when a point's
+   * `anchor.contributionKind === 'chime_in'`; no such data ships today, see
+   * Finding B). A contribution label, NEVER a state, verdict, or third
+   * principal voice. The chime-in DATA is owned by UX-ROOM-1V1-CHIMEIN-001.
+   */
+  chimeInMarker: '↳ chime-in',
   /** Marks the point anchored to the currently-active timeline node. */
   activeSuffix: 'Currently active',
   /** Overflow reveal word. */

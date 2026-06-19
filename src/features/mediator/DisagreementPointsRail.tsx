@@ -48,12 +48,18 @@ import {
   resolveObserverDockVariant,
   resolveSheetMaxHeightPx,
 } from '../arguments/ObserverActionDockLayout';
-import type { DisagreementPoint, MediatorBoardState } from './mediatorBoardTypes';
+import type { DisagreementPoint, MediatorBoardState, PointAnchor } from './mediatorBoardTypes';
+import { v4DisplayStateFor } from './deriveMediatorBoardState';
+import { plainLanguageForMediatorState } from './mediatorPlainLanguage';
 import {
   DISAGREEMENT_POINTS_RAIL_COPY,
   DISAGREEMENT_POINTS_RAIL_INITIAL_ROWS,
   evidenceRequestCountLabel,
 } from './mediatorRailCopy';
+import {
+  buildDisagreementDistribution,
+  type DisagreementDistributionSegment,
+} from './mediatorDistribution';
 import { getEvidenceDebtForPoint, type PointEvidenceDisplay } from './evidenceDebtDisplay';
 import {
   getDefinitionScopeBridgeForPoint,
@@ -61,6 +67,38 @@ import {
 } from './definitionScopeBridgeDisplay';
 
 const SHEET_SLIDE_TRAVEL = 48;
+
+/**
+ * UX-MEDIATOR-005 (O-1) — the rail badge label for a point, projected onto the
+ * v4 nine-state DISPLAY vocabulary so the rail matches the UX-MEDIATOR-002 node
+ * chip. `point.state` is unchanged for Inspect / traceability; only the rail
+ * DISPLAY projects. A point whose display projection is terminal
+ * (`resolved_or_settled`) is never live in the rail, so it shows no badge.
+ */
+function v4RowBadgeLabel(point: DisagreementPoint): string {
+  const displayState = v4DisplayStateFor(point.state);
+  if (displayState === 'resolved_or_settled') return '';
+  return plainLanguageForMediatorState(displayState);
+}
+
+/**
+ * UX-MEDIATOR-005 (O-4a / Finding B) — the dormant chime-in contribution marker.
+ *
+ * The shipped board carries NO chime-in / principal / contribution data — that
+ * model is owned by UX-ROOM-1V1-CHIMEIN-001 (not yet shipped). This card ships
+ * only the RENDER SLOT: the row reads an OPTIONAL `contributionKind` from the
+ * anchor without adding a field to `PointAnchor` (the producer can't fill it
+ * yet). With no such data, every row returns false → no marker renders. We NEVER
+ * synthesize the marker from absent data (doctrine §4 — observation-driven).
+ */
+interface PointAnchorWithContribution extends PointAnchor {
+  /** OPTIONAL, dormant — supplied later by UX-ROOM-1V1-CHIMEIN-001 / its adapter. */
+  contributionKind?: 'principal' | 'chime_in';
+}
+
+function isChimeInAnchor(anchor: PointAnchor): boolean {
+  return (anchor as PointAnchorWithContribution).contributionKind === 'chime_in';
+}
 
 export interface DisagreementPointsRailProps {
   /** The derived board. `null` => "not available for this view yet" state. */
@@ -203,6 +241,10 @@ export function DisagreementPointsRail({
   const livePoints = useMemo(() => selectLivePoints(board), [board]);
   const count = livePoints.length;
 
+  // UX-MEDIATOR-005 — the state-distribution roll-up. A COMPOSITION of the same
+  // live points the rows render (no second derivation); ordered structurally.
+  const distribution = useMemo(() => buildDisagreementDistribution(livePoints), [livePoints]);
+
   const visiblePoints = useMemo(
     () => (showAll ? livePoints : livePoints.slice(0, DISAGREEMENT_POINTS_RAIL_INITIAL_ROWS)),
     [showAll, livePoints],
@@ -265,7 +307,7 @@ export function DisagreementPointsRail({
     <>
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header" testID="disagreement-points-rail-title">
-          {`${DISAGREEMENT_POINTS_RAIL_COPY.title} · ${count}`}
+          {`${DISAGREEMENT_POINTS_RAIL_COPY.title} · ${count} ${DISAGREEMENT_POINTS_RAIL_COPY.totalSuffix}`}
         </Text>
         <Pressable
           onPress={() => setExpanded(false)}
@@ -279,6 +321,15 @@ export function DisagreementPointsRail({
           <Text style={styles.collapseLabel}>{`${DISAGREEMENT_POINTS_RAIL_COPY.collapseLabel} ▴`}</Text>
         </Pressable>
       </View>
+
+      {/* UX-MEDIATOR-005 — state-distribution bar: a COMPOSITION roll-up of the
+          live points, ordered structurally (V4_PRIMARY_STATE_PRIORITY), never by
+          count/votes/heat. NOT color-only — each segment carries a text count
+          and an accessibilityLabel, and a compact text legend renders the same
+          buckets for grayscale / screen-reader parity. */}
+      {distribution.length > 0 ? (
+        <DisagreementDistributionBar segments={distribution} total={count} />
+      ) : null}
 
       {board == null ? (
         <View style={styles.emptyState} testID="disagreement-points-rail-unavailable">
@@ -360,8 +411,13 @@ function DisagreementPointRow({
   bridge,
   onJump,
 }: DisagreementPointRowProps): React.ReactElement {
-  const stateLabel = displaySafe(point.plainLabel);
+  // UX-MEDIATOR-005 (O-1) — project the badge through the v4 display vocabulary
+  // so the rail row matches the node chip; `point.state` stays intact for Inspect.
+  const stateLabel = displaySafe(v4RowBadgeLabel(point));
   const evidenceLine = evidenceRequestCountLabel(point.openEvidenceDebtIds.length);
+  // UX-MEDIATOR-005 (O-4a) — dormant unless the (optional, not-yet-shipped)
+  // contribution data marks this anchor as a chime-in.
+  const showChimeIn = isChimeInAnchor(point.anchor);
 
   return (
     <View style={[styles.row, isActive && styles.rowActive]} testID={`disagreement-points-rail-rowwrap-${point.id}`}>
@@ -398,7 +454,7 @@ function DisagreementPointRow({
 
         {nextStepLabel.length > 0 ? (
           <Text style={styles.nextStep} numberOfLines={2}>
-            {`${DISAGREEMENT_POINTS_RAIL_COPY.whatHelps} ${nextStepLabel}`}
+            {`${DISAGREEMENT_POINTS_RAIL_COPY.moveForward} ${nextStepLabel}`}
           </Text>
         ) : null}
 
@@ -452,10 +508,89 @@ function DisagreementPointRow({
           </Text>
         ) : null}
 
-        <Text style={styles.jumpHint} numberOfLines={1}>
-          {`${DISAGREEMENT_POINTS_RAIL_COPY.viewInTimeline} →`}
-        </Text>
+        <View style={styles.anchorRow}>
+          <Text style={styles.jumpHint} numberOfLines={1}>
+            {`${DISAGREEMENT_POINTS_RAIL_COPY.viewInTimeline} →`}
+          </Text>
+          {/* UX-MEDIATOR-005 (O-4a) — dormant chime-in contribution marker.
+              Renders ONLY when the (optional, not-yet-shipped) board data marks
+              this anchor as a chime-in; the common path renders nothing. A
+              contribution label, never a state, verdict, or third principal. */}
+          {showChimeIn ? (
+            <Text
+              style={styles.chimeInMarker}
+              numberOfLines={1}
+              testID={`disagreement-points-rail-chimein-${point.id}`}
+            >
+              {DISAGREEMENT_POINTS_RAIL_COPY.chimeInMarker}
+            </Text>
+          ) : null}
+        </View>
       </Pressable>
+    </View>
+  );
+}
+
+interface DisagreementDistributionBarProps {
+  segments: ReadonlyArray<DisagreementDistributionSegment>;
+  total: number;
+}
+
+/**
+ * UX-MEDIATOR-005 — the state-distribution bar. A flex-weighted row of `<View>`
+ * segments (width proportional to count/total → a COMPOSITION bar, never a
+ * magnitude/heat bar), each carrying its own count text + accessibilityLabel,
+ * followed by a compact text legend so the bar is fully legible in grayscale
+ * and to screen readers (color is never the only signal). The impasse segment
+ * gets the gold focus-ring emphasis; every other segment uses the same neutral
+ * raised surface — no red/green verdict pairing.
+ */
+function DisagreementDistributionBar({
+  segments,
+  total,
+}: DisagreementDistributionBarProps): React.ReactElement | null {
+  if (segments.length === 0 || total <= 0) return null;
+  return (
+    <View style={styles.distributionWrap} testID="disagreement-points-rail-distribution">
+      <View
+        style={styles.distributionBar}
+        accessibilityRole="image"
+        accessibilityLabel={`Disagreement points by state: ${segments
+          .map((s) => `${s.count} ${s.plainLabel}`)
+          .join(', ')}.`}
+      >
+        {segments.map((segment) => {
+          const isImpasse = segment.displayState === 'structured_impasse';
+          return (
+            <View
+              key={segment.displayState}
+              style={[
+                styles.distributionSegment,
+                isImpasse ? styles.distributionSegmentImpasse : styles.distributionSegmentDefault,
+                { flexGrow: segment.count, flexShrink: 1, flexBasis: 0 },
+              ]}
+              accessibilityLabel={`${segment.plainLabel}: ${segment.count} of ${total}`}
+              testID={`disagreement-points-rail-distribution-segment-${segment.displayState}`}
+            >
+              <Text style={styles.distributionSegmentCount} numberOfLines={1}>
+                {String(segment.count)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.distributionLegend} testID="disagreement-points-rail-distribution-legend">
+        {segments.map((segment) => (
+          <Text
+            key={segment.displayState}
+            style={styles.distributionLegendItem}
+            numberOfLines={1}
+            testID={`disagreement-points-rail-distribution-legend-${segment.displayState}`}
+          >
+            {`${segment.plainLabel} ${segment.count}`}
+          </Text>
+        ))}
+      </View>
     </View>
   );
 }
@@ -638,6 +773,66 @@ const styles = StyleSheet.create({
     color: SURFACE_TOKENS.focusRing,
     fontSize: TYPOGRAPHY.badgeLabel.fontSize,
     fontWeight: '700',
+  },
+  // UX-MEDIATOR-005 — anchor row: the jump hint + the dormant chime-in marker
+  // sit on one line; the marker is absent on the common path.
+  anchorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  // UX-MEDIATOR-005 — chime-in contribution marker (dormant). A muted
+  // contribution label, visually distinct from the focus-ring jump hint so it
+  // never reads as a state badge.
+  chimeInMarker: {
+    color: SURFACE_TOKENS.textMuted,
+    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontWeight: '700',
+  },
+
+  // UX-MEDIATOR-005 — state-distribution bar. A composition bar (flex-weighted
+  // segments) + a compact text legend. Color is never the only signal: each
+  // segment carries a count and an accessibilityLabel, and the legend names
+  // every bucket for grayscale / screen-reader parity.
+  distributionWrap: {
+    marginBottom: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  distributionBar: {
+    flexDirection: 'row',
+    height: 14,
+    borderRadius: RADIUS.sm,
+    overflow: 'hidden',
+    borderWidth: BORDER_WIDTH.sm,
+    borderColor: SURFACE_TOKENS.border,
+  },
+  distributionSegment: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 18,
+    borderRightWidth: BORDER_WIDTH.sm,
+    borderRightColor: SURFACE_TOKENS.border,
+  },
+  // Impasse segment gets the gold focus-ring emphasis (the doctrine's "dignity /
+  // selected / impasse emphasis" tone); everything else is the neutral raised
+  // surface — no red/green verdict pairing.
+  distributionSegmentImpasse: { backgroundColor: SURFACE_TOKENS.focusRing },
+  distributionSegmentDefault: { backgroundColor: SURFACE_TOKENS.raised },
+  distributionSegmentCount: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontWeight: '800',
+  },
+  distributionLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  distributionLegendItem: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontWeight: '600',
   },
 
   overflowRow: {
