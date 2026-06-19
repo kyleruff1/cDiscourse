@@ -612,6 +612,38 @@ describe('UX-MEDIATOR-001 — missing_mechanism label rename', () => {
   });
 });
 
+// ── 17b. definition_not_shared → "Definition not shared" label (UX-MEDIATOR-004 rename) ──
+
+describe('UX-MEDIATOR-004 — definition_not_shared label rename', () => {
+  it('renders the v4 "Definition not shared" label (ban-list clean; internal code unchanged)', () => {
+    const label = plainLanguageForMediatorState('definition_not_shared');
+    expect(label).toBe('Definition not shared');
+    const lower = label.toLowerCase();
+    for (const token of _forbiddenMediatorTokens()) {
+      expect(lower.includes(token)).toBe(false);
+    }
+    expect(label).not.toMatch(/_/);
+    // The deterministic state CODE is never renamed — only the visible label.
+    expect(MEDIATOR_STATE_COPY.definition_not_shared).toBe('Definition not shared');
+  });
+
+  it('surfaces "Definition not shared" on a definition point in the board (not a verdict)', () => {
+    const graph = makeGraph({
+      nodes: [
+        makeNode({ messageId: 'n1', ordinal: 1, isRoot: true }),
+        makeNode({ messageId: 'n2', ordinal: 2, parentId: 'n1', branchRootMessageId: 'n1' }),
+      ],
+      clusters: [makeCluster({ clusterId: 'n1', state: 'answered', messageIds: ['n1', 'n2'] })],
+    });
+    const board = deriveMediatorBoardState(graph, [
+      makeObs('n2', 'misunderstanding_repair', 'proposes_shared_definition'),
+    ]);
+    const defPoint = board.points.find((p) => p.state === 'definition_not_shared');
+    expect(defPoint).toBeTruthy();
+    expect(defPoint?.plainLabel).toBe('Definition not shared');
+  });
+});
+
 // ── 18. one primary state per node (the v4 display projection) ──
 
 describe('UX-MEDIATOR-001 — one primary state per node', () => {
