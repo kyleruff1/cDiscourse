@@ -186,7 +186,11 @@ export function TimelineSelectedReadoutPanel({ viewModel, compact, onGoToParent 
             {kindLine}
           </Text>
           {bodyLine ? (
-            <Text style={styles.bodyLine} numberOfLines={1} ellipsizeMode="tail">
+            // UX-BOARD-READABILITY-001 (2026-06-19): the selected node's own body
+            // is the readable centre of the room; allow 2 lines (was 1) so the
+            // move's first sentence is legible. Pin relaxed-with-NOTE in
+            // __tests__/uxOneOneTwoReadoutCompactMode.test.tsx.
+            <Text style={styles.bodyLine} numberOfLines={2} ellipsizeMode="tail">
               {bodyLine}
             </Text>
           ) : null}
@@ -349,21 +353,31 @@ const styles = StyleSheet.create({
   compactBody: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    gap: 1,
+    // UX-BOARD-READABILITY-001 (2026-06-19): gap 1 -> 3 + explicit line heights
+    // below give the stacked lines breathing room without changing the panel
+    // container margins (uxOneOneTwoReadoutCompactMode pins marginTop:8).
+    gap: 3,
   },
+  // UX-BOARD-READABILITY-001 (2026-06-19): demote the kind label to a quiet
+  // eyebrow (#e2e8f0 -> #94a3b8) so the now-larger body reads as the centre.
   kindLine: {
-    color: '#e2e8f0',
+    color: '#94a3b8',
     fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
   },
+  // UX-BOARD-READABILITY-001 (2026-06-19): make the node body the readable
+  // centre — fontSize 11 -> 13, lineHeight 18, color #cbd5e1 -> #e2e8f0.
   bodyLine: {
-    color: '#cbd5e1',
-    fontSize: 11,
+    color: '#e2e8f0',
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
   },
   parentLine: {
     color: '#94a3b8',
     fontSize: 11,
+    lineHeight: 15,
     fontWeight: '500',
   },
   // UX-SELECTED-NODE-001 (rows 2-3) — the "Responding to this point" anchor
@@ -381,9 +395,13 @@ const styles = StyleSheet.create({
   },
   // The parent excerpt is the parent's body text (verbatim, ≤120 chars).
   // Two-line clamp so it never blows the compact height budget on phone.
+  // UX-BOARD-READABILITY-001 (2026-06-19): differentiate parent context from the
+  // node's own body — now clearly smaller than the 13px body, dimmed
+  // #cbd5e1 -> #94a3b8 with an explicit lineHeight so it reads as quoted context.
   parentExcerptLine: {
-    color: '#cbd5e1',
+    color: '#94a3b8',
     fontSize: 11,
+    lineHeight: 15,
     fontWeight: '400',
     fontStyle: 'italic',
   },
@@ -402,11 +420,14 @@ const styles = StyleSheet.create({
   metaLine: {
     color: '#94a3b8',
     fontSize: 11,
+    // UX-BOARD-READABILITY-001 (2026-06-19): explicit leading for the calmer stack.
+    lineHeight: 15,
     fontWeight: '600',
   },
   actingLine: {
     color: '#a5b4fc',
     fontSize: 11,
+    lineHeight: 15,
     fontWeight: '600',
   },
   expandTrigger: {

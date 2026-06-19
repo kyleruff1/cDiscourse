@@ -750,14 +750,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xs,
+    // UX-BOARD-READABILITY-001 (2026-06-19): xs -> s so the title clears the rows.
+    marginBottom: SPACING.s,
   },
+  // UX-BOARD-READABILITY-001 (2026-06-19): establish title-vs-row hierarchy by
+  // re-pointing the section header to the EXISTING popoutHeading token (13/18)
+  // and dropping the all-caps + letterSpacing "admin panel" treatment. The
+  // composed header string ('Disagreement points · N total') is unchanged
+  // (uxMediator005). No new tokens, no global TYPOGRAPHY mutation.
   title: {
     color: SURFACE_TOKENS.focusRing,
     fontWeight: '800',
-    fontSize: TYPOGRAPHY.chipLabel.fontSize,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    fontSize: TYPOGRAPHY.popoutHeading.fontSize,
+    lineHeight: TYPOGRAPHY.popoutHeading.lineHeight,
   },
   collapseControl: {
     minHeight: TOUCH_TARGET.minSizePx,
@@ -804,8 +809,11 @@ const styles = StyleSheet.create({
   activeBarOff: { backgroundColor: 'transparent' },
   rowMain: {
     flex: 1,
-    padding: SPACING.s,
-    gap: 2,
+    // UX-BOARD-READABILITY-001 (2026-06-19): loosen the crammed row — padding
+    // s(8) -> m(12) and gap 2 -> xs(4) so each point reads as a card, not a
+    // spreadsheet line. Geometry only; minHeight/topology unchanged.
+    padding: SPACING.m,
+    gap: SPACING.xs,
     minHeight: TOUCH_TARGET.minSizePx,
     justifyContent: 'center',
   },
@@ -829,17 +837,23 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.chipLabel.fontSize,
     fontWeight: '700',
   },
+  // UX-BOARD-READABILITY-001 (2026-06-19): the 'Currently active' you-are-here
+  // marker lifted badgeLabel(10) -> chipLabel(11). Left accent bar + text still
+  // carry the meaning (color-independence preserved).
   activeWord: {
     color: SURFACE_TOKENS.textSecondary,
-    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
+  // UX-BOARD-READABILITY-001 (2026-06-19): 'Move forward: <step>' is the most
+  // load-bearing guidance line per point; re-point chipLabel(11) -> popoutBody(12/16)
+  // so the line a reader actually acts on is the most legible in the row.
   nextStep: {
     color: SURFACE_TOKENS.textSecondary,
-    fontSize: TYPOGRAPHY.chipLabel.fontSize,
-    lineHeight: TYPOGRAPHY.chipLabel.lineHeight + 2,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
   },
   // UX-IMPASSE-001 (#689) — dignified impasse line: a bold "preserved" lead-in +
   // a muted reopen invitation. Mirrors the bridge block's calm two-line shape; no
@@ -879,21 +893,33 @@ const styles = StyleSheet.create({
     color: SURFACE_TOKENS.textMuted,
     fontSize: TYPOGRAPHY.badgeLabel.fontSize,
   },
+  // UX-BOARD-READABILITY-001 (2026-06-19): evidence count + 'Evidence that would
+  // help' (numberOfLines 2) lifted badgeLabel(10) -> chipLabel(11) with an explicit
+  // lineHeight so the wrapped guidance is legible.
   evidenceLine: {
     color: SURFACE_TOKENS.textMuted,
-    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: 15,
   },
   // UX-MEDIATOR-003 — blocked evidence path: attention tone via the focus-ring
   // color + weight (not color alone — the explicit "Blocked evidence path"
   // word carries the meaning).
+  // UX-BOARD-READABILITY-001 (2026-06-19): 'Blocked evidence path' is a structural
+  // state the reader must notice — lifted badgeLabel(10) -> chipLabel(11). Text
+  // still carries the meaning (no new color signal).
   blockedPathLine: {
     color: SURFACE_TOKENS.focusRing,
-    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: 14,
     fontWeight: '700',
   },
+  // UX-BOARD-READABILITY-001 (2026-06-19): 'View in timeline →' is the only verb
+  // in each row; lifted badgeLabel(10) -> chipLabel(11) so the action clears the
+  // metadata. Copy string unchanged.
   jumpHint: {
     color: SURFACE_TOKENS.focusRing,
-    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: 14,
     fontWeight: '700',
   },
   // UX-MEDIATOR-005 — anchor row: the jump hint + the dormant chime-in marker
@@ -917,13 +943,16 @@ const styles = StyleSheet.create({
   // segments) + a compact text legend. Color is never the only signal: each
   // segment carries a count and an accessibilityLabel, and the legend names
   // every bucket for grayscale / screen-reader parity.
+  // UX-BOARD-READABILITY-001 (2026-06-19): more air below the roll-up (xs -> s)
+  // and a slightly taller bar (14 -> 18) so the composition strip reads as calm
+  // structure, not a dense metrics chart. Buckets/order/counts unchanged.
   distributionWrap: {
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.s,
     gap: SPACING.xs,
   },
   distributionBar: {
     flexDirection: 'row',
-    height: 14,
+    height: 18,
     borderRadius: RADIUS.sm,
     overflow: 'hidden',
     borderWidth: BORDER_WIDTH.sm,

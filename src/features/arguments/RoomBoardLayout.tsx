@@ -151,12 +151,17 @@ const styles = StyleSheet.create({
   // The row that hosts the columns on tablet/wide. `alignItems: 'stretch'`
   // lets each column own its own height so the 380 px pane never collapses.
   boardRow: { flex: 1, flexDirection: 'row', alignItems: 'stretch' },
+  // UX-BOARD-READABILITY-001 (2026-06-19): interior gutter (paddingHorizontal 12)
+  // on the tablet/wide columns so the board no longer butts against the viewport
+  // edge / divider with zero breathing room. The phone branch returns before the
+  // boardRow and is untouched. Additive padding only — the 1px columnDivider and
+  // paneColumn width 380 (uxBoardRail002Topology) are unchanged.
   // wide: col1 spine.
-  spineColumn: { flex: 1.2, minWidth: 0 },
+  spineColumn: { flex: 1.2, minWidth: 0, paddingHorizontal: 12 },
   // tablet: col1 spine carries col1 + col2 + footer together (no col2 split).
-  spineColumnWide: { flex: 1, minWidth: 0 },
+  spineColumnWide: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
   // wide: col2 readout + footer.
-  readoutColumn: { flex: 1, minWidth: 0 },
+  readoutColumn: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
   // Fixed-width right pane (col3). Width owned by the COLUMN, not the rail.
   paneColumn: { width: ROOM_BOARD_PANE_WIDTH_PX, maxWidth: '100%' },
   // Geometry boundary between col1 and col2 (never color-only — a real border

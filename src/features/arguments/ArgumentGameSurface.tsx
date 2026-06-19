@@ -2874,7 +2874,10 @@ const styles = StyleSheet.create({
   // deleted. The title + mode toggle moved to the compact strip in
   // DebateDetailHeader; the "Latest: …" line is subsumed by the
   // selected-readout panel's "what this move says" line.
-  body: { flex: 1, paddingHorizontal: 8, paddingBottom: 8 },
+  // UX-BOARD-READABILITY-001 (2026-06-19): col1 gutters 8 -> 12 (matches the
+  // strip's paddingHorizontal:12) so the timeline/stack content has calmer side
+  // air. Surface-local; col1/col2 JSX order + board derivation unchanged.
+  body: { flex: 1, paddingHorizontal: 12, paddingBottom: 12 },
   microMoment: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1e1b4b', borderBottomWidth: 1, borderBottomColor: '#312e81' },
   // UX-001.4 — small horizontal row of Act / Inspect / Go triggers.
   // Sits between the Timeline body and the side action rail. Each
@@ -2888,7 +2891,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingTop: 8,
-    paddingBottom: 4,
+    // UX-BOARD-READABILITY-001 (2026-06-19): even vertical rhythm — the dock had
+    // an asymmetric 8/4 that read as cramped at the bottom. 4 -> 8. Labels/routing
+    // (Act/Inspect/Go) + board-menu-trigger-* testIDs unchanged.
+    paddingBottom: 8,
     backgroundColor: '#0b1220',
     borderTopWidth: 1,
     borderTopColor: '#1f2937',
@@ -2939,7 +2945,9 @@ const styles = StyleSheet.create({
   },
   menuTriggerBadgeText: {
     color: '#cbd5e1',
-    fontSize: 10,
+    // UX-BOARD-READABILITY-001 (2026-06-19): A/I/G key badges 10 -> 11; box
+    // minWidth/minHeight unchanged.
+    fontSize: 11,
     fontWeight: '700' as const,
     fontFamily: 'monospace',
   },

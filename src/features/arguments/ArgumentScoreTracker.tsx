@@ -80,19 +80,25 @@ export function ArgumentScoreTracker({ trends }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { backgroundColor: '#0b1220', padding: 8, borderBottomWidth: 1, borderBottomColor: '#1f2937' },
-  title: { color: '#94a3b8', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' as const, marginBottom: 6 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  card: { flexDirection: 'row', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden', minWidth: 160, flexGrow: 1 },
+  // UX-BOARD-READABILITY-001 (2026-06-19): de-game the readout chrome and loosen
+  // the tiles. root padding 8 -> 10; title 10px UPPERCASE -> 11px sentence-case
+  // (visible string 'Mediator readout' + aria 'mediator readout' UNCHANGED, only
+  // the textTransform style is dropped); tiles minWidth 160 -> 180, cardBody
+  // padding 8 -> 10, row gap 6 -> 8, band/meta gain explicit leading. Same
+  // content, more air — no new signals, no scoreboard copy.
+  root: { backgroundColor: '#0b1220', padding: 10, borderBottomWidth: 1, borderBottomColor: '#1f2937' },
+  title: { color: '#94a3b8', fontSize: 11, fontWeight: '800', marginBottom: 8 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  card: { flexDirection: 'row', backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden', minWidth: 180, flexGrow: 1 },
   colorBar: { width: 4 },
-  cardBody: { padding: 8, flex: 1 },
+  cardBody: { padding: 10, flex: 1 },
   cardHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
   actor: { color: '#f8fafc', fontWeight: '800', fontSize: 12 },
   count: { color: '#64748b', fontSize: 11 },
-  band: { fontSize: 11, fontWeight: '800', marginTop: 2 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  band: { fontSize: 11, lineHeight: 15, fontWeight: '800', marginTop: 4 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   arrow: { color: '#a5b4fc', fontSize: 12, fontWeight: '800' },
-  meta: { color: '#94a3b8', fontSize: 11 },
+  meta: { color: '#94a3b8', fontSize: 11, lineHeight: 15 },
   sparkRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 1, marginTop: 4, height: 14 },
   sparkBar: { width: 4, borderRadius: 2 },
   note: { color: '#64748b', fontSize: 12, padding: 8 },

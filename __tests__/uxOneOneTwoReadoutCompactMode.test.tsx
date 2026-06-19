@@ -36,11 +36,18 @@ describe('UX-001.2 — TimelineSelectedReadoutPanel.compact prop', () => {
     expect(PANEL_SRC).toMatch(/style=\{styles\.actingLine\}/);
   });
 
-  it('the body line uses numberOfLines={1} + ellipsizeMode="tail"', () => {
-    // The body excerpt is single-line truncated so the compact summary
-    // honours the 68/76/88 height cap per band.
+  it('the body line uses numberOfLines={2} + ellipsizeMode="tail"', () => {
+    // NOTE: relaxed from numberOfLines={1} to {2} by the operator-authorized
+    // UX-BOARD-READABILITY-001 card (2026-06-19). The selected node's own body
+    // is the readable centre of the room; that card raises it from 11px/1-line
+    // to 13px/2-line so the move's first sentence is legible (the inverted
+    // hierarchy where the most load-bearing line was the smallest/most-truncated
+    // was the card's root cause). ellipsizeMode="tail" is preserved so the
+    // excerpt still clamps; the panel container margins (marginTop:8) and the
+    // 5 line-style names are unchanged (pinned below / above). Mirrors the prior
+    // operator-authorized boundary relaxations for this panel.
     expect(PANEL_SRC).toMatch(
-      /style=\{styles\.bodyLine\}\s+numberOfLines=\{1\}\s+ellipsizeMode="tail"/,
+      /style=\{styles\.bodyLine\}\s+numberOfLines=\{2\}\s+ellipsizeMode="tail"/,
     );
   });
 
