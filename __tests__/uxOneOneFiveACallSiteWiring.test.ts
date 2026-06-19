@@ -114,9 +114,18 @@ describe('UX-001.5A — Edit C: NodeLabelInspectGroups sibling overlay (alternat
   });
 
   it('overlay is gated on inspectVisible AND activeMessageId', () => {
+    // UX-SELECTED-NODE-001 (reconciliation): the four Inspect siblings are
+    // now sectioned into the v4 drawer via SelectedNodeInspectDrawer, so the
+    // `inspectVisible && activeMessageId` gate is on the DRAWER (which renders
+    // NodeLabelInspectGroups in its `structureNotes` slot) rather than
+    // directly on NodeLabelInspectGroups. The gate is unchanged in INTENT —
+    // NodeLabelInspectGroups still only renders inside that gate.
     expect(GAME_SURFACE_SRC).toMatch(
-      /inspectVisible\s*&&\s*activeMessageId\s*\?\s*\(\s*<NodeLabelInspectGroups/,
+      /inspectVisible\s*&&\s*activeMessageId\s*\?\s*\(\s*<SelectedNodeInspectDrawer/,
     );
+    // NodeLabelInspectGroups is wired into the gated drawer's structureNotes
+    // slot (still mounted only behind the same gate).
+    expect(GAME_SURFACE_SRC).toMatch(/structureNotes=\{\s*<NodeLabelInspectGroups/);
   });
 });
 

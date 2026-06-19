@@ -91,7 +91,23 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   // actPopoutModel relaxations above.
   'src/features/debates/DebateDetailHeader.tsx',
   'src/features/arguments/timelineViewportLayoutModel.ts',
-  'src/features/arguments/TimelineSelectedReadoutPanel.tsx',
+  // NOTE: `src/features/arguments/TimelineSelectedReadoutPanel.tsx` was
+  // removed from the zero-diff boundary by the operator-authorized
+  // UX-SELECTED-NODE-001 card (selected-node "center of the room"
+  // treatment, LOCAL-ONLY scope). UX-SELECTED-NODE-001 §3 explicitly
+  // requires surfacing the v4 "Responding to this point" anchor + the
+  // already-on-model parent excerpt (`parentBodyPreview`), an in-card gold
+  // halo + left-accent on the selected card, and a read-only "Go to parent
+  // point" jump — all WITHIN this selected-node card (no room-level rail or
+  // timeline-topology change; that scope is UX-BOARD-RAIL-001 #706). The
+  // edit is additive + presentational: the compact 5-line summary, the
+  // expand trigger, the IX-004 live-region / stale-banner contract, and the
+  // back-compat sidecar path are all preserved. The file's load-bearing
+  // contract stays pinned by `uxOneOneTwoReadoutCompactMode.test.ts`,
+  // `timelineReadoutBanList.test.ts`, and the new
+  // `uxSelectedNode001CenterOfRoom.test.tsx`. Mirrors the prior
+  // operator-authorized AppHeader / designTokens / TimelineMap /
+  // ScoreTracker / actPopoutModel relaxations above.
 
   // UX-001.3 composer files
   'src/features/arguments/ArgumentComposer.tsx',
