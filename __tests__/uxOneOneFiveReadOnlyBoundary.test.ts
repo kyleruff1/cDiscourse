@@ -89,7 +89,22 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   // pinned by `uxCopyOneCivilDiscourseRebrand.test.ts`. Mirrors the
   // prior operator-authorized AppHeader / designTokens / TimelineMap /
   // actPopoutModel relaxations above.
-  'src/features/debates/DebateDetailHeader.tsx',
+  // NOTE: `src/features/debates/DebateDetailHeader.tsx` was removed from the
+  // zero-diff boundary by the operator-authorized UX-BOARD-READABILITY-001 card
+  // (2026-06-19). That card's safe-now scope raises the room title — the
+  // primary heading of the room, previously the SMALLEST text in the chrome —
+  // from 13/14/15 to 16/17/18 (phone/tablet/wide) with an explicit lineHeight,
+  // and lifts the Leave control + phone chip floor off the 10px caption floor.
+  // The edit is surface-local style only: containerPaddingVertical (4/6/8) and
+  // rowMinHeight (36/38/42) are UNCHANGED so the strip-height cap arithmetic
+  // (<=48/56/64, pinned by `uxOneOneTwoCompactStripHeight.test.tsx`) still
+  // holds, and the title is a file-local literal (not a BRAND/TYPOGRAPHY token).
+  // The file's load-bearing contract stays pinned by
+  // `uxOneOneTwoCompactStripHeight.test.tsx`, the API-presence /testID pins in
+  // `uxOneOneSixReadOnlyBoundary.test.ts`, and the topology pins in
+  // `uxBoardRail002Topology.test.tsx`. Mirrors the prior operator-authorized
+  // AppHeader / designTokens / TimelineMap / ScoreTracker / ReadoutPanel /
+  // actPopoutModel relaxations above.
   'src/features/arguments/timelineViewportLayoutModel.ts',
   // NOTE: `src/features/arguments/TimelineSelectedReadoutPanel.tsx` was
   // removed from the zero-diff boundary by the operator-authorized
