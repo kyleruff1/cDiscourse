@@ -167,6 +167,88 @@ describe('UX-MEDIATOR-005 DisagreementPointsRail', () => {
     expect(getByTestId('disagreement-points-rail-active-n1')).toBeTruthy();
   });
 
+  // ── UX-BOARD-RAIL-002 — additive `presentation` prop cases ──
+
+  it('presentation="pane" renders expanded-by-default as a column child (no toggle press needed)', () => {
+    const { getByTestId, queryByTestId } = render(
+      <DisagreementPointsRail
+        board={makeBoard([makePoint({ id: 'n1', state: 'open' })])}
+        presentation="pane"
+        reduceMotionOverride
+      />,
+    );
+    // The root + expanded content render without first pressing the toggle.
+    expect(getByTestId('disagreement-points-rail')).toBeTruthy();
+    expect(getByTestId('disagreement-points-rail-title')).toBeTruthy();
+    // No collapsed pill in the default-expanded pane.
+    expect(queryByTestId('disagreement-points-rail-toggle')).toBeNull();
+  });
+
+  it('presentation="pane" ignores isAnyPanelOpen (a docked column is not in the bottom group)', () => {
+    const { getByTestId } = render(
+      <DisagreementPointsRail
+        board={makeBoard([makePoint({ id: 'n1', state: 'open' })])}
+        presentation="pane"
+        isAnyPanelOpen
+        reduceMotionOverride
+      />,
+    );
+    // Still expanded even though isAnyPanelOpen is true — the pane cannot be
+    // force-collapsed by a sibling bottom rail.
+    expect(getByTestId('disagreement-points-rail-title')).toBeTruthy();
+  });
+
+  it('presentation="pane" renders the empty-state pane (stable geometry, no collapse to zero)', () => {
+    const { getByTestId } = render(
+      <DisagreementPointsRail board={makeBoard([])} presentation="pane" reduceMotionOverride />,
+    );
+    expect(getByTestId('disagreement-points-rail-empty')).toBeTruthy();
+  });
+
+  it('presentation="pane" carries the pane root (left geometry border), not the side bottom-overlay cues', () => {
+    const { getByTestId } = render(
+      <DisagreementPointsRail
+        board={makeBoard([makePoint({ id: 'n1', state: 'open' })])}
+        presentation="pane"
+        reduceMotionOverride
+      />,
+    );
+    const root = getByTestId('disagreement-points-rail');
+    const flat = Array.isArray(root.props.style)
+      ? Object.assign({}, ...root.props.style.filter(Boolean))
+      : root.props.style;
+    // The pane wrapper carries a LEFT geometry border and drops the top border.
+    expect(flat.borderLeftWidth).toBeGreaterThan(0);
+    expect(flat.borderTopWidth).toBe(0);
+    // The column owns the width — the pane root does not pin width:380 or
+    // alignSelf:'flex-end' (the 'side' bottom-overlay cues).
+    expect(flat.width).toBeUndefined();
+    expect(flat.alignSelf).toBe('stretch');
+  });
+
+  it('presentation="sheet" (default) stays collapsed-by-default and honors isAnyPanelOpen (byte-identity)', () => {
+    // Default prop: collapsed pill present, expanded title absent.
+    const def = render(
+      <DisagreementPointsRail board={makeBoard([makePoint({ id: 'n1', state: 'open' })])} />,
+    );
+    expect(def.getByTestId('disagreement-points-rail-toggle')).toBeTruthy();
+    expect(def.queryByTestId('disagreement-points-rail-title')).toBeNull();
+
+    // Explicit sheet + expanded + isAnyPanelOpen → force-collapsed (today's
+    // mutual-exclusion behavior, unchanged).
+    const forced = render(
+      <DisagreementPointsRail
+        board={makeBoard([makePoint({ id: 'n1', state: 'open' })])}
+        presentation="sheet"
+        defaultCollapsed={false}
+        isAnyPanelOpen
+        reduceMotionOverride
+      />,
+    );
+    expect(forced.queryByTestId('disagreement-points-rail-title')).toBeNull();
+    expect(forced.getByTestId('disagreement-points-rail-toggle')).toBeTruthy();
+  });
+
   it('renders no internal codes and no ban-list tokens in any visible text', () => {
     const pathways: Record<string, ResolutionPathway> = {
       a: { pointId: 'a', steps: [{ code: 'provide_source', plainLabel: 'Provide a source', available: true }], anyAvailable: true },

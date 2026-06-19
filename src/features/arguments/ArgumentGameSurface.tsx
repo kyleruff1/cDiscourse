@@ -14,6 +14,11 @@ import { useHeaderBreakpoint } from '../../hooks/useHeaderBreakpoint';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
+// UX-BOARD-RAIL-002 — pure presentational band-driven board grid. Receives the
+// already-built render-tree subtrees as slot props and arranges them into a
+// 1 / 2 / 3-column board by the resident `headerBand`. No hook / handler /
+// derivation lives in the wrapper; every mount stays textually in this file.
+import { RoomBoardLayout } from './RoomBoardLayout';
 // REF-005 — the structured "Request review / Mark concern" composer. A
 // presentational sibling overlay (like the deletion sheet); it owns no
 // persistence and fires no hide/delete path. The loose `flag` affordances
@@ -448,6 +453,12 @@ export function ArgumentGameSurface({
   // useHeaderBreakpoint is the single source of truth for the band.
   const { band: headerBand } = useHeaderBreakpoint();
   const menuBand: MenuBand = headerBand;
+  // UX-BOARD-RAIL-002 — the Disagreement Points ledger is a collapsed-pill
+  // bottom SHEET on phone (byte-identical to today) and a persistent docked
+  // PANE on tablet/wide. Derived adjacent to the band; the band itself is the
+  // column-count authority (passed straight into RoomBoardLayout). No new
+  // breakpoint helper, no second band read.
+  const boardPresentation: 'sheet' | 'pane' = headerBand === 'phone' ? 'sheet' : 'pane';
   // UX-001.4 — constitution rules thread into the board-level Act mount
   // (Act's 3-gate engine filter requires them). Pulled once at the
   // surface level so both the in-composer and the board-level mounts
@@ -2178,35 +2189,56 @@ export function ArgumentGameSurface({
   void handleRemoveManualTag;
 
   return (
-    <View style={styles.container} accessibilityLabel="argument-game-surface" testID="argument-game-surface">
-      {/* UX-001.2 — microMoment banner. Repositioned out of the old
-          ArgumentGameSurface.header (which was deleted) so it now sits
-          directly under the AppHeader + compact strip. The banner is
-          transient: it dismisses on the first meaningful Timeline
-          interaction (handleActivate / handlePrev / handleNext /
-          handleToggleMode / onJumpLatest / onJumpToRoot). The visual
-          treatment, copy, accessibility behavior, and triggering logic
-          are unchanged from QOL-040.3 — only the persistence model is
-          updated. A new entryHint re-shows the banner. */}
-      {entryHint?.verbPhrase && !microMomentDismissed ? (
-        <View
-          style={styles.microMoment}
-          testID="argument-micro-moment"
-          accessibilityLabel={
-            entryHint.helperLine && entryHint.helperLine !== entryHint.verbPhrase
-              ? `${entryHint.verbPhrase}. ${entryHint.helperLine}`
-              : entryHint.verbPhrase
-          }
-        >
-          <Text style={styles.microMomentText}>{entryHint.verbPhrase}</Text>
-          {entryHint.helperLine && entryHint.helperLine !== entryHint.verbPhrase ? (
-            <Text style={styles.microMomentHelper}>{entryHint.helperLine}</Text>
-          ) : null}
-        </View>
-      ) : null}
-
-      <View style={styles.body}>
-        {mode === 'stack' ? (
+    // UX-BOARD-RAIL-002 — the room shell is now a band-driven 1 / 2 / 3-column
+    // board. RoomBoardLayout is a PURE flex grid: it places the already-built
+    // subtrees below into column slots. Every `<Component …>` JSX subtree stays
+    // TEXTUALLY inside this `return` (passed as element children), so every
+    // testID / handler / prop-wire substring the source-scan suites read stays
+    // in this file. The single mediator-board derivation (above) is consumed by
+    // all columns and never re-derived. On phone the wrapper renders one
+    // vertical column (byte-identical to today); the col3 rail is a collapsed
+    // bottom sheet (`presentation='sheet'`). On tablet/wide the rail docks as a
+    // persistent pane. col1 JSX is emitted BEFORE col2 JSX in source order
+    // (uxOneOneTwoChromeLayerRemovals indexOf pins).
+    <RoomBoardLayout
+      band={headerBand}
+      accessibilityLabel="argument-game-surface"
+      testID="argument-game-surface"
+      topBanner={
+        /* UX-001.2 — microMoment banner. Repositioned out of the old
+           ArgumentGameSurface.header (which was deleted) so it now sits
+           directly under the AppHeader + compact strip. The banner is
+           transient: it dismisses on the first meaningful Timeline
+           interaction (handleActivate / handlePrev / handleNext /
+           handleToggleMode / onJumpLatest / onJumpToRoot). The visual
+           treatment, copy, accessibility behavior, and triggering logic
+           are unchanged from QOL-040.3 — only the persistence model is
+           updated. A new entryHint re-shows the banner. */
+        entryHint?.verbPhrase && !microMomentDismissed ? (
+          <View
+            style={styles.microMoment}
+            testID="argument-micro-moment"
+            accessibilityLabel={
+              entryHint.helperLine && entryHint.helperLine !== entryHint.verbPhrase
+                ? `${entryHint.verbPhrase}. ${entryHint.helperLine}`
+                : entryHint.verbPhrase
+            }
+          >
+            <Text style={styles.microMomentText}>{entryHint.verbPhrase}</Text>
+            {entryHint.helperLine && entryHint.helperLine !== entryHint.verbPhrase ? (
+              <Text style={styles.microMomentHelper}>{entryHint.helperLine}</Text>
+            ) : null}
+          </View>
+        ) : null
+      }
+      col1={
+        // col1 — the argument path (spine). Both body modes: the bubble stack
+        // (+ participant bubble actions) OR the horizontal timeline map. The
+        // supporting panels (readout / score / chip / composer) move into col2
+        // below; on phone the single-column wrapper re-stacks them directly
+        // beneath this body, preserving today's vertical order.
+        <View style={styles.body}>
+          {mode === 'stack' ? (
           <>
             <ArgumentBubbleStack
               viewModels={viewModels}
@@ -2311,6 +2343,22 @@ export function ArgumentGameSurface({
               onOpenCardsDetail={handleOpenCardsDetail}
               reduceMotionOverride={reduceMotionOverride}
             />
+          </>
+        )}
+        </View>
+      }
+      col2={
+        // col2 — the supporting panels for the active node. These render only
+        // in Timeline mode (unchanged: Stack mode surfaces this detail in the
+        // active card itself). On phone the single-column wrapper places this
+        // immediately below the col1 body; on tablet they ride in the left
+        // spine; on wide they own the middle column. The JSX is MOVED, not
+        // changed — same props, same handlers, same testIDs. col2 JSX is
+        // emitted AFTER col1's ArgumentTimelineMap in source order, so the
+        // uxOneOneTwoChromeLayerRemovals indexOf pins (TimelineMap before
+        // ScoreTracker / Readout) still hold.
+        mode === 'timeline' ? (
+          <>
             {/* UX-001.2 — Compact selected-message readout below the
                 Timeline. IX-004's accessibilityLiveRegion + selection
                 announcement + stale-banner behavior are preserved
@@ -2387,111 +2435,10 @@ export function ArgumentGameSurface({
               />
             ) : null}
           </>
-        )}
-      </View>
-
-      {/* MCP-019 — the semantic-referee surface for the active move. Both
-          components render NOTHING when their prop is absent / inert, so a
-          room with the semantic layer off (the v1 default) is unchanged.
-          The banner is a non-blocking strip; the override sheet is inline
-          (never a Modal, never a route push) — TL-003 / SC-003 doctrine. */}
-      {refereeBanner ? (
-        <RefereeBannerView
-          result={refereeBanner}
-          reduceMotionOverride={reduceMotionOverride}
-          observationChips={uxOneOneFiveAComposerObservationChips}
-        />
-      ) : null}
-      {overridePrompt && overridePrompt.shouldOffer ? (
-        <SemanticOverrideChoiceSheet
-          prompt={overridePrompt}
-          onConfirm={(choice) => onConfirmOverride?.(choice)}
-          reduceMotionOverride={reduceMotionOverride}
-        />
-      ) : null}
-
-      {/* REF-006-RAIL — the room-wide Open Issues ledger. Collapsed-by-default
-          bottom chrome (below the Timeline), mounted as a sibling IMMEDIATELY
-          above the side action rail. Reuses the SC-005 dock chassis layout;
-          its three verbs (jump / Inspect / Act move) route through the shipped
-          handlers. Mutual exclusion with the side action rail reuses the
-          shipped single-owner pattern (`isAnyPanelOpen` + `onExpandedChange`).
-          It sits below the Timeline, so it contributes ZERO to the UX-001.2
-          first-row offset cap. */}
-      <OpenIssuesRail
-        ledger={openIssuesLedger}
-        windowWidth={windowWidth}
-        windowHeight={windowHeight}
-        reduceMotionOverride={reduceMotionOverride}
-        isAnyPanelOpen={Boolean(selectedDockTarget) || sideRailExpanded || disagreementPointsRailExpanded}
-        onExpandedChange={handleOpenIssuesRailExpandedChange}
-        onJump={handleOpenIssueFocus}
-        onInspect={handleOpenIssueInspect}
-        onMove={handleOpenIssueMove}
-      />
-
-      {/* UX-MEDIATOR-005 — Disagreement Points rail. Read-only, collapsed-by-
-          default bottom chrome that lists the room's live disagreement points
-          (one structural state badge each) with a one-line "what would help
-          next?" + a "View in timeline" jump. Joins the single-owner
-          mutual-exclusion group with the Open Issues + side action rails. Pure
-          projection over MediatorBoardState (UX-MEDIATOR-001) — read-only, never
-          a submission gate; the only verb is a navigation jump. */}
-      <DisagreementPointsRail
-        board={mediatorBoard}
-        viewerRole={resolvedViewerRole}
-        activeNodeId={activeMessageId}
-        windowWidth={windowWidth}
-        windowHeight={windowHeight}
-        reduceMotionOverride={reduceMotionOverride}
-        isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded || sideRailExpanded}
-        onExpandedChange={setDisagreementPointsRailExpanded}
-        onJump={(nodeId) => {
-          setActiveMessageId(nodeId);
-          setSelectionStatus('explicit');
-        }}
-      />
-
-      {/* ARG-ROOM-005 — read-only public seat-availability strip. Open-slot
-          count / "Room full — observe" + the viewer's own state line. Counts
-          only, never identities. Rendered only when the room shell surfaces
-          seats (public rooms). */}
-      {seatAvailabilityViewModel ? (
-        <SeatAvailabilityStrip viewModel={seatAvailabilityViewModel} />
-      ) : null}
-
-      {/* Stage 6.4 / SC-005 — Side action rail. Collapsed by default for
-          observers; SC-005 renders it as a contextual dock (side-anchored
-          on wide viewports, a capped bottom sheet on narrow ones) and folds
-          the old App.tsx actionBar "Start an argument" CTA in. */}
-      <ArgumentSideActionRail
-        viewerRole={resolvedViewerRole}
-        bubbleActor={activeViewModel?.actor || 'unknown'}
-        participantSide={participantSide ?? null}
-        activeMessageId={activeMessageId}
-        onAction={handleRailAction}
-        windowWidth={windowWidth}
-        windowHeight={windowHeight}
-        reduceMotionOverride={reduceMotionOverride}
-        // SC-005 — "selected node" means an EXPLICIT SC-002/SC-004 node
-        // selection, not the always-present default-active message. This
-        // is what keeps the default room-entry collapsed label "Watch"
-        // (per the design's edge-case table) rather than "Actions on this
-        // point" the moment the room mounts.
-        hasSelectedNode={Boolean(selectedDockTarget)}
-        // REF-006-RAIL — also force-collapse when the Open Issues rail is
-        // expanded (two bottom rails never both expand). `openIssuesRailExpanded`
-        // defaults false → byte-identical when the rail is collapsed.
-        isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded || disagreementPointsRailExpanded}
-        onExpandedChange={handleRailExpandedChange}
-        startArgumentAction={startArgumentAction}
-        // ARG-ROOM-005 — when the room is full the Join For / Join Against
-        // chips render disabled + a verdict-free observe nudge; Watch stays
-        // enabled. Undefined (no seatAvailability) => chips enabled.
-        canClaimActiveSeat={seatAvailability ? seatAvailability.canClaimActiveSeat : undefined}
-        fullRoomNotice={seatAvailabilityViewModel?.fullRoomObserveNudge ?? null}
-      />
-
+        ) : null
+      }
+      col2Footer={
+        <>
       {/* UX-001.4 — Board-level Act / Inspect / Go trigger row. Sits
           between the Timeline body and the side-action rail. A small,
           unobtrusive row of three buttons; on browser viewports it
@@ -2756,6 +2703,121 @@ export function ArgumentGameSurface({
         panelWidthOverride={goPresentation.width}
         testID="board-go-popout"
       />
+        </>
+      }
+      col3={
+        /* UX-MEDIATOR-005 — Disagreement Points rail. Read-only ledger of the
+           room's live disagreement points (one structural state badge each)
+           with a one-line "what would help next?" + a "View in timeline" jump.
+           Pure projection over MediatorBoardState (UX-MEDIATOR-001) — read-only,
+           never a submission gate; the only verb is a navigation jump.
+           UX-BOARD-RAIL-002 — `presentation` is `'sheet'` on phone (collapsed-
+           pill bottom sheet, byte-identical to today) and `'pane'` on
+           tablet/wide (a persistent expanded-by-default docked column that
+           ignores `isAnyPanelOpen`). The `isAnyPanelOpen` OR-terms on the
+           bottom rails are UNCHANGED (DEFER): the pane ignores them, so a stale
+           term cannot force-collapse the docked pane. */
+        <DisagreementPointsRail
+          board={mediatorBoard}
+          viewerRole={resolvedViewerRole}
+          activeNodeId={activeMessageId}
+          windowWidth={windowWidth}
+          windowHeight={windowHeight}
+          reduceMotionOverride={reduceMotionOverride}
+          isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded || sideRailExpanded}
+          onExpandedChange={setDisagreementPointsRailExpanded}
+          onJump={(nodeId) => {
+            setActiveMessageId(nodeId);
+            setSelectionStatus('explicit');
+          }}
+          presentation={boardPresentation}
+        />
+      }
+      bottomChrome={
+        <>
+      {/* REF-006-RAIL — the room-wide Open Issues ledger. Collapsed-by-default
+          bottom chrome (below the Timeline), mounted as a sibling IMMEDIATELY
+          above the side action rail. Reuses the SC-005 dock chassis layout;
+          its three verbs (jump / Inspect / Act move) route through the shipped
+          handlers. Mutual exclusion with the side action rail reuses the
+          shipped single-owner pattern (`isAnyPanelOpen` + `onExpandedChange`).
+          It sits below the Timeline, so it contributes ZERO to the UX-001.2
+          first-row offset cap. UX-BOARD-RAIL-002 leaves the OR-terms here
+          UNCHANGED (the docked pane ignores isAnyPanelOpen; DEFER the rewire). */}
+      <OpenIssuesRail
+        ledger={openIssuesLedger}
+        windowWidth={windowWidth}
+        windowHeight={windowHeight}
+        reduceMotionOverride={reduceMotionOverride}
+        isAnyPanelOpen={Boolean(selectedDockTarget) || sideRailExpanded || disagreementPointsRailExpanded}
+        onExpandedChange={handleOpenIssuesRailExpandedChange}
+        onJump={handleOpenIssueFocus}
+        onInspect={handleOpenIssueInspect}
+        onMove={handleOpenIssueMove}
+      />
+
+      {/* ARG-ROOM-005 — read-only public seat-availability strip. Open-slot
+          count / "Room full — observe" + the viewer's own state line. Counts
+          only, never identities. Rendered only when the room shell surfaces
+          seats (public rooms). */}
+      {seatAvailabilityViewModel ? (
+        <SeatAvailabilityStrip viewModel={seatAvailabilityViewModel} />
+      ) : null}
+
+      {/* Stage 6.4 / SC-005 — Side action rail. Collapsed by default for
+          observers; SC-005 renders it as a contextual dock (side-anchored
+          on wide viewports, a capped bottom sheet on narrow ones) and folds
+          the old App.tsx actionBar "Start an argument" CTA in. */}
+      <ArgumentSideActionRail
+        viewerRole={resolvedViewerRole}
+        bubbleActor={activeViewModel?.actor || 'unknown'}
+        participantSide={participantSide ?? null}
+        activeMessageId={activeMessageId}
+        onAction={handleRailAction}
+        windowWidth={windowWidth}
+        windowHeight={windowHeight}
+        reduceMotionOverride={reduceMotionOverride}
+        // SC-005 — "selected node" means an EXPLICIT SC-002/SC-004 node
+        // selection, not the always-present default-active message. This
+        // is what keeps the default room-entry collapsed label "Watch"
+        // (per the design's edge-case table) rather than "Actions on this
+        // point" the moment the room mounts.
+        hasSelectedNode={Boolean(selectedDockTarget)}
+        // REF-006-RAIL — also force-collapse when the Open Issues rail is
+        // expanded (two bottom rails never both expand). `openIssuesRailExpanded`
+        // defaults false → byte-identical when the rail is collapsed.
+        isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded || disagreementPointsRailExpanded}
+        onExpandedChange={handleRailExpandedChange}
+        startArgumentAction={startArgumentAction}
+        // ARG-ROOM-005 — when the room is full the Join For / Join Against
+        // chips render disabled + a verdict-free observe nudge; Watch stays
+        // enabled. Undefined (no seatAvailability) => chips enabled.
+        canClaimActiveSeat={seatAvailability ? seatAvailability.canClaimActiveSeat : undefined}
+        fullRoomNotice={seatAvailabilityViewModel?.fullRoomObserveNudge ?? null}
+      />
+        </>
+      }
+      overlays={
+        <>
+      {/* MCP-019 — the semantic-referee surface for the active move. Both
+          components render NOTHING when their prop is absent / inert, so a
+          room with the semantic layer off (the v1 default) is unchanged.
+          The banner is a non-blocking strip; the override sheet is inline
+          (never a Modal, never a route push) — TL-003 / SC-003 doctrine. */}
+      {refereeBanner ? (
+        <RefereeBannerView
+          result={refereeBanner}
+          reduceMotionOverride={reduceMotionOverride}
+          observationChips={uxOneOneFiveAComposerObservationChips}
+        />
+      ) : null}
+      {overridePrompt && overridePrompt.shouldOffer ? (
+        <SemanticOverrideChoiceSheet
+          prompt={overridePrompt}
+          onConfirm={(choice) => onConfirmOverride?.(choice)}
+          reduceMotionOverride={reduceMotionOverride}
+        />
+      ) : null}
 
       {deletionTarget && (
         <DeletionRequestSheet
@@ -2798,7 +2860,9 @@ export function ArgumentGameSurface({
           testID="request-review-composer"
         />
       )}
-    </View>
+        </>
+      }
+    />
   );
 }
 
