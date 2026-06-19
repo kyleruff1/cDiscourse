@@ -89,10 +89,41 @@ describe('UX-MEDIATOR-002 getNodeMediatorMarker', () => {
   });
 
   it('shows a node deviation even when the point state is suppressed (open)', () => {
+    // UX-MEDIATOR-002 O-1: selection still considers the internal `off_point`
+    // deviation, but the chip is projected onto the v4 display vocabulary —
+    // `off_point` collapses to the "Scope mismatch" display state.
     const board = makeBoard([makeMarkup({ nodeId: 'n1', primaryState: 'open', deviation: makeDeviation('off_point') })]);
     const marker = getNodeMediatorMarker(board, 'n1');
-    expect(marker?.code).toBe('off_point');
-    expect(marker?.label).toBe('Off-point response');
+    expect(marker?.code).toBe('scope_mismatch');
+    expect(marker?.label).toBe('Scope mismatch');
+  });
+
+  it('projects the v4 display vocabulary on the chip (O-1)', () => {
+    // key_detail_unavailable → evidence_blocked ("Blocked evidence path").
+    const blocked = makeBoard([makeMarkup({ nodeId: 'k', primaryState: 'key_detail_unavailable' })]);
+    const blockedMarker = getNodeMediatorMarker(blocked, 'k');
+    expect(blockedMarker?.code).toBe('evidence_blocked');
+    expect(blockedMarker?.label).toBe('Blocked evidence path');
+
+    // missing_mechanism is unchanged by the projection — keeps "Missing link".
+    const link = makeBoard([makeMarkup({ nodeId: 'm', primaryState: 'missing_mechanism' })]);
+    const linkMarker = getNodeMediatorMarker(link, 'm');
+    expect(linkMarker?.code).toBe('missing_mechanism');
+    expect(linkMarker?.label).toBe('Missing link');
+
+    // definition_not_shared keeps its shipped "Definition needed" label
+    // (the 'Definition not shared' rename is deferred to UX-MEDIATOR-004).
+    const def = makeBoard([makeMarkup({ nodeId: 'd', primaryState: 'definition_not_shared' })]);
+    const defMarker = getNodeMediatorMarker(def, 'd');
+    expect(defMarker?.code).toBe('definition_not_shared');
+    expect(defMarker?.label).toBe('Definition needed');
+  });
+
+  it('display-suppresses value_tradeoff (projects to open → no chip)', () => {
+    // UX-MEDIATOR-002 O-1: value_tradeoff collapses to the display `open`
+    // state, which is non-actionable — the node carries NO chip.
+    const board = makeBoard([makeMarkup({ nodeId: 'vt', primaryState: 'value_tradeoff' })]);
+    expect(getNodeMediatorMarker(board, 'vt')).toBeNull();
   });
 
   it('keeps the highest-priority candidate when point state and deviation both apply', () => {

@@ -94,7 +94,13 @@ import { buildPointLifecycleMap } from '../lifecycle';
 import { DisagreementPointsRail } from '../mediator/DisagreementPointsRail';
 import { deriveRoomMediatorBoardState } from '../mediator/roomMediatorAdapter';
 import { MediatorNodeMarker } from '../mediator/MediatorNodeMarker';
+// UX-MEDIATOR-002 — the relocated mediator-state detail block, mounted inside
+// the existing Inspect overlay (sibling of NodeLabelInspectGroups) so the
+// reasoning behind the one default chip is preserved on Inspect (no
+// intelligence deleted).
+import { MediatorNodeInspectDetail } from '../mediator/MediatorNodeInspectDetail';
 import { getNodeMediatorMarker } from '../mediator/nodeMediatorMarkers';
+import { helperForMediatorState } from '../mediator/mediatorPlainLanguage';
 import { buildMoveMetadataLedger, getManualTagPlainLabel } from '../metadata';
 // META-1E — Cards-detail metadata diff inspector. Imported directly by path
 // (the `../metadata` barrel stays React-free). Mounts as a sibling overlay
@@ -169,20 +175,25 @@ import { resolveBoardMenuKeyEffect } from './boardMenuKeyboardModel';
 import { buildTimelineMiniMapModel } from './timelineMiniMapModel';
 import type { ArgumentType as ConstitutionArgumentType } from '../../domain/constitution/types';
 // UX-001.5A — Node labels (Machine Observations + User Allegations).
-// Both components are UI-only consumers of the pure-TS source adapters;
-// neither component owns state, calls Supabase, or runs an AI provider.
-// NodeLabelStrip mounts under the Timeline as a sibling of the score
-// tracker and selected-readout panel; NodeLabelInspectGroups mounts
-// adjacent to the InspectPopout as a sibling overlay visible only when
-// Inspect is open (per design §10.3 alternative path — zero
-// modification to InspectPopout.tsx or inspectContentBuilder.ts).
+// UI-only consumer of the pure-TS source adapters; owns no state, calls no
+// Supabase, runs no AI provider. UX-MEDIATOR-002: NodeLabelStrip (the old
+// per-node default-view second chip surface) is NO LONGER mounted in the
+// default view — its Observation/Allegation content is relocated into
+// NodeLabelInspectGroups, which mounts adjacent to the InspectPopout as a
+// sibling overlay visible only when Inspect is open (per design §10.3
+// alternative path — zero modification to InspectPopout.tsx or
+// inspectContentBuilder.ts).
 import {
   NodeLabelInspectGroups,
-  NodeLabelStrip,
   adaptAllSourcesForNode,
   adaptSemanticRefereeSourceComposer,
   toAnnotationChipDescriptors,
 } from '../nodeLabels';
+// UX-MEDIATOR-002 — NodeLabelStrip is no longer mounted in the DEFAULT view
+// (its Observation/Allegation content is relocated into the Inspect overlay via
+// NodeLabelInspectGroups). The component, its tests, and its nodeLabels export
+// remain intact for a future selected-context surface; it is simply not
+// imported here anymore (one primary state chip per node by default).
 import type { AnnotationChipDescriptor } from '../nodeAnnotations';
 // REF-003 — Referee Card surface for the ACTIVE node. The surface derives the
 // Open Issue (Disagreement Contract) at render time from data it already holds
@@ -240,8 +251,8 @@ interface Props {
   /**
    * MCP-021B — Optional per-message persisted Machine Observation result
    * rows (`public.argument_machine_observation_results`). When supplied
-   * AND non-empty, the NodeLabelStrip + NodeLabelInspectGroups mounts
-   * forward them into the Source 6 adapter via
+   * AND non-empty, the NodeLabelInspectGroups mount (Inspect overlay)
+   * forwards them into the Source 6 adapter via
    * `adaptAllSourcesForNode({ persistedClassifierRows, surface })`. When
    * absent or empty for a message, Source 6 returns `[]` byte-equal
    * pre-MCP-021B.
@@ -691,6 +702,33 @@ export function ArgumentGameSurface({
     }),
     [debate.id, timelineMap, lifecycleMap, evidenceDebts, persistedObservationsByArgumentId, activeMessageId],
   );
+
+  // UX-MEDIATOR-002 — the SINGLE primary state chip for the active node,
+  // selected ONCE from the already-derived board (single-derivation invariant:
+  // the board is consumed, never re-derived). Shared by the default-view chip,
+  // the chip-adjacent Inspect caret, and the Inspect detail block so all three
+  // read the same one state. Null for ordinary open/resolved nodes (no chip).
+  const activeNodeMediatorMarker = useMemo(
+    () => getNodeMediatorMarker(mediatorBoard, activeMessageId),
+    [mediatorBoard, activeMessageId],
+  );
+
+  // UX-MEDIATOR-002 — plain-language detail for the active node mediator
+  // state, surfaced in the Inspect overlay (relocated from the default-view
+  // chip soup). Helper sentence from the state; the next-useful-move label is
+  // the first AVAILABLE pathway step for the point of the node (same read the
+  // Disagreement Points rail uses) — null when no pathway is available
+  // (e.g. structured impasse).
+  const activeNodeMediatorDetail = useMemo(() => {
+    if (!activeNodeMediatorMarker || !activeMessageId) {
+      return { helper: '', nextMoveLabel: null as string | null };
+    }
+    const helper = helperForMediatorState(activeNodeMediatorMarker.code);
+    const pointId = mediatorBoard.markupByNodeId?.[activeMessageId]?.pointId ?? null;
+    const pathway = pointId ? mediatorBoard.pathwaysByPointId?.[pointId] : undefined;
+    const step = pathway?.steps.find((s) => s.available) ?? null;
+    return { helper, nextMoveLabel: step ? step.plainLabel : null };
+  }, [activeNodeMediatorMarker, activeMessageId, mediatorBoard]);
 
   // META-1A — Convert persisted point_tags rows into the META-001
   // ManualTagEntry map the metadata ledger consumes. Empty input (META-1A
@@ -1683,6 +1721,17 @@ export function ArgumentGameSurface({
     [mode],
   );
 
+  // UX-MEDIATOR-002 — chip-adjacent Inspect caret (O-2). Opens the SHIPPED
+  // Inspect overlay for the ALREADY-active node (the chip shows the primary
+  // state of the active node), reusing the same setInspectVisible plumbing the
+  // Act/Inspect/Go dock and the Open Issues rail use. Mutual exclusion: closes
+  // Act/Go first (single open popout). Read-only; never a submission gate.
+  const handleNodeChipInspect = useCallback(() => {
+    setBoardActVisible(false);
+    setGoVisible(false);
+    setInspectVisible(true);
+  }, []);
+
   // REF-006-RAIL — Open Issues rail "Details" (Inspect). Sets the active node
   // and opens the SHIPPED Inspect popout; the `InspectOpenIssueDetail` sibling
   // overlay re-derives on the new active node. Read-only for every role.
@@ -2168,42 +2217,40 @@ export function ArgumentGameSurface({
                 (was above). The component itself is unchanged — only
                 its mount site moves. */}
             <ArgumentScoreTracker trends={participantTrends} />
-            {/* UX-MEDIATOR-002 — compact node-level mediator marker for the
-                active node, beside the node-label strip. Read-only, exactly one
-                primary state (priority-selected from the already-derived
-                board's markupByNodeId), suppressed for ordinary open/resolved
-                nodes. Self-hides when no actionable state — zero change to
-                ArgumentTimelineMap, never a submission gate. */}
-            <MediatorNodeMarker
-              marker={getNodeMediatorMarker(mediatorBoard, activeMessageId)}
-              testID="mediator-node-marker-active"
-            />
-            {/* UX-001.5A — Node label strip for the active node. 1+1+
-                overflow. Renders nothing when no node is active or
-                when no labels apply at the timeline_node surface.
-                Sibling of the score tracker — ZERO modification to
-                ArgumentTimelineMap.tsx. The strip's height (≤ 32 px
-                in compact mode) is well within UX-001.2's
-                below-Timeline chrome budget. */}
-            {activeMessageId && activeViewModel ? (
-              <NodeLabelStrip
-                messageId={activeMessageId}
-                manualTagEntries={manualTagsByMessageId.get(activeMessageId) ?? []}
-                autoMetadataCodes={
-                  metadataLedger.byMessage
-                    .get(activeMessageId)
-                    ?.autoDerivedMetadata.map((entry) => entry.code) ?? []
-                }
-                clusterState={
-                  lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? 'open'
-                }
-                messageContribution={
-                  lifecycleMap.byMessage.get(activeMessageId)?.messageContribution ?? null
-                }
-                persistedClassifierRows={
-                  persistedObservationsByArgumentId?.[activeMessageId] ?? []
-                }
-              />
+            {/* UX-MEDIATOR-002 — ONE primary state chip per node (default
+                view). The compact node-level mediator marker for the active
+                node, projected through v4DisplayStateFor (the UX-MEDIATOR-001
+                v4 nine-state vocabulary). Read-only, exactly one primary state
+                (priority-selected ONCE from the already-derived board
+                markupByNodeId — single-derivation invariant), suppressed for
+                ordinary open/resolved nodes. The old NodeLabelStrip
+                second-chip surface (Observation/Allegation chips + overflow)
+                is UNMOUNTED here — its content is relocated into the existing
+                Inspect overlay (NodeLabelInspectGroups) so the default view
+                shows one state + one move, not chip soup. A chip-adjacent
+                Inspect caret (O-2) opens that detail one tap away; it renders
+                only when there IS a chip. The chip itself stays non-interactive
+                (a read-only text badge); the caret carries the button role +
+                a 44x44 target. Self-hides entirely when no actionable state. */}
+            {activeNodeMediatorMarker ? (
+              <View style={styles.nodeChipRow} testID="mediator-node-chip-row">
+                <MediatorNodeMarker
+                  marker={activeNodeMediatorMarker}
+                  testID="mediator-node-marker-active"
+                />
+                <Pressable
+                  onPress={handleNodeChipInspect}
+                  accessibilityRole="button"
+                  accessibilityLabel="Inspect this point"
+                  accessibilityHint="Opens the full mediator state, machine observations and user allegations for this point."
+                  accessibilityState={{ expanded: inspectVisible }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  style={styles.nodeChipInspectCaret}
+                  testID="mediator-node-inspect-caret"
+                >
+                  <Text style={styles.nodeChipInspectCaretText}>Inspect</Text>
+                </Pressable>
+              </View>
             ) : null}
             {/* UX-001.3 — Persistent collapsed-composer strip. Sits
                 below the score tracker so the user always sees what
@@ -2468,6 +2515,25 @@ export function ArgumentGameSurface({
         panelWidthOverride={inspectPresentation.width}
         testID="board-inspect-popout"
       />
+      {/* UX-MEDIATOR-002 — mediator-state detail block, mounted ABOVE the
+          Observation/Allegation groups inside the SAME inspectVisible +
+          activeMessageId gate. It preserves the reasoning behind the one
+          default chip after the soup collapse: the structural state label +
+          its plain-language helper + the next-useful-move pathway. Read-only
+          sibling (mirrors the NodeLabelInspectGroups + MetadataDiffInspector
+          pattern); returns null when the node has no actionable mediator
+          state. The §10a Observations-vs-Allegations distinction stays in
+          NodeLabelInspectGroups (the sibling overlay) — this block carries
+          ONLY the mediator structural state, never Observation/Allegation
+          chips. */}
+      {inspectVisible && activeMessageId ? (
+        <MediatorNodeInspectDetail
+          marker={activeNodeMediatorMarker}
+          helper={activeNodeMediatorDetail.helper}
+          nextMoveLabel={activeNodeMediatorDetail.nextMoveLabel}
+          testID="mediator-node-inspect-detail-active"
+        />
+      ) : null}
       {/* UX-001.5A — Inspect grouped-view sibling overlay. Per design
           §10.3 ALTERNATIVE path: rendered alongside the Inspect popout
           when both Inspect is visible AND there is an active selected
@@ -2660,4 +2726,27 @@ const styles = StyleSheet.create({
   },
   microMomentText: { color: '#a5b4fc', fontSize: 12, fontWeight: '700' as const },
   microMomentHelper: { color: '#94a3b8', fontSize: 11, fontWeight: '400' as const, marginTop: 2 },
+  // UX-MEDIATOR-002 — one-chip row: the single primary state chip + the
+  // chip-adjacent Inspect caret (O-2). Rendered only when there IS a chip.
+  nodeChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  // The caret visual size + hitSlop (12) lift the effective tap target well
+  // above 44x44 (minHeight 32 + 12*2 = 56). role=button + label live on the
+  // Pressable; the chip itself stays non-interactive text.
+  nodeChipInspectCaret: {
+    minHeight: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#0b1220',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nodeChipInspectCaretText: { color: '#cbd5e1', fontSize: 11, fontWeight: '600' as const },
 });

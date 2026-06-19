@@ -52,32 +52,55 @@ describe('UX-001.5A — Edit A: composer-only observationChips into RefereeBanne
   });
 });
 
-describe('UX-001.5A — Edit B: NodeLabelStrip mount below the Timeline', () => {
-  it('imports NodeLabelStrip from nodeLabels', () => {
-    expect(GAME_SURFACE_SRC).toMatch(/NodeLabelStrip/);
+// UX-MEDIATOR-002 RECONCILIATION — "Edit B" originally pinned the DOUBLE-MOUNT
+// default view (MediatorNodeMarker chip + NodeLabelStrip second chip surface
+// stacked below the Timeline). UX-MEDIATOR-002 collapses the "chip soup": the
+// default view now renders exactly ONE primary state chip (MediatorNodeMarker,
+// projected through v4DisplayStateFor) and the NodeLabelStrip
+// Observation/Allegation content is relocated into the existing Inspect overlay
+// (NodeLabelInspectGroups). NodeLabelStrip is therefore no longer mounted —
+// nor imported — in the default view. The block below is updated (not weakened)
+// to the new single-chip-default + content-in-Inspect contract; the same prop
+// wiring (manualTagEntries / autoMetadataCodes / clusterState) is now verified
+// on the Inspect-overlay mount instead of the default-view strip. See
+// docs/designs/UX-MEDIATOR-002.md §5 ("Existing tests that PIN the current
+// multi-chip markup").
+describe('UX-MEDIATOR-002 (was UX-001.5A Edit B): one chip default; strip content in Inspect', () => {
+  it('does NOT mount NodeLabelStrip in the default view (the second chip surface is gone)', () => {
+    expect(GAME_SURFACE_SRC).not.toMatch(/<NodeLabelStrip\s/);
   });
 
-  it('mounts NodeLabelStrip with messageId + manualTagEntries + autoMetadataCodes', () => {
-    expect(GAME_SURFACE_SRC).toMatch(/<NodeLabelStrip\s/);
+  it('does NOT import NodeLabelStrip into the surface anymore (unmounted)', () => {
+    // The component remains exported from nodeLabels for a future selected-
+    // context surface; it is simply no longer imported here.
+    expect(GAME_SURFACE_SRC).not.toMatch(/^\s*NodeLabelStrip,\s*$/m);
+  });
+
+  it('mounts exactly ONE default-view chip (MediatorNodeMarker), gated on the marker', () => {
+    expect(GAME_SURFACE_SRC).toMatch(
+      /activeNodeMediatorMarker \?[\s\S]*?<MediatorNodeMarker[\s\S]*?testID="mediator-node-marker-active"/,
+    );
+  });
+
+  it('relocates the strip content into the Inspect overlay (NodeLabelInspectGroups)', () => {
+    // The same prop wiring the old default-view strip used now flows into the
+    // Inspect-overlay groups mount.
+    expect(GAME_SURFACE_SRC).toMatch(/<NodeLabelInspectGroups\s/);
     expect(GAME_SURFACE_SRC).toMatch(/messageId=\{activeMessageId\}/);
   });
 
-  it('strip wires manualTagEntries from manualTagsByMessageId map', () => {
+  it('Inspect overlay wires manualTagEntries from manualTagsByMessageId map', () => {
     expect(GAME_SURFACE_SRC).toMatch(
       /manualTagEntries=\{manualTagsByMessageId\.get\(activeMessageId\)\s*\?\?\s*\[\]\}/,
     );
   });
 
-  it('strip wires autoMetadataCodes from metadataLedger.byMessage', () => {
+  it('Inspect overlay wires autoMetadataCodes from metadataLedger.byMessage', () => {
     expect(GAME_SURFACE_SRC).toMatch(/metadataLedger\.byMessage[\s\S]*?autoDerivedMetadata/);
   });
 
-  it('strip wires clusterState from lifecycleMap.byMessage', () => {
+  it('Inspect overlay wires clusterState from lifecycleMap.byMessage', () => {
     expect(GAME_SURFACE_SRC).toMatch(/lifecycleMap\.byMessage[\s\S]*?clusterState/);
-  });
-
-  it('strip is conditionally rendered (active node only)', () => {
-    expect(GAME_SURFACE_SRC).toMatch(/activeMessageId\s*&&\s*activeViewModel\s*\?\s*\(\s*<NodeLabelStrip/);
   });
 });
 
