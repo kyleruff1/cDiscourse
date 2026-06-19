@@ -110,6 +110,13 @@ import { MediatorNodeInspectDetail } from '../mediator/MediatorNodeInspectDetail
 import { SelectedNodeInspectDrawer } from '../mediator/SelectedNodeInspectDrawer';
 import { getNodeMediatorMarker } from '../mediator/nodeMediatorMarkers';
 import { helperForMediatorState } from '../mediator/mediatorPlainLanguage';
+// UX-NEXT-MOVE-001 — "What would move this forward?" guidance for the active
+// node, rendered in the existing SelectedNodeInspectDrawer "Move forward:" slot.
+// Pure display: the move set is a deterministic function of the active node's
+// v4 display state (no re-derivation, no network/AI, no submit change).
+import { MediatorNextMovesCard } from '../mediator/MediatorNextMovesCard';
+import { nextMovesForState } from '../mediator/nextMovesForState';
+import { v4DisplayStateFor } from '../mediator/deriveMediatorBoardState';
 import { buildMoveMetadataLedger, getManualTagPlainLabel } from '../metadata';
 // META-1E — Cards-detail metadata diff inspector. Imported directly by path
 // (the `../metadata` barrel stays React-free). Mounts as a sibling overlay
@@ -738,6 +745,19 @@ export function ArgumentGameSurface({
     const step = pathway?.steps.find((s) => s.available) ?? null;
     return { helper, nextMoveLabel: step ? step.plainLabel : null };
   }, [activeNodeMediatorMarker, activeMessageId, mediatorBoard]);
+
+  // UX-NEXT-MOVE-001 — the ordered "What would move this forward?" move set for
+  // the active node. A pure function of the marker's v4 DISPLAY state (the
+  // marker code is already projected; v4DisplayStateFor is idempotent on it and
+  // satisfies the type). No board re-derivation, no network/AI, no mutation.
+  // Empty when there is no actionable marker, or when the state is terminal
+  // (resolved_or_settled) — the card then renders nothing.
+  const activeNodeNextMoves = useMemo(() => {
+    if (!activeNodeMediatorMarker) return [];
+    const displayState = v4DisplayStateFor(activeNodeMediatorMarker.code);
+    if (displayState === 'resolved_or_settled') return [];
+    return nextMovesForState(displayState);
+  }, [activeNodeMediatorMarker]);
 
   // META-1A — Convert persisted point_tags rows into the META-001
   // ManualTagEntry map the metadata ledger consumes. Empty input (META-1A
@@ -2555,10 +2575,12 @@ export function ArgumentGameSurface({
           each is passed verbatim into a named slot. The wrapper adds ONLY the
           four section headers ("Why this state · Other structure notes · Move
           forward · History") so the overlays read as ONE coherent drawer.
-          Read-only; no board / topology / derivation change. Per O-5 default,
-          the "Move forward:" move stays inside MediatorNodeInspectDetail's
-          shipped next-move line under "Why this state" — the standalone
-          moveForward slot is left unset to avoid a dangling section header.
+          Read-only; no board / topology / derivation change. The inline
+          next-move line stays inside MediatorNodeInspectDetail under "Why this
+          state" (the one-glance headline). UX-NEXT-MOVE-001 fills the standalone
+          "Move forward:" slot with the richer "What would move this forward?"
+          card (the full ordered move set) — display-only guidance that routes to
+          no new action; the slot self-suppresses when the move set is empty.
 
           UX-MEDIATOR-002 — the mediator-state detail block preserves the
           reasoning behind the one default chip (structural state + helper +
@@ -2603,6 +2625,14 @@ export function ArgumentGameSurface({
               <InspectOpenIssueDetail
                 issue={refereeCardIssue}
                 testID="ref004-inspect-open-issue-detail"
+              />
+            ) : null
+          }
+          moveForward={
+            activeNodeNextMoves.length > 0 ? (
+              <MediatorNextMovesCard
+                moves={activeNodeNextMoves}
+                testID="mediator-next-moves-card"
               />
             ) : null
           }

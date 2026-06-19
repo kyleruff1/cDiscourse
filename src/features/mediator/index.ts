@@ -29,3 +29,14 @@ export {
   totalDistributionCount,
   type DisagreementDistributionSegment,
 } from './mediatorDistribution';
+// UX-NEXT-MOVE-001 — "What would move this forward?" next-move guidance
+// (display-only; pure derivation over the already-derived display state).
+export {
+  nextMovesForState,
+  _forbiddenNextMoveTokens,
+  type NextMove,
+} from './nextMovesForState';
+export {
+  MediatorNextMovesCard,
+  type MediatorNextMovesCardProps,
+} from './MediatorNextMovesCard';
