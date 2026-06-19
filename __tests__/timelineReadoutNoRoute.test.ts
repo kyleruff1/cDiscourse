@@ -149,10 +149,23 @@ describe('IX-004 — selection callbacks in ArgumentGameSurface route through lo
 
   it('the TimelineSelectedReadoutPanel render site passes a single read-only viewModel prop', () => {
     // UX-001.2 — the panel relocated from above the Timeline to below it
-    // and gained an optional `compact` prop. It remains read-only — no
-    // onAction / onPress / onSelect callbacks are threaded into it.
+    // and gained an optional `compact` prop.
+    // UX-SELECTED-NODE-001 (reconciliation) — the mount also gained a
+    // read-only `onGoToParent` selection-jump prop (wired to
+    // setActiveMessageId, the SAME local-state selection path section 2 of
+    // this file explicitly allows). It remains read-only: NO action / submit /
+    // route callback is threaded in.
     expect(surface).toMatch(
-      /<TimelineSelectedReadoutPanel viewModel=\{timelineReadoutViewModel\} compact \/>/,
+      /<TimelineSelectedReadoutPanel\s+viewModel=\{timelineReadoutViewModel\}\s+compact/,
     );
+    // Extract the panel mount element and assert it threads no action/submit/
+    // route callback (only the read-only onGoToParent jump is permitted).
+    const mountStart = surface.indexOf('<TimelineSelectedReadoutPanel');
+    const mountEnd = surface.indexOf('/>', mountStart);
+    const mountBlock = surface.slice(mountStart, mountEnd + 2);
+    expect(mountBlock).not.toMatch(/\bonAction\b/);
+    expect(mountBlock).not.toMatch(/\bonSubmit\b/);
+    expect(mountBlock).not.toMatch(/\bonSelect\b/);
+    expect(mountBlock).not.toMatch(/\bonPress\b/);
   });
 });

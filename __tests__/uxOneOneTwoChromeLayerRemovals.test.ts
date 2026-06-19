@@ -150,8 +150,11 @@ describe('UX-001.2 — ArgumentScoreTracker mount-site moved below the Timeline'
 
 describe('UX-001.2 — TimelineSelectedReadoutPanel mount-site uses compact prop', () => {
   it('the readout panel renders below the Timeline with the compact prop', () => {
+    // UX-SELECTED-NODE-001 (reconciliation): the mount now spans multiple
+    // lines because it gained the read-only `onGoToParent` jump prop. The
+    // viewModel + compact contract is preserved.
     expect(SURFACE_SRC).toMatch(
-      /<TimelineSelectedReadoutPanel viewModel=\{timelineReadoutViewModel\} compact \/>/,
+      /<TimelineSelectedReadoutPanel\s+viewModel=\{timelineReadoutViewModel\}\s+compact/,
     );
   });
 

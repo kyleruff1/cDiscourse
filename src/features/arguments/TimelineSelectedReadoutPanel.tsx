@@ -39,6 +39,9 @@ import {
 } from 'react-native';
 import { ArgumentReplySidecar } from './ArgumentReplySidecar';
 import type { TimelineSelectedReadoutViewModel } from './timelineSelectedReadoutModel';
+// UX-SELECTED-NODE-001 — restrained gold accent (selected-node "center of the
+// room" halo + in-card left accent). Existing UX-BRAND-001 tokens; no new hex.
+import { BRAND } from '../../lib/designTokens';
 
 interface Props {
   viewModel: TimelineSelectedReadoutViewModel;
@@ -49,9 +52,17 @@ interface Props {
    * renders (IX-004 back-compat).
    */
   compact?: boolean;
+  /**
+   * UX-SELECTED-NODE-001 (§6 / §9.3) — read-only "Go to parent point" jump.
+   * When provided, the responding-to anchor renders a "Go to parent point"
+   * affordance that calls this (the host wires it to setActiveMessageId on
+   * the parent). Omitted at the root (no parent) — the affordance is then
+   * not rendered. Read-only selection jump; never a submit / write.
+   */
+  onGoToParent?: () => void;
 }
 
-export function TimelineSelectedReadoutPanel({ viewModel, compact }: Props) {
+export function TimelineSelectedReadoutPanel({ viewModel, compact, onGoToParent }: Props) {
   // Native-only: announce the selection change. Web uses the
   // accessibilityLiveRegion host below — gating on Platform prevents a
   // double-announcement on web (RN-web reads the live region itself).
@@ -107,17 +118,48 @@ export function TimelineSelectedReadoutPanel({ viewModel, compact }: Props) {
     whatSection && whatSection.kind === 'what_this_move_says'
       ? whatSection.parentHint
       : null;
+  // UX-SELECTED-NODE-001 (row 3) — the parent / target excerpt. Already on
+  // the SC-003 view-model (argumentReplySidecarModel.parentBodyPreview, ≤120
+  // chars, word-boundary truncated, redaction-safe). Surfaced in the compact
+  // selected-node anchor for the first time here. null at the root → omitted.
+  const parentExcerpt =
+    whatSection && whatSection.kind === 'what_this_move_says'
+      ? whatSection.parentBodyPreview
+      : null;
   const branchLine =
     whereSection && whereSection.kind === 'where_it_sits'
       ? whereSection.branchLabel
       : '';
 
+  // UX-SELECTED-NODE-001 (row 1) — the selected-node "center of the room"
+  // treatment renders ONLY when there is an actual subject (not the empty
+  // hint). The gold halo (border) + the in-card left accent stripe mark THIS
+  // card as the selected point; the gold is deliberately distinct from the
+  // indigo (GLOW.activePath) active-path system. Geometry (the left-accent
+  // stripe width + the border) carries the signal in grayscale; no animation.
+  const showSelectedTreatment = !viewModel.isEmpty;
+
   return (
     <View
-      style={styles.panel}
+      style={[
+        styles.panel,
+        showSelectedTreatment && styles.selectedCard,
+      ]}
       testID="timeline-selected-readout-panel"
       accessibilityLabel={viewModel.accessibilityPanelLabel}
     >
+      {/* UX-SELECTED-NODE-001 (row 2, O-2 in-card LEFT ACCENT) — an in-card
+          left-edge accent stripe. It lives INSIDE this card's own bounds (it
+          is part of the selected card), NOT a separate column or board rail.
+          Decorative (geometry); hidden from the screen reader. */}
+      {showSelectedTreatment ? (
+        <View
+          style={styles.selectedCardLeftAccent}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          testID="selected-node-card-left-accent"
+        />
+      ) : null}
       {/* Web live region — keyed on the selected id so RN-web re-announces
           on every selection change. Native ignores the prop and uses the
           announceForAccessibility effect above. The host has no visible
@@ -148,10 +190,48 @@ export function TimelineSelectedReadoutPanel({ viewModel, compact }: Props) {
               {bodyLine}
             </Text>
           ) : null}
-          {parentLine ? (
-            <Text style={styles.parentLine} numberOfLines={1}>
-              {parentLine}
-            </Text>
+          {/* UX-SELECTED-NODE-001 (rows 2-3) — the "Responding to this point"
+              anchor. The v4 lead-in is anchored where composition is bound;
+              the structural "#N (kind)" identity stays as the sub-label
+              (parentLine — NEVER a fabricated display name, §7 R3); the parent
+              excerpt (parentBodyPreview, row 3) renders below it when present;
+              and the read-only "Go to parent point" jump (§6 / §9.3) renders
+              when the host supplies onGoToParent. The whole block is omitted
+              cleanly at the root (no parentLine and no excerpt). */}
+          {parentLine || parentExcerpt ? (
+            <View style={styles.respondingAnchor} testID="selected-node-responding-anchor">
+              <Text style={styles.respondingAnchorLead} numberOfLines={1}>
+                Responding to this point
+              </Text>
+              {parentLine ? (
+                <Text style={styles.parentLine} numberOfLines={1}>
+                  {parentLine}
+                </Text>
+              ) : null}
+              {parentExcerpt ? (
+                <Text
+                  style={styles.parentExcerptLine}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                  testID="selected-node-parent-excerpt"
+                >
+                  {parentExcerpt}
+                </Text>
+              ) : null}
+              {onGoToParent ? (
+                <Pressable
+                  onPress={onGoToParent}
+                  style={styles.goToParentTrigger}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go to parent point"
+                  accessibilityHint="Selects the point this move is responding to."
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  testID="selected-node-go-to-parent"
+                >
+                  <Text style={styles.goToParentText}>Go to parent point →</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
           <Text style={styles.metaLine} numberOfLines={1}>
             {viewModel.replyCountLabel}
@@ -210,6 +290,30 @@ const styles = StyleSheet.create({
     marginTop: 8,
     overflow: 'hidden',
   },
+  // UX-SELECTED-NODE-001 (row 1) — the selected-node card "center of the
+  // room" halo. A restrained GOLD border (BRAND.accent.goldBorder) replaces
+  // the resting indigo card border so THIS card reads as the selected point,
+  // distinct from the indigo (GLOW.activePath) active-path system. The
+  // paddingLeft makes room for the in-card left-accent stripe so content is
+  // never overlapped. The card keeps overflow:hidden, so the stripe stays
+  // within the card's own rounded bounds (it is part of the card, not a rail).
+  selectedCard: {
+    borderColor: BRAND.accent.goldBorder,
+    paddingLeft: 4,
+  },
+  // UX-SELECTED-NODE-001 (row 2, O-2) — the IN-CARD left accent stripe. A
+  // 4px gold edge pinned to the LEFT of THIS card, inside its bounds. It is
+  // NOT a separate column / board rail — it is part of the selected card.
+  // Geometry (the stripe) carries the signal in grayscale; gold is the color
+  // supplement. Decorative; hidden from the screen reader.
+  selectedCardLeftAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: BRAND.accent.gold,
+  },
   // Visually-hidden host — present for the screen reader, off-screen for
   // sighted users. The selection cue is the panel content change itself.
   liveRegion: {
@@ -261,6 +365,39 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 11,
     fontWeight: '500',
+  },
+  // UX-SELECTED-NODE-001 (rows 2-3) — the "Responding to this point" anchor
+  // group. A small top margin sets it apart from the body line above; the
+  // lead-in is the loudest line in the group (gold), the structural identity
+  // (parentLine) and the excerpt are quieter context below it.
+  respondingAnchor: {
+    marginTop: 3,
+    gap: 1,
+  },
+  respondingAnchorLead: {
+    color: BRAND.accent.gold,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  // The parent excerpt is the parent's body text (verbatim, ≤120 chars).
+  // Two-line clamp so it never blows the compact height budget on phone.
+  parentExcerptLine: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: '400',
+    fontStyle: 'italic',
+  },
+  // "Go to parent point" — read-only nav. Self-aligned start so the 44px
+  // (visual + hitSlop) target never spans the full card width.
+  goToParentTrigger: {
+    marginTop: 2,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  goToParentText: {
+    color: '#a5b4fc',
+    fontSize: 11,
+    fontWeight: '700',
   },
   metaLine: {
     color: '#94a3b8',
