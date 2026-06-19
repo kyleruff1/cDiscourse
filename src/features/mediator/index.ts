@@ -24,3 +24,8 @@ export {
   deriveResolutionPathways,
   v4DisplayStateFor,
 } from './deriveMediatorBoardState';
+export {
+  buildDisagreementDistribution,
+  totalDistributionCount,
+  type DisagreementDistributionSegment,
+} from './mediatorDistribution';
