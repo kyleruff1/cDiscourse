@@ -235,7 +235,7 @@ describe('UX-MEDIATOR-001 — open evidence debt', () => {
   });
 });
 
-// ── 5. Blocked evidence path (data-supported only) ────────────
+// ── 5. Evidence blocked (data-supported only) ────────────
 
 describe('UX-MEDIATOR-001 — blocked / unavailable evidence', () => {
   it('A: an unresolved (declined) debt → evidence_blocked + a blocked path', () => {
@@ -501,11 +501,24 @@ describe('UX-MEDIATOR-001 — plain-language coverage', () => {
 describe('UX-MEDIATOR-001 — ban-list (doctrine safety)', () => {
   const BANNED = _forbiddenMediatorTokens();
 
+  // UX-MEDIATOR-003 — the blocked-state lead is the operator-locked temporal
+  // copy "…not available right now." The verdict token `right` is banned, but
+  // "right now" is temporal, not a verdict, and the two are the same word. The
+  // single documented exception is the exact phrase "right now": neutralized
+  // before the scan so `right` stays banned everywhere else. Every other token
+  // is a substring scan so plurals / compounds ("winners") stay caught.
+  const SAFE_PHRASES = ['right now'];
+  function tokenPresent(lower: string, token: string): boolean {
+    let scrubbed = lower;
+    for (const phrase of SAFE_PHRASES) scrubbed = scrubbed.split(phrase).join('');
+    return scrubbed.includes(token);
+  }
+
   function scan(labels: string[]): void {
     for (const label of labels) {
       const lower = label.toLowerCase();
       for (const token of BANNED) {
-        expect(lower.includes(token)).toBe(false);
+        expect(tokenPresent(lower, token)).toBe(false);
       }
     }
   }

@@ -87,7 +87,7 @@ describe('UX-MEDIATOR-003 getEvidenceDebtForPoint', () => {
 
     const viaPath = makeBoard({
       evidenceDebts: [makeView({ pointId: 'p1' })],
-      blockedEvidencePaths: [{ pointId: 'p1', nodeId: 'p1', debtId: null, artifactCategory: 'record', plainLabel: 'Blocked evidence path' }],
+      blockedEvidencePaths: [{ pointId: 'p1', nodeId: 'p1', debtId: null, artifactCategory: 'record', plainLabel: 'Evidence blocked' }],
     });
     expect(getEvidenceDebtForPoint(viaPath, 'p1')?.isBlocked).toBe(true);
 
@@ -98,8 +98,8 @@ describe('UX-MEDIATOR-003 getEvidenceDebtForPoint', () => {
   it('getBlockedEvidencePathsForPoint filters by point', () => {
     const board = makeBoard({
       blockedEvidencePaths: [
-        { pointId: 'p1', nodeId: 'n1', debtId: null, artifactCategory: null, plainLabel: 'Blocked evidence path' },
-        { pointId: 'p2', nodeId: 'n2', debtId: null, artifactCategory: null, plainLabel: 'Blocked evidence path' },
+        { pointId: 'p1', nodeId: 'n1', debtId: null, artifactCategory: null, plainLabel: 'Evidence blocked' },
+        { pointId: 'p2', nodeId: 'n2', debtId: null, artifactCategory: null, plainLabel: 'Evidence blocked' },
       ],
     });
     expect(getBlockedEvidencePathsForPoint(board, 'p1')).toHaveLength(1);

@@ -18,7 +18,13 @@ import type {
 export const MEDIATOR_STATE_COPY: Readonly<Record<MediatorStateCode, string>> = Object.freeze({
   open: 'Open',
   needs_evidence: 'Needs evidence',
-  evidence_blocked: 'Blocked evidence path',
+  // UX-MEDIATOR-003 (O-1) — canonical v4 vocabulary label. Renamed from the
+  // shipped "Blocked evidence path" to match the v4 nine-state vocabulary
+  // (index O-6) + the issue §5 chip copy. This is a copy-VALUE change, not a
+  // state-code rename: the internal code `evidence_blocked` is unchanged, only
+  // its displayed label. `key_detail_unavailable` projects onto this same
+  // display label via `v4DisplayStateFor`, so the collapse case reads the same.
+  evidence_blocked: 'Evidence blocked',
   key_detail_unavailable: 'Key detail unavailable',
   definition_not_shared: 'Definition not shared',
   scope_mismatch: 'Scope mismatch',
@@ -37,8 +43,21 @@ export const MEDIATOR_STATE_COPY: Readonly<Record<MediatorStateCode, string>> = 
  */
 export const MEDIATOR_STATE_HELPER: Readonly<Record<MediatorStateCode, string>> = Object.freeze({
   open: 'This point is open for a response.',
-  needs_evidence: 'A source or quote was asked for and is still owed.',
-  evidence_blocked: 'The record that would settle this is not available at the moment.',
+  // UX-MEDIATOR-003 — person-neutral structural obligation copy. "Needs
+  // evidence" is a state about a POINT (it owes a source/record), never about a
+  // person failing or owing. Lead + help, operator-locked.
+  needs_evidence: 'This point needs a source or record. A source would make this point easier to test.',
+  // UX-MEDIATOR-003 — the doctrine-load-bearing copy. Describes the evidence
+  // PATH only — its availability — and NEVER anyone's conduct. Deliberately
+  // carries NO reassurance / negation line (per operator: even a negation like
+  // "not about the person" surfaces the accusation). Lead + help + advisory
+  // next-move phrasing, all person-neutral, all ban-list clean. The advisory
+  // next moves ship as COPY ONLY — no write/action is wired (the persisted
+  // "mark evidence unavailable" action is deferred to a GATE-C card).
+  evidence_blocked:
+    'The evidence path is not available right now. ' +
+    'Name what kind of record would test this point, without demanding private access. ' +
+    'Mark evidence unavailable, branch the provable part, or ask what kind of record would test this.',
   key_detail_unavailable: 'A detail this turns on cannot be settled from what is available.',
   definition_not_shared: 'A shared definition would make this point easier to test.',
   scope_mismatch: 'A scope bridge keeps the reply anchored to the exact point.',
@@ -53,7 +72,9 @@ export const MEDIATOR_STATE_HELPER: Readonly<Record<MediatorStateCode, string>> 
 
 /** Plain-language label for each resolution-pathway step. Ban-list clean. */
 export const PATHWAY_STEP_COPY: Readonly<Record<ResolutionPathwayStepCode, string>> = Object.freeze({
-  provide_source: 'Provide a source',
+  // UX-MEDIATOR-003 (O-2) — warmer, shorter next-move verb for the needs-evidence
+  // pathway. Person-neutral; advisory, never a posting gate.
+  provide_source: 'Add a source.',
   define_term: 'Define the term',
   narrow_or_branch: 'Narrow or branch the claim',
   respond_to_point: 'Respond to the open point',
@@ -97,13 +118,20 @@ export function _forbiddenMediatorTokens(): string[] {
     'winner', 'loser', 'correct', 'incorrect', 'true', 'false',
     'right', 'wrong', 'liar', 'dishonest', 'bad faith', 'manipulative',
     'extremist', 'propagandist', 'troll', 'verdict', 'proof', 'proven',
-    'disproven', 'lost', 'defeated', 'won', 'validated',
+    'disproven', 'lost', 'defeated', 'won', 'validated', 'truth', 'score',
+    // UX-MEDIATOR-003 (operator-expanded) — accusation / blame / conduct
+    // tokens. "Evidence blocked" describes an unavailable PATH, never a
+    // person's conduct: a blocked path must never read as someone hiding,
+    // withholding, concealing, refusing, or failing to provide a record. The
+    // copy describes the evidence PATH only — never anyone's intent or fault.
+    'hiding', 'withheld', 'concealed', 'refused', 'failed', 'blame', 'fault',
+    'not about the person', 'ai thinks', 'decide for me',
     // Amplification / popularity
     'likes', 'retweets', 'shares', 'views', 'followers', 'verified',
     'engagement', 'amplification', 'trending', 'virality', 'popular', 'viral',
     // Prevent / gate (the board is advisory, never blocking).
-    // `block` is deliberately NOT in this list — "Blocked evidence path" is
-    // the operator-preferred term for an UNAVAILABLE record, never a posting
+    // `block` is deliberately NOT in this list — "Evidence blocked" is the
+    // operator-preferred v4 term for an UNAVAILABLE record, never a posting
     // block. Non-gating is guaranteed by architecture (this module is a
     // pure projection, never a submission gate), not by banning the word.
     // Mirrors the `hot` carve-out in pointLifecycleModel._forbiddenLifecycleTokens.

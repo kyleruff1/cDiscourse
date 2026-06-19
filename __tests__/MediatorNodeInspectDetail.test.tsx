@@ -94,7 +94,7 @@ describe('UX-MEDIATOR-002 MediatorNodeInspectDetail', () => {
       'Scope mismatch',
       'Missing link',
       'Structured impasse',
-      'Blocked evidence path',
+      'Evidence blocked',
       'Partially narrowed',
     ];
     const helpers = [
