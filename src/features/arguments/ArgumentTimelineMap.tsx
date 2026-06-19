@@ -406,7 +406,10 @@ function NodeDot({
       ) : null}
       {node.isRoot ? (
         <View testID={`timeline-root-marker-${node.messageId}`} style={styles.rootMarkerPill}>
-          <Text style={styles.rootMarkerPillText}>Root</Text>
+          {/* UX-BOARD-READABILITY-001 (2026-06-19): presentation-only relabel
+              'Root' -> 'Opening' to match the model's 'opening claim' phrasing.
+              The model band label + node a11y strings are unchanged. */}
+          <Text style={styles.rootMarkerPillText}>Opening</Text>
         </View>
       ) : null}
       {node.isFirstRebuttal ? (
@@ -421,7 +424,10 @@ function NodeDot({
       ) : null}
       {node.isDetached ? (
         <View style={styles.detachedPill}>
-          <Text style={styles.detachedPillText}>detached</Text>
+          {/* UX-BOARD-READABILITY-001 (2026-06-19): presentation-only relabel
+              'detached' -> 'Off-thread' (plainer language). The model branchKind
+              + node a11y label still say 'detached' for screen readers. */}
+          <Text style={styles.detachedPillText}>Off-thread</Text>
         </View>
       ) : null}
       {node.droppedTags.length > 0 ? (
@@ -1157,6 +1163,11 @@ export function ArgumentTimelineMap({
                 backgroundColor: '#1e293b',
                 borderWidth: 1,
                 borderColor: '#334155',
+                // UX-BOARD-READABILITY-001 (2026-06-19): the band overlay opacity
+                // stays 0.6 — it is pinned by uxOneOneTwoChromeLayerRemovals
+                // ('bands overlay the rail with reduced opacity'), which is NOT
+                // an operator-authorized relaxation for this card. The bandLabel
+                // fontSize lift (10 -> 11, in styles) carries the readability win.
                 opacity: 0.6,
               }}
             >
@@ -1298,12 +1309,15 @@ const styles = StyleSheet.create({
   nodeDetached: { backgroundColor: '#475569', borderStyle: 'dashed' as const },
   nodeRoot: { borderColor: '#fde68a', borderWidth: 3 },
   nodeOrdinal: { color: '#0b1220', fontWeight: '800', fontSize: 13 },
-  junctionPill: { marginTop: 4, backgroundColor: '#a855f7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
-  junctionPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
-  rootMarkerPill: { marginTop: 4, backgroundColor: '#fde68a', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
-  rootMarkerPillText: { color: '#78350f', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
-  firstClashPill: { marginTop: 4, backgroundColor: '#f97316', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
-  firstClashPillText: { color: '#fff7ed', fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+  // UX-BOARD-READABILITY-001 (2026-06-19): lift the node micro-labels off the 9px
+  // floor (9 -> 11) and grow the pill padding to match; tighten letterSpacing
+  // 0.4 -> 0.2 for legibility at small size. Model / a11y strings unchanged.
+  junctionPill: { marginTop: 4, backgroundColor: '#a855f7', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999 },
+  junctionPillText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  rootMarkerPill: { marginTop: 4, backgroundColor: '#fde68a', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999 },
+  rootMarkerPillText: { color: '#78350f', fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
+  firstClashPill: { marginTop: 4, backgroundColor: '#f97316', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999 },
+  firstClashPillText: { color: '#fff7ed', fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
   onboardingBanner: { backgroundColor: '#1e293b', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#334155' },
   onboardingBannerText: { color: '#fde68a', fontSize: 12, fontWeight: '600' },
   infoIcon: {
@@ -1342,11 +1356,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingTop: 6,
   },
-  detachedPill: { marginTop: 4, backgroundColor: '#475569', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
-  detachedPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  detachedPill: { marginTop: 4, backgroundColor: '#475569', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999 },
+  detachedPillText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   chipRow: { flexDirection: 'row', gap: 2, marginTop: 4, maxWidth: TIMELINE_NODE_SIZE + 36 },
-  chip: { paddingHorizontal: 4, paddingVertical: 1, borderRadius: 6 },
-  chipText: { color: '#0b1220', fontWeight: '700', fontSize: 8 },
+  // UX-BOARD-READABILITY-001 (2026-06-19): dropped-tag chips off the 8px floor
+  // (8 -> 10) with a touch more padding so the smallest text in the surface reads.
+  chip: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6 },
+  chipText: { color: '#0b1220', fontWeight: '700', fontSize: 10 },
   // UX-001.2 — Timeline controls overlay. The previous `controlsRow` was a
   // top-of-frame row that consumed ~45 px of vertical chrome. The overlay
   // is anchored top-right inside the timeline frame, semi-transparent so
@@ -1374,8 +1390,11 @@ const styles = StyleSheet.create({
   controlChipPrimary: { backgroundColor: '#312e81' },
   controlChipText: { color: '#e2e8f0', fontWeight: '700', fontSize: 12 },
   legendRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingTop: 4 },
-  timestampLabel: { color: '#64748b', fontSize: 10 },
-  bandLabel: { color: '#cbd5e1', fontSize: 10, fontWeight: '700' },
+  // UX-BOARD-READABILITY-001 (2026-06-19): lift begin/mid/end timestamps off the
+  // low-contrast #64748b floor to the #94a3b8 slate already used in-file.
+  timestampLabel: { color: '#94a3b8', fontSize: 10 },
+  // UX-BOARD-READABILITY-001 (2026-06-19): only above-rail orientation label; 10 -> 11.
+  bandLabel: { color: '#cbd5e1', fontSize: 11, fontWeight: '700' },
   legendChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, padding: 8 },
   legendChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#0b1220', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },

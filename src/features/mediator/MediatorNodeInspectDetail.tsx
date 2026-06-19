@@ -131,10 +131,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: SPACING.xs,
   },
+  // UX-BOARD-READABILITY-001 (2026-06-19): the state label is the lead the
+  // section is about, yet read smaller than its 12px helper. Re-point
+  // chipLabel(11) -> popoutHeading(13/18) so the lead reads louder than its
+  // support, and add a small marginBottom for separation.
   stateLabel: {
     color: SURFACE_TOKENS.textPrimary,
-    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    fontSize: TYPOGRAPHY.popoutHeading.fontSize,
+    lineHeight: TYPOGRAPHY.popoutHeading.lineHeight,
     fontWeight: '700',
+    marginBottom: SPACING.xs,
   },
   helper: {
     color: SURFACE_TOKENS.textSecondary,

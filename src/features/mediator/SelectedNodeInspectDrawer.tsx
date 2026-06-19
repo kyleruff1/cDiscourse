@@ -152,7 +152,10 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
   },
   section: {
-    marginBottom: SPACING.s,
+    // UX-BOARD-READABILITY-001 (2026-06-19): s -> m so the four named sections
+    // ('Why this state' / 'Other structure notes' / 'Move forward:' / 'History')
+    // don't blur together. Spacing only.
+    marginBottom: SPACING.m,
   },
   // The section header is a distinct typographic level ABOVE the overlays'
   // own internal group headers (e.g. NodeLabelInspectGroups' "Machine
