@@ -10,6 +10,27 @@
 
 ---
 
+## ⚠️ SUPERSEDED SCOPE NOTE (implement amendment — read first)
+
+**The global / room-level "left rail" recommendation in this design is SUPERSEDED and moved to [UX-BOARD-RAIL-001 (#706)](./UX-BOARD-RAIL-001.md).** The original §16 O-2 already flagged that a left-rail "would force a layout rewrite of the timeline flex tree — broader than this card." That room-level rail / board-topology decision now lives entirely in UX-BOARD-RAIL-001. The board-rail merge that records this was **docs-only**, so this card's code baseline is unchanged (`b8b6d3a` design commit == `54e537f` main code at implement time).
+
+**This card is now ACTIVE-POINT TREATMENT ONLY** — a strictly LOCAL, in-the-selected-card delta. It does **NOT** introduce, relocate, or modify any room-level rail, column layout, or timeline topology. The revised operator-locked local-only scope is:
+
+1. **Restrained GOLD selected halo** on the selected-node card — `BRAND.accent.gold` (existing token, no new hex), visually distinct from the existing indigo (`GLOW.activePath`) active-path glow. Applied to the selected-node **readout card** (`TimelineSelectedReadoutPanel`), NOT to the VG-004 timeline-node halo token (`GLOW.selectedHalo` stays cream — it is pinned by `argumentNodeVisualVG004.test.ts` and owned by VG-004; changing it is out of scope here).
+2. **Local in-card LEFT ACCENT only** — a left-edge accent stripe rendered INSIDE the selected-node card's own bounds (part of the card), **NOT a separate left column or board rail**. This is the load-bearing boundary: the accent lives within the selected card, never as a room-level layout column.
+3. **Top anchor "Responding to this point"** where composition is bound — reuses the shipped `TimelineSelectedReadoutPanel` compact slot (O-2 = top anchor). On phone widths this is the form factor; on wider widths the in-card left accent appears but stays PART OF THE CARD.
+4. **Parent / target excerpt** (`parentBodyPreview`, ≤120 chars — data already on the model) rendered inside the selected card; rendered only when the data exists.
+5. **ONE primary v4 state chip** (no chip soup); secondary metadata stays in Inspect (unchanged from UX-MEDIATOR-002).
+6. **Inspect drawer (O-4):** the four already-mounted Inspect siblings are sectioned into "Why this state · Other structure notes · Move forward · History" via a NEW local presentational wrapper `src/features/mediator/SelectedNodeInspectDrawer.tsx` — a LOCAL Inspect-overlay presentation change, NOT a board change. Inspect stays reachable via the UX-MEDIATOR-002 chip-adjacent caret (≥44px).
+7. **Act dominant** in the Act/Inspect/Go dock; Inspect + Go stay secondary but ≥44px. Extends the EXISTING `board-menu-trigger-row` dock (styling only; routing untouched).
+8. **"Go to parent point"** read-only jump — reuses `setActiveMessageId(parentMessageId)` (the same nav the 005 rail uses); rendered only when the parent-node-id data already exists; does NOT alter routing semantics.
+
+**FORBIDDEN in this amended card (→ deferred to UX-BOARD-RAIL-001 / UX-BOARD-RAIL-002):** any room-level/persistent rail, any timeline flex-direction / width-model / geometry change, any global room column layout, any `DisagreementPointsRail` / `ArgumentSideActionRail` relocation, any scroll-anchoring or virtual-list rewrite, any backend / schema / RLS / submit / classifier / provider change. If the implementation appears to require any of these, STOP — it belongs to UX-BOARD-RAIL-001/002, not here.
+
+The remainder of this document is the original design; where it (e.g. §16 O-1, O-2) discusses a left-rail or a cream/gold/indigo halo *token swap on the timeline node*, the amended scope above governs: gold halo on the selected-node **card** (not the VG-004 node token), top anchor (no left rail), and the new `SelectedNodeInspectDrawer.tsx` wrapper.
+
+---
+
 ## §0 Scope-reality audit (POSTRUN-UX001 rule — orchestrator-authored card, audit BEFORE build)
 
 This card's success depends on **current layout, current data availability, and current source placement**, so a pre-build reality audit was run against the shipped stack at base `5b764a4`. The audit reshapes the card from "build the v4 Inspect drawer + selected-node anatomy" into a **narrow reconciliation delta**, because most of the selected-node infrastructure already shipped with the mediator stack (#644–#648) and the IX-004 / SC-003 / SC-004 readout stack.
