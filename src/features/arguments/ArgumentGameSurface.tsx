@@ -117,6 +117,14 @@ import { helperForMediatorState } from '../mediator/mediatorPlainLanguage';
 import { MediatorNextMovesCard } from '../mediator/MediatorNextMovesCard';
 import { nextMovesForState } from '../mediator/nextMovesForState';
 import { v4DisplayStateFor } from '../mediator/deriveMediatorBoardState';
+// UX-FEEDBACK-001 — restrained STATIC current-state progress notes
+// (display-only; no gamification, no transition language, no rating/score).
+// `feedbackForMediatorProgress` maps the active node CURRENT display state
+// (+ local current-state context) to one calm note; `MediatorProgressNote`
+// renders it. Read-only projection of the already-derived board — no new
+// derivation, no persistence, no transition detection, no submit change.
+import { feedbackForMediatorProgress } from '../mediator/feedbackForMediatorProgress';
+import { MediatorProgressNote } from '../mediator/MediatorProgressNote';
 import { buildMoveMetadataLedger, getManualTagPlainLabel } from '../metadata';
 // META-1E — Cards-detail metadata diff inspector. Imported directly by path
 // (the `../metadata` barrel stays React-free). Mounts as a sibling overlay
@@ -758,6 +766,54 @@ export function ArgumentGameSurface({
     if (displayState === 'resolved_or_settled') return [];
     return nextMovesForState(displayState);
   }, [activeNodeMediatorMarker]);
+
+  // UX-FEEDBACK-001 — restrained STATIC current-state progress notes for the
+  // active node, derived from the ALREADY-derived board (single-derivation
+  // invariant; never re-derived). Two scoped reads, both pure projections of
+  // CURRENT state (no transition, no diff, no persistence, no write):
+  //   - the default-visible SELECTION cue ("Point anchored.") — fires on the
+  //     local node-selection event for a non-root node; null for root / none.
+  //   - the Inspect structural note ("Claim narrowed." / "Concession
+  //     preserved." / "Source path identified." / "Next useful move: …") —
+  //     reflects the active node CURRENT display state + current-state context
+  //     (a preserved concession is the `conceded` lifecycle shape; a source path
+  //     EXISTS when a debt on the point is resolved now — `!isOpen && !isBlocked`).
+  // Impasse is OWNED by UX-IMPASSE-001 — the helper returns null there (no
+  // second render). The reward is clarity, not applause: most states return null.
+  const activeNodeProgressSelectionNote = useMemo(() => {
+    if (!activeMessageId) return null;
+    const node = timelineMap.nodes.find((n) => n.messageId === activeMessageId);
+    const isNodeAnchored = node != null && node.isRoot !== true;
+    // The display state is irrelevant to the anchoring cue (a local UI event);
+    // pass the active marker display state when present, else neutral 'open'.
+    const displayState = activeNodeMediatorMarker
+      ? v4DisplayStateFor(activeNodeMediatorMarker.code)
+      : 'open';
+    if (displayState === 'resolved_or_settled') return null;
+    return feedbackForMediatorProgress(displayState, {
+      surface: 'selection',
+      isNodeAnchored,
+    });
+  }, [activeMessageId, timelineMap, activeNodeMediatorMarker]);
+
+  const activeNodeProgressInspectNote = useMemo(() => {
+    if (!activeNodeMediatorMarker || !activeMessageId) return null;
+    const displayState = v4DisplayStateFor(activeNodeMediatorMarker.code);
+    if (displayState === 'resolved_or_settled') return null;
+    const clusterState = lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? null;
+    const isConcessionPreserved = clusterState === 'conceded';
+    const pointId = mediatorBoard.markupByNodeId?.[activeMessageId]?.pointId ?? null;
+    const hasIdentifiedSourcePath = pointId != null
+      ? mediatorBoard.evidenceDebts.some(
+          (d) => d.pointId === pointId && !d.isOpen && !d.isBlocked,
+        )
+      : false;
+    return feedbackForMediatorProgress(displayState, {
+      surface: 'inspect',
+      isConcessionPreserved,
+      hasIdentifiedSourcePath,
+    });
+  }, [activeNodeMediatorMarker, activeMessageId, lifecycleMap, mediatorBoard]);
 
   // META-1A — Convert persisted point_tags rows into the META-001
   // ManualTagEntry map the metadata ledger consumes. Empty input (META-1A
@@ -2266,6 +2322,16 @@ export function ArgumentGameSurface({
               compact
               onGoToParent={activeParentMessageId ? handleGoToParentPoint : undefined}
             />
+            {/* UX-FEEDBACK-001 — default-visible STATIC current-state cue near
+                the selected-node responding-to anchor. "Point anchored." is a
+                local ephemeral acknowledgement that the response is bound to a
+                non-root point — read-only, no persistence, no rating, no
+                transition. Renders nothing for root / no selection (the helper
+                returns null). The reward is clarity, not applause. */}
+            <MediatorProgressNote
+              note={activeNodeProgressSelectionNote}
+              testID="mediator-progress-note-selection"
+            />
             {/* UX-001.2 — Score tracker repositioned below the Timeline
                 (was above). The component itself is unchanged — only
                 its mount site moves. */}
@@ -2629,11 +2695,25 @@ export function ArgumentGameSurface({
             ) : null
           }
           moveForward={
-            activeNodeNextMoves.length > 0 ? (
-              <MediatorNextMovesCard
-                moves={activeNodeNextMoves}
-                testID="mediator-next-moves-card"
-              />
+            activeNodeProgressInspectNote != null || activeNodeNextMoves.length > 0 ? (
+              <>
+                {/* UX-FEEDBACK-001 — Inspect-only STATIC current-state note,
+                    rendered as a quiet lead above the next-move card. One of
+                    Claim-narrowed / Concession-preserved / Source-path-identified
+                    / Next-useful-move — reflects the active node CURRENT display
+                    state, never a transition. Read-only, no rating, no
+                    persistence. Null renders nothing. */}
+                <MediatorProgressNote
+                  note={activeNodeProgressInspectNote}
+                  testID="mediator-progress-note-inspect"
+                />
+                {activeNodeNextMoves.length > 0 ? (
+                  <MediatorNextMovesCard
+                    moves={activeNodeNextMoves}
+                    testID="mediator-next-moves-card"
+                  />
+                ) : null}
+              </>
             ) : null
           }
           history={

@@ -45,3 +45,18 @@ export {
   MediatorNextMovesCard,
   type MediatorNextMovesCardProps,
 } from './MediatorNextMovesCard';
+// UX-FEEDBACK-001 — restrained STATIC current-state progress notes
+// (display-only; no gamification, no transition language, no rating/score).
+// The data type is `MediatorProgressNote`; the read-only presentational
+// component is re-exported as `MediatorProgressNoteView` to avoid a name
+// collision with the data interface.
+export {
+  feedbackForMediatorProgress,
+  _forbiddenFeedbackTokens,
+  type MediatorProgressNote,
+  type MediatorProgressContext,
+} from './feedbackForMediatorProgress';
+export {
+  MediatorProgressNote as MediatorProgressNoteView,
+  type MediatorProgressNoteProps,
+} from './MediatorProgressNote';
