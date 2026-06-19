@@ -223,7 +223,11 @@ describe('UX-COPY-001 (f) — changed user-facing copy is ban-list clean', () =>
     // The visible <Text> labels must not say "Score" or "Standings".
     expect(visible).not.toMatch(/>\s*Score tracker/);
     expect(visible).not.toMatch(/Standings · gameplay/);
-    expect(visible).toMatch(/Where the points stand · gameplay analysis/);
+    // UX-ROOM-CHROME-001 — the prior "Where the points stand · gameplay
+    // analysis" framing is retired in favor of the neutral mediator-readout
+    // label so the room reads as a mediator surface, not a game scoreboard.
+    expect(visible).not.toMatch(/Where the points stand · gameplay analysis/);
+    expect(visible).toMatch(/Mediator readout/);
   });
 
   it('the softened concession + feedback copy drops "wrong" / "honest"', () => {
