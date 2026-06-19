@@ -53,20 +53,30 @@ describe('UX-COPY-001 — AuthScreen first-run value proposition', () => {
     expect(authSource).toContain('testID="auth-value-prop"');
   });
 
-  it('shows the CivilDiscourse brand + the v4 high-trust tagline + the three-beat line', () => {
+  it('shows the CivilDiscourse brand + the v4 high-trust tagline', () => {
     // The strings live in the brandCopy module and are referenced by name; the
     // AuthScreen wires the AUTH_FIRST_RUN_COPY block in.
     expect(authSource).toMatch(/AUTH_FIRST_RUN_COPY/);
     expect(brandCopySource).toContain('A high-trust room for hard conversations.');
-    expect(brandCopySource).toContain(
-      'Mark the point. Respond clearly. See what remains unresolved.',
-    );
     expect(brandCopySource).toContain('CivilDiscourse');
   });
 
-  it('uses the mediator-not-a-judge framing (never decides who is right)', () => {
-    expect(brandCopySource).toMatch(/mediator, not a judge/i);
-    expect(brandCopySource).toMatch(/never who’s right/i);
+  // QUICK-COPY-001 — the three-beat sub-explanation + the mediator-not-a-judge
+  // footer were removed from the Sign In card (not hidden) and their reserved
+  // space collapsed. The constants had no other consumer, so they are gone
+  // from brandCopy entirely.
+  it('no longer carries the three-beat sub-explanation or the mediator-not-a-judge footer', () => {
+    expect(brandCopySource).not.toContain(
+      'Mark the point. Respond clearly. See what remains unresolved.',
+    );
+    expect(brandCopySource).not.toMatch(/mediator, not a judge/i);
+    expect(brandCopySource).not.toMatch(/We surface the structure of a disagreement/i);
+    expect(brandCopySource).not.toMatch(/never who’s right/i);
+    // The Sign In screen no longer renders the subline / footer Text blocks.
+    expect(authSource).not.toContain('testID="auth-value-prop-subline"');
+    expect(authSource).not.toContain('testID="auth-value-prop-footer"');
+    expect(authSource).not.toContain('AUTH_FIRST_RUN_COPY.subline');
+    expect(authSource).not.toContain('AUTH_FIRST_RUN_COPY.mediatorFooter');
   });
 
   it('contains no scaffold placeholder copy', () => {
@@ -80,9 +90,6 @@ describe('UX-COPY-001 — AuthScreen first-run value proposition', () => {
   });
 
   it('value-prop copy carries no verdict / person-judgment / amplification tokens', () => {
-    // The mediator-not-a-judge footer says the app NEVER decides "who's right";
-    // that doctrine framing must not be false-flagged. The ban-list therefore
-    // targets verdict ASSERTIONS, not the negated "never who's right" phrase.
     // Scan exported string VALUES only — the module's doc comment names the
     // doctrine vocabulary on purpose and must not be flagged.
     const block = brandCopySource
@@ -103,10 +110,10 @@ describe('UX-COPY-001 — AuthScreen first-run value proposition', () => {
     }
     // "wrong" must not appear as a verdict; the v4 copy avoids it entirely.
     expect(block).not.toMatch(/\bwrong\b/);
-    // A bare "you're right" / "is right" verdict is banned; "who’s right" (the
-    // negated mediator framing) is the only permitted occurrence.
+    // QUICK-COPY-001 — the mediator-not-a-judge footer (the only place "right"
+    // appeared, in the negated "never who’s right" framing) was removed, so the
+    // exported string values now contain no "right" token at all.
     const rightMatches = block.match(/right/g) ?? [];
-    expect(rightMatches.length).toBe(1);
-    expect(block).toContain('never who’s right');
+    expect(rightMatches.length).toBe(0);
   });
 });
