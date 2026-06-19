@@ -41,6 +41,9 @@ import {
   type ArgumentTimelineMapNode,
 } from './argumentGameSurfaceModel';
 import { computeParticipantTrends } from './argumentScoreModel';
+// UX-SELECTED-NODE-001 — restrained gold accent for the Act-dominant dock
+// trigger. Existing UX-BRAND-001 token; no new hex.
+import { BRAND } from '../../lib/designTokens';
 import { resolveStackKeyEffect } from './stackKeyboardSwipeModel';
 import type { TimelineDensityMode } from './timelineNodeVisualModel';
 import { ArgumentScoreTracker } from './ArgumentScoreTracker';
@@ -99,6 +102,12 @@ import { MediatorNodeMarker } from '../mediator/MediatorNodeMarker';
 // reasoning behind the one default chip is preserved on Inspect (no
 // intelligence deleted).
 import { MediatorNodeInspectDetail } from '../mediator/MediatorNodeInspectDetail';
+// UX-SELECTED-NODE-001 (O-4) — pure presentational wrapper that sections the
+// four already-mounted Inspect siblings into the v4 drawer's four named
+// sections ("Why this state · Other structure notes · Move forward · History").
+// Local Inspect-overlay presentation only; the siblings are composed, never
+// modified; no board / topology change.
+import { SelectedNodeInspectDrawer } from '../mediator/SelectedNodeInspectDrawer';
 import { getNodeMediatorMarker } from '../mediator/nodeMediatorMarkers';
 import { helperForMediatorState } from '../mediator/mediatorPlainLanguage';
 import { buildMoveMetadataLedger, getManualTagPlainLabel } from '../metadata';
@@ -917,6 +926,15 @@ export function ArgumentGameSurface({
     [sidecarViewModel, timelineMap, activeMessageId, selectionStatus],
   );
 
+  // UX-SELECTED-NODE-001 (§6 / row §9.3) — the active node's parent message
+  // id, read off the ALREADY-built timeline map (no new derivation, no fetch).
+  // Drives the read-only "Go to parent point" jump on the responding-to
+  // anchor. null at the root (no parent) → the affordance is omitted cleanly.
+  const activeParentMessageId = useMemo(
+    () => timelineMap.activeNode?.parentId ?? null,
+    [timelineMap],
+  );
+
   // ── CARD-VIEW-DATA-001 — active-card exploded detail model ──
   //
   // Built ONCE per `activeMessageId` change (plus its upstream maps), NOT
@@ -1461,6 +1479,17 @@ export function ArgumentGameSurface({
     setSelectionStatus('explicit');
     setMicroMomentDismissed(true);
   }, []);
+  // UX-SELECTED-NODE-001 (§6 / §9.3) — "Go to parent point". A READ-ONLY
+  // navigation jump that selects the active node's parent — the SAME
+  // setActiveMessageId path the 005 rail's "View in timeline" jump uses. No
+  // routing-semantics change, no submit, no write. Returns early at the root
+  // (no parent), where the affordance is not rendered anyway.
+  const handleGoToParentPoint = useCallback(() => {
+    if (!activeParentMessageId) return;
+    setActiveMessageId(activeParentMessageId);
+    setSelectionStatus('explicit');
+    setMicroMomentDismissed(true);
+  }, [activeParentMessageId]);
   const handlePrev = useCallback(() => {
     const prev = getPreviousMessageId(chronologicalIds, activeMessageId);
     if (prev) {
@@ -2212,7 +2241,11 @@ export function ArgumentGameSurface({
                 verbatim inside the panel; the `compact` prop renders
                 the 5-line summary plus an expand trigger that opens the
                 6-section sidecar inline. */}
-            <TimelineSelectedReadoutPanel viewModel={timelineReadoutViewModel} compact />
+            <TimelineSelectedReadoutPanel
+              viewModel={timelineReadoutViewModel}
+              compact
+              onGoToParent={activeParentMessageId ? handleGoToParentPoint : undefined}
+            />
             {/* UX-001.2 — Score tracker repositioned below the Timeline
                 (was above). The component itself is unchanged — only
                 its mount site moves. */}
@@ -2395,10 +2428,10 @@ export function ArgumentGameSurface({
           }
           accessibilityState={{ expanded: boardActVisible }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={styles.menuTriggerButton}
+          style={[styles.menuTriggerButton, styles.menuTriggerButtonDominant]}
           testID="board-menu-trigger-act"
         >
-          <Text style={styles.menuTriggerLabel}>Act</Text>
+          <Text style={[styles.menuTriggerLabel, styles.menuTriggerLabelDominant]}>Act</Text>
           {showKeyBadges ? (
             <View style={styles.menuTriggerBadge}>
               <Text
@@ -2515,77 +2548,71 @@ export function ArgumentGameSurface({
         panelWidthOverride={inspectPresentation.width}
         testID="board-inspect-popout"
       />
-      {/* UX-MEDIATOR-002 — mediator-state detail block, mounted ABOVE the
-          Observation/Allegation groups inside the SAME inspectVisible +
-          activeMessageId gate. It preserves the reasoning behind the one
-          default chip after the soup collapse: the structural state label +
-          its plain-language helper + the next-useful-move pathway. Read-only
-          sibling (mirrors the NodeLabelInspectGroups + MetadataDiffInspector
-          pattern); returns null when the node has no actionable mediator
-          state. The §10a Observations-vs-Allegations distinction stays in
-          NodeLabelInspectGroups (the sibling overlay) — this block carries
-          ONLY the mediator structural state, never Observation/Allegation
-          chips. */}
+      {/* UX-SELECTED-NODE-001 (O-4) — the four already-mounted Inspect sibling
+          overlays are now sectioned into the v4 drawer's four named sections
+          via the SelectedNodeInspectDrawer wrapper. The siblings (and every
+          one of their existing testIDs + props) are COMPOSED, never modified:
+          each is passed verbatim into a named slot. The wrapper adds ONLY the
+          four section headers ("Why this state · Other structure notes · Move
+          forward · History") so the overlays read as ONE coherent drawer.
+          Read-only; no board / topology / derivation change. Per O-5 default,
+          the "Move forward:" move stays inside MediatorNodeInspectDetail's
+          shipped next-move line under "Why this state" — the standalone
+          moveForward slot is left unset to avoid a dangling section header.
+
+          UX-MEDIATOR-002 — the mediator-state detail block preserves the
+          reasoning behind the one default chip (structural state + helper +
+          next-useful-move). UX-001.5A — NodeLabelInspectGroups keeps the §10a
+          Observation/Allegation separation. META-1E — MetadataDiffInspector is
+          the structural-change history. REF-004 — InspectOpenIssueDetail is
+          the issue's raw provenance, kept under "Other structure notes". */}
       {inspectVisible && activeMessageId ? (
-        <MediatorNodeInspectDetail
-          marker={activeNodeMediatorMarker}
-          helper={activeNodeMediatorDetail.helper}
-          nextMoveLabel={activeNodeMediatorDetail.nextMoveLabel}
-          testID="mediator-node-inspect-detail-active"
-        />
-      ) : null}
-      {/* UX-001.5A — Inspect grouped-view sibling overlay. Per design
-          §10.3 ALTERNATIVE path: rendered alongside the Inspect popout
-          when both Inspect is visible AND there is an active selected
-          message. Zero modification to InspectPopout.tsx or
-          inspectContentBuilder.ts. The component returns null when both
-          groups are empty, so the overlay is invisible in those cases. */}
-      {inspectVisible && activeMessageId ? (
-        <NodeLabelInspectGroups
-          messageId={activeMessageId}
-          manualTagEntries={manualTagsByMessageId.get(activeMessageId) ?? []}
-          autoMetadataCodes={
-            metadataLedger.byMessage
-              .get(activeMessageId)
-              ?.autoDerivedMetadata.map((entry) => entry.code) ?? []
+        <SelectedNodeInspectDrawer
+          testID="selected-node-inspect-drawer"
+          whyThisState={
+            <MediatorNodeInspectDetail
+              marker={activeNodeMediatorMarker}
+              helper={activeNodeMediatorDetail.helper}
+              nextMoveLabel={activeNodeMediatorDetail.nextMoveLabel}
+              testID="mediator-node-inspect-detail-active"
+            />
           }
-          clusterState={
-            lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? 'open'
+          structureNotes={
+            <NodeLabelInspectGroups
+              messageId={activeMessageId}
+              manualTagEntries={manualTagsByMessageId.get(activeMessageId) ?? []}
+              autoMetadataCodes={
+                metadataLedger.byMessage
+                  .get(activeMessageId)
+                  ?.autoDerivedMetadata.map((entry) => entry.code) ?? []
+              }
+              clusterState={
+                lifecycleMap.byMessage.get(activeMessageId)?.clusterState ?? 'open'
+              }
+              messageContribution={
+                lifecycleMap.byMessage.get(activeMessageId)?.messageContribution ?? null
+              }
+              persistedClassifierRows={
+                persistedObservationsByArgumentId?.[activeMessageId] ?? []
+              }
+              testID="ux001-5a-inspect-groups-overlay"
+            />
           }
-          messageContribution={
-            lifecycleMap.byMessage.get(activeMessageId)?.messageContribution ?? null
+          structureProvenance={
+            refereeCardIssue != null ? (
+              <InspectOpenIssueDetail
+                issue={refereeCardIssue}
+                testID="ref004-inspect-open-issue-detail"
+              />
+            ) : null
           }
-          persistedClassifierRows={
-            persistedObservationsByArgumentId?.[activeMessageId] ?? []
+          history={
+            <MetadataDiffInspector
+              messageId={activeMessageId}
+              events={metadataLedger.metadataEvents}
+              testID="metadata-diff-inspector"
+            />
           }
-          testID="ux001-5a-inspect-groups-overlay"
-        />
-      ) : null}
-      {/* META-1E — Cards-detail metadata diff inspector. Mounted the SAME
-          way as the NodeLabelInspectGroups overlay above: a self-contained
-          read-only sibling overlay, gated on Inspect being open AND an
-          active selected message. Zero modification to InspectPopout.tsx or
-          inspectContentBuilder.ts. Fed entirely from data the host already
-          holds (`metadataLedger.metadataEvents` + `activeMessageId`). It
-          renders a one-line empty state when the move has no recorded
-          changes (never a blank panel). */}
-      {inspectVisible && activeMessageId ? (
-        <MetadataDiffInspector
-          messageId={activeMessageId}
-          events={metadataLedger.metadataEvents}
-          testID="metadata-diff-inspector"
-        />
-      ) : null}
-      {/* REF-004 — Open Issue Inspect detail. Mounted the SAME way as the two
-          overlays above: a self-contained, read-only sibling overlay gated on
-          Inspect being open AND an active issue. It is the SINGLE home for the
-          issue's raw provenance (issue.id + observation / allegation
-          sourceCodes) — REF-001's Inspect contract. The fixed 7-section
-          InspectPopout core is untouched. No Supabase, no fetch, no AI. */}
-      {inspectVisible && activeMessageId && refereeCardIssue != null ? (
-        <InspectOpenIssueDetail
-          issue={refereeCardIssue}
-          testID="ref004-inspect-open-issue-detail"
         />
       ) : null}
 
@@ -2698,14 +2725,32 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    minHeight: 32,
+    minHeight: 44,
     backgroundColor: '#1f2937',
     borderRadius: 8,
+  },
+  // UX-SELECTED-NODE-001 (row 10, O-3) — Act is the visually DOMINANT
+  // trigger in the Act/Inspect/Go dock: a restrained gold accent fill +
+  // gold border so "respond" reads as the primary move. Styling only —
+  // routing, popout model, and key-badge gating are untouched. Inspect +
+  // Go stay the resting `menuTriggerButton` (≥44px). The dominance is
+  // carried by fill + border (color) AND a heavier label weight (non-color)
+  // so it survives grayscale.
+  menuTriggerButtonDominant: {
+    backgroundColor: BRAND.accent.goldSoft,
+    borderWidth: 1,
+    borderColor: BRAND.accent.goldBorder,
+    paddingHorizontal: 16,
   },
   menuTriggerLabel: {
     color: '#f8fafc',
     fontSize: 13,
     fontWeight: '700' as const,
+  },
+  menuTriggerLabelDominant: {
+    color: BRAND.accent.gold,
+    fontSize: 14,
+    fontWeight: '800' as const,
   },
   menuTriggerBadge: {
     minWidth: 18,
