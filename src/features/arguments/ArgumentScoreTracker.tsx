@@ -1,9 +1,15 @@
 /**
  * Stage 6.2 — ArgumentScoreTracker (Milestone 6 UI).
  *
- * Compact game-scoreboard readout that sits above the timeline map.
- * NEVER renders winner / loser / truth verdicts. Frames the bands
- * as gameplay analysis, not objective truth.
+ * UX-ROOM-CHROME-001 — compact mediator-readout strip that sits above
+ * the timeline map. It reports each participant's current point
+ * standing band + trend; the visible title is "Mediator readout" (the
+ * prior "Where the points stand · gameplay analysis" framing is
+ * retired so the room reads as a neutral mediator surface, not a game
+ * scoreboard). NEVER renders winner / loser / truth verdicts. The
+ * standing bands describe a point's standing in the conversation, not
+ * objective truth. Component name + model are intentionally unchanged
+ * (rename deferred).
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -36,7 +42,7 @@ export function ArgumentScoreTracker({ trends }: Props) {
   }
   return (
     <View style={styles.root} testID="argument-score-tracker">
-      <Text style={styles.title} accessibilityLabel="where the points stand">Where the points stand · gameplay analysis</Text>
+      <Text style={styles.title} accessibilityLabel="mediator readout">Mediator readout</Text>
       <View style={styles.row}>
         {trends.map((t) => {
           const color = standingBandColor(t.currentBand);
