@@ -22,4 +22,5 @@ export {
   deriveEvidenceDebt,
   deriveImpasseMarkers,
   deriveResolutionPathways,
+  v4DisplayStateFor,
 } from './deriveMediatorBoardState';

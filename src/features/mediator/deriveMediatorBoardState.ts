@@ -32,6 +32,7 @@ import {
   plainLanguageForMediatorState,
   plainLanguageForPathwayStep,
 } from './mediatorPlainLanguage';
+import { V4_DISPLAY_STATE_BY_CODE } from './mediatorBoardTypes';
 import type {
   BlockedEvidencePath,
   DefinitionMismatch,
@@ -54,6 +55,7 @@ import type {
   ResolutionPathwayStep,
   ScopeMismatch,
   StructuredImpasse,
+  V4MediatorStateCode,
 } from './mediatorBoardTypes';
 
 // ── Observation raw-key sets (verbatim from machineObservationDefinitions/) ──
@@ -227,87 +229,148 @@ function worstOpenDebtStatus(debts: ReadonlyArray<EvidenceDebt>): EvidenceDebtSt
   return best;
 }
 
-// ── Point-state decision (worst-priority-wins) ────────────────
+// ── Point-state decision (v4 candidate-set + Gate A + ordered picker) ──
+//
+// UX-MEDIATOR-001 precedence delta. The shipped early-return cascade is
+// restructured into THREE phases so the precedence is a single explicit total
+// order (and the v4 conflict rows fall out of that order + one gate):
+//
+//   1. Resolution dominance — a settled point is terminal; short-circuit.
+//   2. Build a candidate set — each candidate is an independent boolean keyed
+//      off the SAME deterministic / observation inputs as the shipped cascade
+//      (the per-signal detection is moved VERBATIM into named predicates).
+//   3. Gate A + ordered pick — demote `structured_impasse` when any non-impasse
+//      candidate has an available pathway (v4: "Impasse + any path remains →
+//      not impasse"), then pick the highest-priority candidate.
+//
+// This fixes the two shipped divergences from the v4 priority table:
+//   D1 — impasse was too LOW (checked after needs_evidence/definition/scope);
+//        now it is highest, but Gate A keeps it from firing while a pathway
+//        remains.
+//   D2 — narrowed was too HIGH (checked before the evidence/definition/scope
+//        signals); now `needs_evidence` (and every more-specific state) wins
+//        over `narrowed` when both are candidates.
+//
+// `point.state` still emits one of the 13 internal codes (Inspect / downstream
+// consumers unchanged); `v4DisplayStateFor` projects it onto the v4 nine.
 
 interface PointStateResult {
   state: MediatorStateCode;
   confidence: MediatorConfidence;
 }
 
-function decidePointState(
+interface PointStateCandidate {
+  state: MediatorStateCode;
+  confidence: MediatorConfidence;
+}
+
+/**
+ * Internal-code precedence (HIGHEST wins). Derived from
+ * `V4_PRIMARY_STATE_PRIORITY` (the published v4 display order) with the four
+ * superset codes inserted at their display rank so the internal `point.state`
+ * keeps the precise code while the ORDER matches v4:
+ *
+ *   resolved_or_settled    — terminal dominance (handled before the picker;
+ *                            listed here only for completeness / exhaustiveness)
+ *   structured_impasse     — v4 #1 (subject to Gate A)
+ *   evidence_blocked       — v4 #2
+ *   key_detail_unavailable — display→evidence_blocked; just below a declined
+ *                            debt so a declined debt still wins (shipped step 3)
+ *   accounts_differ        — v4 #3 (never a candidate in v1)
+ *   definition_not_shared  — v4 #4
+ *   scope_mismatch         — v4 #5
+ *   off_point              — display→scope_mismatch; just below an explicit scope signal
+ *   missing_mechanism      — v4 #6
+ *   needs_evidence         — v4 #7 (now outranks narrowed → fixes D2)
+ *   narrowed               — v4 #8
+ *   value_tradeoff         — display→open; a priorities difference, just above open
+ *   open                   — v4 #9 default
+ */
+const INTERNAL_STATE_PRIORITY: ReadonlyArray<MediatorStateCode> = Object.freeze([
+  'resolved_or_settled',
+  'structured_impasse',
+  'evidence_blocked',
+  'key_detail_unavailable',
+  'accounts_differ',
+  'definition_not_shared',
+  'scope_mismatch',
+  'off_point',
+  'missing_mechanism',
+  'needs_evidence',
+  'narrowed',
+  'value_tradeoff',
+  'open',
+]);
+
+const INTERNAL_PRIORITY_RANK: Readonly<Record<MediatorStateCode, number>> = Object.freeze(
+  INTERNAL_STATE_PRIORITY.reduce<Record<string, number>>((acc, code, i) => {
+    acc[code] = INTERNAL_STATE_PRIORITY.length - i;
+    return acc;
+  }, {}) as Record<MediatorStateCode, number>,
+);
+
+/**
+ * Build the candidate set for a cluster. Each candidate is an independent
+ * boolean computed exactly as the shipped cascade computed it — only the
+ * SELECTION (below) changes. `open` is always a candidate (the fallback).
+ */
+function buildPointStateCandidates(
   cluster: PointLifecycleClusterSummary,
   openDebts: ReadonlyArray<EvidenceDebt>,
   index: ObservationIndex,
-): PointStateResult {
+): PointStateCandidate[] {
   const lc: PointLifecycleState = cluster.state;
   const memberIds = cluster.messageIds;
   const hasAnyObs = memberIds.some((id) => index.byNode.has(id));
   const fallbackConfidence: MediatorConfidence = hasAnyObs ? 'medium' : 'unknown';
+  const candidates: PointStateCandidate[] = [];
 
-  // 1 — Resolution dominance.
-  if (lc === 'archived_or_resolved' || lc === 'confirmed' || lc === 'synthesis_ready') {
-    return { state: 'resolved_or_settled', confidence: 'high' };
-  }
-  // 2 — Narrowing / concession (a repair, never a defeat).
-  if (lc === 'narrowed' || lc === 'conceded') {
-    return { state: 'narrowed', confidence: 'high' };
-  }
-  // 3 — Evidence obligation (open debt OR lifecycle ask).
+  // Evidence obligation (open debt OR lifecycle ask) — verbatim from shipped step 3.
   const lifecycleAsksEvidence = lc === 'source_requested' || lc === 'quote_requested';
-  if (openDebts.length > 0 || lifecycleAsksEvidence) {
-    const declined = openDebts.some((d) => d.status === 'unresolved');
-    if (declined) return { state: 'evidence_blocked', confidence: 'high' };
-    if (clusterHasKey(memberIds, CONTEXT_LIMIT_KEY, index)) {
-      return {
-        state: 'key_detail_unavailable',
-        confidence: clusterKeyConfidence(memberIds, new Set([CONTEXT_LIMIT_KEY]), index) ?? 'medium',
-      };
-    }
-    return { state: 'needs_evidence', confidence: 'high' };
+  const hasEvidenceObligation = openDebts.length > 0 || lifecycleAsksEvidence;
+  const declined = openDebts.some((d) => d.status === 'unresolved');
+  const hasContextLimit = clusterHasKey(memberIds, CONTEXT_LIMIT_KEY, index);
+
+  // structured_impasse — exhausted (Gate A may demote it below).
+  if (lc === 'exhausted') {
+    candidates.push({ state: 'structured_impasse', confidence: 'high' });
   }
-  // 3b — Context-limit flagged without an open debt → key detail unavailable.
-  if (clusterHasKey(memberIds, CONTEXT_LIMIT_KEY, index)) {
-    return {
+  // evidence_blocked — a declined (unresolved) debt with an open obligation.
+  if (hasEvidenceObligation && declined) {
+    candidates.push({ state: 'evidence_blocked', confidence: 'high' });
+  }
+  // key_detail_unavailable — context-limit flag (with or without an open debt,
+  //   but NOT when a declined debt already wins evidence_blocked).
+  if (hasContextLimit && !(hasEvidenceObligation && declined)) {
+    candidates.push({
       state: 'key_detail_unavailable',
       confidence: clusterKeyConfidence(memberIds, new Set([CONTEXT_LIMIT_KEY]), index) ?? 'medium',
-    };
+    });
   }
-  // 4 — Definition not shared (proposed/ambiguous but not confirmed).
+  // accounts_differ — reserved; key set is empty in v1, so this never fires.
+  if (RECOLLECTION_KEYS.size > 0 && clusterHasAnyKey(memberIds, RECOLLECTION_KEYS, index)) {
+    candidates.push({ state: 'accounts_differ', confidence: 'low' });
+  }
+  // definition_not_shared — definition keys present, not confirmed.
   if (
     clusterHasAnyKey(memberIds, DEFINITION_KEYS, index)
     && !clusterHasKey(memberIds, DEFINITION_CONFIRM_KEY, index)
   ) {
-    return {
+    candidates.push({
       state: 'definition_not_shared',
       confidence: clusterKeyConfidence(memberIds, DEFINITION_KEYS, index) ?? 'medium',
-    };
+    });
   }
-  // 5 — Scope mismatch (observation-driven).
+  // scope_mismatch — observation-driven, OR lifecycle branch_recommended (low conf).
   if (clusterHasAnyKey(memberIds, SCOPE_KEYS, index)) {
-    return {
+    candidates.push({
       state: 'scope_mismatch',
       confidence: clusterKeyConfidence(memberIds, SCOPE_KEYS, index) ?? 'medium',
-    };
+    });
+  } else if (lc === 'branch_recommended') {
+    candidates.push({ state: 'scope_mismatch', confidence: 'low' });
   }
-  // 5b — Off-axis pressure (lifecycle) → scope mismatch, low confidence.
-  if (lc === 'branch_recommended') {
-    return { state: 'scope_mismatch', confidence: 'low' };
-  }
-  // 6 — Value tradeoff (axis or observation), no evidence obligation open.
-  if (cluster.primaryAxis === 'value' || clusterHasAnyKey(memberIds, VALUE_KEYS, index)) {
-    const obsConf = clusterKeyConfidence(memberIds, VALUE_KEYS, index);
-    return { state: 'value_tradeoff', confidence: obsConf ?? 'medium' };
-  }
-  // 7 — Missing mechanism (causal axis + still-contested lifecycle). Proxy
-  //     signal (no critical-question family consumed yet) → low confidence.
-  if (cluster.primaryAxis === 'causal' && (lc === 'rebutted' || lc === 'answered' || lc === 'open')) {
-    return { state: 'missing_mechanism', confidence: 'low' };
-  }
-  // 8 — Structured impasse: exhausted with nothing actionable above.
-  if (lc === 'exhausted') {
-    return { state: 'structured_impasse', confidence: 'high' };
-  }
-  // 9 — Off-point (lifecycle ignored/moved-on, or Q/A mismatch observation).
+  // off_point — lifecycle ignored/moved-on, OR Q/A mismatch observation.
   if (
     lc === 'ignored_by_affirmative'
     || lc === 'ignored_by_negative'
@@ -316,14 +379,99 @@ function decidePointState(
     || lc === 'moved_on_by_negative'
     || clusterHasAnyKey(memberIds, OFF_POINT_KEYS, index)
   ) {
-    return { state: 'off_point', confidence: 'medium' };
+    candidates.push({ state: 'off_point', confidence: 'medium' });
   }
-  // 10 — Reserved recollection path (never fires in v1 — empty key set).
-  if (RECOLLECTION_KEYS.size > 0 && clusterHasAnyKey(memberIds, RECOLLECTION_KEYS, index)) {
-    return { state: 'accounts_differ', confidence: 'low' };
+  // missing_mechanism — causal axis + still-contested lifecycle (proxy → low conf).
+  if (cluster.primaryAxis === 'causal' && (lc === 'rebutted' || lc === 'answered' || lc === 'open')) {
+    candidates.push({ state: 'missing_mechanism', confidence: 'low' });
   }
-  // 11 — Open default (preserve uncertainty when no observations support a kind).
-  return { state: 'open', confidence: fallbackConfidence };
+  // needs_evidence — an open obligation with no declined / context-limit block.
+  if (hasEvidenceObligation && !declined && !hasContextLimit) {
+    candidates.push({ state: 'needs_evidence', confidence: 'high' });
+  }
+  // narrowed — a repair, never a defeat (now ranks below the evidence/definition/
+  //   scope/missing-link signals → fixes D2).
+  if (lc === 'narrowed' || lc === 'conceded') {
+    candidates.push({ state: 'narrowed', confidence: 'high' });
+  }
+  // value_tradeoff — value axis or value observation (display collapses to open).
+  if (cluster.primaryAxis === 'value' || clusterHasAnyKey(memberIds, VALUE_KEYS, index)) {
+    candidates.push({
+      state: 'value_tradeoff',
+      confidence: clusterKeyConfidence(memberIds, VALUE_KEYS, index) ?? 'medium',
+    });
+  }
+  // open — always the fallback; preserves uncertainty when nothing else fires.
+  candidates.push({ state: 'open', confidence: fallbackConfidence });
+
+  return candidates;
+}
+
+/**
+ * True when a NON-impasse, non-fallback candidate has a resolution pathway a
+ * participant can act on now. Used by Gate A: structured_impasse is demoted
+ * while any such pathway remains (v4 conflict row "Impasse + any path remains
+ * → not impasse").
+ *
+ * `open` is EXCLUDED (R3 in the design): `open` is the terminal fallback, not a
+ * real alternative pathway — its `respond_to_point` step is always "available",
+ * so counting it would mean impasse could never stand. An exhausted cluster
+ * with nothing actionable above `open` is exactly a structured impasse.
+ * `resolved_or_settled` never reaches the candidate set (Phase 1 short-circuit).
+ */
+function anyNonImpassePathwayAvailable(candidates: ReadonlyArray<PointStateCandidate>): boolean {
+  for (const c of candidates) {
+    if (c.state === 'structured_impasse' || c.state === 'open') continue;
+    if (pathwayForState('', c.state).anyAvailable) return true;
+  }
+  return false;
+}
+
+function decidePointState(
+  cluster: PointLifecycleClusterSummary,
+  openDebts: ReadonlyArray<EvidenceDebt>,
+  index: ObservationIndex,
+): PointStateResult {
+  const lc: PointLifecycleState = cluster.state;
+
+  // Phase 1 — Resolution dominance (terminal; never competes in the picker).
+  if (lc === 'archived_or_resolved' || lc === 'confirmed' || lc === 'synthesis_ready') {
+    return { state: 'resolved_or_settled', confidence: 'high' };
+  }
+
+  // Phase 2 — Candidate set.
+  let candidates = buildPointStateCandidates(cluster, openDebts, index);
+
+  // Phase 3a — Gate A: demote structured_impasse when a pathway remains.
+  const hasImpasse = candidates.some((c) => c.state === 'structured_impasse');
+  if (hasImpasse && anyNonImpassePathwayAvailable(candidates)) {
+    candidates = candidates.filter((c) => c.state !== 'structured_impasse');
+  }
+
+  // Phase 3b — Ordered pick: highest-priority candidate (open is always present).
+  let chosen: PointStateCandidate = candidates[candidates.length - 1]; // 'open' fallback
+  let bestRank = -1;
+  for (const c of candidates) {
+    const rank = INTERNAL_PRIORITY_RANK[c.state] ?? 0;
+    if (rank > bestRank) {
+      bestRank = rank;
+      chosen = c;
+    }
+  }
+  return { state: chosen.state, confidence: chosen.confidence };
+}
+
+/**
+ * Project an internal 13-code mediator state onto the v4 nine-state DISPLAY
+ * vocabulary (UX-MEDIATOR-001). A pure total function over all 13 codes.
+ * `point.state` is unchanged; downstream cards (UX-MEDIATOR-002/005) consume
+ * this helper to render the v4 vocabulary. `resolved_or_settled` is terminal
+ * and returned as its own atom (it is not one of the nine live states).
+ */
+export function v4DisplayStateFor(
+  code: MediatorStateCode,
+): V4MediatorStateCode | 'resolved_or_settled' {
+  return V4_DISPLAY_STATE_BY_CODE[code];
 }
 
 // ── Public derivations (each (graph, observations) per the card contract) ──
