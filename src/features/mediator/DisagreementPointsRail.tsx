@@ -112,6 +112,16 @@ export interface DisagreementPointsRailProps {
   reduceMotionOverride?: boolean;
   /** Default true (observer-first, collapsed). */
   defaultCollapsed?: boolean;
+  /**
+   * UX-BOARD-RAIL-002 — chassis intent.
+   * 'sheet' (default) = today's collapsed-pill → bottom-sheet behavior
+   *   (byte-identical phone). Honors `isAnyPanelOpen` (member of the bottom
+   *   shared-space group), animates the sheet slide, defaults collapsed.
+   * 'pane'  = expanded-by-default docked column child (no bottom-overlay
+   *   positioning, ignores `isAnyPanelOpen`, no entry animation). Used on
+   *   tablet/wide where the rail docks as a persistent column.
+   */
+  presentation?: 'sheet' | 'pane';
   /** Force-collapse when another bottom panel owns the space. */
   isAnyPanelOpen?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
@@ -139,6 +149,7 @@ export function DisagreementPointsRail({
   windowHeight,
   reduceMotionOverride,
   defaultCollapsed,
+  presentation = 'sheet',
   isAnyPanelOpen,
   onExpandedChange,
   onJump,
@@ -154,7 +165,12 @@ export function DisagreementPointsRail({
   const sheetMaxHeight = resolveSheetMaxHeightPx(effectiveHeight);
 
   // ── collapse state (observer-first → collapsed by default) ──
-  const [collapsed, setCollapsed] = useState(defaultCollapsed ?? true);
+  // UX-BOARD-RAIL-002 — a docked pane is expanded by default (it IS the
+  // column); the bottom sheet stays collapsed-by-default. An explicit
+  // `defaultCollapsed` still wins (back-compat for existing callers/tests).
+  const [collapsed, setCollapsed] = useState(
+    defaultCollapsed ?? (presentation === 'pane' ? false : true),
+  );
   const [showAll, setShowAll] = useState(false);
 
   // ── reduce-motion read (mirrors OpenIssuesRail) ──
@@ -197,7 +213,11 @@ export function DisagreementPointsRail({
     typeof reduceMotionOverride === 'boolean' ? reduceMotionOverride : prefersReducedMotion;
 
   // ── mutual exclusion with the other bottom rails ──
-  const expanded = !collapsed && !isAnyPanelOpen;
+  // UX-BOARD-RAIL-002 — a docked pane is NOT in the bottom shared-space group,
+  // so it ignores `isAnyPanelOpen` (a stale OR-term on a sibling rail can never
+  // force-collapse the column). The sheet honors it exactly as today.
+  const expanded =
+    presentation === 'pane' ? !collapsed : !collapsed && !isAnyPanelOpen;
 
   const onExpandedChangeRef = useRef(onExpandedChange);
   onExpandedChangeRef.current = onExpandedChange;
@@ -210,7 +230,10 @@ export function DisagreementPointsRail({
   // ── narrow-sheet slide (snapped under reduce-motion / side) ──
   const progress = useRef(new Animated.Value(expanded ? 1 : 0)).current;
   useEffect(() => {
-    if (effectiveReducedMotion || variant === 'side') {
+    // UX-BOARD-RAIL-002 — the docked pane suppresses the entry animation
+    // (width-independent: a 600–719 px pane straddles the 720 dock boundary but
+    // must not slide). The sheet keeps its shipped slide unless reduce-motion.
+    if (effectiveReducedMotion || variant === 'side' || presentation === 'pane') {
       progress.setValue(expanded ? 1 : 0);
       return;
     }
@@ -221,7 +244,7 @@ export function DisagreementPointsRail({
     });
     animation.start();
     return () => animation.stop();
-  }, [expanded, effectiveReducedMotion, variant, progress]);
+  }, [expanded, effectiveReducedMotion, variant, presentation, progress]);
 
   // ── web Escape — collapse ──
   useEffect(() => {
@@ -388,6 +411,19 @@ export function DisagreementPointsRail({
     </>
   );
 
+  // UX-BOARD-RAIL-002 — docked-pane chassis. The parent column owns the width
+  // (380 px), so the pane wrapper drops the bottom-overlay cues
+  // (`alignSelf:'flex-end'` / `width:380` / `borderTop`) and carries a LEFT
+  // geometry border instead (column boundary, never color-only). `flex:1`
+  // stretches the pane to the column height so the empty-state pane keeps a
+  // stable shape and never collapses.
+  if (presentation === 'pane') {
+    return (
+      <View style={[styles.expandedRoot, styles.expandedRootPane]} testID={rootTestID}>
+        {body}
+      </View>
+    );
+  }
   if (variant === 'side') {
     return (
       <View style={[styles.expandedRoot, styles.expandedRootSide]} testID={rootTestID}>
@@ -699,6 +735,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     width: 380,
     maxWidth: '100%',
+  },
+  // UX-BOARD-RAIL-002 — docked-pane chassis. Stretches to the column height
+  // and width (the parent column is sized to 380 px), drops the bottom-overlay
+  // top border, and carries a LEFT geometry border for the column boundary.
+  expandedRootPane: {
+    flex: 1,
+    alignSelf: 'stretch',
+    borderTopWidth: 0,
+    borderLeftWidth: BORDER_WIDTH.sm,
+    borderLeftColor: SURFACE_TOKENS.border,
   },
   header: {
     flexDirection: 'row',
