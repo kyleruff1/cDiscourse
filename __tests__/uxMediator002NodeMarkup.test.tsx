@@ -7,7 +7,8 @@
  *     (`NodeLabelStrip`) is NO LONGER mounted in the default view;
  *   - an ordinary open/resolved node carries NO chip (suppression preserved);
  *   - the chip uses the v4 display vocabulary via `v4DisplayStateFor`
- *     (`definition_not_shared` still renders "Definition needed" — deferral);
+ *     (`definition_not_shared` renders "Definition not shared" — renamed by
+ *     UX-MEDIATOR-004; the internal code is unchanged);
  *   - a chip-adjacent Inspect caret (O-2) is a 44×44 role=button that opens
  *     the existing Inspect overlay;
  *   - the relocated detail (Observation/Allegation groups + the new mediator
@@ -190,13 +191,13 @@ describe('UX-MEDIATOR-002 — one-chip behavior (rendered)', () => {
     expect(getNodeMediatorMarker(board, 'n1')).toBeNull();
   });
 
-  it('definition_not_shared still renders "Definition needed" (UX-MEDIATOR-004 deferral)', () => {
+  it('definition_not_shared renders "Definition not shared" (renamed by UX-MEDIATOR-004)', () => {
     const board = makeBoard([makeMarkup({ nodeId: 'n1', primaryState: 'definition_not_shared' })]);
     const marker = getNodeMediatorMarker(board, 'n1');
-    expect(marker?.label).toBe('Definition needed');
-    expect(marker?.label).not.toBe('Definition not shared');
+    expect(marker?.label).toBe('Definition not shared');
+    expect(marker?.label).not.toBe('Definition needed');
     const { getByText } = render(<MediatorNodeMarker marker={marker} />);
-    expect(getByText('Definition needed')).toBeTruthy();
+    expect(getByText('Definition not shared')).toBeTruthy();
   });
 });
 

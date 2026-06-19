@@ -45,7 +45,7 @@ describe('UX-MEDIATOR-002 MediatorNodeMarker', () => {
 
   it('renders no internal codes and no ban-list tokens', () => {
     const banned = _forbiddenMediatorTokens();
-    const labels = ['Needs evidence', 'Definition needed', 'Scope mismatch', 'Off-point response', 'Structured impasse', 'Blocked evidence path'];
+    const labels = ['Needs evidence', 'Definition not shared', 'Scope mismatch', 'Off-point response', 'Structured impasse', 'Blocked evidence path'];
     for (const label of labels) {
       const tree = render(<MediatorNodeMarker marker={marker({ code: 'needs_evidence', label })} />).toJSON();
       for (const text of collectText(tree)) {

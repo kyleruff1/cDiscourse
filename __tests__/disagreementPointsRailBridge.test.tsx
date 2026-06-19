@@ -77,7 +77,7 @@ describe('UX-MEDIATOR-004 DisagreementPointsRail definition/scope bridge', () =>
     );
     expect(getByTestId('disagreement-points-rail-bridge-p1')).toBeTruthy();
     expect(getByText('Clarify the point')).toBeTruthy();
-    expect(getByText('Definition needed — pin down the term together.')).toBeTruthy();
+    expect(getByText('The key term is not yet shared. Define the key term together.')).toBeTruthy();
   });
 
   it('renders the scope bridge for a scope_mismatch point', () => {
@@ -86,7 +86,7 @@ describe('UX-MEDIATOR-004 DisagreementPointsRail definition/scope bridge', () =>
       <DisagreementPointsRail board={board} defaultCollapsed={false} reduceMotionOverride />,
     );
     expect(getByTestId('disagreement-points-rail-bridge-primary-p1')).toBeTruthy();
-    expect(getByText('Scope mismatch — narrow the point or branch a separate claim.')).toBeTruthy();
+    expect(getByText('This appears to answer a different scope. Narrow the claim, branch the provable part, or respond to the exact point.')).toBeTruthy();
   });
 
   it('shows no bridge section for an ordinary open or needs-evidence point', () => {
@@ -124,9 +124,9 @@ describe('UX-MEDIATOR-004 DisagreementPointsRail definition/scope bridge', () =>
       <DisagreementPointsRail board={board} defaultCollapsed={false} reduceMotionOverride />,
     );
     // Board priority says scope -> scope leads, definition summarised.
-    expect(getByText('Scope mismatch — narrow the point or branch a separate claim.')).toBeTruthy();
+    expect(getByText('This appears to answer a different scope. Narrow the claim, branch the provable part, or respond to the exact point.')).toBeTruthy();
     expect(getByTestId('disagreement-points-rail-bridge-secondary-p1')).toBeTruthy();
-    expect(getByText('Also: Definition needed')).toBeTruthy();
+    expect(getByText('Also: Definition not shared')).toBeTruthy();
   });
 
   it('bridge prompts are advisory — no posting-gate language (doctrine §1)', () => {
@@ -137,9 +137,28 @@ describe('UX-MEDIATOR-004 DisagreementPointsRail definition/scope bridge', () =>
       DISAGREEMENT_POINTS_RAIL_COPY.clarifyPoint,
       DISAGREEMENT_POINTS_RAIL_COPY.definitionBridge,
       DISAGREEMENT_POINTS_RAIL_COPY.scopeBridge,
+      DISAGREEMENT_POINTS_RAIL_COPY.definitionShort,
+      DISAGREEMENT_POINTS_RAIL_COPY.scopeShort,
+      DISAGREEMENT_POINTS_RAIL_COPY.alsoPrefix,
     ].map((s) => s.toLowerCase());
     for (const text of bridgeCopy) {
       for (const phrase of gateLike) expect(text.includes(phrase)).toBe(false);
+    }
+  });
+
+  it('bridge prompts are person-neutral — no accusation language (UX-MEDIATOR-004 reframe)', () => {
+    // The reframe treats divergent terms / scope as a SHARED structural task,
+    // never an accusation. Guard every bridge string against blame phrasing.
+    const accusatory = ['evasion', 'bad faith', 'fallacy', 'wrong', 'dishonest', 'non-responsive', 'off-topic', 'dodging', 'equivocat'];
+    const bridgeCopy = [
+      DISAGREEMENT_POINTS_RAIL_COPY.clarifyPoint,
+      DISAGREEMENT_POINTS_RAIL_COPY.definitionBridge,
+      DISAGREEMENT_POINTS_RAIL_COPY.scopeBridge,
+      DISAGREEMENT_POINTS_RAIL_COPY.definitionShort,
+      DISAGREEMENT_POINTS_RAIL_COPY.scopeShort,
+    ].map((s) => s.toLowerCase());
+    for (const text of bridgeCopy) {
+      for (const phrase of accusatory) expect(text.includes(phrase)).toBe(false);
     }
   });
 

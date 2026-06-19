@@ -111,12 +111,12 @@ describe('UX-MEDIATOR-002 getNodeMediatorMarker', () => {
     expect(linkMarker?.code).toBe('missing_mechanism');
     expect(linkMarker?.label).toBe('Missing link');
 
-    // definition_not_shared keeps its shipped "Definition needed" label
-    // (the 'Definition not shared' rename is deferred to UX-MEDIATOR-004).
+    // definition_not_shared renders the v4 "Definition not shared" label
+    // (renamed by UX-MEDIATOR-004; the internal code is unchanged).
     const def = makeBoard([makeMarkup({ nodeId: 'd', primaryState: 'definition_not_shared' })]);
     const defMarker = getNodeMediatorMarker(def, 'd');
     expect(defMarker?.code).toBe('definition_not_shared');
-    expect(defMarker?.label).toBe('Definition needed');
+    expect(defMarker?.label).toBe('Definition not shared');
   });
 
   it('display-suppresses value_tradeoff (projects to open → no chip)', () => {

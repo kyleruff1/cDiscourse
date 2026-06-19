@@ -55,13 +55,13 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
   // never reads as a precondition to posting (doctrine §1 — the board never
   // blocks). It mirrors the collaborative tone of MEDIATOR_STATE_HELPER.
   /** UX-MEDIATOR-004 — definition bridge prompt (advisory, never a gate). */
-  definitionBridge: 'Definition needed — pin down the term together.',
+  definitionBridge: 'The key term is not yet shared. Define the key term together.',
   /** UX-MEDIATOR-004 — scope bridge prompt (advisory, never a gate). */
-  scopeBridge: 'Scope mismatch — narrow the point or branch a separate claim.',
+  scopeBridge: 'This appears to answer a different scope. Narrow the claim, branch the provable part, or respond to the exact point.',
   /** UX-MEDIATOR-004 — secondary bridge note lead-in (shown only when both apply). */
   alsoPrefix: 'Also',
   /** UX-MEDIATOR-004 — short labels for the secondary bridge note. */
-  definitionShort: 'Definition needed',
+  definitionShort: 'Definition not shared',
   scopeShort: 'Scope mismatch',
 });
 

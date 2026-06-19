@@ -90,7 +90,7 @@ describe('UX-MEDIATOR-002 MediatorNodeInspectDetail', () => {
     const banned = _forbiddenMediatorTokens();
     const labels = [
       'Needs evidence',
-      'Definition needed',
+      'Definition not shared',
       'Scope mismatch',
       'Missing link',
       'Structured impasse',
