@@ -561,9 +561,9 @@ describe('UX-MEDIATOR-001 — public sub-functions', () => {
   });
 });
 
-// ── 16. v4 13→9 display mapping is total + documented ──────────
+// ── 16. v4 13→11 display mapping is total + documented ─────────
 
-describe('UX-MEDIATOR-001 — v4 display mapping (13→9)', () => {
+describe('UX-MEDIATOR-001 — v4 display mapping (13→11)', () => {
   it('V4_DISPLAY_STATE_BY_CODE has a value for every one of the 13 internal codes', () => {
     for (const code of ALL_MEDIATOR_STATE_CODES) {
       expect(Object.prototype.hasOwnProperty.call(V4_DISPLAY_STATE_BY_CODE, code)).toBe(true);
@@ -581,20 +581,23 @@ describe('UX-MEDIATOR-001 — v4 display mapping (13→9)', () => {
     }
   });
 
-  it('collapses the four superset codes exactly as the design specifies', () => {
-    expect(v4DisplayStateFor('key_detail_unavailable')).toBe('evidence_blocked');
-    expect(v4DisplayStateFor('value_tradeoff')).toBe('open'); // O-2
+  it('collapses the remaining superset code exactly as the design specifies', () => {
+    // UX-IMPASSE-002 (#710) surfaced key_detail_unavailable + value_tradeoff as
+    // their own display states (identity); only off_point (plus the terminal
+    // resolved_or_settled) still collapses.
+    expect(v4DisplayStateFor('key_detail_unavailable')).toBe('key_detail_unavailable'); // #710
+    expect(v4DisplayStateFor('value_tradeoff')).toBe('value_tradeoff'); // #710
     expect(v4DisplayStateFor('off_point')).toBe('scope_mismatch');
     expect(v4DisplayStateFor('resolved_or_settled')).toBe('resolved_or_settled'); // terminal
   });
 
-  it('keeps the nine live states as themselves (identity for the v4 vocabulary)', () => {
+  it('keeps the eleven live states as themselves (identity for the v4 vocabulary)', () => {
     for (const code of ALL_V4_MEDIATOR_STATE_CODES) {
       expect(v4DisplayStateFor(code)).toBe(code);
     }
   });
 
-  it('the v4 priority list is exactly the nine live states (no resolved_or_settled)', () => {
+  it('the v4 priority list is exactly the eleven live states (no resolved_or_settled)', () => {
     expect([...V4_PRIMARY_STATE_PRIORITY]).toEqual([...ALL_V4_MEDIATOR_STATE_CODES]);
     expect(V4_PRIMARY_STATE_PRIORITY).not.toContain('resolved_or_settled');
   });

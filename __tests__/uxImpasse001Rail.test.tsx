@@ -150,7 +150,7 @@ describe('UX-IMPASSE-001 — rail dignified-impasse render', () => {
     expect(getByText('Move forward: Add a source.')).toBeTruthy();
   });
 
-  it('DEFERRAL PROOF — a value_tradeoff point renders as Open with NO "Different priorities" chip and NO impasse line', () => {
+  it('SURFACING PROOF (#710) — a value_tradeoff point renders its own "Different priorities" chip and NO impasse line', () => {
     const { queryByTestId, queryByText } = render(
       <DisagreementPointsRail
         board={makeBoard([makePoint({ id: 'n1', state: 'value_tradeoff' })])}
@@ -158,15 +158,15 @@ describe('UX-IMPASSE-001 — rail dignified-impasse render', () => {
         reduceMotionOverride
       />,
     );
-    // value_tradeoff folds to Open for display → no impasse line.
+    // Surfacing a more specific state never escalates to an impasse line.
     expect(queryByTestId('disagreement-points-rail-impasse-n1')).toBeNull();
-    // The dormant chip text must NOT appear anywhere.
-    expect(queryByText(VALUE_TRADEOFF_DISPLAY_COPY.chip)).toBeNull();
-    // The display badge reads "Open".
-    expect(queryByText('Open')).toBeTruthy();
+    // The surfaced chip text appears as the rail badge.
+    expect(queryByText(VALUE_TRADEOFF_DISPLAY_COPY.chip)).toBeTruthy();
+    // It is no longer folded into "Open".
+    expect(queryByText('Open')).toBeNull();
   });
 
-  it('DEFERRAL PROOF — a key_detail_unavailable point folds into Evidence blocked, never a "Key detail unavailable" chip', () => {
+  it('SURFACING PROOF (#710) — a key_detail_unavailable point renders its own "Key detail unavailable" chip, distinct from Evidence blocked', () => {
     const { queryByText } = render(
       <DisagreementPointsRail
         board={makeBoard([makePoint({ id: 'n1', state: 'key_detail_unavailable' })])}
@@ -174,10 +174,10 @@ describe('UX-IMPASSE-001 — rail dignified-impasse render', () => {
         reduceMotionOverride
       />,
     );
-    // Folds into the shipped "Evidence blocked" display label.
-    expect(queryByText('Evidence blocked')).toBeTruthy();
-    // The dormant distinct chip text must NOT appear.
-    expect(queryByText(KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.chip)).toBeNull();
+    // The surfaced distinct chip text appears...
+    expect(queryByText(KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.chip)).toBeTruthy();
+    // ...and it no longer folds into the "Evidence blocked" label.
+    expect(queryByText('Evidence blocked')).toBeNull();
   });
 
   it('the impasse row text is ban-list clean (no deadlock / failure / verdict tokens)', () => {

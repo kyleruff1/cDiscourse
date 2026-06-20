@@ -3,10 +3,12 @@
  * (LOCAL, display-only).
  *
  * Covers:
- *   - the pure `nextMovesForState` nine-state map (the §3 operator-locked map):
+ *   - the pure `nextMovesForState` eleven-state map (the §3 operator-locked map;
+ *     UX-IMPASSE-002 #710 surfaced value_tradeoff + key_detail_unavailable):
  *     dominant-first ordering, exactly one dominant, the correct alternates,
  *     determinism, and the insufficient/unknown → neutral Open fallback;
- *   - the four superset display-state collapses (handled by `v4DisplayStateFor`);
+ *   - the display-state projection via `v4DisplayStateFor` (only off_point still
+ *     collapses, plus the terminal resolved_or_settled);
  *   - copy ban-list cleanliness (no verdict / person / popularity / intent
  *     token; no snake_case leak) + the exact title;
  *   - the `MediatorNextMovesCard` render: title (header), the alternates, the
@@ -78,12 +80,17 @@ const HELPER_SRC = fs.readFileSync(
 const EXPECTED_DOMINANT: Readonly<Record<V4MediatorStateCode, string>> = {
   needs_evidence: 'Ask for a source',
   evidence_blocked: 'Mark evidence unavailable',
+  // UX-IMPASSE-002 (#710) — surfaced display state; reuses the evidence_blocked
+  // move shape (dominant = the actionable "Branch the provable part").
+  key_detail_unavailable: 'Branch the provable part',
   definition_not_shared: 'Define the key term',
   scope_mismatch: 'Narrow the claim',
   missing_mechanism: 'Add the missing link',
   narrowed: 'Continue on the smaller point',
   accounts_differ: 'Separate memory from records',
   structured_impasse: 'Preserve the disagreement',
+  // UX-IMPASSE-002 (#710) — surfaced display state; dominant = "Name the tradeoff".
+  value_tradeoff: 'Name the tradeoff',
   open: 'Respond to the exact point',
 };
 
@@ -92,12 +99,18 @@ const EXPECTED_DOMINANT: Readonly<Record<V4MediatorStateCode, string>> = {
 const EXPECTED_ALTERNATES: Readonly<Record<V4MediatorStateCode, ReadonlyArray<string>>> = {
   needs_evidence: ['Add evidence'],
   evidence_blocked: ['Branch the provable part', 'Name what kind of record would test this point'],
+  // UX-IMPASSE-002 (#710) — reuses the evidence_blocked alternate (the guidance
+  // "Name what kind of record would test this point"); no "Mark evidence
+  // unavailable" because key_detail_unavailable leads with the actionable branch.
+  key_detail_unavailable: ['Name what kind of record would test this point'],
   definition_not_shared: [],
   scope_mismatch: ['Branch the provable part', 'Respond to the exact point', 'Accept the narrower scope'],
   missing_mechanism: ['Ask for the mechanism'],
   narrowed: ['Concede the resolved part'],
   accounts_differ: ['Name what could verify it'],
   structured_impasse: ['Reopen with a source, definition, or narrower claim'],
+  // UX-IMPASSE-002 (#710) — a single dominant move; no alternates.
+  value_tradeoff: [],
   open: ['Ask a clarifying question'],
 };
 
@@ -115,7 +128,7 @@ function collectText(node: unknown): string[] {
 
 // ── 1. State → move map coverage (acceptance core) ────────────
 
-describe('UX-NEXT-MOVE-001 — nextMovesForState §3 map (nine states)', () => {
+describe('UX-NEXT-MOVE-001 — nextMovesForState §3 map (eleven states)', () => {
   it('returns the correct dominant move first for every display state', () => {
     for (const state of ALL_V4_MEDIATOR_STATE_CODES) {
       const moves = nextMovesForState(state);
@@ -165,23 +178,28 @@ describe('UX-NEXT-MOVE-001 — determinism', () => {
   });
 });
 
-// ── 3. The four superset codes collapse via v4DisplayStateFor ──
+// ── 3. Display-state projection via v4DisplayStateFor ──────────
+//
+// UX-IMPASSE-002 (#710) surfaced value_tradeoff + key_detail_unavailable as
+// their own display states (identity projection + their own move sets). Only
+// off_point (plus the terminal resolved_or_settled) still collapses.
 
-describe('UX-NEXT-MOVE-001 — superset display-state collapses (drift guard)', () => {
-  it('value_tradeoff → open (shows the Open move set)', () => {
-    expect(v4DisplayStateFor('value_tradeoff')).toBe('open');
-    expect(V4_DISPLAY_STATE_BY_CODE.value_tradeoff).toBe('open');
+describe('UX-NEXT-MOVE-001 — display-state projection (drift guard)', () => {
+  it('value_tradeoff → value_tradeoff (surfaced; shows the "Name the tradeoff" move set) — #710', () => {
+    expect(v4DisplayStateFor('value_tradeoff')).toBe('value_tradeoff');
+    expect(V4_DISPLAY_STATE_BY_CODE.value_tradeoff).toBe('value_tradeoff');
     const moves = nextMovesForState(v4DisplayStateFor('value_tradeoff') as V4MediatorStateCode);
-    expect(moves[0].label).toBe('Respond to the exact point');
+    expect(moves[0].label).toBe('Name the tradeoff');
   });
 
-  it('key_detail_unavailable → evidence_blocked (shows the evidence-blocked set)', () => {
-    expect(v4DisplayStateFor('key_detail_unavailable')).toBe('evidence_blocked');
+  it('key_detail_unavailable → key_detail_unavailable (surfaced; shows the "Branch the provable part" move set) — #710', () => {
+    expect(v4DisplayStateFor('key_detail_unavailable')).toBe('key_detail_unavailable');
+    expect(V4_DISPLAY_STATE_BY_CODE.key_detail_unavailable).toBe('key_detail_unavailable');
     const moves = nextMovesForState(v4DisplayStateFor('key_detail_unavailable') as V4MediatorStateCode);
-    expect(moves[0].label).toBe('Mark evidence unavailable');
+    expect(moves[0].label).toBe('Branch the provable part');
   });
 
-  it('off_point → scope_mismatch (shows the scope set)', () => {
+  it('off_point → scope_mismatch (still collapses; shows the scope set)', () => {
     expect(v4DisplayStateFor('off_point')).toBe('scope_mismatch');
     const moves = nextMovesForState(v4DisplayStateFor('off_point') as V4MediatorStateCode);
     expect(moves[0].label).toBe('Narrow the claim');
@@ -192,7 +210,7 @@ describe('UX-NEXT-MOVE-001 — superset display-state collapses (drift guard)', 
 
 describe('UX-NEXT-MOVE-001 — insufficient signal → Open fallback', () => {
   it('an unknown state collapses to the Open set (never an accusation)', () => {
-    // The helper is typed over the nine; an out-of-band value falls to Open.
+    // The helper is typed over the eleven display states; an out-of-band value falls to Open.
     const moves = nextMovesForState('not_a_real_state' as unknown as V4MediatorStateCode);
     expect(moves[0].label).toBe('Respond to the exact point');
     expect(labels(moves)).toEqual(['Respond to the exact point', 'Ask a clarifying question']);
@@ -208,7 +226,7 @@ describe('UX-NEXT-MOVE-001 — insufficient signal → Open fallback', () => {
 describe('UX-NEXT-MOVE-001 — ban-list clean copy', () => {
   const BANNED = _forbiddenNextMoveTokens();
 
-  it('no label or rationale contains a banned token, across all nine states', () => {
+  it('no label or rationale contains a banned token, across all eleven states', () => {
     for (const state of ALL_V4_MEDIATOR_STATE_CODES) {
       for (const move of nextMovesForState(state)) {
         const lower = `${move.label} ${move.rationale}`.toLowerCase();
@@ -400,12 +418,16 @@ describe('UX-NEXT-MOVE-001 — dominant stepCode shares the pathway source', () 
   const FIRST_AVAILABLE_STEP: Readonly<Record<V4MediatorStateCode, ResolutionPathwayStepCode>> = {
     needs_evidence: 'provide_source',
     evidence_blocked: 'narrow_or_branch', // await_record is unavailable; first AVAILABLE is narrow_or_branch
+    // UX-IMPASSE-002 (#710) — reuses the evidence_blocked shape; first AVAILABLE is narrow_or_branch.
+    key_detail_unavailable: 'narrow_or_branch',
     definition_not_shared: 'define_term',
     scope_mismatch: 'narrow_or_branch',
     missing_mechanism: 'supply_mechanism',
     narrowed: 'respond_to_point',
     accounts_differ: 'await_record', // none available; the await step is the only one
     structured_impasse: 'await_record',
+    // UX-IMPASSE-002 (#710) — the single dominant move is available (name_tradeoff).
+    value_tradeoff: 'name_tradeoff',
     open: 'respond_to_point',
   };
 

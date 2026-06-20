@@ -29,7 +29,11 @@ export const MEDIATOR_STATE_COPY: Readonly<Record<MediatorStateCode, string>> = 
   definition_not_shared: 'Definition not shared',
   scope_mismatch: 'Scope mismatch',
   missing_mechanism: 'Missing link',
-  value_tradeoff: 'Value tradeoff',
+  // UX-IMPASSE-002 (#710) — surfaced as its own display state. Chip label
+  // "Different priorities" (operator-locked). Set here so the node chip, rail
+  // badge, and distribution segment all read the SAME label (label parity —
+  // every surface renders MEDIATOR_STATE_COPY[displayCode]).
+  value_tradeoff: 'Different priorities',
   narrowed: 'Partially narrowed',
   off_point: 'Off-point response',
   accounts_differ: 'Difference of recollection',
@@ -58,11 +62,21 @@ export const MEDIATOR_STATE_HELPER: Readonly<Record<MediatorStateCode, string>> 
     'The evidence path is not available right now. ' +
     'Name what kind of record would test this point, without demanding private access. ' +
     'Mark evidence unavailable, branch the provable part, or ask what kind of record would test this.',
-  key_detail_unavailable: 'A detail this turns on cannot be settled from what is available.',
+  // UX-IMPASSE-002 (#710) — surfaced as its own display state. Operator-locked
+  // Lead + Help. Describes an unavailable DETAIL (a property of the record),
+  // never a person's conduct — mirrors the evidence_blocked ban discipline.
+  key_detail_unavailable:
+    'A key detail is not available to test here. ' +
+    'Branch the part that can be checked, or preserve this point as unresolved.',
   definition_not_shared: 'A shared definition would make this point easier to test.',
   scope_mismatch: 'A scope bridge keeps the reply anchored to the exact point.',
   missing_mechanism: 'The conclusion depends on a step that has not been spelled out.',
-  value_tradeoff: 'This is a difference in priorities, not a point that more evidence settles.',
+  // UX-IMPASSE-002 (#710) — surfaced as its own display state. Operator-locked
+  // Lead + Help. A value tradeoff is a STRUCTURAL state of the point, never a
+  // verdict; the factual part can still be narrowed.
+  value_tradeoff:
+    'This point turns on a value tradeoff. ' +
+    'Name the priority being weighed, then decide whether the factual part can be narrowed.',
   // UX-IMPASSE-001 (#689) — narrowing is PROGRESS, not a defeat. Lead aligned to
   // the §4 operator-locked dignified wording: the disagreement got smaller and a
   // remaining point is still open for a response. Person-neutral, ban-list clean.
@@ -126,44 +140,62 @@ export const IMPASSE_SUBTYPE_COPY: Readonly<
     next: 'Continue on the smaller point, or concede the resolved part.',
   },
   no_current_pathway: {
-    // Reserved alternate copy (folded into Structured impasse for the chip — Q4).
+    // DEFERRED (#710 follow-up): the structured_impasse frame; never a distinct
+    // chip. Reserved alternate copy folded into Structured impasse for the chip
+    // (Q4). Lead / help aligned to the UX-IMPASSE-002 operator copy; it stays
+    // the impasse frame and is NEVER added to the display map or a next-move spec.
     chip: MEDIATOR_STATE_COPY.structured_impasse, // folds into 'Structured impasse'
-    lead: 'No available step would test this further yet.',
-    help: 'The point can be reopened if a source, shared definition, or narrower claim appears.',
+    lead: 'No available step would test this point right now.',
+    help: 'Reopen with a source, definition, or narrower claim.',
     next: 'Preserve the disagreement.',
   },
 });
 
 /**
- * UX-IMPASSE-002 (#710): dormant — intentionally not surfaced; surfacing requires
- * a v4DisplayStateFor map flip (deferred).
- *
- * `value_tradeoff` is computed internally but `V4_DISPLAY_STATE_BY_CODE.value_tradeoff`
- * stays `'open'`, so a value-axis point shows as Open (no chip) today. This copy
- * constant is authored so the future surfacing decision is a one-line map flip,
- * NOT a re-author. It is NOT referenced from any render path in this card.
+ * UX-IMPASSE-002 (#710): surfaced by UX-IMPASSE-002 (#710). `value_tradeoff` is
+ * now its own v4 display state — `V4_DISPLAY_STATE_BY_CODE.value_tradeoff` maps
+ * to `'value_tradeoff'` (identity), so a value-axis point shows the "Different
+ * priorities" chip. These VALUES are the operator-locked copy; the wired Lead /
+ * Help that the Inspect surface renders live on `MEDIATOR_STATE_HELPER`, and the
+ * chip / next live here for one-source reference + the proving tests.
  */
 export const VALUE_TRADEOFF_DISPLAY_COPY = Object.freeze({
   chip: 'Different priorities',
-  lead: 'This is a value tradeoff.',
-  help: 'Name the priority at stake instead of asking for a source.',
-  next: 'State the tradeoff clearly.',
+  lead: 'This point turns on a value tradeoff.',
+  help: 'Name the priority being weighed, then decide whether the factual part can be narrowed.',
+  next: 'Name the tradeoff',
 });
 
 /**
- * UX-IMPASSE-002 (#710): dormant — intentionally not surfaced; surfacing requires
- * a v4DisplayStateFor map flip (deferred).
- *
- * `key_detail_unavailable` is computed internally but
- * `V4_DISPLAY_STATE_BY_CODE.key_detail_unavailable` stays `'evidence_blocked'`,
- * so it FOLDS into Evidence blocked for display today. Authored for the future
- * distinct-surfacing decision; NOT referenced from any render path in this card.
+ * UX-IMPASSE-002 (#710): surfaced by UX-IMPASSE-002 (#710).
+ * `key_detail_unavailable` is now its own v4 display state —
+ * `V4_DISPLAY_STATE_BY_CODE.key_detail_unavailable` maps to
+ * `'key_detail_unavailable'` (identity), so it shows the "Key detail
+ * unavailable" chip distinctly (a declined evidence debt still wins
+ * `evidence_blocked`). These VALUES are the operator-locked copy; the wired Lead
+ * / Help that the Inspect surface renders live on `MEDIATOR_STATE_HELPER`, and
+ * the chip / next live here for one-source reference + the proving tests.
  */
 export const KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY = Object.freeze({
   chip: 'Key detail unavailable',
-  lead: 'A key detail is not available.',
-  help: 'Branch the parts that can still be tested.',
-  next: 'Branch the provable part.',
+  lead: 'A key detail is not available to test here.',
+  help: 'Branch the part that can be checked, or preserve this point as unresolved.',
+  next: 'Branch the provable part',
+});
+
+/**
+ * DEFERRED (#710 follow-up): needs a recollection classifier + persistence; do
+ * NOT wire — RECOLLECTION_KEYS is empty in v1. `accounts_differ` already has a
+ * display state but is never produced (its producer is gated on a non-empty
+ * recollection key set, which v1 does not have) and is node-suppressed. This
+ * dormant copy constant is authored so the future surfacing decision is a
+ * one-line change, NOT a re-author. It is NOT referenced from any render path.
+ */
+export const ACCOUNTS_DIFFER_DISPLAY_COPY = Object.freeze({
+  chip: 'Difference of recollection',
+  lead: 'The accounts do not line up.',
+  help: 'Separate memory from records. Add a source only if one exists.',
+  next: 'Separate memory from records',
 });
 
 /** Plain-language label for each resolution-pathway step. Ban-list clean. */
