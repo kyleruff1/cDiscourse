@@ -114,6 +114,8 @@ function fakeWhatSays(
     bodyExcerpt: over.bodyExcerpt ?? 'A readable body excerpt for the selected move.',
     isTruncated: over.isTruncated ?? false,
     fullBodyLength: over.fullBodyLength ?? 48,
+    bodyFull:
+      over.bodyFull ?? over.bodyExcerpt ?? 'A readable body excerpt for the selected move.',
     createdAtLabel: over.createdAtLabel ?? '2026-05-18 10:00',
     relativeLabel: over.relativeLabel ?? 'now',
     parentHint: over.parentHint ?? null,

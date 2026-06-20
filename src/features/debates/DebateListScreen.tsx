@@ -215,9 +215,12 @@ function DebateRow({ debate, onPress }: DebateRowProps) {
         )}
       </View>
       <View style={[styles.cell, { width: COL.action }]}>
-        <Text style={styles.actionText}>
-          {debate.myParticipantSide ? 'Open →' : 'Observe →'}
-        </Text>
+        {/* UX-ROUTE-SEAT-INVITE-COPY-001 (#759) — route the action label
+            through the SHARED deriveGalleryActionLabel policy (already derived
+            in accessView) so the list row and the Conversation Gallery never
+            drift: member → 'Continue →'; non-member + open → 'Observe →';
+            otherwise → 'Open →'. No seat/route semantics change. */}
+        <Text style={styles.actionText}>{accessView.actionLabel}</Text>
       </View>
     </Pressable>
   );

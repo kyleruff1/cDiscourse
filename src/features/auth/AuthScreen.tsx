@@ -13,6 +13,7 @@ import {
 } from './signInLockupModel';
 import { SURFACE_TOKENS, CONTROL, BRAND } from '../../lib/designTokens';
 import { AUTH_FIRST_RUN_COPY } from '../../lib/brandCopy';
+import { resolveAuthProviderSlotRegion } from './authProviderSlotModel';
 
 // UX-BRAND-ASSETS-001 — the cream "CivilDiscourse" horizontal lockup
 // (swan-on-rock outline + wordmark) rendered on the Sign In hero ONLY.
@@ -37,6 +38,11 @@ export function AuthScreen() {
   const { width: viewportWidth } = useWindowDimensions();
   const lockupWidthPx = resolveSignInLockupWidthPx(viewportWidth);
   const lockupHeightPx = resolveSignInLockupHeightPx(viewportWidth);
+  // UX-COPY-BATCH-002 (#740/#760) — provider-slot region. The v1 default is
+  // EMAIL-ONLY: no provider button renders, and the future-reserved Google
+  // slot is disabled. The model owns the decision; the screen stays thin and
+  // never references any provider call. #746 lights a slot with zero re-layout.
+  const providerRegion = resolveAuthProviderSlotRegion();
 
   const handleSubmit = async () => {
     const vErr = validateAuthInput(email.trim(), password);
@@ -126,6 +132,42 @@ export function AuthScreen() {
         <Text style={styles.valuePropLead} testID="auth-value-prop-lead">
           {AUTH_FIRST_RUN_COPY.tagline}
         </Text>
+      </View>
+
+      {/* UX-COPY-BATCH-002 (#740/#760) — provider-slot region. The v1 DEFAULT
+          surface is EMAIL-ONLY: NO provider button is rendered (the
+          future-reserved Google slot is disabled, so rendering a button would
+          imply an unimplemented capability — doctrine-forbidden). Instead the
+          default path shows a future-framed "coming soon" notice (a Text, NOT
+          a Pressable / Button) + an "or continue with email" divider above the
+          unchanged email/password form. The layout/order/enabled decision
+          lives in resolveAuthProviderSlotRegion() (pure model). NO provider
+          call is possible from this render path (the provider sign-in call
+          appears nowhere in this file).
+          #746 (AUTH-GOOGLE-SSO-003) flips a slot to enabled and renders the
+          real, wired provider button inside the SAME region — zero re-layout. */}
+      <View style={styles.providerRegion} testID="auth-provider-slot-region">
+        {providerRegion.hasVisibleProvider ? (
+          // FUTURE (#746): real, wired provider affordances render here.
+          // Not reached in v1 — the default region is provider-unavailable.
+          <View testID="auth-provider-region" />
+        ) : (
+          <Text
+            style={styles.providerUnavailable}
+            testID="auth-provider-unavailable"
+            accessibilityLiveRegion="polite"
+          >
+            {providerRegion.providerUnavailableCopy}
+          </Text>
+        )}
+      </View>
+
+      <View style={styles.providerDivider} testID="auth-provider-divider">
+        <View style={styles.providerDividerRule} importantForAccessibility="no" />
+        <Text style={styles.providerDividerLabel} accessibilityRole="text">
+          {providerRegion.dividerLabel}
+        </Text>
+        <View style={styles.providerDividerRule} importantForAccessibility="no" />
       </View>
 
       <TextInputField
@@ -221,5 +263,29 @@ const styles = StyleSheet.create({
     color: BRAND.accent.gold,
     lineHeight: 24,
     letterSpacing: 0.2,
+  },
+  // UX-COPY-BATCH-002 (#740/#760) — provider-slot region (email-only default).
+  providerRegion: { marginBottom: 8, gap: 4 },
+  providerUnavailable: {
+    fontSize: 13,
+    color: BRAND.text.muted,
+    lineHeight: 18,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  providerDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 14,
+  },
+  providerDividerRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: BRAND.accent.goldBorder,
+  },
+  providerDividerLabel: {
+    fontSize: 13,
+    color: BRAND.text.muted,
   },
 });

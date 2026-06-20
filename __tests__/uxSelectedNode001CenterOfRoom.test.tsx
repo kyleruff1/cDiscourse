@@ -68,6 +68,8 @@ function fakeWhatSays(
     bodyExcerpt: over.bodyExcerpt ?? 'A readable body excerpt for the selected move.',
     isTruncated: over.isTruncated ?? false,
     fullBodyLength: over.fullBodyLength ?? 48,
+    bodyFull:
+      over.bodyFull ?? over.bodyExcerpt ?? 'A readable body excerpt for the selected move.',
     createdAtLabel: over.createdAtLabel ?? '2026-06-18 10:00',
     relativeLabel: over.relativeLabel ?? 'now',
     parentHint: 'parentHint' in over ? (over.parentHint ?? null) : 'Replied to · #2 (Claim)',

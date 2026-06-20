@@ -98,6 +98,9 @@ function SectionShell({
 }
 
 function WhatThisMoveSays({ section }: { section: SidecarSection_WhatThisMoveSays }) {
+  // UX-BOARD-MOBILE-DEPTH-001 (#758) — read-only "Show full body" disclosure.
+  // A local view-state toggle ONLY; no edit, no action, no submit, no callback.
+  const [showFullBody, setShowFullBody] = useState(false);
   return (
     <SectionShell testID="sidecar-section-what-this-move-says" title="What this move says">
       <View style={styles.headerRow}>
@@ -117,8 +120,32 @@ function WhatThisMoveSays({ section }: { section: SidecarSection_WhatThisMoveSay
       {section.isHidden ? (
         <Text style={styles.hiddenNotice}>{section.hiddenNotice}</Text>
       ) : (
-        <Text style={styles.body}>{section.bodyExcerpt}</Text>
+        <Text style={styles.body}>
+          {showFullBody ? section.bodyFull : section.bodyExcerpt}
+        </Text>
       )}
+      {/* UX-BOARD-MOBILE-DEPTH-001 (#758) — the selected-node body is clamped
+          to a 280-char excerpt; at 390px the rest was a truncation dead-end.
+          This read-only disclosure toggle (modeled on the SemanticFlags
+          "Show details" control) reveals the full redacted body inside the
+          sidecar's own ScrollView — it grows scroll content, never panel
+          width. Read-only disclosure: NOT an edit / action / submit; no text
+          input, no callback. */}
+      {!section.isHidden && section.isTruncated ? (
+        <Pressable
+          onPress={() => setShowFullBody((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={showFullBody ? 'Show less' : 'Show full body'}
+          accessibilityState={{ expanded: showFullBody }}
+          hitSlop={SHOW_DETAILS_HIT_SLOP}
+          style={styles.showDetailsButton}
+          testID="sidecar-show-full-body"
+        >
+          <Text style={styles.showDetailsText}>
+            {showFullBody ? 'Show less' : 'Show full body'}
+          </Text>
+        </Pressable>
+      ) : null}
       {section.parentHint ? (
         <View style={styles.parentBlock} testID="sidecar-parent-preview">
           <Text style={styles.parentLabel}>{section.parentHint}</Text>
