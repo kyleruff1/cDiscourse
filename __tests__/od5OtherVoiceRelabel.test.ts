@@ -338,3 +338,38 @@ describe('OD-5 — internal Primary Opponent model names unchanged', () => {
     expect(contract.primaryOpponentUserId).toBeNull();
   });
 });
+
+// ──────────────────────────────────────────────────────────────
+// 7. OD-5B — screen-reader (accessibilityLabel) strings match the
+//    visible OD-5 vocabulary: open principal seat = "Respondent seat",
+//    established second principal = "Other voice"; never "Opponent",
+//    never "chime-in" on the open seat.
+// ──────────────────────────────────────────────────────────────
+
+describe('OD-5B — strip accessibilityLabel uses OD-5 vocabulary', () => {
+  it('an ESTABLISHED 1:1 announces "Other voice seat", never "Opponent"', () => {
+    const claimed = buildRoomContract(roomInput());
+    for (const viewer of [INITIATOR, OTHER, null]) {
+      const a11y = buildRoomContractViewModel(claimed, viewer).accessibilityLabel;
+      expect(a11y).toContain('Other voice seat');
+      expect(a11y).not.toMatch(/Opponent/);
+    }
+    // viewer IS the second principal → still "Other voice seat" (held by you)
+    expect(buildRoomContractViewModel(claimed, OPPONENT).accessibilityLabel).toContain(
+      'Other voice seat',
+    );
+  });
+
+  it('an OPEN principal seat announces "Respondent seat is open", never "Opponent"/"chime"', () => {
+    const open = buildRoomContract(roomInput({ arguments: [roomRoot()] }));
+    const a11y = buildRoomContractViewModel(open, INITIATOR).accessibilityLabel;
+    expect(a11y).toContain('Respondent seat is open');
+    expect(a11y).not.toMatch(/Opponent/);
+    expect(a11y.toLowerCase()).not.toContain('chime');
+  });
+
+  it('keeps "Initiator" wording (first principal) in the a11y label', () => {
+    const claimed = buildRoomContract(roomInput());
+    expect(buildRoomContractViewModel(claimed, OTHER).accessibilityLabel).toContain('Initiator');
+  });
+});

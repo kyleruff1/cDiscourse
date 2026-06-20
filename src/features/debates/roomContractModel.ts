@@ -603,11 +603,15 @@ function buildStripAccessibilityLabel(
   }
 
   if (opponentSeat.isOpen) {
-    parts.push('Opponent seat is open — the first qualifying reply takes it.');
+    // OD-5 (UX-ROUTE-SEAT-INVITE-COPY-001B) — screen-reader labels match the
+    // visible OD-5 vocabulary: the open principal seat is the "Respondent seat";
+    // an established second principal is the "Other voice". (Internal model
+    // names — Primary Opponent / primaryOpponentUserId — are unchanged.)
+    parts.push('Respondent seat is open — the first qualifying reply takes it.');
   } else if (opponentSeat.isViewer) {
-    parts.push('You hold the Primary Opponent seat.');
+    parts.push('You hold the Other voice seat.');
   } else {
-    parts.push('The Primary Opponent seat is held.');
+    parts.push('The Other voice seat is held.');
   }
 
   if (turnLabel !== null) {
