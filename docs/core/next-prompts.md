@@ -13,6 +13,24 @@ The next recommended session prompts, in order. Run `npm run checkpoint` first t
 
 ---
 
+## CIVILDISCOURSE-AUTH-TIMELINE-SLATE-2026-06-20 — auth foundation → vertical timeline → Google SSO (NEWEST lane)
+
+Planning slate from the v4 design package + operator sequencing. Issues **#739–#761** on Project #1 (Phase=Backlog), plus 3 amendments (#693, #678, #687). Facebook is **deferred** (#749). Full plan: [`docs/roadmap-expansions/2026-06-20-auth-foundation-vertical-timeline-google-sso-slate.md`](../roadmap-expansions/2026-06-20-auth-foundation-vertical-timeline-google-sso-slate.md) · [feature-repository index](../designs/CIVILDISCOURSE-FEATURE-REPOSITORY-INDEX.md) · [design-reference ledger](../designs/CIVILDISCOURSE-DESIGN-REFERENCE-LEDGER.md) · [auth-foundation index](../designs/AUTH-FOUNDATION-INDEX.md) · [Google SSO index](../designs/AUTH-GOOGLE-SSO-INDEX.md) · [vertical timeline](../designs/UX-TIMELINE-VERTICAL-001.md).
+
+Non-negotiable order: **(1) auth foundation config/UI/provisioning → (2) vertical timeline design → (3) Google SSO lane**. Recommended next 5 cards:
+
+```
+AUTH-FOUNDATION-CONFIG-001        #739  (read-only auth config posture inventory)
+AUTH-FOUNDATION-UI-001            #740  (provider-ready Sign In UI structure)
+AUTH-FOUNDATION-PROVISIONING-001  #741  (idempotent app-profile provisioning, design-first)
+UX-TIMELINE-VERTICAL-001          #750  (vertical argument-path/timeline design, preserves horizontal)
+AUTH-GOOGLE-SSO-ADR-001           #743  (ratify Google as first social provider; hosted config GATE-C)
+```
+
+Open operator decision still blocking the chime-in/auth tighten path: **OD-1 private-room observer policy** (#680). Google hosted config (#745) + Facebook (#749) are GATE-C / deferred.
+
+---
+
 ## CIVILDISCOURSE-V4-UX-OVERHAUL-2026-06-18 — design-package UX overhaul (NEWEST major lane)
 
 The CivilDiscourse v4 design package (canonical `CivilDiscourse v4.dc.html`) was ingested into a 20-card implementation slate — issues **#675–#694** on Project #1; the VOICE slate (#658–#671) was **amended, not duplicated**. Full plan: [`docs/designs/CIVILDISCOURSE-V4-UX-OVERHAUL-INDEX.md`](../designs/CIVILDISCOURSE-V4-UX-OVERHAUL-INDEX.md) · [roadmap](../roadmap-expansions/2026-06-18-civildiscourse-v4-ux-overhaul-roadmap.md) · [package inventory](../testing-runs/2026-06-18-civildiscourse-v4-design-package-inventory.md). Visible brand → CivilDiscourse (internal `cdiscourse` identifiers deferred per design L91). **Start here:**
