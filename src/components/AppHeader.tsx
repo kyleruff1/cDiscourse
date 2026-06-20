@@ -82,6 +82,28 @@ interface Props {
    */
   compact?: boolean;
   /**
+   * UX-ROOM-CHROME-002 — render the masthead in the SIGNED-IN SPATIALLY-
+   * BALANCED variant. ADDITIVE + default `false`: when omitted / false the
+   * header is byte-identical to the prior compact / prominent behavior, so
+   * every existing caller + pinned test stays green.
+   *
+   * When `true`: the SAME gold lockup (`DEFAULT_LOGO`) renders at a band-aware
+   * BALANCED height (`resolveSignedInMastheadLogoHeightPx` →
+   * `BALANCED_LOGO_HEIGHT_BY_BAND`: phone 48 / tablet 88 / wide 112, still
+   * width-capped so the rendered width never overflows). It is larger and more
+   * proportional than `compact` so the top-left brand zone reads as a composed
+   * region with the inline nav — but it is far shorter than the prominent
+   * 288 px lockup, so the active board still dominates the first screen. Like
+   * `compact`, the anchored tagline is omitted and a balanced root style
+   * vertically composes the lockup + nav companion + right slot as one
+   * centered row (phone still reflows to a column).
+   *
+   * `balanced` takes precedence over `compact` when both are passed (the
+   * signed-in shell uses `balanced`); the bare / transient header passes
+   * neither and stays prominent.
+   */
+  balanced?: boolean;
+  /**
    * Inject the resolved asset module for testing. The default uses the
    * canonical PNG at `assets/branding/civic-discourse-logo.png`.
    */
@@ -132,6 +154,28 @@ const PROMINENT_HEADER_HEIGHT_PX = PROMINENT_LOGO_HEIGHT_PX + 8;
 // the rendered width (height × LOGO_ASPECT_RATIO ≈ 48 × 4.230 ≈ 203 px)
 // fits inside every supported viewport with room to spare.
 const COMPACT_LOGO_HEIGHT_PX = 48;
+
+// UX-ROOM-CHROME-002 — band-aware "balanced" signed-in masthead height. The
+// compact 48 px gold lockup (≈203 px wide) under-filled the top-left brand
+// zone against the flex:1 nav band, so the signed-in chrome read as a tiny
+// floating block rather than one composed region. These three numbers make
+// the lockup SUBSTANTIAL BUT NOT DOMINANT — between the 48 px compact and the
+// 288 px prominent — while still being width-capped by
+// resolveSignedInMastheadLogoHeightPx so the rendered width can never overflow
+// any viewport. The board therefore stays the dominant first surface (the
+// balanced header is far shorter than the old 296 px prominent shell).
+//   - phone: stays at the compact 48 — the masthead reflows to a COLUMN on
+//     phone (nav below the lockup), so a taller logo there only eats the
+//     mobile first screen; the card requires phone to remain compact.
+//   - tablet: 88 — a clearly larger companion to the inline nav.
+//   - wide: 112 — larger still on the roomiest viewport, never reaching 288.
+// Kept as NAMED band constants (not inline pixel literals) so the design
+// target is auditable and the resolver reads cleanly.
+const BALANCED_LOGO_HEIGHT_BY_BAND: Record<Band, number> = {
+  phone: 48,
+  tablet: 88,
+  wide: 112,
+};
 
 // UX-BRAND-ASSETS-002 / QUICK-BRAND-LOCKUP-002 / QUICK-BRAND-LOCKUP-003 — the
 // masthead logo is the gold horizontal lockup (`civic-discourse-logo.png`,
@@ -218,7 +262,51 @@ export function resolveMastheadLogoHeightPx(
   return Math.max(MIN_PHONE_LOGO_HEIGHT_PX, Math.min(MAX_PHONE_LOGO_HEIGHT_PX, widthFit));
 }
 
-export function AppHeader({ onHomePress, rightSlot, navSlot, compact = false, logoSource }: Props) {
+/**
+ * UX-ROOM-CHROME-002 — resolve the rendered masthead logo height for the
+ * signed-in shell's SPATIALLY-BALANCED variant.
+ *
+ * Distinct from `resolveMastheadLogoHeightPx` (compact + prominent paths are
+ * untouched and stay byte-equivalent). The balanced variant sizes the gold
+ * lockup per band to `BALANCED_LOGO_HEIGHT_BY_BAND` — substantial enough to
+ * fill the top-left brand zone as a composed companion to the inline nav, but
+ * never as tall as the 288 px prominent lockup and never below the 48 px
+ * compact floor on tablet / wide (where `widthFit` is large).
+ *
+ * Width-cap (identical guarantee to the other resolver): the returned height
+ * is `min(BALANCED_LOGO_HEIGHT_BY_BAND[band], widthFit)`, so
+ * `height × LOGO_ASPECT_RATIO <= available` always holds for a positive
+ * viewport width — the rendered logo can never overflow the available header
+ * width at ANY supported viewport.
+ *
+ * A non-positive width (SSR / static first paint) returns the WIDE balanced
+ * height because `resolveBand(0) === 'wide'`; hydration corrects narrower
+ * viewports on the next paint. Pure + deterministic (unit-tested).
+ */
+export function resolveSignedInMastheadLogoHeightPx(
+  band: Band,
+  viewportWidth: number,
+): number {
+  if (!(viewportWidth > 0)) {
+    // SSR / static first paint: no measured width yet. resolveBand(0) === 'wide'
+    // so the first paint matches the wide balanced height; hydration corrects.
+    return BALANCED_LOGO_HEIGHT_BY_BAND.wide;
+  }
+  const available = Math.max(0, viewportWidth - HEADER_HORIZONTAL_BUDGET_PX);
+  const widthFit = Math.floor(available / LOGO_ASPECT_RATIO);
+  // Balanced per-band target, still fitted to the width so a very narrow
+  // viewport can never push the rendered logo past the available width.
+  return Math.min(BALANCED_LOGO_HEIGHT_BY_BAND[band], widthFit);
+}
+
+export function AppHeader({
+  onHomePress,
+  rightSlot,
+  navSlot,
+  compact = false,
+  balanced = false,
+  logoSource,
+}: Props) {
   const source = logoSource ?? DEFAULT_LOGO;
   const { band } = useHeaderBreakpoint();
   // UX-MOBILE-001 — fit the logo to the viewport on phone so its rendered
@@ -226,8 +314,13 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, compact = false, lo
   // wide keep the prominent operator-decided size.
   // UX-ROOM-CHROME-001 — `compact` collapses the masthead to the slim
   // signed-in-shell height on every band (still width-capped).
+  // UX-ROOM-CHROME-002 — `balanced` sizes the signed-in masthead to a band-
+  // aware "balanced" height (larger than compact, far shorter than prominent,
+  // still width-capped). Precedence: balanced → compact → prominent.
   const { width: viewportWidth } = useWindowDimensions();
-  const logoHeightPx = resolveMastheadLogoHeightPx(band, viewportWidth, compact);
+  const logoHeightPx = balanced
+    ? resolveSignedInMastheadLogoHeightPx(band, viewportWidth)
+    : resolveMastheadLogoHeightPx(band, viewportWidth, compact);
   const headerHeightPx = logoHeightPx + 8;
   // Operator request 2026-05-26: the layout is now always stacked — logo
   // on top, tagline tucked underneath. The Stage 2 inline-on-wide layout
@@ -243,21 +336,31 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, compact = false, lo
   // height (every prior consumer unchanged).
   const hasNav = navSlot != null;
   const isPhone = band === 'phone';
-  // UX-ROOM-CHROME-001 — root layout selection.
-  //   - compact + nav (signed-in shell): a slim nav-bearing root whose height
-  //     tracks the compacted logo (not the 296 px prominent minHeight) so the
-  //     active board dominates; phone still reflows column.
+  // UX-ROOM-CHROME-001 / UX-ROOM-CHROME-002 — root layout selection.
+  //   - balanced + nav (signed-in shell, current): a slim nav-bearing root
+  //     whose height tracks the balanced logo (not the 296 px prominent
+  //     minHeight), VERTICALLY CENTERED so the larger lockup, the inline nav
+  //     companion, and the right slot read as one composed centered row; phone
+  //     still reflows to a column. Takes precedence over `compact`.
+  //   - compact + nav: the prior UX-ROOM-CHROME-001 slim top-aligned layout.
   //   - prominent + nav: the prior NAV-HEADER-INLINE-001 layout (unchanged).
   //   - no nav: the prior fixed-height masthead (unchanged).
   const rootStyle = hasNav
-    ? compact
+    ? balanced
       ? [
           styles.root,
-          styles.rootWithNavCompact,
+          styles.rootWithNavBalanced,
           { minHeight: headerHeightPx },
           isPhone ? styles.rootWithNavPhone : null,
         ]
-      : [styles.root, styles.rootWithNav, isPhone ? styles.rootWithNavPhone : null]
+      : compact
+        ? [
+            styles.root,
+            styles.rootWithNavCompact,
+            { minHeight: headerHeightPx },
+            isPhone ? styles.rootWithNavPhone : null,
+          ]
+        : [styles.root, styles.rootWithNav, isPhone ? styles.rootWithNavPhone : null]
     : [styles.root, { height: headerHeightPx }];
 
   return (
@@ -314,10 +417,11 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, compact = false, lo
               horizontal gap. 10 px italic serif. Renders the full
               BRAND.taglineText fixture ("A high-trust room for hard
               conversations.").
-              UX-ROOM-CHROME-001: omitted in the compact (signed-in
-              shell) variant so the masthead stays slim; the brand is
-              still announced via the logo's accessibilityLabel. */}
-          {compact ? null : (
+              UX-ROOM-CHROME-001 / UX-ROOM-CHROME-002: omitted in the
+              compact AND balanced (signed-in shell) variants so the
+              masthead stays trim; the brand is still announced via the
+              logo's accessibilityLabel. */}
+          {compact || balanced ? null : (
             <Text
               accessibilityRole="text"
               testID="app-header-tagline"
@@ -339,7 +443,15 @@ export function AppHeader({ onHomePress, rightSlot, navSlot, compact = false, lo
           shell supplies the wired nav. */}
       {hasNav ? (
         <View
-          style={[styles.navSlot, isPhone ? styles.navSlotPhone : null]}
+          style={[
+            styles.navSlot,
+            // UX-ROOM-CHROME-002 — balanced variant centers the nav vertically
+            // (no compact top-inset) so it reads as a composed companion to the
+            // larger lockup, not a top-anchored strip. Phone reflow takes
+            // precedence (full-width column) on both compact and balanced.
+            balanced && !isPhone ? styles.navSlotBalanced : null,
+            isPhone ? styles.navSlotPhone : null,
+          ]}
           testID="app-header-nav-slot"
         >
           {navSlot}
@@ -401,6 +513,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
   },
+  // UX-ROOM-CHROME-002 — balanced nav-bearing masthead (signed-in shell).
+  // Like rootWithNavCompact it releases the 296 px prominent minHeight (the
+  // inline `minHeight: headerHeightPx` tracks the band-aware balanced logo)
+  // and keeps slim vertical padding — but it VERTICALLY COMPOSES the band via
+  // `alignItems: 'center'` so the larger balanced lockup, the inline nav
+  // companion, and the right slot sit as one centered composed row (the
+  // "composed companion, not a disconnected floating block" the card asks
+  // for). This is a balanced-variant-only choice; the prominent top-align
+  // (rootWithNav) decision is unchanged. Phone still reflows to a column via
+  // rootWithNavPhone.
+  rootWithNavBalanced: {
+    height: undefined,
+    paddingVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
   // Phone reflow: stack the brand lockup on top of the nav so nothing
   // overlaps in the tightest layout budget.
   rootWithNavPhone: {
@@ -417,6 +545,17 @@ const styles = StyleSheet.create({
     // the top band). A small top inset aligns the bar with the logo's top.
     justifyContent: 'flex-start',
     paddingTop: 6,
+  },
+  // UX-ROOM-CHROME-002 — balanced variant nav companion. Centers the nav
+  // vertically within the masthead row (the balanced root uses
+  // `alignItems: 'center'`) and drops the compact top-inset so the nav reads
+  // as a composed companion beside the larger lockup rather than a
+  // top-anchored strip. `flex: 1` (inherited from navSlot) still claims the
+  // space between the lockup and the right slot; nav reachability +
+  // touch-safety are unchanged (AppPrimaryNav itself is untouched).
+  navSlotBalanced: {
+    justifyContent: 'center',
+    paddingTop: 0,
   },
   navSlotPhone: {
     flex: undefined,

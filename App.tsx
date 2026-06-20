@@ -776,12 +776,17 @@ function MainAppShell({
           role-gated secondary tab row below and are NEVER part of this
           public primary nav. */}
       <AppHeader
-        // UX-ROOM-CHROME-001 — the signed-in shell masthead renders in the
-        // compact variant so the chrome is slim and the active board / first
-        // substantive content dominates the screen. The bare/transient
+        // UX-ROOM-CHROME-002 — the signed-in shell masthead now renders in the
+        // spatially-BALANCED variant: a larger, proportional gold lockup
+        // (band-aware: phone 48 / tablet 88 / wide 112, still width-capped) so
+        // the top-left brand zone reads as one composed region with the inline
+        // nav as a composed companion — not a tiny floating block. It stays far
+        // shorter than the prominent 296 px shell, so the active board / first
+        // substantive content still dominates the screen. (Supersedes the
+        // UX-ROOM-CHROME-001 slim-variant wiring here.) The bare/transient
         // <AppHeader> (unconfigured / invite / callback states) stays
         // prominent; AuthScreen / the Sign In hero are untouched.
-        compact
+        balanced
         onHomePress={onHomePress}
         rightSlot={headerRightSlot}
         navSlot={
