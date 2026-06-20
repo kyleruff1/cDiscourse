@@ -10,7 +10,7 @@
  *       second brand mark directly above it. The bare masthead still docks for
  *       the loading / invite / `/auth/callback` states;
  *   (3) width-guards the masthead logo sizing for the wider gold lockup aspect
- *       (≈ 2.807 after QUICK-BRAND-LOCKUP-002) so it never overflows / creates
+ *       (≈ 4.230 after QUICK-BRAND-LOCKUP-003) so it never overflows / creates
  *       an edge gutter.
  *
  * Source/config + asset + pure-resolver scan (repo idiom — "render tests
@@ -39,20 +39,20 @@ describe('UX-BRAND-ASSETS-002 (1) — gold assets committed', () => {
     return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20), size: buf.length, isPng };
   }
 
-  it('lockup-horizontal.png is the gold 960×342 lockup (Sign In card)', () => {
+  it('lockup-horizontal.png is the gold 1400×331 lockup (Sign In card)', () => {
     const { width, height, size, isPng } = pngDims('assets/branding/lockup-horizontal.png');
     expect(isPng).toBe(true);
-    expect(width).toBe(960);
-    expect(height).toBe(342);
-    expect(size).toBeLessThan(200_000); // small editorial PNG, not the 2.3 MB scene
+    expect(width).toBe(1400);
+    expect(height).toBe(331);
+    expect(size).toBeLessThan(500_000); // small editorial PNG, not the 2.3 MB scene
   });
 
-  it('civic-discourse-logo.png is now the gold 960×342 lockup (app masthead)', () => {
+  it('civic-discourse-logo.png is now the gold 1400×331 lockup (app masthead)', () => {
     const { width, height, size, isPng } = pngDims('assets/branding/civic-discourse-logo.png');
     expect(isPng).toBe(true);
-    expect(width).toBe(960);
-    expect(height).toBe(342);
-    expect(size).toBeLessThan(200_000);
+    expect(width).toBe(1400);
+    expect(height).toBe(331);
+    expect(size).toBeLessThan(500_000);
   });
 
   it('civildiscourse-mark.png is the new gold bird mark (420×315)', () => {
@@ -119,25 +119,27 @@ describe('UX-BRAND-ASSETS-002 (2b) — Sign In value-prop lockup is preserved', 
 
 // ── (3) Sign In lockup aspect re-cut for the gold art ────────────
 
-describe('UX-BRAND-ASSETS-002 (3) — Sign In lockup aspect is the gold 960/342', () => {
-  it('SIGNIN_LOCKUP_ASPECT_RATIO is 960 / 342', () => {
-    expect(SIGNIN_MODEL_SRC).toMatch(/SIGNIN_LOCKUP_ASPECT_RATIO\s*=\s*960\s*\/\s*342/);
+describe('UX-BRAND-ASSETS-002 (3) — Sign In lockup aspect is the gold 1400/331', () => {
+  it('SIGNIN_LOCKUP_ASPECT_RATIO is 1400 / 331', () => {
+    expect(SIGNIN_MODEL_SRC).toMatch(/SIGNIN_LOCKUP_ASPECT_RATIO\s*=\s*1400\s*\/\s*331/);
     // The old grey-lockup constant must be gone.
     expect(SIGNIN_MODEL_SRC).not.toMatch(/SIGNIN_LOCKUP_ASPECT_RATIO\s*=\s*1499\s*\/\s*388/);
     // The prior gold 800/260 constant must also be gone.
     expect(SIGNIN_MODEL_SRC).not.toMatch(/SIGNIN_LOCKUP_ASPECT_RATIO\s*=\s*800\s*\/\s*260/);
+    // The prior gold/cream 960/342 constant must also be gone.
+    expect(SIGNIN_MODEL_SRC).not.toMatch(/SIGNIN_LOCKUP_ASPECT_RATIO\s*=\s*960\s*\/\s*342/);
   });
 });
 
 // ── (4) Masthead width-guard for the wider gold aspect ───────────
 
 describe('UX-BRAND-ASSETS-002 (4) — masthead width-guard for the gold lockup', () => {
-  // The gold lockup is aspect ≈ 2.807; rendered width = height × aspect.
-  const ASPECT = 960 / 342;
+  // The gold lockup is aspect ≈ 4.230; rendered width = height × aspect.
+  const ASPECT = 1400 / 331;
   const HEADER_PADDING = 24;
 
-  it('the masthead uses the gold lockup aspect (≈ 2.807), not the old 1.5', () => {
-    expect(HEADER_SRC).toMatch(/LOGO_ASPECT_RATIO\s*=\s*960\s*\/\s*342/);
+  it('the masthead uses the gold lockup aspect (≈ 4.230), not the old 1.5', () => {
+    expect(HEADER_SRC).toMatch(/LOGO_ASPECT_RATIO\s*=\s*1400\s*\/\s*331/);
     expect(HEADER_SRC).not.toMatch(/const LOGO_ASPECT_RATIO\s*=\s*1\.5/);
   });
 
@@ -161,7 +163,7 @@ describe('UX-BRAND-ASSETS-002 (4) — masthead width-guard for the gold lockup',
   });
 
   it('caps a narrow tablet below the prominent height (the gold lockup would overflow)', () => {
-    // 768px tablet: prominent 288 × 2.807 ≈ 808 > 744 available → fitted down.
+    // 768px tablet: prominent 288 × 4.230 ≈ 1218 > 744 available → fitted down.
     expect(resolveMastheadLogoHeightPx('tablet', 768)).toBeLessThan(288);
   });
 

@@ -173,18 +173,19 @@ describe('UX-BRAND-ASSETS-001 (g) — useHeaderBreakpoint NOT in this card diff'
 });
 
 describe('UX-BRAND-ASSETS-001 (h) — committed asset is the gold lockup', () => {
-  // QUICK-BRAND-LOCKUP-002 — the Sign In lockup is now the gold/cream
-  // duotone 960×342 lockup (was the gold 800×260, originally the grey
-  // 1499×388 / 128,937-byte lockup). It is still a small editorial PNG
-  // (< 200 KB), NOT the prior 2.3 MB scene.
+  // QUICK-BRAND-LOCKUP-003 — the Sign In lockup is now the isolated b/w
+  // bird + larger gold wordmark 1400×331 lockup (was the gold/cream duotone
+  // 960×342, before that the gold 800×260, originally the grey 1499×388 /
+  // 128,937-byte lockup). It is still a small editorial PNG (< 500 KB),
+  // NOT the prior 2.3 MB scene.
   it('the lockup asset exists and is the trimmed gold horizontal lockup', () => {
     const lockupPath = path.join(ROOT, 'assets', 'branding', 'lockup-horizontal.png');
     expect(fs.existsSync(lockupPath)).toBe(true);
     const size = fs.statSync(lockupPath).size;
-    // A small editorial brand PNG, comfortably under the 200 KB editorial
+    // A small editorial brand PNG, comfortably under the 500 KB editorial
     // ceiling (it is NOT the prior 2.3 MB header scene).
     expect(size).toBeGreaterThan(10_000);
-    expect(size).toBeLessThan(200_000);
+    expect(size).toBeLessThan(500_000);
   });
 
   it('it is a PNG (magic bytes)', () => {
@@ -194,13 +195,13 @@ describe('UX-BRAND-ASSETS-001 (h) — committed asset is the gold lockup', () =>
     expect(Array.from(head)).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   });
 
-  it('the lockup PNG is the gold 960×342 art (aspect ≈ 2.807)', () => {
+  it('the lockup PNG is the gold 1400×331 art (aspect ≈ 4.230)', () => {
     const lockupPath = path.join(ROOT, 'assets', 'branding', 'lockup-horizontal.png');
     const buf = fs.readFileSync(lockupPath);
     const width = buf.readUInt32BE(16);
     const height = buf.readUInt32BE(20);
-    expect(width).toBe(960);
-    expect(height).toBe(342);
+    expect(width).toBe(1400);
+    expect(height).toBe(331);
   });
 
   it('the masthead header logo is now the small gold lockup (no longer the 2.3 MB scene)', () => {
@@ -211,10 +212,10 @@ describe('UX-BRAND-ASSETS-001 (h) — committed asset is the gold lockup', () =>
     expect(fs.existsSync(headerLogo)).toBe(true);
     const size = fs.statSync(headerLogo).size;
     expect(size).toBeGreaterThan(10_000);
-    expect(size).toBeLessThan(200_000);
+    expect(size).toBeLessThan(500_000);
     const buf = fs.readFileSync(headerLogo);
-    expect(buf.readUInt32BE(16)).toBe(960);
-    expect(buf.readUInt32BE(20)).toBe(342);
+    expect(buf.readUInt32BE(16)).toBe(1400);
+    expect(buf.readUInt32BE(20)).toBe(331);
   });
 
   it('the new gold bird mark asset is committed (420×315)', () => {

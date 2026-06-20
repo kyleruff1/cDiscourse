@@ -55,11 +55,11 @@ describe('UX-MOBILE-003 — rails are a reachable bottom sheet on phone (report 
 });
 
 describe('UX-MOBILE-003 / UX-BRAND-ASSETS-002 — masthead logo stays viewport-safe across device targets', () => {
-  // QUICK-BRAND-LOCKUP-002 — the masthead logo is the gold horizontal lockup
-  // (aspect ≈ 2.807, was 1.5). The rendered width is height × aspect, and
-  // the height is capped by the available width on every band so it can
-  // never overflow / create an edge gutter.
-  const MASTHEAD_ASPECT = 960 / 342;
+  // QUICK-BRAND-LOCKUP-003 — the masthead logo is the gold horizontal lockup
+  // (aspect ≈ 4.230, was 960/342 ≈ 2.807, originally 1.5). The rendered width
+  // is height × aspect, and the height is capped by the available width on
+  // every band so it can never overflow / create an edge gutter.
+  const MASTHEAD_ASPECT = 1400 / 331;
   it('the phone logo rendered width never exceeds the viewport at 320/360/390/414', () => {
     for (const w of PHONE_WIDTHS) {
       const h = resolveMastheadLogoHeightPx('phone', w);
