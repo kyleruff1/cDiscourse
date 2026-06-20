@@ -155,7 +155,7 @@ describe('UX-COPY-SYSTEM-002 — §3.6 carve-outs pinned as invariants', () => {
     expect(banned).not.toContain('blocked');
   });
 
-  it('does NOT ban "opponent" (deferred OD-5 relabel)', () => {
+  it('does NOT ban "opponent" (OD-5 resolved seat word → "Other voice"; token survives in turnOpponent turn-line)', () => {
     expect(banned).not.toContain('opponent');
   });
 

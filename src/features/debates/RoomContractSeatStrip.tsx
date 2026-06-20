@@ -8,7 +8,7 @@
  *
  * Doctrine:
  *  - Seat pills show ROLES relative to the viewer ('You' / 'Initiator' /
- *    'Opponent' / 'Open seat …'), never a person's name, never a verdict word.
+ *    'Other voice' / 'Open seat …'), never a person's name, never a verdict word.
  *  - The room-type chip carries a shape/text glyph, NOT color alone
  *    (color-independence — accessibility-targets).
  *  - Heat / standing are not seat properties; the strip renders no score.

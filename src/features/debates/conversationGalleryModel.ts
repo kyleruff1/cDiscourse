@@ -984,7 +984,7 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
       latestPostAuthor: stats.latestAuthorId === input.currentUserId
         ? 'You'
         : stats.latestAuthorId
-          ? 'Opponent'
+          ? 'Other voice'
           : 'Unknown',
 
       createdAt: debate.createdAt,

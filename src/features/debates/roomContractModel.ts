@@ -104,19 +104,22 @@ export const SEAT_BLOCKING_FLAG_CODES: ReadonlySet<string> = new Set([
  *  - The open second-principal seat reads "Respondent seat open" — it is the
  *    open *respondent / principal* seat, NOT a chime-in and NOT a generic open
  *    seat. `turnOpenSeat` mirrors it so the turn line stays consistent.
- *  - `seatOpponent` ("Opponent") is INTENTIONALLY left byte-identical: the
- *    relabel of "Opponent" is open decision OD-5 (undecided) and is deferred to
- *    a later card. "Opponent" is not on this card's ban-list.
+ *  - `seatOpponent` ("Other voice") is the second-principal seat-pill label and
+ *    `turnOpponent` ("Other voice's move") its turn line, on an established 1:1
+ *    (the "You vs …" comparison). OD-5 (UX-ROUTE-SEAT-INVITE-COPY-001) resolved
+ *    the role word to "Other voice" — a copy-only relabel of the rendered VALUES;
+ *    the internal `seatOpponent`/`turnOpponent` KEYS and the
+ *    `primaryOpponentUserId` / `resolvePrimaryOpponent` model names are unchanged.
  */
 export const ROOM_CONTRACT_COPY = Object.freeze({
   privateRoom: 'Private 1:1',
   publicRoom: 'Public 1:1',
   seatYou: 'You',
   seatInitiator: 'Initiator',
-  seatOpponent: 'Opponent',
+  seatOpponent: 'Other voice',
   seatOpen: 'Respondent seat open',
   turnYours: 'Your move',
-  turnOpponent: "Opponent's move",
+  turnOpponent: "Other voice's move",
   turnInitiator: "Initiator's move",
   turnOpenSeat: 'Respondent seat open',
   vsSeparator: 'vs',
@@ -434,7 +437,7 @@ export interface SeatViewModel {
   seat: PrimarySeat;
   /**
    * Plain-language label describing the seat's relationship to the VIEWER.
-   * 'You' | 'Initiator' | 'Opponent' | 'Respondent seat open'.
+   * 'You' | 'Initiator' | 'Other voice' | 'Respondent seat open'.
    * Never the person's name, never a verdict word.
    */
   label: string;

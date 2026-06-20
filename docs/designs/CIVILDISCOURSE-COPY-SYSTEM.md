@@ -98,7 +98,7 @@ Never ship these in user-facing copy. They assert a verdict, judge a person, tre
 
 - **`hot`** is permitted as an ACTIVITY word in gallery sections ("Hot but unresolved") — doctrine §2 carve-out, pinned in `copyReviewBanListGaps.test.ts`. It is NOT a heat/popularity verdict there.
 - **`block` / `blocked`** is permitted only in **"Evidence blocked"** — the operator-preferred v4 term for an UNAVAILABLE record. It must never mean a posting block (the board never blocks posting; non-gating is guaranteed by architecture). The standalone tokens `prevent/reject/forbid/disallow/denied` ARE banned for the board's own copy.
-- **`opponent`** is NOT banned (the `seatOpponent` relabel is the deferred OD-5 decision); new copy should still prefer **respondent / principal voice**.
+- **`opponent`** is NOT banned. OD-5 (UX-ROUTE-SEAT-INVITE-COPY-001, #759) resolved the second-principal seat word: `seatOpponent` now renders **"Other voice"** (copy-only; the internal `primaryOpponentUserId` / `resolvePrimaryOpponent` model and the "Primary Opponent" role-concept name are unchanged). The token survives only in the `turnOpponent` ("Opponent's move") turn-line, which was out of OD-5 scope. New copy should still prefer **respondent / principal / other-voice** language.
 - **`bot`** appears only in the explicit bot-test marker family; never as a person-attribution token in product copy.
 
 ---
@@ -194,7 +194,7 @@ This standard is enforced by a centralized ban-list guard, `__tests__/copySystem
 
 - It flattens the shipped product-language constants (room/seat/visibility/observer/mediator/brand) to their string values and asserts **no §3 banned token** appears, using whole-word/phrase, case-insensitive matching (the exact word-boundary matcher used in `oneToOneRoomModel.test.ts`) so legitimate substrings never false-positive.
 - It includes a **positive control** (intentionally violating strings trip the guard) and a **negative control** (canonical room/seat/auth copy passes).
-- It pins the §3.6 carve-outs as invariants: the banned set must NOT contain `block` (the "Evidence blocked" term) or `opponent` (deferred OD-5).
+- It pins the §3.6 carve-outs as invariants: the banned set must NOT contain `block` (the "Evidence blocked" term) or `opponent` (OD-5 resolved the seat word to "Other voice"; the token still survives in the `turnOpponent` turn-line, so it stays un-banned).
 
 The guard imports only already-exported constants and asserts non-presence of tokens already absent, so it is green on the current tree. It adds no product string and changes no semantics.
 

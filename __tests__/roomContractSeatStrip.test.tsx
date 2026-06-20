@@ -88,7 +88,8 @@ describe('RoomContractSeatStrip — render contract via the view-model', () => {
     const contract = buildRoomContract(baseInput({ arguments: [ROOT, REPLY] }));
     const vm = buildRoomContractViewModel(contract, INITIATOR, [ROOT, REPLY]);
     expect(vm.initiatorSeat.label).toBe('You');
-    expect(vm.opponentSeat.label).toBe('Opponent');
+    // OD-5 (UX-ROUTE-SEAT-INVITE-COPY-001) — second-principal seat label.
+    expect(vm.opponentSeat.label).toBe('Other voice');
   });
 
   it("viewer is the Primary Opponent → 'You' on the Opponent seat", () => {

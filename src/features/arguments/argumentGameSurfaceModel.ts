@@ -874,7 +874,7 @@ function pickKindLabel(kind: string | null | undefined): string {
 function pickActorLabel(actor: ArgumentBubbleActor): string {
   switch (actor) {
     case 'self': return 'You';
-    case 'other': return 'Opponent';
+    case 'other': return 'Other voice';
     case 'bot': return 'Bot';
     case 'admin': return 'Admin';
     default: return 'Unknown';

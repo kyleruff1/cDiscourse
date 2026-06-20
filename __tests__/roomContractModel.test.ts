@@ -352,7 +352,8 @@ describe('buildRoomContractViewModel', () => {
     const vm = buildRoomContractViewModel(claimed, INITIATOR);
     expect(vm.initiatorSeat.label).toBe('You');
     expect(vm.initiatorSeat.isViewer).toBe(true);
-    expect(vm.opponentSeat.label).toBe('Opponent');
+    // OD-5 (UX-ROUTE-SEAT-INVITE-COPY-001) — second-principal seat label.
+    expect(vm.opponentSeat.label).toBe('Other voice');
   });
 
   it("viewer is the Primary Opponent → 'You' on the opponent seat", () => {
@@ -365,13 +366,13 @@ describe('buildRoomContractViewModel', () => {
   it("observer viewer → role labels only, no 'You'", () => {
     const vm = buildRoomContractViewModel(claimed, OTHER);
     expect(vm.initiatorSeat.label).toBe('Initiator');
-    expect(vm.opponentSeat.label).toBe('Opponent');
+    expect(vm.opponentSeat.label).toBe('Other voice');
   });
 
   it("null viewer → role labels only, no 'You'", () => {
     const vm = buildRoomContractViewModel(claimed, null);
     expect(vm.initiatorSeat.label).toBe('Initiator');
-    expect(vm.opponentSeat.label).toBe('Opponent');
+    expect(vm.opponentSeat.label).toBe('Other voice');
   });
 
   it('open opponent seat → respondent-seat label + isOpen flag', () => {
@@ -428,10 +429,10 @@ describe('buildRoomContractViewModel', () => {
     ];
     expect(buildRoomContractViewModel(claimed, OPPONENT, args).turnLabel).toBe('Your move');
     expect(buildRoomContractViewModel(claimed, INITIATOR, args).turnLabel).toBe(
-      "Opponent's move",
+      "Other voice's move",
     );
     expect(buildRoomContractViewModel(claimed, OTHER, args).turnLabel).toBe(
-      "Opponent's move",
+      "Other voice's move",
     );
   });
 });
