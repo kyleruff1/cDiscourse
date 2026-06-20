@@ -374,23 +374,27 @@ describe('buildRoomContractViewModel', () => {
     expect(vm.opponentSeat.label).toBe('Opponent');
   });
 
-  it('open opponent seat → open-seat label + isOpen flag', () => {
+  it('open opponent seat → respondent-seat label + isOpen flag', () => {
+    // UX-ROOM-1V1-CHIMEIN-001A — the open second-principal seat reads in
+    // respondent/principal language, never "chime-in".
     const vm = buildRoomContractViewModel(openSeat, INITIATOR);
-    expect(vm.opponentSeat.label).toBe('Open seat — first reply takes it');
+    expect(vm.opponentSeat.label).toBe('Respondent seat open');
     expect(vm.opponentSeat.isOpen).toBe(true);
-    expect(vm.turnLabel).toBe('Open seat — first reply takes it');
+    expect(vm.turnLabel).toBe('Respondent seat open');
   });
 
-  it('private room → Private room label', () => {
+  it('private room → Private 1:1 label', () => {
+    // UX-ROOM-1V1-CHIMEIN-001A — 1:1-first room-type relabel.
     const privateContract = buildRoomContract(
       input({ roomType: 'private', invitedOpponentUserId: OPPONENT, arguments: [rootArg()] }),
     );
     const vm = buildRoomContractViewModel(privateContract, INITIATOR);
-    expect(vm.roomTypeLabel).toBe('Private room');
+    expect(vm.roomTypeLabel).toBe('Private 1:1');
   });
 
-  it('public room → Public room label', () => {
-    expect(buildRoomContractViewModel(claimed, INITIATOR).roomTypeLabel).toBe('Public room');
+  it('public room → Public 1:1 label', () => {
+    // UX-ROOM-1V1-CHIMEIN-001A — 1:1-first room-type relabel.
+    expect(buildRoomContractViewModel(claimed, INITIATOR).roomTypeLabel).toBe('Public 1:1');
   });
 
   it('no opening argument → turnLabel null', () => {

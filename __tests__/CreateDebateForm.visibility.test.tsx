@@ -76,9 +76,18 @@ describe('CreateDebateForm — ROOM_VISIBILITY_COPY copy assertions', () => {
     expect(ROOM_VISIBILITY_COPY.option_private_label).toBe('Private');
   });
 
-  it('helper text uses plain English ("anyone" / "only people you invite")', () => {
+  it('helper text uses plain English (public "anyone" / private "invited access")', () => {
+    // UX-ROOM-1V1-CHIMEIN-001A — the private helper uses OD-1-SAFE wording
+    // ("invited access" / "1:1") and DELIBERATELY no longer says "only people
+    // you invite": whether private rooms have observers is the unresolved
+    // operator decision OD-1, and "only people you invite" would imply a
+    // no-observers / invitees-only semantics this card must not assert.
     expect(ROOM_VISIBILITY_COPY.option_public_helper).toMatch(/anyone/i);
-    expect(ROOM_VISIBILITY_COPY.option_private_helper).toMatch(/only people you invite/i);
+    expect(ROOM_VISIBILITY_COPY.option_private_helper).toMatch(/invited access/i);
+    expect(ROOM_VISIBILITY_COPY.option_private_helper).toMatch(/1:1/);
+    // OD-1-safe: the private helper never claims "no observers" / invitees-only.
+    expect(ROOM_VISIBILITY_COPY.option_private_helper).not.toMatch(/no observers?/i);
+    expect(ROOM_VISIBILITY_COPY.option_private_helper).not.toMatch(/only (people|the person) you invite/i);
   });
 
   it('helper text says "argument", not "debate" (QOL-035)', () => {
