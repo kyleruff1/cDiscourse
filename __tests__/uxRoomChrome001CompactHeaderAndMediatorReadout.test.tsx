@@ -198,18 +198,24 @@ describe('UX-ROOM-CHROME-001 — AppHeader compact render', () => {
 // 1d. App.tsx wiring — signed-in shell compact, bare/transient prominent
 // ──────────────────────────────────────────────────────────────
 
-describe('UX-ROOM-CHROME-001 — App.tsx wires compact only on the signed-in shell masthead', () => {
+describe('UX-ROOM-CHROME-001 — App.tsx wires a slim variant only on the signed-in shell masthead', () => {
   const appTsx = read('App.tsx');
 
-  it('the navSlot-bearing (signed-in shell) AppHeader passes compact', () => {
+  // UX-ROOM-CHROME-002 SUPERSEDES the original `compact` wiring on the signed-in
+  // shell: it now carries the spatially-balanced variant (`balanced`) instead.
+  // The signed-in shell still uses a slim (non-prominent) variant, and the
+  // bare/transient masthead is still untouched. These assertions are updated to
+  // the `balanced` wiring; the resolver-path math assertions above (compact +
+  // prominent) are unchanged and stay byte-equivalent.
+  it('the navSlot-bearing (signed-in shell) AppHeader passes the balanced variant', () => {
     // The signed-in shell masthead is the AppHeader that carries the
-    // AppPrimaryNav navSlot. It must carry `compact`.
+    // AppPrimaryNav navSlot. Per UX-ROOM-CHROME-002 it must carry `balanced`.
     expect(appTsx).toMatch(
-      /<AppHeader[\s\S]*?compact[\s\S]*?navSlot=\{[\s\S]*?<AppPrimaryNav/,
+      /<AppHeader[\s\S]*?balanced[\s\S]*?navSlot=\{[\s\S]*?<AppPrimaryNav/,
     );
   });
 
-  it('the bare/transient AppHeader (unconfigured / invite / callback) does NOT pass compact', () => {
+  it('the bare/transient AppHeader (unconfigured / invite / callback) does NOT pass a slim variant', () => {
     // The transient masthead is the AppHeader rendered with rightSlot only
     // (no navSlot) and must stay prominent.
     expect(appTsx).toMatch(
@@ -217,11 +223,19 @@ describe('UX-ROOM-CHROME-001 — App.tsx wires compact only on the signed-in she
     );
   });
 
-  it('exactly one AppHeader site in App.tsx carries compact', () => {
+  it('no AppHeader site in App.tsx still carries the retired compact prop', () => {
+    // UX-ROOM-CHROME-002 replaced the signed-in shell `compact` with `balanced`.
     const compactSites = (appTsx.match(/<AppHeader\b[\s\S]*?\/>/g) ?? []).filter((s) =>
       /\bcompact\b/.test(s),
     );
-    expect(compactSites.length).toBe(1);
+    expect(compactSites.length).toBe(0);
+  });
+
+  it('exactly one AppHeader site in App.tsx carries the balanced variant', () => {
+    const balancedSites = (appTsx.match(/<AppHeader\b[\s\S]*?\/>/g) ?? []).filter((s) =>
+      /\bbalanced\b/.test(s),
+    );
+    expect(balancedSites.length).toBe(1);
   });
 
   it('AuthScreen does not import or render AppHeader (Sign In hero untouched)', () => {
