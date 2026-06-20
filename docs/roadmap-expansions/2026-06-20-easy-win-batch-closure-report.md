@@ -92,3 +92,37 @@ This run wrote only Markdown under `docs/`, commented on + closed GitHub issues,
 ## 11. Boundary attestation
 
 No runtime mutation, no provider call, no queue arm, no Supabase config write, no deployment, no netlify-prod publish, no H/I/J flip, no Family K production change, no service-role/client leakage, no package install, no app.json change, no schema/RLS/Auth config change, no room/invite/seat/chime-in/mediator/submission semantics changed.
+
+---
+
+## 12. Closure ledger (binding appendix §I — source of truth)
+
+Grades per the appendix rubric: **A** close-after-docs · **B** comment/leave-open (impl) · **C** GATE-C/leave-open · **D** ambiguous/leave-open. Only Grade A was closed.
+
+| Issue | Code | Grade | Action | Evidence doc | Remaining dependency | Project update |
+|---|---|---|---|---|---|---|
+| #739 | AUTH-FOUNDATION-CONFIG-001 | A | Closed | `docs/designs/AUTH-FOUNDATION-CONFIG-001.md` | #745 (deferred Google config) | Phase=Done, Status=Done |
+| #741 | AUTH-FOUNDATION-PROVISIONING-001 | A | Closed | `docs/designs/AUTH-FOUNDATION-PROVISIONING-001.md` | provisioning impl = future GATE-C (unfiled); Google-specific #747 | Phase=Done, Status=Done |
+| #742 | AUTH-FOUNDATION-INVITE-REDIRECT-001 | A | Closed | `docs/designs/AUTH-FOUNDATION-INVITE-REDIRECT-001.md` | #748 (OAuth redemption impl) | Phase=Done, Status=Done |
+| #743 | AUTH-GOOGLE-SSO-ADR-001 | A | Closed | `docs/adr/AUTH-GOOGLE-SSO-ADR-001.md` | governs #744–#748 | Phase=Done, Status=Done |
+| #744 | AUTH-GOOGLE-SSO-001 | A | Closed | `docs/designs/AUTH-GOOGLE-SSO-001.md` | #745,#746,#747,#748 | Phase=Done, Status=Done |
+| #749 | AUTH-FACEBOOK-SSO-001 | A | Closed | `docs/designs/AUTH-FACEBOOK-SSO-001-DEFERRED.md` | launch + Google-stable + operator re-approval | Phase=Done, Status=Done |
+| #750 | UX-TIMELINE-VERTICAL-001 | A | Closed | `docs/designs/UX-TIMELINE-VERTICAL-001.md` (existing) | #751,#752,#753 | Phase=Done, Status=Done |
+| #755 | UX-DESIGN-REFERENCE-LEDGER-001 | A | Closed | `docs/designs/CIVILDISCOURSE-DESIGN-REFERENCE-LEDGER.md` (existing) | none (living doc) | Phase=Done, Status=Done |
+| #756 | UX-FEATURE-REPOSITORY-001 | A | Closed | `docs/feature-repository-index.md` | none (living doc) | Phase=Done, Status=Done |
+| #740 | AUTH-FOUNDATION-UI-001 | B | Open | — | rendered Sign In UI + pure model + unit tests | Backlog |
+| #745 | AUTH-GOOGLE-SSO-002 | C | Open | — | hosted Google OAuth config (operator console) | Backlog |
+| #746 | AUTH-GOOGLE-SSO-003 | B | Open | — | Continue-with-Google UI implementation | Backlog |
+| #747 | AUTH-GOOGLE-SSO-004 | C | Open | — | OAuth profile provisioning impl (+ possible migration) | Backlog |
+| #748 | AUTH-GOOGLE-SSO-005 | C | Open | — | invite/room redemption backend + session wiring | Backlog |
+| #751 | UX-TIMELINE-VERTICAL-002 | B | Open | — | pure-TS vertical layout model (code) | Backlog |
+| #752 | UX-TIMELINE-VERTICAL-003 | B | Open | — | vertical timeline component (code, after #751) | Backlog |
+| #753 | UX-TIMELINE-HISTORY-001 | B | Open | `docs/designs/UX-TIMELINE-HISTORY-001.md` (design baseline) | pure model + fixture worked-example + tests | Backlog |
+| #754 | UX-COPY-SYSTEM-002 | B | Open | — | copy normalizer / constant edits (after #676) | Backlog |
+| #757 | UX-TEST-JOURNEY-HARNESS-001 | B | Open | — | harness scaffolding + passing self-tests | Backlog |
+| #758 | UX-BOARD-MOBILE-DEPTH-001 | B | Open | — | mobile truncation fix + reachability tests | Backlog |
+| #759 | UX-ROUTE-SEAT-INVITE-COPY-001 | B | Open | — | copy-constant consistency edits (after #680/#676) | Backlog |
+| #760 | UX-ONBOARDING-PROVIDER-READY-001 | B | Open | — | first-run layout model + tests | Backlog |
+| #761 | UX-ROOM-CHIMEIN-CONTRIB-001 | C | Open | — | chime-in contribution backend (GATE-C); OD-1 (#680) | Backlog |
+
+**Totals:** 9 Grade-A closed · 14 left open (10 Grade-B implementation, 4 Grade-C GATE-C: #745/#747/#748/#761) · 0 Grade-D. No production code/config/provider/deploy occurred.
