@@ -40,6 +40,11 @@ import {
   RoomBoardLayout,
   ROOM_BOARD_PANE_WIDTH_PX,
 } from '../src/features/arguments/RoomBoardLayout';
+// UX-BOARD-RAIL-004 (SN-1) — additive: the bottom-chrome slot now resolves
+// through the BoardBottomChrome grouping wrapper. The column topology below is
+// UNCHANGED; the new cases assert the slot still mounts at all bands and is
+// reachable through `board-bottom-chrome`.
+import { BoardBottomChrome } from '../src/features/arguments/BoardBottomChrome';
 import { DisagreementPointsRail } from '../src/features/mediator/DisagreementPointsRail';
 import { resolveBand } from '../src/hooks/useHeaderBreakpoint';
 import { BORDER_WIDTH } from '../src/lib/designTokens';
@@ -497,5 +502,85 @@ describe('UX-BOARD-RAIL-002 — RoomBoardLayout is a pure presentational grid', 
 
   it('the wrapper authors no <Text> of its own (renders only slot children)', () => {
     expect(WRAPPER_SRC).not.toMatch(/<Text/);
+  });
+});
+
+// ── 14. UX-BOARD-RAIL-004 (SN-1) — bottomChrome resolves through the wrapper ─
+//
+// Additive: the bottomChrome slot's children are now grouped inside the
+// BoardBottomChrome wrapper. These cases assert the slot still mounts at all
+// bands and is reachable through `board-bottom-chrome`, and that the column
+// count / col1 / col2 / col3 placement is UNCHANGED (the wrapper lives INSIDE
+// the bottomChrome slot only — RoomBoardLayout's column logic is untouched).
+
+/**
+ * Render a board whose bottomChrome slot is the BoardBottomChrome wrapper around
+ * a marker child (mirrors how ArgumentGameSurface now passes the slot).
+ */
+function renderBoardWithGroupedChrome(band: 'phone' | 'tablet' | 'wide') {
+  return render(
+    <RoomBoardLayout
+      band={band}
+      testID="argument-game-surface"
+      accessibilityLabel="argument-game-surface"
+      topBanner={<Text testID="depth-top-banner">banner</Text>}
+      col1={<Text testID="depth-col1-body">body spine</Text>}
+      col2={<Text testID="depth-col2-readout">selected readout</Text>}
+      col2Footer={<Text testID="depth-col2-footer-aig">Act Inspect Go</Text>}
+      col3={<Text testID="depth-col3-ledger">disagreement points</Text>}
+      bottomChrome={
+        <BoardBottomChrome>
+          <Text testID="depth-bottom-chrome-child">open issues</Text>
+        </BoardBottomChrome>
+      }
+      overlays={<Text testID="depth-overlays">overlays</Text>}
+    />,
+  );
+}
+
+describe('UX-BOARD-RAIL-004 — bottomChrome slot resolves through board-bottom-chrome', () => {
+  for (const cell of CELLS) {
+    it(`${cell.label}: board-bottom-chrome mounts and contains the chrome child`, () => {
+      const { getByTestId } = renderBoardWithGroupedChrome(cell.band);
+      expect(getByTestId('board-bottom-chrome')).toBeTruthy();
+      expect(within(getByTestId('board-bottom-chrome'), 'depth-bottom-chrome-child')).toBe(true);
+    });
+  }
+
+  for (const cell of CELLS) {
+    it(`${cell.label}: column count (${cell.expectedColumns}) + col1/col2/col3 placement unchanged with the grouped chrome`, () => {
+      const { queryByTestId } = renderBoardWithGroupedChrome(cell.band);
+      const col1 = queryByTestId('room-board-col-1');
+      const col2 = queryByTestId('room-board-col-2');
+      const col3 = queryByTestId('room-board-col-3');
+      const row = queryByTestId('room-board-row');
+      if (cell.expectedColumns === 1) {
+        expect(row).toBeNull();
+        expect(col1).toBeNull();
+        expect(col2).toBeNull();
+        expect(col3).toBeNull();
+      } else if (cell.expectedColumns === 2) {
+        expect(row).toBeTruthy();
+        expect(col1).toBeTruthy();
+        expect(col2).toBeNull();
+        expect(col3).toBeTruthy();
+      } else {
+        expect(row).toBeTruthy();
+        expect(col1).toBeTruthy();
+        expect(col2).toBeTruthy();
+        expect(col3).toBeTruthy();
+      }
+    });
+  }
+
+  it('the surface source passes the bottomChrome slot through BoardBottomChrome', () => {
+    // The slot's children are wrapped; the wrapper import + mount are present.
+    expect(SURFACE_SRC).toMatch(/import \{ BoardBottomChrome \} from '\.\/BoardBottomChrome'/);
+    expect(SURFACE_SRC).toContain('<BoardBottomChrome>');
+    expect(SURFACE_SRC).toContain('</BoardBottomChrome>');
+    // The three bottom surfaces remain textually in-file (no extraction).
+    expect(SURFACE_SRC).toContain('<OpenIssuesRail');
+    expect(SURFACE_SRC).toContain('<SeatAvailabilityStrip');
+    expect(SURFACE_SRC).toContain('<ArgumentSideActionRail');
   });
 });
