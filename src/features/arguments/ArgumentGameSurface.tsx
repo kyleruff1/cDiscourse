@@ -19,6 +19,10 @@ import { ArgumentBubbleActions } from './ArgumentBubbleActions';
 // 1 / 2 / 3-column board by the resident `headerBand`. No hook / handler /
 // derivation lives in the wrapper; every mount stays textually in this file.
 import { RoomBoardLayout } from './RoomBoardLayout';
+// UX-BOARD-RAIL-004 (SN-1) — pure presentational grouping wrapper that gives the
+// three bottom-chrome surfaces (Open Issues · seat strip · side action) one calm,
+// bordered board-bottom region. Zero behavior/data/semantics change.
+import { BoardBottomChrome } from './BoardBottomChrome';
 // REF-005 — the structured "Request review / Mark concern" composer. A
 // presentational sibling overlay (like the deletion sheet); it owns no
 // persistence and fires no hide/delete path. The loose `flag` affordances
@@ -2734,7 +2738,14 @@ export function ArgumentGameSurface({
         />
       }
       bottomChrome={
-        <>
+        /* UX-BOARD-RAIL-004 (SN-1) — group the three bottom-chrome surfaces
+           (Open Issues · seat strip · side action) into ONE calm, bordered
+           board-bottom region. The wrapper is pure presentational (a single
+           bordered View); every child subtree below stays textually in-file
+           with identical props, testIDs, conditional render guards, and
+           `isAnyPanelOpen` OR-terms, in the source order Open Issues → seat →
+           Side Action. No behavior / data / semantics change. */
+        <BoardBottomChrome>
       {/* REF-006-RAIL — the room-wide Open Issues ledger. Collapsed-by-default
           bottom chrome (below the Timeline), mounted as a sibling IMMEDIATELY
           above the side action rail. Reuses the SC-005 dock chassis layout;
@@ -2795,7 +2806,7 @@ export function ArgumentGameSurface({
         canClaimActiveSeat={seatAvailability ? seatAvailability.canClaimActiveSeat : undefined}
         fullRoomNotice={seatAvailabilityViewModel?.fullRoomObserveNudge ?? null}
       />
-        </>
+        </BoardBottomChrome>
       }
       overlays={
         <>
