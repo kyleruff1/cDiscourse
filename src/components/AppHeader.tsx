@@ -129,25 +129,26 @@ const PROMINENT_HEADER_HEIGHT_PX = PROMINENT_LOGO_HEIGHT_PX + 8;
 // UX-ROOM-CHROME-001 — compact masthead height for the signed-in shell.
 // ~48 px keeps the gold lockup legible while leaving the active board the
 // first screen. It is still width-capped by resolveMastheadLogoHeightPx so
-// the rendered width (height × LOGO_ASPECT_RATIO ≈ 48 × 2.807 ≈ 135 px)
+// the rendered width (height × LOGO_ASPECT_RATIO ≈ 48 × 4.230 ≈ 203 px)
 // fits inside every supported viewport with room to spare.
 const COMPACT_LOGO_HEIGHT_PX = 48;
 
-// UX-BRAND-ASSETS-002 / QUICK-BRAND-LOCKUP-002 — the masthead logo is the gold
-// horizontal lockup (`civic-discourse-logo.png`, 960×342, aspect ≈ 2.807). It
-// is MUCH wider per unit height than the prior grey water-scene (3:2 / aspect
-// 1.5). The Image renders at width = height × LOGO_ASPECT_RATIO, so at the
-// prominent 288 px height the gold lockup would be 288 × 2.807 ≈ 808 px wide —
-// wider than every
-// supported viewport (it overflows even a 768 px tablet). The width-cap below
+// UX-BRAND-ASSETS-002 / QUICK-BRAND-LOCKUP-002 / QUICK-BRAND-LOCKUP-003 — the
+// masthead logo is the gold horizontal lockup (`civic-discourse-logo.png`,
+// 1400×331, aspect ≈ 4.230 after the isolated b/w bird + larger gold wordmark
+// re-cut). It is MUCH wider per unit height than the prior grey water-scene
+// (3:2 / aspect 1.5). The Image renders at width = height × LOGO_ASPECT_RATIO,
+// so at the prominent 288 px height the gold lockup would be 288 × 4.230 ≈ 1218
+// px wide — wider than every
+// supported viewport (it overflows even a 1024 px tablet). The width-cap below
 // therefore applies to EVERY band (not just phone, as in UX-MOBILE-001): the
 // returned height is capped so its rendered width (height × aspect) can never
 // exceed the available header width. Where the prominent height physically
-// fits (wide, and tablet from ~1000 px up) the prominent decision is honored
+// fits (wide, and tablet from ~1242 px up) the prominent decision is honored
 // unchanged; where it would overflow the logo is fitted to the available width
 // — preserving the #654 / UX-MOBILE-004 intent (no horizontal overflow, no
 // edge gutter, masthead never dominates the first screen).
-const LOGO_ASPECT_RATIO = 960 / 342; // ≈ 2.807 (gold horizontal lockup)
+const LOGO_ASPECT_RATIO = 1400 / 331; // ≈ 4.230 (gold horizontal lockup)
 const HEADER_HORIZONTAL_BUDGET_PX = 24; // root paddingHorizontal (12 + 12)
 const MIN_PHONE_LOGO_HEIGHT_PX = 64; // still a legible brand mark on a narrow phone
 // UX-MOBILE-004 (supersedes the UX-MOBILE-001 phone behavior) — live 390/300
@@ -162,9 +163,10 @@ const MAX_PHONE_LOGO_HEIGHT_PX = 160;
 /**
  * Resolve the rendered masthead logo height for a band + viewport width.
  *
- * UX-BRAND-ASSETS-002 — the gold lockup is aspect ≈ 2.807, so the prominent
- * 288 px height would render ≈ 808 px wide and overflow every viewport. The
- * height is therefore capped by the AVAILABLE WIDTH on every band:
+ * UX-BRAND-ASSETS-002 / QUICK-BRAND-LOCKUP-003 — the gold lockup is aspect
+ * ≈ 4.230, so the prominent 288 px height would render ≈ 1218 px wide and
+ * overflow every viewport short of ~1242 px. The height is therefore capped
+ * by the AVAILABLE WIDTH on every band:
  *
  * - Compute `widthFit = floor(available / aspect)` — the tallest height whose
  *   rendered width (height × aspect) still fits the available header width
