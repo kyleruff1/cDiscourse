@@ -111,6 +111,13 @@ export interface SidecarSection_WhatThisMoveSays {
   isTruncated: boolean;
   /** Length of the full body (for an optional "show full body" affordance). */
   fullBodyLength: number;
+  /**
+   * UX-BOARD-MOBILE-DEPTH-001 (#758) — already-redacted FULL body, render-ready;
+   * the source for a read-only "Show full body" disclosure toggle so the
+   * selected-node body is reachable at 390px when bodyExcerpt is truncated.
+   * Equals bodyExcerpt when not truncated. Empty when the move is hidden.
+   */
+  bodyFull: string;
   /** Pre-formatted absolute timestamp, render-ready. */
   createdAtLabel: string;
   /** Pre-formatted short relative age. */
@@ -382,6 +389,9 @@ function buildSectionWhatThisMoveSays(
     bodyExcerpt: isHidden ? '' : excerpt,
     isTruncated: !isHidden && truncated,
     fullBodyLength: rawBody.length,
+    // UX-BOARD-MOBILE-DEPTH-001 (#758) — the redacted FULL body, render-ready.
+    // Equals bodyExcerpt when not truncated; empty when hidden.
+    bodyFull: isHidden ? '' : rawBody,
     createdAtLabel: viewModel.createdAtLabel,
     relativeLabel: viewModel.relativeLabel,
     parentHint,

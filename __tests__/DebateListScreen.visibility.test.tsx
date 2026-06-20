@@ -8,6 +8,7 @@ import { render, within } from '@testing-library/react-native';
 import { DebateListScreen } from '../src/features/debates/DebateListScreen';
 import type { Debate } from '../src/features/debates/types';
 import { ROOM_ACCESS_COPY, ROOM_VISIBILITY_COPY } from '../src/features/arguments/gameCopy';
+import { deriveGalleryActionLabel } from '../src/features/debates/roomAccessModel';
 
 function debate(over: Partial<Debate> = {}): Debate {
   return {
@@ -72,5 +73,41 @@ describe('DebateListScreen — visibility badge + access line', () => {
     expect(within(badge).queryByText(ROOM_VISIBILITY_COPY.option_private_label)).toBeNull();
     expect(badge.props.accessibilityLabel).not.toBe(ROOM_VISIBILITY_COPY.badge_private_a11y);
     expect(badge.props.accessibilityLabel).toBe('');
+  });
+});
+
+describe('route action-label consistency (#759)', () => {
+  // The list row now routes its action label through the SHARED
+  // deriveGalleryActionLabel policy (via accessView.actionLabel) so it can never
+  // drift from the Conversation Gallery for the same access concept.
+
+  it('PUBLIC + member → "Continue →" (was "Open →" before the fix)', () => {
+    const { getByText } = renderList([
+      debate({ id: 'd-m', visibility: 'public', status: 'open', myParticipantSide: 'affirmative' }),
+    ]);
+    expect(getByText('Continue →')).toBeTruthy();
+    expect('Continue →').toBe(
+      deriveGalleryActionLabel({ hasUserJoined: true, openStatus: 'open' }),
+    );
+  });
+
+  it('PUBLIC + non-member + open → "Observe →" (unchanged; non-member equivalence)', () => {
+    const { getByText } = renderList([
+      debate({ id: 'd-o', visibility: 'public', status: 'open', myParticipantSide: null }),
+    ]);
+    expect(getByText('Observe →')).toBeTruthy();
+    expect('Observe →').toBe(
+      deriveGalleryActionLabel({ hasUserJoined: false, openStatus: 'open' }),
+    );
+  });
+
+  it('PUBLIC + non-member + non-open → "Open →" (was "Observe →" before; corrected by the shared policy)', () => {
+    const { getByText } = renderList([
+      debate({ id: 'd-x', visibility: 'public', status: 'locked', myParticipantSide: null }),
+    ]);
+    expect(getByText('Open →')).toBeTruthy();
+    expect('Open →').toBe(
+      deriveGalleryActionLabel({ hasUserJoined: false, openStatus: 'locked' }),
+    );
   });
 });
