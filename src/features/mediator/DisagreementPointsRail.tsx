@@ -48,7 +48,12 @@ import {
   resolveObserverDockVariant,
   resolveSheetMaxHeightPx,
 } from '../arguments/ObserverActionDockLayout';
-import type { DisagreementPoint, MediatorBoardState, PointAnchor } from './mediatorBoardTypes';
+import type {
+  DisagreementPoint,
+  MediatorBoardState,
+  PointAnchor,
+  V4MediatorStateCode,
+} from './mediatorBoardTypes';
 import { v4DisplayStateFor } from './deriveMediatorBoardState';
 import { plainLanguageForMediatorState } from './mediatorPlainLanguage';
 import {
@@ -173,6 +178,19 @@ export function DisagreementPointsRail({
   );
   const [showAll, setShowAll] = useState(false);
 
+  // ── UX-BOARD-RAIL-003 — local distribution-segment navigation ──
+  // The distribution strip is a navigation control: pressing a segment selects
+  // that display state, jumps the rail's OWN ScrollView to the first matching
+  // row, and marks the matching rows "In view" (geometry + text, never color
+  // alone). This is purely rail-local: it touches NO board topology, NO mediator
+  // derivation, NO scroll model outside this rail. `selectedSegment === null`
+  // means "Show all points" (no group focused — every row reads as in view).
+  const [selectedSegment, setSelectedSegment] = useState<V4MediatorStateCode | null>(null);
+  // The rail's own ScrollView ref + per-row vertical offset (captured via
+  // onLayout on each row wrapper). Used to scrollTo the first matching row.
+  const scrollRef = useRef<ScrollView | null>(null);
+  const rowOffsetsRef = useRef<Record<string, number>>({});
+
   // ── reduce-motion read (mirrors OpenIssuesRail) ──
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   useEffect(() => {
@@ -223,7 +241,12 @@ export function DisagreementPointsRail({
   onExpandedChangeRef.current = onExpandedChange;
   const setExpanded = useCallback((next: boolean) => {
     setCollapsed(!next);
-    if (!next) setShowAll(false);
+    if (!next) {
+      setShowAll(false);
+      // UX-BOARD-RAIL-003 — collapsing the rail also clears any segment focus,
+      // so reopening starts from the full "Show all points" view.
+      setSelectedSegment(null);
+    }
     onExpandedChangeRef.current?.(next);
   }, []);
 
@@ -267,6 +290,57 @@ export function DisagreementPointsRail({
   // UX-MEDIATOR-005 — the state-distribution roll-up. A COMPOSITION of the same
   // live points the rows render (no second derivation); ordered structurally.
   const distribution = useMemo(() => buildDisagreementDistribution(livePoints), [livePoints]);
+
+  // UX-BOARD-RAIL-003 — the first live point whose v4 DISPLAY state matches a
+  // segment. Used to scroll/focus the group's lead row. Reads the SAME live
+  // points the rows render (no new derivation); preserves chronological order.
+  const firstMatchingPointId = useCallback(
+    (displayState: V4MediatorStateCode): string | null => {
+      for (const point of livePoints) {
+        if (v4DisplayStateFor(point.state) === displayState) return point.id;
+      }
+      return null;
+    },
+    [livePoints],
+  );
+
+  // UX-BOARD-RAIL-003 — select a segment + jump the rail's OWN ScrollView to the
+  // first matching row. Not a hard filter — every row stays mounted; the target
+  // group is anchored (header "Showing:" line) and marked ("In view"). Scroll is
+  // best-effort: if the offset has not been measured yet (onLayout not fired) we
+  // still set the selection so the visible group anchor + markers update.
+  const handleSegmentPress = useCallback(
+    (displayState: V4MediatorStateCode) => {
+      setSelectedSegment(displayState);
+      // Reveal hidden rows so a matching point past the initial cap is reachable.
+      setShowAll(true);
+      const targetId = firstMatchingPointId(displayState);
+      if (targetId == null) return;
+      const y = rowOffsetsRef.current[targetId];
+      if (typeof y === 'number' && scrollRef.current) {
+        scrollRef.current.scrollTo({ y, animated: !effectiveReducedMotion });
+      }
+    },
+    [firstMatchingPointId, effectiveReducedMotion],
+  );
+
+  // UX-BOARD-RAIL-003 — "Show all points" reset: clear the segment focus so no
+  // group is anchored and every row reads as in view. Returns to the top.
+  const handleShowAll = useCallback(() => {
+    setSelectedSegment(null);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ y: 0, animated: !effectiveReducedMotion });
+    }
+  }, [effectiveReducedMotion]);
+
+  // UX-BOARD-RAIL-003 — the plain-language label for the focused group (read
+  // from the distribution segment, which already carries the ban-list-clean
+  // `plainLabel`). Empty when no segment is focused or it has no live members.
+  const selectedSegmentLabel = useMemo(() => {
+    if (selectedSegment == null) return '';
+    const match = distribution.find((s) => s.displayState === selectedSegment);
+    return match ? match.plainLabel : '';
+  }, [selectedSegment, distribution]);
 
   const visiblePoints = useMemo(
     () => (showAll ? livePoints : livePoints.slice(0, DISAGREEMENT_POINTS_RAIL_INITIAL_ROWS)),
@@ -363,7 +437,42 @@ export function DisagreementPointsRail({
           and an accessibilityLabel, and a compact text legend renders the same
           buckets for grayscale / screen-reader parity. */}
       {distribution.length > 0 ? (
-        <DisagreementDistributionBar segments={distribution} total={count} />
+        <DisagreementDistributionBar
+          segments={distribution}
+          total={count}
+          selectedSegment={selectedSegment}
+          onSegmentPress={handleSegmentPress}
+        />
+      ) : null}
+
+      {/* UX-BOARD-RAIL-003 — segment-selection anchor + reset. When a segment is
+          focused, a "Showing: <state>" line names the active group (text, not
+          color) and a "Show all points" reset clears it. Absent on the default
+          (all-points) view so the calm baseline is unchanged. */}
+      {selectedSegment != null && selectedSegmentLabel.length > 0 ? (
+        <View style={styles.selectionAnchorRow} testID="disagreement-points-rail-selection-anchor">
+          <Text
+            style={styles.selectionAnchorText}
+            numberOfLines={1}
+            accessibilityRole="header"
+            testID="disagreement-points-rail-showing"
+          >
+            {`${DISAGREEMENT_POINTS_RAIL_COPY.showingPrefix}: ${selectedSegmentLabel}`}
+          </Text>
+          <Pressable
+            onPress={handleShowAll}
+            accessibilityRole="button"
+            accessibilityLabel={DISAGREEMENT_POINTS_RAIL_COPY.showAllPoints}
+            accessibilityState={{ selected: false }}
+            hitSlop={TOUCH_TARGET.hitSlopAll}
+            style={styles.showAllControl}
+            testID="disagreement-points-rail-show-all"
+          >
+            <Text style={styles.showAllText} numberOfLines={1}>
+              {DISAGREEMENT_POINTS_RAIL_COPY.showAllPoints}
+            </Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {board == null ? (
@@ -377,6 +486,7 @@ export function DisagreementPointsRail({
         </View>
       ) : (
         <ScrollView
+          ref={scrollRef}
           style={[styles.scroll, { maxHeight: sheetMaxHeight }]}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -392,6 +502,15 @@ export function DisagreementPointsRail({
               evidence={getEvidenceDebtForPoint(board, point.id)}
               bridge={getDefinitionScopeBridgeForPoint(board, point.id)}
               onJump={onJump}
+              // UX-BOARD-RAIL-003 — the row is "in view" of the focused segment
+              // when its v4 display state matches the selection. `null` selection
+              // (Show all points) marks no row, so the calm baseline is unchanged.
+              inSelectedSegment={
+                selectedSegment != null && v4DisplayStateFor(point.state) === selectedSegment
+              }
+              onMeasureOffset={(y) => {
+                rowOffsetsRef.current[point.id] = y;
+              }}
             />
           ))}
           {!showAll && moreCount > 0 ? (
@@ -456,6 +575,17 @@ interface DisagreementPointRowProps {
   /** UX-MEDIATOR-004 — compact definition/scope bridge for the point, or null. */
   bridge?: PointBridgeDisplay | null;
   onJump?: (nodeId: string) => void;
+  /**
+   * UX-BOARD-RAIL-003 — true when this row's display state matches the focused
+   * distribution segment. Renders a non-color-only "In view" group marker (a
+   * left accent rule + text), never a hard filter (the row stays mounted).
+   */
+  inSelectedSegment?: boolean;
+  /**
+   * UX-BOARD-RAIL-003 — reports the row wrapper's vertical offset within the
+   * rail's own ScrollView (via onLayout) so a segment press can scrollTo it.
+   */
+  onMeasureOffset?: (y: number) => void;
 }
 
 function DisagreementPointRow({
@@ -466,6 +596,8 @@ function DisagreementPointRow({
   evidence,
   bridge,
   onJump,
+  inSelectedSegment,
+  onMeasureOffset,
 }: DisagreementPointRowProps): React.ReactElement {
   // UX-MEDIATOR-005 (O-1) — project the badge through the v4 display vocabulary
   // so the rail row matches the node chip; `point.state` stays intact for Inspect.
@@ -486,10 +618,20 @@ function DisagreementPointRow({
     pathwayAnyAvailable !== true;
 
   return (
-    <View style={[styles.row, isActive && styles.rowActive]} testID={`disagreement-points-rail-rowwrap-${point.id}`}>
-      {/* Active geometry — left accent bar (position/shape, not color alone). */}
+    <View
+      style={[styles.row, isActive && styles.rowActive, inSelectedSegment && styles.rowInView]}
+      onLayout={(event) => onMeasureOffset?.(event.nativeEvent.layout.y)}
+      testID={`disagreement-points-rail-rowwrap-${point.id}`}
+    >
+      {/* Active geometry — left accent bar (position/shape, not color alone). A
+          row that is also "in view" of the focused segment widens the accent
+          rule (geometry), so the group membership reads in grayscale. */}
       <View
-        style={[styles.activeBar, isActive ? styles.activeBarOn : styles.activeBarOff]}
+        style={[
+          styles.activeBar,
+          isActive ? styles.activeBarOn : inSelectedSegment ? styles.activeBarInView : styles.activeBarOff,
+          inSelectedSegment && styles.activeBarInViewWidth,
+        ]}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       />
@@ -514,6 +656,14 @@ function DisagreementPointRow({
           {isActive ? (
             <Text style={styles.activeWord} testID={`disagreement-points-rail-active-${point.id}`}>
               {DISAGREEMENT_POINTS_RAIL_COPY.activeSuffix}
+            </Text>
+          ) : null}
+          {/* UX-BOARD-RAIL-003 — non-color-only "in view" group marker: a "▸ In
+              view" text chip (text + the left accent rule carry the meaning).
+              Renders only when this row matches the focused segment. */}
+          {inSelectedSegment ? (
+            <Text style={styles.inViewWord} testID={`disagreement-points-rail-inview-${point.id}`}>
+              {`▸ ${DISAGREEMENT_POINTS_RAIL_COPY.inViewMarker}`}
             </Text>
           ) : null}
         </View>
@@ -629,62 +779,95 @@ function DisagreementPointRow({
 interface DisagreementDistributionBarProps {
   segments: ReadonlyArray<DisagreementDistributionSegment>;
   total: number;
+  /** UX-BOARD-RAIL-003 — the focused segment (or null = Show all points). */
+  selectedSegment: V4MediatorStateCode | null;
+  /** UX-BOARD-RAIL-003 — press a segment to jump the list to that group. */
+  onSegmentPress: (displayState: V4MediatorStateCode) => void;
 }
 
 /**
- * UX-MEDIATOR-005 — the state-distribution bar. A flex-weighted row of `<View>`
- * segments (width proportional to count/total → a COMPOSITION bar, never a
- * magnitude/heat bar), each carrying its own count text + accessibilityLabel,
- * followed by a compact text legend so the bar is fully legible in grayscale
- * and to screen readers (color is never the only signal). The impasse segment
- * gets the gold focus-ring emphasis; every other segment uses the same neutral
- * raised surface — no red/green verdict pairing.
+ * UX-MEDIATOR-005 — the state-distribution bar. A flex-weighted row of segments
+ * (width proportional to count/total → a COMPOSITION bar, never a magnitude/heat
+ * bar), each carrying its own count text + accessibilityLabel, followed by a
+ * compact text legend so the bar is fully legible in grayscale and to screen
+ * readers (color is never the only signal). The impasse segment gets the gold
+ * focus-ring emphasis; every other segment uses the same neutral raised surface
+ * — no red/green verdict pairing.
+ *
+ * UX-BOARD-RAIL-003 — each segment AND each legend item is now a touch-safe
+ * `Pressable` navigation control: pressing it focuses that display-state group
+ * and jumps the rail's own list to the first matching row. The selected segment
+ * carries a non-color-only "selected" treatment (a top accent rule + a "▸"
+ * marker glyph in the count) so the focus reads in grayscale. Ordering is
+ * UNCHANGED (V4_PRIMARY_STATE_PRIORITY), counts stay subordinate — this is a
+ * structure navigator, never a scoreboard.
  */
 function DisagreementDistributionBar({
   segments,
   total,
+  selectedSegment,
+  onSegmentPress,
 }: DisagreementDistributionBarProps): React.ReactElement | null {
   if (segments.length === 0 || total <= 0) return null;
   return (
     <View style={styles.distributionWrap} testID="disagreement-points-rail-distribution">
-      <View
-        style={styles.distributionBar}
-        accessibilityRole="image"
-        accessibilityLabel={`Disagreement points by state: ${segments
-          .map((s) => `${s.count} ${s.plainLabel}`)
-          .join(', ')}.`}
-      >
+      <View style={styles.distributionBar}>
         {segments.map((segment) => {
           const isImpasse = segment.displayState === 'structured_impasse';
+          const isSelected = segment.displayState === selectedSegment;
           return (
-            <View
+            <Pressable
               key={segment.displayState}
+              onPress={() => onSegmentPress(segment.displayState)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isSelected
+                  ? `Showing ${segment.plainLabel} points: ${segment.count} of ${total}`
+                  : `Jump to ${segment.plainLabel} points: ${segment.count} of ${total}`
+              }
+              accessibilityState={{ selected: isSelected }}
+              hitSlop={TOUCH_TARGET.hitSlopAll}
               style={[
                 styles.distributionSegment,
                 isImpasse ? styles.distributionSegmentImpasse : styles.distributionSegmentDefault,
+                isSelected && styles.distributionSegmentSelected,
                 { flexGrow: segment.count, flexShrink: 1, flexBasis: 0 },
               ]}
-              accessibilityLabel={`${segment.plainLabel}: ${segment.count} of ${total}`}
               testID={`disagreement-points-rail-distribution-segment-${segment.displayState}`}
             >
               <Text style={styles.distributionSegmentCount} numberOfLines={1}>
-                {String(segment.count)}
+                {/* The "▸" marker is the non-color-only selected cue on the bar. */}
+                {isSelected ? `▸ ${segment.count}` : String(segment.count)}
               </Text>
-            </View>
+            </Pressable>
           );
         })}
       </View>
       <View style={styles.distributionLegend} testID="disagreement-points-rail-distribution-legend">
-        {segments.map((segment) => (
-          <Text
-            key={segment.displayState}
-            style={styles.distributionLegendItem}
-            numberOfLines={1}
-            testID={`disagreement-points-rail-distribution-legend-${segment.displayState}`}
-          >
-            {`${segment.plainLabel} ${segment.count}`}
-          </Text>
-        ))}
+        {segments.map((segment) => {
+          const isSelected = segment.displayState === selectedSegment;
+          return (
+            <Pressable
+              key={segment.displayState}
+              onPress={() => onSegmentPress(segment.displayState)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isSelected
+                  ? `Showing ${segment.plainLabel} points`
+                  : `Jump to ${segment.plainLabel} points`
+              }
+              accessibilityState={{ selected: isSelected }}
+              hitSlop={TOUCH_TARGET.hitSlopCompact}
+              style={[styles.distributionLegendItemWrap, isSelected && styles.distributionLegendItemSelected]}
+              testID={`disagreement-points-rail-distribution-legend-${segment.displayState}`}
+            >
+              <Text style={styles.distributionLegendItem} numberOfLines={1}>
+                {/* Geometry + text selected cue (the "▸" glyph), never color alone. */}
+                {`${isSelected ? '▸ ' : ''}${segment.plainLabel} ${segment.count}`}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -776,6 +959,38 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  // UX-BOARD-RAIL-003 — the segment-selection anchor row: a "Showing: <state>"
+  // label (names the focused group as text) + a "Show all points" reset. Only
+  // shown when a segment is focused; absent on the calm all-points baseline.
+  selectionAnchorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginBottom: SPACING.s,
+    gap: SPACING.xs,
+  },
+  selectionAnchorText: {
+    flexShrink: 1,
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    fontWeight: '800',
+  },
+  showAllControl: {
+    minHeight: TOUCH_TARGET.minSizePx,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.s,
+    borderRadius: RADIUS.md,
+    borderWidth: BORDER_WIDTH.sm,
+    borderColor: SURFACE_TOKENS.border,
+    borderStyle: 'dashed',
+  },
+  showAllText: {
+    color: SURFACE_TOKENS.focusRing,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    fontWeight: '700',
+  },
+
   emptyState: {
     paddingVertical: SPACING.m,
     paddingHorizontal: SPACING.xs,
@@ -804,9 +1019,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   rowActive: { borderColor: SURFACE_TOKENS.focusRing },
+  // UX-BOARD-RAIL-003 — a row "in view" of the focused segment gets a subtle
+  // geometry emphasis (a raised-surface border) distinct from the active row's
+  // focus-ring border. Both are reinforced by text, never color alone.
+  rowInView: { borderColor: SURFACE_TOKENS.textSecondary },
   activeBar: { width: 4 },
   activeBarOn: { backgroundColor: SURFACE_TOKENS.focusRing },
   activeBarOff: { backgroundColor: 'transparent' },
+  // UX-BOARD-RAIL-003 — the in-view accent rule: a wider, muted left bar so the
+  // group membership reads as geometry in grayscale (paired with the "In view"
+  // text). The active bar (focus-ring) still wins when a row is both.
+  activeBarInView: { backgroundColor: SURFACE_TOKENS.textSecondary },
+  activeBarInViewWidth: { width: 6 },
   rowMain: {
     flex: 1,
     // UX-BOARD-READABILITY-001 (2026-06-19): loosen the crammed row — padding
@@ -846,6 +1070,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+  },
+  // UX-BOARD-RAIL-003 — the "▸ In view" group marker word. A muted, weighted
+  // label distinct from the focus-ring "Currently active" word; the "▸" glyph +
+  // the wider left accent rule carry the meaning in grayscale (color-independent).
+  inViewWord: {
+    color: SURFACE_TOKENS.textMuted,
+    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontWeight: '700',
   },
   // UX-BOARD-READABILITY-001 (2026-06-19): 'Move forward: <step>' is the most
   // load-bearing guidance line per point; re-point chipLabel(11) -> popoutBody(12/16)
@@ -970,6 +1202,13 @@ const styles = StyleSheet.create({
   // surface — no red/green verdict pairing.
   distributionSegmentImpasse: { backgroundColor: SURFACE_TOKENS.focusRing },
   distributionSegmentDefault: { backgroundColor: SURFACE_TOKENS.raised },
+  // UX-BOARD-RAIL-003 — the selected/focused segment carries a top accent rule
+  // (geometry) in addition to the "▸" glyph in its count; the focus is legible
+  // in grayscale (never color alone).
+  distributionSegmentSelected: {
+    borderTopWidth: 2,
+    borderTopColor: SURFACE_TOKENS.textPrimary,
+  },
   distributionSegmentCount: {
     color: SURFACE_TOKENS.textPrimary,
     fontSize: TYPOGRAPHY.badgeLabel.fontSize,
@@ -979,6 +1218,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.xs,
+  },
+  // UX-BOARD-RAIL-003 — each legend entry is now a touch-safe Pressable jump.
+  // The wrapper carries the min touch target (paired with hitSlop); the selected
+  // entry gets an underline rule (geometry) + the "▸" glyph (text), not color.
+  distributionLegendItemWrap: {
+    minHeight: TOUCH_TARGET.minSizePx,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  distributionLegendItemSelected: {
+    borderBottomWidth: 2,
+    borderBottomColor: SURFACE_TOKENS.textPrimary,
   },
   distributionLegendItem: {
     color: SURFACE_TOKENS.textSecondary,

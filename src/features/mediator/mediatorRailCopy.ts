@@ -80,6 +80,20 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
    */
   impassePreserved: 'The disagreement is preserved.',
   impasseReopen: 'Reopen with a source, shared definition, or narrower claim.',
+  /**
+   * UX-BOARD-RAIL-003 — distribution-segment navigation copy. The distribution
+   * strip is a LOCAL navigation control: pressing a segment jumps the rail's own
+   * list to the first point in that state. These atoms are ban-list clean — a
+   * jump verb + a "showing" anchor + a reset, never a score / rank / winner.
+   *
+   * `showAllPoints` clears the selection (no segment focused → every point reads
+   * as "in view"). `showingPrefix` builds the "Showing: <state>" anchor line.
+   * `inViewMarker` is the non-color-only "this row is in the selected group"
+   * text marker (geometry + text, never color alone — doctrine §1 / a11y).
+   */
+  showAllPoints: 'Show all points',
+  showingPrefix: 'Showing',
+  inViewMarker: 'In view',
 });
 
 /** Rows shown before the in-panel "+N more" reveal. */
