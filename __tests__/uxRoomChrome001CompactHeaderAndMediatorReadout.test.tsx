@@ -50,8 +50,8 @@ function flattenStyle(style: unknown): Record<string, unknown> {
   return {};
 }
 
-// gold horizontal lockup aspect (800 × 260), mirrors AppHeader.
-const ASPECT = 800 / 260;
+// gold horizontal lockup aspect (960 × 342), mirrors AppHeader.
+const ASPECT = 960 / 342;
 const PROMINENT = 288;
 const HEADER_PADDING = 24; // root paddingHorizontal (12 + 12)
 
