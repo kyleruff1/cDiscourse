@@ -17,12 +17,12 @@ import {
 } from '../src/features/auth/signInLockupModel';
 
 describe('UX-BRAND-ASSETS-001 — sizing constants', () => {
-  it('aspect ratio matches the intrinsic ~800/260 gold lockup proportion', () => {
-    // UX-BRAND-ASSETS-002 — re-cut from the grey 1499×388 lockup to the
-    // trimmed gold 800×260 lockup (aspect ≈ 3.077).
-    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeCloseTo(800 / 260, 5);
-    // It is a wide horizontal lockup, so aspect ratio > 3.
-    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeGreaterThan(3);
+  it('aspect ratio matches the intrinsic ~960/342 gold lockup proportion', () => {
+    // QUICK-BRAND-LOCKUP-002 — re-cut from the gold 800×260 lockup to the
+    // gold/cream duotone 960×342 lockup (aspect ≈ 2.807).
+    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeCloseTo(960 / 342, 5);
+    // It is a wide horizontal lockup, so aspect ratio > 2.5.
+    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeGreaterThan(2.5);
   });
 
   it('caps the rendered width so the mark stays editorial on wide viewports', () => {
@@ -99,8 +99,8 @@ describe('UX-BRAND-ASSETS-001 — resolveSignInLockupHeightPx (explicit height)'
   // RNW does NOT honor an aspectRatio style on an Image to derive its
   // height from width, so the consumer sets an EXPLICIT height. The height
   // helper must return width / aspect at every viewport so the rendered box
-  // preserves the lockup's ~800/260 proportion (UX-BRAND-ASSETS-002 gold
-  // lockup) instead of the PNG's intrinsic 260px height.
+  // preserves the lockup's ~960/342 proportion (QUICK-BRAND-LOCKUP-002 gold
+  // lockup) instead of the PNG's intrinsic 342px height.
   const VIEWPORTS = [320, 360, 390, 414, 768, 1024] as const;
 
   for (const width of VIEWPORTS) {

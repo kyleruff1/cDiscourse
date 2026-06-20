@@ -10,16 +10,16 @@
  * room for the first interactive content, while tablet/wide keep the
  * prominent 288px WHERE IT FITS.
  *
- * UX-BRAND-ASSETS-002 — the masthead logo is now the gold horizontal lockup
- * (aspect ≈ 3.077, not the old 1.5). At the new aspect the rendered logo
+ * QUICK-BRAND-LOCKUP-002 — the masthead logo is now the gold horizontal lockup
+ * (aspect ≈ 2.807, not the old 1.5). At the new aspect the rendered logo
  * width (height × aspect) is the binding constraint on every band, so the
  * height is capped by the available width; the prominent 288px only fits
- * once the viewport is wide enough (≳ 910px).
+ * once the viewport is wide enough (≳ 832px).
  */
 import { resolveMastheadLogoHeightPx } from '../src/components/AppHeader';
 import type { Band } from '../src/hooks/useHeaderBreakpoint';
 
-const ASPECT = 800 / 260; // UX-BRAND-ASSETS-002 gold lockup aspect (≈ 3.077)
+const ASPECT = 960 / 342; // QUICK-BRAND-LOCKUP-002 gold lockup aspect (≈ 2.807)
 const PHONE_WIDTHS = [320, 360, 390, 414, 480];
 
 describe('UX-MOBILE-004 / UX-BRAND-ASSETS-002 resolveMastheadLogoHeightPx — compact phone, prominent desktop', () => {
@@ -39,16 +39,16 @@ describe('UX-MOBILE-004 / UX-BRAND-ASSETS-002 resolveMastheadLogoHeightPx — co
   });
 
   it('the gold lockup at 390 fits the width and is compact (height well under the 160 cap)', () => {
-    // available = 390 - 24 = 366; fit = floor(366 / 3.077) = 118 (< the 160 cap).
+    // available = 390 - 24 = 366; fit = floor(366 / 2.807) = 130 (< the 160 cap).
     const h = resolveMastheadLogoHeightPx('phone', 390);
-    expect(h).toBe(118);
+    expect(h).toBe(130);
     expect(h * ASPECT).toBeLessThanOrEqual(390);
     expect(h).toBeLessThan(160);
   });
 
   it('keeps the prominent 288px logo on tablet/wide WHERE IT FITS, else caps by width', () => {
-    // The prominent gold lockup is 288 × 3.077 ≈ 886px wide; it only fits
-    // once the available width clears that (viewport ≳ 910px).
+    // The prominent gold lockup is 288 × 2.807 ≈ 808px wide; it only fits
+    // once the available width clears that (viewport ≳ 832px).
     expect(resolveMastheadLogoHeightPx('tablet', 1024)).toBe(288);
     expect(resolveMastheadLogoHeightPx('wide', 1280)).toBe(288);
     for (const [w, band] of [[1024, 'tablet'], [1280, 'wide'], [1440, 'wide']] as Array<[number, Band]>) {
