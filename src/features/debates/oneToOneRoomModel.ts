@@ -329,9 +329,10 @@ export { ROOM_ONE_TO_ONE_COPY, POINT_SCOPED_CHIME_IN_COPY } from '../arguments/g
  * STRUCTURAL room/seat state, never a verdict, never a person, never heat /
  * popularity, never a comment-thread / forum framing.
  *
- * NOTE: 'opponent' / 'challenger' are intentionally NOT in this list — the
- * `seatOpponent` relabel is the deferred OD-5 decision and "opponent" is not on
- * this card's ban-list. This model authors no "Opponent" string regardless.
+ * NOTE: 'opponent' / 'challenger' are intentionally NOT in this list — OD-5
+ * (UX-ROUTE-SEAT-INVITE-COPY-001) resolved the second-principal role word to
+ * "Other voice" via `seatOpponent`; "opponent" is not on this card's ban-list,
+ * and this model authors no "Opponent" string regardless.
  */
 export function _forbiddenOneToOneTokens(): string[] {
   return [
