@@ -1,16 +1,17 @@
 /**
- * QUICK-BRAND-LOCKUP-002 — new gold/cream duotone CivilDiscourse lockup.
+ * QUICK-BRAND-LOCKUP-002 / QUICK-BRAND-LOCKUP-003 — CivilDiscourse lockup.
  *
  * The operator re-cut the horizontal CivilDiscourse lockup from the gold
- * 800×260 art (UX-BRAND-ASSETS-002) to a gold/cream duotone 960×342
- * (#C6A15B / #F5EDE0 + gold glow) RGBA lockup. The PNG binary is already
- * placed in the worktree; this card is the aspect-ratio + test wiring +
- * a freeze guard.
+ * 800×260 art (UX-BRAND-ASSETS-002) to a gold/cream duotone 960×342, and
+ * then again (QUICK-BRAND-LOCKUP-003) to an isolated black/white bird +
+ * larger gold wordmark + gold glow 1400×331 RGBA lockup. The PNG binary is
+ * already placed in the worktree; this card is the aspect-ratio + test
+ * wiring + a freeze guard.
  *
  * This suite is the authoritative guard for the new card. It pins:
- *   (1) both lockup PNGs are the new 960×342 RGBA art and are byte-identical
+ *   (1) both lockup PNGs are the new 1400×331 RGBA art and are byte-identical
  *       (the masthead + Sign In hero use the same lockup file content);
- *   (2) the rendered aspect (AppHeader masthead + Sign In hero) is 960/342;
+ *   (2) the rendered aspect (AppHeader masthead + Sign In hero) is 1400/331;
  *   (3) the favicon + native icons are FROZEN — `app.json` still points
  *       `expo.web.favicon` at `civildiscourse-favicon.png`, the favicon PNG
  *       is the unchanged 512×512 art, and the native icon / adaptive-icon /
@@ -55,20 +56,20 @@ const LOCKUP_PATHS = [
   'assets/branding/civic-discourse-logo.png',
 ] as const;
 
-// ── (1) the new 960×342 RGBA gold/cream duotone lockup ───────────
+// ── (1) the new 1400×331 RGBA b/w bird + larger gold wordmark lockup ─
 
-describe('QUICK-BRAND-LOCKUP-002 (1) — lockup assets are the new 960×342 RGBA art', () => {
+describe('QUICK-BRAND-LOCKUP-003 (1) — lockup assets are the new 1400×331 RGBA art', () => {
   for (const rel of LOCKUP_PATHS) {
-    it(`${rel} is a PNG, 960×342, colorType 6 (RGBA), bitDepth 8`, () => {
+    it(`${rel} is a PNG, 1400×331, colorType 6 (RGBA), bitDepth 8`, () => {
       const h = readPngHeader(rel);
       expect(h.isPng).toBe(true);
-      expect(h.width).toBe(960);
-      expect(h.height).toBe(342);
+      expect(h.width).toBe(1400);
+      expect(h.height).toBe(331);
       expect(h.colorType).toBe(6); // RGBA
       expect(h.bitDepth).toBe(8);
       // Still a small editorial PNG (NOT the prior 2.3 MB grey scene).
       expect(h.size).toBeGreaterThan(10_000);
-      expect(h.size).toBeLessThan(200_000);
+      expect(h.size).toBeLessThan(500_000);
     });
   }
 
@@ -79,28 +80,30 @@ describe('QUICK-BRAND-LOCKUP-002 (1) — lockup assets are the new 960×342 RGBA
   });
 });
 
-// ── (2) the rendered aspect is 960/342 ───────────────────────────
+// ── (2) the rendered aspect is 1400/331 ──────────────────────────
 
-describe('QUICK-BRAND-LOCKUP-002 (2) — rendered aspect is 960/342 (≈ 2.807)', () => {
-  const ASPECT = 960 / 342;
+describe('QUICK-BRAND-LOCKUP-003 (2) — rendered aspect is 1400/331 (≈ 4.230)', () => {
+  const ASPECT = 1400 / 331;
 
-  it('SIGNIN_LOCKUP_ASPECT_RATIO is exactly 960 / 342', () => {
-    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBe(960 / 342);
-    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeCloseTo(2.807, 3);
-    // It is wider than the old grey scene (1.5) but narrower than the prior
-    // gold 800/260 (3.077) — the duotone art is slightly taller per unit width.
+  it('SIGNIN_LOCKUP_ASPECT_RATIO is exactly 1400 / 331', () => {
+    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBe(1400 / 331);
+    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeCloseTo(4.230, 3);
+    // It is wider than the prior gold/cream 960/342 (2.807) and the original
+    // grey scene (1.5) — the larger gold wordmark stretches it horizontally.
+    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeGreaterThan(960 / 342);
     expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeGreaterThan(1.5);
-    expect(SIGNIN_LOCKUP_ASPECT_RATIO).toBeLessThan(800 / 260);
   });
 
-  it('the AppHeader masthead aspect constant source is 960 / 342', () => {
+  it('the AppHeader masthead aspect constant source is 1400 / 331', () => {
     const headerSrc = read('src/components/AppHeader.tsx');
-    expect(headerSrc).toMatch(/LOGO_ASPECT_RATIO\s*=\s*960\s*\/\s*342/);
+    expect(headerSrc).toMatch(/LOGO_ASPECT_RATIO\s*=\s*1400\s*\/\s*331/);
     // The prior gold 800/260 constant must be gone.
     expect(headerSrc).not.toMatch(/LOGO_ASPECT_RATIO\s*=\s*800\s*\/\s*260/);
+    // The prior gold/cream 960/342 constant must be gone.
+    expect(headerSrc).not.toMatch(/LOGO_ASPECT_RATIO\s*=\s*960\s*\/\s*342/);
   });
 
-  it('the masthead resolver fits the rendered width to the 960/342 aspect (no overflow)', () => {
+  it('the masthead resolver fits the rendered width to the 1400/331 aspect (no overflow)', () => {
     // The resolver caps the height so rendered width = height × aspect never
     // exceeds the available width (viewport − 24 px padding) on any band.
     const widths: Array<[number, number]> = [
@@ -113,14 +116,14 @@ describe('QUICK-BRAND-LOCKUP-002 (2) — rendered aspect is 960/342 (≈ 2.807)'
       const h = resolveMastheadLogoHeightPx('phone', viewport);
       expect(h * ASPECT).toBeLessThanOrEqual(viewport);
     }
-    // 390 phone: available = 366, fit = floor(366 / (960/342)) = 130.
-    expect(resolveMastheadLogoHeightPx('phone', 390)).toBe(130);
+    // 390 phone: available = 366, fit = floor(366 / (1400/331)) = 86.
+    expect(resolveMastheadLogoHeightPx('phone', 390)).toBe(86);
   });
 });
 
 // ── (3) favicon + native icons FROZEN ────────────────────────────
 
-describe('QUICK-BRAND-LOCKUP-002 (3) — favicon + native icons are FROZEN', () => {
+describe('QUICK-BRAND-LOCKUP-003 (3) — favicon + native icons are FROZEN', () => {
   // app.json is read as raw JSON (not require) so the assertion is on the
   // committed config exactly as Expo / Metro reads it.
   const appJson = JSON.parse(read('app.json')) as {

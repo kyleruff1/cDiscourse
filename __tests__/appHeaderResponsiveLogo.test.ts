@@ -5,10 +5,12 @@
  * The logo Image renders at width = height × LOGO_ASPECT_RATIO.
  * UX-BRAND-ASSETS-002 swapped the masthead logo to the gold horizontal
  * lockup; QUICK-BRAND-LOCKUP-002 re-cut it to the gold/cream duotone
- * 960×342 lockup (aspect ≈ 2.807), which is MUCH wider per unit height
- * than the prior grey scene (3:2 / aspect 1.5). At the prominent 288px
- * height the gold lockup would be ≈ 808px wide and overflow EVERY
- * viewport, so resolveMastheadLogoHeightPx now caps the height by the
+ * 960×342 lockup; QUICK-BRAND-LOCKUP-003 re-cut it again to the isolated
+ * b/w bird + larger gold wordmark 1400×331 lockup (aspect ≈ 4.230), which
+ * is MUCH wider per unit height than the prior grey scene (3:2 / aspect
+ * 1.5). At the prominent 288px height the gold lockup would be ≈ 1218px
+ * wide and overflow EVERY viewport short of ~1242px, so
+ * resolveMastheadLogoHeightPx now caps the height by the
  * AVAILABLE WIDTH on every band (not just phone): the rendered width
  * (height × aspect) can never exceed the viewport, while the prominent
  * size is preserved where it physically fits (wide; tablet once the
@@ -17,23 +19,25 @@
 import { resolveMastheadLogoHeightPx } from '../src/components/AppHeader';
 import type { Band } from '../src/hooks/useHeaderBreakpoint';
 
-// QUICK-BRAND-LOCKUP-002 — gold lockup aspect (was 1.5 for the grey scene).
-const ASPECT = 960 / 342;
+// QUICK-BRAND-LOCKUP-003 — gold lockup aspect (was 960/342 ≈ 2.807, before
+// that 1.5 for the grey scene).
+const ASPECT = 1400 / 331;
 const PROMINENT = 288;
 const HEADER_PADDING = 24; // root paddingHorizontal (12 + 12)
 
 describe('UX-MOBILE-001 / UX-BRAND-ASSETS-002 resolveMastheadLogoHeightPx', () => {
   it('preserves the prominent logo on tablet and wide WHERE IT FITS', () => {
-    // The prominent 288px gold lockup is 288 × 2.807 ≈ 808px wide; it only
-    // fits once the available width clears that, i.e. viewport ≳ 832px.
+    // The prominent 288px gold lockup is 288 × 4.230 ≈ 1218px wide; it only
+    // fits once the available width clears that, i.e. viewport ≳ 1242px.
+    // At 1280: available = 1256, fit = floor(1256 / 4.230) = 296 ≥ 288 → 288.
     for (const band of ['tablet', 'wide'] as Band[]) {
-      expect(resolveMastheadLogoHeightPx(band, 1024)).toBe(PROMINENT);
+      expect(resolveMastheadLogoHeightPx(band, 1280)).toBe(PROMINENT);
       expect(resolveMastheadLogoHeightPx(band, 1440)).toBe(PROMINENT);
     }
   });
 
   it('caps the logo by available width on a NARROW tablet (it would otherwise overflow)', () => {
-    // 768px tablet: available = 744, fit = floor(744 / 2.807) = 265 < 288.
+    // 768px tablet: available = 744, fit = floor(744 / 4.230) = 175 < 288.
     const h = resolveMastheadLogoHeightPx('tablet', 768);
     expect(h).toBeLessThan(PROMINENT);
     expect(h * ASPECT).toBeLessThanOrEqual(768 - HEADER_PADDING);

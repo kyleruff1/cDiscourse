@@ -50,8 +50,8 @@ function flattenStyle(style: unknown): Record<string, unknown> {
   return {};
 }
 
-// gold horizontal lockup aspect (960 × 342), mirrors AppHeader.
-const ASPECT = 960 / 342;
+// gold horizontal lockup aspect (1400 × 331), mirrors AppHeader.
+const ASPECT = 1400 / 331;
 const PROMINENT = 288;
 const HEADER_PADDING = 24; // root paddingHorizontal (12 + 12)
 
@@ -111,10 +111,12 @@ describe('UX-ROOM-CHROME-001 — compact masthead logo height', () => {
 
 describe('UX-ROOM-CHROME-001 — prominent (default) masthead unchanged by the additive prop', () => {
   it('omitting compact preserves the prior prominent-path heights', () => {
-    // These mirror appHeaderResponsiveLogo.test.ts expectations.
-    expect(resolveMastheadLogoHeightPx('wide', 1024)).toBe(PROMINENT);
+    // These mirror appHeaderResponsiveLogo.test.ts expectations. At the
+    // QUICK-BRAND-LOCKUP-003 aspect (≈ 4.230) the prominent 288 px fits once
+    // the viewport clears ~1242 px, so the prominent assertion uses 1280.
+    expect(resolveMastheadLogoHeightPx('wide', 1280)).toBe(PROMINENT);
     expect(resolveMastheadLogoHeightPx('wide', 1440)).toBe(PROMINENT);
-    expect(resolveMastheadLogoHeightPx('tablet', 1024)).toBe(PROMINENT);
+    expect(resolveMastheadLogoHeightPx('tablet', 1280)).toBe(PROMINENT);
     // non-positive width still returns the prominent fallback.
     expect(resolveMastheadLogoHeightPx('phone', 0)).toBe(PROMINENT);
   });

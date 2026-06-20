@@ -8,12 +8,13 @@
  * testable in isolation: given the viewport width, how wide (in logical
  * px) should the lockup `<Image>` render?
  *
- * UX-BRAND-ASSETS-002 / QUICK-BRAND-LOCKUP-002 — the lockup art was
- * re-cut from the grey 1499×388 (aspect ≈ 3.86) lockup to the gold
- * 800×260 lockup, then re-cut again to the gold/cream duotone 960×342
- * lockup (aspect ≈ 2.807). Only the intrinsic `SIGNIN_LOCKUP_ASPECT_RATIO`
- * constant changes; the clamping + explicit-height math (the #699 fix)
- * is unchanged.
+ * UX-BRAND-ASSETS-002 / QUICK-BRAND-LOCKUP-002 / QUICK-BRAND-LOCKUP-003 —
+ * the lockup art was re-cut from the grey 1499×388 (aspect ≈ 3.86) lockup
+ * to the gold 800×260 lockup, then to the gold/cream duotone 960×342
+ * lockup, then re-cut again to the isolated b/w bird + larger gold
+ * wordmark 1400×331 lockup (aspect ≈ 4.230). Only the intrinsic
+ * `SIGNIN_LOCKUP_ASPECT_RATIO` constant changes; the clamping +
+ * explicit-height math (the #699 fix) is unchanged.
  *
  * Doctrine + invariants:
  * - Pure TypeScript — no React, no Supabase, no network. The AuthScreen
@@ -23,12 +24,12 @@
  *   (viewport minus the screen + card horizontal padding budget) and
  *   capped at `MAX_SIGNIN_LOCKUP_WIDTH_PX` so it stays an editorial
  *   brand mark rather than stretching across a wide viewport.
- * - The intrinsic aspect ratio (`SIGNIN_LOCKUP_ASPECT_RATIO` ≈ 960/342)
+ * - The intrinsic aspect ratio (`SIGNIN_LOCKUP_ASPECT_RATIO` ≈ 1400/331)
  *   is preserved by the consumer via an EXPLICIT `height` style derived
  *   from the width (`resolveSignInLockupHeightPx`). React Native Web does
  *   NOT honor an `aspectRatio` style to derive an Image's height from its
  *   width — relying on it strands the gold art in a box sized to the
- *   PNG's intrinsic 342 px height. The explicit height keeps the rendered
+ *   PNG's intrinsic 331 px height. The explicit height keeps the rendered
  *   box at width / aspect on web AND native; `resizeMode="contain"` still
  *   guards against any sub-pixel drift.
  * - SSR / static-export safety: a non-positive / non-finite width (the
@@ -39,12 +40,13 @@
 
 /**
  * Intrinsic aspect ratio of `lockup-horizontal.png` (width / height).
- * QUICK-BRAND-LOCKUP-002 — source asset is the gold/cream duotone
- * 960 × 342 px lockup (was the gold 800 × 260 px lockup, originally the
- * grey 1499 × 388 px lockup). Exported so the AuthScreen can derive the
- * explicit Image height from the same value the width math assumes.
+ * QUICK-BRAND-LOCKUP-003 — source asset is the isolated b/w bird + larger
+ * gold wordmark 1400 × 331 px lockup (was the gold/cream duotone 960 × 342
+ * px lockup, before that the gold 800 × 260 px lockup, originally the grey
+ * 1499 × 388 px lockup). Exported so the AuthScreen can derive the explicit
+ * Image height from the same value the width math assumes.
  */
-export const SIGNIN_LOCKUP_ASPECT_RATIO = 960 / 342;
+export const SIGNIN_LOCKUP_ASPECT_RATIO = 1400 / 331;
 
 /**
  * Hard cap on the rendered lockup width. Keeps the mark editorial on
@@ -84,11 +86,11 @@ export function resolveSignInLockupWidthPx(viewportWidth: number): number {
  * Resolve the rendered lockup height (logical px) for a viewport width.
  *
  * The height is the resolved width divided by the intrinsic aspect ratio,
- * so the rendered box preserves the lockup's ~960/342 proportion. This is
+ * so the rendered box preserves the lockup's ~1400/331 proportion. This is
  * set as an EXPLICIT `height` style on the consumer's `<Image>` because
  * React Native Web does NOT honor an `aspectRatio` style to derive an
  * Image's height from its width — without an explicit height the box
- * renders at the PNG's intrinsic 342 px height and the gold art is
+ * renders at the PNG's intrinsic 331 px height and the gold art is
  * stranded (letterboxed by `resizeMode="contain"`) in a huge empty band.
  *
  * Degenerate inputs (0 / NaN / Infinity) are handled exactly as the width
