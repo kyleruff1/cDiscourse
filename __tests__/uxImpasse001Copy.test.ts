@@ -1,11 +1,15 @@
 /**
  * UX-IMPASSE-001 (#689) — dignified structured-impasse copy (display-only).
  *
- * Copy + ban-list + dignity assertions over the impasse-family wording, plus the
- * load-bearing DEFERRAL PROOFS: `value_tradeoff` and `key_detail_unavailable`
- * are NOT surfaced as new primary chips (the v4 display map is unchanged), the
- * dormant copy constants exist but are unwired, and an insufficient signal
- * collapses to Open — never a stronger impasse.
+ * Copy + ban-list + dignity assertions over the impasse-family wording.
+ *
+ * NOTE (UX-IMPASSE-002 #710): the original DEFERRAL PROOFS here have been
+ * INVERTED into SURFACING PROOFS — `value_tradeoff` and `key_detail_unavailable`
+ * are now surfaced as their own primary chips (the v4 display map projects each
+ * to itself), with operator-locked copy and their own next-move sets. The
+ * genuinely deferred subtypes (`accounts_differ`, `no_current_pathway`) stay
+ * dormant. An insufficient signal still collapses to Open — never a stronger
+ * impasse. The evidence_blocked byte-identical regression block stays green.
  *
  * Pure-model test: imports constants + the deterministic lookups / derivation.
  * No React, no Supabase, no fetch.
@@ -15,7 +19,9 @@ import {
   IMPASSE_SUBTYPE_COPY,
   VALUE_TRADEOFF_DISPLAY_COPY,
   KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY,
+  ACCOUNTS_DIFFER_DISPLAY_COPY,
   helperForMediatorState,
+  plainLanguageForMediatorState,
   _forbiddenMediatorTokens,
   V4_DISPLAY_STATE_BY_CODE,
   v4DisplayStateFor,
@@ -194,54 +200,68 @@ describe('UX-IMPASSE-001 — dignified impasse copy', () => {
     });
   });
 
-  describe('DEFERRAL PROOF — value_tradeoff / key_detail_unavailable NOT surfaced as primary chips', () => {
-    it('V4_DISPLAY_STATE_BY_CODE.value_tradeoff is UNCHANGED (maps to open)', () => {
-      expect(V4_DISPLAY_STATE_BY_CODE.value_tradeoff).toBe('open');
-      expect(v4DisplayStateFor('value_tradeoff')).toBe('open');
+  describe('SURFACING PROOF — value_tradeoff / key_detail_unavailable surfaced as primary chips (#710)', () => {
+    it('V4_DISPLAY_STATE_BY_CODE.value_tradeoff is SURFACED (identity) — #710', () => {
+      expect(V4_DISPLAY_STATE_BY_CODE.value_tradeoff).toBe('value_tradeoff');
+      expect(v4DisplayStateFor('value_tradeoff')).toBe('value_tradeoff');
     });
 
-    it('V4_DISPLAY_STATE_BY_CODE.key_detail_unavailable is UNCHANGED (folds into evidence_blocked)', () => {
-      expect(V4_DISPLAY_STATE_BY_CODE.key_detail_unavailable).toBe('evidence_blocked');
-      expect(v4DisplayStateFor('key_detail_unavailable')).toBe('evidence_blocked');
+    it('V4_DISPLAY_STATE_BY_CODE.key_detail_unavailable is SURFACED (identity) — #710', () => {
+      expect(V4_DISPLAY_STATE_BY_CODE.key_detail_unavailable).toBe('key_detail_unavailable');
+      expect(v4DisplayStateFor('key_detail_unavailable')).toBe('key_detail_unavailable');
     });
 
-    it('a value_tradeoff point displays as Open with the ordinary next-move set (no impasse escalation)', () => {
-      // value_tradeoff maps to 'open' for display (asserted above); the ordinary
-      // Open next-move set follows — never the impasse line.
-      expect(v4DisplayStateFor('value_tradeoff')).toBe('open');
-      const moves = nextMovesForState('open');
+    it('a value_tradeoff point displays its own state with the "Name the tradeoff" move set (no impasse escalation) — #710', () => {
+      // value_tradeoff now maps to itself for display; its own next-move set
+      // follows — the dominant is "Name the tradeoff", never the impasse line.
+      expect(v4DisplayStateFor('value_tradeoff')).toBe('value_tradeoff');
+      const moves = nextMovesForState('value_tradeoff');
       const labels = moves.map((m) => m.label);
-      // Ordinary Open guidance — never the impasse "Preserve the disagreement" line.
-      expect(labels).toContain('Respond to the exact point');
+      expect(moves[0].label).toBe('Name the tradeoff');
+      // Never an impasse line — surfacing a more specific state never escalates.
       expect(labels).not.toContain('Preserve the disagreement');
       expect(labels).not.toContain('Reopen with a source, definition, or narrower claim');
     });
 
-    it('the dormant "Different priorities" chip text is NOT a v4 display label', () => {
-      // It exists as a constant but no display-map value points at it, so it can
-      // never render as a primary chip from the shipped projection.
-      const displayValues = Object.values(V4_DISPLAY_STATE_BY_CODE);
-      expect(displayValues).not.toContain(VALUE_TRADEOFF_DISPLAY_COPY.chip);
-      expect(displayValues).not.toContain(KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.chip);
+    it('the "Different priorities" / "Key detail unavailable" chip text IS a v4 display label — #710', () => {
+      // Each surfaced state projects to itself, so its chip label is what the
+      // node chip / rail badge / distribution segment render.
+      expect(plainLanguageForMediatorState('value_tradeoff')).toBe(VALUE_TRADEOFF_DISPLAY_COPY.chip);
+      expect(plainLanguageForMediatorState('key_detail_unavailable')).toBe(
+        KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.chip,
+      );
+      expect(VALUE_TRADEOFF_DISPLAY_COPY.chip).toBe('Different priorities');
+      expect(KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.chip).toBe('Key detail unavailable');
     });
   });
 
-  describe('Dormant subtype constants exist but are UNWIRED (→ UX-IMPASSE-002 #710)', () => {
-    it('"Different priorities" copy is authored and dignified', () => {
+  describe('Surfaced subtype copy constants are dignified + wired (UX-IMPASSE-002 #710)', () => {
+    it('"Different priorities" copy is authored, dignified, and operator-locked', () => {
       expect(VALUE_TRADEOFF_DISPLAY_COPY.chip).toBe('Different priorities');
+      expect(VALUE_TRADEOFF_DISPLAY_COPY.lead).toBe('This point turns on a value tradeoff.');
       assertDignified('value_tradeoff.lead', VALUE_TRADEOFF_DISPLAY_COPY.lead);
       assertDignified('value_tradeoff.help', VALUE_TRADEOFF_DISPLAY_COPY.help);
       assertDignified('value_tradeoff.next', VALUE_TRADEOFF_DISPLAY_COPY.next);
     });
 
-    it('"Key detail unavailable" copy is authored and dignified', () => {
+    it('"Key detail unavailable" copy is authored, dignified, and operator-locked', () => {
       expect(KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.chip).toBe('Key detail unavailable');
+      expect(KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.lead).toBe('A key detail is not available to test here.');
       assertDignified('key_detail.lead', KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.lead);
       assertDignified('key_detail.help', KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.help);
       assertDignified('key_detail.next', KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.next);
     });
 
-    it('the dormant constants are NOT part of IMPASSE_SUBTYPE_COPY (the wired block)', () => {
+    it('the surfaced copy chip values feed the wired display labels', () => {
+      // The surfaced states project to themselves, so the chip == the rendered
+      // node/rail/distribution label for each.
+      expect(plainLanguageForMediatorState('value_tradeoff')).toBe(VALUE_TRADEOFF_DISPLAY_COPY.chip);
+      expect(plainLanguageForMediatorState('key_detail_unavailable')).toBe(
+        KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY.chip,
+      );
+    });
+
+    it('the surfaced subtypes are still NOT part of IMPASSE_SUBTYPE_COPY (the impasse block)', () => {
       const wiredKeys = Object.keys(IMPASSE_SUBTYPE_COPY);
       expect(wiredKeys).not.toContain('value_tradeoff');
       expect(wiredKeys).not.toContain('key_detail_unavailable');
@@ -251,6 +271,23 @@ describe('UX-IMPASSE-001 — dignified impasse copy', () => {
         'narrowed',
         'no_current_pathway',
       ]);
+    });
+  });
+
+  describe('Deferred subtype copy stays dormant (#710 follow-up — NOT surfaced)', () => {
+    it('ACCOUNTS_DIFFER_DISPLAY_COPY is authored + dignified but unwired (RECOLLECTION_KEYS empty in v1)', () => {
+      expect(ACCOUNTS_DIFFER_DISPLAY_COPY.chip).toBe('Difference of recollection');
+      expect(ACCOUNTS_DIFFER_DISPLAY_COPY.lead).toBe('The accounts do not line up.');
+      assertDignified('accounts_differ.lead', ACCOUNTS_DIFFER_DISPLAY_COPY.lead);
+      assertDignified('accounts_differ.help', ACCOUNTS_DIFFER_DISPLAY_COPY.help);
+      assertDignified('accounts_differ.next', ACCOUNTS_DIFFER_DISPLAY_COPY.next);
+    });
+
+    it('no_current_pathway stays the structured-impasse frame (chip folds; never a distinct chip)', () => {
+      expect(IMPASSE_SUBTYPE_COPY.no_current_pathway.chip).toBe('Structured impasse');
+      assertDignified('no_current_pathway.lead', IMPASSE_SUBTYPE_COPY.no_current_pathway.lead);
+      assertDignified('no_current_pathway.help', IMPASSE_SUBTYPE_COPY.no_current_pathway.help);
+      assertDignified('no_current_pathway.next', IMPASSE_SUBTYPE_COPY.no_current_pathway.next);
     });
   });
 

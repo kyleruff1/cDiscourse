@@ -99,12 +99,12 @@ describe('UX-MEDIATOR-002 getNodeMediatorMarker', () => {
   });
 
   it('projects the v4 display vocabulary on the chip (O-1)', () => {
-    // key_detail_unavailable → evidence_blocked ("Evidence blocked").
-    // UX-MEDIATOR-003 (O-1) — the collapse case reads the renamed v4 label.
+    // UX-IMPASSE-002 (#710) — key_detail_unavailable now projects to ITSELF
+    // (identity) and renders its own "Key detail unavailable" chip.
     const blocked = makeBoard([makeMarkup({ nodeId: 'k', primaryState: 'key_detail_unavailable' })]);
     const blockedMarker = getNodeMediatorMarker(blocked, 'k');
-    expect(blockedMarker?.code).toBe('evidence_blocked');
-    expect(blockedMarker?.label).toBe('Evidence blocked');
+    expect(blockedMarker?.code).toBe('key_detail_unavailable');
+    expect(blockedMarker?.label).toBe('Key detail unavailable');
 
     // missing_mechanism is unchanged by the projection — keeps "Missing link".
     const link = makeBoard([makeMarkup({ nodeId: 'm', primaryState: 'missing_mechanism' })]);
@@ -120,11 +120,15 @@ describe('UX-MEDIATOR-002 getNodeMediatorMarker', () => {
     expect(defMarker?.label).toBe('Definition not shared');
   });
 
-  it('display-suppresses value_tradeoff (projects to open → no chip)', () => {
-    // UX-MEDIATOR-002 O-1: value_tradeoff collapses to the display `open`
-    // state, which is non-actionable — the node carries NO chip.
+  it('surfaces value_tradeoff with its own "Different priorities" chip (#710)', () => {
+    // UX-IMPASSE-002 (#710): value_tradeoff now projects to ITSELF (identity)
+    // and is a showable node marker, so the node renders the "Different
+    // priorities" chip where it previously carried none.
     const board = makeBoard([makeMarkup({ nodeId: 'vt', primaryState: 'value_tradeoff' })]);
-    expect(getNodeMediatorMarker(board, 'vt')).toBeNull();
+    const marker = getNodeMediatorMarker(board, 'vt');
+    expect(marker?.code).toBe('value_tradeoff');
+    expect(marker?.label).toBe('Different priorities');
+    expect(marker?.isImpasse).toBe(false);
   });
 
   it('keeps the highest-priority candidate when point state and deviation both apply', () => {

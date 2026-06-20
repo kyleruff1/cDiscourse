@@ -11,11 +11,13 @@ export {
   MEDIATOR_STATE_COPY,
   MEDIATOR_STATE_HELPER,
   PATHWAY_STEP_COPY,
-  // UX-IMPASSE-001 (#689) — dignified impasse-family copy + dormant subtype
-  // constants (the latter intentionally unwired → UX-IMPASSE-002 #710).
+  // UX-IMPASSE-001 (#689) — dignified impasse-family copy. The value_tradeoff /
+  // key_detail_unavailable display-copy constants were surfaced by UX-IMPASSE-002
+  // (#710); ACCOUNTS_DIFFER_DISPLAY_COPY stays a dormant #710-follow-up constant.
   IMPASSE_SUBTYPE_COPY,
   VALUE_TRADEOFF_DISPLAY_COPY,
   KEY_DETAIL_UNAVAILABLE_DISPLAY_COPY,
+  ACCOUNTS_DIFFER_DISPLAY_COPY,
   plainLanguageForMediatorState,
   helperForMediatorState,
   plainLanguageForPathwayStep,

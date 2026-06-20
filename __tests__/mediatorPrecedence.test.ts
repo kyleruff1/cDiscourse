@@ -187,12 +187,14 @@ describe('UX-MEDIATOR-001 precedence — full priority order', () => {
     expect([...V4_PRIMARY_STATE_PRIORITY]).toEqual([
       'structured_impasse',
       'evidence_blocked',
+      'key_detail_unavailable', // #710 — just below a declined evidence_blocked
       'accounts_differ',
       'definition_not_shared',
       'scope_mismatch',
       'missing_mechanism',
       'needs_evidence',
       'narrowed',
+      'value_tradeoff', // #710 — just above open
       'open',
     ]);
   });
@@ -319,7 +321,7 @@ describe('UX-MEDIATOR-001 precedence — conflict rows', () => {
 // ── Gate A subtlety (R3): impasse pathway is never the demoter ──
 
 describe('UX-MEDIATOR-001 precedence — Gate A correctness', () => {
-  it('a context-limit signal (evidence_blocked display) demotes impasse', () => {
+  it('a context-limit signal (key_detail_unavailable display — #710) demotes impasse', () => {
     // Exhausted + context-limit (key_detail_unavailable; pathway narrow_or_branch available).
     expect(
       stateFor({ lifecycle: 'exhausted', obs: [makeObs('n2', 'evidence_source_chain', 'flags_context_limit', 'medium')] }),
@@ -332,7 +334,7 @@ describe('UX-MEDIATOR-001 precedence — Gate A correctness', () => {
     ).toBe('off_point');
   });
 
-  it('value_tradeoff (open display) demotes impasse via its name_tradeoff pathway', () => {
+  it('value_tradeoff (value_tradeoff display — #710) demotes impasse via its name_tradeoff pathway', () => {
     expect(stateFor({ lifecycle: 'exhausted', primaryAxis: 'value' })).toBe('value_tradeoff');
   });
 });

@@ -89,44 +89,55 @@ export const ALL_MEDIATOR_STATE_CODES: ReadonlyArray<MediatorStateCode> = Object
 // ── v4 display vocabulary (UX-MEDIATOR-001 precedence delta) ───
 //
 // The shipped 13-code `MediatorStateCode` is a SUPERSET kept for internal
-// traceability / Inspect. The CivilDiscourse v4 UX overhaul publishes a NINE
-// state DISPLAY vocabulary. This card adds:
-//   - `V4MediatorStateCode`         — the nine display states (a subset of 13).
+// traceability / Inspect. The CivilDiscourse v4 UX overhaul publishes an
+// ELEVEN-state DISPLAY vocabulary. The vocabulary defines:
+//   - `V4MediatorStateCode`         — the eleven display states (a subset of 13).
 //   - `V4_PRIMARY_STATE_PRIORITY`   — the canonical highest-wins precedence.
-//   - `V4_DISPLAY_STATE_BY_CODE`    — the total 13→9 display mapping.
+//   - `V4_DISPLAY_STATE_BY_CODE`    — the total 13→11 display mapping.
 // `point.state` is UNCHANGED (still one of the 13); these are an additive
 // parallel projection consumed via `v4DisplayStateFor` (no field added — O-3).
+//
+// UX-IMPASSE-002 (#710) surfaces two formerly-collapsed display states
+// (`key_detail_unavailable`, `value_tradeoff`) whose deterministic producers
+// already fire on real data (see deriveMediatorBoardState.ts). This is an
+// ADDITIVE change to the display vocabulary (two new members), never a rename
+// of any internal code or `point.state` value.
 //
 // Doctrine: the display vocabulary ranks STRUCTURE, never truth / a person /
 // who is winning. `resolved_or_settled` is terminal/suppressed — it is NOT a
 // live primary state and is excluded from the priority list.
 
 /**
- * The nine v4 DISPLAY states (a subset of `MediatorStateCode`). Each is a
+ * The eleven v4 DISPLAY states (a subset of `MediatorStateCode`). Each is a
  * structural state, never a verdict. `resolved_or_settled` is intentionally
- * NOT a member — a resolved point is not an open disagreement.
+ * NOT a member — a resolved point is not an open disagreement. `value_tradeoff`
+ * and `key_detail_unavailable` were surfaced by UX-IMPASSE-002 (#710).
  */
 export type V4MediatorStateCode =
   | 'structured_impasse'
   | 'evidence_blocked'
+  | 'key_detail_unavailable'
   | 'accounts_differ'
   | 'definition_not_shared'
   | 'scope_mismatch'
   | 'missing_mechanism'
   | 'needs_evidence'
   | 'narrowed'
+  | 'value_tradeoff'
   | 'open';
 
-/** Frozen list of the nine v4 display states. Tests iterate this. */
+/** Frozen list of the eleven v4 display states. Tests iterate this. */
 export const ALL_V4_MEDIATOR_STATE_CODES: ReadonlyArray<V4MediatorStateCode> = Object.freeze([
   'structured_impasse',
   'evidence_blocked',
+  'key_detail_unavailable',
   'accounts_differ',
   'definition_not_shared',
   'scope_mismatch',
   'missing_mechanism',
   'needs_evidence',
   'narrowed',
+  'value_tradeoff',
   'open',
 ]);
 
@@ -135,37 +146,49 @@ export const ALL_V4_MEDIATOR_STATE_CODES: ReadonlyArray<V4MediatorStateCode> = O
  * candidate set, applies Gate A (impasse demotion), then picks the highest
  * code in THIS order that is a candidate. A strict total order → no ties.
  *
- *   1 structured_impasse  — terminal frame, ONLY when no pathway remains
- *   2 evidence_blocked    — the record is unavailable
- *   3 accounts_differ     — difference of recollection (detector deferred; never synthesized in v1)
- *   4 definition_not_shared— wins over scope (shared terms unlock scope)
- *   5 scope_mismatch
- *   6 missing_mechanism   — display label "Missing link"
- *   7 needs_evidence      — a source would move it forward
- *   8 narrowed            — a repair, not a defeat
- *   9 open                — default; preserves uncertainty
+ *    1 structured_impasse     — terminal frame, ONLY when no pathway remains
+ *    2 evidence_blocked       — the record is unavailable (declined obligation)
+ *    3 key_detail_unavailable — UX-IMPASSE-002 (#710); just below a declined
+ *                               evidence_blocked (a context-limit detail)
+ *    4 accounts_differ        — difference of recollection (detector deferred; never synthesized in v1)
+ *    5 definition_not_shared  — wins over scope (shared terms unlock scope)
+ *    6 scope_mismatch
+ *    7 missing_mechanism      — display label "Missing link"
+ *    8 needs_evidence         — a source would move it forward
+ *    9 narrowed               — a repair, not a defeat
+ *   10 value_tradeoff         — UX-IMPASSE-002 (#710); just above open (a
+ *                               priorities difference)
+ *   11 open                   — default; preserves uncertainty
  */
 export const V4_PRIMARY_STATE_PRIORITY: ReadonlyArray<V4MediatorStateCode> = Object.freeze([
   'structured_impasse',
   'evidence_blocked',
+  'key_detail_unavailable',
   'accounts_differ',
   'definition_not_shared',
   'scope_mismatch',
   'missing_mechanism',
   'needs_evidence',
   'narrowed',
+  'value_tradeoff',
   'open',
 ]);
 
 /**
- * The total 13→9 display mapping. Defined over ALL 13 `MediatorStateCode`s so
- * it is exhaustive (tested). The four superset codes collapse for DISPLAY only
- * (the internal `point.state` keeps the precise code for Inspect):
+ * The total 13→11 display mapping. Defined over ALL 13 `MediatorStateCode`s so
+ * it is exhaustive (tested). After UX-IMPASSE-002 (#710) only `off_point` (plus
+ * the terminal `resolved_or_settled`) still collapses for DISPLAY; the internal
+ * `point.state` keeps the precise code for Inspect either way:
  *
- *   key_detail_unavailable → evidence_blocked   (the record is unavailable)
- *   value_tradeoff         → open               (a priorities difference, still open; O-2)
  *   off_point              → scope_mismatch      (answers a broader/narrower claim)
  *   resolved_or_settled    → resolved_or_settled (terminal/suppressed; not a live state)
+ *
+ * `key_detail_unavailable` and `value_tradeoff` now map to THEMSELVES (identity);
+ * UX-IMPASSE-002 surfaced them as their own display states because their
+ * deterministic producers already fire on real data. A declined evidence debt
+ * still wins `evidence_blocked` over a context-limit detail (the producer guard
+ * in deriveMediatorBoardState.ts), so surfacing `key_detail_unavailable` never
+ * steals a true `evidence_blocked` row.
  */
 export const V4_DISPLAY_STATE_BY_CODE: Readonly<
   Record<MediatorStateCode, V4MediatorStateCode | 'resolved_or_settled'>
@@ -173,11 +196,11 @@ export const V4_DISPLAY_STATE_BY_CODE: Readonly<
   open: 'open',
   needs_evidence: 'needs_evidence',
   evidence_blocked: 'evidence_blocked',
-  key_detail_unavailable: 'evidence_blocked',
+  key_detail_unavailable: 'key_detail_unavailable',
   definition_not_shared: 'definition_not_shared',
   scope_mismatch: 'scope_mismatch',
   missing_mechanism: 'missing_mechanism',
-  value_tradeoff: 'open',
+  value_tradeoff: 'value_tradeoff',
   narrowed: 'narrowed',
   off_point: 'scope_mismatch',
   accounts_differ: 'accounts_differ',

@@ -206,12 +206,14 @@ describe('UX-MEDIATOR-003 — evidence-state labels (v4 vocabulary)', () => {
     );
   });
 
-  it('key_detail_unavailable projects to the same "Evidence blocked" display label', () => {
-    // v4DisplayStateFor collapses key_detail_unavailable onto evidence_blocked,
-    // so the chip / Inspect for that case reads the renamed v4 label.
-    expect(v4DisplayStateFor('key_detail_unavailable')).toBe('evidence_blocked');
+  it('key_detail_unavailable projects to its own "Key detail unavailable" display label (#710)', () => {
+    // UX-IMPASSE-002 (#710) — key_detail_unavailable is now surfaced as its own
+    // display state (identity); its chip / Inspect read the distinct v4 label.
+    // A declined evidence debt still wins evidence_blocked (producer guard), so
+    // surfacing this never steals a true Evidence-blocked row.
+    expect(v4DisplayStateFor('key_detail_unavailable')).toBe('key_detail_unavailable');
     expect(plainLanguageForMediatorState(v4DisplayStateFor('key_detail_unavailable'))).toBe(
-      'Evidence blocked',
+      'Key detail unavailable',
     );
   });
 });
@@ -280,7 +282,7 @@ describe('UX-MEDIATOR-003 — Inspect detail renders the person-neutral framing'
     assertNoBanned(collectText(toJSON()));
   });
 
-  it('a key_detail_unavailable (family-D) node collapses to the blocked Inspect framing', () => {
+  it('a key_detail_unavailable (family-D) node surfaces its own Inspect framing (#710)', () => {
     const graph = makeGraph({
       nodes: [makeNode({ messageId: 'n1', ordinal: 1, isRoot: true })],
       clusters: [makeCluster({ clusterId: 'n1', state: 'answered' })],
@@ -290,10 +292,10 @@ describe('UX-MEDIATOR-003 — Inspect detail renders the person-neutral framing'
     ]);
     // The internal state stays key_detail_unavailable for traceability...
     expect(board.points[0].state).toBe('key_detail_unavailable');
-    // ...but the node chip projects onto the "Evidence blocked" display label.
+    // ...and UX-IMPASSE-002 (#710) now surfaces it as its own display chip.
     const marker = getNodeMediatorMarker(board, 'n1');
-    expect(marker?.code).toBe('evidence_blocked');
-    expect(marker?.label).toBe('Evidence blocked');
+    expect(marker?.code).toBe('key_detail_unavailable');
+    expect(marker?.label).toBe('Key detail unavailable');
     const { getByText, toJSON } = render(
       <MediatorNodeInspectDetail
         marker={marker}
@@ -301,7 +303,7 @@ describe('UX-MEDIATOR-003 — Inspect detail renders the person-neutral framing'
         nextMoveLabel={PATHWAY_STEP_COPY.narrow_or_branch}
       />,
     );
-    expect(getByText('Evidence blocked')).toBeTruthy();
+    expect(getByText('Key detail unavailable')).toBeTruthy();
     assertNoBanned(collectText(toJSON()));
   });
 });

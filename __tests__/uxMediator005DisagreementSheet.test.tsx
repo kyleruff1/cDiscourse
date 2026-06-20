@@ -150,30 +150,32 @@ describe('UX-MEDIATOR-005 buildDisagreementDistribution', () => {
     }
   });
 
-  it('projects superset internal codes onto the nine-state display vocabulary', () => {
-    // off_point -> scope_mismatch; key_detail_unavailable -> evidence_blocked.
+  it('projects internal codes onto the eleven-state display vocabulary', () => {
+    // off_point -> scope_mismatch still collapses; UX-IMPASSE-002 (#710)
+    // surfaces key_detail_unavailable as its OWN display bucket (identity).
     const dist = buildDisagreementDistribution([
       makePoint({ id: '1', state: 'off_point' }),
       makePoint({ id: '2', state: 'key_detail_unavailable' }),
     ]);
     const states = dist.map((s) => s.displayState);
     expect(states).toContain('scope_mismatch');
-    expect(states).toContain('evidence_blocked');
+    expect(states).toContain('key_detail_unavailable'); // #710 — its own bucket
     expect(states).not.toContain('off_point');
-    expect(states).not.toContain('key_detail_unavailable');
+    expect(states).not.toContain('evidence_blocked'); // never stolen from a true blocked row
   });
 
-  it('excludes terminal/suppressed points (resolved + value_tradeoff→open is live)', () => {
-    // resolved_or_settled is excluded entirely; value_tradeoff maps to the live
-    // 'open' bucket so it is counted.
+  it('excludes terminal/suppressed points (resolved excluded; value_tradeoff is its own live bucket — #710)', () => {
+    // resolved_or_settled is excluded entirely; UX-IMPASSE-002 (#710) surfaces
+    // value_tradeoff as its OWN live bucket (no longer folded into 'open').
     const dist = buildDisagreementDistribution([
       makePoint({ id: '1', state: 'resolved_or_settled' }),
       makePoint({ id: '2', state: 'value_tradeoff' }),
       makePoint({ id: '3', state: 'open' }),
     ]);
     expect(totalDistributionCount(dist)).toBe(2);
-    expect(dist.map((s) => s.displayState)).toEqual(['open']);
-    expect(dist[0].count).toBe(2);
+    // Ordered by V4_PRIMARY_STATE_PRIORITY: value_tradeoff (#10) before open (#11).
+    expect(dist.map((s) => s.displayState)).toEqual(['value_tradeoff', 'open']);
+    expect(dist.map((s) => s.count)).toEqual([1, 1]);
   });
 
   it('returns empty segments for empty / degenerate input', () => {

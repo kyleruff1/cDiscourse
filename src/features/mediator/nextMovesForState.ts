@@ -69,6 +69,10 @@ const NEXT_MOVE_COPY = Object.freeze({
   branch_provable: 'Branch the provable part',
   name_record_kind: 'Name what kind of record would test this point',
   define_term: 'Define the key term',
+  // UX-IMPASSE-002 (#710) — the dominant move for a surfaced value_tradeoff. The
+  // `name_tradeoff` pathway step already exists; this adds the next-move COPY
+  // entry, not a new action semantic.
+  name_tradeoff: 'Name the tradeoff',
   narrow_claim: 'Narrow the claim',
   respond_exact: 'Respond to the exact point',
   accept_narrower: 'Accept the narrower scope',
@@ -95,6 +99,9 @@ const NEXT_MOVE_RATIONALE = Object.freeze({
   branch_provable: 'A branch isolates the part that can be tested now.',
   name_record_kind: 'Naming the record kind shows what would settle this point.',
   define_term: 'A shared definition makes this point easier to test.',
+  // UX-IMPASSE-002 (#710) — structure-only rationale for the value_tradeoff
+  // dominant move. Names what the move does for the SHAPE of the disagreement.
+  name_tradeoff: 'Naming the priority being weighed separates it from the part a record could test.',
   narrow_claim: 'A narrower claim keeps the reply anchored to the exact point.',
   respond_exact: 'Answering the exact point keeps the exchange on the same point.',
   accept_narrower: 'Accepting the narrower scope settles the part that already lines up.',
@@ -120,10 +127,12 @@ interface MoveSpec {
 
 /**
  * The dominant-first move specs per v4 display state (§3, operator-locked).
- * The FIRST entry is the dominant move. The map is total over the nine display
- * states. `available` mirrors `pathwayForState`'s flag: `await_record` steps
- * (evidence_blocked / accounts_differ / structured_impasse) are guidance copy
- * (available: false); everything else is actionable now.
+ * The FIRST entry is the dominant move. The map is total over the eleven
+ * display states (UX-IMPASSE-002 #710 added `key_detail_unavailable` +
+ * `value_tradeoff`). `available` mirrors `pathwayForState`'s flag:
+ * `await_record` steps (evidence_blocked / key_detail_unavailable /
+ * accounts_differ / structured_impasse) are guidance copy (available: false);
+ * everything else is actionable now.
  */
 const STATE_MOVE_SPECS: Readonly<Record<V4MediatorStateCode, ReadonlyArray<MoveSpec>>> =
   Object.freeze({
@@ -133,6 +142,13 @@ const STATE_MOVE_SPECS: Readonly<Record<V4MediatorStateCode, ReadonlyArray<MoveS
     ],
     evidence_blocked: [
       { key: 'mark_evidence_unavailable', stepCode: 'await_record', available: false },
+      { key: 'branch_provable', stepCode: 'narrow_or_branch', available: true },
+      { key: 'name_record_kind', stepCode: 'await_record', available: false },
+    ],
+    // UX-IMPASSE-002 (#710) — reuses the evidence_blocked move SHAPE (branch the
+    // provable part is the dominant, actionable move; naming the record kind is
+    // guidance). No new action semantics — both keys / step codes already exist.
+    key_detail_unavailable: [
       { key: 'branch_provable', stepCode: 'narrow_or_branch', available: true },
       { key: 'name_record_kind', stepCode: 'await_record', available: false },
     ],
@@ -160,6 +176,12 @@ const STATE_MOVE_SPECS: Readonly<Record<V4MediatorStateCode, ReadonlyArray<MoveS
     structured_impasse: [
       { key: 'preserve_disagreement', stepCode: 'await_record', available: false },
       { key: 'reopen_with', stepCode: 'await_record', available: false },
+    ],
+    // UX-IMPASSE-002 (#710) — the dominant move is to name the tradeoff (an
+    // actionable move via the existing `name_tradeoff` pathway step). No new
+    // action semantics.
+    value_tradeoff: [
+      { key: 'name_tradeoff', stepCode: 'name_tradeoff', available: true },
     ],
     open: [
       { key: 'respond_exact', stepCode: 'respond_to_point', available: true },
