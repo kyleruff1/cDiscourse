@@ -97,18 +97,28 @@ export const SEAT_BLOCKING_FLAG_CODES: ReadonlySet<string> = new Set([
 /**
  * Frozen plain-language copy. Re-exported so tests assert on these exact
  * strings rather than re-authoring copy. No verdict words anywhere.
+ *
+ * UX-ROOM-1V1-CHIMEIN-001A — 1:1-first relabel (design §5.2 / Layer A):
+ *  - Room-type labels read "Public 1:1" / "Private 1:1" so the header names the
+ *    structural 1:1 contract a room IS, not a generic "room".
+ *  - The open second-principal seat reads "Respondent seat open" — it is the
+ *    open *respondent / principal* seat, NOT a chime-in and NOT a generic open
+ *    seat. `turnOpenSeat` mirrors it so the turn line stays consistent.
+ *  - `seatOpponent` ("Opponent") is INTENTIONALLY left byte-identical: the
+ *    relabel of "Opponent" is open decision OD-5 (undecided) and is deferred to
+ *    a later card. "Opponent" is not on this card's ban-list.
  */
 export const ROOM_CONTRACT_COPY = Object.freeze({
-  privateRoom: 'Private room',
-  publicRoom: 'Public room',
+  privateRoom: 'Private 1:1',
+  publicRoom: 'Public 1:1',
   seatYou: 'You',
   seatInitiator: 'Initiator',
   seatOpponent: 'Opponent',
-  seatOpen: 'Open seat — first reply takes it',
+  seatOpen: 'Respondent seat open',
   turnYours: 'Your move',
   turnOpponent: "Opponent's move",
   turnInitiator: "Initiator's move",
-  turnOpenSeat: 'Open seat — first reply takes it',
+  turnOpenSeat: 'Respondent seat open',
   vsSeparator: 'vs',
 } as const);
 
@@ -424,7 +434,7 @@ export interface SeatViewModel {
   seat: PrimarySeat;
   /**
    * Plain-language label describing the seat's relationship to the VIEWER.
-   * 'You' | 'Initiator' | 'Opponent' | 'Open seat — first reply takes it'.
+   * 'You' | 'Initiator' | 'Opponent' | 'Respondent seat open'.
    * Never the person's name, never a verdict word.
    */
   label: string;
@@ -439,7 +449,7 @@ export interface SeatViewModel {
 /** The full read-time projection the header strip renders. */
 export interface RoomContractViewModel {
   roomId: string;
-  /** 'Private room' | 'Public room'. */
+  /** 'Private 1:1' | 'Public 1:1'. */
   roomTypeLabel: string;
   initiatorSeat: SeatViewModel;
   opponentSeat: SeatViewModel;

@@ -13,7 +13,7 @@
  *  - 'You' surfaces on the Initiator seat when the viewer is the OP.
  *  - 'You' surfaces on the Opponent seat when the viewer is the Primary
  *    Opponent.
- *  - 'Private room' chip label for a private room.
+ *  - 'Private 1:1' chip label for a private room (UX-ROOM-1V1-CHIMEIN-001A).
  *  - the turn label is non-null when a turn is determinable, null otherwise.
  *  - the room-type glyph is shape/text, not color.
  *  - every visible string in the component goes through <Text>; the strip
@@ -28,6 +28,7 @@ import {
 import {
   buildRoomContract,
   buildRoomContractViewModel,
+  ROOM_CONTRACT_COPY,
   type BuildRoomContractInput,
   type RoomArgumentInput,
 } from '../src/features/debates/roomContractModel';
@@ -77,9 +78,9 @@ describe('RoomContractSeatStrip — render contract via the view-model', () => {
   it('public, seat-open room → both seat pills + room-type chip present', () => {
     const contract = buildRoomContract(baseInput({ arguments: [ROOT] }));
     const vm = buildRoomContractViewModel(contract, INITIATOR, [ROOT]);
-    expect(vm.roomTypeLabel).toBe('Public room');
+    expect(vm.roomTypeLabel).toBe('Public 1:1');
     expect(vm.initiatorSeat.label).toBe('You');
-    expect(vm.opponentSeat.label).toBe('Open seat — first reply takes it');
+    expect(vm.opponentSeat.label).toBe('Respondent seat open');
     expect(vm.opponentSeat.isOpen).toBe(true);
   });
 
@@ -97,7 +98,7 @@ describe('RoomContractSeatStrip — render contract via the view-model', () => {
     expect(vm.initiatorSeat.label).toBe('Initiator');
   });
 
-  it("private room → 'Private room' chip label", () => {
+  it("private room → 'Private 1:1' chip label", () => {
     const contract = buildRoomContract(
       baseInput({
         roomType: 'private',
@@ -106,7 +107,7 @@ describe('RoomContractSeatStrip — render contract via the view-model', () => {
       }),
     );
     const vm = buildRoomContractViewModel(contract, INITIATOR, [ROOT]);
-    expect(vm.roomTypeLabel).toBe('Private room');
+    expect(vm.roomTypeLabel).toBe('Private 1:1');
   });
 
   it('turn label is non-null when a turn is determinable', () => {
@@ -133,8 +134,10 @@ describe('RoomContractSeatStrip — render contract via the view-model', () => {
 
 describe('roomTypeGlyph', () => {
   it('returns a distinct non-color glyph per room type', () => {
-    const privateGlyph = roomTypeGlyph('Private room');
-    const publicGlyph = roomTypeGlyph('Public room');
+    // UX-ROOM-1V1-CHIMEIN-001A — the glyph keys off `ROOM_CONTRACT_COPY`
+    // (now 'Private 1:1' / 'Public 1:1'), not a hard-coded literal.
+    const privateGlyph = roomTypeGlyph(ROOM_CONTRACT_COPY.privateRoom);
+    const publicGlyph = roomTypeGlyph(ROOM_CONTRACT_COPY.publicRoom);
     expect(privateGlyph).not.toBe(publicGlyph);
     expect(privateGlyph.length).toBeGreaterThan(0);
     expect(publicGlyph.length).toBeGreaterThan(0);

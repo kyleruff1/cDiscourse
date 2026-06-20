@@ -1650,10 +1650,18 @@ export const ARGUMENT_MODE_COPY = Object.freeze({
  */
 export const ROOM_VISIBILITY_COPY = Object.freeze({
   // Visibility option labels (the segmented control + the chip).
+  // UX-ROOM-1V1-CHIMEIN-001A (design §5.6) — the helpers gain 1:1 framing so a
+  // creator understands every room is a structured 1:1 between two principal
+  // voices. The private helper uses OD-1-SAFE wording ("invited access. No
+  // public chime-ins.") — it deliberately does NOT say "no observers" / "only
+  // the person you invite", because whether private rooms have observers is the
+  // UNRESOLVED operator decision OD-1 and shipped code allows private observers.
   option_public_label: 'Public',
-  option_public_helper: 'Anyone can find and read this argument.',
+  option_public_helper:
+    'A public 1:1 — anyone can find, read, and observe this argument. Point-scoped chime-ins may open once both seats are filled.',
   option_private_label: 'Private',
-  option_private_helper: 'Only people you invite can find and read this argument.',
+  option_private_helper:
+    'A private 1:1 argument — invited access. No public chime-ins.',
   group_label: 'Who can see this argument',
 
   // Action labels.
@@ -1730,17 +1738,79 @@ export const ROOM_VISIBILITY_COPY = Object.freeze({
  */
 export const ROOM_ACCESS_COPY = Object.freeze({
   // Public access lines (one per public_* state).
-  public_open_line: 'Open seat — observe or step in.',
+  // UX-ROOM-1V1-CHIMEIN-001A (design §5.5) — the open public seat is the
+  // *respondent / principal* seat, framed in principal language ("Respondent
+  // seat open"), never a chime-in and never a generic "step in".
+  public_open_line: 'Respondent seat open — observe or take it.',
   public_reserved_line: 'A seat is saved for an invited person. You can still observe.',
   public_full_line: 'Seats are full — you can still observe.',
   // Private (member view; the chip reuses ROOM_VISIBILITY_COPY.badge_private).
-  private_member_line: 'Private — you are in this argument.',
+  // UX-ROOM-1V1-CHIMEIN-001A — 1:1 framing for the member access line.
+  private_member_line: 'Private 1:1 — you are in this argument.',
   // Unified deep-link "unavailable" — IDENTICAL for nonexistent and
   // private-no-access (no enumeration; never asserts the room is private).
   unavailable_title: 'This argument isn’t available',
   unavailable_body: 'This link may not work, or the argument may be limited to its members.',
   // Neutral escape hatch — matches the InviteRedeemGate "go home" wording.
   unavailable_dismiss: 'Go to my arguments',
+} as const);
+
+/**
+ * UX-ROOM-1V1-CHIMEIN-001A — 1:1-first room display state copy (Layer A).
+ *
+ * The frozen labels + subcopy for the pure `RoomOneToOneDisplayState` produced
+ * by `src/features/debates/oneToOneRoomModel.ts`. Pure strings only; the model
+ * is pure-TS and re-exports this block so callers stay model-scoped.
+ *
+ * Doctrine (§1 / §9):
+ *  - Every value describes a STRUCTURAL room state (who holds a seat, who is
+ *    observing), never a verdict, never heat / popularity.
+ *  - OD-1-SAFE: the private subcopy says "Invited access." — it NEVER claims a
+ *    private room has "no observers" / "invited parties only" / "only the person
+ *    you invite". Whether private rooms have observers is the unresolved
+ *    operator decision OD-1; shipped code allows private observers, so this copy
+ *    must not imply otherwise.
+ *  - The first open *public* respondent seat is NEVER labelled "chime-in" — it
+ *    is the second principal seat ("Respondent seat open").
+ *  - Scanned by `__tests__/oneToOneRoomModel.test.ts` (ban-list + plain
+ *    language). No snake_case, no verdict / amplification / person tokens.
+ */
+export const ROOM_ONE_TO_ONE_COPY = Object.freeze({
+  // State labels.
+  label_public: 'Public 1:1',
+  label_private: 'Private 1:1',
+  // State subcopy (the one-line under-label).
+  subcopy_private_invited_access: 'Invited access.',
+  subcopy_respondent_seat_open: 'Respondent seat open.',
+  subcopy_principal_voices_established: '2 principal voices.',
+  // Observer / principal seat-line separation (design §5.4 / State 3). Reuses
+  // the existing `SEAT_CLAIM_COPY.readersNote` for the "readers don't use a
+  // seat" line — this block owns only the principal/observer headings.
+  principal_voices_heading: '2 principal voices',
+  observers_watching: 'Observers watching',
+  observer_reading_line: 'You are watching.',
+} as const);
+
+/**
+ * UX-ROOM-1V1-CHIMEIN-001A — DORMANT point-scoped chime-in copy (Layer A).
+ *
+ * Authored now so the GATE-C (Layer B/C) card that builds the chime-in
+ * contribution path consumes a PRE-TESTED, ban-list-clean vocabulary. These
+ * strings are DORMANT: they are referenced by tests / constants only and are
+ * NOT rendered as an active control by this card. A chime-in attaches to a
+ * point; it never opens a principal seat and never opens a generic comment
+ * thread (the design's explicitly-forbidden framing).
+ *
+ * Doctrine (§1 / §9): structural participation copy only — no verdict, no
+ * amplification, no person attribution; public-only (a private room renders no
+ * chime affordance at all — absence, not a disabled control).
+ */
+export const POINT_SCOPED_CHIME_IN_COPY = Object.freeze({
+  heading: 'Point-scoped chime-ins',
+  attach_action: 'Attach to this point',
+  does_not_open_seat: 'Does not open a principal seat',
+  seats_full_observing_open: 'Chime-in seats full · observing open',
+  observe_only: 'Observe only',
 } as const);
 
 /** Plain-language labels for the visibility taxonomy. Toggled-radio chip. */

@@ -70,6 +70,24 @@ export type {
   UseRoomContractResult,
 } from './useRoomContract';
 
+// UX-ROOM-1V1-CHIMEIN-001A — 1:1-first room display-state pure model (Layer A).
+export {
+  deriveRoomOneToOneDisplayState,
+  buildRoomOneToOneViewModel,
+  buildOneToOneSeatLineViewModel,
+  chimeInAllowed,
+  ALL_ROOM_ONE_TO_ONE_DISPLAY_STATES,
+  ROOM_ONE_TO_ONE_COPY,
+  POINT_SCOPED_CHIME_IN_COPY,
+  _forbiddenOneToOneTokens,
+} from './oneToOneRoomModel';
+export type {
+  RoomOneToOneDisplayState,
+  RoomOneToOneDisplayInput,
+  RoomOneToOneViewModel,
+  OneToOneSeatLineViewModel,
+} from './oneToOneRoomModel';
+
 // GAME-005 — public-room participant seats + chime-in governance.
 export { ChimeInGovernanceControl } from './ChimeInGovernanceControl';
 export { PublicRoomMetricsStrip } from './PublicRoomMetricsStrip';

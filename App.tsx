@@ -733,14 +733,23 @@ function MainAppShell({
   // GAME-004 — derive the 1v1 PvP room contract for the open room. The hook
   // is called unconditionally (Rules of Hooks); when no room is selected the
   // empty roomId makes it return `viewModel: null` and the header renders
-  // unchanged. `roomType` has no persisted source in v1 — it defaults to
-  // 'public' inside the model, which keeps the opponent seat open and
-  // claimable (the doctrine-safe default; see docs/designs/GAME-004.md).
+  // unchanged.
+  //
+  // UX-ROOM-1V1-CHIMEIN-001A (design §5.1) — thread the PERSISTED
+  // `currentDebate.visibility` into the contract so a private room reads
+  // "Private 1:1" in the header seat strip. Previously `roomType` was omitted,
+  // so the model defaulted to 'public' for EVERY room (a display bug — even a
+  // private room showed the open public seat copy). `visibility` is already
+  // loaded on `currentDebate` (it drives `seatAvailability` just below), so this
+  // is pure display-data threading — no persistence / capacity / seat-claim
+  // behavior changes. `RoomVisibility` ('public' | 'private') is exactly the
+  // model's `RoomType`.
   const roomContract = useRoomContract({
     roomId: currentDebate?.id ?? '',
     initiatorUserId: currentDebate?.createdBy ?? '',
     openedAt: currentDebate?.createdAt ?? '',
     viewerUserId: state.snapshot.userId || null,
+    options: { roomType: currentDebate?.visibility },
   });
 
   // ARG-ROOM-005 — live public-room seat availability. The hook is called

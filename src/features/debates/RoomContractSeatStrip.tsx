@@ -17,7 +17,7 @@
  */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type { RoomContractViewModel } from './roomContractModel';
+import { ROOM_CONTRACT_COPY, type RoomContractViewModel } from './roomContractModel';
 
 interface RoomContractSeatStripProps {
   viewModel: RoomContractViewModel;
@@ -25,11 +25,15 @@ interface RoomContractSeatStripProps {
 
 /**
  * Pure helper — the non-color glyph that marks the room-type chip. A lock for
- * a private room, an open circle for a public room. Shape/text carries the
+ * a private 1:1, an open circle for a public 1:1. Shape/text carries the
  * meaning so the chip reads correctly without color.
+ *
+ * UX-ROOM-1V1-CHIMEIN-001A — compares against `ROOM_CONTRACT_COPY.privateRoom`
+ * (the source of truth) rather than a hard-coded literal, so a future relabel
+ * of the room-type copy cannot silently break the private glyph.
  */
 export function roomTypeGlyph(roomTypeLabel: string): string {
-  return roomTypeLabel === 'Private room' ? '\u{1F512}' : '○';
+  return roomTypeLabel === ROOM_CONTRACT_COPY.privateRoom ? '\u{1F512}' : '○';
 }
 
 export function RoomContractSeatStrip({ viewModel }: RoomContractSeatStripProps) {
