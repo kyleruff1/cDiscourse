@@ -59,7 +59,7 @@ jest.mock('../src/features/auth/signInWithGoogle', () => ({
 import { AuthScreen } from '../src/features/auth/AuthScreen';
 import {
   PROVIDER_UNAVAILABLE_COPY,
-  PROVIDER_EMAIL_DIVIDER_LABEL,
+  PROVIDER_SSO_DIVIDER_LABEL,
   CONTINUE_WITH_GOOGLE_LABEL,
 } from '../src/features/auth/authProviderSlotModel';
 import { GOOGLE_AUTH_ENABLED_FLAG } from '../src/features/auth/googleAuthGate';
@@ -99,13 +99,64 @@ describe('UX-COPY-BATCH-002 — AuthScreen default surface (email-only)', () => 
     expect(queryByText(/apple/i)).toBeNull();
   });
 
-  it('renders the "or continue with email" divider (plain text, not interactive)', () => {
+  it('renders the "or continue with SSO" divider (plain text, not interactive)', () => {
     const { getByTestId, getByText } = render(<AuthScreen />);
     const divider = getByTestId('auth-provider-divider');
     expect(divider).toBeTruthy();
-    const label = getByText(PROVIDER_EMAIL_DIVIDER_LABEL);
+    const label = getByText(PROVIDER_SSO_DIVIDER_LABEL);
+    expect(PROVIDER_SSO_DIVIDER_LABEL).toBe('or continue with SSO');
     // The divider label is plain Text (role text), never a button.
     expect(label.props.accessibilityRole).not.toBe('button');
+  });
+});
+
+describe('AUTH-GOOGLE-SSO-LAYOUT-001 (#780) — email-first render order', () => {
+  // Collect every node identifier (testID, else accessibilityLabel) in document
+  // (pre-order) order from the rendered tree, so we can assert relative
+  // position: email form + Sign In button come BEFORE the SSO divider + region.
+  const collectOrderedMarkers = (node: unknown, acc: string[]): string[] => {
+    if (node == null) return acc;
+    if (Array.isArray(node)) {
+      for (const child of node) collectOrderedMarkers(child, acc);
+      return acc;
+    }
+    if (typeof node === 'object') {
+      const el = node as { props?: Record<string, unknown>; children?: unknown };
+      const props = el.props ?? {};
+      const marker =
+        (typeof props.testID === 'string' && props.testID) ||
+        (typeof props.accessibilityLabel === 'string' && props.accessibilityLabel) ||
+        null;
+      if (marker) acc.push(marker);
+      if (props.children !== undefined) collectOrderedMarkers(props.children, acc);
+      else if (el.children !== undefined) collectOrderedMarkers(el.children, acc);
+    }
+    return acc;
+  };
+
+  it('renders the SSO divider + provider region AFTER the email Sign In button (default surface)', () => {
+    const { toJSON } = render(<AuthScreen />);
+    const markers = collectOrderedMarkers(toJSON(), []);
+    const signInIdx = markers.indexOf('Sign In');
+    const dividerIdx = markers.indexOf('auth-provider-divider');
+    const regionIdx = markers.indexOf('auth-provider-slot-region');
+    expect(signInIdx).toBeGreaterThanOrEqual(0);
+    expect(dividerIdx).toBeGreaterThanOrEqual(0);
+    expect(regionIdx).toBeGreaterThanOrEqual(0);
+    // Email-first: the email Sign In button precedes the SSO divider + region.
+    expect(signInIdx).toBeLessThan(dividerIdx);
+    expect(dividerIdx).toBeLessThan(regionIdx);
+  });
+
+  it('renders the Sign-up toggle as the LAST interactive element (after the SSO region)', () => {
+    const { toJSON } = render(<AuthScreen />);
+    const markers = collectOrderedMarkers(toJSON(), []);
+    const regionIdx = markers.indexOf('auth-provider-slot-region');
+    const signUpToggleIdx = markers.indexOf("Don't have an account? Sign up");
+    expect(regionIdx).toBeGreaterThanOrEqual(0);
+    expect(signUpToggleIdx).toBeGreaterThanOrEqual(0);
+    // The Sign-up toggle is the very last element — after the SSO region.
+    expect(signUpToggleIdx).toBeGreaterThan(regionIdx);
   });
 });
 

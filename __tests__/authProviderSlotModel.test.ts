@@ -15,7 +15,7 @@ import {
   resolveAuthProviderSlotRegion,
   FIRST_RUN_PROVIDER_SLOT_ORDER,
   CONTINUE_WITH_GOOGLE_LABEL,
-  PROVIDER_EMAIL_DIVIDER_LABEL,
+  PROVIDER_SSO_DIVIDER_LABEL,
   PROVIDER_UNAVAILABLE_COPY,
   type AuthProviderSlotId,
 } from '../src/features/auth/authProviderSlotModel';
@@ -50,8 +50,8 @@ describe('UX-COPY-BATCH-002 — authProviderSlotModel default (email-only)', () 
 
   it('exposes the divider label', () => {
     const region = resolveAuthProviderSlotRegion();
-    expect(region.dividerLabel).toBe(PROVIDER_EMAIL_DIVIDER_LABEL);
-    expect(PROVIDER_EMAIL_DIVIDER_LABEL).toBe('or continue with email');
+    expect(region.dividerLabel).toBe(PROVIDER_SSO_DIVIDER_LABEL);
+    expect(PROVIDER_SSO_DIVIDER_LABEL).toBe('or continue with SSO');
   });
 
   it('the AuthProviderSlotId union reserves google/apple/facebook only (no others)', () => {
@@ -93,7 +93,7 @@ describe('UX-COPY-BATCH-002 — authProviderSlotModel future consumability (#746
 describe('UX-COPY-BATCH-002 — authProviderSlotModel copy safety', () => {
   const COPY = [
     PROVIDER_UNAVAILABLE_COPY,
-    PROVIDER_EMAIL_DIVIDER_LABEL,
+    PROVIDER_SSO_DIVIDER_LABEL,
     CONTINUE_WITH_GOOGLE_LABEL,
   ];
 

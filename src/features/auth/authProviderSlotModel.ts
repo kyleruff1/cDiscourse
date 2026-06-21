@@ -13,7 +13,7 @@
  *    provider button renders this batch. Google config is not live, so a
  *    visible provider button would imply an unimplemented capability — that
  *    is doctrine-forbidden. The default surface shows a future-framed
- *    "coming soon" notice + an "or continue with email" divider, then the
+ *    "coming soon" notice + an "or continue with SSO" divider, then the
  *    unchanged email/password form.
  *  - Google is a FUTURE-reserved slot, `enabled: false` today. While
  *    `enabled === false` the screen MUST NOT, and CANNOT, reach any provider:
@@ -82,7 +82,7 @@ export interface AuthProviderSlotRegionModel {
    * Empty string when a provider is enabled (no notice needed).
    */
   readonly providerUnavailableCopy: string;
-  /** Divider label between the provider region and the email form. */
+  /** Divider label between the email form and the SSO provider region. */
   readonly dividerLabel: string;
 }
 
@@ -96,19 +96,24 @@ export interface AuthProviderSlotRegionModel {
 export const CONTINUE_WITH_GOOGLE_LABEL = 'Continue with Google' as const;
 
 /**
- * Divider copy between the (empty) provider region and the email fallback.
- * Plain, original wording (NOT the reference's "or with email").
+ * Divider copy between the email/password form and the SSO provider region.
+ * Plain, original wording (NOT the reference's "or with email"). Renamed from
+ * PROVIDER_EMAIL_DIVIDER_LABEL — AUTH-GOOGLE-SSO-LAYOUT-001 (#780) moved the
+ * provider region BELOW the email Sign In button, so the divider now leads
+ * into the SSO options rather than into the email form.
  */
-export const PROVIDER_EMAIL_DIVIDER_LABEL = 'or continue with email' as const;
+export const PROVIDER_SSO_DIVIDER_LABEL = 'or continue with SSO' as const;
 
 /**
  * Provider-unavailable copy. Plain language; no codes, no verdict tokens, no
  * slogans. Future-framed: states plainly that social sign-in is coming and
  * that email works now, so the email path is the obvious route. Never claims
- * Google is live.
+ * Google is live. AUTH-GOOGLE-SSO-LAYOUT-001 (#780) moved this notice BELOW the
+ * email form, so the prior directional word "below" was dropped — the copy is
+ * now position-neutral and correct regardless of where the notice renders.
  */
 export const PROVIDER_UNAVAILABLE_COPY =
-  'Social sign-in is coming soon. Use your email and password below to continue.' as const;
+  'Social sign-in is coming soon. Use your email and password to continue.' as const;
 
 /**
  * The canonical first-run slot ORDER. Google primary; Apple / Facebook
@@ -151,6 +156,6 @@ export function resolveAuthProviderSlotRegion(opts?: {
     hasVisibleProvider: anyProviderEnabled,
     slotOrder: FIRST_RUN_PROVIDER_SLOT_ORDER,
     providerUnavailableCopy: anyProviderEnabled ? '' : PROVIDER_UNAVAILABLE_COPY,
-    dividerLabel: PROVIDER_EMAIL_DIVIDER_LABEL,
+    dividerLabel: PROVIDER_SSO_DIVIDER_LABEL,
   };
 }

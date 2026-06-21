@@ -63,9 +63,14 @@ describe('UX-BRAND-001 gold accent tokens', () => {
 describe('UX-BRAND-001 sign-in premium polish', () => {
   const src = read('src/features/auth/AuthScreen.tsx');
 
-  it('wires the gold accent into the value-prop (lead + accent rule)', () => {
+  it('wires the gold accent into the value-prop lead', () => {
+    // AUTH-GOOGLE-SSO-LAYOUT-001 (#780) removed the standalone gold accent rule
+    // (the `auth-value-prop-accent` View) as purposeless/asymmetric. The gold
+    // accent now lives in the value-prop LEAD only (BRAND.accent.gold), so the
+    // accent-rule testID is asserted ABSENT.
     expect(src).toMatch(/BRAND\.accent\.gold\b/);
-    expect(src).toMatch(/auth-value-prop-accent/);
+    expect(src).not.toMatch(/auth-value-prop-accent/);
+    expect(src).not.toMatch(/valuePropAccent/);
   });
 
   it('uses a premium gold card surface + hairline (not raw light hex)', () => {
