@@ -125,6 +125,50 @@ export function loadFreshPendingInviteIntent(
   return parsed;
 }
 
+// ── AUTH-GOOGLE-SSO-005 (#748) — resume decision ──────────────
+
+/**
+ * The resume decision for a callback-done transition. Either there is no
+ * live intent (no gate), or there is one that should mount the gate and
+ * may auto-accept once a session is in place.
+ */
+export type InviteResumeDecision =
+  | { resume: false } // no live intent → no gate
+  | { resume: true; token: string; autoAcceptEligible: boolean };
+
+/**
+ * AUTH-GOOGLE-SSO-005 (#748) — the resume DECISION for a callback-done
+ * transition: given a (possibly null) loaded intent and the current
+ * signed-in state, decide whether the InviteRedeemGate should mount and
+ * whether the auto-accept will be eligible. Pure; no storage, no network.
+ *
+ * The `intent` is expected to have ALREADY been freshness-checked by the
+ * loader (`loadPendingInviteIntentFromStorage` / `loadFreshPendingInviteIntent`),
+ * so a non-null intent here is a live one.
+ *
+ * This is a TESTABLE MIRROR of the gate-mount decision, NOT a replacement
+ * for it: the actual acceptance stays server-side in the gate's auto-accept
+ * effect (`InviteRedeemGate.tsx` — fires on signed-in + viewerEmail +
+ * pending). `autoAcceptEligible` mirrors that effect's gate condition
+ * (signed-in + a viewer email present) so callers can reason about whether
+ * the resume will fire optimistically. The email-binding match itself is
+ * always decided server-side by `acceptRoomInvite`; this never sees the
+ * bound address (no enumeration). The token is never logged by this module.
+ */
+export function decideInviteResume(input: {
+  intent: PendingInviteIntent | null; // already freshness-checked by the loader
+  signedIn: boolean;
+  viewerEmail: string | null;
+}): InviteResumeDecision {
+  if (!input.intent) return { resume: false };
+  return {
+    resume: true,
+    token: input.intent.token,
+    // mirrors the gate's auto-accept condition (signed-in + viewerEmail set)
+    autoAcceptEligible: input.signedIn && !!input.viewerEmail,
+  };
+}
+
 // ── Persisted storage helpers ─────────────────────────────────
 
 /**

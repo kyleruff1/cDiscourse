@@ -73,11 +73,13 @@ export {
   PENDING_INVITE_INTENT_STORAGE_KEY,
   buildPendingInviteIntent,
   clearPendingInviteIntentFromStorage,
+  decideInviteResume,
   isPendingInviteIntentFresh,
   loadFreshPendingInviteIntent,
   loadPendingInviteIntentFromStorage,
   parsePendingInviteIntent,
   savePendingInviteIntentToStorage,
+  type InviteResumeDecision,
   type PendingInviteIntent,
 } from './pendingInviteIntent';
 

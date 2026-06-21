@@ -79,7 +79,17 @@ describe('App.tsx — capture wiring', () => {
   });
 
   it('flips the flag off via onDone', () => {
-    expect(app).toMatch(/onDone=\{\(\) => setAuthCallback\(\{ active: false, url: '' \}\)\}/);
+    // AUTH-GOOGLE-SSO-005 (#748) — the inline onDone was promoted to a named
+    // handleAuthCallbackDone callback that ALSO re-reads the persisted invite
+    // intent (deterministic resume after a Google ?code= return). The
+    // flag-flip property is unchanged: the callback's FIRST line still calls
+    // setAuthCallback({ active: false, url: '' }), and it is wired via
+    // onDone={handleAuthCallbackDone}. (The named-callback structure is pinned
+    // in detail by appInviteResumeOAuthWiring.test.ts.)
+    expect(app).toContain('onDone={handleAuthCallbackDone}');
+    expect(app).toMatch(
+      /const handleAuthCallbackDone = React\.useCallback\(async \(\) => \{\s*setAuthCallback\(\{ active: false, url: '' \}\)/,
+    );
   });
 });
 
