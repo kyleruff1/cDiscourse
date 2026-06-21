@@ -8,6 +8,13 @@ interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'danger';
   loading?: boolean;
   disabled?: boolean;
+  /**
+   * Optional test hook forwarded to the underlying Pressable. Additive — when
+   * omitted the Pressable receives no testID, so existing call sites are
+   * unaffected. Added for AUTH-GOOGLE-SSO-003 (#746) so the gated
+   * "Continue with Google" affordance is locatable by testID.
+   */
+  testID?: string;
 }
 
 export function Button({
@@ -16,6 +23,7 @@ export function Button({
   variant = 'primary',
   loading = false,
   disabled = false,
+  testID,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
 
@@ -23,6 +31,7 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: isDisabled }}
