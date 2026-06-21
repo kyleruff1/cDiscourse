@@ -30,6 +30,13 @@
  * the drainer's live-retry cap (this constant) and the reclaim cap have
  * different ceilings by design. See the DRAINER_MAX_ATTEMPTS doc-comment
  * for the full rationale.
+ *
+ * The ARCH-001 retry-budget fix (2026-06-21) added a `provider_server_error`-
+ * SPECIFIC cap (`DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS = 5`, schedule
+ * `[60, 180, 360, 600]`) on top of the unchanged default cap (4). Trigger: the
+ * Family-I D3 production smoke reproduced provider_server_error dead-letters
+ * (a retryable Anthropic-overload transient that out-lasted the 4-attempt
+ * budget) — NOT a per-family defect. See the two constants' doc-comments below.
  */
 
 import type { BooleanObservationUnavailableReason } from './booleanObservationMcpAdapterCore.ts';
@@ -40,10 +47,21 @@ import type { BooleanObservationFailureSubreason } from './booleanObservationFai
  * first). Card 3 raised this from 3 → 4 in response to the Card-2 smoke's
  * C-calibration signal: 2.9% of cells dead-lettered on `provider_server_error`
  * (Anthropic {isError} overload) after MAX_ATTEMPTS=3 burned through the
- * 30s/120s backoff schedule in ~300s. The fourth attempt gives the
- * provider-server-error retry budget a longer tail; combined with the
- * `[60, 180, 360]` schedule below this brings worst-case retry budget to
- * ~10 min, ~2× the Anthropic overload-recovery window observed in Card 2.
+ * 30s/120s backoff schedule in ~300s.
+ *
+ * SCOPE (ARCH-001 retry-budget fix, 2026-06-21): this cap now governs the
+ * `network_error`, `rate_limited`, and generic `api_error` retryable classes
+ * ONLY. The `provider_server_error` sub-reason (the Anthropic {isError}
+ * overload class) has its own, higher cap —
+ * `DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS` — because the Family-I D3
+ * production smoke (2026-06-21) reproduced a 3-cell dead-letter cluster
+ * (argument_scheme / resolution_progress / thread_topology) where a genuine
+ * ~13–15 min Anthropic overload transient out-lasted this 4-attempt (~10 min)
+ * budget. All three families recover on retry historically (and G/I had zero
+ * prior dead-letters), so the failure is a retryable transient that needs a
+ * longer budget — NOT a per-family defect. Extending ONLY the
+ * provider_server_error class keeps the proven-fine default budget for every
+ * other class. See docs/designs/ARCH-001-MCP-RETRY-BUDGET-FIX-2026-06-21.md.
  *
  * Card 1 substrate's `reclaim_stale_leases` cap (3) is its own ceiling — a
  * lease-expiry reclaim still dead-letters at 3. So the drainer's retry path
@@ -68,15 +86,40 @@ export const DRAINER_RETRY_BACKOFF_SECONDS: ReadonlyArray<number> = Object.freez
  * Failure-reason-SPECIFIC backoff (seconds) for `provider_server_error`
  * (the Anthropic {isError} overload class). Card-2 smoke evidence: all 3
  * dead-letters in the 105-cell burst were this sub-reason, exhausted in
- * ~300s under the default [30, 120] schedule. The longer [60, 180, 360]
- * schedule lets the burst window pass before retry attempt 4, giving the
- * upstream more recovery time. Total worst-case retry budget: 60+180+360
- * = 600s ≈ 10 min.
+ * ~300s under the default [30, 120] schedule. The [60, 180, 360] schedule
+ * (Card 3) lifted the worst-case backoff budget to 600s ≈ 10 min.
  *
- * Cardinality matches MAX_ATTEMPTS-1 = 3 retry transitions; no clamping
- * needed for the documented path.
+ * ARCH-001 retry-budget fix (2026-06-21): extended to [60, 180, 360, 600].
+ * The Family-I D3 production smoke reproduced provider_server_error
+ * dead-letters whose transients ran ~13–15 min — exceeding the 600s budget.
+ * The fourth tier (+600s) takes the worst-case backoff to 60+180+360+600 =
+ * 1200s (~20 min backoff; realized lifetime ~26 min once per-attempt call +
+ * cron re-claim latency are added), giving ~2× margin over the observed
+ * transient. The +600s tail (vs a minimal +360s) is sized for the WIDER
+ * 06-21 event — a 3-cell cluster across two windows, each exhausting the
+ * budget edge — rather than the single ~899s cell of the 2026-06-14 PARTIAL.
+ *
+ * Cardinality is DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS-1 = 4 retry
+ * transitions (attempts 1→2, 2→3, 3→4, 4→5); no clamping needed for the
+ * documented path.
  */
-export const DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS: ReadonlyArray<number> = Object.freeze([60, 180, 360]);
+export const DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS: ReadonlyArray<number> = Object.freeze([60, 180, 360, 600]);
+
+/**
+ * Provider-server-error-SPECIFIC max attempts (including the first). The
+ * `provider_server_error` sub-reason — the Anthropic {isError} overload class —
+ * gets a higher live-retry cap than the default DRAINER_MAX_ATTEMPTS (4) so a
+ * single long overload transient can clear before the cell dead-letters. Every
+ * other retryable class (network_error, rate_limited, generic api_error) keeps
+ * DRAINER_MAX_ATTEMPTS. Calibrated by the 2026-06-21 Family-I D3 smoke (see the
+ * backoff doc-comment above and
+ * docs/designs/ARCH-001-MCP-RETRY-BUDGET-FIX-2026-06-21.md).
+ *
+ * Still bounded: a genuinely-dead provider terminates — a 5th failed attempt →
+ * dead_letter. The Card-1 `reclaim_stale_leases` cap (3) is independent and
+ * unchanged (the slower lease-expiry backstop).
+ */
+export const DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS = 5;
 
 /** The lifecycle decision for a failed classify. */
 export type DrainerFailureDisposition = 'retry' | 'failed_terminal' | 'dead_letter';
@@ -192,12 +235,18 @@ export function classifyDrainerFailure(
 
   // Retryable provider/transport transients.
   if (RETRYABLE_REASONS.has(reason)) {
-    if (attemptCount < DRAINER_MAX_ATTEMPTS) {
-      // Card 3: `provider_server_error` (Anthropic {isError} overload) gets
-      // its own longer schedule [60, 180, 360]; every other retryable
-      // sub-reason preserves the default [30, 120] schedule exactly. The
-      // selection is by typed sub-reason — never by raw provider body.
-      const schedule = reason === 'api_error' && subReason === 'provider_server_error'
+    // ARCH-001 retry-budget fix: `provider_server_error` (Anthropic {isError}
+    // overload) gets BOTH its own higher attempt cap AND its own longer backoff
+    // schedule [60, 180, 360, 600]; every other retryable class keeps
+    // DRAINER_MAX_ATTEMPTS and the default [30, 120] schedule. Selection is by
+    // typed sub-reason — never by raw provider body.
+    const isProviderServerError =
+      reason === 'api_error' && subReason === 'provider_server_error';
+    const maxAttempts = isProviderServerError
+      ? DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS
+      : DRAINER_MAX_ATTEMPTS;
+    if (attemptCount < maxAttempts) {
+      const schedule = isProviderServerError
         ? DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS
         : DRAINER_RETRY_BACKOFF_SECONDS;
       // Index by the just-completed attempt (1-based): attempt 1 → schedule[0];

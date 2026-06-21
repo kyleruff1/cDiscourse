@@ -58,6 +58,7 @@ const retryModule = require(`${BO}/classifierDrainerRetryPolicy`) as {
   DRAINER_MAX_ATTEMPTS: number;
   DRAINER_RETRY_BACKOFF_SECONDS: ReadonlyArray<number>;
   DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS: ReadonlyArray<number>;
+  DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS: number;
   classifyDrainerFailure: (
     reason: BooleanObservationUnavailableReason,
     attemptCount: number,
@@ -70,6 +71,8 @@ export const DRAINER_MAX_ATTEMPTS = retryModule.DRAINER_MAX_ATTEMPTS;
 export const DRAINER_RETRY_BACKOFF_SECONDS = retryModule.DRAINER_RETRY_BACKOFF_SECONDS;
 export const DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS =
   retryModule.DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS;
+export const DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS =
+  retryModule.DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS;
 export const classifyDrainerFailure = retryModule.classifyDrainerFailure;
 export const drainerUnavailableReasonToFailureReason =
   retryModule.drainerUnavailableReasonToFailureReason;
