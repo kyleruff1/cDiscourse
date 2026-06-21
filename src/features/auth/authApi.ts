@@ -40,7 +40,13 @@ export function validateNewPassword(password: string): string | null {
 
 // ── Error mapping ─────────────────────────────────────────────
 
-function mapAuthError(message: string): AuthError {
+/**
+ * Map a raw Supabase auth error message to a plain `AuthError` code. Exported so
+ * the AUTH-GOOGLE-SSO-003 (#746) `signInWithGoogle` wrapper reuses this single
+ * source of truth instead of duplicating the mapping. Additive export only — no
+ * logic change.
+ */
+export function mapAuthError(message: string): AuthError {
   const lower = message.toLowerCase();
   if (lower.includes('invalid login') || lower.includes('invalid credentials')) {
     return 'invalid_credentials';

@@ -24,11 +24,17 @@ const mockSignInWithPassword = jest.fn().mockResolvedValue({
   data: { user: { id: 'u1', email: 'a@b.com' } },
   error: null,
 });
-const mockSignInWithOAuth = jest.fn(); // MUST stay at 0 calls
+const mockSignInWithOAuth = jest.fn(); // MUST stay at 0 direct calls from the component
 const mockSignUp = jest.fn().mockResolvedValue({
   data: { user: { id: 'u1', email: 'a@b.com' } },
   error: null,
 });
+// AUTH-GOOGLE-SSO-003 (#746) — mutable runtime-env so the enabled-state describe
+// can flip the public flag ON while the default-OFF tests keep seeing `{}`.
+const mockRuntimeEnv: { value: Record<string, unknown> } = { value: {} };
+// The gated provider button's onPress goes through this wrapper, NOT
+// supabase.auth.signInWithOAuth directly from the component.
+const mockSignInWithGoogle = jest.fn().mockResolvedValue({ ok: true });
 
 jest.mock('../src/lib/supabase', () => ({
   supabase: {
@@ -43,19 +49,28 @@ jest.mock('../src/lib/supabase', () => ({
   get SUPABASE_CONFIGURED() {
     return true;
   },
-  readRuntimeEnv: () => ({}),
+  readRuntimeEnv: () => mockRuntimeEnv.value,
+}));
+
+jest.mock('../src/features/auth/signInWithGoogle', () => ({
+  signInWithGoogle: (...a: unknown[]) => mockSignInWithGoogle(...a),
 }));
 
 import { AuthScreen } from '../src/features/auth/AuthScreen';
 import {
   PROVIDER_UNAVAILABLE_COPY,
   PROVIDER_EMAIL_DIVIDER_LABEL,
+  CONTINUE_WITH_GOOGLE_LABEL,
 } from '../src/features/auth/authProviderSlotModel';
+import { GOOGLE_AUTH_ENABLED_FLAG } from '../src/features/auth/googleAuthGate';
 
 beforeEach(() => {
   mockSignInWithPassword.mockClear();
   mockSignInWithOAuth.mockClear();
   mockSignUp.mockClear();
+  mockSignInWithGoogle.mockClear();
+  // Default OFF: flag unset → gate returns false → email-only surface.
+  mockRuntimeEnv.value = {};
 });
 
 describe('UX-COPY-BATCH-002 — AuthScreen default surface (email-only)', () => {
@@ -121,6 +136,71 @@ describe('UX-COPY-BATCH-002 — AuthScreen email/password still works', () => {
   });
 });
 
+describe('AUTH-GOOGLE-SSO-003 (#746) — enabled state', () => {
+  // Strategy (a): force the REAL gate ON by setting the runtime-env shim flag to
+  // 'true' (SUPABASE_CONFIGURED is already true in this suite's supabase mock).
+  beforeEach(() => {
+    mockRuntimeEnv.value = { [GOOGLE_AUTH_ENABLED_FLAG]: 'true' };
+  });
+
+  it('renders the "Continue with Google" button (by testID, text, and a11y label)', () => {
+    const { getByTestId, getByText, getByLabelText } = render(<AuthScreen />);
+    expect(getByTestId('auth-provider-google-button')).toBeTruthy();
+    expect(getByText(CONTINUE_WITH_GOOGLE_LABEL)).toBeTruthy();
+    expect(getByText('Continue with Google')).toBeTruthy();
+    expect(getByLabelText('Continue with Google')).toBeTruthy();
+  });
+
+  it('does NOT render the provider-unavailable "coming soon" notice when enabled', () => {
+    const { queryByTestId, queryByText } = render(<AuthScreen />);
+    expect(queryByTestId('auth-provider-unavailable')).toBeNull();
+    expect(queryByText(PROVIDER_UNAVAILABLE_COPY)).toBeNull();
+  });
+
+  it('pressing the Google button calls the signInWithGoogle wrapper, NOT signInWithOAuth directly', async () => {
+    const { getByTestId } = render(<AuthScreen />);
+    await act(async () => {
+      fireEvent.press(getByTestId('auth-provider-google-button'));
+    });
+    await waitFor(() => {
+      expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1);
+    });
+    // The component goes THROUGH the wrapper; it never calls the supabase
+    // provider method directly.
+    expect(mockSignInWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it('email/password still works in the enabled state', async () => {
+    const { getByLabelText } = render(<AuthScreen />);
+    fireEvent.changeText(getByLabelText('Email'), 'user@example.com');
+    fireEvent.changeText(getByLabelText('Password'), 'hunter2');
+    await act(async () => {
+      fireEvent.press(getByLabelText('Sign In'));
+    });
+    await waitFor(() => {
+      expect(mockSignInWithPassword).toHaveBeenCalledTimes(1);
+    });
+    expect(mockSignInWithPassword).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      password: 'hunter2',
+    });
+  });
+
+  it('renders NO Facebook and NO Apple affordance even when Google is enabled', () => {
+    const { queryByText } = render(<AuthScreen />);
+    expect(queryByText(/facebook/i)).toBeNull();
+    expect(queryByText(/apple/i)).toBeNull();
+  });
+
+  it('renders the Google affordance via the Button primitive (role=button, tap target)', () => {
+    const { getByTestId } = render(<AuthScreen />);
+    const button = getByTestId('auth-provider-google-button');
+    // Button renders a Pressable with accessibilityRole="button"; the
+    // minHeight:48 ≥ 44 tap-target floor is a Button invariant.
+    expect(button.props.accessibilityRole).toBe('button');
+  });
+});
+
 describe('UX-COPY-BATCH-002 — source guards', () => {
   const ROOT = path.join(__dirname, '..');
   const authSource = fs.readFileSync(
@@ -140,8 +220,12 @@ describe('UX-COPY-BATCH-002 — source guards', () => {
     expect(authSource).not.toContain('Continue with Apple');
   });
 
-  it('no signInWithOAuth anywhere under src/', () => {
+  it('signInWithOAuth appears ONLY in the dedicated wrapper under src/', () => {
+    // AUTH-GOOGLE-SSO-003 (#746) — the provider call is now wired, so the guard
+    // is a SINGLE-FILE allow-list (not loosened in spirit: exactly one file may
+    // contain the call). Path separators are normalized for cross-platform.
     const SRC = path.join(ROOT, 'src');
+    const ALLOW = [path.join('src', 'features', 'auth', 'signInWithGoogle.ts')];
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -150,12 +234,21 @@ describe('UX-COPY-BATCH-002 — source guards', () => {
           walk(full);
         } else if (/\.(ts|tsx)$/.test(entry.name)) {
           if (fs.readFileSync(full, 'utf8').includes('signInWithOAuth')) {
-            offenders.push(path.relative(ROOT, full));
+            const rel = path.relative(ROOT, full);
+            if (!ALLOW.includes(rel)) offenders.push(rel);
           }
         }
       }
     };
     walk(SRC);
     expect(offenders).toEqual([]);
+  });
+
+  it('the dedicated wrapper actually contains the provider call (allow-list is not vacuous)', () => {
+    const wrapper = fs.readFileSync(
+      path.join(ROOT, 'src', 'features', 'auth', 'signInWithGoogle.ts'),
+      'utf8',
+    );
+    expect(wrapper).toContain('signInWithOAuth');
   });
 });

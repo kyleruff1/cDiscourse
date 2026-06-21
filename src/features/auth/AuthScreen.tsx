@@ -13,7 +13,12 @@ import {
 } from './signInLockupModel';
 import { SURFACE_TOKENS, CONTROL, BRAND } from '../../lib/designTokens';
 import { AUTH_FIRST_RUN_COPY } from '../../lib/brandCopy';
-import { resolveAuthProviderSlotRegion } from './authProviderSlotModel';
+import {
+  resolveAuthProviderSlotRegion,
+  CONTINUE_WITH_GOOGLE_LABEL,
+} from './authProviderSlotModel';
+import { resolveGoogleAuthEnabled } from './googleAuthGate';
+import { signInWithGoogle } from './signInWithGoogle';
 
 // UX-BRAND-ASSETS-001 — the cream "CivilDiscourse" horizontal lockup
 // (swan-on-rock outline + wordmark) rendered on the Sign In hero ONLY.
@@ -38,11 +43,16 @@ export function AuthScreen() {
   const { width: viewportWidth } = useWindowDimensions();
   const lockupWidthPx = resolveSignInLockupWidthPx(viewportWidth);
   const lockupHeightPx = resolveSignInLockupHeightPx(viewportWidth);
-  // UX-COPY-BATCH-002 (#740/#760) — provider-slot region. The v1 default is
-  // EMAIL-ONLY: no provider button renders, and the future-reserved Google
-  // slot is disabled. The model owns the decision; the screen stays thin and
-  // never references any provider call. #746 lights a slot with zero re-layout.
-  const providerRegion = resolveAuthProviderSlotRegion();
+  // UX-COPY-BATCH-002 (#740/#760) + AUTH-GOOGLE-SSO-003 (#746) — provider-slot
+  // region. The model owns the layout decision; the screen stays thin. The
+  // Google slot is lit ONLY when resolveGoogleAuthEnabled() is true (default
+  // OFF: requires SUPABASE_CONFIGURED + the public EXPO_PUBLIC_GOOGLE_AUTH_ENABLED
+  // flag === 'true', set by the operator in Netlify env post-#745). Until then
+  // the surface stays email-only with zero re-layout.
+  const googleEnabled = resolveGoogleAuthEnabled();
+  const providerRegion = resolveAuthProviderSlotRegion(
+    googleEnabled ? { enabledSlots: [{ id: 'google', order: 0, enabled: true }] } : undefined,
+  );
 
   const handleSubmit = async () => {
     const vErr = validateAuthInput(email.trim(), password);
@@ -148,9 +158,24 @@ export function AuthScreen() {
           real, wired provider button inside the SAME region — zero re-layout. */}
       <View style={styles.providerRegion} testID="auth-provider-slot-region">
         {providerRegion.hasVisibleProvider ? (
-          // FUTURE (#746): real, wired provider affordances render here.
-          // Not reached in v1 — the default region is provider-unavailable.
-          <View testID="auth-provider-region" />
+          // AUTH-GOOGLE-SSO-003 (#746) — live Google sign-in affordance.
+          // Gated by resolveGoogleAuthEnabled() (default OFF). The label comes
+          // from the CONTINUE_WITH_GOOGLE_LABEL constant (NOT a literal — keeps
+          // this file's "no provider-button literal" source guard green). onPress
+          // initiates the Google sign-in via the signInWithGoogle wrapper (the
+          // only file that may name the provider call). The wrapper never throws,
+          // so the unawaited promise has no in-screen consumer and no floating
+          // rejection. Email/password below is unchanged.
+          <View testID="auth-provider-region">
+            <Button
+              label={CONTINUE_WITH_GOOGLE_LABEL}
+              onPress={() => {
+                void signInWithGoogle();
+              }}
+              variant="secondary"
+              testID="auth-provider-google-button"
+            />
+          </View>
         ) : (
           <Text
             style={styles.providerUnavailable}
