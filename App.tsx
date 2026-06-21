@@ -287,6 +287,36 @@ function AppRoot() {
     [dispatch],
   );
 
+  // AUTH-GOOGLE-SSO-005 (#748) — when the /auth/callback consumer finishes
+  // (e.g. a Google OAuth `?code=` return that established a session), re-read
+  // the persisted invite intent and feed it into the gate DETERMINISTICALLY,
+  // rather than depending on the empty-deps cold-start one-shot having already
+  // resolved. Idempotent: if the cold-start effect already set the same intent,
+  // SET_PENDING_INVITE_INTENT just re-sets the identical slice; if there is no
+  // persisted intent (a normal Google sign-in with no invite), the load returns
+  // null and we leave the gate un-mounted. Stale/malformed intents are dropped
+  // inside the load helper. The token is never logged. setAuthCallback runs
+  // FIRST so the flag flip is never delayed by the async load (the gate mounts
+  // on the next render; the dispatched intent lands in the same or the
+  // immediately-following commit, both before the gate's auto-accept effect,
+  // which itself awaits lookupInviteByToken). The cold-start branch-2 re-read
+  // (the empty-deps effect above) is RETAINED — the two paths are
+  // complementary and both idempotent.
+  const handleAuthCallbackDone = React.useCallback(async () => {
+    setAuthCallback({ active: false, url: '' });
+    try {
+      const persisted = await loadPendingInviteIntentFromStorage(
+        new Date().toISOString(),
+      );
+      if (persisted) {
+        dispatch({ type: 'SET_PENDING_INVITE_INTENT', intent: persisted });
+      }
+    } catch {
+      // Non-fatal — load never throws by contract; the try/catch is belt-and-
+      // suspenders so a storage anomaly can never block leaving the callback.
+    }
+  }, [dispatch]);
+
   // BRAND-001 — Tapping the header logo deselects the active debate and
   // returns to the gallery. Implemented by re-dispatching SIGNED_IN
   // (the same path `useCurrentDebate.deselectDebate` uses). No router,
@@ -330,7 +360,10 @@ function AppRoot() {
     content = (
       <AuthCallbackScreen
         capturedUrl={authCallback.url}
-        onDone={() => setAuthCallback({ active: false, url: '' })}
+        // AUTH-GOOGLE-SSO-005 (#748) — deterministic invite-intent re-read on
+        // callback-done (named callback, not the bare inline setAuthCallback)
+        // so a Google `?code=` return resumes the invite gate deterministically.
+        onDone={handleAuthCallbackDone}
       />
     );
   } else if (state.status === 'unconfigured') {
