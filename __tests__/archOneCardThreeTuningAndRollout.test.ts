@@ -21,6 +21,7 @@ import {
   DRAINER_MAX_ATTEMPTS,
   DRAINER_RETRY_BACKOFF_SECONDS,
   DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS,
+  DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS,
   CLASSIFIER_QUEUE_ROUTING_PERCENTAGE_ENV,
   CLASSIFIER_QUEUE_SMOKE_TAG,
   parseRoutingPercentage,
@@ -37,29 +38,60 @@ describe('ARCH-001 Card 3 — DRAINER_MAX_ATTEMPTS=4 + provider_server_error bac
     expect(DRAINER_RETRY_BACKOFF_SECONDS).toEqual([30, 120]);
   });
 
-  it('C3-RP-3 — provider_server_error schedule is [60, 180, 360] (Card-3 new)', () => {
-    expect(DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS).toEqual([60, 180, 360]);
+  it('C3-RP-3 — provider_server_error schedule is [60, 180, 360, 600] (retry-budget fix extended the tail)', () => {
+    expect(DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS).toEqual([60, 180, 360, 600]);
   });
 
-  it('C3-RP-4 — api_error + provider_server_error sub-reason uses NEW schedule on attempts 1, 2, 3', () => {
+  it('C3-RP-4 — api_error + provider_server_error uses the [60,180,360,600] schedule on attempts 1–4', () => {
     const a1 = classifyDrainerFailure('api_error', 1, 'provider_server_error');
     const a2 = classifyDrainerFailure('api_error', 2, 'provider_server_error');
     const a3 = classifyDrainerFailure('api_error', 3, 'provider_server_error');
+    const a4 = classifyDrainerFailure('api_error', 4, 'provider_server_error');
     expect(a1.disposition).toBe('retry');
     expect(a1.backoffSeconds).toBe(60);
     expect(a2.disposition).toBe('retry');
     expect(a2.backoffSeconds).toBe(180);
     expect(a3.disposition).toBe('retry');
     expect(a3.backoffSeconds).toBe(360);
+    expect(a4.disposition).toBe('retry');
+    expect(a4.backoffSeconds).toBe(600);
   });
 
-  it('C3-RP-5 — api_error + provider_server_error at attempt 4 → dead_letter (NOT retry)', () => {
-    const d = classifyDrainerFailure('api_error', DRAINER_MAX_ATTEMPTS, 'provider_server_error');
+  it('C3-RP-5 — api_error + provider_server_error dead-letters at its OWN cap (attempt 5), not at 4', () => {
+    // Retry-budget fix: provider_server_error gets DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS (5),
+    // so attempt 4 still RETRIES (the new +600 tier) and dead_letter only fires at attempt 5.
+    const a4 = classifyDrainerFailure('api_error', DRAINER_MAX_ATTEMPTS, 'provider_server_error');
+    expect(a4.disposition).toBe('retry');
+    expect(a4.backoffSeconds).toBe(600);
+
+    const d = classifyDrainerFailure(
+      'api_error',
+      DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS,
+      'provider_server_error',
+    );
     expect(d.disposition).toBe('dead_letter');
     expect(d.deadLetterReason).toBe('retry_attempts_exhausted');
     expect(d.failureReason).toBe('mcp_api_error');
     expect(d.failureSubReason).toBe('provider_server_error');
     expect(d.backoffSeconds).toBe(0);
+  });
+
+  it('C3-RP-5b — provider_server_error cap is 5 (one tier above the default 4); schedule has cap-1 transitions', () => {
+    expect(DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS).toBe(5);
+    expect(DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS).toBeGreaterThan(DRAINER_MAX_ATTEMPTS);
+    expect(DRAINER_PROVIDER_SERVER_ERROR_BACKOFF_SECONDS).toHaveLength(
+      DRAINER_PROVIDER_SERVER_ERROR_MAX_ATTEMPTS - 1,
+    );
+  });
+
+  it('C3-RP-5c — ISOLATION: the higher cap is provider_server_error-ONLY; other retryable classes still dead-letter at 4', () => {
+    // At attempt 4, provider_server_error retries (extended budget) but every
+    // other retryable class dead-letters — proving the cap change is scoped.
+    expect(classifyDrainerFailure('api_error', 4, 'provider_server_error').disposition).toBe('retry');
+    expect(classifyDrainerFailure('network_error', 4, 'provider_network_error').disposition).toBe('dead_letter');
+    expect(classifyDrainerFailure('rate_limited', 4, 'provider_rate_limited').disposition).toBe('dead_letter');
+    // A non-provider_server_error api_error sub-reason also stays on the default cap.
+    expect(classifyDrainerFailure('api_error', 4, 'provider_capacity_exhausted').disposition).toBe('dead_letter');
   });
 
   it('C3-RP-6 — api_error with DIFFERENT sub-reason uses DEFAULT schedule (not the provider_server_error one)', () => {
