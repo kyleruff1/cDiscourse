@@ -255,9 +255,61 @@ ${MODEL_INFO_EMISSION_DIRECTIVE}
 The object MUST conform to this shape:
 ${responseShape}
 
-Every key in observations MUST also appear in confidence and evidenceSpan (use null in
-evidenceSpan when no anchoring quote exists). Every key in checkedRawKeys MUST appear in
-observations.
+STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every rule below.
+
+1. KEY-SET EQUALITY. The four sets — checkedRawKeys (as a set), observations keys, confidence
+   keys, and evidenceSpan keys — MUST be identical. Same exact rawKey strings, same count, no
+   extras, no omissions, no duplicates. If these four sets differ by even one entry, the
+   packet is rejected and the cell will retry or dead-letter.
+
+2. INCLUDE EVERY REQUESTED RAWKEY EXACTLY ONCE. The resolution-progress questions block above
+   lists the rawKeys you must evaluate. Each of those rawKeys MUST appear exactly once in
+   checkedRawKeys, observations, confidence, AND evidenceSpan. Do NOT silently drop any
+   requested rawKey — including synthesis_proposed, common_ground_identified,
+   concedes_broader_point, or any other resolution-progress state. Do NOT introduce a rawKey
+   that was not in the requested set.
+
+3. EVIDENCESPAN VALUE TYPE. Each evidenceSpan[rawKey] value is EITHER:
+   (a) a short string copied or paraphrased from the supplied move/parent/thread-context text,
+       up to 240 characters, OR
+   (b) the JSON literal null.
+   NEVER an object. NEVER an array. NEVER a boolean. NEVER a number. NEVER a missing entry
+   (use null instead). This rule applies uniformly to EVERY rawKey — no resolution-progress
+   state has a special nested or structured evidenceSpan shape. synthesis_proposed uses the
+   same string-or-null shape as every other resolution-progress key.
+
+4. NULL EVIDENCESPAN FOR FALSE OBSERVATIONS. When observations[rawKey] is false, set
+   evidenceSpan[rawKey] to null. A negative observation does not need an anchoring quote.
+   When observations[rawKey] is true, evidenceSpan[rawKey] SHOULD be a concise quote anchored
+   in the input text; if no anchoring text actually exists in the input, set
+   observations[rawKey] back to false and evidenceSpan[rawKey] to null rather than emitting
+   an unanchored or fabricated quote.
+
+5. SELF-CHECK BEFORE EMITTING. Before you return the JSON, verify all of:
+   - The length of checkedRawKeys equals the key count of observations, of confidence, and of
+     evidenceSpan.
+   - The exact rawKey strings in checkedRawKeys appear as keys in observations, in confidence,
+     and in evidenceSpan — no rename, no typo, no case drift.
+   - Every evidenceSpan value is a string (≤ 240 chars) or null — no other type.
+   - No requested rawKey has been silently dropped; no rawKey beyond the requested set has
+     been introduced.
+   If any check fails, regenerate the packet rather than emit it.
+
+6. RAWKEY-SHAPE REINFORCEMENT — synthesis_proposed.
+   synthesis_proposed records that the move proposes combining BOTH sides' elements. Even
+   though the underlying structural state references multiple sides, the evidenceSpan entry
+   for synthesis_proposed uses the exact same string-or-null shape as every other rawKey.
+   Allowed values for evidenceSpan.synthesis_proposed:
+   (a) a single JSON string up to 240 characters that anchors the synthesis-proposal pattern
+       in the move (a concise paraphrase, not a structured by-side breakdown); OR
+   (b) the JSON literal null.
+   Not allowed: a JSON object such as { "sideA": "…", "sideB": "…" } or { "from_X": "…",
+       "from_Y": "…" }; a JSON array such as [ "side a position", "side b position" ]; a
+   boolean; a number; a missing entry; a string longer than 240 characters. If the
+   anchoring text would exceed 240 characters, choose a concise sub-span or paraphrase rather
+   than truncating mid-sentence; if no single anchor span fits, set the value to null. When
+   observations.synthesis_proposed is false, the value MUST be null. The validator rejects
+   every non-string non-null value at the exact path evidenceSpan.synthesis_proposed.
 
 Conservative-positives bias: do NOT mark all rawKeys true. Resolution-progress signals are usually
 sparse — most moves exhibit 0 to 2 states; few exhibit more than 4. When unsure, answer false with
