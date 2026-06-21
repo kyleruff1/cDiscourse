@@ -143,12 +143,18 @@ describe('AUTH-GOOGLE-SSO-003 (#746) — enabled state', () => {
     mockRuntimeEnv.value = { [GOOGLE_AUTH_ENABLED_FLAG]: 'true' };
   });
 
-  it('renders the "Continue with Google" button (by testID, text, and a11y label)', () => {
-    const { getByTestId, getByText, getByLabelText } = render(<AuthScreen />);
+  it('renders the official Google "Continue with Google" button (by testID, a11y label, and image)', () => {
+    // AUTH-GOOGLE-SSO-BRAND-001 (#778) — the affordance is now the official
+    // Google button IMAGE inside a Pressable. The "Continue with Google" text is
+    // baked into the image, so it is NO LONGER a queryable Text node — the
+    // accessible name lives on the Pressable's accessibilityLabel and the image
+    // renders under its own testID.
+    const { getByTestId, getByLabelText } = render(<AuthScreen />);
     expect(getByTestId('auth-provider-google-button')).toBeTruthy();
-    expect(getByText(CONTINUE_WITH_GOOGLE_LABEL)).toBeTruthy();
-    expect(getByText('Continue with Google')).toBeTruthy();
+    expect(getByLabelText(CONTINUE_WITH_GOOGLE_LABEL)).toBeTruthy();
     expect(getByLabelText('Continue with Google')).toBeTruthy();
+    // The official Google button image renders inside the Pressable.
+    expect(getByTestId('auth-provider-google-icon')).toBeTruthy();
   });
 
   it('does NOT render the provider-unavailable "coming soon" notice when enabled', () => {
@@ -192,12 +198,29 @@ describe('AUTH-GOOGLE-SSO-003 (#746) — enabled state', () => {
     expect(queryByText(/apple/i)).toBeNull();
   });
 
-  it('renders the Google affordance via the Button primitive (role=button, tap target)', () => {
+  it('renders the Google affordance as a Pressable (role=button, named, 44px tap target)', () => {
+    // AUTH-GOOGLE-SSO-BRAND-001 (#778) — the affordance is a Pressable wrapping
+    // the official Google image. The Pressable carries the button role + the
+    // accessible name; the minHeight:44 + hitSlop keep the tap target at floor
+    // even though the visible image is 48 tall.
     const { getByTestId } = render(<AuthScreen />);
     const button = getByTestId('auth-provider-google-button');
-    // Button renders a Pressable with accessibilityRole="button"; the
-    // minHeight:48 ≥ 44 tap-target floor is a Button invariant.
     expect(button.props.accessibilityRole).toBe('button');
+    expect(button.props.accessibilityLabel).toBe(CONTINUE_WITH_GOOGLE_LABEL);
+    const flatStyle = Array.isArray(button.props.style)
+      ? Object.assign({}, ...button.props.style)
+      : button.props.style;
+    expect(flatStyle.minHeight).toBeGreaterThanOrEqual(44);
+  });
+
+  it('the Google button image is decorative (not separately announced) — name is on the Pressable', () => {
+    // The official asset has its text baked in; exposing the image to screen
+    // readers would double-announce. The Pressable owns the accessible name.
+    const { getByTestId } = render(<AuthScreen />);
+    const icon = getByTestId('auth-provider-google-icon');
+    expect(icon.props.accessible).toBe(false);
+    // resizeMode="contain" guarantees the official proportions are never stretched.
+    expect(icon.props.resizeMode).toBe('contain');
   });
 });
 

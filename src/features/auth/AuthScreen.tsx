@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
 import { TextInputField } from '../../components/TextInputField';
@@ -25,6 +25,25 @@ import { signInWithGoogle } from './signInWithGoogle';
 // The masthead/header logo (`civic-discourse-logo.png` wired into
 // AppHeader) is a SEPARATE asset and is untouched by this card.
 const SIGNIN_LOCKUP = require('../../../assets/branding/lockup-horizontal.png');
+
+// AUTH-GOOGLE-SSO-BRAND-001 (#778) — the OFFICIAL Google sign-in web button
+// asset (light theme, rounded, continue-with variant — the multicolor G mark +
+// Roboto wordmark are baked into the image by Google; the visible label text is
+// the CONTINUE_WITH_GOOGLE_LABEL constant rendered by Google into the art,
+// unmodified, light_rd_ctn @4x, 756×160 px, aspect 4.725). Per Google's brand
+// guidelines this asset must NOT be recolored, redrawn, or distorted. The
+// require path MUST match the SIGNIN_LOCKUP form above (`../../../assets/
+// branding/`) so Metro/Netlify resolves it in the real web bundle — getting it
+// wrong passes jest (mocked) but breaks the bundle, so it is verified via
+// `npm run web:build`.
+const GOOGLE_CONTINUE_LIGHT = require('../../../assets/branding/google-continue-light.png');
+// The official asset is 756×160 (aspect 4.725). React Native Web does NOT honor
+// an `aspectRatio` style to derive an Image's height from its width, so width is
+// set EXPLICITLY from the height to preserve the official proportions exactly:
+// 48 × 4.725 ≈ 227. `contain` guards against any sub-pixel drift.
+const GOOGLE_BUTTON_HEIGHT = 48;
+const GOOGLE_BUTTON_ASPECT = 4.725;
+const GOOGLE_BUTTON_WIDTH = Math.round(GOOGLE_BUTTON_HEIGHT * GOOGLE_BUTTON_ASPECT);
 
 type Mode = 'signin' | 'signup';
 
@@ -159,22 +178,39 @@ export function AuthScreen() {
       <View style={styles.providerRegion} testID="auth-provider-slot-region">
         {providerRegion.hasVisibleProvider ? (
           // AUTH-GOOGLE-SSO-003 (#746) — live Google sign-in affordance.
-          // Gated by resolveGoogleAuthEnabled() (default OFF). The label comes
-          // from the CONTINUE_WITH_GOOGLE_LABEL constant (NOT a literal — keeps
-          // this file's "no provider-button literal" source guard green). onPress
-          // initiates the Google sign-in via the signInWithGoogle wrapper (the
-          // only file that may name the provider call). The wrapper never throws,
-          // so the unawaited promise has no in-screen consumer and no floating
+          // Gated by resolveGoogleAuthEnabled() (default OFF). onPress initiates
+          // the Google sign-in via the signInWithGoogle wrapper (the only file
+          // that may name the provider call). The wrapper never throws, so the
+          // unawaited promise has no in-screen consumer and no floating
           // rejection. Email/password below is unchanged.
+          //
+          // AUTH-GOOGLE-SSO-BRAND-001 (#778) — the affordance is now the OFFICIAL
+          // Google web button IMAGE (multicolor G + wordmark baked in by Google)
+          // wrapped in a Pressable, replacing the generic text Button. The
+          // Pressable carries the button role + the accessible name from the
+          // CONTINUE_WITH_GOOGLE_LABEL constant (NOT a literal — keeps this file's
+          // "no provider-button literal" source guard green); the Image is
+          // decorative (accessible={false}) since its text is visual only. Touch
+          // target is ≥44px tall (48 visible + hitSlop).
           <View testID="auth-provider-region">
-            <Button
-              label={CONTINUE_WITH_GOOGLE_LABEL}
+            <Pressable
               onPress={() => {
                 void signInWithGoogle();
               }}
-              variant="secondary"
+              accessibilityRole="button"
+              accessibilityLabel={CONTINUE_WITH_GOOGLE_LABEL}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.googleButton}
               testID="auth-provider-google-button"
-            />
+            >
+              <Image
+                source={GOOGLE_CONTINUE_LIGHT}
+                style={styles.googleButtonImage}
+                resizeMode="contain"
+                accessible={false}
+                testID="auth-provider-google-icon"
+              />
+            </Pressable>
           </View>
         ) : (
           <Text
@@ -291,6 +327,23 @@ const styles = StyleSheet.create({
   },
   // UX-COPY-BATCH-002 (#740/#760) — provider-slot region (email-only default).
   providerRegion: { marginBottom: 8, gap: 4 },
+  // AUTH-GOOGLE-SSO-BRAND-001 (#778) — Pressable wrapping the official Google
+  // button image. Centered horizontally; minHeight keeps the touch target at
+  // the 44px floor even though the visible image is 48 tall. No indigo primary
+  // styling — the official asset IS the button surface and must not be re-skinned.
+  googleButton: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingVertical: 2,
+  },
+  // Explicit width + height preserve the official 4.725 aspect (RN Web ignores
+  // aspectRatio); contain prevents any distortion.
+  googleButtonImage: {
+    width: GOOGLE_BUTTON_WIDTH,
+    height: GOOGLE_BUTTON_HEIGHT,
+  },
   providerUnavailable: {
     fontSize: 13,
     color: BRAND.text.muted,
