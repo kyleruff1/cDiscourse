@@ -104,3 +104,38 @@ describe('googleAuthGate — resolveGoogleAuthEnabled (enabled)', () => {
     expect(resolveGoogleAuthEnabled()).toBe(true);
   });
 });
+
+describe('AUTH-GOOGLE-SSO-GATE-FIX-001 (#776) — static EXPO_PUBLIC_GOOGLE_AUTH_ENABLED read', () => {
+  // The gate now reads process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED via STATIC dot
+  // access (so Expo/Metro inlines it on web). These cases set that exact env key
+  // by its literal name to prove the static-access path still resolves the flag
+  // at runtime (Node) and stays default-OFF for every non-'true' value.
+  it("returns true when EXPO_PUBLIC_GOOGLE_AUTH_ENABLED === 'true' (static read, shim empty)", () => {
+    mockReadRuntimeEnv.mockReturnValue({});
+    process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED = 'true';
+    expect(resolveGoogleAuthEnabled()).toBe(true);
+  });
+
+  it.each(['false', '', '1', 'TRUE'])(
+    'returns false when EXPO_PUBLIC_GOOGLE_AUTH_ENABLED is %p (default OFF, static read)',
+    (value) => {
+      mockReadRuntimeEnv.mockReturnValue({});
+      process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED = value;
+      expect(resolveGoogleAuthEnabled()).toBe(false);
+    },
+  );
+
+  it('returns false when EXPO_PUBLIC_GOOGLE_AUTH_ENABLED is unset/undefined (default OFF)', () => {
+    mockReadRuntimeEnv.mockReturnValue({});
+    delete process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED;
+    expect(process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED).toBeUndefined();
+    expect(resolveGoogleAuthEnabled()).toBe(false);
+  });
+
+  it("returns false when SUPABASE_CONFIGURED is false even with the static env set to 'true'", () => {
+    mockSupabaseConfigured.value = false;
+    mockReadRuntimeEnv.mockReturnValue({});
+    process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED = 'true';
+    expect(resolveGoogleAuthEnabled()).toBe(false);
+  });
+});

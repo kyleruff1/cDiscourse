@@ -16,6 +16,15 @@
  * Resolution order mirrors src/lib/supabase.ts: the runtime-env shim
  * (window.__CDISCOURSE_RUNTIME_ENV__, surfaced via readRuntimeEnv()) first, then
  * process.env (native + local dev).
+ *
+ * AUTH-GOOGLE-SSO-GATE-FIX-001 (#776): the process.env read MUST be a STATIC
+ * member expression (`process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED`).
+ * babel-preset-expo inlines `EXPO_PUBLIC_*` values ONLY for static dot access at
+ * web-bundle build time; a DYNAMIC computed read (bracket-indexed by a variable)
+ * is left un-inlined and resolves to `undefined` in the web bundle (no Node
+ * process.env), which forced the gate OFF even when the Netlify flag was set to
+ * 'true'. The dynamic form passed jest only because Node has a real process.env.
+ * Keep this the ONLY `process.env` reference and keep it static dot access.
  */
 import { SUPABASE_CONFIGURED, readRuntimeEnv } from '../../lib/supabase';
 
@@ -31,15 +40,19 @@ export const GOOGLE_AUTH_ENABLED_FLAG = 'EXPO_PUBLIC_GOOGLE_AUTH_ENABLED' as con
  * NOTE: the runtime-env shim type in supabase.ts declares only the three
  * EXPO_PUBLIC_* slots it projects, so readRuntimeEnv() does not surface this
  * flag in production. The gate reads it defensively via a Record cast (so a test
- * that stubs readRuntimeEnv to return the flag still works) AND consults
- * process.env directly (the production path on native + local dev). The exact
- * `=== 'true'` string check keeps the default OFF for unset / 'false' / '1' /
- * 'TRUE' / '' and every other value.
+ * that stubs readRuntimeEnv to return the flag still works; this is a real-object
+ * access, NOT a process.env inlining concern) AND consults process.env via a
+ * STATIC dot access (the production path on native + local dev, and the path
+ * Metro inlines for the web bundle — see the module doc comment / #776). The
+ * exact `=== 'true'` string check keeps the default OFF for unset / 'false' /
+ * '1' / 'TRUE' / '' and every other value.
  */
 export function resolveGoogleAuthEnabled(): boolean {
   if (!SUPABASE_CONFIGURED) return false;
   const fromRuntime = (readRuntimeEnv() as Record<string, unknown>)[GOOGLE_AUTH_ENABLED_FLAG];
-  const fromEnv = process.env[GOOGLE_AUTH_ENABLED_FLAG];
+  // STATIC dot access REQUIRED — Expo/Metro inlines EXPO_PUBLIC_* only for static
+  // member expressions; a dynamic bracket-indexed read is not inlined (#776 defect).
+  const fromEnv = process.env.EXPO_PUBLIC_GOOGLE_AUTH_ENABLED;
   const value = typeof fromRuntime === 'string' ? fromRuntime : fromEnv;
   return value === 'true';
 }
