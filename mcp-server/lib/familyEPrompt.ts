@@ -285,6 +285,42 @@ STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every
    exists, in which case set the observation back to false). The validator rejects every
    non-string non-null value at the exact path evidenceSpan.abductive_explanation_present.
 
+7. RAWKEY-SHAPE REINFORCEMENT — convergent_premise_structure.
+   convergent_premise_structure is the SCHEME where premises each INDEPENDENTLY support
+   the conclusion. The shape of that inference is multi-premise by definition, BUT the
+   evidenceSpan entry is NOT a per-premise structure. The evidenceSpan entry uses the
+   exact same string-or-null shape as every other rawKey. Allowed values for
+   evidenceSpan.convergent_premise_structure:
+   (a) a single JSON string up to 240 characters that anchors the convergent-premise
+       pattern in the move (a concise paraphrase of one anchoring phrase from the move,
+       not the whole list of premises); OR
+   (b) the JSON literal null.
+   Not allowed: a JSON array such as [ "premise 1", "premise 2", "premise 3" ]; a JSON
+   object such as { "premise_a": "…", "premise_b": "…" }; a boolean; a number; a missing
+   entry; a string longer than 240 characters. If the move's anchoring text would exceed
+   240 characters, choose a concise sub-span or paraphrase rather than truncating
+   mid-sentence; if no single anchor span fits, set the value to null. When
+   observations.convergent_premise_structure is false, the value MUST be null. The
+   validator rejects every non-string non-null value at the exact path
+   evidenceSpan.convergent_premise_structure.
+
+8. RAWKEY-SHAPE REINFORCEMENT — tradeoff_reasoning_present.
+   tradeoff_reasoning_present is the SCHEME where the move weighs tradeoffs across two
+   or more considerations. Even though the underlying pattern has multiple sides, the
+   evidenceSpan entry uses the exact same string-or-null shape as every other rawKey.
+   Allowed values for evidenceSpan.tradeoff_reasoning_present:
+   (a) a single JSON string up to 240 characters that anchors the tradeoff-weighing
+       pattern in the move (a concise paraphrase, not a pro/con table); OR
+   (b) the JSON literal null.
+   Not allowed: a JSON object such as { "pro": "…", "con": "…" } or { "benefit": "…",
+       "cost": "…" }; a JSON array such as [ "pro side", "con side" ]; a boolean; a number;
+   a missing entry; a string longer than 240 characters. If the anchoring text would
+   exceed 240 characters, choose a concise sub-span or paraphrase rather than truncating
+   mid-sentence; if no single anchor span fits, set the value to null. When
+   observations.tradeoff_reasoning_present is false, the value MUST be null. The
+   validator rejects every non-string non-null value at the exact path
+   evidenceSpan.tradeoff_reasoning_present.
+
 Conservative-positives bias: do NOT mark all rawKeys true. Schemes are usually sparse —
 most moves exhibit 0 to 2 schemes; few exhibit more than 4. When unsure, answer false
 with low or medium confidence. Tone alone is not a scheme; substantive inferential weight

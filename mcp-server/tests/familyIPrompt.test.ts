@@ -193,8 +193,21 @@ Deno.test('Family I user prompt instructs model to provide confidence on every r
   if (!prompt.includes('low|medium|high')) {
     throw new Error('Family I prompt missing confidence band enumeration');
   }
-  if (!prompt.includes('Every key in observations MUST also appear in confidence')) {
-    throw new Error('Family I prompt missing observations/confidence coordination requirement');
+  // MCP-EGI-002: the weak two-rule hint ("Every key in observations MUST also
+  // appear in confidence") was replaced by the STRICT RESPONSE-SHAPE CONTRACT
+  // block (parity with Family E). The intent — that observations / confidence
+  // / evidenceSpan keys must coordinate — is preserved and strengthened.
+  const referencesObservations = /\bobservations\b/.test(prompt);
+  const referencesConfidence = /\bconfidence\b/.test(prompt);
+  const assertsCoordination =
+    /(identical|same\s+exact|exactly\s+the\s+same)/i.test(prompt) &&
+    /(checkedRawKeys|observations|confidence|evidenceSpan)[\s\S]{0,800}?(checkedRawKeys|observations|confidence|evidenceSpan)/i.test(
+      prompt,
+    );
+  if (!(referencesObservations && referencesConfidence && assertsCoordination)) {
+    throw new Error(
+      'Family I prompt missing observations/confidence coordination requirement (expected the STRICT RESPONSE-SHAPE CONTRACT block)',
+    );
   }
 });
 
@@ -459,6 +472,178 @@ Deno.test('Family I 2 misreadable keys each carry the "MUST NOT contain" enumera
     if (!entry.falsePositiveGuards.includes('MUST NOT contain')) {
       throw new Error(
         `${rawKey} falsePositiveGuards missing "MUST NOT contain" enumeration (misreadable-key binding)`,
+      );
+    }
+  }
+});
+
+// ── MCP-EGI-002 — Family I strict response-shape contract + compares_options
+//                  per-key reinforcement ──
+//
+// 2026-06-21 D3 surfaced hosted-MCP `validation_failed` at path
+// `evidenceSpan.compares_options` after Anthropic HTTP 200, masked by the
+// Edge as `provider_server_error`. The Family I prompt previously carried only
+// a weak two-rule coordination hint. This card lifts Family E's STRICT
+// RESPONSE-SHAPE CONTRACT block into Family I and adds rule 6 for
+// compares_options. The exact live rejected shape was NOT confirmed (the
+// validator detail is structurally suppressed); these tests guard all four
+// possible live shapes — length>240, value-type, missing entry, extra entry —
+// without claiming which one occurred.
+
+Deno.test('Family I user prompt: declares a strict response-shape contract block (MCP-EGI-002)', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  if (!/STRICT\s+RESPONSE-SHAPE\s+CONTRACT/i.test(prompt)) {
+    throw new Error(
+      'Family I user prompt is missing the STRICT RESPONSE-SHAPE CONTRACT block (MCP-EGI-002)',
+    );
+  }
+});
+
+Deno.test('Family I user prompt: enforces bidirectional key-set equality across the four maps (MCP-EGI-002)', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  const referencesAllFour =
+    /checkedRawKeys/.test(prompt) &&
+    /observations/.test(prompt) &&
+    /confidence/.test(prompt) &&
+    /evidenceSpan/.test(prompt);
+  if (!referencesAllFour) {
+    throw new Error(
+      'Family I user prompt does not reference all four packet maps (checkedRawKeys / observations / confidence / evidenceSpan)',
+    );
+  }
+  const equalityAsserted =
+    /(identical|same\s+exact|key[-\s]set\s+equality|exactly\s+(once|the\s+same))/i.test(
+      prompt,
+    );
+  if (!equalityAsserted) {
+    throw new Error(
+      'Family I user prompt does not assert bidirectional key-set equality across the four packet maps',
+    );
+  }
+  if (!/no\s+extras?[,\s]+no\s+omissions?/i.test(prompt)) {
+    throw new Error(
+      'Family I user prompt does not contain the "no extras, no omissions" packet-shape guardrail',
+    );
+  }
+});
+
+Deno.test('Family I user prompt: forbids object / array / boolean / number in evidenceSpan values (MCP-EGI-002)', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  const forbids = (token: string) =>
+    new RegExp(`(NEVER|never|no)\\s+(a\\s+|an\\s+)?${token}`, 'i').test(prompt);
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!forbids(token)) {
+      throw new Error(
+        `Family I user prompt does not forbid evidenceSpan value type "${token}"`,
+      );
+    }
+  }
+  if (!/string.*null|null.*string/is.test(prompt)) {
+    throw new Error(
+      'Family I user prompt does not enumerate string-or-null as the allowed evidenceSpan value types',
+    );
+  }
+  if (!/240/.test(prompt)) {
+    throw new Error(
+      'Family I user prompt does not cite the 240-character evidenceSpan length cap',
+    );
+  }
+});
+
+Deno.test('Family I user prompt: prescribes null evidenceSpan for false observations (MCP-EGI-002)', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  const negativeNullRule =
+    /(observations\[\s*rawKey\s*\]|observations\[[^\]]*\])\s+is\s+false[^.]*?null/is.test(
+      prompt,
+    ) || /false[^.]*?evidenceSpan[^.]*?null/is.test(prompt);
+  if (!negativeNullRule) {
+    throw new Error(
+      'Family I user prompt does not prescribe null evidenceSpan for false observations',
+    );
+  }
+});
+
+Deno.test('Family I user prompt: directs a self-check before emitting the JSON (MCP-EGI-002)', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  const selfCheckPresent =
+    /(SELF-CHECK|before\s+you\s+(return|emit|output))/i.test(prompt) &&
+    /(verify|regenerate|each\s+check\s+fails)/i.test(prompt);
+  if (!selfCheckPresent) {
+    throw new Error(
+      'Family I user prompt does not direct a self-check before emitting the JSON',
+    );
+  }
+});
+
+Deno.test('Family I user prompt: declares per-rawKey shape reinforcement for compares_options (MCP-EGI-002 rule 6)', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  if (!/evidenceSpan\.compares_options/.test(prompt)) {
+    throw new Error(
+      'Family I user prompt RAWKEY-SHAPE REINFORCEMENT does not name evidenceSpan.compares_options (MCP-EGI-002)',
+    );
+  }
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+compares_options[\s\S]*?(?=RAWKEY-SHAPE\s+REINFORCEMENT|Conservative-positives\s+bias|Answer\s+each|Input\s+to\s+classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate compares_options reinforcement block');
+  }
+  const block = blockMatch[0];
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(
+        `compares_options reinforcement does not list "${token}" as not allowed`,
+      );
+    }
+  }
+  if (!/240/.test(block)) {
+    throw new Error(
+      'compares_options reinforcement does not cite the 240-char cap',
+    );
+  }
+  if (!/missing\s+entry/i.test(block)) {
+    throw new Error(
+      'compares_options reinforcement does not name missing-entry shape',
+    );
+  }
+  if (!/(string\s+up\s+to\s+240|JSON\s+string\s+up\s+to\s+240)/i.test(block)) {
+    throw new Error(
+      'compares_options reinforcement does not enumerate the allowed string-up-to-240 shape',
+    );
+  }
+  if (!/\bnull\b/.test(block)) {
+    throw new Error(
+      'compares_options reinforcement does not enumerate the allowed null shape',
+    );
+  }
+});
+
+Deno.test('Family I user prompt: STRICT block does not introduce banned verdict tokens (MCP-EGI-002)', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  const blockMatch = prompt.match(
+    /STRICT\s+RESPONSE-SHAPE\s+CONTRACT[\s\S]*?(?=Conservative-positives bias)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate the STRICT RESPONSE-SHAPE CONTRACT block for scanning');
+  }
+  const block = blockMatch[0];
+  // Family I doctrine bans verdict tokens (off-topic / derailing / evasive /
+  // dodging / rehashing / repetitive / "going in circles" / winner / loser).
+  const bannedPatterns: RegExp[] = [
+    /\boff-topic\b/i,
+    /\bderailing\b/i,
+    /\bevasive\b/i,
+    /\bdodging\b/i,
+    /\brehashing\b/i,
+    /\brepetitive\b/i,
+    /\bgoing\s+in\s+circles\b/i,
+    /\bwinner\b/i,
+    /\bloser\b/i,
+  ];
+  for (const re of bannedPatterns) {
+    if (re.test(block)) {
+      throw new Error(
+        `Family I STRICT RESPONSE-SHAPE CONTRACT block introduces banned verdict token matching ${re}`,
       );
     }
   }

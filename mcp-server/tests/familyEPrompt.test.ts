@@ -753,6 +753,169 @@ Deno.test('Family E user prompt: declares per-rawKey shape reinforcement for abd
   }
 });
 
+// ── MCP-EGI-002 — Family E per-key reinforcement for convergent_premise_structure
+//                  and tradeoff_reasoning_present ──
+//
+// Stage 6.4 D3 (2026-06-21) surfaced hosted-MCP `validation_failed` at paths
+// `evidenceSpan.convergent_premise_structure` and
+// `evidenceSpan.tradeoff_reasoning_present` after Anthropic HTTP 200, masked
+// by the Edge as `provider_server_error`. The exact live rejected shape was
+// not surfaced (the validator detail is structurally suppressed by the
+// Phase-1 leak-safety posture). These tests guard the rule-6 reinforcement
+// block that anchors all four possible live shapes — length>240, value-type,
+// missing entry, extra entry — on the two newly named rawKeys, mirroring the
+// existing `abductive_explanation_present` reinforcement byte-for-byte
+// modulo the rawKey name.
+
+Deno.test('Family E user prompt: declares per-rawKey shape reinforcement for convergent_premise_structure (MCP-EGI-002 rule 7)', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  if (!/evidenceSpan\.convergent_premise_structure/.test(prompt)) {
+    throw new Error(
+      'Family E user prompt RAWKEY-SHAPE REINFORCEMENT does not name evidenceSpan.convergent_premise_structure (MCP-EGI-002)',
+    );
+  }
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+convergent_premise_structure[\s\S]*?(?=RAWKEY-SHAPE\s+REINFORCEMENT|Conservative-positives\s+bias|Answer\s+each|Input\s+to\s+classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate convergent_premise_structure reinforcement block');
+  }
+  const block = blockMatch[0];
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(
+        `convergent_premise_structure reinforcement does not list "${token}" as not allowed`,
+      );
+    }
+  }
+  if (!/240/.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement does not cite the 240-char cap',
+    );
+  }
+  if (!/missing\s+entry/i.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement does not name missing-entry shape',
+    );
+  }
+  if (!/(string\s+up\s+to\s+240|JSON\s+string\s+up\s+to\s+240)/i.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement does not enumerate the allowed string-up-to-240 shape',
+    );
+  }
+  if (!/\bnull\b/.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement does not enumerate the allowed null shape',
+    );
+  }
+  // Guard against banned verdict tokens in the new block.
+  const bannedPatterns: RegExp[] = [
+    /\bfallacy\b/i,
+    /\bfallacious\b/i,
+    /\binvalid\b/i,
+    /\bflawed\b/i,
+    /\bwrong\b/i,
+    /\bweak\s+argument\b/i,
+    /\bbad\s+reasoning\b/i,
+    /\blogical\s+error\b/i,
+    /\bproof\s+of\b/i,
+  ];
+  for (const re of bannedPatterns) {
+    if (re.test(block)) {
+      throw new Error(
+        `convergent_premise_structure reinforcement introduces banned token matching ${re}`,
+      );
+    }
+  }
+});
+
+Deno.test('Family E user prompt: declares per-rawKey shape reinforcement for tradeoff_reasoning_present (MCP-EGI-002 rule 8)', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  if (!/evidenceSpan\.tradeoff_reasoning_present/.test(prompt)) {
+    throw new Error(
+      'Family E user prompt RAWKEY-SHAPE REINFORCEMENT does not name evidenceSpan.tradeoff_reasoning_present (MCP-EGI-002)',
+    );
+  }
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+tradeoff_reasoning_present[\s\S]*?(?=RAWKEY-SHAPE\s+REINFORCEMENT|Conservative-positives\s+bias|Answer\s+each|Input\s+to\s+classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate tradeoff_reasoning_present reinforcement block');
+  }
+  const block = blockMatch[0];
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(
+        `tradeoff_reasoning_present reinforcement does not list "${token}" as not allowed`,
+      );
+    }
+  }
+  if (!/240/.test(block)) {
+    throw new Error(
+      'tradeoff_reasoning_present reinforcement does not cite the 240-char cap',
+    );
+  }
+  if (!/missing\s+entry/i.test(block)) {
+    throw new Error(
+      'tradeoff_reasoning_present reinforcement does not name missing-entry shape',
+    );
+  }
+  if (!/(string\s+up\s+to\s+240|JSON\s+string\s+up\s+to\s+240)/i.test(block)) {
+    throw new Error(
+      'tradeoff_reasoning_present reinforcement does not enumerate the allowed string-up-to-240 shape',
+    );
+  }
+  if (!/\bnull\b/.test(block)) {
+    throw new Error(
+      'tradeoff_reasoning_present reinforcement does not enumerate the allowed null shape',
+    );
+  }
+  const bannedPatterns: RegExp[] = [
+    /\bfallacy\b/i,
+    /\bfallacious\b/i,
+    /\binvalid\b/i,
+    /\bflawed\b/i,
+    /\bwrong\b/i,
+    /\bweak\s+argument\b/i,
+    /\bbad\s+reasoning\b/i,
+    /\blogical\s+error\b/i,
+    /\bproof\s+of\b/i,
+  ];
+  for (const re of bannedPatterns) {
+    if (re.test(block)) {
+      throw new Error(
+        `tradeoff_reasoning_present reinforcement introduces banned token matching ${re}`,
+      );
+    }
+  }
+});
+
+Deno.test('Family E user prompt: existing abductive_explanation_present reinforcement is preserved (byte-equal anchors)', () => {
+  // Discipline: MCP-EGI-002 ADDS rule 7 + 8; it must not silently weaken rule 6.
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+abductive_explanation_present[\s\S]*?(?=RAWKEY-SHAPE\s+REINFORCEMENT|Conservative-positives\s+bias|Answer\s+each|Input\s+to\s+classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate abductive_explanation_present reinforcement block');
+  }
+  const block = blockMatch[0];
+  const anchors = [
+    'evidenceSpan.abductive_explanation_present',
+    'JSON string up to 240 characters',
+    'JSON literal null',
+    'nested JSON object',
+    'every other rawKey',
+  ];
+  for (const anchor of anchors) {
+    if (!block.includes(anchor)) {
+      throw new Error(
+        `abductive_explanation_present reinforcement missing preserved anchor: "${anchor}"`,
+      );
+    }
+  }
+});
+
 // OPS-MCP-MODELINFO-SHAPE-REINFORCEMENT — the shared response-envelope emission
 // directive is interpolated immediately before the response-shape JSON example.
 // Additive: the response-shape example itself is unchanged.
