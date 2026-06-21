@@ -125,8 +125,11 @@ export function AuthScreen() {
           were removed and their reserved vertical space collapsed. No voice
           copy (voice is not shipped).
           UX-BRAND-001 — presented as a restrained premium card: a soft gold
-          surface tint + gold hairline, a small gold accent rule, and the lead
-          in antique gold (contrast-safe at 8.3:1 on the dark backdrop).
+          surface tint + gold hairline and the lead in antique gold
+          (contrast-safe at 8.3:1 on the dark backdrop).
+          AUTH-GOOGLE-SSO-LAYOUT-001 (#780) — the small 40px gold accent rule
+          under the lockup was removed (purposeless/asymmetric per operator);
+          the valueProp `gap` already spaces the lockup + tagline.
           UX-BRAND-ASSETS-001 — the visible TEXT brand wordmark is replaced by
           the cream horizontal lockup IMAGE (swan-on-rock + "CivilDiscourse"
           wordmark) on a dark brand-field backing band so the cream art reads
@@ -157,10 +160,59 @@ export function AuthScreen() {
             testID="auth-brand-lockup"
           />
         </View>
-        <View style={styles.valuePropAccent} testID="auth-value-prop-accent" />
         <Text style={styles.valuePropLead} testID="auth-value-prop-lead">
           {AUTH_FIRST_RUN_COPY.tagline}
         </Text>
+      </View>
+
+      <TextInputField
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        placeholder="you@example.com"
+      />
+
+      <TextInputField
+        label="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        placeholder="At least 6 characters"
+      />
+
+      {mode === 'signup' && (
+        <TextInputField
+          label="Display name (optional)"
+          value={displayName}
+          onChangeText={setDisplayName}
+          placeholder="How others will see you"
+        />
+      )}
+
+      {displayError ? <ErrorNotice message={displayError} /> : null}
+
+      <Button
+        label={mode === 'signin' ? 'Sign In' : 'Create Account'}
+        onPress={handleSubmit}
+        loading={loading}
+        disabled={!email || !password}
+      />
+
+      {/* AUTH-GOOGLE-SSO-LAYOUT-001 (#780) — email-first order: the SSO
+          provider region + its divider now render BELOW the email Sign In
+          button and ABOVE the Sign-up toggle (they previously sat above the
+          email form). The divider leads INTO the SSO options, so its label is
+          "or continue with SSO" (PROVIDER_SSO_DIVIDER_LABEL). The divider is
+          decorative — the rules carry importantForAccessibility="no" and the
+          label is plain Text (role text), never a Pressable. */}
+      <View style={styles.providerDivider} testID="auth-provider-divider">
+        <View style={styles.providerDividerRule} importantForAccessibility="no" />
+        <Text style={styles.providerDividerLabel} accessibilityRole="text">
+          {providerRegion.dividerLabel}
+        </Text>
+        <View style={styles.providerDividerRule} importantForAccessibility="no" />
       </View>
 
       {/* UX-COPY-BATCH-002 (#740/#760) — provider-slot region. The v1 DEFAULT
@@ -168,11 +220,10 @@ export function AuthScreen() {
           future-reserved Google slot is disabled, so rendering a button would
           imply an unimplemented capability — doctrine-forbidden). Instead the
           default path shows a future-framed "coming soon" notice (a Text, NOT
-          a Pressable / Button) + an "or continue with email" divider above the
-          unchanged email/password form. The layout/order/enabled decision
-          lives in resolveAuthProviderSlotRegion() (pure model). NO provider
-          call is possible from this render path (the provider sign-in call
-          appears nowhere in this file).
+          a Pressable / Button). The layout/order/enabled decision lives in
+          resolveAuthProviderSlotRegion() (pure model). NO provider call is
+          possible from this render path (the provider sign-in call appears
+          nowhere in this file).
           #746 (AUTH-GOOGLE-SSO-003) flips a slot to enabled and renders the
           real, wired provider button inside the SAME region — zero re-layout. */}
       <View style={styles.providerRegion} testID="auth-provider-slot-region">
@@ -182,7 +233,7 @@ export function AuthScreen() {
           // the Google sign-in via the signInWithGoogle wrapper (the only file
           // that may name the provider call). The wrapper never throws, so the
           // unawaited promise has no in-screen consumer and no floating
-          // rejection. Email/password below is unchanged.
+          // rejection. The email/password form above is unchanged.
           //
           // AUTH-GOOGLE-SSO-BRAND-001 (#778) — the affordance is now the OFFICIAL
           // Google web button IMAGE (multicolor G + wordmark baked in by Google)
@@ -223,49 +274,6 @@ export function AuthScreen() {
         )}
       </View>
 
-      <View style={styles.providerDivider} testID="auth-provider-divider">
-        <View style={styles.providerDividerRule} importantForAccessibility="no" />
-        <Text style={styles.providerDividerLabel} accessibilityRole="text">
-          {providerRegion.dividerLabel}
-        </Text>
-        <View style={styles.providerDividerRule} importantForAccessibility="no" />
-      </View>
-
-      <TextInputField
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        placeholder="you@example.com"
-      />
-
-      <TextInputField
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        placeholder="At least 6 characters"
-      />
-
-      {mode === 'signup' && (
-        <TextInputField
-          label="Display name (optional)"
-          value={displayName}
-          onChangeText={setDisplayName}
-          placeholder="How others will see you"
-        />
-      )}
-
-      {displayError ? <ErrorNotice message={displayError} /> : null}
-
-      <Button
-        label={mode === 'signin' ? 'Sign In' : 'Create Account'}
-        onPress={handleSubmit}
-        loading={loading}
-        disabled={!email || !password}
-      />
-
       <Button
         label={mode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
         variant="secondary"
@@ -282,8 +290,9 @@ const styles = StyleSheet.create({
   confirmBody: { fontSize: 15, color: SURFACE_TOKENS.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 24 },
   emailHighlight: { color: CONTROL.primary.bg, fontWeight: '600' },
   // UX-BRAND-001 — premium value-prop card: soft gold surface tint + gold
-  // hairline border, generous padding, with a small gold accent rule above the
-  // lead. Restrained — gold is the lead + the thin rule + the card edge only.
+  // hairline border, generous padding. Restrained — gold is the lead + the
+  // card edge only. (AUTH-GOOGLE-SSO-LAYOUT-001 #780 removed the gold accent
+  // rule that previously sat above the lead; the `gap` spaces the contents.)
   valueProp: {
     marginBottom: 20,
     gap: 10,
@@ -292,12 +301,6 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND.accent.goldSoft,
     borderWidth: 1,
     borderColor: BRAND.accent.goldBorder,
-  },
-  valuePropAccent: {
-    width: 40,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: BRAND.accent.gold,
   },
   // UX-BRAND-ASSETS-001 — dark backing band for the cream lockup. The
   // value-prop card sits on a 10%-opacity gold tint over the near-black
