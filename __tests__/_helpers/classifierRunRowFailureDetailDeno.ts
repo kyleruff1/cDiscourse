@@ -24,6 +24,10 @@ export interface RunRowFailureDetail {
   attempt_count?: number;
   run_mode?: string;
   schema_version?: string;
+  /** MCP-EGI-003: hosted-MCP own reason (closed allowlist). */
+  mcp_tool_reason?: string;
+  /** MCP-EGI-003: closed-enum detail category. */
+  mcp_tool_detail_category?: string;
 }
 
 export interface RunRowFailureDetailInput {
@@ -34,6 +38,10 @@ export interface RunRowFailureDetailInput {
   attemptCount?: number;
   runMode?: string;
   schemaVersion?: string;
+  /** MCP-EGI-003: hosted-MCP own reason from the adapter detail. */
+  mcpToolReason?: string;
+  /** MCP-EGI-003: closed-enum detail category from the adapter detail. */
+  mcpToolDetailCategory?: string;
 }
 
 const mod = require(`${BO}/classifierRunRowFailureDetail`) as {

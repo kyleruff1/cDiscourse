@@ -385,14 +385,23 @@ describe('OPS-MCP-RESULT-VALIDATION-BURST-HARDENING Phase 3 — (h) HOSTILE serv
     expect(detail!.serverReason!.length).toBeLessThanOrEqual(200);
   });
 
-  it('SEV-15b — the adapter NEVER forwards the envelope\'s raw `detail` (no detail: arg on the build call)', () => {
+  it('SEV-15b — the adapter NEVER forwards the envelope\'s raw `detail` as a free-text input to buildFailureDetail (MCP-EGI-003 invariant)', () => {
     const block = isErrorBlock();
-    // The block reads serverReason / path / receivedKeysFrom — NOT a
-    // `detail:` field sourced from extracted.detail.
+    // The raw `extracted.detail` string MUST NOT flow as a free-text
+    // input to buildFailureDetail. The only permitted use of
+    // `extracted.detail` is as the SINGLE argument to
+    // `mcpToolDetailToCategory(...)`, which returns the closed `McpToolDetailCategory`
+    // enum or `undefined` — never the raw string.
     expect(/detail:\s*extracted\.detail/.test(block)).toBe(false);
-    expect(/extracted\.detail/.test(block)).toBe(false);
-    // It DOES carry the allowlisted inputs.
+    expect(/\bdetailCategory:\s*extracted\.detail\b/.test(block)).toBe(false);
+    // MCP-EGI-003 — the adapter DOES call mcpToolDetailToCategory on
+    // `extracted.detail` to derive the closed-enum category; that is the
+    // only path `extracted.detail` is allowed on.
+    expect(/mcpToolDetailToCategory\(\s*extracted\.detail\s*\)/.test(block)).toBe(true);
+    // The block still carries the allowlisted inputs.
     expect(block).toContain('serverReason');
     expect(block).toContain('receivedKeysFrom: extracted');
+    // …and now the closed-enum `detailCategory` is passed through.
+    expect(/\bdetailCategory\b/.test(block)).toBe(true);
   });
 });

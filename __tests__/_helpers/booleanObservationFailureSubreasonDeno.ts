@@ -52,6 +52,26 @@ export type BooleanObservationFailureSubreason =
   | 'provider_network_error'
   | 'unknown';
 
+/**
+ * MCP-EGI-003 — closed-enum categories the Edge derives from the hosted-MCP
+ * server's validator detail string (mirrors the real Deno union).
+ */
+export type McpToolDetailCategory =
+  | 'evidence_span_length_exceeded'
+  | 'evidence_span_invalid_type'
+  | 'evidence_span_key_set_missing'
+  | 'evidence_span_key_set_extra'
+  | 'confidence_key_set_missing'
+  | 'confidence_key_set_extra'
+  | 'confidence_invalid_value'
+  | 'observation_invalid_value'
+  | 'observation_key_missing_from_checked'
+  | 'schema_version_mismatch'
+  | 'missing_required_field'
+  | 'flag_count_too_high'
+  | 'doctrine_ban_list'
+  | 'unknown_validation_failed';
+
 export interface BooleanObservationFailureDetail {
   validatorReason?: McpBooleanObservationParseFailureReason;
   path?: string;
@@ -63,6 +83,8 @@ export interface BooleanObservationFailureDetail {
   family?: MachineObservationFamily;
   /** OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): scrubbed server code. */
   serverReason?: string;
+  /** MCP-EGI-003: closed-enum category derived via mcpToolDetailToCategory. */
+  detailCategory?: McpToolDetailCategory;
 }
 
 export interface FailureDetailInput {
@@ -76,21 +98,30 @@ export interface FailureDetailInput {
   family?: MachineObservationFamily;
   /** OPS-MCP-RESULT-VALIDATION-BURST-HARDENING (Phase 3): untrusted server code. */
   serverReason?: string;
+  /** MCP-EGI-003: closed-enum category from the caller. */
+  detailCategory?: McpToolDetailCategory;
 }
 
 const subreasonModule = require(`${BO}/booleanObservationFailureSubreason`) as {
   ALL_BOOLEAN_OBSERVATION_FAILURE_SUBREASONS: readonly BooleanObservationFailureSubreason[];
+  ALL_MCP_TOOL_DETAIL_CATEGORIES: readonly McpToolDetailCategory[];
+  ALLOWED_MCP_TOOL_REASONS: ReadonlySet<string>;
   mapToFailureSubreason: (
     adapterReason: BooleanObservationUnavailableReason,
     validatorReason?: McpBooleanObservationParseFailureReason,
   ) => BooleanObservationFailureSubreason | undefined;
   buildFailureDetail: (input: FailureDetailInput) => BooleanObservationFailureDetail | undefined;
+  mcpToolDetailToCategory: (detail: unknown) => McpToolDetailCategory | undefined;
 };
 
 export const EDGE_ALL_BOOLEAN_OBSERVATION_FAILURE_SUBREASONS =
   subreasonModule.ALL_BOOLEAN_OBSERVATION_FAILURE_SUBREASONS;
+export const EDGE_ALL_MCP_TOOL_DETAIL_CATEGORIES =
+  subreasonModule.ALL_MCP_TOOL_DETAIL_CATEGORIES;
+export const EDGE_ALLOWED_MCP_TOOL_REASONS = subreasonModule.ALLOWED_MCP_TOOL_REASONS;
 export const edgeMapToFailureSubreason = subreasonModule.mapToFailureSubreason;
 export const edgeBuildFailureDetail = subreasonModule.buildFailureDetail;
+export const edgeMcpToolDetailToCategory = subreasonModule.mcpToolDetailToCategory;
 
 // A known registry rawKey for the `checkedRawKey` allowlist tests — pulled
 // from the live registry mirror so the test never hard-codes a key that

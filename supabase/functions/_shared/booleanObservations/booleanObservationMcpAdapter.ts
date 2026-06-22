@@ -71,6 +71,7 @@ import type {
 import {
   mapToFailureSubreason,
   buildFailureDetail,
+  mcpToolDetailToCategory,
 } from './booleanObservationFailureSubreason.ts';
 
 /**
@@ -262,6 +263,13 @@ export async function runBooleanObservationMcpAdapter(
   // `serverReason` (UNTRUSTED — scrubbed + capped); the raw `detail` is
   // NEVER forwarded (no `detail:` arg exists on FailureDetailInput).
   if (isServerErrorEnvelope(extracted)) {
+    // MCP-EGI-003 — derive the closed-enum category from the hosted-MCP
+    // server's `detail` STRING (a structural validator string like
+    // 'value must be string or null' or 'length 241 exceeds max 240'). The
+    // mapper NEVER returns the raw `detail`; only the matched enum value
+    // (or `undefined`). The raw string is otherwise discarded here as
+    // before — the leak-safety boundary is unchanged.
+    const detailCategory = mcpToolDetailToCategory(extracted.detail);
     return {
       kind: 'unavailable',
       reason: 'api_error',
@@ -270,6 +278,7 @@ export async function runBooleanObservationMcpAdapter(
         serverReason:
           typeof extracted.reason === 'string' ? extracted.reason : undefined,
         path: typeof extracted.path === 'string' ? extracted.path : undefined,
+        detailCategory,
         receivedKeysFrom: extracted,
       }),
     };

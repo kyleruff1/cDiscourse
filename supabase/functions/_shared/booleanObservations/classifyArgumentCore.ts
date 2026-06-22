@@ -344,6 +344,12 @@ export async function classifyOneArgumentCore(
       family: eligibleFamilies[0],
       runMode: mode,
       schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      // MCP-EGI-003 — mirror the drainer's persistence so the direct-dispatch
+      // path (admin_validation + auto-trigger) also carries the hosted-MCP
+      // discriminator on the row. Both fields are closed-enum allowlisted by
+      // the builder; an unknown value is dropped silently (leak-safe).
+      mcpToolReason: unavailable.detail?.serverReason,
+      mcpToolDetailCategory: unavailable.detail?.detailCategory,
     }) ?? null;
     const runWrite = await persistRun({
       debateId: context.debateId,
