@@ -176,6 +176,7 @@ import {
   findUncleanEvidenceSpanKeys,
   dropUncleanEvidenceSpanKeys,
 } from '../lib/keyLevelFailClosed.ts';
+import { normalizeLongEvidenceSpansForBooleanObservations } from '../lib/booleanObservationEvidenceSpanNormalizer.ts';
 import { scanFamilyABooleanResponseForBanList } from '../lib/familyABanListScan.ts';
 import { scanFamilyBBooleanResponseForBanList } from '../lib/familyBBanListScan.ts';
 import { scanFamilyCBooleanResponseForBanList } from '../lib/familyCBanListScan.ts';
@@ -631,8 +632,45 @@ export async function handleClassifyArgumentBooleanObservations(
     );
   }
 
+  // Step 3.5 (MCP-EGI-006): server-side null normalization for overlong
+  // compound evidenceSpan strings. After MCP-EGI-005's prompt-side
+  // "MUST set null" instruction was proven insufficient by three D3
+  // canaries (the row evidence persists under the now-unmasked
+  // `failure_detail->>'mcp_tool_detail_category' = 'evidence_span_length_exceeded'`
+  // discriminator), we normalize the four confirmed compound rawKeys
+  // (E `tradeoff_reasoning_present` / `convergent_premise_structure`,
+  // G `synthesis_proposed`, I `compares_options`) at the server boundary,
+  // BEFORE schema validation. Doctrine preservation: an overlong string
+  // containing banned content is NOT normalized — the validator's length
+  // reject still fires, preserving the ban-list-vs-length precedence.
+  const normalization = normalizeLongEvidenceSpansForBooleanObservations(
+    providerResult.packet,
+    {
+      family: resolvedFamily,
+      schemaVersion: request.schemaVersion,
+      requestId: input.requestId,
+    },
+  );
+  for (const normalizationEvent of normalization.events) {
+    log('info', normalizationEvent.event, {
+      tool: 'classify_argument_boolean_observations',
+      family: normalizationEvent.family,
+      requestId: normalizationEvent.requestId,
+      schemaVersion: normalizationEvent.schemaVersion,
+      rawKey: normalizationEvent.rawKey,
+      path: normalizationEvent.path,
+      category: normalizationEvent.category,
+      originalLength: normalizationEvent.originalLength,
+      maxLength: normalizationEvent.maxLength,
+      mode: providerMode,
+      status: 'success',
+    });
+  }
+  const effectivePacket =
+    normalization.events.length > 0 ? normalization.packet : providerResult.packet;
+
   // Step 4: validate response against MCP-021A wire shape.
-  const responseCheck = validateMcpBooleanObservationResponse(providerResult.packet);
+  const responseCheck = validateMcpBooleanObservationResponse(effectivePacket);
   if (!responseCheck.ok) {
     log('warn', 'boolean_observations_packet_invalid', {
       requestId: input.requestId,
