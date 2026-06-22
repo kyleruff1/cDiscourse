@@ -916,6 +916,168 @@ Deno.test('Family E user prompt: existing abductive_explanation_present reinforc
   }
 });
 
+// ── MCP-EGI-005 — deterministic NULL fallback on compound length overflow ──
+//
+// MCP-EGI-004 D3 canary on 26fbeb1 + 08ef334 (Edge unmasking deployed) produced
+// row evidence that the live failure on Families E/G/I is uniformly
+// `evidence_span_length_exceeded`. The MCP-EGI-002 rule-6/7/8 reinforcement
+// left the null fallback discretionary ("if no single anchor span fits, set to
+// null"); the model is choosing length-overflow over null. MCP-EGI-005 makes
+// the fallback deterministic for the four named compound rawKeys without
+// touching the validator, the ban-list, the length cap, or retry policy.
+
+Deno.test('MCP-EGI-005 — convergent_premise_structure reinforcement makes null fallback deterministic on length overflow', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+convergent_premise_structure[\s\S]*?(?=RAWKEY-SHAPE\s+REINFORCEMENT|Conservative-positives\s+bias|Answer\s+each|Input\s+to\s+classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate convergent_premise_structure reinforcement block');
+  }
+  const block = blockMatch[0];
+  // The block must announce LENGTH FALLBACK IS NULL (the deterministic
+  // contract — distinct from the prior discretionary phrasing).
+  if (!/LENGTH\s+FALLBACK\s+IS\s+NULL/i.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement missing the LENGTH FALLBACK IS NULL anchor (MCP-EGI-005)',
+    );
+  }
+  // MUST set to null on overflow.
+  if (!/MUST\s+set\s+evidenceSpan\.convergent_premise_structure\s+to\s+null/i.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement missing the MUST-set-null instruction',
+    );
+  }
+  // When in doubt, set null.
+  if (!/When\s+in\s+doubt,\s+set\s+null/i.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement missing the When-in-doubt-set-null bias',
+    );
+  }
+  // True observation may have null evidenceSpan — the validator accepts this.
+  if (!/observations\.convergent_premise_structure:\s*true/i.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement missing the true+null example',
+    );
+  }
+  if (!/evidenceSpan\.convergent_premise_structure:\s*null/i.test(block)) {
+    throw new Error(
+      'convergent_premise_structure reinforcement missing the evidenceSpan: null example',
+    );
+  }
+  // Negative instructions — no truncation, no paraphrase, no multi-sentence.
+  if (!/Do\s+NOT\s+truncate\s+mid-sentence/i.test(block)) {
+    throw new Error('convergent_premise_structure reinforcement missing the no-truncate instruction');
+  }
+  if (!/Do\s+NOT\s+paraphrase\s+into\s+a\s+longer\s+string/i.test(block)) {
+    throw new Error('convergent_premise_structure reinforcement missing the no-longer-paraphrase instruction');
+  }
+  if (!/Do\s+NOT\s+emit\s+a\s+multi-sentence\s+span/i.test(block)) {
+    throw new Error('convergent_premise_structure reinforcement missing the no-multi-sentence instruction');
+  }
+  // Existing rule-6 type/cap forbids preserved.
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(
+        `convergent_premise_structure reinforcement no longer lists "${token}" as not allowed`,
+      );
+    }
+  }
+  // 240-char cap citation preserved.
+  if (!/240/.test(block)) {
+    throw new Error('convergent_premise_structure reinforcement no longer cites the 240-char cap');
+  }
+  // No banned verdict tokens in the new block.
+  const bannedPatterns: RegExp[] = [
+    /\bfallacy\b/i,
+    /\bfallacious\b/i,
+    /\bweak\s+argument\b/i,
+    /\bbad\s+reasoning\b/i,
+    /\blogical\s+error\b/i,
+    /\bproof\s+of\b/i,
+    /\bwinner\b/i,
+    /\bloser\b/i,
+  ];
+  for (const re of bannedPatterns) {
+    if (re.test(block)) {
+      throw new Error(
+        `convergent_premise_structure MCP-EGI-005 update introduces banned token matching ${re}`,
+      );
+    }
+  }
+});
+
+Deno.test('MCP-EGI-005 — tradeoff_reasoning_present reinforcement makes null fallback deterministic on length overflow', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+tradeoff_reasoning_present[\s\S]*?(?=RAWKEY-SHAPE\s+REINFORCEMENT|Conservative-positives\s+bias|Answer\s+each|Input\s+to\s+classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate tradeoff_reasoning_present reinforcement block');
+  }
+  const block = blockMatch[0];
+  if (!/LENGTH\s+FALLBACK\s+IS\s+NULL/i.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement missing LENGTH FALLBACK IS NULL anchor');
+  }
+  if (!/MUST\s+set\s+evidenceSpan\.tradeoff_reasoning_present\s+to\s+null/i.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement missing MUST-set-null instruction');
+  }
+  if (!/When\s+in\s+doubt,\s+set\s+null/i.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement missing When-in-doubt-set-null bias');
+  }
+  if (!/observations\.tradeoff_reasoning_present:\s*true/i.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement missing true+null example');
+  }
+  if (!/evidenceSpan\.tradeoff_reasoning_present:\s*null/i.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement missing evidenceSpan: null example');
+  }
+  if (!/Do\s+NOT\s+truncate\s+mid-sentence/i.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement missing no-truncate instruction');
+  }
+  if (!/Do\s+NOT\s+paraphrase\s+into\s+a\s+longer\s+string/i.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement missing no-longer-paraphrase instruction');
+  }
+  if (!/Do\s+NOT\s+emit\s+a\s+multi-sentence\s+span/i.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement missing no-multi-sentence instruction');
+  }
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(
+        `tradeoff_reasoning_present reinforcement no longer lists "${token}" as not allowed`,
+      );
+    }
+  }
+  if (!/240/.test(block)) {
+    throw new Error('tradeoff_reasoning_present reinforcement no longer cites the 240-char cap');
+  }
+});
+
+Deno.test('MCP-EGI-005 preservation — Family E strict response-shape contract block + abductive reinforcement still present', () => {
+  const prompt = buildFamilyEUserPrompt(buildRequest());
+  // Strict 5-rule contract block (rules 1-5) unchanged in spirit.
+  if (!/STRICT\s+RESPONSE-SHAPE\s+CONTRACT/i.test(prompt)) {
+    throw new Error('MCP-EGI-005 update lost the STRICT RESPONSE-SHAPE CONTRACT block');
+  }
+  // Abductive reinforcement byte-equal anchors preserved.
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+abductive_explanation_present[\s\S]*?(?=RAWKEY-SHAPE\s+REINFORCEMENT|Conservative-positives\s+bias|Answer\s+each|Input\s+to\s+classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('MCP-EGI-005 update lost the abductive_explanation_present reinforcement block');
+  }
+  for (const anchor of [
+    'evidenceSpan.abductive_explanation_present',
+    'JSON string up to 240 characters',
+    'JSON literal null',
+    'nested JSON object',
+    'every other rawKey',
+  ]) {
+    if (!blockMatch[0].includes(anchor)) {
+      throw new Error(`abductive_explanation_present reinforcement missing preserved anchor: "${anchor}"`);
+    }
+  }
+});
+
 // OPS-MCP-MODELINFO-SHAPE-REINFORCEMENT — the shared response-envelope emission
 // directive is interpolated immediately before the response-shape JSON example.
 // Additive: the response-shape example itself is unchanged.

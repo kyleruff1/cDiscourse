@@ -313,15 +313,24 @@ STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every
    for compares_options uses the exact same string-or-null shape as every other rawKey.
    Allowed values for evidenceSpan.compares_options:
    (a) a single JSON string up to 240 characters that anchors the comparison pattern in the
-       move (a concise paraphrase of the comparison frame, not a per-option breakdown); OR
+       move (a short anchor — soft target under 200 characters, hard limit 240); OR
    (b) the JSON literal null.
+   LENGTH FALLBACK IS NULL — NEVER OVERFLOW. compares_options is a compound structural
+   relation; the natural anchor often spans every option and every criterion and is hard
+   to compress without losing meaning. If the string you would emit is longer than 240
+   characters, OR if you are not confident you can keep it under 240 characters, you MUST
+   set evidenceSpan.compares_options to null. Do NOT truncate mid-sentence. Do NOT
+   paraphrase into a longer string. Do NOT emit a multi-sentence span. Do NOT quote the
+   whole option-by-criterion comparison. When in doubt, set null. A true observation is
+   fully valid with a null evidenceSpan for this rawKey — the validator accepts:
+       observations.compares_options: true
+       evidenceSpan.compares_options: null
    Not allowed: a JSON object such as { "option_a": "…", "option_b": "…" } or { "optionA": "…",
        "criteria": "…" }; a JSON array such as [ "option 1", "option 2" ]; a boolean; a number;
-   a missing entry; a string longer than 240 characters. If the anchoring text would exceed
-   240 characters, choose a concise sub-span or paraphrase rather than truncating
-   mid-sentence; if no single anchor span fits, set the value to null. When
-   observations.compares_options is false, the value MUST be null. The validator rejects
-   every non-string non-null value at the exact path evidenceSpan.compares_options.
+   a missing entry; a string longer than 240 characters. When observations.compares_options
+   is false, the value MUST be null (unchanged). The validator rejects every non-string
+   non-null value, and every string longer than 240 characters, at the exact path
+   evidenceSpan.compares_options.
 
 Conservative-positives bias: do NOT mark all rawKeys true. Thread-topology signals are usually
 sparse — most moves exhibit 0 to 2 relations; many moves stay on the parent's topic and exhibit

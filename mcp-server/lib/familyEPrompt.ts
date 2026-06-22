@@ -292,16 +292,25 @@ STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every
    exact same string-or-null shape as every other rawKey. Allowed values for
    evidenceSpan.convergent_premise_structure:
    (a) a single JSON string up to 240 characters that anchors the convergent-premise
-       pattern in the move (a concise paraphrase of one anchoring phrase from the move,
-       not the whole list of premises); OR
+       pattern in the move (a short anchor — soft target under 200 characters, hard
+       limit 240); OR
    (b) the JSON literal null.
+   LENGTH FALLBACK IS NULL — NEVER OVERFLOW. convergent_premise_structure is a compound
+   structural pattern; the natural anchor often spans multiple clauses or premises and
+   is hard to compress without losing meaning. If the string you would emit is longer
+   than 240 characters, OR if you are not confident you can keep it under 240 characters,
+   you MUST set evidenceSpan.convergent_premise_structure to null. Do NOT truncate
+   mid-sentence. Do NOT paraphrase into a longer string. Do NOT emit a multi-sentence
+   span. Do NOT quote the whole premise list. When in doubt, set null. A true
+   observation is fully valid with a null evidenceSpan for this rawKey — the validator
+   accepts:
+       observations.convergent_premise_structure: true
+       evidenceSpan.convergent_premise_structure: null
    Not allowed: a JSON array such as [ "premise 1", "premise 2", "premise 3" ]; a JSON
    object such as { "premise_a": "…", "premise_b": "…" }; a boolean; a number; a missing
-   entry; a string longer than 240 characters. If the move's anchoring text would exceed
-   240 characters, choose a concise sub-span or paraphrase rather than truncating
-   mid-sentence; if no single anchor span fits, set the value to null. When
-   observations.convergent_premise_structure is false, the value MUST be null. The
-   validator rejects every non-string non-null value at the exact path
+   entry; a string longer than 240 characters. When observations.convergent_premise_structure
+   is false, the value MUST be null (unchanged). The validator rejects every non-string
+   non-null value, and every string longer than 240 characters, at the exact path
    evidenceSpan.convergent_premise_structure.
 
 8. RAWKEY-SHAPE REINFORCEMENT — tradeoff_reasoning_present.
@@ -310,16 +319,25 @@ STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every
    evidenceSpan entry uses the exact same string-or-null shape as every other rawKey.
    Allowed values for evidenceSpan.tradeoff_reasoning_present:
    (a) a single JSON string up to 240 characters that anchors the tradeoff-weighing
-       pattern in the move (a concise paraphrase, not a pro/con table); OR
+       pattern in the move (a short anchor — soft target under 200 characters, hard
+       limit 240); OR
    (b) the JSON literal null.
+   LENGTH FALLBACK IS NULL — NEVER OVERFLOW. tradeoff_reasoning_present is a compound
+   structural pattern; the natural anchor often spans both sides of the tradeoff and is
+   hard to compress without losing meaning. If the string you would emit is longer than
+   240 characters, OR if you are not confident you can keep it under 240 characters, you
+   MUST set evidenceSpan.tradeoff_reasoning_present to null. Do NOT truncate mid-sentence.
+   Do NOT paraphrase into a longer string. Do NOT emit a multi-sentence span. Do NOT
+   quote the whole pro/con comparison. When in doubt, set null. A true observation is
+   fully valid with a null evidenceSpan for this rawKey — the validator accepts:
+       observations.tradeoff_reasoning_present: true
+       evidenceSpan.tradeoff_reasoning_present: null
    Not allowed: a JSON object such as { "pro": "…", "con": "…" } or { "benefit": "…",
        "cost": "…" }; a JSON array such as [ "pro side", "con side" ]; a boolean; a number;
-   a missing entry; a string longer than 240 characters. If the anchoring text would
-   exceed 240 characters, choose a concise sub-span or paraphrase rather than truncating
-   mid-sentence; if no single anchor span fits, set the value to null. When
-   observations.tradeoff_reasoning_present is false, the value MUST be null. The
-   validator rejects every non-string non-null value at the exact path
-   evidenceSpan.tradeoff_reasoning_present.
+   a missing entry; a string longer than 240 characters. When
+   observations.tradeoff_reasoning_present is false, the value MUST be null (unchanged).
+   The validator rejects every non-string non-null value, and every string longer than
+   240 characters, at the exact path evidenceSpan.tradeoff_reasoning_present.
 
 Conservative-positives bias: do NOT mark all rawKeys true. Schemes are usually sparse —
 most moves exhibit 0 to 2 schemes; few exhibit more than 4. When unsure, answer false

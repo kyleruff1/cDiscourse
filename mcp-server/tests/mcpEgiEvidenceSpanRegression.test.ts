@@ -110,6 +110,19 @@ for (const testCase of EGI_KEYS) {
     assertEquals(result.ok, true);
   });
 
+  // MCP-EGI-005 — the deterministic-null-fallback contract introduced for the four
+  // compound structural rawKeys requires the validator to accept a TRUE observation
+  // paired with a null evidenceSpan. This is already permitted by the validator's
+  // string|null rule (no rule conditions evidenceSpan on the observation boolean);
+  // this test pins the behavior so the prompt-side null fallback is safe to instruct.
+  Deno.test(`MCP-EGI-005 — ${testCase.label} — ${testCase.rawKey} null accepted on TRUE observation`, () => {
+    const packet = basePacket(testCase);
+    (packet.observations as Record<string, unknown>)[testCase.rawKey] = true;
+    (packet.evidenceSpan as Record<string, unknown>)[testCase.rawKey] = null;
+    const result = validateMcpBooleanObservationResponse(packet);
+    assertEquals(result.ok, true);
+  });
+
   Deno.test(`MCP-EGI-002 — ${testCase.label} — ${testCase.rawKey} exactly 240-char string accepted`, () => {
     const packet = basePacket(testCase);
     (packet.evidenceSpan as Record<string, unknown>)[testCase.rawKey] = 'a'.repeat(

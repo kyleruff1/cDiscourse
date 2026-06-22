@@ -301,15 +301,25 @@ STRICT RESPONSE-SHAPE CONTRACT — the JSON object you return MUST satisfy every
    for synthesis_proposed uses the exact same string-or-null shape as every other rawKey.
    Allowed values for evidenceSpan.synthesis_proposed:
    (a) a single JSON string up to 240 characters that anchors the synthesis-proposal pattern
-       in the move (a concise paraphrase, not a structured by-side breakdown); OR
+       in the move (a short anchor — soft target under 200 characters, hard limit 240); OR
    (b) the JSON literal null.
+   LENGTH FALLBACK IS NULL — NEVER OVERFLOW. synthesis_proposed is a compound
+   structural state; the natural anchor often spans the combining of both sides'
+   elements and is hard to compress without losing meaning. If the string you would emit
+   is longer than 240 characters, OR if you are not confident you can keep it under 240
+   characters, you MUST set evidenceSpan.synthesis_proposed to null. Do NOT truncate
+   mid-sentence. Do NOT paraphrase into a longer string. Do NOT emit a multi-sentence
+   span. Do NOT quote the whole synthesis proposal. When in doubt, set null. A true
+   observation is fully valid with a null evidenceSpan for this rawKey — the validator
+   accepts:
+       observations.synthesis_proposed: true
+       evidenceSpan.synthesis_proposed: null
    Not allowed: a JSON object such as { "sideA": "…", "sideB": "…" } or { "from_X": "…",
        "from_Y": "…" }; a JSON array such as [ "side a position", "side b position" ]; a
-   boolean; a number; a missing entry; a string longer than 240 characters. If the
-   anchoring text would exceed 240 characters, choose a concise sub-span or paraphrase rather
-   than truncating mid-sentence; if no single anchor span fits, set the value to null. When
-   observations.synthesis_proposed is false, the value MUST be null. The validator rejects
-   every non-string non-null value at the exact path evidenceSpan.synthesis_proposed.
+   boolean; a number; a missing entry; a string longer than 240 characters. When
+   observations.synthesis_proposed is false, the value MUST be null (unchanged). The
+   validator rejects every non-string non-null value, and every string longer than 240
+   characters, at the exact path evidenceSpan.synthesis_proposed.
 
 Conservative-positives bias: do NOT mark all rawKeys true. Resolution-progress signals are usually
 sparse — most moves exhibit 0 to 2 states; few exhibit more than 4. When unsure, answer false with
