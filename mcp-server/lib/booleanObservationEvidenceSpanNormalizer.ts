@@ -21,7 +21,11 @@
  *   - For each compound rawKey in `EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS`
  *     (MCP-EGI-006 opened with 4 keys: tradeoff_reasoning_present,
  *     convergent_premise_structure, synthesis_proposed, compares_options;
- *     MCP-EGI-007 added a 5th: reason_present):
+ *     MCP-EGI-007 added a 5th: reason_present;
+ *     MCP-EGI-008 widened by 8 more on burst evidence: contrasts_with_parent,
+ *     preserves_face_while_disagreeing, provides_alternate_interpretation,
+ *     evidence_gap_present, names_method_difference, analogy_reasoning_present,
+ *     separates_normative_from_empirical, claim_present — for a final scope of 13):
  *       IF the value is a string longer than MAX_EVIDENCE_SPAN_CHARS,
  *       AND it does NOT contain doctrine-banned content under the family's
  *       byte-unchanged pattern stack,
@@ -112,13 +116,55 @@ import { banScanMatches } from './banScanNormalize.ts';
  * ...FAMILY_H_BAN_PATTERNS]` stack the Family H scanner uses. Widening this
  * set to include `reason_present` therefore requires NO dispatcher
  * rewiring, NO ban-list change, NO validator change, NO prompt edit.
+ *
+ * MCP-EGI-008 widens by exactly 8 additional rawKeys on the basis of the
+ * post-MCP-EGI-007 D3 burst/pass-load (debate
+ * `bd7b732c-306a-4c11-b5c3-9d3cafd2bbbc`, 2026-06-22T08:15:54Z; 8 targets ×
+ * 9 families = 72 cells). The canary's single-target shape exercised only
+ * the original 5 rawKeys; the burst's 8-target shape surfaced 8 additional
+ * `evidence_span_length_exceeded` rawKeys on out-of-scope keys. Burst row
+ * evidence (10 length-overflow rows across 8 distinct rawKeys; `contrasts_with_parent`
+ * recurring on 3 of 8 targets):
+ *   - `contrasts_with_parent`                  (Family A / parent_relation)
+ *   - `preserves_face_while_disagreeing`       (Family B / disagreement_axis)
+ *   - `provides_alternate_interpretation`      (Family C / misunderstanding_repair)
+ *   - `evidence_gap_present`                   (Family D / evidence_source_chain)
+ *   - `names_method_difference`                (Family D / evidence_source_chain)
+ *   - `analogy_reasoning_present`              (Family E / argument_scheme)
+ *   - `separates_normative_from_empirical`     (Family G / resolution_progress)
+ *   - `claim_present`                          (Family H / claim_clarity)
+ *
+ * Historical persisted-positives audit (read-only) confirms all 8 are real
+ * overflow surfaces (300 / 100 / 50 / 26 / 24 / 16 / 12 / 11 persisted positives
+ * respectively; max lengths 153-236 chars; `evidence_gap_present` had 36 of
+ * 300 = 12% over the 200-char soft target with one at 236).
+ *
+ * Each of the 7 newly-implicated families (A/B/C/D/E/G/H) is already a member
+ * of `KEY_LEVEL_FAIL_CLOSED_FAMILIES` and `banPatternsForKeyLevelFamily()`
+ * already composes its byte-identical ban-pattern stack — same no-divergence
+ * rule that carried forward from MCP-EGI-006/007. NO dispatcher rewiring,
+ * NO ban-list change, NO validator change, NO prompt edit required.
+ *
+ * MCP-EGI-008 does NOT include the 3 `evidence_span_key_set_missing` rawKeys
+ * the burst also surfaced (`unclear_reference_present`, `action_item_proposed`,
+ * `question_invites_revision`) — those are a different validation class and
+ * are deferred to a separate MCP-EGI-009 lane (key-set coordination, not
+ * length-overflow).
  */
 export const EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS: ReadonlySet<string> = new Set([
-  'tradeoff_reasoning_present', // Family E
-  'convergent_premise_structure', // Family E
-  'synthesis_proposed', // Family G
-  'compares_options', // Family I
+  'tradeoff_reasoning_present', // Family E — MCP-EGI-006
+  'convergent_premise_structure', // Family E — MCP-EGI-006
+  'synthesis_proposed', // Family G — MCP-EGI-006
+  'compares_options', // Family I — MCP-EGI-006
   'reason_present', // Family H — MCP-EGI-007
+  'contrasts_with_parent', // Family A — MCP-EGI-008
+  'preserves_face_while_disagreeing', // Family B — MCP-EGI-008
+  'provides_alternate_interpretation', // Family C — MCP-EGI-008
+  'evidence_gap_present', // Family D — MCP-EGI-008
+  'names_method_difference', // Family D — MCP-EGI-008
+  'analogy_reasoning_present', // Family E — MCP-EGI-008
+  'separates_normative_from_empirical', // Family G — MCP-EGI-008
+  'claim_present', // Family H — MCP-EGI-008
 ]);
 
 /** Single category constant for the only normalization action this helper performs. */

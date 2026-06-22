@@ -76,6 +76,53 @@ const TARGETS: readonly TargetCase[] = [
     classifierSetVersion: 'family-h-v1',
     rawKey: 'reason_present',
   },
+  // MCP-EGI-008 — added on the basis of the post-MCP-EGI-007 D3 burst (debate
+  // `bd7b732c-306a-4c11-b5c3-9d3cafd2bbbc`, 2026-06-22T08:15:54Z; 8 targets ×
+  // 9 families = 72 cells). The burst surfaced 8 additional rawKeys with
+  // `evidence_span_length_exceeded` row evidence that the canary's single-target
+  // shape didn't trigger. Each rawKey's family is already in
+  // KEY_LEVEL_FAIL_CLOSED_FAMILIES so banPatternsForKeyLevelFamily() composes
+  // the correct stack; no dispatcher/ban-list/validator changes required.
+  {
+    family: 'parent_relation',
+    classifierSetVersion: 'family-a-v1',
+    rawKey: 'contrasts_with_parent',
+  },
+  {
+    family: 'disagreement_axis',
+    classifierSetVersion: 'family-b-v1',
+    rawKey: 'preserves_face_while_disagreeing',
+  },
+  {
+    family: 'misunderstanding_repair',
+    classifierSetVersion: 'family-c-v1',
+    rawKey: 'provides_alternate_interpretation',
+  },
+  {
+    family: 'evidence_source_chain',
+    classifierSetVersion: 'family-d-v1',
+    rawKey: 'evidence_gap_present',
+  },
+  {
+    family: 'evidence_source_chain',
+    classifierSetVersion: 'family-d-v1',
+    rawKey: 'names_method_difference',
+  },
+  {
+    family: 'argument_scheme',
+    classifierSetVersion: 'family-e-v1',
+    rawKey: 'analogy_reasoning_present',
+  },
+  {
+    family: 'resolution_progress',
+    classifierSetVersion: 'family-g-v1',
+    rawKey: 'separates_normative_from_empirical',
+  },
+  {
+    family: 'claim_clarity',
+    classifierSetVersion: 'family-h-v1',
+    rawKey: 'claim_present',
+  },
 ];
 
 function basePacket(
@@ -97,24 +144,35 @@ function basePacket(
   };
 }
 
-Deno.test('MCP-EGI-007 — exports the five confirmed compound rawKeys', () => {
-  // The set is locked to the live D3 evidence. MCP-EGI-006 opened with 4
+Deno.test('MCP-EGI-008 — exports the thirteen confirmed compound rawKeys', () => {
+  // The set is locked to live D3 evidence. MCP-EGI-006 opened with 4
   // rawKeys (E `tradeoff_reasoning_present` / `convergent_premise_structure`,
   // G `synthesis_proposed`, I `compares_options`). MCP-EGI-007 added a 5th
   // (H `reason_present`) on the basis of the post-MCP-EGI-006 D3 canary.
-  // Any future widening must be a separate card; this test guards against
-  // accidental drift.
+  // MCP-EGI-008 added 8 more (A `contrasts_with_parent`, B `preserves_face_while_disagreeing`,
+  // C `provides_alternate_interpretation`, D `evidence_gap_present`, D `names_method_difference`,
+  // E `analogy_reasoning_present`, G `separates_normative_from_empirical`, H `claim_present`)
+  // on the basis of the post-MCP-EGI-007 D3 burst/pass-load. Any future widening must
+  // be a separate card; this test guards against accidental drift.
   assertEquals(
     [...EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS].sort(),
     [
+      'analogy_reasoning_present',
+      'claim_present',
       'compares_options',
+      'contrasts_with_parent',
       'convergent_premise_structure',
+      'evidence_gap_present',
+      'names_method_difference',
+      'preserves_face_while_disagreeing',
+      'provides_alternate_interpretation',
       'reason_present',
+      'separates_normative_from_empirical',
       'synthesis_proposed',
       'tradeoff_reasoning_present',
     ],
   );
-  assertEquals(EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.size, 5);
+  assertEquals(EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.size, 13);
 });
 
 Deno.test('MCP-EGI-006 — event and category constants are stable structural identifiers', () => {
@@ -229,22 +287,29 @@ Deno.test('MCP-EGI-006 — non-target rawKey: 241-char string NOT normalized (ou
   }
 });
 
-Deno.test('MCP-EGI-007 — non-target Family H rawKey: 241-char string NOT normalized (widening is narrow)', () => {
-  // `claim_present` is a Family H rawKey ADJACENT to the new MCP-EGI-007
-  // target `reason_present` (both live in `familyHKeys.ts`'s FAMILY_H_RAW_KEYS
-  // list, both are "MEDIUM-risk" formulation-state observations). The widening
-  // must be NARROW: only `reason_present` was added to the locked set, not
-  // the rest of Family H. Adversarial regression: an overlong `claim_present`
-  // string under the same family must NOT be normalized — the validator
-  // should reject it for length as it does today.
+Deno.test('MCP-EGI-008 — non-target Family H rawKey: 241-char string NOT normalized (widening still narrow)', () => {
+  // `quantifier_present` is a Family H rawKey ADJACENT to the MCP-EGI-008
+  // targets `claim_present` and `reason_present`. After MCP-EGI-008, Family H
+  // has TWO in-scope rawKeys (`reason_present` from EGI-007 + `claim_present`
+  // from EGI-008), but the widening is STILL narrow — `quantifier_present`
+  // (and the other 9 H rawKeys) remain OUT of scope. Adversarial regression:
+  // an overlong `quantifier_present` string under family `claim_clarity` must
+  // NOT be normalized — the validator should reject it for length as it does
+  // today.
+  //
+  // History: MCP-EGI-007's prior version of this test used `claim_present` as
+  // the out-of-scope sibling. MCP-EGI-008 moved `claim_present` INTO scope
+  // on the basis of burst row evidence, so the sibling assertion is relocated
+  // to `quantifier_present`, which has no burst row-level evidence and remains
+  // outside the locked set.
   const overlong = 'a'.repeat(MAX_EVIDENCE_SPAN_CHARS + 1);
   const packet = {
     schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    nodeId: 'egi-007-node-1',
-    checkedRawKeys: ['claim_present'],
-    observations: { claim_present: true },
-    confidence: { claim_present: 'medium' },
-    evidenceSpan: { claim_present: overlong },
+    nodeId: 'egi-008-node-1',
+    checkedRawKeys: ['quantifier_present'],
+    observations: { quantifier_present: true },
+    confidence: { quantifier_present: 'medium' },
+    evidenceSpan: { quantifier_present: overlong },
     modelInfo: {
       provider: 'mcp',
       serverName: 'cdiscourse-mcp-server',
@@ -255,12 +320,44 @@ Deno.test('MCP-EGI-007 — non-target Family H rawKey: 241-char string NOT norma
     family: 'claim_clarity',
   });
   const spans = result.packet.evidenceSpan as Record<string, unknown>;
-  assertEquals(spans.claim_present, overlong);
+  assertEquals(spans.quantifier_present, overlong);
   assertEquals(result.events.length, 0);
   const validated = validateMcpBooleanObservationResponse(result.packet);
   assertEquals(validated.ok, false);
   if (!validated.ok) {
-    assertEquals(validated.path, 'evidenceSpan.claim_present');
+    assertEquals(validated.path, 'evidenceSpan.quantifier_present');
+  }
+});
+
+Deno.test('MCP-EGI-008 — key-set-missing rawKeys remain UNHANDLED by this normalizer (MCP-EGI-009 lane)', () => {
+  // The burst surfaced 3 rawKeys with `evidence_span_key_set_missing` (a
+  // different validation class from length-overflow). MCP-EGI-008 deliberately
+  // does NOT include them. This test pins the boundary: the normalizer must
+  // not pretend to fix the key-set asymmetry; the validator must still reject.
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-008-node-key-set-missing',
+    checkedRawKeys: ['unclear_reference_present'],
+    observations: { unclear_reference_present: true },
+    confidence: { unclear_reference_present: 'medium' },
+    // Asymmetry: key in observations + confidence + checkedRawKeys, but MISSING from evidenceSpan.
+    evidenceSpan: {},
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-h-v1',
+    },
+  };
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'claim_clarity',
+  });
+  // Normalizer does not fabricate the missing key; events.length stays 0.
+  assertEquals(result.events.length, 0);
+  // Validator still rejects with the key-set asymmetry path.
+  const validated = validateMcpBooleanObservationResponse(result.packet);
+  assertEquals(validated.ok, false);
+  if (!validated.ok) {
+    assertEquals(validated.path, 'evidenceSpan.unclear_reference_present');
   }
 });
 
