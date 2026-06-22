@@ -65,6 +65,17 @@ const TARGETS: readonly TargetCase[] = [
     classifierSetVersion: 'family-i-v1',
     rawKey: 'compares_options',
   },
+  {
+    // MCP-EGI-007 — added on the basis of the post-MCP-EGI-006 D3 canary
+    // (target `72a5526c-7ab1-4ca4-85f7-1a651ad64565`) whose H row carried
+    // validator_path=`evidenceSpan.reason_present` +
+    // mcp_tool_detail_category=`evidence_span_length_exceeded`. The
+    // for-loop below templates the normalize / boundary / post-validation /
+    // doctrine-preservation / type-branch tests across all targets.
+    family: 'claim_clarity',
+    classifierSetVersion: 'family-h-v1',
+    rawKey: 'reason_present',
+  },
 ];
 
 function basePacket(
@@ -86,19 +97,24 @@ function basePacket(
   };
 }
 
-Deno.test('MCP-EGI-006 — exports the four confirmed compound rawKeys', () => {
-  // The set is locked to the live D3 evidence. Any widening must be a
-  // separate card; this test guards against accidental drift.
+Deno.test('MCP-EGI-007 — exports the five confirmed compound rawKeys', () => {
+  // The set is locked to the live D3 evidence. MCP-EGI-006 opened with 4
+  // rawKeys (E `tradeoff_reasoning_present` / `convergent_premise_structure`,
+  // G `synthesis_proposed`, I `compares_options`). MCP-EGI-007 added a 5th
+  // (H `reason_present`) on the basis of the post-MCP-EGI-006 D3 canary.
+  // Any future widening must be a separate card; this test guards against
+  // accidental drift.
   assertEquals(
     [...EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS].sort(),
     [
       'compares_options',
       'convergent_premise_structure',
+      'reason_present',
       'synthesis_proposed',
       'tradeoff_reasoning_present',
     ],
   );
-  assertEquals(EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.size, 4);
+  assertEquals(EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.size, 5);
 });
 
 Deno.test('MCP-EGI-006 — event and category constants are stable structural identifiers', () => {
@@ -210,6 +226,41 @@ Deno.test('MCP-EGI-006 — non-target rawKey: 241-char string NOT normalized (ou
   assertEquals(validated.ok, false);
   if (!validated.ok) {
     assertEquals(validated.path, 'evidenceSpan.cited_source_present');
+  }
+});
+
+Deno.test('MCP-EGI-007 — non-target Family H rawKey: 241-char string NOT normalized (widening is narrow)', () => {
+  // `claim_present` is a Family H rawKey ADJACENT to the new MCP-EGI-007
+  // target `reason_present` (both live in `familyHKeys.ts`'s FAMILY_H_RAW_KEYS
+  // list, both are "MEDIUM-risk" formulation-state observations). The widening
+  // must be NARROW: only `reason_present` was added to the locked set, not
+  // the rest of Family H. Adversarial regression: an overlong `claim_present`
+  // string under the same family must NOT be normalized — the validator
+  // should reject it for length as it does today.
+  const overlong = 'a'.repeat(MAX_EVIDENCE_SPAN_CHARS + 1);
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-007-node-1',
+    checkedRawKeys: ['claim_present'],
+    observations: { claim_present: true },
+    confidence: { claim_present: 'medium' },
+    evidenceSpan: { claim_present: overlong },
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-h-v1',
+    },
+  };
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'claim_clarity',
+  });
+  const spans = result.packet.evidenceSpan as Record<string, unknown>;
+  assertEquals(spans.claim_present, overlong);
+  assertEquals(result.events.length, 0);
+  const validated = validateMcpBooleanObservationResponse(result.packet);
+  assertEquals(validated.ok, false);
+  if (!validated.ok) {
+    assertEquals(validated.path, 'evidenceSpan.claim_present');
   }
 });
 

@@ -18,9 +18,10 @@
  *
  * Behavior:
  *   - Iterates the packet's evidenceSpan keys.
- *   - For each of the four compound rawKeys
- *     (tradeoff_reasoning_present, convergent_premise_structure,
- *      synthesis_proposed, compares_options):
+ *   - For each compound rawKey in `EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS`
+ *     (MCP-EGI-006 opened with 4 keys: tradeoff_reasoning_present,
+ *     convergent_premise_structure, synthesis_proposed, compares_options;
+ *     MCP-EGI-007 added a 5th: reason_present):
  *       IF the value is a string longer than MAX_EVIDENCE_SPAN_CHARS,
  *       AND it does NOT contain doctrine-banned content under the family's
  *       byte-unchanged pattern stack,
@@ -81,16 +82,43 @@ import { banScanMatches } from './banScanNormalize.ts';
 
 /**
  * The exact compound structural rawKey set whose evidenceSpan anchors
- * organically span 250+ chars on comparison-dense input and which the three
- * post-#788 D3 canaries confirmed as the live `evidence_span_length_exceeded`
+ * organically span 250+ chars on comparison-dense input and which the live
+ * D3 canary evidence confirmed as the `evidence_span_length_exceeded`
  * surface. Constraining the set is doctrine-preserving: any future broadening
  * requires a separate card.
+ *
+ * MCP-EGI-006 (PR #792, merged `a0fc1c3`) opened the set with the four
+ * rawKeys named by the prior three D3 canaries:
+ *   - `tradeoff_reasoning_present`     (Family E / argument_scheme)
+ *   - `convergent_premise_structure`   (Family E / argument_scheme)
+ *   - `synthesis_proposed`             (Family G / resolution_progress)
+ *   - `compares_options`               (Family I / thread_topology)
+ *
+ * MCP-EGI-007 widens by exactly one rawKey on the basis of the
+ * post-MCP-EGI-006 D3 canary (target `72a5526c-7ab1-4ca4-85f7-1a651ad64565`,
+ * 2026-06-22T05:43:53Z → 06:08:04Z). On that canary the original four
+ * rawKeys cleared att 1 with `evidence_span=null` exactly per the MCP-EGI-006
+ * contract; the remaining residual was a fifth rawKey with the same overflow
+ * shape:
+ *   - `reason_present`                 (Family H / claim_clarity)
+ *     - validator_path = `evidenceSpan.reason_present`
+ *     - mcp_tool_reason = `validation_failed`
+ *     - mcp_tool_detail_category = `evidence_span_length_exceeded`
+ *
+ * `reason_present` is rawKey #3 of the 12 Family H ai_classifier set per
+ * `mcp-server/lib/familyHKeys.ts`. Family H is already a member of
+ * `KEY_LEVEL_FAIL_CLOSED_FAMILIES`, so `banPatternsForKeyLevelFamily()`
+ * already composes the byte-identical `[...DOCTRINE_BAN_PATTERNS,
+ * ...FAMILY_H_BAN_PATTERNS]` stack the Family H scanner uses. Widening this
+ * set to include `reason_present` therefore requires NO dispatcher
+ * rewiring, NO ban-list change, NO validator change, NO prompt edit.
  */
 export const EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS: ReadonlySet<string> = new Set([
   'tradeoff_reasoning_present', // Family E
   'convergent_premise_structure', // Family E
   'synthesis_proposed', // Family G
   'compares_options', // Family I
+  'reason_present', // Family H — MCP-EGI-007
 ]);
 
 /** Single category constant for the only normalization action this helper performs. */
