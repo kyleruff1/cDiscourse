@@ -39,6 +39,12 @@
  * The persisted shape. Every key optional; the object is absent (→ NULL
  * column) when no safe field survives. snake_case to match the jsonb the
  * operator reads via ad-hoc SQL (`failure_detail->>'reason'`).
+ *
+ * MCP-EGI-003 — `mcp_tool_reason` + `mcp_tool_detail_category` were added so
+ * `failure_detail` discriminates hosted-MCP `validation_failed` from genuine
+ * provider 5xx (the gap the MCP-EGI-004 D3 canary surfaced). Both are
+ * additive jsonb fields — zero migration. Both are allowlist-checked at the
+ * builder so an evolving server cannot smuggle a value through.
  */
 export interface RunRowFailureDetail {
   validator_path?: string;
@@ -48,6 +54,19 @@ export interface RunRowFailureDetail {
   attempt_count?: number;
   run_mode?: string;
   schema_version?: string;
+  /**
+   * MCP-EGI-003 — the hosted MCP server's own `reason` (e.g.
+   * `'validation_failed'`). Allowlisted via `ALLOWED_MCP_TOOL_REASONS`; a
+   * reason outside the closed vocabulary is dropped.
+   */
+  mcp_tool_reason?: string;
+  /**
+   * MCP-EGI-003 — closed-enum category derived from the server's validator
+   * `detail` string by the Edge adapter via `mcpToolDetailToCategory()`.
+   * Never the raw detail string; only the matched enum value (one of the 14
+   * documented `McpToolDetailCategory` values).
+   */
+  mcp_tool_detail_category?: string;
 }
 
 /**
@@ -72,10 +91,65 @@ export interface RunRowFailureDetailInput {
   runMode?: string;
   /** the MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION constant. */
   schemaVersion?: string;
+  /**
+   * MCP-EGI-003 — `classify.adapterResult.detail?.serverReason`. The hosted
+   * MCP server's own `reason` value. Allowlisted to `ALLOWED_MCP_TOOL_REASONS`
+   * (closed vocabulary; a value outside the set is dropped).
+   */
+  mcpToolReason?: string;
+  /**
+   * MCP-EGI-003 — `classify.adapterResult.detail?.detailCategory`. Closed-enum
+   * category derived from the validator detail string by the Edge adapter.
+   * Allowlisted to `ALL_MCP_TOOL_DETAIL_CATEGORIES`; a value outside the set
+   * is dropped.
+   */
+  mcpToolDetailCategory?: string;
 }
 
 const MAX_FIELD_CHARS = 200;
 const MAX_SERIALIZED_DETAIL_CHARS = 2_000;
+
+/**
+ * MCP-EGI-003 — re-derived locally (not imported) so this file stays
+ * self-contained per the preservation-manifest pattern. Mirrors
+ * `ALLOWED_MCP_TOOL_REASONS` in `booleanObservationFailureSubreason.ts`. A
+ * cross-file drift guard test asserts the two sets are equal.
+ */
+const RUN_ROW_ALLOWED_MCP_TOOL_REASONS: ReadonlySet<string> = new Set([
+  'validation_failed',
+  'not_implemented',
+  'unsupported_family',
+  'unsupported_raw_key',
+  'invalid_source_subset',
+  'fixture_load_failed',
+  'key_missing',
+  'timeout',
+  'rate_limited',
+]);
+
+/**
+ * MCP-EGI-003 — re-derived locally (not imported), mirrors
+ * `ALL_MCP_TOOL_DETAIL_CATEGORIES` in `booleanObservationFailureSubreason.ts`.
+ * The closed enum of structural categories the Edge adapter derives from the
+ * hosted-MCP `detail` string. The raw string is NEVER stored; only the
+ * matched enum value (or absent) rides through to the row.
+ */
+const RUN_ROW_ALLOWED_MCP_TOOL_DETAIL_CATEGORIES: ReadonlySet<string> = new Set([
+  'evidence_span_length_exceeded',
+  'evidence_span_invalid_type',
+  'evidence_span_key_set_missing',
+  'evidence_span_key_set_extra',
+  'confidence_key_set_missing',
+  'confidence_key_set_extra',
+  'confidence_invalid_value',
+  'observation_invalid_value',
+  'observation_key_missing_from_checked',
+  'schema_version_mismatch',
+  'missing_required_field',
+  'flag_count_too_high',
+  'doctrine_ban_list',
+  'unknown_validation_failed',
+]);
 
 /**
  * Defense-in-depth secret-shape matchers. Each regex is assembled from
@@ -133,10 +207,14 @@ function serializedLength(detail: RunRowFailureDetail): number {
  * written NULL, not `{}`).
  *
  * Mechanism (cdiscourse-doctrine §6):
- *   1. Read ONLY the seven named args (no free-text entry point → structural deny-list).
+ *   1. Read ONLY the nine named args (no free-text entry point → structural deny-list).
  *   2. Drop any string field that trips a secret shape; cap each at 200 chars.
  *   3. `attempt_count` kept only if a finite non-negative integer.
- *   4. Serialized-size cap (≤ 2000 chars) with graceful degradation: drop the
+ *   4. `mcpToolReason` / `mcpToolDetailCategory` (MCP-EGI-003) kept ONLY if
+ *      the value is in the corresponding closed allowlist — a value outside
+ *      the set is dropped silently (defense-in-depth against an evolving
+ *      server emitting an unknown reason).
+ *   5. Serialized-size cap (≤ 2000 chars) with graceful degradation: drop the
  *      longer optional context first, then fall back to `{ reason, family }`.
  */
 export function buildRunRowFailureDetail(
@@ -169,6 +247,28 @@ export function buildRunRowFailureDetail(
 
   const schemaVersion = safeString(input.schemaVersion);
   if (schemaVersion !== undefined) detail.schema_version = schemaVersion;
+
+  // MCP-EGI-003: hosted-MCP own reason (e.g. 'validation_failed'). Closed
+  // allowlist + secret-shape scrub. A value outside the allowlist is dropped
+  // silently — leak-safe by construction.
+  const mcpToolReason = safeString(input.mcpToolReason);
+  if (
+    mcpToolReason !== undefined &&
+    RUN_ROW_ALLOWED_MCP_TOOL_REASONS.has(mcpToolReason)
+  ) {
+    detail.mcp_tool_reason = mcpToolReason;
+  }
+
+  // MCP-EGI-003: closed-enum category derived from the validator detail
+  // string by the Edge adapter. Stored only if it is a member of the
+  // declared enum (the Edge adapter already restricts via
+  // `mcpToolDetailToCategory()`, but a malformed input is dropped silently).
+  if (
+    typeof input.mcpToolDetailCategory === 'string' &&
+    RUN_ROW_ALLOWED_MCP_TOOL_DETAIL_CATEGORIES.has(input.mcpToolDetailCategory)
+  ) {
+    detail.mcp_tool_detail_category = input.mcpToolDetailCategory;
+  }
 
   // No safe field survived → absent, not empty.
   if (Object.keys(detail).length === 0) return undefined;

@@ -359,6 +359,14 @@ async function processOneJob(
       attemptCount,
       runMode: job.run_mode,
       schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      // MCP-EGI-003 — surface the hosted-MCP discriminator on the row so a
+      // future MCP-EGI-004 D3 canary can distinguish hosted-MCP
+      // `validation_failed` (a deterministic packet residual) from a genuine
+      // upstream provider 5xx without operator Deno log lookup. Both fields
+      // are closed-enum allowlisted by the builder; an unknown value is
+      // dropped silently (leak-safe by construction).
+      mcpToolReason: classify.adapterResult.detail?.serverReason,
+      mcpToolDetailCategory: classify.adapterResult.detail?.detailCategory,
     });
 
     if (decision.disposition === 'retry') {

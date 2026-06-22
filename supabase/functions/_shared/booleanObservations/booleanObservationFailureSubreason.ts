@@ -98,6 +98,144 @@ export const ALL_BOOLEAN_OBSERVATION_FAILURE_SUBREASONS: readonly BooleanObserva
 ];
 
 /**
+ * MCP-EGI-003 — Structural categories derived from the hosted-MCP server's
+ * `{ isError: true, reason: 'validation_failed', path, detail }` envelope.
+ *
+ * The validator detail strings (in
+ * `mcp-server/lib/mcpBooleanObservationSchemaMirror.ts`) are structurally
+ * shaped ("value must be string or null", "length N exceeds max M", "rawKey
+ * present in observations but missing from evidenceSpan", etc.). This closed
+ * enum is the safe categorization of those strings — the raw `detail` is
+ * NEVER persisted; only the matched category enum value rides through.
+ *
+ * Used by `mcpToolDetailToCategory()` below + the row-level
+ * `RunRowFailureDetail.mcp_tool_detail_category` field. The Edge adapter
+ * (`booleanObservationMcpAdapter.ts`) reads the server's `detail` string,
+ * passes it through `mcpToolDetailToCategory()`, and forwards only the
+ * resulting enum value — not the raw string.
+ *
+ * `unknown_validation_failed` is the fall-through for any detail string that
+ * does not match the whitelist (a new validator detail pattern, a malformed
+ * server response, etc.). Falling through is leak-safe by construction.
+ *
+ * Doctrine: cdiscourse-doctrine §6 — closed enum + structural deny-list; no
+ * raw values; no provider-emitted content stored.
+ */
+export type McpToolDetailCategory =
+  | 'evidence_span_length_exceeded'
+  | 'evidence_span_invalid_type'
+  | 'evidence_span_key_set_missing'
+  | 'evidence_span_key_set_extra'
+  | 'confidence_key_set_missing'
+  | 'confidence_key_set_extra'
+  | 'confidence_invalid_value'
+  | 'observation_invalid_value'
+  | 'observation_key_missing_from_checked'
+  | 'schema_version_mismatch'
+  | 'missing_required_field'
+  | 'flag_count_too_high'
+  | 'doctrine_ban_list'
+  | 'unknown_validation_failed';
+
+/** Every documented `McpToolDetailCategory` value, in declared order. */
+export const ALL_MCP_TOOL_DETAIL_CATEGORIES: readonly McpToolDetailCategory[] = [
+  'evidence_span_length_exceeded',
+  'evidence_span_invalid_type',
+  'evidence_span_key_set_missing',
+  'evidence_span_key_set_extra',
+  'confidence_key_set_missing',
+  'confidence_key_set_extra',
+  'confidence_invalid_value',
+  'observation_invalid_value',
+  'observation_key_missing_from_checked',
+  'schema_version_mismatch',
+  'missing_required_field',
+  'flag_count_too_high',
+  'doctrine_ban_list',
+  'unknown_validation_failed',
+];
+
+/**
+ * MCP-EGI-003 — the closed allow-list of `reason` values the hosted MCP
+ * server's `{ isError: true, reason }` envelope may carry. A reason outside
+ * this set is dropped at the row-level builder (defense-in-depth — the
+ * Phase-1 `serverReason` allow-list rides on it).
+ */
+export const ALLOWED_MCP_TOOL_REASONS: ReadonlySet<string> = new Set([
+  'validation_failed',
+  'not_implemented',
+  'unsupported_family',
+  'unsupported_raw_key',
+  'invalid_source_subset',
+  'fixture_load_failed',
+  'key_missing',
+  'timeout',
+  'rate_limited',
+]);
+
+/**
+ * MCP-EGI-003 — pure, total mapping from the hosted-MCP server's validator
+ * detail string to the closed `McpToolDetailCategory` enum.
+ *
+ * Each branch matches a structural shape (a regex anchored to the
+ * validator's exact emit phrasing). The function NEVER captures a named
+ * group, NEVER extracts a model-emitted value, and NEVER returns the raw
+ * `detail`. A non-string / unknown / malformed input maps to
+ * `unknown_validation_failed`, which is leak-safe.
+ *
+ * The 13 structural categories enumerated below are the exhaustive set of
+ * detail strings emitted by `validateMcpBooleanObservationResponse` in
+ * `mcp-server/lib/mcpBooleanObservationSchemaMirror.ts` plus the
+ * `'doctrine_ban_list'` literal emitted by Step 5 of
+ * `mcp-server/tools/classifyArgumentBooleanObservations.ts`.
+ */
+export function mcpToolDetailToCategory(
+  detail: unknown,
+): McpToolDetailCategory | undefined {
+  if (typeof detail !== 'string' || detail.length === 0) return undefined;
+  if (/^length \d+ exceeds max \d+$/.test(detail)) {
+    return 'evidence_span_length_exceeded';
+  }
+  if (detail === 'value must be string or null') {
+    return 'evidence_span_invalid_type';
+  }
+  if (detail === 'rawKey present in observations but missing from evidenceSpan') {
+    return 'evidence_span_key_set_missing';
+  }
+  if (detail === 'rawKey present in evidenceSpan but missing from observations') {
+    return 'evidence_span_key_set_extra';
+  }
+  if (detail === 'rawKey present in observations but missing from confidence') {
+    return 'confidence_key_set_missing';
+  }
+  if (detail === 'rawKey present in confidence but missing from observations') {
+    return 'confidence_key_set_extra';
+  }
+  if (detail === 'value must be low|medium|high') {
+    return 'confidence_invalid_value';
+  }
+  if (detail === 'value must be boolean') {
+    return 'observation_invalid_value';
+  }
+  if (/^observations key "[^"]+" missing from checkedRawKeys$/.test(detail)) {
+    return 'observation_key_missing_from_checked';
+  }
+  if (/^expected mcp-021\./.test(detail)) {
+    return 'schema_version_mismatch';
+  }
+  if (/^missing required field/.test(detail)) {
+    return 'missing_required_field';
+  }
+  if (/^flag count \d+ exceeds max \d+$/.test(detail)) {
+    return 'flag_count_too_high';
+  }
+  if (detail === 'doctrine_ban_list') {
+    return 'doctrine_ban_list';
+  }
+  return 'unknown_validation_failed';
+}
+
+/**
  * The sanitized detail attached to an unavailable adapter result. EVERY
  * field is an allowlisted structural fragment — NEVER the prompt, body,
  * raw model response, or any secret. Built by re-derivation from named
@@ -128,6 +266,12 @@ export interface BooleanObservationFailureDetail {
    * same way `expected`/`schemaVersion` are. NEVER the raw `detail` blob.
    */
   serverReason?: string;
+  /**
+   * MCP-EGI-003 — closed-enum category derived from the server's validator
+   * `detail` string via `mcpToolDetailToCategory()`. NEVER the raw `detail`.
+   * Absent when the input was not a string or the mapping was unknown.
+   */
+  detailCategory?: McpToolDetailCategory;
 }
 
 // ── mapToFailureSubreason ────────────────────────────────────────
@@ -233,7 +377,7 @@ export function mapToFailureSubreason(
  */
 export interface FailureDetailInput {
   validatorReason?: McpBooleanObservationParseFailureReason;
-  /** A structural field path; dropped unless it is in the allowlist. */
+  /** A structural field path; dropped unless it satisfies `isAllowedDetailPath`. */
   path?: string;
   /** A constant / enum literal the validator expects (e.g. 'mcp'). */
   expected?: string;
@@ -249,14 +393,21 @@ export interface FailureDetailInput {
   family?: MachineObservationFamily;
   /** UNTRUSTED server-supplied error code; scrubbed + capped like `expected`. */
   serverReason?: string;
+  /**
+   * MCP-EGI-003 — closed-enum category derived via `mcpToolDetailToCategory()`
+   * by the caller. The builder stores it only if it is a member of
+   * `ALL_MCP_TOOL_DETAIL_CATEGORIES` (defense-in-depth).
+   */
+  detailCategory?: McpToolDetailCategory;
 }
 
 /**
- * The ONLY structural field paths that may appear in `detail.path`. A path
- * not in this set is dropped (it could otherwise smuggle a value). These
- * are the validator's known field paths.
+ * Top-level field names that may appear bare in `detail.path` (backward-compat
+ * pre-MCP-EGI-003 set) — these were the only structural anchors emitted by
+ * the validator before MCP-EGI-003 widened the path allowlist to accept
+ * dotted forms like `evidenceSpan.<rawKey>`.
  */
-const ALLOWED_DETAIL_PATHS: ReadonlySet<string> = new Set([
+const ALLOWED_DETAIL_PATH_TOPS: ReadonlySet<string> = new Set([
   'schemaVersion',
   'nodeId',
   'checkedRawKeys',
@@ -268,6 +419,43 @@ const ALLOWED_DETAIL_PATHS: ReadonlySet<string> = new Set([
   'modelInfo.serverName',
   'modelInfo.classifierSetVersion',
 ]);
+
+/**
+ * MCP-EGI-003 — the dotted-path widening. Accepts `<top>.<identifier>` where
+ * `<top>` is one of the structural maps the validator emits keys for, and
+ * `<identifier>` is rawKey-shaped (`/^[A-Za-z][A-Za-z0-9_]{0,79}$/`). This
+ * is the allow-list that lets `evidenceSpan.compares_options`,
+ * `confidence.compares_options`, and `observations.<rawKey>` flow through
+ * the row's `validator_path` field — which the MCP-EGI-004 canary proved
+ * was the missing discriminator.
+ *
+ * The dotted form CANNOT smuggle a value because:
+ *   1. `<identifier>` is identifier-shaped (no whitespace, no quotes, no
+ *      raw text characters).
+ *   2. `<identifier>` is capped at 80 chars (rawKey names are <= ~40).
+ *   3. The structural-deny-list contract of `buildFailureDetail` (no
+ *      free-text entry point) is unchanged — only the path STRING from the
+ *      MCP server is widened; the server's own emit path is structural by
+ *      construction (validator code in mcpBooleanObservationSchemaMirror.ts).
+ */
+const DOTTED_PATH_TOPS: ReadonlySet<string> = new Set([
+  'evidenceSpan',
+  'observations',
+  'confidence',
+]);
+const DOTTED_PATH_IDENTIFIER = /^[A-Za-z][A-Za-z0-9_]{0,79}$/;
+
+function isAllowedDetailPath(path: string): boolean {
+  if (ALLOWED_DETAIL_PATH_TOPS.has(path)) return true;
+  const dot = path.indexOf('.');
+  if (dot <= 0) return false;
+  const top = path.slice(0, dot);
+  const rest = path.slice(dot + 1);
+  if (!DOTTED_PATH_TOPS.has(top)) return false;
+  if (rest.length === 0) return false;
+  if (rest.includes('.')) return false; // single dot only — no nested traversal
+  return DOTTED_PATH_IDENTIFIER.test(rest);
+}
 
 const MAX_RECEIVED_KEYS = 32;
 const MAX_KEY_NAME_CHARS = 64;
@@ -353,7 +541,7 @@ export function buildFailureDetail(
     detail.validatorReason = input.validatorReason;
   }
 
-  if (typeof input.path === 'string' && ALLOWED_DETAIL_PATHS.has(input.path)) {
+  if (typeof input.path === 'string' && isAllowedDetailPath(input.path)) {
     detail.path = input.path;
   }
 
@@ -393,6 +581,19 @@ export function buildFailureDetail(
   // `expected`/`schemaVersion` (NOT echoed raw, NOT the `detail` blob).
   if (typeof input.serverReason === 'string' && !looksSecret(input.serverReason)) {
     detail.serverReason = input.serverReason.slice(0, MAX_EXPECTED_PATH_CHARS);
+  }
+
+  // MCP-EGI-003: closed-enum category derived from the server's validator
+  // `detail` string by the caller. Stored only if it is a member of the
+  // declared enum (defense-in-depth — the caller already restricts it via
+  // `mcpToolDetailToCategory()`, but a malformed input is dropped silently).
+  if (
+    typeof input.detailCategory === 'string' &&
+    (ALL_MCP_TOOL_DETAIL_CATEGORIES as readonly string[]).includes(
+      input.detailCategory,
+    )
+  ) {
+    detail.detailCategory = input.detailCategory as McpToolDetailCategory;
   }
 
   if (input.family !== undefined) {
