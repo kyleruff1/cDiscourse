@@ -649,6 +649,77 @@ Deno.test('Family I user prompt: STRICT block does not introduce banned verdict 
   }
 });
 
+// ── MCP-EGI-005 — deterministic NULL fallback on compares_options length overflow ──
+
+Deno.test('MCP-EGI-005 — compares_options reinforcement makes null fallback deterministic on length overflow', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  const blockMatch = prompt.match(
+    /RAWKEY-SHAPE\s+REINFORCEMENT\s+—\s+compares_options[\s\S]*?(?=RAWKEY-SHAPE\s+REINFORCEMENT|Conservative-positives\s+bias|Answer\s+each|Input\s+to\s+classify)/i,
+  );
+  if (!blockMatch) {
+    throw new Error('Could not isolate compares_options reinforcement block');
+  }
+  const block = blockMatch[0];
+  if (!/LENGTH\s+FALLBACK\s+IS\s+NULL/i.test(block)) {
+    throw new Error('compares_options reinforcement missing LENGTH FALLBACK IS NULL anchor (MCP-EGI-005)');
+  }
+  if (!/MUST\s+set\s+evidenceSpan\.compares_options\s+to\s+null/i.test(block)) {
+    throw new Error('compares_options reinforcement missing MUST-set-null instruction');
+  }
+  if (!/When\s+in\s+doubt,\s+set\s+null/i.test(block)) {
+    throw new Error('compares_options reinforcement missing When-in-doubt-set-null bias');
+  }
+  if (!/observations\.compares_options:\s*true/i.test(block)) {
+    throw new Error('compares_options reinforcement missing true+null example');
+  }
+  if (!/evidenceSpan\.compares_options:\s*null/i.test(block)) {
+    throw new Error('compares_options reinforcement missing evidenceSpan: null example');
+  }
+  if (!/Do\s+NOT\s+truncate\s+mid-sentence/i.test(block)) {
+    throw new Error('compares_options reinforcement missing no-truncate instruction');
+  }
+  if (!/Do\s+NOT\s+paraphrase\s+into\s+a\s+longer\s+string/i.test(block)) {
+    throw new Error('compares_options reinforcement missing no-longer-paraphrase instruction');
+  }
+  if (!/Do\s+NOT\s+emit\s+a\s+multi-sentence\s+span/i.test(block)) {
+    throw new Error('compares_options reinforcement missing no-multi-sentence instruction');
+  }
+  for (const token of ['object', 'array', 'boolean', 'number']) {
+    if (!new RegExp(`\\b${token}\\b`, 'i').test(block)) {
+      throw new Error(`compares_options reinforcement no longer lists "${token}" as not allowed`);
+    }
+  }
+  if (!/240/.test(block)) {
+    throw new Error('compares_options reinforcement no longer cites the 240-char cap');
+  }
+  const bannedVerdictPatterns: RegExp[] = [
+    /\boff-topic\b/i,
+    /\bderailing\b/i,
+    /\bevasive\b/i,
+    /\bdodging\b/i,
+    /\brehashing\b/i,
+    /\brepetitive\b/i,
+    /\bgoing\s+in\s+circles\b/i,
+    /\bwinner\b/i,
+    /\bloser\b/i,
+  ];
+  for (const re of bannedVerdictPatterns) {
+    if (re.test(block)) {
+      throw new Error(`compares_options MCP-EGI-005 update introduces banned verdict token matching ${re}`);
+    }
+  }
+});
+
+Deno.test('MCP-EGI-005 preservation — Family I strict response-shape contract still present', () => {
+  const prompt = buildFamilyIUserPrompt(buildRequest());
+  if (!/STRICT\s+RESPONSE-SHAPE\s+CONTRACT/i.test(prompt)) {
+    throw new Error('MCP-EGI-005 update lost the STRICT RESPONSE-SHAPE CONTRACT block');
+  }
+  if (!/no\s+extras?[,\s]+no\s+omissions?/i.test(prompt)) {
+    throw new Error('MCP-EGI-005 update lost the no-extras-no-omissions guardrail');
+  }
+});
+
 // OPS-MCP-MODELINFO-SHAPE-REINFORCEMENT — the shared response-envelope emission
 // directive is interpolated immediately before the response-shape JSON example.
 // Additive: the response-shape example itself is unchanged.
