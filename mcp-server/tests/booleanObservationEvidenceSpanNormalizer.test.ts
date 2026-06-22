@@ -27,6 +27,9 @@
  */
 import { assertEquals, assertNotStrictEquals, assertStrictEquals } from 'std/assert/mod.ts';
 import {
+  EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS,
+  EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY,
+  EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME,
   EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS,
   EVIDENCE_SPAN_NORMALIZATION_CATEGORY,
   EVIDENCE_SPAN_NORMALIZATION_EVENT_NAME,
@@ -329,37 +332,11 @@ Deno.test('MCP-EGI-008 — non-target Family H rawKey: 241-char string NOT norma
   }
 });
 
-Deno.test('MCP-EGI-008 — key-set-missing rawKeys remain UNHANDLED by this normalizer (MCP-EGI-009 lane)', () => {
-  // The burst surfaced 3 rawKeys with `evidence_span_key_set_missing` (a
-  // different validation class from length-overflow). MCP-EGI-008 deliberately
-  // does NOT include them. This test pins the boundary: the normalizer must
-  // not pretend to fix the key-set asymmetry; the validator must still reject.
-  const packet = {
-    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    nodeId: 'egi-008-node-key-set-missing',
-    checkedRawKeys: ['unclear_reference_present'],
-    observations: { unclear_reference_present: true },
-    confidence: { unclear_reference_present: 'medium' },
-    // Asymmetry: key in observations + confidence + checkedRawKeys, but MISSING from evidenceSpan.
-    evidenceSpan: {},
-    modelInfo: {
-      provider: 'mcp',
-      serverName: 'cdiscourse-mcp-server',
-      classifierSetVersion: 'family-h-v1',
-    },
-  };
-  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
-    family: 'claim_clarity',
-  });
-  // Normalizer does not fabricate the missing key; events.length stays 0.
-  assertEquals(result.events.length, 0);
-  // Validator still rejects with the key-set asymmetry path.
-  const validated = validateMcpBooleanObservationResponse(result.packet);
-  assertEquals(validated.ok, false);
-  if (!validated.ok) {
-    assertEquals(validated.path, 'evidenceSpan.unclear_reference_present');
-  }
-});
+// (MCP-EGI-008's key-set-missing scope-boundary test for `unclear_reference_present`
+//  was replaced by the MCP-EGI-009 happy-path templated tests further below;
+//  see KEY_SET_TARGETS. The unnormalized-validator-rejects-key-set-asymmetry
+//  invariant is now exercised per-target in the
+//  "validator rejects unnormalized packet" templated test.)
 
 Deno.test('MCP-EGI-006 — target rawKey + object value: NOT normalized (type-branch still rejected)', () => {
   const packet = basePacket(
@@ -697,4 +674,508 @@ Deno.test('MCP-EGI-006 — observations + confidence + checkedRawKeys identity-p
   assertStrictEquals(result.packet.observations, inputObs);
   assertStrictEquals(result.packet.confidence, inputConf);
   assertStrictEquals(result.packet.checkedRawKeys, inputKeys);
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// MCP-EGI-009 — KEY-SET COMPLETION
+// Server-side completion of missing evidenceSpan keys for the three burst-
+// observed rawKeys whose semantic decision was made (present in
+// observations + confidence + checkedRawKeys) but whose evidenceSpan entry
+// was omitted (validator rejected with mcp_tool_detail_category=
+// evidence_span_key_set_missing). See
+// docs/designs/MCP-EGI-009-EVIDENCESPAN-KEYSET-COMPLETION-2026-06-22.md.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface KeySetTarget {
+  readonly family: string;
+  readonly classifierSetVersion: string;
+  readonly rawKey: string;
+}
+
+const KEY_SET_TARGETS: readonly KeySetTarget[] = [
+  {
+    family: 'critical_question',
+    classifierSetVersion: 'family-f-v1',
+    rawKey: 'question_invites_revision',
+  },
+  {
+    family: 'resolution_progress',
+    classifierSetVersion: 'family-g-v1',
+    rawKey: 'action_item_proposed',
+  },
+  {
+    family: 'claim_clarity',
+    classifierSetVersion: 'family-h-v1',
+    rawKey: 'unclear_reference_present',
+  },
+];
+
+function keySetBasePacket(
+  testCase: KeySetTarget,
+  evidenceSpan: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-009-node-1',
+    checkedRawKeys: [testCase.rawKey],
+    observations: { [testCase.rawKey]: true },
+    confidence: { [testCase.rawKey]: 'medium' },
+    evidenceSpan,
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: testCase.classifierSetVersion,
+    },
+  };
+}
+
+Deno.test('MCP-EGI-009 — exports the three burst-observed key-set-missing rawKeys', () => {
+  // Locked set: only the 3 rawKeys with `evidence_span_key_set_missing`
+  // burst row evidence (post-MCP-EGI-007 D3 pass-load). Any future widening
+  // requires a separate card.
+  assertEquals(
+    [...EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS].sort(),
+    [
+      'action_item_proposed',
+      'question_invites_revision',
+      'unclear_reference_present',
+    ],
+  );
+  assertEquals(EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS.size, 3);
+});
+
+Deno.test('MCP-EGI-009 — event and category constants are stable structural identifiers', () => {
+  assertEquals(
+    EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME,
+    'boolean_observations_evidence_span_key_completed',
+  );
+  assertEquals(
+    EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY,
+    'evidence_span_key_set_missing_to_null',
+  );
+});
+
+Deno.test('MCP-EGI-009 — length set and key-set-completion set are DISJOINT', () => {
+  // Length-overflow operates on present rawKeys; key-set-completion operates
+  // on absent rawKeys. A single packet shape cannot simultaneously be "string
+  // longer than 240 chars on this key" AND "missing this key", so a rawKey
+  // in BOTH sets would be a contract bug.
+  for (const k of EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS) {
+    assertEquals(
+      EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.has(k),
+      false,
+      `key-set-completion key '${k}' must NOT appear in the length-normalization set`,
+    );
+  }
+  for (const k of EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS) {
+    assertEquals(
+      EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS.has(k),
+      false,
+      `length-normalization key '${k}' must NOT appear in the key-set-completion set`,
+    );
+  }
+});
+
+for (const testCase of KEY_SET_TARGETS) {
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: missing key completed to null`, () => {
+    // observations + confidence + checkedRawKeys all carry the rawKey;
+    // evidenceSpan is missing the entry entirely. Normalizer fills with null.
+    const packet = keySetBasePacket(testCase, {});
+    const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      requestId: 'egi-009-req-1',
+    });
+    const normalizedSpans = result.packet.evidenceSpan as Record<string, unknown>;
+    assertEquals(normalizedSpans[testCase.rawKey], null);
+    assertEquals(result.events.length, 1);
+    assertEquals(result.events[0].rawKey, testCase.rawKey);
+    assertEquals(result.events[0].path, `evidenceSpan.${testCase.rawKey}`);
+    assertEquals(result.events[0].family, testCase.family);
+    assertEquals(result.events[0].category, EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY);
+    assertEquals(result.events[0].event, EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME);
+    assertEquals(result.events[0].schemaVersion, MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION);
+    assertEquals(result.events[0].requestId, 'egi-009-req-1');
+    // Length-only fields are absent on key-set events.
+    assertEquals(result.events[0].originalLength, undefined);
+    assertEquals(result.events[0].maxLength, undefined);
+    // Packet is a NEW object (mutation fired).
+    assertNotStrictEquals(result.packet, packet);
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: completed packet validates and observation preserved`, () => {
+    const packet = keySetBasePacket(testCase, {});
+    const normalized = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+    });
+    const validated = validateMcpBooleanObservationResponse(normalized.packet);
+    assertEquals(validated.ok, true);
+    if (validated.ok) {
+      assertEquals(validated.value.observations[testCase.rawKey], true);
+      assertEquals(validated.value.confidence[testCase.rawKey], 'medium');
+      assertEquals(validated.value.evidenceSpan[testCase.rawKey], null);
+    }
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: unnormalized packet (missing key) still fails validator`, () => {
+    // If a caller bypasses the normalizer and hands the missing-key packet to
+    // the validator directly, the validator must still reject. The normalizer
+    // is not a validator relaxation.
+    const packet = keySetBasePacket(testCase, {});
+    const validated = validateMcpBooleanObservationResponse(packet);
+    assertEquals(validated.ok, false);
+    if (!validated.ok) {
+      assertEquals(validated.path, `evidenceSpan.${testCase.rawKey}`);
+    }
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: already-null value is preserved (no event)`, () => {
+    const packet = keySetBasePacket(testCase, { [testCase.rawKey]: null });
+    const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+    });
+    const spans = result.packet.evidenceSpan as Record<string, unknown>;
+    assertEquals(spans[testCase.rawKey], null);
+    assertEquals(result.events.length, 0);
+    assertStrictEquals(result.packet, packet);
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: already-string value is NEVER overwritten`, () => {
+    // CRITICAL: an existing string value (anchor under 240 chars) is preserved
+    // byte-equal. The normalizer never overwrites a present value.
+    const existing = 'a short legitimate anchor';
+    const packet = keySetBasePacket(testCase, { [testCase.rawKey]: existing });
+    const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+    });
+    const spans = result.packet.evidenceSpan as Record<string, unknown>;
+    assertEquals(spans[testCase.rawKey], existing);
+    assertEquals(result.events.length, 0);
+    assertStrictEquals(result.packet, packet);
+    // Validator still passes (the present string is a valid value).
+    const validated = validateMcpBooleanObservationResponse(result.packet);
+    assertEquals(validated.ok, true);
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: already-invalid value (object) is preserved + validator still rejects`, () => {
+    // If evidenceSpan[rawKey] is an invalid type, the normalizer does NOT
+    // touch it — the validator's type-branch reject still fires on the
+    // unnormalized shape. Preserves the validator's existing power.
+    const packet = keySetBasePacket(testCase, { [testCase.rawKey]: { foo: 'bar' } });
+    const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+    });
+    const spans = result.packet.evidenceSpan as Record<string, unknown>;
+    assertEquals((spans[testCase.rawKey] as { foo: string }).foo, 'bar');
+    assertEquals(result.events.length, 0);
+    const validated = validateMcpBooleanObservationResponse(result.packet);
+    assertEquals(validated.ok, false);
+    if (!validated.ok) {
+      assertEquals(validated.path, `evidenceSpan.${testCase.rawKey}`);
+    }
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: missing from observations → NOT completed`, () => {
+    // The model's semantic decision is recorded in observations. If
+    // observations does NOT carry the rawKey, the model never decided about
+    // it — completion would fabricate semantic intent. The normalizer skips.
+    const packet = {
+      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      nodeId: 'egi-009-node-no-obs',
+      checkedRawKeys: [testCase.rawKey],
+      observations: {}, // missing
+      confidence: { [testCase.rawKey]: 'medium' },
+      evidenceSpan: {},
+      modelInfo: {
+        provider: 'mcp',
+        serverName: 'cdiscourse-mcp-server',
+        classifierSetVersion: testCase.classifierSetVersion,
+      },
+    };
+    const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+    });
+    assertEquals(result.events.length, 0);
+    const spans = result.packet.evidenceSpan as Record<string, unknown>;
+    assertEquals(Object.prototype.hasOwnProperty.call(spans, testCase.rawKey), false);
+    // Validator still rejects on key-set asymmetry.
+    const validated = validateMcpBooleanObservationResponse(result.packet);
+    assertEquals(validated.ok, false);
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: missing from confidence → NOT completed`, () => {
+    const packet = {
+      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      nodeId: 'egi-009-node-no-conf',
+      checkedRawKeys: [testCase.rawKey],
+      observations: { [testCase.rawKey]: true },
+      confidence: {}, // missing
+      evidenceSpan: {},
+      modelInfo: {
+        provider: 'mcp',
+        serverName: 'cdiscourse-mcp-server',
+        classifierSetVersion: testCase.classifierSetVersion,
+      },
+    };
+    const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+    });
+    assertEquals(result.events.length, 0);
+    const spans = result.packet.evidenceSpan as Record<string, unknown>;
+    assertEquals(Object.prototype.hasOwnProperty.call(spans, testCase.rawKey), false);
+    const validated = validateMcpBooleanObservationResponse(result.packet);
+    assertEquals(validated.ok, false);
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: missing from checkedRawKeys → NOT completed`, () => {
+    const packet = {
+      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      nodeId: 'egi-009-node-no-checked',
+      checkedRawKeys: [], // missing
+      observations: { [testCase.rawKey]: true },
+      confidence: { [testCase.rawKey]: 'medium' },
+      evidenceSpan: {},
+      modelInfo: {
+        provider: 'mcp',
+        serverName: 'cdiscourse-mcp-server',
+        classifierSetVersion: testCase.classifierSetVersion,
+      },
+    };
+    const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+    });
+    assertEquals(result.events.length, 0);
+    const spans = result.packet.evidenceSpan as Record<string, unknown>;
+    assertEquals(Object.prototype.hasOwnProperty.call(spans, testCase.rawKey), false);
+    const validated = validateMcpBooleanObservationResponse(result.packet);
+    assertEquals(validated.ok, false);
+  });
+
+  Deno.test(`MCP-EGI-009 — ${testCase.family} / ${testCase.rawKey}: extra evidenceSpan key is NOT removed`, () => {
+    // If evidenceSpan carries an EXTRA key (not in observations / confidence /
+    // checkedRawKeys), the normalizer must not remove it — the validator
+    // still rejects via its extra-key check.
+    const packet = {
+      schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+      nodeId: 'egi-009-node-extra',
+      checkedRawKeys: [testCase.rawKey],
+      observations: { [testCase.rawKey]: true },
+      confidence: { [testCase.rawKey]: 'medium' },
+      evidenceSpan: { extra_unsanctioned_key: null },
+      modelInfo: {
+        provider: 'mcp',
+        serverName: 'cdiscourse-mcp-server',
+        classifierSetVersion: testCase.classifierSetVersion,
+      },
+    };
+    const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+      family: testCase.family,
+    });
+    const spans = result.packet.evidenceSpan as Record<string, unknown>;
+    // Extra key still present.
+    assertEquals(
+      Object.prototype.hasOwnProperty.call(spans, 'extra_unsanctioned_key'),
+      true,
+    );
+    // Target key was completed.
+    assertEquals(spans[testCase.rawKey], null);
+    // One event (the completion).
+    assertEquals(result.events.length, 1);
+    assertEquals(result.events[0].rawKey, testCase.rawKey);
+    // Validator still rejects on the extra unsanctioned key.
+    const validated = validateMcpBooleanObservationResponse(result.packet);
+    assertEquals(validated.ok, false);
+  });
+}
+
+Deno.test('MCP-EGI-009 — non-target rawKey missing: NOT completed (out of scope)', () => {
+  // `cited_source_present` is a real Family D rawKey but is NOT in the
+  // burst-observed key-set-missing set. A packet that omits it from
+  // evidenceSpan must NOT be auto-completed — the validator must still
+  // reject as the key-set coordination check fires.
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-009-non-target',
+    checkedRawKeys: ['cited_source_present'],
+    observations: { cited_source_present: true },
+    confidence: { cited_source_present: 'medium' },
+    evidenceSpan: {}, // missing
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-d-v1',
+    },
+  };
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'evidence_source_chain',
+  });
+  assertEquals(result.events.length, 0);
+  const spans = result.packet.evidenceSpan as Record<string, unknown>;
+  assertEquals(Object.prototype.hasOwnProperty.call(spans, 'cited_source_present'), false);
+  const validated = validateMcpBooleanObservationResponse(result.packet);
+  assertEquals(validated.ok, false);
+  if (!validated.ok) {
+    assertEquals(validated.path, 'evidenceSpan.cited_source_present');
+  }
+});
+
+Deno.test('MCP-EGI-009 — multi-key packet: multiple key-set rawKeys all completed in one pass', () => {
+  // All 3 burst-observed rawKeys missing under their respective families.
+  // The completion pass is family-agnostic for the actual set membership
+  // check (the family option only seeds event metadata), so one call can
+  // complete multiple missing keys.
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-009-multi',
+    checkedRawKeys: [
+      'unclear_reference_present',
+      'action_item_proposed',
+      'question_invites_revision',
+    ],
+    observations: {
+      unclear_reference_present: true,
+      action_item_proposed: true,
+      question_invites_revision: true,
+    },
+    confidence: {
+      unclear_reference_present: 'medium',
+      action_item_proposed: 'medium',
+      question_invites_revision: 'medium',
+    },
+    evidenceSpan: {},
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      // Family H carries unclear_reference_present; the packet shape is
+      // synthetic for this multi-key test.
+      classifierSetVersion: 'family-h-v1',
+    },
+  };
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'claim_clarity',
+  });
+  const spans = result.packet.evidenceSpan as Record<string, unknown>;
+  assertEquals(spans.unclear_reference_present, null);
+  assertEquals(spans.action_item_proposed, null);
+  assertEquals(spans.question_invites_revision, null);
+  assertEquals(result.events.length, 3);
+  // All three events carry the key-set completion event name + category.
+  for (const event of result.events) {
+    assertEquals(event.event, EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME);
+    assertEquals(event.category, EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY);
+    assertEquals(event.originalLength, undefined);
+    assertEquals(event.maxLength, undefined);
+  }
+});
+
+Deno.test('MCP-EGI-009 — mixed packet: length + key-set events both fire in one call', () => {
+  // A packet that simultaneously needs Pass 1 (overlong present target) AND
+  // Pass 2 (missing key-set target) — both events should fire and the
+  // dispatcher's log loop should see both shapes. This proves the heterogeneous
+  // events array is wired correctly.
+  const overlong = 'a'.repeat(MAX_EVIDENCE_SPAN_CHARS + 1);
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-009-mixed',
+    checkedRawKeys: ['synthesis_proposed', 'action_item_proposed'],
+    observations: {
+      synthesis_proposed: true,
+      action_item_proposed: true,
+    },
+    confidence: {
+      synthesis_proposed: 'medium',
+      action_item_proposed: 'medium',
+    },
+    evidenceSpan: {
+      synthesis_proposed: overlong, // length pass → null
+      // action_item_proposed missing → key-set pass → null
+    },
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-g-v1',
+    },
+  };
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'resolution_progress',
+  });
+  const spans = result.packet.evidenceSpan as Record<string, unknown>;
+  assertEquals(spans.synthesis_proposed, null);
+  assertEquals(spans.action_item_proposed, null);
+  assertEquals(result.events.length, 2);
+
+  const lengthEvent = result.events.find(
+    (e) => e.event === EVIDENCE_SPAN_NORMALIZATION_EVENT_NAME,
+  );
+  const keySetEvent = result.events.find(
+    (e) => e.event === EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME,
+  );
+  if (!lengthEvent || !keySetEvent) {
+    throw new Error('expected both length and key-set events');
+  }
+  assertEquals(lengthEvent.rawKey, 'synthesis_proposed');
+  assertEquals(lengthEvent.category, EVIDENCE_SPAN_NORMALIZATION_CATEGORY);
+  assertEquals(lengthEvent.originalLength, MAX_EVIDENCE_SPAN_CHARS + 1);
+  assertEquals(lengthEvent.maxLength, MAX_EVIDENCE_SPAN_CHARS);
+  assertEquals(keySetEvent.rawKey, 'action_item_proposed');
+  assertEquals(keySetEvent.category, EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY);
+  assertEquals(keySetEvent.originalLength, undefined);
+  assertEquals(keySetEvent.maxLength, undefined);
+
+  const validated = validateMcpBooleanObservationResponse(result.packet);
+  assertEquals(validated.ok, true);
+});
+
+Deno.test('MCP-EGI-009 — key-set events carry NO raw content (leak audit)', () => {
+  // The completion event must contain only structural identifiers. There is
+  // no raw value to leak (the key was missing), but the test confirms no
+  // accidental capture of nodeId / model output / checkedRawKeys content
+  // into event fields.
+  const sentinel = 'SENTINEL-KEY-SET-NEVER-LOG-3c8d72';
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: sentinel + '-node',
+    checkedRawKeys: ['unclear_reference_present'],
+    observations: { unclear_reference_present: true },
+    confidence: { unclear_reference_present: 'medium' },
+    evidenceSpan: {},
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-h-v1',
+    },
+  };
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'claim_clarity',
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    requestId: 'egi-009-req-leak',
+  });
+  const serialized = JSON.stringify(result.events);
+  assertEquals(serialized.includes(sentinel), false);
+  assertEquals(serialized.includes('SENTINEL'), false);
+});
+
+Deno.test('MCP-EGI-009 — observations + confidence + checkedRawKeys identity-preserved on key-set completion', () => {
+  // Same identity-preservation guarantee as Pass 1: only evidenceSpan is
+  // shallow-copied with the completion; observations / confidence /
+  // checkedRawKeys references are byte-equal.
+  const packet = keySetBasePacket(
+    {
+      family: 'claim_clarity',
+      classifierSetVersion: 'family-h-v1',
+      rawKey: 'unclear_reference_present',
+    },
+    {},
+  );
+  const inputObs = packet.observations;
+  const inputConf = packet.confidence;
+  const inputKeys = packet.checkedRawKeys;
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'claim_clarity',
+  });
+  assertStrictEquals(result.packet.observations, inputObs);
+  assertStrictEquals(result.packet.confidence, inputConf);
+  assertStrictEquals(result.packet.checkedRawKeys, inputKeys);
+  // evidenceSpan IS a new object (it was mutated).
+  assertNotStrictEquals(result.packet.evidenceSpan, packet.evidenceSpan);
 });

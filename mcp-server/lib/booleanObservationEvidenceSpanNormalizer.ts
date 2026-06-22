@@ -1,6 +1,24 @@
 /**
- * MCP-EGI-006 — Server-side null normalization for overlong compound
- * evidenceSpan values.
+ * MCP-EGI-006/007/008 + MCP-EGI-009 — Server-side pre-validation
+ * normalization for two evidenceSpan validation classes:
+ *
+ *   Pass 1 (MCP-EGI-006/007/008) — length-overflow null normalization
+ *   for the locked 13-key compound rawKey set whose anchors organically
+ *   exceed `MAX_EVIDENCE_SPAN_CHARS` on comparison-dense input.
+ *
+ *   Pass 2 (MCP-EGI-009) — key-set completion to null for the locked
+ *   3-key set whose model output included the rawKey in observations,
+ *   confidence, and checkedRawKeys but omitted the corresponding
+ *   evidenceSpan entry. Repairs a structural map-coordination omission;
+ *   preserves the model's semantic decision byte-equal.
+ *
+ * Both passes are no-op when the trigger conditions are absent. Both
+ * preserve doctrine (the length pass via ban-list scan; the key-set pass
+ * by never overwriting present values and never fabricating semantic
+ * observations). The two passes target disjoint rawKey sets — see the
+ * disjointness invariant on `EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS`.
+ *
+ * --- Pass 1 origin (MCP-EGI-006) ---
  *
  * Three D3 canary attempts (post-MCP-EGI-002 / 003 / 005) confirmed the
  * E/G/I dead-letter trail via the MCP-EGI-003 row-level discriminator:
@@ -66,7 +84,9 @@
  *   - cdiscourse-doctrine §10a — observations vs allegations; nulling a
  *     compound anchor on length is a STRUCTURAL act, not a quality verdict.
  *
- * Safe log event shape (emitted by the tool dispatcher after this helper):
+ * Safe log event shapes (emitted by the tool dispatcher after this helper):
+ *
+ *   Length pass:
  *   {
  *     event: 'boolean_observations_evidence_span_normalized',
  *     family, rawKey, path: 'evidenceSpan.<rawKey>',
@@ -74,6 +94,15 @@
  *     originalLength, maxLength,
  *     schemaVersion?, requestId?
  *   }
+ *
+ *   Key-set pass:
+ *   {
+ *     event: 'boolean_observations_evidence_span_key_completed',
+ *     family, rawKey, path: 'evidenceSpan.<rawKey>',
+ *     category: 'evidence_span_key_set_missing_to_null',
+ *     schemaVersion?, requestId?
+ *   }
+ *
  * NEVER carries:
  *   - the raw evidenceSpan string value,
  *   - the raw packet,
@@ -167,22 +196,108 @@ export const EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS: ReadonlySet<string> = new Set(
   'claim_present', // Family H — MCP-EGI-008
 ]);
 
-/** Single category constant for the only normalization action this helper performs. */
+/**
+ * MCP-EGI-009 — Locked set of rawKeys for which a MISSING evidenceSpan entry
+ * is structurally completed to `null` before validation. Disjoint from the
+ * length-normalization set; addresses a different validation class.
+ *
+ * Burst evidence (post-MCP-EGI-007 D3 pass-load, debate
+ * `bd7b732c-306a-4c11-b5c3-9d3cafd2bbbc`, 2026-06-22T08:15:54Z;
+ * 8 targets × 9 families = 72 cells) surfaced 3 distinct rawKeys with the
+ * row-level discriminator:
+ *
+ *   validator_path = evidenceSpan.<rawKey>
+ *   mcp_tool_reason = validation_failed
+ *   mcp_tool_detail_category = evidence_span_key_set_missing
+ *
+ * On those rows the model included the rawKey in `observations`, `confidence`,
+ * and `checkedRawKeys` — meaning the model DID make a semantic decision —
+ * but omitted the corresponding `evidenceSpan.<rawKey>` entry. The validator's
+ * key-set coordination requires the four maps to align on the same rawKey
+ * set; the omission rejects the entire packet.
+ *
+ *   - `question_invites_revision`              (Family F / critical_question)
+ *   - `action_item_proposed`                   (Family G / resolution_progress)
+ *   - `unclear_reference_present`              (Family H / claim_clarity)
+ *
+ * Each rawKey is verified in its named family registry
+ * (`familyFKeys.ts` / `familyGKeys.ts` / `familyHKeys.ts`). All three families
+ * are members of `KEY_LEVEL_FAIL_CLOSED_FAMILIES`, so the existing dispatcher
+ * routing already invokes the normalizer with a non-null family pattern stack
+ * for the relevant tool call.
+ *
+ * Completion to `null` is doctrine-safe:
+ *   - `null` is an existing valid value for `evidenceSpan.<rawKey>` (the
+ *     schema mirror accepts `string | null`).
+ *   - `null` makes NO semantic claim — the model's observation boolean and
+ *     confidence value remain its stated finding.
+ *   - The existing prompt instruction "set evidenceSpan.<rawKey> to null when
+ *     you have no anchor" implicitly admits null as the correct value for a
+ *     key the model judged but cannot anchor.
+ *   - The validator remains unchanged: a missing key on the unnormalized
+ *     packet still fails the key-set coordination check.
+ *   - No ban-list scan is required (no content is ever moved or fabricated;
+ *     null is structurally orthogonal to doctrine).
+ *
+ * Disjointness invariant: this set MUST be disjoint from
+ * `EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS`. Length-overflow is a content-shape
+ * residual on a present rawKey; key-set-missing is a coordination residual on
+ * an absent rawKey. A rawKey appearing in both sets would be a contract bug
+ * (the same packet shape cannot simultaneously be "string longer than 240
+ * chars" AND "missing entirely"). The dedicated regression test asserts
+ * `EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS ∩ EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS
+ * === ∅`.
+ */
+export const EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS: ReadonlySet<string> = new Set([
+  'question_invites_revision', // Family F — MCP-EGI-009
+  'action_item_proposed', // Family G — MCP-EGI-009
+  'unclear_reference_present', // Family H — MCP-EGI-009
+]);
+
+/** Category constant for the length-overflow normalization action (MCP-EGI-006/007/008). */
 export const EVIDENCE_SPAN_NORMALIZATION_CATEGORY =
   'evidence_span_length_exceeded_to_null' as const;
 
-/** Single event name constant for the dispatcher's structured log line. */
+/** Event name constant for the length-overflow normalization log line. */
 export const EVIDENCE_SPAN_NORMALIZATION_EVENT_NAME =
   'boolean_observations_evidence_span_normalized' as const;
 
+/**
+ * MCP-EGI-009 — Category constant for the key-set-missing completion action.
+ *
+ * Distinct from the length-overflow category so structured-log readers and
+ * downstream classifier-queue diagnostics can tell the two normalizers apart.
+ */
+export const EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY =
+  'evidence_span_key_set_missing_to_null' as const;
+
+/** MCP-EGI-009 — Event name constant for the key-set-completion log line. */
+export const EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME =
+  'boolean_observations_evidence_span_key_completed' as const;
+
+/**
+ * Unified event shape used by both normalization passes.
+ *
+ * - The `event` + `category` fields discriminate length-overflow events
+ *   (MCP-EGI-006/007/008) from key-set-completion events (MCP-EGI-009).
+ * - `originalLength` / `maxLength` are present ONLY on length-overflow events.
+ *   They are optional on the shared interface so the dispatcher's structured
+ *   log call stays byte-equal across both passes (undefined values are safely
+ *   omitted by the log helper). No raw evidenceSpan value, raw packet, raw
+ *   prompt, raw body, or raw model response is ever carried.
+ */
 export interface EvidenceSpanNormalizationEvent {
-  readonly event: typeof EVIDENCE_SPAN_NORMALIZATION_EVENT_NAME;
+  readonly event:
+    | typeof EVIDENCE_SPAN_NORMALIZATION_EVENT_NAME
+    | typeof EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME;
   readonly family?: string;
   readonly rawKey: string;
   readonly path: string;
-  readonly category: typeof EVIDENCE_SPAN_NORMALIZATION_CATEGORY;
-  readonly originalLength: number;
-  readonly maxLength: number;
+  readonly category:
+    | typeof EVIDENCE_SPAN_NORMALIZATION_CATEGORY
+    | typeof EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY;
+  readonly originalLength?: number;
+  readonly maxLength?: number;
   readonly schemaVersion?: string;
   readonly requestId?: string;
 }
@@ -241,6 +356,7 @@ export function normalizeLongEvidenceSpansForBooleanObservations(
   const normalizedSpans: Record<string, unknown> = { ...spans };
   let mutated = false;
 
+  // === Pass 1 — MCP-EGI-006/007/008 length-overflow normalization ===
   for (const [rawKey, value] of Object.entries(spans)) {
     if (!EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.has(rawKey)) continue;
     if (typeof value !== 'string') continue;
@@ -265,6 +381,53 @@ export function normalizeLongEvidenceSpansForBooleanObservations(
       schemaVersion: options.schemaVersion,
       requestId: options.requestId,
     });
+  }
+
+  // === Pass 2 — MCP-EGI-009 key-set completion ===
+  //
+  // For each rawKey in the locked completion set: if the rawKey is present
+  // in observations + confidence + checkedRawKeys (i.e. the model made a
+  // semantic decision about it) but missing from evidenceSpan (the model
+  // omitted the anchor), add `evidenceSpan.<rawKey> = null`. This repairs
+  // a structural key-set coordination omission while preserving the model's
+  // observation+confidence decisions byte-equal. No ban-list scan is needed
+  // — no content is moved or fabricated; null is structurally orthogonal
+  // to doctrine.
+  //
+  // Critical safety: NEVER overwrites a present value. The
+  // `hasOwnProperty(normalizedSpans, rawKey)` guard ensures that any
+  // pre-existing value (including null, string, or an invalid shape that
+  // the validator will reject) is left untouched. This preserves the
+  // validator's existing power to reject malformed packets.
+  const observations = packet.observations;
+  const confidence = packet.confidence;
+  const checkedRawKeys = packet.checkedRawKeys;
+  if (
+    isPlainObject(observations) &&
+    isPlainObject(confidence) &&
+    Array.isArray(checkedRawKeys)
+  ) {
+    const checkedSet = new Set(
+      checkedRawKeys.filter((k): k is string => typeof k === 'string'),
+    );
+    for (const rawKey of EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(normalizedSpans, rawKey)) continue;
+      if (!Object.prototype.hasOwnProperty.call(observations, rawKey)) continue;
+      if (!Object.prototype.hasOwnProperty.call(confidence, rawKey)) continue;
+      if (!checkedSet.has(rawKey)) continue;
+
+      normalizedSpans[rawKey] = null;
+      mutated = true;
+      events.push({
+        event: EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME,
+        family,
+        rawKey,
+        path: `evidenceSpan.${rawKey}`,
+        category: EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY,
+        schemaVersion: options.schemaVersion,
+        requestId: options.requestId,
+      });
+    }
   }
 
   if (!mutated) return { packet, events: [] };
