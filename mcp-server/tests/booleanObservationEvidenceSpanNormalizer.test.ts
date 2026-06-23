@@ -126,6 +126,53 @@ const TARGETS: readonly TargetCase[] = [
     classifierSetVersion: 'family-h-v1',
     rawKey: 'claim_present',
   },
+  // MCP-EGI-010 — added on the basis of the post-MCP-EGI-009 D3 burst (debate
+  // `4d75daeb-f09a-430d-aa01-3ee6374922c6`, 2026-06-23T05:04:25Z; 8 targets ×
+  // 9 families = 72 cells, runId `28eb3908-2d39-4a37-a34a-3de5256ba807`). This
+  // was the FIRST burst against the verified MCP-EGI-008 + MCP-EGI-009
+  // production deploy. The 13 EGI-008 length-targets and 3 EGI-009 key-set-
+  // completion targets BOTH worked as designed; the burst surfaced 7 NEW
+  // distinct length-overflow rawKeys with row-level evidence
+  // (`multiple_claims_present` recurring 3×, `missing_warrant` 2×,
+  // `separates_observation_from_inference` 2×, others 1×). Each family is
+  // already in KEY_LEVEL_FAIL_CLOSED_FAMILIES; no dispatcher/ban-list/
+  // validator/prompt change required. Note Family F (`critical_question`)
+  // gains its FIRST length-normalize rawKey via `missing_warrant`.
+  {
+    family: 'parent_relation',
+    classifierSetVersion: 'family-a-v1',
+    rawKey: 'distinguishes_parent',
+  },
+  {
+    family: 'disagreement_axis',
+    classifierSetVersion: 'family-b-v1',
+    rawKey: 'disputes_scope',
+  },
+  {
+    family: 'misunderstanding_repair',
+    classifierSetVersion: 'family-c-v1',
+    rawKey: 'offers_candidate_understanding',
+  },
+  {
+    family: 'evidence_source_chain',
+    classifierSetVersion: 'family-d-v1',
+    rawKey: 'separates_observation_from_inference',
+  },
+  {
+    family: 'critical_question',
+    classifierSetVersion: 'family-f-v1',
+    rawKey: 'missing_warrant',
+  },
+  {
+    family: 'claim_clarity',
+    classifierSetVersion: 'family-h-v1',
+    rawKey: 'multiple_claims_present',
+  },
+  {
+    family: 'thread_topology',
+    classifierSetVersion: 'family-i-v1',
+    rawKey: 'introduces_sub_axis',
+  },
 ];
 
 function basePacket(
@@ -147,7 +194,7 @@ function basePacket(
   };
 }
 
-Deno.test('MCP-EGI-008 — exports the thirteen confirmed compound rawKeys', () => {
+Deno.test('MCP-EGI-010 — exports the twenty confirmed compound rawKeys', () => {
   // The set is locked to live D3 evidence. MCP-EGI-006 opened with 4
   // rawKeys (E `tradeoff_reasoning_present` / `convergent_premise_structure`,
   // G `synthesis_proposed`, I `compares_options`). MCP-EGI-007 added a 5th
@@ -155,8 +202,13 @@ Deno.test('MCP-EGI-008 — exports the thirteen confirmed compound rawKeys', () 
   // MCP-EGI-008 added 8 more (A `contrasts_with_parent`, B `preserves_face_while_disagreeing`,
   // C `provides_alternate_interpretation`, D `evidence_gap_present`, D `names_method_difference`,
   // E `analogy_reasoning_present`, G `separates_normative_from_empirical`, H `claim_present`)
-  // on the basis of the post-MCP-EGI-007 D3 burst/pass-load. Any future widening must
-  // be a separate card; this test guards against accidental drift.
+  // on the basis of the post-MCP-EGI-007 D3 burst/pass-load.
+  // MCP-EGI-010 added 7 more (A `distinguishes_parent`, B `disputes_scope`,
+  // C `offers_candidate_understanding`, D `separates_observation_from_inference`,
+  // F `missing_warrant`, H `multiple_claims_present`, I `introduces_sub_axis`)
+  // on the basis of the post-MCP-EGI-009 D3 burst (the FIRST burst against the
+  // verified MCP-EGI-008 + MCP-EGI-009 production deploy). Any future widening
+  // must be a separate card; this test guards against accidental drift.
   assertEquals(
     [...EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS].sort(),
     [
@@ -165,17 +217,24 @@ Deno.test('MCP-EGI-008 — exports the thirteen confirmed compound rawKeys', () 
       'compares_options',
       'contrasts_with_parent',
       'convergent_premise_structure',
+      'disputes_scope',
+      'distinguishes_parent',
       'evidence_gap_present',
+      'introduces_sub_axis',
+      'missing_warrant',
+      'multiple_claims_present',
       'names_method_difference',
+      'offers_candidate_understanding',
       'preserves_face_while_disagreeing',
       'provides_alternate_interpretation',
       'reason_present',
       'separates_normative_from_empirical',
+      'separates_observation_from_inference',
       'synthesis_proposed',
       'tradeoff_reasoning_present',
     ],
   );
-  assertEquals(EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.size, 13);
+  assertEquals(EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.size, 20);
 });
 
 Deno.test('MCP-EGI-006 — event and category constants are stable structural identifiers', () => {
