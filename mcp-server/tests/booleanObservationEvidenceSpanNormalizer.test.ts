@@ -30,9 +30,10 @@ import {
   EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS,
   EVIDENCE_SPAN_KEY_SET_COMPLETION_CATEGORY,
   EVIDENCE_SPAN_KEY_SET_COMPLETION_EVENT_NAME,
-  EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS,
+  EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS_DEPRECATED,
   EVIDENCE_SPAN_NORMALIZATION_CATEGORY,
   EVIDENCE_SPAN_NORMALIZATION_EVENT_NAME,
+  LENGTH_NORMALIZE_ELIGIBLE_FAMILIES,
   normalizeLongEvidenceSpansForBooleanObservations,
 } from '../lib/booleanObservationEvidenceSpanNormalizer.ts';
 import {
@@ -173,6 +174,63 @@ const TARGETS: readonly TargetCase[] = [
     classifierSetVersion: 'family-i-v1',
     rawKey: 'introduces_sub_axis',
   },
+  // MCP-EGI-012 — added on the basis of the post-MCP-EGI-010 D3 burst (debate
+  // `f4655492-d24b-4223-aa64-de17a577f8c1`, 2026-06-23T19:09:56Z; runId
+  // `719b7b8f-7ac7-44df-bb79-4ea3d38e210c`; 8 targets × 9 families = 72 cells).
+  // These 10 rawKeys are the THIRD-burst length-overflow surface. With
+  // MCP-EGI-012's categorical eligibility rule, every family-valid rawKey is
+  // covered automatically; these TARGETS exist to PROVE that the new categorical
+  // rule actually covers each of them end-to-end (not just in theory).
+  {
+    family: 'parent_relation',
+    classifierSetVersion: 'family-a-v1',
+    rawKey: 'summarizes_parent',
+  },
+  {
+    family: 'parent_relation',
+    classifierSetVersion: 'family-a-v1',
+    rawKey: 'supports_parent',
+  },
+  {
+    family: 'parent_relation',
+    classifierSetVersion: 'family-a-v1',
+    rawKey: 'challenges_parent',
+  },
+  {
+    family: 'disagreement_axis',
+    classifierSetVersion: 'family-b-v1',
+    rawKey: 'disagreement_present',
+  },
+  {
+    family: 'disagreement_axis',
+    classifierSetVersion: 'family-b-v1',
+    rawKey: 'disputes_evidence_applicability',
+  },
+  {
+    family: 'misunderstanding_repair',
+    classifierSetVersion: 'family-c-v1',
+    rawKey: 'scope_mismatch_identified',
+  },
+  {
+    family: 'evidence_source_chain',
+    classifierSetVersion: 'family-d-v1',
+    rawKey: 'concrete_example_provided',
+  },
+  {
+    family: 'critical_question',
+    classifierSetVersion: 'family-f-v1',
+    rawKey: 'example_representativeness_unclear',
+  },
+  {
+    family: 'resolution_progress',
+    classifierSetVersion: 'family-g-v1',
+    rawKey: 'defines_next_evidence_needed',
+  },
+  {
+    family: 'resolution_progress',
+    classifierSetVersion: 'family-g-v1',
+    rawKey: 'unresolved_point_isolated',
+  },
 ];
 
 function basePacket(
@@ -194,23 +252,42 @@ function basePacket(
   };
 }
 
-Deno.test('MCP-EGI-010 — exports the twenty confirmed compound rawKeys', () => {
-  // The set is locked to live D3 evidence. MCP-EGI-006 opened with 4
-  // rawKeys (E `tradeoff_reasoning_present` / `convergent_premise_structure`,
-  // G `synthesis_proposed`, I `compares_options`). MCP-EGI-007 added a 5th
-  // (H `reason_present`) on the basis of the post-MCP-EGI-006 D3 canary.
-  // MCP-EGI-008 added 8 more (A `contrasts_with_parent`, B `preserves_face_while_disagreeing`,
-  // C `provides_alternate_interpretation`, D `evidence_gap_present`, D `names_method_difference`,
-  // E `analogy_reasoning_present`, G `separates_normative_from_empirical`, H `claim_present`)
-  // on the basis of the post-MCP-EGI-007 D3 burst/pass-load.
-  // MCP-EGI-010 added 7 more (A `distinguishes_parent`, B `disputes_scope`,
-  // C `offers_candidate_understanding`, D `separates_observation_from_inference`,
-  // F `missing_warrant`, H `multiple_claims_present`, I `introduces_sub_axis`)
-  // on the basis of the post-MCP-EGI-009 D3 burst (the FIRST burst against the
-  // verified MCP-EGI-008 + MCP-EGI-009 production deploy). Any future widening
-  // must be a separate card; this test guards against accidental drift.
+Deno.test('MCP-EGI-012 — LENGTH_NORMALIZE_ELIGIBLE_FAMILIES is exactly A-I (9 production families)', () => {
+  // The categorical eligibility rule replaces the prior MCP-EGI-006 → 010 narrow
+  // allowlist trajectory (4 → 5 → 13 → 20 rawKeys). The new invariant: any
+  // family-valid rawKey under one of the 9 production families A-I is eligible.
+  // Family J `sensitive_composer` is EXCLUDED here even though it is registered
+  // in the mcp-server familyRegistry singleton, because J is
+  // `productionEnabled:false` at the Edge boundary. This test guards against
+  // accidental drift (e.g., re-adding J without a doctrine review, or dropping
+  // one of the 9 production families).
   assertEquals(
-    [...EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS].sort(),
+    [...LENGTH_NORMALIZE_ELIGIBLE_FAMILIES].sort(),
+    [
+      'argument_scheme',         // Family E
+      'claim_clarity',           // Family H
+      'critical_question',       // Family F
+      'disagreement_axis',       // Family B
+      'evidence_source_chain',   // Family D
+      'misunderstanding_repair', // Family C
+      'parent_relation',         // Family A
+      'resolution_progress',     // Family G
+      'thread_topology',         // Family I
+    ],
+  );
+  assertEquals(LENGTH_NORMALIZE_ELIGIBLE_FAMILIES.size, 9);
+  // Explicit J exclusion guard.
+  assertEquals(LENGTH_NORMALIZE_ELIGIBLE_FAMILIES.has('sensitive_composer'), false);
+});
+
+Deno.test('MCP-EGI-012 — DEPRECATED 20-key allowlist constant is frozen as a historical record', () => {
+  // Historical allowlist from the MCP-EGI-006 → 007 → 008 → 010 trajectory.
+  // No longer consulted by Pass 1 (categorical eligibility is now the source of
+  // truth). Frozen here so historical analyses can introspect the prior
+  // trajectory. Adding a new key here would NOT widen normalizer scope; it
+  // would just create a stale comment. This test pins the frozen contents.
+  assertEquals(
+    [...EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS_DEPRECATED].sort(),
     [
       'analogy_reasoning_present',
       'claim_present',
@@ -234,7 +311,7 @@ Deno.test('MCP-EGI-010 — exports the twenty confirmed compound rawKeys', () =>
       'tradeoff_reasoning_present',
     ],
   );
-  assertEquals(EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.size, 20);
+  assertEquals(EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS_DEPRECATED.size, 20);
 });
 
 Deno.test('MCP-EGI-006 — event and category constants are stable structural identifiers', () => {
@@ -349,25 +426,61 @@ Deno.test('MCP-EGI-006 — non-target rawKey: 241-char string NOT normalized (ou
   }
 });
 
-Deno.test('MCP-EGI-008 — non-target Family H rawKey: 241-char string NOT normalized (widening still narrow)', () => {
-  // `quantifier_present` is a Family H rawKey ADJACENT to the MCP-EGI-008
-  // targets `claim_present` and `reason_present`. After MCP-EGI-008, Family H
-  // has TWO in-scope rawKeys (`reason_present` from EGI-007 + `claim_present`
-  // from EGI-008), but the widening is STILL narrow — `quantifier_present`
-  // (and the other 9 H rawKeys) remain OUT of scope. Adversarial regression:
-  // an overlong `quantifier_present` string under family `claim_clarity` must
-  // NOT be normalized — the validator should reject it for length as it does
-  // today.
+Deno.test('MCP-EGI-012 — cross-family rawKey: 241-char string NOT normalized (rawKey not valid for packet family)', () => {
+  // Under MCP-EGI-012's categorical rule, eligibility is family-valid rawKey
+  // membership, not a hand-maintained allowlist. So `quantifier_present` (a
+  // real Family H rawKey) IS eligible under `claim_clarity` (Family H). To
+  // test the family-mismatch reject path, this test puts `quantifier_present`
+  // under family `argument_scheme` (Family E) — same rawKey but the WRONG
+  // family. The categorical gate `isRawKeySupportedForFamily('argument_scheme',
+  // 'quantifier_present')` returns false, so the normalizer leaves the value
+  // untouched and the validator rejects on key-set asymmetry.
   //
-  // History: MCP-EGI-007's prior version of this test used `claim_present` as
-  // the out-of-scope sibling. MCP-EGI-008 moved `claim_present` INTO scope
-  // on the basis of burst row evidence, so the sibling assertion is relocated
-  // to `quantifier_present`, which has no burst row-level evidence and remains
-  // outside the locked set.
+  // History: MCP-EGI-007 used `claim_present` as the sibling; MCP-EGI-008
+  // moved it in-scope, so the sibling was relocated to `quantifier_present`
+  // for the MCP-EGI-008 / MCP-EGI-010 narrow-allowlist era. MCP-EGI-012's
+  // categorical rule made `quantifier_present` ELIGIBLE under its native
+  // family, so the negative case now exercises the CROSS-FAMILY mismatch.
   const overlong = 'a'.repeat(MAX_EVIDENCE_SPAN_CHARS + 1);
   const packet = {
     schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
-    nodeId: 'egi-008-node-1',
+    nodeId: 'egi-012-node-cross-family',
+    checkedRawKeys: ['quantifier_present'],
+    observations: { quantifier_present: true },
+    confidence: { quantifier_present: 'medium' },
+    evidenceSpan: { quantifier_present: overlong },
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-e-v1',
+    },
+  };
+  // Note: family='argument_scheme' (Family E), but quantifier_present is a
+  // Family H rawKey. isRawKeySupportedForFamily('argument_scheme',
+  // 'quantifier_present') returns false → normalizer SKIPS this rawKey.
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'argument_scheme',
+  });
+  const spans = result.packet.evidenceSpan as Record<string, unknown>;
+  assertEquals(spans.quantifier_present, overlong);
+  assertEquals(result.events.length, 0);
+  const validated = validateMcpBooleanObservationResponse(result.packet);
+  assertEquals(validated.ok, false);
+  if (!validated.ok) {
+    assertEquals(validated.path, 'evidenceSpan.quantifier_present');
+  }
+});
+
+Deno.test('MCP-EGI-012 — Family H rawKey IS normalized under correct family (quantifier_present under claim_clarity)', () => {
+  // The flip side of the cross-family test: `quantifier_present` under
+  // family='claim_clarity' (its native Family H) IS eligible for normalization
+  // under MCP-EGI-012's categorical rule, because the family is in
+  // LENGTH_NORMALIZE_ELIGIBLE_FAMILIES and isRawKeySupportedForFamily(
+  // 'claim_clarity', 'quantifier_present') returns true.
+  const overlong = 'a'.repeat(MAX_EVIDENCE_SPAN_CHARS + 1);
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-012-node-quant-h',
     checkedRawKeys: ['quantifier_present'],
     observations: { quantifier_present: true },
     confidence: { quantifier_present: 'medium' },
@@ -382,13 +495,72 @@ Deno.test('MCP-EGI-008 — non-target Family H rawKey: 241-char string NOT norma
     family: 'claim_clarity',
   });
   const spans = result.packet.evidenceSpan as Record<string, unknown>;
-  assertEquals(spans.quantifier_present, overlong);
+  assertEquals(spans.quantifier_present, null);
+  assertEquals(result.events.length, 1);
+  assertEquals(result.events[0].category, EVIDENCE_SPAN_NORMALIZATION_CATEGORY);
+  // Post-normalization, validator accepts the packet.
+  const validated = validateMcpBooleanObservationResponse(result.packet);
+  assertEquals(validated.ok, true);
+});
+
+Deno.test('MCP-EGI-012 — unknown rawKey: 241-char string NOT normalized (rawKey not in any family)', () => {
+  // Unknown rawKey → not valid for ANY family → categorical gate fails.
+  // The normalizer leaves it untouched; the validator rejects it.
+  const overlong = 'a'.repeat(MAX_EVIDENCE_SPAN_CHARS + 1);
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-012-node-unknown',
+    checkedRawKeys: ['nonexistent_fake_rawkey'],
+    observations: { nonexistent_fake_rawkey: true },
+    confidence: { nonexistent_fake_rawkey: 'medium' },
+    evidenceSpan: { nonexistent_fake_rawkey: overlong },
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-h-v1',
+    },
+  };
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'claim_clarity',
+  });
+  const spans = result.packet.evidenceSpan as Record<string, unknown>;
+  assertEquals(spans.nonexistent_fake_rawkey, overlong);
   assertEquals(result.events.length, 0);
   const validated = validateMcpBooleanObservationResponse(result.packet);
   assertEquals(validated.ok, false);
-  if (!validated.ok) {
-    assertEquals(validated.path, 'evidenceSpan.quantifier_present');
-  }
+});
+
+Deno.test('MCP-EGI-012 — Family J `sensitive_composer` excluded from eligible families: 241-char string NOT normalized', () => {
+  // Family J is explicitly excluded from LENGTH_NORMALIZE_ELIGIBLE_FAMILIES
+  // even though it is registered in the mcp-server familyRegistry singleton,
+  // because J is productionEnabled:false at the Edge boundary. Pick a real
+  // Family J rawKey (`shifts_to_person_or_intent`) and confirm the
+  // normalizer leaves it untouched under family='sensitive_composer'.
+  //
+  // If J ever flips to productionEnabled:true at the Edge, a fresh doctrine
+  // review is required before adding 'sensitive_composer' to the eligible set.
+  const overlong = 'a'.repeat(MAX_EVIDENCE_SPAN_CHARS + 1);
+  const packet = {
+    schemaVersion: MCP_BOOLEAN_OBSERVATION_SCHEMA_VERSION,
+    nodeId: 'egi-012-node-family-j',
+    checkedRawKeys: ['shifts_to_person_or_intent'],
+    observations: { shifts_to_person_or_intent: true },
+    confidence: { shifts_to_person_or_intent: 'medium' },
+    evidenceSpan: { shifts_to_person_or_intent: overlong },
+    modelInfo: {
+      provider: 'mcp',
+      serverName: 'cdiscourse-mcp-server',
+      classifierSetVersion: 'family-j-v1',
+    },
+  };
+  const result = normalizeLongEvidenceSpansForBooleanObservations(packet, {
+    family: 'sensitive_composer',
+  });
+  const spans = result.packet.evidenceSpan as Record<string, unknown>;
+  assertEquals(spans.shifts_to_person_or_intent, overlong);
+  assertEquals(result.events.length, 0);
+  const validated = validateMcpBooleanObservationResponse(result.packet);
+  assertEquals(validated.ok, false);
 });
 
 // (MCP-EGI-008's key-set-missing scope-boundary test for `unclear_reference_present`
@@ -814,23 +986,27 @@ Deno.test('MCP-EGI-009 — event and category constants are stable structural id
   );
 });
 
-Deno.test('MCP-EGI-009 — length set and key-set-completion set are DISJOINT', () => {
-  // Length-overflow operates on present rawKeys; key-set-completion operates
-  // on absent rawKeys. A single packet shape cannot simultaneously be "string
-  // longer than 240 chars on this key" AND "missing this key", so a rawKey
-  // in BOTH sets would be a contract bug.
+Deno.test('MCP-EGI-009 — key-set-completion rawKeys NOT in the historical length allowlist (disjoint trajectory record)', () => {
+  // Originally MCP-EGI-009 invariant: length-overflow operates on present
+  // rawKeys, key-set-completion on absent rawKeys, so a rawKey in BOTH sets
+  // would be a contract bug. Under MCP-EGI-012's categorical Pass 1 there is
+  // no hand-maintained length set anymore, but the historical record
+  // (EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS_DEPRECATED) still must be disjoint
+  // from the key-set-completion set — otherwise the historical trajectory
+  // would have miscategorized a rawKey as length-overflow when it actually
+  // surfaced as key-set-missing.
   for (const k of EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS) {
     assertEquals(
-      EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.has(k),
+      EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS_DEPRECATED.has(k),
       false,
-      `key-set-completion key '${k}' must NOT appear in the length-normalization set`,
+      `key-set-completion key '${k}' must NOT appear in the deprecated length allowlist`,
     );
   }
-  for (const k of EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS) {
+  for (const k of EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS_DEPRECATED) {
     assertEquals(
       EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS.has(k),
       false,
-      `length-normalization key '${k}' must NOT appear in the key-set-completion set`,
+      `deprecated length key '${k}' must NOT appear in the key-set-completion set`,
     );
   }
 });
