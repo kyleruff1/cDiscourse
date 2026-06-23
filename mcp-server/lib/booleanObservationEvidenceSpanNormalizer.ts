@@ -112,6 +112,11 @@
 import { MAX_EVIDENCE_SPAN_CHARS } from './mcpBooleanObservationSchemaMirror.ts';
 import { banPatternsForKeyLevelFamily } from './keyLevelFailClosed.ts';
 import { banScanMatches } from './banScanNormalize.ts';
+import { isRawKeySupportedForFamily } from './familyRegistry.ts';
+// Side-effect import: triggers initializeFamilyRegistry() at line 233 so the
+// singleton has A-J registered before Pass 1 calls isRawKeySupportedForFamily().
+// This module is the canonical init point per design §3.3.
+import './familyRegistryInit.ts';
 
 /**
  * The exact compound structural rawKey set whose evidenceSpan anchors
@@ -219,28 +224,97 @@ import { banScanMatches } from './banScanNormalize.ts';
  * argument_scheme) — that is a different validation class (model emitted
  * a non-string evidenceSpan value, not an overlong string) and is
  * deferred to a separate MCP-EGI-011 lane.
+ *
+ * MCP-EGI-012 replaces the hand-maintained allowlist trajectory with a
+ * categorical rule on the basis of the post-MCP-EGI-010 D3 burst (runId
+ * `719b7b8f-7ac7-44df-bb79-4ea3d38e210c`, debate `f4655492-...`,
+ * 2026-06-23T19:09:56Z). That burst surfaced 10 NEW out-of-scope length-
+ * overflow rawKeys (`summarizes_parent` / `supports_parent` /
+ * `challenges_parent` A; `disagreement_present` /
+ * `disputes_evidence_applicability` B; `scope_mismatch_identified` C;
+ * `concrete_example_provided` D; `example_representativeness_unclear` F;
+ * `defines_next_evidence_needed` / `unresolved_point_isolated` G). The
+ * prior two bursts each surfaced 7 and 10 new rawKeys respectively; the
+ * narrow-widening trajectory was not converging.
+ *
+ * Pass 1 now derives eligibility from a categorical invariant rather than
+ * a frozen rawKey allowlist: an over-240-character evidenceSpan string on
+ * a family-valid rawKey, with the model's structural decision recorded in
+ * checkedRawKeys + observations + confidence, and clean under the family
+ * ban-list stack, is null-normalized. Pass 2 (MCP-EGI-009 key-set
+ * completion) remains byte-equal at exactly 3 rawKeys. The hand-maintained
+ * `EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS_DEPRECATED` constant is retained
+ * (frozen) only as a historical record of the prior allowlist trajectory.
+ *
+ * Family J `sensitive_composer` is explicitly EXCLUDED from
+ * `LENGTH_NORMALIZE_ELIGIBLE_FAMILIES` despite being registered in the
+ * mcp-server familyRegistry singleton, because J is `productionEnabled:false`
+ * at the Edge boundary and should not see production-shape packets. If J
+ * is ever flipped on at the Edge, a fresh doctrine review is required.
  */
-export const EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS: ReadonlySet<string> = new Set([
-  'tradeoff_reasoning_present', // Family E — MCP-EGI-006
-  'convergent_premise_structure', // Family E — MCP-EGI-006
-  'synthesis_proposed', // Family G — MCP-EGI-006
-  'compares_options', // Family I — MCP-EGI-006
-  'reason_present', // Family H — MCP-EGI-007
-  'contrasts_with_parent', // Family A — MCP-EGI-008
-  'preserves_face_while_disagreeing', // Family B — MCP-EGI-008
-  'provides_alternate_interpretation', // Family C — MCP-EGI-008
-  'evidence_gap_present', // Family D — MCP-EGI-008
-  'names_method_difference', // Family D — MCP-EGI-008
-  'analogy_reasoning_present', // Family E — MCP-EGI-008
-  'separates_normative_from_empirical', // Family G — MCP-EGI-008
-  'claim_present', // Family H — MCP-EGI-008
-  'distinguishes_parent', // Family A — MCP-EGI-010
-  'disputes_scope', // Family B — MCP-EGI-010
-  'offers_candidate_understanding', // Family C — MCP-EGI-010
-  'separates_observation_from_inference', // Family D — MCP-EGI-010
-  'missing_warrant', // Family F — MCP-EGI-010
-  'multiple_claims_present', // Family H — MCP-EGI-010
-  'introduces_sub_axis', // Family I — MCP-EGI-010
+/**
+ * MCP-EGI-012 — DEPRECATED hand-maintained 20-key length-normalize allowlist.
+ *
+ * Retained exported and frozen as a historical record of the keys that earned
+ * coverage under the explicit allowlist trajectory (MCP-EGI-006 → 007 → 008 →
+ * 010). NOT consulted by Pass 1 anymore. Pass 1 now uses the categorical
+ * `LENGTH_NORMALIZE_ELIGIBLE_FAMILIES` ∩ family-valid rawKey rule instead.
+ *
+ * This export exists only so historical drift tests can still introspect the
+ * prior allowlist contents without re-deriving them. Do NOT add new keys here.
+ * Categorical eligibility is the source of truth; this constant is frozen.
+ */
+export const EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS_DEPRECATED: ReadonlySet<string> = new Set([
+  // MCP-EGI-006
+  'tradeoff_reasoning_present',
+  'convergent_premise_structure',
+  'synthesis_proposed',
+  'compares_options',
+  // MCP-EGI-007
+  'reason_present',
+  // MCP-EGI-008
+  'contrasts_with_parent',
+  'preserves_face_while_disagreeing',
+  'provides_alternate_interpretation',
+  'evidence_gap_present',
+  'names_method_difference',
+  'analogy_reasoning_present',
+  'separates_normative_from_empirical',
+  'claim_present',
+  // MCP-EGI-010
+  'distinguishes_parent',
+  'disputes_scope',
+  'offers_candidate_understanding',
+  'separates_observation_from_inference',
+  'missing_warrant',
+  'multiple_claims_present',
+  'introduces_sub_axis',
+]);
+
+/**
+ * MCP-EGI-012 — Locked set of family identifiers eligible for the categorical
+ * length-overflow null-normalization. Families A–I are the 9 production
+ * families (`productionEnabled: true` at the Edge); Family J `sensitive_composer`
+ * is explicitly EXCLUDED here even though it is registered in the mcp-server
+ * `familyRegistry` singleton, because (a) J is `productionEnabled: false` at
+ * the Edge boundary and should not see production-shape packets, and (b) the
+ * gate-A spec for MCP-EGI-012 explicitly says default-do-not-normalize J.
+ *
+ * If J is ever flipped to `productionEnabled: true` at the Edge boundary, a
+ * fresh card (not this one) must re-evaluate whether to include
+ * 'sensitive_composer' here; the doctrine review at that point would also
+ * cover MCP-021C-EDGE-FAMILY-J / cdiscourse-doctrine §10a.
+ */
+export const LENGTH_NORMALIZE_ELIGIBLE_FAMILIES: ReadonlySet<string> = new Set([
+  'parent_relation',          // Family A
+  'disagreement_axis',        // Family B
+  'misunderstanding_repair',  // Family C
+  'evidence_source_chain',    // Family D
+  'argument_scheme',          // Family E
+  'critical_question',        // Family F
+  'resolution_progress',      // Family G
+  'claim_clarity',            // Family H
+  'thread_topology',          // Family I
 ]);
 
 /**
@@ -403,31 +477,72 @@ export function normalizeLongEvidenceSpansForBooleanObservations(
   const normalizedSpans: Record<string, unknown> = { ...spans };
   let mutated = false;
 
-  // === Pass 1 — MCP-EGI-006/007/008 length-overflow normalization ===
-  for (const [rawKey, value] of Object.entries(spans)) {
-    if (!EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS.has(rawKey)) continue;
-    if (typeof value !== 'string') continue;
-    if (value.length <= MAX_EVIDENCE_SPAN_CHARS) continue;
+  // === Pass 1 — MCP-EGI-006/007/008/010/012 length-overflow normalization ===
+  //
+  // MCP-EGI-012 replaces the prior hand-maintained 20-key allowlist with a
+  // categorical eligibility rule:
+  //   - family must be in LENGTH_NORMALIZE_ELIGIBLE_FAMILIES (A-I; J excluded
+  //     because J is productionEnabled:false at the Edge)
+  //   - rawKey must be valid for the packet's family per the singleton's
+  //     isRawKeySupportedForFamily(family, rawKey)
+  //   - rawKey must be present in checkedRawKeys/observations/confidence
+  //     (model judged it; structural gates beyond evidenceSpan key presence)
+  //   - evidenceSpan[rawKey] must be a string > 240 chars
+  //   - the string must be clean under the family ban-list stack
+  //
+  // The structural gates (checkedRawKeys/observations/confidence presence)
+  // are required because nulling an evidenceSpan entry when the model didn't
+  // even judge the rawKey could obscure a malformed packet that the validator
+  // should reject for unrelated reasons.
+  const familyEligible =
+    family !== undefined && LENGTH_NORMALIZE_ELIGIBLE_FAMILIES.has(family);
+  if (familyEligible) {
+    const observations = packet.observations;
+    const confidence = packet.confidence;
+    const checkedRawKeys = packet.checkedRawKeys;
+    const hasObs = isPlainObject(observations);
+    const hasConf = isPlainObject(confidence);
+    const checkedSet = Array.isArray(checkedRawKeys)
+      ? new Set(checkedRawKeys.filter((k): k is string => typeof k === 'string'))
+      : null;
+    const familyStr = family as string;
 
-    // Doctrine preservation: an overlong string containing banned content
-    // is NOT normalized — the validator's length reject still fires, and
-    // the existing ban-list-vs-length precedence is preserved. Nulling
-    // would silently discard the banned content, which is unsafe.
-    if (banScanMatches(value, patterns)) continue;
+    for (const [rawKey, value] of Object.entries(spans)) {
+      if (typeof value !== 'string') continue;
+      if (value.length <= MAX_EVIDENCE_SPAN_CHARS) continue;
 
-    normalizedSpans[rawKey] = null;
-    mutated = true;
-    events.push({
-      event: EVIDENCE_SPAN_NORMALIZATION_EVENT_NAME,
-      family,
-      rawKey,
-      path: `evidenceSpan.${rawKey}`,
-      category: EVIDENCE_SPAN_NORMALIZATION_CATEGORY,
-      originalLength: value.length,
-      maxLength: MAX_EVIDENCE_SPAN_CHARS,
-      schemaVersion: options.schemaVersion,
-      requestId: options.requestId,
-    });
+      // Categorical eligibility: family-valid rawKey only.
+      if (!isRawKeySupportedForFamily(familyStr, rawKey)) continue;
+
+      // Structural map-coordination gates: only normalize if the model actually
+      // judged this rawKey (present in obs + conf + checkedRawKeys).
+      if (!hasObs) continue;
+      if (!hasConf) continue;
+      if (checkedSet === null) continue;
+      if (!Object.prototype.hasOwnProperty.call(observations, rawKey)) continue;
+      if (!Object.prototype.hasOwnProperty.call(confidence, rawKey)) continue;
+      if (!checkedSet.has(rawKey)) continue;
+
+      // Doctrine preservation: an overlong string containing banned content
+      // is NOT normalized — the validator's length reject still fires, and
+      // the existing ban-list-vs-length precedence is preserved. Nulling
+      // would silently discard the banned content, which is unsafe.
+      if (banScanMatches(value, patterns)) continue;
+
+      normalizedSpans[rawKey] = null;
+      mutated = true;
+      events.push({
+        event: EVIDENCE_SPAN_NORMALIZATION_EVENT_NAME,
+        family,
+        rawKey,
+        path: `evidenceSpan.${rawKey}`,
+        category: EVIDENCE_SPAN_NORMALIZATION_CATEGORY,
+        originalLength: value.length,
+        maxLength: MAX_EVIDENCE_SPAN_CHARS,
+        schemaVersion: options.schemaVersion,
+        requestId: options.requestId,
+      });
+    }
   }
 
   // === Pass 2 — MCP-EGI-009 key-set completion ===
