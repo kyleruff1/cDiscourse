@@ -179,6 +179,46 @@ import { banScanMatches } from './banScanNormalize.ts';
  * `question_invites_revision`) — those are a different validation class and
  * are deferred to a separate MCP-EGI-009 lane (key-set coordination, not
  * length-overflow).
+ *
+ * MCP-EGI-010 widens by exactly 7 additional rawKeys on the basis of the
+ * post-MCP-EGI-009 D3 burst (debate `4d75daeb-f09a-430d-aa01-3ee6374922c6`,
+ * 2026-06-23T05:04:25Z; 8 targets × 9 families = 72 cells, runId
+ * `28eb3908-2d39-4a37-a34a-3de5256ba807`). The burst was the FIRST one to
+ * run against the verified MCP-EGI-008 + MCP-EGI-009 production deploy
+ * (`c7a5623` / Deno Deploy build `97308cj6v5t4`). The 13 length-target
+ * rawKeys of MCP-EGI-008 and the 3 key-set rawKeys of MCP-EGI-009 BOTH
+ * worked as designed (zero in-scope length residuals; zero in-scope
+ * key-set-missing residuals; 4 length null-spans recorded across in-scope
+ * keys; all in-scope positives ≤ 240 chars, max 240 exactly on
+ * `names_method_difference`). The next-out-of-scope failure surface
+ * surfaced under a fresh comparison-dense input: 12 unmasked
+ * `evidence_span_length_exceeded` rows across 7 NEW distinct rawKeys
+ * (with `multiple_claims_present` recurring 3×, `missing_warrant` and
+ * `separates_observation_from_inference` recurring 2×):
+ *   - `distinguishes_parent`                  (Family A / parent_relation)
+ *   - `disputes_scope`                        (Family B / disagreement_axis)
+ *   - `offers_candidate_understanding`        (Family C / misunderstanding_repair)
+ *   - `separates_observation_from_inference`  (Family D / evidence_source_chain)
+ *   - `missing_warrant`                       (Family F / critical_question)
+ *   - `multiple_claims_present`               (Family H / claim_clarity)
+ *   - `introduces_sub_axis`                   (Family I / thread_topology)
+ *
+ * Each of the 7 newly-implicated rawKey families (A/B/C/D/F/H/I) is already
+ * a member of `KEY_LEVEL_FAIL_CLOSED_FAMILIES` and
+ * `banPatternsForKeyLevelFamily()` already composes the family's byte-
+ * identical ban-pattern stack — same no-divergence rule that carried
+ * forward from MCP-EGI-006/007/008. NO dispatcher rewiring, NO ban-list
+ * change, NO validator change, NO prompt edit required. Note Family F
+ * (`critical_question`) gains its FIRST length-normalize rawKey here;
+ * `banPatternsForKeyLevelFamily('critical_question')` already returns the
+ * `[...DOCTRINE_BAN_PATTERNS, ...FAMILY_F_BAN_PATTERNS]` stack the
+ * Family F scanner uses.
+ *
+ * MCP-EGI-010 does NOT include the 1 `evidence_span_invalid_type` rawKey
+ * the same burst also surfaced (`exception_reasoning_present` on Family E
+ * argument_scheme) — that is a different validation class (model emitted
+ * a non-string evidenceSpan value, not an overlong string) and is
+ * deferred to a separate MCP-EGI-011 lane.
  */
 export const EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS: ReadonlySet<string> = new Set([
   'tradeoff_reasoning_present', // Family E — MCP-EGI-006
@@ -194,6 +234,13 @@ export const EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS: ReadonlySet<string> = new Set(
   'analogy_reasoning_present', // Family E — MCP-EGI-008
   'separates_normative_from_empirical', // Family G — MCP-EGI-008
   'claim_present', // Family H — MCP-EGI-008
+  'distinguishes_parent', // Family A — MCP-EGI-010
+  'disputes_scope', // Family B — MCP-EGI-010
+  'offers_candidate_understanding', // Family C — MCP-EGI-010
+  'separates_observation_from_inference', // Family D — MCP-EGI-010
+  'missing_warrant', // Family F — MCP-EGI-010
+  'multiple_claims_present', // Family H — MCP-EGI-010
+  'introduces_sub_axis', // Family I — MCP-EGI-010
 ]);
 
 /**
