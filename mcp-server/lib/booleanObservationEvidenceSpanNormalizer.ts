@@ -1,22 +1,31 @@
 /**
- * MCP-EGI-006/007/008 + MCP-EGI-009 — Server-side pre-validation
+ * MCP-EGI-006/007/008/010/012 + MCP-EGI-009/013 — Server-side pre-validation
  * normalization for two evidenceSpan validation classes:
  *
- *   Pass 1 (MCP-EGI-006/007/008) — length-overflow null normalization
- *   for the locked 13-key compound rawKey set whose anchors organically
- *   exceed `MAX_EVIDENCE_SPAN_CHARS` on comparison-dense input.
+ *   Pass 1 (MCP-EGI-006/007/008/010/012) — length-overflow null normalization
+ *   for any family-valid A-I rawKey whose anchor organically exceeds
+ *   `MAX_EVIDENCE_SPAN_CHARS` on comparison-dense input. MCP-EGI-012
+ *   replaced the hand-maintained allowlist trajectory (006 → 007 → 008 →
+ *   010) with a categorical family-valid rule.
  *
- *   Pass 2 (MCP-EGI-009) — key-set completion to null for the locked
- *   3-key set whose model output included the rawKey in observations,
- *   confidence, and checkedRawKeys but omitted the corresponding
- *   evidenceSpan entry. Repairs a structural map-coordination omission;
- *   preserves the model's semantic decision byte-equal.
+ *   Pass 2 (MCP-EGI-009/013) — key-set completion to null for any
+ *   family-valid A-I rawKey the model judged (present in observations,
+ *   confidence, and checkedRawKeys) but omitted from evidenceSpan.
+ *   MCP-EGI-013 replaces the hand-maintained 3-key allowlist (MCP-EGI-009)
+ *   with the same categorical family-valid rule Pass 1 uses, on the same
+ *   recurrence rationale: the post-MCP-EGI-012 D3 burst (71/72 succeeded;
+ *   length-overflow surface CLOSED) surfaced a new key-set-missing
+ *   residual on `evidenceSpan.disputes_generalization` (Family B), outside
+ *   the 3-key MCP-EGI-009 scope. Repairs a structural map-coordination
+ *   omission; preserves the model's semantic decision byte-equal.
  *
  * Both passes are no-op when the trigger conditions are absent. Both
  * preserve doctrine (the length pass via ban-list scan; the key-set pass
  * by never overwriting present values and never fabricating semantic
- * observations). The two passes target disjoint rawKey sets — see the
- * disjointness invariant on `EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS`.
+ * observations). The two passes are structurally disjoint by class — a
+ * present-but-overlong span (length pass) cannot also be absent (key-set
+ * pass) on the same packet — see the categorical-disjointness invariant
+ * on the deprecated frozen historical-record allowlists.
  *
  * --- Pass 1 origin (MCP-EGI-006) ---
  *
@@ -318,58 +327,71 @@ export const LENGTH_NORMALIZE_ELIGIBLE_FAMILIES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * MCP-EGI-009 — Locked set of rawKeys for which a MISSING evidenceSpan entry
- * is structurally completed to `null` before validation. Disjoint from the
- * length-normalization set; addresses a different validation class.
+ * MCP-EGI-013 — DEPRECATED hand-maintained 3-key key-set-completion allowlist.
  *
- * Burst evidence (post-MCP-EGI-007 D3 pass-load, debate
- * `bd7b732c-306a-4c11-b5c3-9d3cafd2bbbc`, 2026-06-22T08:15:54Z;
- * 8 targets × 9 families = 72 cells) surfaced 3 distinct rawKeys with the
- * row-level discriminator:
+ * Retained exported and frozen as a historical record of the 3 rawKeys the
+ * MCP-EGI-009 narrow trajectory covered before MCP-EGI-013 pivoted to a
+ * categorical rule. NOT consulted by Pass 2 anymore. Pass 2 now derives
+ * eligibility from the same `LENGTH_NORMALIZE_ELIGIBLE_FAMILIES` ∩
+ * `isRawKeySupportedForFamily()` rule Pass 1 uses, plus the structural
+ * gates (rawKey present in checkedRawKeys + observations + confidence,
+ * absent from evidenceSpan).
+ *
+ * Origin: post-MCP-EGI-007 D3 pass-load (debate
+ * `bd7b732c-306a-4c11-b5c3-9d3cafd2bbbc`, 2026-06-22T08:15:54Z; 8 targets ×
+ * 9 families = 72 cells) surfaced 3 distinct rawKeys with the row-level
+ * discriminator:
  *
  *   validator_path = evidenceSpan.<rawKey>
  *   mcp_tool_reason = validation_failed
  *   mcp_tool_detail_category = evidence_span_key_set_missing
  *
- * On those rows the model included the rawKey in `observations`, `confidence`,
- * and `checkedRawKeys` — meaning the model DID make a semantic decision —
- * but omitted the corresponding `evidenceSpan.<rawKey>` entry. The validator's
- * key-set coordination requires the four maps to align on the same rawKey
- * set; the omission rejects the entire packet.
- *
  *   - `question_invites_revision`              (Family F / critical_question)
  *   - `action_item_proposed`                   (Family G / resolution_progress)
  *   - `unclear_reference_present`              (Family H / claim_clarity)
  *
- * Each rawKey is verified in its named family registry
- * (`familyFKeys.ts` / `familyGKeys.ts` / `familyHKeys.ts`). All three families
- * are members of `KEY_LEVEL_FAIL_CLOSED_FAMILIES`, so the existing dispatcher
- * routing already invokes the normalizer with a non-null family pattern stack
- * for the relevant tool call.
+ * Recurrence (MCP-EGI-013 motivation): post-MCP-EGI-012 D3 burst (runId
+ * `4a94f0b1-30b7-4b01-beb4-1ed2d6509f73`, debate `cb4a0dd3-...`,
+ * 2026-06-24T06:05:19Z) ran with 71/72 succeeded (length-overflow surface
+ * fully closed by EGI-012) and surfaced a new persistent key-set-missing
+ * residual on `evidenceSpan.disputes_generalization` (Family B / disagreement_axis)
+ * outside the 3-key MCP-EGI-009 scope. A second transient hit on
+ * `compares_parent_to_sibling_branch` (Family A / parent_relation) self-healed
+ * on retry. The narrow allowlist was on the same recurrence trajectory the
+ * length normalizer was on before MCP-EGI-012 collapsed it categorically.
  *
- * Completion to `null` is doctrine-safe:
- *   - `null` is an existing valid value for `evidenceSpan.<rawKey>` (the
- *     schema mirror accepts `string | null`).
+ * Pass 2 now derives eligibility from a categorical invariant rather than
+ * a frozen rawKey allowlist:
+ *
+ *   - family is A-I (Family J `sensitive_composer` EXCLUDED)
+ *   - rawKey is valid for the packet's family per the singleton's
+ *     isRawKeySupportedForFamily(family, rawKey)
+ *   - rawKey is present in checkedRawKeys + observations + confidence
+ *     (model judged it; structural map-coordination decision)
+ *   - rawKey is ABSENT from evidenceSpan (never overwrite — preserves any
+ *     existing string, null, or malformed value)
+ *
+ * Safety:
+ *   - `null` is an existing valid value for `evidenceSpan.<rawKey>` (schema
+ *     mirror accepts `string | null`).
  *   - `null` makes NO semantic claim — the model's observation boolean and
  *     confidence value remain its stated finding.
- *   - The existing prompt instruction "set evidenceSpan.<rawKey> to null when
- *     you have no anchor" implicitly admits null as the correct value for a
- *     key the model judged but cannot anchor.
- *   - The validator remains unchanged: a missing key on the unnormalized
+ *   - Validator remains unchanged: a missing key on the unnormalized
  *     packet still fails the key-set coordination check.
- *   - No ban-list scan is required (no content is ever moved or fabricated;
- *     null is structurally orthogonal to doctrine).
+ *   - No ban-list scan applies. Per the MCP-EGI-013 gate-A clarification:
+ *     this pass does NOT scan strings (there is no evidenceSpan string
+ *     when the key is missing). Safety comes from family-validity +
+ *     structural gates + never-overwrite, not from body scanning.
  *
- * Disjointness invariant: this set MUST be disjoint from
- * `EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS`. Length-overflow is a content-shape
- * residual on a present rawKey; key-set-missing is a coordination residual on
- * an absent rawKey. A rawKey appearing in both sets would be a contract bug
- * (the same packet shape cannot simultaneously be "string longer than 240
- * chars" AND "missing entirely"). The dedicated regression test asserts
- * `EVIDENCE_SPAN_LENGTH_NORMALIZE_KEYS ∩ EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS
- * === ∅`.
+ * Categorical disjointness invariant: the two passes target disjoint
+ * validation CLASSES even though the rawKey sets are now overlapping by
+ * design (both can fire on the same family-valid rawKey, but never on the
+ * same key in the same packet — a key is either present-overlong (length)
+ * or absent (key-set), structurally distinct). The dedicated regression
+ * test asserts this categorical disjointness from the deprecated frozen
+ * allowlists as historical record.
  */
-export const EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS: ReadonlySet<string> = new Set([
+export const EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS_DEPRECATED: ReadonlySet<string> = new Set([
   'question_invites_revision', // Family F — MCP-EGI-009
   'action_item_proposed', // Family G — MCP-EGI-009
   'unclear_reference_present', // Family H — MCP-EGI-009
@@ -477,9 +499,33 @@ export function normalizeLongEvidenceSpansForBooleanObservations(
   const normalizedSpans: Record<string, unknown> = { ...spans };
   let mutated = false;
 
+  // === Shared structural inputs (consumed by both passes) ===
+  //
+  // Both Pass 1 (length-overflow) and Pass 2 (key-set completion) require
+  // identical structural map-coordination gates: family is A-I, model
+  // actually judged the rawKey (present in observations + confidence +
+  // checkedRawKeys), evidenceSpan is a plain object. Hoisting these inputs
+  // here keeps the two passes byte-symmetric on shared invariants and
+  // confines the per-pass divergence to the iteration source and the
+  // distinct decisive checks (string-length + ban-scan for Pass 1;
+  // never-overwrite for Pass 2).
+  const familyEligible =
+    family !== undefined && LENGTH_NORMALIZE_ELIGIBLE_FAMILIES.has(family);
+  const observations = packet.observations;
+  const confidence = packet.confidence;
+  const checkedRawKeys = packet.checkedRawKeys;
+  const hasObs = isPlainObject(observations);
+  const hasConf = isPlainObject(confidence);
+  const checkedSet = Array.isArray(checkedRawKeys)
+    ? new Set(checkedRawKeys.filter((k): k is string => typeof k === 'string'))
+    : null;
+  const structuralReady =
+    familyEligible && hasObs && hasConf && checkedSet !== null;
+  const familyStr = family as string;
+
   // === Pass 1 — MCP-EGI-006/007/008/010/012 length-overflow normalization ===
   //
-  // MCP-EGI-012 replaces the prior hand-maintained 20-key allowlist with a
+  // MCP-EGI-012 replaced the prior hand-maintained 20-key allowlist with a
   // categorical eligibility rule:
   //   - family must be in LENGTH_NORMALIZE_ELIGIBLE_FAMILIES (A-I; J excluded
   //     because J is productionEnabled:false at the Edge)
@@ -494,19 +540,7 @@ export function normalizeLongEvidenceSpansForBooleanObservations(
   // are required because nulling an evidenceSpan entry when the model didn't
   // even judge the rawKey could obscure a malformed packet that the validator
   // should reject for unrelated reasons.
-  const familyEligible =
-    family !== undefined && LENGTH_NORMALIZE_ELIGIBLE_FAMILIES.has(family);
-  if (familyEligible) {
-    const observations = packet.observations;
-    const confidence = packet.confidence;
-    const checkedRawKeys = packet.checkedRawKeys;
-    const hasObs = isPlainObject(observations);
-    const hasConf = isPlainObject(confidence);
-    const checkedSet = Array.isArray(checkedRawKeys)
-      ? new Set(checkedRawKeys.filter((k): k is string => typeof k === 'string'))
-      : null;
-    const familyStr = family as string;
-
+  if (structuralReady) {
     for (const [rawKey, value] of Object.entries(spans)) {
       if (typeof value !== 'string') continue;
       if (value.length <= MAX_EVIDENCE_SPAN_CHARS) continue;
@@ -516,9 +550,6 @@ export function normalizeLongEvidenceSpansForBooleanObservations(
 
       // Structural map-coordination gates: only normalize if the model actually
       // judged this rawKey (present in obs + conf + checkedRawKeys).
-      if (!hasObs) continue;
-      if (!hasConf) continue;
-      if (checkedSet === null) continue;
       if (!Object.prototype.hasOwnProperty.call(observations, rawKey)) continue;
       if (!Object.prototype.hasOwnProperty.call(confidence, rawKey)) continue;
       if (!checkedSet.has(rawKey)) continue;
@@ -545,38 +576,46 @@ export function normalizeLongEvidenceSpansForBooleanObservations(
     }
   }
 
-  // === Pass 2 — MCP-EGI-009 key-set completion ===
+  // === Pass 2 — MCP-EGI-009/013 categorical key-set completion ===
   //
-  // For each rawKey in the locked completion set: if the rawKey is present
-  // in observations + confidence + checkedRawKeys (i.e. the model made a
-  // semantic decision about it) but missing from evidenceSpan (the model
-  // omitted the anchor), add `evidenceSpan.<rawKey> = null`. This repairs
-  // a structural key-set coordination omission while preserving the model's
-  // observation+confidence decisions byte-equal. No ban-list scan is needed
-  // — no content is moved or fabricated; null is structurally orthogonal
-  // to doctrine.
+  // MCP-EGI-013 replaces the prior hand-maintained 3-key allowlist
+  // (`EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS_DEPRECATED`) with the same
+  // categorical eligibility rule Pass 1 uses, on the same recurrence
+  // rationale: the post-MCP-EGI-012 D3 burst surfaced a new key-set-missing
+  // residual on `disputes_generalization` (Family B) outside the 3-key
+  // scope. The narrow allowlist was on the same recurrence trajectory the
+  // length normalizer was on before MCP-EGI-012 collapsed it categorically.
+  //
+  // Eligibility:
+  //   - family must be in LENGTH_NORMALIZE_ELIGIBLE_FAMILIES (A-I; J excluded
+  //     because J is productionEnabled:false at the Edge)
+  //   - rawKey must be valid for the packet's family per the singleton's
+  //     isRawKeySupportedForFamily(family, rawKey)
+  //   - rawKey must be present in checkedRawKeys (semantic anchor — model
+  //     made a structural map-coordination decision about this rawKey)
+  //   - rawKey must be own property of observations + confidence (judged)
+  //   - rawKey must be ABSENT from evidenceSpan / normalizedSpans
+  //
+  // Iteration source: `checkedSet` (rawKeys the model declared in
+  // checkedRawKeys). Per the MCP-EGI-013 gate-A operator clarification,
+  // this pass does NOT body-scan — there is no evidenceSpan string when the
+  // key is missing. Safety comes from family-validity + structural gates +
+  // never-overwrite, not from body scanning.
   //
   // Critical safety: NEVER overwrites a present value. The
   // `hasOwnProperty(normalizedSpans, rawKey)` guard ensures that any
   // pre-existing value (including null, string, or an invalid shape that
   // the validator will reject) is left untouched. This preserves the
   // validator's existing power to reject malformed packets.
-  const observations = packet.observations;
-  const confidence = packet.confidence;
-  const checkedRawKeys = packet.checkedRawKeys;
-  if (
-    isPlainObject(observations) &&
-    isPlainObject(confidence) &&
-    Array.isArray(checkedRawKeys)
-  ) {
-    const checkedSet = new Set(
-      checkedRawKeys.filter((k): k is string => typeof k === 'string'),
-    );
-    for (const rawKey of EVIDENCE_SPAN_KEY_SET_COMPLETE_KEYS) {
+  if (structuralReady) {
+    for (const rawKey of checkedSet) {
       if (Object.prototype.hasOwnProperty.call(normalizedSpans, rawKey)) continue;
       if (!Object.prototype.hasOwnProperty.call(observations, rawKey)) continue;
       if (!Object.prototype.hasOwnProperty.call(confidence, rawKey)) continue;
-      if (!checkedSet.has(rawKey)) continue;
+
+      // Categorical eligibility: family-valid rawKey only. Unknown rawKeys,
+      // cross-family rawKeys, and Family J rawKeys are NEVER completed.
+      if (!isRawKeySupportedForFamily(familyStr, rawKey)) continue;
 
       normalizedSpans[rawKey] = null;
       mutated = true;
