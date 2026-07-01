@@ -33,6 +33,12 @@ export interface PointFeedbackFlagsRowProps {
   flags: ReadonlyArray<PointFeedbackFlagViewModel>;
   /** Optional section heading. Ban-list clean copy only. */
   heading?: string;
+  /**
+   * UX-FLAGS-003 — how many flags the #835 priority/cap module suppressed to
+   * keep this row at <= 3. Renders a quiet, NON-interactive "+N more" count when
+   * > 0 AND `flags` is non-empty. Reveals nothing; not a control. Default 0.
+   */
+  suppressedCount?: number;
   testID?: string;
 }
 
@@ -49,14 +55,18 @@ function hasAnyHelper(flags: ReadonlyArray<PointFeedbackFlagViewModel>): boolean
 export function PointFeedbackFlagsRow({
   flags,
   heading = 'On this point',
+  suppressedCount = 0,
   testID,
 }: PointFeedbackFlagsRowProps): React.ReactElement | null {
   const [expanded, setExpanded] = useState(false);
 
-  // Calm default: nothing to show → render nothing at all.
+  // Calm default: nothing to show → render nothing at all. The "+N more" count
+  // never resurrects an empty row — an empty flag list renders null regardless
+  // of suppressedCount.
   if (!Array.isArray(flags) || flags.length === 0) return null;
 
   const showWhyToggle = hasAnyHelper(flags);
+  const showMoreCount = typeof suppressedCount === 'number' && suppressedCount > 0;
 
   return (
     <View style={styles.wrap} testID={testID ?? 'point-feedback-flags-row'}>
@@ -93,6 +103,20 @@ export function PointFeedbackFlagsRow({
           <PointFeedbackFlagPill key={flag.id} flag={flag} />
         ))}
       </View>
+
+      {/* UX-FLAGS-003 — quiet, non-interactive suppressed-count. Reveals
+          nothing; not a Pressable. Plain, calm copy: no severity / importance /
+          priority / score framing. */}
+      {showMoreCount ? (
+        <Text
+          style={styles.moreCount}
+          accessibilityRole="text"
+          accessibilityLabel={`${suppressedCount} more on this point`}
+          testID="point-feedback-flags-more"
+        >
+          +{suppressedCount} more
+        </Text>
+      ) : null}
 
       {expanded && showWhyToggle ? (
         <View style={styles.helperBlock} testID="point-feedback-flags-helpers">
@@ -145,6 +169,13 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     columnGap: SPACING_PRESETS.chipGap,
     rowGap: SPACING_PRESETS.chipGap,
+  },
+  moreCount: {
+    // Quiet count, not a CTA: same secondary text token + chipLabel size as the
+    // rest of the row so it reads as a footnote, not an action.
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    color: SURFACE_TOKENS.textSecondary,
   },
   helperBlock: {
     rowGap: SPACING_PRESETS.compactRowGap,

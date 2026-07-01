@@ -11,6 +11,7 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { PointFeedbackFlagsRow } from '../src/features/feedbackFlags/PointFeedbackFlagsRow';
 import type { PointFeedbackFlagViewModel } from '../src/features/feedbackFlags/pointFeedbackFlagsModel';
+import { _forbiddenVerdictTokens } from '../src/features/feedbackFlags/friendlyFlagMap';
 
 function vm(p: Partial<PointFeedbackFlagViewModel> & { id: string; label: string }): PointFeedbackFlagViewModel {
   return {
@@ -123,5 +124,64 @@ describe('UX-FLAGS-002 PointFeedbackFlagsRow', () => {
     expect(prompt).toBe('?');
     expect(descriptive).toBe('·');
     expect(new Set([positive, prompt, descriptive]).size).toBe(3);
+  });
+});
+
+describe('UX-FLAGS-003 PointFeedbackFlagsRow "+N more"', () => {
+  it('renders a quiet "+2 more" count when suppressedCount=2 and flags are non-empty', () => {
+    const { getByTestId } = render(
+      <PointFeedbackFlagsRow flags={THREE_TONES} suppressedCount={2} />,
+    );
+    const more = getByTestId('point-feedback-flags-more');
+    expect(more.props.children).toEqual(['+', 2, ' more']);
+    expect(more.props.accessibilityLabel).toBe('2 more on this point');
+  });
+
+  it('the "+N more" element is non-interactive (role=text, no onPress)', () => {
+    const { getByTestId } = render(
+      <PointFeedbackFlagsRow flags={THREE_TONES} suppressedCount={1} />,
+    );
+    const more = getByTestId('point-feedback-flags-more');
+    expect(more.props.accessibilityRole).toBe('text');
+    expect(more.props.onPress).toBeUndefined();
+  });
+
+  it('does not render "+N more" when suppressedCount is 0 or omitted', () => {
+    const zero = render(
+      <PointFeedbackFlagsRow flags={THREE_TONES} suppressedCount={0} />,
+    );
+    expect(zero.queryByTestId('point-feedback-flags-more')).toBeNull();
+    const omitted = render(<PointFeedbackFlagsRow flags={THREE_TONES} />);
+    expect(omitted.queryByTestId('point-feedback-flags-more')).toBeNull();
+  });
+
+  it('returns null on an empty flag list even when suppressedCount > 0', () => {
+    const { toJSON } = render(
+      <PointFeedbackFlagsRow flags={[]} suppressedCount={5} />,
+    );
+    expect(toJSON()).toBeNull();
+  });
+
+  it('the "+N more" copy carries no verdict or severity/importance token', () => {
+    const { getByTestId } = render(
+      <PointFeedbackFlagsRow flags={THREE_TONES} suppressedCount={2} />,
+    );
+    const text = (getByTestId('point-feedback-flags-more').props.children as unknown[])
+      .join('')
+      .toLowerCase();
+    const a11y = (
+      getByTestId('point-feedback-flags-more').props.accessibilityLabel as string
+    ).toLowerCase();
+    const banned = [
+      ..._forbiddenVerdictTokens(),
+      'importance',
+      'severity',
+      'score',
+      'priority',
+    ];
+    for (const token of banned) {
+      expect(text).not.toContain(token);
+      expect(a11y).not.toContain(token);
+    }
   });
 });
