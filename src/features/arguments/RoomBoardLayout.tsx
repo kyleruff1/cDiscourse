@@ -110,9 +110,18 @@ export function RoomBoardLayout({
             {col2}
             {col2Footer}
           </View>
-          <View style={styles.paneColumn} testID="room-board-col-3">
-            {col3}
-          </View>
+          {/* VISUAL-SIMPLIFY-002 — the col3 analysis pane is ON-DEMAND. The
+              caller passes `col3=null` in the default room view (no analysis
+              surface summoned), so no 380 px `paneColumn` reserves space; when
+              the caller summons the Disagreement Points pane it passes the rail
+              and the docked column mounts exactly as before. The topology tests
+              always pass a truthy marker, so `room-board-col-3` stays present in
+              every enumerated case. */}
+          {col3 ? (
+            <View style={styles.paneColumn} testID="room-board-col-3">
+              {col3}
+            </View>
+          ) : null}
         </View>
         {bottomChrome}
         {overlays}
@@ -136,9 +145,15 @@ export function RoomBoardLayout({
           {col2}
           {col2Footer}
         </View>
-        <View style={styles.paneColumn} testID="room-board-col-3">
-          {col3}
-        </View>
+        {/* VISUAL-SIMPLIFY-002 — on-demand col3 pane (see the tablet branch).
+            `col3=null` in the default wide room view means the 380 px pane is
+            never reserved; the docked column mounts only when the Disagreement
+            Points surface is summoned. */}
+        {col3 ? (
+          <View style={styles.paneColumn} testID="room-board-col-3">
+            {col3}
+          </View>
+        ) : null}
       </View>
       {bottomChrome}
       {overlays}
