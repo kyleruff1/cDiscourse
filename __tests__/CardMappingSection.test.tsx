@@ -21,7 +21,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { CardDetailPanel } from '../src/features/arguments/cardView/CardDetailPanel';
 import { ArgumentBubbleCard } from '../src/features/arguments/ArgumentBubbleCard';
 import { buildCardDetailViewModel } from '../src/features/arguments/cardView/cardDetailModel';
@@ -95,6 +95,8 @@ describe('Slice B — the combination section renders on the active card by defa
     const { getByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    // VISUAL-SIMPLIFY-001 — the combination section lives inside the expansion.
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const zone = getByTestId('card-detail-mapping-zone');
     expect(zone).toBeTruthy();
     // The advisory caption text is present (matches the locked copy).
@@ -106,6 +108,7 @@ describe('Slice B — the combination section renders on the active card by defa
     const { getByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // Every chip the section carries renders by testID.
     for (const chip of section.chips) {
       expect(getByTestId(`card-detail-mapping-${chip.id}`)).toBeTruthy();
@@ -124,6 +127,7 @@ describe('Slice B — the combination section renders on the active card by defa
     const { getByTestId, queryByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-mapping-zone')).toBeTruthy();
     expect(getByTestId('card-detail-mapping-empty')).toBeTruthy();
     expect(queryByTestId('card-detail-mapping-strip')).toBeNull();
@@ -136,6 +140,7 @@ describe('Slice B — composite-supersedes-singles shows correctly on the card',
     const { getByTestId, queryByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(
       getByTestId(
         'card-detail-mapping-parent_relation.pair_true_true.challenges_parent+quote_anchors_parent',
@@ -158,6 +163,7 @@ describe('Slice B — display-only contract', () => {
     const { getByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const chip = getByTestId(
       'card-detail-mapping-parent_relation.single_true.refines_parent',
     );
@@ -168,9 +174,10 @@ describe('Slice B — display-only contract', () => {
 
   it('confidence renders as PIPS (3 View dots), never a number', () => {
     const section = sectionFor(['source_attached', 'quote_attached']);
-    const { getAllByTestId } = render(
+    const { getAllByTestId, getByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // The shared ConfidencePips component carries this testID; the mapping
     // section reuses it, so at least one pips row is present.
     const pips = getAllByTestId('card-detail-classifier-pips');
@@ -183,9 +190,10 @@ describe('Slice B — display-only contract', () => {
 
   it('the advisory caption copy is rendered (advisory, not a verdict)', () => {
     const section = sectionFor(['refines_parent']);
-    const { getAllByText } = render(
+    const { getAllByText, getByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // The locked advisory copy is shared with the per-observation classifier
     // zone (both are advisory surfaces), so it appears at least twice when both
     // zones render — proving the mapping section carries the advisory framing.
@@ -202,9 +210,10 @@ describe('Slice B — A-G only, H/I/J never', () => {
     // evidence_source_chain rows, not H/I/J.)
     const hijRawKeys = ['claim_is_vague', 'thread_is_off_topic', 'contains_insult_only'];
     const section = sectionFor(hijRawKeys);
-    const { queryByTestId } = render(
+    const { queryByTestId, getByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // No chip references an H/I/J family.
     for (const chip of section.chips) {
       // Every rendered chip's id belongs to an A-G family / cross-family.
@@ -223,17 +232,19 @@ describe('Slice B — does NOT regress the existing classifier strip / #14', () 
     const { getByTestId } = render(
       <CardDetailPanel model={detailModel()} mappingSection={section} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // Existing per-observation classifier zone (Slice 2/3) is still present.
     expect(getByTestId('card-detail-classifier-zone')).toBeTruthy();
     // New combination section is present too (additive, not replacing).
     expect(getByTestId('card-detail-mapping-zone')).toBeTruthy();
-    // #14 — both render WITHOUT a tap (the panel is visible-by-default).
+    // VISUAL-SIMPLIFY-001 — both render inside the ONE expansion.
   });
 
   it('omitting mappingSection renders the panel byte-equivalently (no section)', () => {
     const { getByTestId, queryByTestId } = render(
       <CardDetailPanel model={detailModel()} />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // The classifier zone still renders; the mapping zone does NOT.
     expect(getByTestId('card-detail-classifier-zone')).toBeTruthy();
     expect(queryByTestId('card-detail-mapping-zone')).toBeNull();
@@ -250,6 +261,7 @@ describe('Slice B — ArgumentBubbleCard threads the section to the active card 
         mappingSection={section}
       />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-mapping-zone')).toBeTruthy();
   });
 

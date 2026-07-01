@@ -178,6 +178,8 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
         onRailAction={onRailAction}
       />,
     );
+    // VISUAL-SIMPLIFY-001 — the ActionsZone lives inside the expansion now.
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-actions-zone')).toBeTruthy();
     // Observer set = watch · join_aff · join_neg · share (getRailActions).
     for (const code of ['watch', 'join_aff', 'join_neg', 'share']) {
@@ -200,6 +202,7 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
         onRailAction={onRailAction}
       />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-actions-zone')).toBeTruthy();
     expect(roleOf(getByTestId('card-detail-action-reply'))).toBe('button');
     expect(roleOf(getByTestId('card-detail-action-disagree'))).toBe('button');
@@ -209,7 +212,7 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
 
   it('OWN bubble (participant + self) — the inline set is empty (deep set stays in Act)', () => {
     const onRailAction = jest.fn();
-    const { queryByTestId } = render(
+    const { queryByTestId, getByTestId } = render(
       <CardDetailPanel
         model={model()}
         viewerRole="participant"
@@ -217,6 +220,7 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
         onRailAction={onRailAction}
       />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // getRailActions(participant, self) === [] → the whole zone renders nothing.
     expect(queryByTestId('card-detail-actions-zone')).toBeNull();
   });
@@ -230,6 +234,7 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
         onRailAction={jest.fn()}
       />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const chip = getByTestId('card-detail-action-watch');
     // hitSlop present (the chip's visual min-height is 44; hitSlop is belt-and-braces).
     expect(chip.props.hitSlop).toBeTruthy();
@@ -247,6 +252,7 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
         onRailAction={jest.fn()}
       />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // The viewer's MOVE set is interactive; the AI/classifier + label chips are NOT.
     const classifier = getByTestId(
       'card-detail-classifier-machine_observation:persisted:res-1:msg-active',
@@ -269,6 +275,7 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
         onRailAction={jest.fn()}
       />,
     );
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByText('Actions on this point')).toBeTruthy();
     const flat = collectText(getByTestId('card-detail-actions-zone')).toLowerCase();
     for (const b of BANNED) {
@@ -283,7 +290,9 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
 
 describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eval)', () => {
   it('renders the plain-language source-provenance badge (never the raw code)', () => {
+    // VISUAL-SIMPLIFY-001 — the classifier zone lives inside the expansion.
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const badge = getByTestId(
       'card-detail-classifier-provenance-machine_observation:persisted:res-1:msg-active',
     );
@@ -296,6 +305,7 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
 
   it('family chip strips render in a HORIZONTAL wrapping strip', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const strip = getByTestId('card-detail-classifier-strip-parent_relation');
     expect(strip).toBeTruthy();
     const style = Array.isArray(strip.props.style)
@@ -307,6 +317,7 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
 
   it('confidence is PIPS (3 dot Views), not a digit', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const pips = getByTestId('card-detail-classifier-pips');
     expect(pips.props.children).toHaveLength(3);
     // No numeric text node inside the pips row (pips are Views, not digits).
@@ -315,6 +326,7 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
 
   it('the evidence span renders inline (≤240 chars carried by the model)', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const evidence = getByTestId(
       'card-detail-classifier-evidence-machine_observation:persisted:res-1:msg-active',
     );
@@ -323,6 +335,7 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
 
   it('the evidence span renders as a marked QUOTATION (attribution frame + curly quotes) — OPS-MCP-EVIDENCE-SPAN-QUOTATION-FRAMING', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const text = collectText(
       getByTestId('card-detail-classifier-evidence-machine_observation:persisted:res-1:msg-active'),
     );
@@ -361,7 +374,8 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
       standingToneHeatNode: fakeNode({ parentId: null }),
       standingToneHeatViewModel: fakeViewModel(),
     });
-    const { queryByTestId } = render(<CardDetailPanel model={m} />);
+    const { queryByTestId, getByTestId } = render(<CardDetailPanel model={m} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // Family I now renders → the zone is no longer empty and the
     // thread_topology group is present.
     expect(queryByTestId('card-detail-classifier-empty')).toBeNull();
@@ -372,6 +386,7 @@ describe('CARD-VIEW-REFINE-001 — denser per-node feedback (layout, not new eva
 
   it('the classifier zone copy is ban-list clean', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const flat = collectText(getByTestId('card-detail-classifier-zone')).toLowerCase();
     for (const b of BANNED) {
       expect(flat).not.toContain(b);

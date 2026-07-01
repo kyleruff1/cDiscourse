@@ -38,6 +38,9 @@ describe('DemoCorridorScreen — mounts the REAL room surface', () => {
     const r = mount();
     expect(r.getByTestId('demo-corridor-screen')).toBeTruthy();
     expect(r.getByTestId('demo-corridor-surface')).toBeTruthy();
+    // VISUAL-SIMPLIFY-001 — the Referee Card now lives inside the active card's
+    // ONE opt-in expansion; open it to reach the real shipped RefereeCardView.
+    fireEvent.press(r.getByTestId('card-detail-more-toggle'));
     // The shipped components, by their own testIDs — not a demo re-skin.
     expect(r.queryByTestId('referee-card-view')).toBeTruthy();
     expect(r.queryByTestId('open-issues-rail')).toBeTruthy();
@@ -63,6 +66,12 @@ describe('DemoCorridorScreen — progression to the Referee Card beat', () => {
     advance(r);
     advance(r);
     expect(r.getByText(CORRIDOR_COPY.refereeOpenTaskLines[0])).toBeTruthy();
+    // VISUAL-SIMPLIFY-001 — the full Referee Card is behind the active card's
+    // ONE opt-in expansion; open it to read the derived zone-2 open task. The
+    // collapsed default still surfaces the open task once via the single
+    // advisory line (card-detail-advisory-line).
+    expect(r.getByTestId('card-detail-advisory-line')).toBeTruthy();
+    fireEvent.press(r.getByTestId('card-detail-more-toggle'));
     // The REAL Referee Card derived its open task from the fixture data.
     const zone2 = r.getByTestId('referee-card-zone2');
     expect(String(zone2.props.children)).toContain('Source owed');
