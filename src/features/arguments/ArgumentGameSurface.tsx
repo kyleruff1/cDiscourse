@@ -109,6 +109,9 @@ import {
 // change.
 import { buildPointLifecycleMap } from '../lifecycle';
 import { DisagreementPointsRail } from '../mediator/DisagreementPointsRail';
+// VISUAL-SIMPLIFY-002 — reuse the shipped, ban-list-clean rail chrome title as
+// the on-demand analysis-trigger label (no new gameCopy mapping required).
+import { DISAGREEMENT_POINTS_RAIL_COPY } from '../mediator/mediatorRailCopy';
 import { deriveRoomMediatorBoardState } from '../mediator/roomMediatorAdapter';
 import { MediatorNodeMarker } from '../mediator/MediatorNodeMarker';
 // UX-MEDIATOR-002 — the relocated mediator-state detail block, mounted inside
@@ -259,10 +262,21 @@ import {
   CANDIDATE_SIGNAL_TAGS,
   CLOSED_LIFECYCLE_STATES,
   OPEN_ISSUES_RAIL_BUILD_CAP,
+  // VISUAL-SIMPLIFY-002 — shipped ban-list-clean rail title reused as the
+  // on-demand analysis-trigger label.
+  OPEN_ISSUES_RAIL_COPY,
   type OpenIssueLedgerCandidate,
   type OpenIssueLedgerEntry,
   type OpenIssuesLedger,
 } from './openIssuesRail/openIssuesRailModel';
+
+/**
+ * VISUAL-SIMPLIFY-002 — which on-demand analysis surface is currently mounted.
+ * `null` (the default) means NONE — the default room view is conversation-only
+ * (spine + bubbles + composer + ≤3 friendly flags). Exactly one analysis
+ * surface can be mounted at a time (structural mutual exclusion).
+ */
+type AnalysisSurfaceKey = 'disagreement' | 'open_issues' | 'readout' | null;
 
 interface Props {
   debate: {
@@ -538,6 +552,20 @@ export function ArgumentGameSurface({
   // the single-owner bottom-rail mutual-exclusion group; defaults false so the
   // surface is byte-identical when the rail is collapsed.
   const [disagreementPointsRailExpanded, setDisagreementPointsRailExpanded] = useState(false);
+  // VISUAL-SIMPLIFY-002 — the default room view leads with the conversation;
+  // deep analysis is ONE TAP AWAY, never in the default line of sight. This
+  // single selector is the PARENT GATE deciding whether an analysis surface is
+  // even mounted. Default `null` → nothing mounted on EVERY band (phone /
+  // tablet / wide). A single key (not three booleans) makes "two analysis
+  // surfaces open at once" unrepresentable → structural mutual exclusion,
+  // reusing the discipline the Act/Inspect/Go menus already follow.
+  //
+  // The existing `disagreementPointsRailExpanded` / `openIssuesRailExpanded` /
+  // `sideRailExpanded` booleans are RETAINED: the child rails still own their
+  // own expand/collapse for the `isAnyPanelOpen` OR-terms. `activeAnalysisSurface`
+  // only decides whether the pane/sheet is mounted at all.
+  const [activeAnalysisSurface, setActiveAnalysisSurface] =
+    useState<AnalysisSurfaceKey>(null);
   // UX-001.2 — microMoment dismissed on first meaningful Timeline interaction.
   // The banner is transient: it shows on deep-link entry (driven by
   // `entryHint.verbPhrase`) and disappears the moment the user activates a
@@ -1842,8 +1870,38 @@ export function ArgumentGameSurface({
     // REF-006-RAIL — also track the side rail expansion so the Open Issues
     // rail can mutually exclude it (two bottom rails never both expand).
     setSideRailExpanded(expanded);
-    if (expanded) setSelectedDockTarget(null);
+    if (expanded) {
+      setSelectedDockTarget(null);
+      // VISUAL-SIMPLIFY-002 — the side action rail and an analysis surface must
+      // never both own the screen. Expanding the rail dismisses any open
+      // analysis surface (extending the shipped single-owner discipline).
+      setActiveAnalysisSurface(null);
+    }
   }, []);
+
+  // VISUAL-SIMPLIFY-002 — summon (or dismiss) an on-demand analysis surface.
+  // Toggle semantics: pressing the same trigger twice closes it. Opening any
+  // surface also clears the node dock target (extends the existing exclusion),
+  // so a summoned analysis surface and a node action dock never coexist. The
+  // parent gate is the ONLY authority on whether the pane/sheet is mounted; the
+  // child rails keep owning their own collapsed/expanded state for the
+  // `isAnyPanelOpen` OR-terms.
+  const handleOpenAnalysisSurface = useCallback((key: Exclude<AnalysisSurfaceKey, null>) => {
+    setActiveAnalysisSurface((cur) => (cur === key ? null : key));
+    setSelectedDockTarget(null);
+    // VISUAL-SIMPLIFY-002 — summoning the Disagreement pane or the Mediator
+    // readout also force-collapses the Open Issues rail so only one analysis
+    // surface is expanded at a time (the selector is the single owner; the
+    // rail's own boolean is kept in sync for its `isAnyPanelOpen` OR-terms).
+    if (key !== 'open_issues') setOpenIssuesRailExpanded(false);
+  }, []);
+
+  // VISUAL-SIMPLIFY-002 — the dismiss paths are: (a) pressing the same trigger
+  // again (the toggle in `handleOpenAnalysisSurface`), (b) collapsing the
+  // Disagreement rail via its own collapse control (routed through
+  // `onExpandedChange(false)` → `setActiveAnalysisSurface(null)` on the mount),
+  // and (c) opening the side action rail (`handleRailExpandedChange`). No
+  // standalone close handler is needed.
 
   // REF-006-RAIL — the Open Issues rail expand/collapse coordinator. Mirrors
   // `handleRailExpandedChange`: expanding the Open Issues rail clears the node
@@ -1851,7 +1909,16 @@ export function ArgumentGameSurface({
   // `isAnyPanelOpen` prop). Both rails stay collapsed-by-default.
   const handleOpenIssuesRailExpandedChange = useCallback((expanded: boolean) => {
     setOpenIssuesRailExpanded(expanded);
-    if (expanded) setSelectedDockTarget(null);
+    if (expanded) {
+      setSelectedDockTarget(null);
+      // VISUAL-SIMPLIFY-002 — expanding the Open Issues rail claims the single
+      // analysis-surface slot, so any other summoned analysis surface (the
+      // Disagreement pane or the Mediator readout) unmounts. Collapsing it
+      // releases the slot back to null.
+      setActiveAnalysisSurface('open_issues');
+    } else {
+      setActiveAnalysisSurface((cur) => (cur === 'open_issues' ? null : cur));
+    }
   }, []);
 
   // REF-006-RAIL — Open Issues rail "Go to point" (jump). Reuses the
@@ -2425,8 +2492,17 @@ export function ArgumentGameSurface({
             />
             {/* UX-001.2 — Score tracker repositioned below the Timeline
                 (was above). The component itself is unchanged — only
-                its mount site moves. */}
-            <ArgumentScoreTracker trends={participantTrends} />
+                its mount site moves.
+                VISUAL-SIMPLIFY-002 — the readout is now ON-DEMAND: it mounts
+                only when the "Mediator readout" analysis surface is summoned.
+                The default room view leads with the conversation, so the always-
+                on readout is gone from the default line of sight. The JSX
+                substring `<ArgumentScoreTracker trends={participantTrends} />`
+                is preserved byte-identical inside the ternary (mount-site pins
+                on uxOneOneTwoChromeLayerRemovals hold). */}
+            {activeAnalysisSurface === 'readout' ? (
+              <ArgumentScoreTracker trends={participantTrends} />
+            ) : null}
             {/* UX-MEDIATOR-002 — ONE primary state chip per node (default
                 view). The compact node-level mediator marker for the active
                 node, projected through v4DisplayStateFor (the UX-MEDIATOR-001
@@ -2579,6 +2655,53 @@ export function ArgumentGameSurface({
               </Text>
             </View>
           ) : null}
+        </Pressable>
+      </View>
+
+      {/* VISUAL-SIMPLIFY-002 — calm, plain-language on-demand analysis triggers.
+          The default room view leads with the conversation; these three
+          verdict-free buttons summon the deep-analysis surfaces one tap away and
+          dismiss them again (toggle). Each carries a text label (color is never
+          the sole signal), a descriptive accessibilityLabel, an
+          accessibilityState.expanded reflecting whether its surface is mounted,
+          and a ≥44 px target (menuTriggerButton minHeight 44 + hitSlop). No new
+          animation — the surfaces snap mount/unmount (reduce-motion safe). */}
+      <View style={styles.analysisTriggerRow} testID="board-analysis-trigger-row">
+        <Pressable
+          onPress={() => handleOpenAnalysisSurface('disagreement')}
+          accessibilityRole="button"
+          accessibilityLabel="Open disagreement points"
+          accessibilityHint="Shows the room's live disagreement points. Opens on request; hidden by default."
+          accessibilityState={{ expanded: activeAnalysisSurface === 'disagreement' }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.menuTriggerButton}
+          testID="board-menu-trigger-disagreement"
+        >
+          <Text style={styles.menuTriggerLabel}>{DISAGREEMENT_POINTS_RAIL_COPY.title}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => handleOpenAnalysisSurface('open_issues')}
+          accessibilityRole="button"
+          accessibilityLabel="Open the open issues list"
+          accessibilityHint="Shows points that need a source, a quote, a reply, or are ready to wrap up. Opens on request; hidden by default."
+          accessibilityState={{ expanded: activeAnalysisSurface === 'open_issues' }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.menuTriggerButton}
+          testID="board-menu-trigger-openissues"
+        >
+          <Text style={styles.menuTriggerLabel}>{OPEN_ISSUES_RAIL_COPY.railTitle}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => handleOpenAnalysisSurface('readout')}
+          accessibilityRole="button"
+          accessibilityLabel="Open mediator readout"
+          accessibilityHint="Shows the mediator readout for the room. Opens on request; hidden by default."
+          accessibilityState={{ expanded: activeAnalysisSurface === 'readout' }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.menuTriggerButton}
+          testID="board-menu-trigger-readout"
+        >
+          <Text style={styles.menuTriggerLabel}>Mediator readout</Text>
         </Pressable>
       </View>
 
@@ -2755,26 +2878,46 @@ export function ArgumentGameSurface({
            Pure projection over MediatorBoardState (UX-MEDIATOR-001) — read-only,
            never a submission gate; the only verb is a navigation jump.
            UX-BOARD-RAIL-002 — `presentation` is `'sheet'` on phone (collapsed-
-           pill bottom sheet, byte-identical to today) and `'pane'` on
-           tablet/wide (a persistent expanded-by-default docked column that
-           ignores `isAnyPanelOpen`). The `isAnyPanelOpen` OR-terms on the
-           bottom rails are UNCHANGED (DEFER): the pane ignores them, so a stale
-           term cannot force-collapse the docked pane. */
-        <DisagreementPointsRail
-          board={mediatorBoard}
-          viewerRole={resolvedViewerRole}
-          activeNodeId={activeMessageId}
-          windowWidth={windowWidth}
-          windowHeight={windowHeight}
-          reduceMotionOverride={reduceMotionOverride}
-          isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded || sideRailExpanded}
-          onExpandedChange={setDisagreementPointsRailExpanded}
-          onJump={(nodeId) => {
-            setActiveMessageId(nodeId);
-            setSelectionStatus('explicit');
-          }}
-          presentation={boardPresentation}
-        />
+           pill bottom sheet) and `'pane'` on tablet/wide (a docked column).
+           VISUAL-SIMPLIFY-002 — the pane/sheet is now ON-DEMAND: col3 is `null`
+           in the default room view (no permanent 380 px docked column on
+           tablet/wide, nothing in the phone stack), and the rail mounts only
+           while the Disagreement Points analysis surface is summoned. The
+           mediator board is still derived ONCE upstream (`mediatorBoard`) and
+           passed in here — the on-demand mount NEVER moves or duplicates the
+           derivation into a drawer. Collapsing the rail (its own collapse
+           control) routes back through `onExpandedChange(false)` to unmount the
+           surface, returning to conversation-only. */
+        activeAnalysisSurface === 'disagreement' ? (
+          <DisagreementPointsRail
+            board={mediatorBoard}
+            viewerRole={resolvedViewerRole}
+            activeNodeId={activeMessageId}
+            windowWidth={windowWidth}
+            windowHeight={windowHeight}
+            reduceMotionOverride={reduceMotionOverride}
+            // VISUAL-SIMPLIFY-002 — the rail is summoned expanded (the user asked
+            // for it). On the phone sheet this opens it immediately rather than
+            // as a second collapsed pill; on the tablet/wide pane it is the
+            // shipped expanded-by-default behavior.
+            defaultCollapsed={false}
+            isAnyPanelOpen={Boolean(selectedDockTarget) || openIssuesRailExpanded || sideRailExpanded}
+            onExpandedChange={(expanded) => {
+              setDisagreementPointsRailExpanded(expanded);
+              // VISUAL-SIMPLIFY-002 — collapsing the rail dismisses the summoned
+              // surface entirely, back to conversation-only.
+              if (!expanded) setActiveAnalysisSurface(null);
+            }}
+            onJump={(nodeId) => {
+              setActiveMessageId(nodeId);
+              setSelectionStatus('explicit');
+              // VISUAL-SIMPLIFY-002 — jumping to a point is a navigation move;
+              // return the view to the conversation once the user has jumped.
+              setActiveAnalysisSurface(null);
+            }}
+            presentation={boardPresentation}
+          />
+        ) : null
       }
       bottomChrome={
         /* UX-BOARD-RAIL-004 (SN-1) — group the three bottom-chrome surfaces
@@ -2948,6 +3091,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#0b1220',
     borderTopWidth: 1,
     borderTopColor: '#1f2937',
+  },
+  // VISUAL-SIMPLIFY-002 — the on-demand analysis-trigger row. A calm, wrapping
+  // row of verdict-free buttons that summon the deep-analysis surfaces (each
+  // reuses menuTriggerButton for its ≥44 px target). Sits directly below the
+  // Act/Inspect/Go row; no border of its own so the two read as one calm strip.
+  analysisTriggerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    backgroundColor: '#0b1220',
   },
   menuTriggerButton: {
     flexDirection: 'row',
