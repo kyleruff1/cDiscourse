@@ -28,6 +28,10 @@ import { BoardBottomChrome } from './BoardBottomChrome';
 // persistence and fires no hide/delete path. The loose `flag` affordances
 // route here instead of an immediate notify.
 import { RequestReviewComposer } from '../requestReview';
+import {
+  buildPointFeedbackFlags,
+  PointFeedbackFlagsRow,
+} from '../feedbackFlags';
 import { buildSidecarViewModel } from './argumentReplySidecarModel';
 import { TimelineSelectedReadoutPanel } from './TimelineSelectedReadoutPanel';
 import {
@@ -1183,6 +1187,24 @@ export function ArgumentGameSurface({
     );
     return buildCardMappingSection(results);
   }, [activeMessageId, persistedObservationsByArgumentId]);
+
+  // ── UX-FLAGS-002 — point-level friendly feedback flags ──
+  //
+  // POST-STORAGE, DISPLAY-ONLY, sibling to `activeMappingSection`. For the
+  // ACTIVE node only: read the persisted machine-observation rows already
+  // resident here and route them through the #850 descriptor layer (via the
+  // pure adapter) into a small calm list of renderable feedback-flag view
+  // models. Own-bubble challenge-adjacent suppression uses the resident
+  // `activeViewModel.actor === 'self'` signal ('unknown' → not own → no
+  // over-suppression). This never calls the classifier / network and is never
+  // in the submit path. NO cap / priority / ranking here — that policy is #835.
+  const activePointFeedbackFlags = useMemo(() => {
+    if (!activeMessageId) return Object.freeze([]);
+    const rows = persistedObservationsByArgumentId?.[activeMessageId] ?? [];
+    return buildPointFeedbackFlags(rows, {
+      isOwnPoint: activeViewModel?.actor === 'self',
+    });
+  }, [activeMessageId, persistedObservationsByArgumentId, activeViewModel?.actor]);
 
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
   //
@@ -2374,6 +2396,13 @@ export function ArgumentGameSurface({
               compact
               onGoToParent={activeParentMessageId ? handleGoToParentPoint : undefined}
             />
+            {/* UX-FLAGS-002 — small calm row of point-level friendly feedback
+                flags for the active node. Renders NOTHING when there are no
+                flags (the default room stays visually calm). Derived
+                POST-STORAGE above from the active node's persisted MCP rows,
+                routed through the #850 descriptor layer. No cap / priority
+                here (that is #835); no composer wiring. */}
+            <PointFeedbackFlagsRow flags={activePointFeedbackFlags} />
             {/* UX-FEEDBACK-001 — default-visible STATIC current-state cue near
                 the selected-node responding-to anchor. "Point anchored." is a
                 local ephemeral acknowledgement that the response is bound to a
