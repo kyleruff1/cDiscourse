@@ -68,14 +68,26 @@ describe('StartArgumentPage — render', () => {
     expect(getByTestId('start-argument-surface-card')).toBeTruthy();
   });
 
-  it('renders the three optional taxonomy selectors', () => {
-    const { getByTestId } = render(
+  it('hides the three optional taxonomy selectors by default and reveals them behind the disclosure', () => {
+    // UX-COMPOSER-002 — the framing taxonomy is collapsed behind one optional
+    // "Add framing (optional)" disclosure. On first render the three groups are
+    // ABSENT; pressing the toggle reveals them (unchanged internally).
+    const { getByTestId, queryByTestId } = render(
       <StartArgumentPage onCreate={jest.fn()} onCancel={jest.fn()} />,
     );
+    // Default: the three groups are not mounted.
+    expect(queryByTestId('start-argument-scheme')).toBeNull();
+    expect(queryByTestId('start-argument-strategy')).toBeNull();
+    expect(queryByTestId('start-argument-cause')).toBeNull();
+    // The optional disclosure toggle is present.
+    expect(getByTestId('start-argument-framing-toggle')).toBeTruthy();
+
+    // Expand — the three groups + a verified scheme option + a verified HiTODS
+    // strategy + a cause now render.
+    fireEvent.press(getByTestId('start-argument-framing-toggle'));
     expect(getByTestId('start-argument-scheme')).toBeTruthy();
     expect(getByTestId('start-argument-strategy')).toBeTruthy();
     expect(getByTestId('start-argument-cause')).toBeTruthy();
-    // A verified scheme option + a verified HiTODS strategy + a cause render.
     expect(getByTestId('start-argument-scheme-argument_from_example')).toBeTruthy();
     expect(getByTestId('start-argument-strategy-complex_counter_argument')).toBeTruthy();
     expect(getByTestId('start-argument-cause-informant_related')).toBeTruthy();

@@ -79,6 +79,10 @@ const COPY = {
   surfaceCardLabel: 'Card',
   surfaceCardHelper: 'Card — open a focused argument card with details readily visible.',
   taxonomySectionLabel: 'Optional framing',
+  // UX-COMPOSER-002 — the framing taxonomy is collapsed behind one optional
+  // disclosure. This is the single plain, non-verdict toggle label. Framing
+  // stays optional and never gates submit.
+  framingToggleLabel: 'Add framing (optional)',
   taxonomyDisclaimer:
     'Optional. These are your own framing notes about how you mean this argument — not a classification of it and not a judgment of whether it is right.',
   schemeLabel: 'Argument type',
@@ -132,6 +136,11 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
     useState<DisagreementStrategyId>('unspecified');
   const [disagreementCause, setDisagreementCause] =
     useState<DisagreementCauseId>('unspecified');
+  // UX-COMPOSER-002 — collapsed by default so no framing selectors show on
+  // first render. The three taxonomy groups mount only while this is true; the
+  // taxonomy state above keeps its 'unspecified' defaults and is still never
+  // threaded into the submit payload (framing is optional and never gates it).
+  const [framingExpanded, setFramingExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // ARG-ROOM-008 — the one-time create-time invite-link success state. Set ONLY
@@ -454,13 +463,35 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
           </View>
         </View>
 
-        {/* ── Optional framing taxonomy (secondary) ───────────── */}
+        {/* ── Optional framing taxonomy (secondary, disclosed) ── */}
+        {/* UX-COMPOSER-002 — the three framing groups are the largest visual
+            mass on this screen but are fully optional and never threaded into
+            the submit payload. They now live behind ONE optional disclosure
+            (collapsed by default) so the default view is a single composer.
+            The toggle is a snap show/hide (conditional mount, no animation),
+            so it is reduce-motion-safe by construction. A ▸/▾ glyph carries
+            the expanded state in addition to any color. */}
         <View style={styles.section} testID="start-argument-taxonomy">
           <Text style={styles.sectionLabel}>{COPY.taxonomySectionLabel}</Text>
-          <Text style={styles.disclaimer}>{COPY.taxonomyDisclaimer}</Text>
+          <Pressable
+            onPress={() => setFramingExpanded((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={COPY.framingToggleLabel}
+            accessibilityState={{ expanded: framingExpanded }}
+            hitSlop={TOUCH_TARGET.hitSlopCompact}
+            style={({ pressed }) => [styles.framingToggle, pressed && styles.pressed]}
+            testID="start-argument-framing-toggle"
+          >
+            <Text style={styles.framingToggleGlyph}>{framingExpanded ? '▾' : '▸'}</Text>
+            <Text style={styles.framingToggleLabel}>{COPY.framingToggleLabel}</Text>
+          </Pressable>
 
-          {/* Argument type */}
-          <View style={styles.taxonomyGroup} testID="start-argument-scheme">
+          {framingExpanded ? (
+            <View testID="start-argument-framing-groups">
+              <Text style={styles.disclaimer}>{COPY.taxonomyDisclaimer}</Text>
+
+              {/* Argument type */}
+              <View style={styles.taxonomyGroup} testID="start-argument-scheme">
             <Text style={styles.taxonomyGroupLabel}>{COPY.schemeLabel}</Text>
             <Text style={styles.helper}>{COPY.schemeHelper}</Text>
             <View style={styles.optionWrap}>
@@ -517,6 +548,8 @@ export function StartArgumentPage({ onCreate, onCreated, onCancel }: StartArgume
               ))}
             </View>
           </View>
+            </View>
+          ) : null}
         </View>
 
         {error ? (
@@ -801,6 +834,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.m,
   },
   inviteLinkCopyBtnText: { fontSize: 14, fontWeight: '700', color: SURFACE_TOKENS.textPrimary },
+
+  // UX-COMPOSER-002 — the single optional framing disclosure toggle. Reuses
+  // existing tokens (no new token file). >= 44px target via minHeight + the
+  // shared compact hitSlop. The ▸/▾ glyph carries the expanded state so the
+  // affordance is not signalled by color alone.
+  framingToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.s,
+    minHeight: 44,
+    paddingVertical: SPACING.s,
+    marginTop: SPACING.xs,
+  },
+  framingToggleGlyph: { fontSize: 14, color: SURFACE_TOKENS.textSecondary },
+  framingToggleLabel: { fontSize: 14, fontWeight: '600', color: SURFACE_TOKENS.textSecondary },
 
   // Taxonomy.
   taxonomyGroup: { marginTop: SPACING.m, gap: SPACING.xs },
