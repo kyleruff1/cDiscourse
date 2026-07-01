@@ -1892,7 +1892,10 @@ export function ArgumentGameSurface({
     // VISUAL-SIMPLIFY-002 — summoning the Disagreement pane or the Mediator
     // readout also force-collapses the Open Issues rail so only one analysis
     // surface is expanded at a time (the selector is the single owner; the
-    // rail's own boolean is kept in sync for its `isAnyPanelOpen` OR-terms).
+    // rail keeps its own boolean in sync for the `isAnyPanelOpen` OR-terms).
+    // NOTE: no apostrophes in this comment — the uxOneOneTwoDoctrine ban-list
+    // scanner uses a naive quote-parity STRING_RE and a lone apostrophe here
+    // flips string parsing for the rest of the file.
     if (key !== 'open_issues') setOpenIssuesRailExpanded(false);
   }, []);
 
