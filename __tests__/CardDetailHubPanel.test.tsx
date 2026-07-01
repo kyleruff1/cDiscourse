@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { CardDetailPanel } from '../src/features/arguments/cardView/CardDetailPanel';
 import { buildCardDetailViewModel } from '../src/features/arguments/cardView/cardDetailModel';
 import { buildSectionSemanticFlags } from '../src/features/arguments/detail/argumentDetailModel';
@@ -189,11 +189,14 @@ function roleOf(node: { props: { accessibilityRole?: string } }): string | undef
 }
 
 describe('CVDH-001 Slice 2 — hub zones render visible by default', () => {
-  it('renders the parent-comparison bubble, S/T/H strip, hub classifier, and full-tags zones', () => {
+  it('renders the parent-comparison bubble (default) + S/T/H strip, hub classifier, and full-tags zones (in the expansion)', () => {
     // CVDH-001 Slice 3 — the inline parent-quote zone is upgraded into the
     // off-center colored comparison bubble; assert the bubble, not the zone.
+    // VISUAL-SIMPLIFY-001 — the parent bubble stays in the collapsed default;
+    // the S/T/H strip + classifier + full-tags zones move behind the toggle.
     const { getByTestId } = render(<CardDetailPanel model={hubModel()} />);
     expect(getByTestId('card-detail-parent-bubble')).toBeTruthy();
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-sth-zone')).toBeTruthy();
     expect(getByTestId('card-detail-classifier-zone')).toBeTruthy();
     expect(getByTestId('card-detail-full-tags-zone')).toBeTruthy();
@@ -225,7 +228,8 @@ describe('CVDH-001 Slice 2 — hub zones render visible by default', () => {
   });
 
   it('ask v — the S/T/H strip renders plain-language band labels (no raw tokens)', () => {
-    const { getByText, queryByText } = render(<CardDetailPanel model={hubModel()} />);
+    const { getByText, queryByText, getByTestId } = render(<CardDetailPanel model={hubModel()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // Plain-language band lines render.
     expect(getByText('Standing: Well supported')).toBeTruthy();
     expect(getByText('Tone: Heated')).toBeTruthy();
@@ -239,13 +243,15 @@ describe('CVDH-001 Slice 2 — hub zones render visible by default', () => {
   });
 
   it('ask iii — the classifier heading is NEUTRAL (never "Add Classifier")', () => {
-    const { getAllByText, queryAllByText } = render(<CardDetailPanel model={hubModel()} />);
+    const { getAllByText, queryAllByText, getByTestId } = render(<CardDetailPanel model={hubModel()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getAllByText('Classifier observations').length).toBeGreaterThan(0);
     expect(queryAllByText(/Add Classifier/i)).toHaveLength(0);
   });
 
   it('ask iii — the classifier renders a family-grouped chip with PIPS, display-only', () => {
     const { getByTestId } = render(<CardDetailPanel model={hubModel()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // Family A (parent_relation) group renders.
     const groupA = getByTestId('card-detail-classifier-group-parent_relation');
     expect(groupA).toBeTruthy();
@@ -263,6 +269,7 @@ describe('CVDH-001 Slice 2 — hub zones render visible by default', () => {
 
   it('ask ii — the full-tags block renders doctrine-grouped labels (display-only)', () => {
     const { getByTestId } = render(<CardDetailPanel model={hubModel()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-tags-group-observations')).toBeTruthy();
     expect(getByTestId('card-detail-tags-group-allegations')).toBeTruthy();
     expect(getByTestId('card-detail-tags-group-structural')).toBeTruthy();
@@ -273,6 +280,7 @@ describe('CVDH-001 Slice 2 — hub zones render visible by default', () => {
 
   it('every new hub zone is display-only (no button role anywhere in the panel except navigation)', () => {
     const { getByTestId } = render(<CardDetailPanel model={hubModel()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // Spot-check the zones carry no onPress / button role. The comparison-bubble
     // ACTOR + QUOTE are display-only; only the bubble REFERENCE is a button
     // (navigation), which is asserted separately in the Slice 3 nav tests.
@@ -315,7 +323,8 @@ describe('CVDH-001 Slice 2 — Family I renders on the hub panel; J gated (famil
       standingToneHeatNode: fakeNode({ parentId: null }),
       standingToneHeatViewModel: fakeViewModel(),
     });
-    const { queryByText, queryByTestId } = render(<CardDetailPanel model={model} />);
+    const { queryByText, queryByTestId, getByTestId } = render(<CardDetailPanel model={model} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     // OPS-FROZEN-SET-RESCOPE {H,I,J} → {J}: Family I (thread_topology) is now
     // production-enabled, so the mark renders — the zone is no longer empty.
     expect(queryByTestId('card-detail-classifier-empty')).toBeNull();

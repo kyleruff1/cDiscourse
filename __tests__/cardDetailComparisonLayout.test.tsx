@@ -386,45 +386,56 @@ describe('CVDH-001 Slice 3 — comparison-style centerpiece + parent bubble', ()
 });
 
 describe('CVDH-001 Slice 3 — responsive multi-column layout', () => {
-  it('lays out three columns on a wide web viewport (≥1024), same sections present', () => {
+  // VISUAL-SIMPLIFY-001 — the wide 3-column layout now applies INSIDE the
+  // expansion (the collapsed default panel root is always a single stacked
+  // column). Open the toggle first, then assert the expansion carries the row.
+  it('lays out three columns on a wide web viewport (≥1024) inside the expansion, same sections present', () => {
     const { getByTestId } = render(
       <CardDetailPanel model={model()} windowWidth={1440} platformOs="web" />,
     );
-    const panel = getByTestId('card-detail-panel');
-    expect(flatStyle(panel.props.style).flexDirection).toBe('row');
+    // The collapsed default panel root is a single stacked column.
+    expect(flatStyle(getByTestId('card-detail-panel').props.style).flexDirection).not.toBe('row');
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
+    const expansion = getByTestId('card-detail-expansion');
+    expect(flatStyle(expansion.props.style).flexDirection).toBe('row');
     // All three regions present.
     expect(getByTestId('card-detail-centerpiece')).toBeTruthy();
     expect(getByTestId('card-detail-classifier-column')).toBeTruthy();
     expect(getByTestId('card-detail-tags-column')).toBeTruthy();
   });
 
-  it('stacks into a single column on a narrow web viewport, SAME sections present', () => {
+  it('stacks into a single column on a narrow web viewport, SAME sections present (in the expansion)', () => {
     const { getByTestId } = render(
       <CardDetailPanel model={model()} windowWidth={390} platformOs="web" />,
     );
-    const panel = getByTestId('card-detail-panel');
-    expect(flatStyle(panel.props.style).flexDirection).not.toBe('row');
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
+    const expansion = getByTestId('card-detail-expansion');
+    expect(flatStyle(expansion.props.style).flexDirection).not.toBe('row');
     expect(getByTestId('card-detail-centerpiece')).toBeTruthy();
     expect(getByTestId('card-detail-classifier-column')).toBeTruthy();
     expect(getByTestId('card-detail-tags-column')).toBeTruthy();
   });
 
-  it('stacks on native regardless of width', () => {
+  it('stacks on native regardless of width (expansion is a single column)', () => {
     const { getByTestId } = render(
       <CardDetailPanel model={model()} windowWidth={1440} platformOs="ios" />,
     );
-    expect(flatStyle(getByTestId('card-detail-panel').props.style).flexDirection).not.toBe(
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
+    expect(flatStyle(getByTestId('card-detail-expansion').props.style).flexDirection).not.toBe(
       'row',
     );
   });
 
-  it('renders all the inner detail sections in BOTH layouts (none dropped)', () => {
+  it('renders all the inner detail sections in BOTH layouts (none dropped, in the expansion)', () => {
     for (const width of [390, 1440]) {
       const { getByTestId, unmount } = render(
         <CardDetailPanel model={model()} windowWidth={width} platformOs="web" />,
       );
-      // Centerpiece sections.
+      // The parent bubble is in the collapsed default; the rest are in the
+      // expansion.
       expect(getByTestId('card-detail-parent-bubble')).toBeTruthy();
+      fireEvent.press(getByTestId('card-detail-more-toggle'));
+      // Centerpiece (demoted) sections.
       expect(getByTestId('card-detail-sth-zone')).toBeTruthy();
       expect(getByTestId('card-detail-evidence-zone')).toBeTruthy();
       // Flanking sections.
@@ -435,29 +446,51 @@ describe('CVDH-001 Slice 3 — responsive multi-column layout', () => {
   });
 });
 
-describe('CVDH-001 Slice 3 — #14 Card-visible vs Timeline-disclosed regression', () => {
-  it('the Card renders ALL sections with NO expand / disclosure (no accessibilityState.expanded)', () => {
-    const { getByTestId, queryAllByText, toJSON } = render(
+describe('VISUAL-SIMPLIFY-001 — the Card leads with a calm default behind ONE opt-in toggle', () => {
+  // VISUAL-SIMPLIFY-001 deliberately reverses the CVDH-001 §7.1 "no disclosure
+  // on the Card" invariant: the default room view is now message-first, with
+  // the dense zones behind ONE opt-in "More detail" toggle. The Timeline keeps
+  // its own separate disclosure (asserted below, unchanged).
+  it('the Card collapses the dense sections by default; the expansion reveals them all', () => {
+    const { getByTestId, queryByTestId, queryAllByText } = render(
       <CardDetailPanel model={model()} windowWidth={1440} platformOs="web" />,
     );
-    // All sections are visible by default — no tap needed.
+    // The parent bubble + the ONE toggle are in the collapsed default.
     expect(getByTestId('card-detail-parent-bubble')).toBeTruthy();
+    expect(getByTestId('card-detail-more-toggle')).toBeTruthy();
+    // The dense zones are absent in the collapsed default.
+    expect(queryByTestId('card-detail-classifier-zone')).toBeNull();
+    expect(queryByTestId('card-detail-full-tags-zone')).toBeNull();
+    expect(queryByTestId('card-detail-sth-zone')).toBeNull();
+    expect(queryByTestId('card-detail-evidence-zone')).toBeNull();
+
+    // Opening the ONE toggle reveals every dense zone.
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-classifier-zone')).toBeTruthy();
     expect(getByTestId('card-detail-full-tags-zone')).toBeTruthy();
     expect(getByTestId('card-detail-sth-zone')).toBeTruthy();
     expect(getByTestId('card-detail-evidence-zone')).toBeTruthy();
 
-    // No "Full details" / "Show details" / "Hide details" expand control.
+    // The disclosure copy is the calm "More detail" / "Hide detail" pair; no
+    // "Full details" / "Show details" framing leaks in.
     expect(queryAllByText(/full details/i)).toHaveLength(0);
     expect(queryAllByText(/show details/i)).toHaveLength(0);
-    expect(queryAllByText(/hide details/i)).toHaveLength(0);
-
-    // No node in the Card tree carries accessibilityState.expanded.
-    const serialized = JSON.stringify(toJSON());
-    expect(serialized).not.toContain('"expanded"');
   });
 
-  it('the ONLY Card buttons are navigation (parent-bubble reference + step-ref token)', () => {
+  it('the toggle carries accessibilityState.expanded that tracks the collapsed / expanded state', () => {
+    const { getByTestId } = render(
+      <CardDetailPanel model={model()} windowWidth={1440} platformOs="web" />,
+    );
+    const toggle = getByTestId('card-detail-more-toggle');
+    expect(toggle.props.accessibilityRole).toBe('button');
+    expect(toggle.props.accessibilityState).toEqual({ expanded: false });
+    fireEvent.press(toggle);
+    expect(getByTestId('card-detail-more-toggle').props.accessibilityState).toEqual({
+      expanded: true,
+    });
+  });
+
+  it('the Card buttons are navigation OR the ONE More detail / Hide detail toggle (nothing else)', () => {
     const { UNSAFE_root } = render(
       <CardDetailPanel model={model()} windowWidth={1440} platformOs="web" />,
     );
@@ -465,17 +498,16 @@ describe('CVDH-001 Slice 3 — #14 Card-visible vs Timeline-disclosed regression
       (n: { props?: { accessibilityRole?: string } }) =>
         Boolean(n.props && n.props.accessibilityRole === 'button'),
     );
-    // Each button is a navigation affordance: the comparison-bubble reference
-    // and/or the step-reference parent token. None is a moderate / expand /
-    // re-classify action.
+    // Each button is a navigation affordance ("Go to …") OR the collapse
+    // toggle. None is a moderate / re-classify / verdict action.
     expect(buttons.length).toBeGreaterThan(0);
     for (const btn of buttons) {
       const label = String(btn.props.accessibilityLabel ?? '');
-      expect(label.toLowerCase()).toMatch(/go to/);
+      expect(label.toLowerCase()).toMatch(/go to|more detail|hide detail/);
     }
   });
 
-  it('the Timeline projection STILL keeps its tap-to-reveal disclosure (source scan)', () => {
+  it('the Timeline projection STILL keeps its own tap-to-reveal disclosure (source scan, unchanged)', () => {
     const src = fs.readFileSync(
       path.join(
         process.cwd(),
@@ -487,13 +519,13 @@ describe('CVDH-001 Slice 3 — #14 Card-visible vs Timeline-disclosed regression
       'utf8',
     );
     // The Timeline page retains its collapsed "full details" disclosure +
-    // the accessibilityState.expanded contract — Card != Timeline posture.
+    // the accessibilityState.expanded contract — untouched by this card.
     expect(src).toMatch(/Hide full details/);
     expect(src).toMatch(/Show full details/);
     expect(src).toMatch(/accessibilityState=\{\{\s*expanded\s*\}\}/);
   });
 
-  it('the CardDetailPanel source has NO "Full details" expand affordance', () => {
+  it('the CardDetailPanel source uses the calm "More detail" toggle (verdict-free copy)', () => {
     const src = fs.readFileSync(
       path.join(
         process.cwd(),
@@ -505,8 +537,11 @@ describe('CVDH-001 Slice 3 — #14 Card-visible vs Timeline-disclosed regression
       ),
       'utf8',
     );
+    // VISUAL-SIMPLIFY-001 — the toggle copy is the calm pair; no "Full details"
+    // framing is used.
     expect(src).not.toMatch(/Full details/i);
-    expect(src).not.toMatch(/accessibilityState=\{\{\s*expanded/);
+    expect(src).toMatch(/More detail/);
+    expect(src).toMatch(/Hide detail/);
   });
 });
 
@@ -539,20 +574,25 @@ describe('CVDH-001 Slice 3 — grayscale legibility + ban-list', () => {
 
   it('classifier confidence renders as PIPS, not a digit', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-classifier-pips')).toBeTruthy();
   });
 
   it('the advisory caption is present (advisory, not a verdict)', () => {
-    const { getByText } = render(<CardDetailPanel model={model()} />);
+    const { getByText, getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(
       getByText('What the referee noticed — advisory, not a verdict.'),
     ).toBeTruthy();
   });
 
-  it('no rendered string contains a verdict token or snake_case leak', () => {
-    const { toJSON } = render(
+  it('no rendered string contains a verdict token or snake_case leak (default AND expanded)', () => {
+    const { toJSON, getByTestId } = render(
       <CardDetailPanel model={model()} windowWidth={1440} platformOs="web" />,
     );
+    // VISUAL-SIMPLIFY-001 — scan the FULL surface: open the expansion so the
+    // classifier / mapping / tags strings are included in the walk.
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const tree = toJSON();
     const strings: string[] = [];
     const walk = (n: unknown): void => {

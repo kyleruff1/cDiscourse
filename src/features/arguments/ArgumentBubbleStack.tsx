@@ -34,6 +34,7 @@ import type { CardMappingSectionModel } from './cardView/cardMappingSectionModel
 import type { RailActionCode, RailViewerRole } from './railActionCategories';
 import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
 import type { RefereeNavVerb } from './cardView/RefereeCardView';
+import type { PrioritizedPointFeedbackFlags } from '../feedbackFlags';
 
 interface Props {
   viewModels: ArgumentBubbleViewModel[];
@@ -88,6 +89,11 @@ interface Props {
     verb: RefereeNavVerb,
     ctx: { activeMessageId: string | null },
   ) => void;
+  /** VISUAL-SIMPLIFY-001 — prioritized friendly feedback flags for the ACTIVE
+   *  point, computed once at the surface. The Stack computes nothing; it
+   *  forwards this to the active card only (`t.isActive ? pointFeedbackFlags :
+   *  null`), mirroring activeCardDetail. Omitted -> no flag row. */
+  pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
 }
 
 export function ArgumentBubbleStack({
@@ -106,6 +112,7 @@ export function ArgumentBubbleStack({
   activeRefereeCard,
   onRefereeMove,
   onRefereeNavigate,
+  pointFeedbackFlags,
 }: Props) {
   const activeIndex = useMemo(() => {
     const i = viewModels.findIndex((v) => v.messageId === activeMessageId);
@@ -222,6 +229,10 @@ export function ArgumentBubbleStack({
                 // REF-004 — Inspect / Focus-on-board verbs, forwarded to the
                 // active card only (same gating as onRefereeMove).
                 onRefereeNavigate={t.isActive ? onRefereeNavigate : undefined}
+                // VISUAL-SIMPLIFY-001 — the prioritized friendly flags for the
+                // active point, forwarded to the active card only (same gating
+                // as activeCardDetail). Pure pass-through.
+                pointFeedbackFlags={t.isActive ? pointFeedbackFlags : null}
               />
             </View>
           );

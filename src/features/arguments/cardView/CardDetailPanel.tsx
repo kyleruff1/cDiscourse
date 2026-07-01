@@ -25,10 +25,11 @@
  * Pure presentational; no network, no AI, no state.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BORDER_WIDTH,
+  FOCUS_RING,
   RADIUS,
   SPACING,
   SURFACE_TOKENS,
@@ -39,6 +40,12 @@ import { CardStepReferenceHeader } from './CardStepReferenceHeader';
 import { RefereeCardView } from './RefereeCardView';
 import type { RefereeNavVerb } from './RefereeCardView';
 import type { DisagreementContract, MoveSuggestion } from '../../refereeLoop';
+import { buildRefereeCardViewModel } from '../../refereeLoop';
+// VISUAL-SIMPLIFY-001 — the shipped friendly-flag row + its prioritized
+// view-model type. Consumed as-is (the feedbackFlags modules are NOT edited);
+// the row already caps at 3 pills + a quiet count and renders nothing empty.
+import { PointFeedbackFlagsRow } from '../../feedbackFlags';
+import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
 import type { CardClassifierChip } from './cardClassifierStripModel';
 import type { CardMappingChip, CardMappingSectionModel } from './cardMappingSectionModel';
 import type { CardDetailViewModel } from './cardDetailModel';
@@ -131,6 +138,13 @@ export interface CardDetailPanelProps {
    *  Forwarded to the RefereeCardView slot. Omitted → the secondary
    *  affordance row does not render (byte-equivalent to REF-003). */
   onRefereeNavigate?: (verb: RefereeNavVerb) => void;
+  /** VISUAL-SIMPLIFY-001 — the prioritized (<=3 + suppressedCount) friendly
+   *  feedback flags for the ACTIVE point, computed ONCE at the surface via
+   *  buildPointFeedbackFlags + prioritizePointFeedbackFlags and forwarded
+   *  through the stack (mirroring refereeCard). It is the single calm standing
+   *  surface in the collapsed default. Omitted / null / empty visible list ->
+   *  the flag row renders nothing (byte-equivalent for direct-render callers). */
+  pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
   testID?: string;
 }
 
@@ -723,6 +737,9 @@ function CenterpieceRegion({
   viewerRole,
   bubbleActor,
   onRailAction,
+  showMessage,
+  showDemotedZones,
+  testID,
 }: {
   model: CardDetailViewModel;
   /** CARD-VIEW-COMPARISON-POLISH-001 — the current/own message body text,
@@ -735,18 +752,42 @@ function CenterpieceRegion({
   viewerRole?: RailViewerRole;
   bubbleActor?: RailBubbleActor;
   onRailAction?: (code: RailActionCode, ctx: { activeMessageId: string | null }) => void;
+  /** VISUAL-SIMPLIFY-001 — render the message (body + step reference). Default
+   *  true. The collapsed default sets it true; the expansion centerpiece sets
+   *  it false so the message is not duplicated (it stays at the panel root). */
+  showMessage?: boolean;
+  /** VISUAL-SIMPLIFY-001 — render the demoted zones (category chips, Standing /
+   *  Tone / Heat, evidence, standing, lifecycle, actions). Default true. The
+   *  collapsed default sets it false (those move behind the expansion); the
+   *  expansion centerpiece sets it true. */
+  showDemotedZones?: boolean;
+  /** VISUAL-SIMPLIFY-001 — the region testID. Defaults to card-detail-
+   *  centerpiece (the message-first collapsed-default region). The expansion
+   *  centerpiece (demoted zones only) passes a distinct id so the two regions
+   *  never collide on a single-match query. */
+  testID?: string;
 }): React.ReactElement {
   const { evidence } = model;
+  const renderMessage = showMessage !== false;
+  const renderDemotedZones = showDemotedZones !== false;
   return (
-    <View style={styles.centerpieceRegion} testID="card-detail-centerpiece">
+    <View style={styles.centerpieceRegion} testID={testID ?? 'card-detail-centerpiece'}>
       {/* The centerpiece card content — the current/own message; visually the
           prominent focus and a DRAMATICALLY different surface from the black
-          parent bubble above it. */}
-      <View style={styles.centerpieceCard} testID="card-detail-centerpiece-card">
+          parent bubble above it. VISUAL-SIMPLIFY-001 — the inner-card testID is
+          derived from the region testID so the collapsed-default message region
+          and the expansion demoted-zones region never collide. */}
+      <View
+        style={styles.centerpieceCard}
+        testID={`${testID ?? 'card-detail-centerpiece'}-card`}
+      >
         {/* CARD-VIEW-COMPARISON-POLISH-001 — "Your move" framing + the current
             message body, at a larger, readable font. Color-independent cue
-            (the label text) that this is the responder's own move. */}
-        {typeof currentMessageBody === 'string' && currentMessageBody.length > 0 ? (
+            (the label text) that this is the responder's own move.
+            VISUAL-SIMPLIFY-001 — the message + step reference render at the
+            panel root (collapsed default). The expansion centerpiece sets
+            showMessage=false so the body is not duplicated. */}
+        {renderMessage && typeof currentMessageBody === 'string' && currentMessageBody.length > 0 ? (
           <View style={styles.zone} testID="card-detail-current-message-zone">
             <Text style={styles.currentMessageLabel} accessibilityRole="text">
               Your move
@@ -762,12 +803,21 @@ function CenterpieceRegion({
         ) : null}
 
         {/* Zone 1 — step reference (the parent token is a navigation button). */}
-        <CardStepReferenceHeader
-          line={model.stepReference}
-          onActivateAncestor={onActivateAncestor}
-          testID="card-detail-step-reference"
-        />
+        {renderMessage ? (
+          <CardStepReferenceHeader
+            line={model.stepReference}
+            onActivateAncestor={onActivateAncestor}
+            testID="card-detail-step-reference"
+          />
+        ) : null}
 
+        {/* VISUAL-SIMPLIFY-001 — the demoted zones below (category chips, S/T/H
+            strip, evidence, standing, lifecycle, actions) render ONLY inside
+            the expansion. In the collapsed default the compact meta line + the
+            friendly-flag row + the single advisory line carry these once, at
+            the panel root. */}
+        {renderDemotedZones ? (
+          <>
         {/* Zone 2 — category + qualifier labels. */}
         {(model.categoryLabel || model.qualifierLabels.length > 0) ? (
           <View style={styles.chipRow} testID="card-detail-category-zone">
@@ -843,6 +893,8 @@ function CenterpieceRegion({
             onRailAction={onRailAction}
             activeMessageId={null}
           />
+        ) : null}
+          </>
         ) : null}
       </View>
     </View>
@@ -938,6 +990,75 @@ function TagsColumn({
  *   - ALL sections are visible by default — NO expand affordance on the Card
  *     (ratified §7.1). The only Card Pressables are navigation.
  */
+function CompactMetaLine({
+  model,
+}: {
+  model: CardDetailViewModel;
+}): React.ReactElement | null {
+  const parts: string[] = [];
+  if (model.categoryLabel) parts.push(model.categoryLabel);
+  if (model.qualifierLabels.length > 0) parts.push(model.qualifierLabels[0]);
+  if (model.lifecycleLabel) parts.push(model.lifecycleLabel);
+  if (parts.length === 0) return null;
+  return (
+    <Text
+      style={styles.compactMeta}
+      accessibilityRole="text"
+      testID="card-detail-compact-meta"
+    >
+      {parts.join(' · ')}
+    </Text>
+  );
+}
+
+function AdvisoryLine({
+  refereeCard,
+}: {
+  refereeCard: DisagreementContract | null;
+}): React.ReactElement | null {
+  if (refereeCard == null) return null;
+  const vm = buildRefereeCardViewModel(refereeCard);
+  const line = vm.zone2OpenTaskLine;
+  if (typeof line !== 'string' || line.length === 0) return null;
+  return (
+    <Text
+      style={styles.advisoryLine}
+      accessibilityRole="text"
+      testID="card-detail-advisory-line"
+    >
+      {line}
+    </Text>
+  );
+}
+
+function MoreDetailToggle({
+  expanded,
+  onPress,
+}: {
+  expanded: boolean;
+  onPress: () => void;
+}): React.ReactElement {
+  const label = expanded ? 'Hide detail' : 'More detail';
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ expanded }}
+      hitSlop={TOUCH_TARGET.hitSlopAll}
+      style={(state) => [
+        styles.moreToggle,
+        Platform.OS === 'web' && (state as { focused?: boolean }).focused
+          ? styles.moreToggleFocused
+          : null,
+      ]}
+      testID="card-detail-more-toggle"
+    >
+      <Text style={styles.moreToggleText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export function CardDetailPanel({
   model,
   mappingSection,
@@ -951,16 +1072,28 @@ export function CardDetailPanel({
   refereeCard,
   onRefereeMove,
   onRefereeNavigate,
+  pointFeedbackFlags,
   testID,
 }: CardDetailPanelProps): React.ReactElement {
+  // VISUAL-SIMPLIFY-001 — the collapsed default leads with the message, at most
+  // three friendly flags, and at most one advisory line. Everything else moves
+  // behind this ONE opt-in disclosure. Default collapsed (calm room view).
+  const [detailExpanded, setDetailExpanded] = useState(false);
   const layout = hubColumnLayout(
     typeof windowWidth === 'number' ? windowWidth : 0,
     resolvePlatformOs(platformOs),
   );
-  const isThreeColumn = layout.mode === 'three_column';
+  // VISUAL-SIMPLIFY-001 — the wide 3-column layout applies ONLY inside the
+  // expansion (the collapsed default is always a single stacked column). Gate
+  // the three_column mode on detailExpanded so the collapsed set never becomes
+  // a row.
+  const isThreeColumn = layout.mode === 'three_column' && detailExpanded;
 
   // The three region elements. Each carries a stable testID so a test can
   // assert presence + reading order regardless of visual placement.
+  // VISUAL-SIMPLIFY-001 — the expansion centerpiece renders the DEMOTED zones
+  // only (showMessage=false); the message + step reference stay at the panel
+  // root so they are not duplicated when the detail is expanded.
   const regionFor = (region: HubColumnRegion): React.ReactElement => {
     switch (region) {
       case 'centerpiece':
@@ -973,6 +1106,9 @@ export function CardDetailPanel({
             viewerRole={viewerRole}
             bubbleActor={bubbleActor}
             onRailAction={onRailAction}
+            showMessage={false}
+            showDemotedZones
+            testID="card-detail-centerpiece-zones"
           />
         );
       case 'classifier':
@@ -1004,39 +1140,85 @@ export function CardDetailPanel({
 
   return (
     <View
-      style={[styles.panel, isThreeColumn && styles.panelWide]}
+      style={styles.panel}
       accessibilityLabel="Argument detail hub"
       testID={testID ?? 'card-detail-panel'}
     >
       {/* CARD-VIEW-COMPARISON-POLISH-001 — the parent ("replying-to") bubble is
-          the FIRST element of the panel: a full-width banner at the TOP in both
-          layouts (the wrapper takes the whole first flex row in the wide
-          layout, so the three columns wrap beneath it). Degrades to nothing for
-          a root / unresolvable parent (the wrapper still renders empty, which
-          is inert). */}
+          the FIRST element of the panel: a full-width banner at the TOP. It is
+          the what-am-I-answering anchor and stays in the collapsed default;
+          degrades to nothing for a root / unresolvable parent. */}
       <View style={styles.parentBubbleSlot} testID="card-detail-parent-bubble-slot">
         <ParentComparisonBubble
           bubble={model.parentComparison}
           onActivateAncestor={onActivateAncestor}
         />
       </View>
-      {/* REF-003 — the synthesized one-state Referee Card, a full-width band
-          ABOVE the raw classifier strip in BOTH the stacked and wide layouts
-          (REF-001's "synthesized layer above #504's raw classifier strip").
-          Renders only when the surface supplies a derived issue for the active
-          node; omitted → nothing (the slot is inert), so #504's five zones are
-          byte-unchanged. */}
-      {refereeCard != null ? (
-        <View style={styles.refereeCardSlot} testID="card-detail-referee-card-slot">
-          <RefereeCardView
-            issue={refereeCard}
-            onMove={onRefereeMove}
-            onRefereeNavigate={onRefereeNavigate}
-            testID="referee-card-view"
-          />
+
+      {/* VISUAL-SIMPLIFY-001 — the collapsed default: the message (body + step
+          reference) leads, then ONE compact meta line, then the capped friendly
+          flag row, then at most one advisory line, then the ONE opt-in toggle.
+          The message-only centerpiece renders in BOTH states so the reader
+          always meets the message first. */}
+      <CenterpieceRegion
+        model={model}
+        currentMessageBody={currentMessageBody}
+        onActivateAncestor={onActivateAncestor}
+        showMessage
+        showDemotedZones={false}
+      />
+
+      <CompactMetaLine model={model} />
+
+      {/* VISUAL-SIMPLIFY-001 — the single calm standing surface (the wave-2
+          de-dupe target). Consumes the shipped prioritized flags as-is; renders
+          nothing for an empty visible list. */}
+      {pointFeedbackFlags && pointFeedbackFlags.visible.length > 0 ? (
+        <PointFeedbackFlagsRow
+          flags={pointFeedbackFlags.visible}
+          suppressedCount={pointFeedbackFlags.suppressedCount}
+          testID="card-detail-feedback-flags"
+        />
+      ) : null}
+
+      {/* VISUAL-SIMPLIFY-001 — the single advisory line (evidence-burden AND
+          next-move surface in the collapsed default). Renders nothing when no
+          referee issue is supplied. */}
+      <AdvisoryLine refereeCard={refereeCard ?? null} />
+
+      {/* VISUAL-SIMPLIFY-001 — the ONE opt-in disclosure toggle. */}
+      <MoreDetailToggle
+        expanded={detailExpanded}
+        onPress={() => setDetailExpanded((prev) => !prev)}
+      />
+
+      {/* VISUAL-SIMPLIFY-001 — the expansion: the complete superset (referee
+          card, Standing / Tone / Heat, evidence, standing, lifecycle, actions,
+          classifier hub, combination observations, tags, plus the full
+          category chip row). Renders only when the toggle is expanded. The
+          wide 3-column layout applies INSIDE this block. Reduce-motion safe by
+          construction: the block snaps open and closed with no motion API. */}
+      {detailExpanded ? (
+        <View
+          style={[styles.expansion, isThreeColumn && styles.panelWide]}
+          testID="card-detail-expansion"
+        >
+          {/* REF-003 — the synthesized one-state Referee Card, a full-width band
+              above the raw classifier strip. Renders only when the surface
+              supplies a derived issue for the active node. */}
+          {refereeCard != null ? (
+            <View style={styles.refereeCardSlot} testID="card-detail-referee-card-slot">
+              <RefereeCardView
+                issue={refereeCard}
+                onMove={onRefereeMove}
+                onRefereeNavigate={onRefereeNavigate}
+                testID="referee-card-view"
+              />
+            </View>
+          ) : null}
+          {renderOrder.map((region) => regionFor(region))}
         </View>
       ) : null}
-      {renderOrder.map((region) => regionFor(region))}
     </View>
   );
 }
@@ -1045,6 +1227,47 @@ const styles = StyleSheet.create({
   panel: {
     marginTop: SPACING.s,
     gap: SPACING.s,
+  },
+  // VISUAL-SIMPLIFY-001 — the expansion container. It carries the wide
+  // 3-column layout (panelWide) ONLY when expanded on a wide web viewport; the
+  // collapsed default panel root is always a single stacked column.
+  expansion: {
+    gap: SPACING.s,
+  },
+  // VISUAL-SIMPLIFY-001 — the ONE compact metadata line (category / first
+  // qualifier / lifecycle folded into one plain display-only row).
+  compactMeta: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+    fontWeight: '600',
+  },
+  // VISUAL-SIMPLIFY-001 — the single advisory line (open-task sentence).
+  advisoryLine: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.popoutBody.fontSize,
+    lineHeight: TYPOGRAPHY.popoutBody.lineHeight,
+  },
+  // VISUAL-SIMPLIFY-001 — the More detail / Hide detail toggle. Small visual;
+  // hitSlop lifts it to >= 44x44 (accessibility-targets). Web focus ring is
+  // reduce-motion safe (border width, no animation).
+  moreToggle: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: 4,
+    minHeight: TOUCH_TARGET.minSizePx,
+    justifyContent: 'center',
+  },
+  moreToggleFocused: {
+    borderWidth: FOCUS_RING.widthPx,
+    borderColor: FOCUS_RING.color,
+  },
+  moreToggleText: {
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    fontWeight: '600',
+    color: SURFACE_TOKENS.textSecondary,
   },
   // Slice 3 — wide 3-column layout. The panel becomes a wrapping row; each
   // region is a column. `alignItems: flex-start` lets the centerpiece + the

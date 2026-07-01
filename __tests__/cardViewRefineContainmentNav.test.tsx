@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import fs from 'fs';
 import path from 'path';
 import { ArgumentBubbleStack } from '../src/features/arguments/ArgumentBubbleStack';
@@ -117,8 +117,11 @@ describe('CARD-VIEW-REFINE-001 — the active card is bounded + scrolls its deta
     expect(style.overflow).toBe('hidden');
     // The panel is inside a ScrollView (containment, not a disclosure).
     expect(getByTestId('card-detail-scroll-m2')).toBeTruthy();
-    // #14 — every detail section still renders WITHOUT a tap.
+    // VISUAL-SIMPLIFY-001 — the panel renders in the collapsed default; the
+    // detail sections move behind the ONE opt-in toggle (containment is
+    // orthogonal to the collapse: both hold).
     expect(getByTestId('card-detail-panel-m2')).toBeTruthy();
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-evidence-zone')).toBeTruthy();
     expect(getByTestId('card-detail-classifier-zone')).toBeTruthy();
   });

@@ -83,11 +83,24 @@ function bubbleVm(overrides: Partial<ArgumentBubbleViewModel> = {}): ArgumentBub
   };
 }
 
-describe('CARD-VIEW-DATA-001 — CardDetailPanel renders zones by default (no tap)', () => {
-  it('renders the panel + all populated zones with no interaction', () => {
-    const { getByTestId } = render(<CardDetailPanel model={model()} />);
+describe('CARD-VIEW-DATA-001 — CardDetailPanel renders the collapsed default + zones behind the toggle (VISUAL-SIMPLIFY-001)', () => {
+  it('renders the panel + collapsed-default kept set; the demoted zones move behind the toggle', () => {
+    const { getByTestId, queryByTestId } = render(<CardDetailPanel model={model()} />);
+    // Collapsed-default kept set.
     expect(getByTestId('card-detail-panel')).toBeTruthy();
     expect(getByTestId('card-detail-step-reference')).toBeTruthy();
+    expect(getByTestId('card-detail-compact-meta')).toBeTruthy();
+    expect(getByTestId('card-detail-more-toggle')).toBeTruthy();
+    // VISUAL-SIMPLIFY-001 — the demoted zones are absent in the collapsed
+    // default; they move behind the ONE opt-in expansion.
+    expect(queryByTestId('card-detail-category-zone')).toBeNull();
+    expect(queryByTestId('card-detail-classifier-zone')).toBeNull();
+    expect(queryByTestId('card-detail-evidence-zone')).toBeNull();
+    expect(queryByTestId('card-detail-standing-zone')).toBeNull();
+    expect(queryByTestId('card-detail-lifecycle-zone')).toBeNull();
+    expect(queryByTestId('card-detail-flags-zone')).toBeNull();
+    // After opening the expansion, every demoted zone renders.
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-category-zone')).toBeTruthy();
     expect(getByTestId('card-detail-classifier-zone')).toBeTruthy();
     expect(getByTestId('card-detail-evidence-zone')).toBeTruthy();
@@ -96,8 +109,9 @@ describe('CARD-VIEW-DATA-001 — CardDetailPanel renders zones by default (no ta
     expect(getByTestId('card-detail-flags-zone')).toBeTruthy();
   });
 
-  it('shows confidence as PIPS, not a raw number', () => {
+  it('shows confidence as PIPS, not a raw number (inside the expansion)', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const pips = getByTestId('card-detail-classifier-pips');
     expect(pips).toBeTruthy();
     // 3 pip dots, each a <View> — no numeric text node.
@@ -112,7 +126,9 @@ describe('CARD-VIEW-DATA-001 — display-only labels are NOT buttons', () => {
   }
 
   it('classifier observation is a text label, not a button', () => {
+    // VISUAL-SIMPLIFY-001 — the classifier zone lives inside the expansion now.
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     const chip = getByTestId('card-detail-classifier-machine_observation:persisted:res-1:msg-active');
     expect(roleOf(chip)).toBe('text');
     expect(roleOf(chip)).not.toBe('button');
@@ -120,6 +136,7 @@ describe('CARD-VIEW-DATA-001 — display-only labels are NOT buttons', () => {
 
   it('category / qualifier / lifecycle / flag chips carry no button role', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     for (const id of [
       'card-detail-category',
       'card-detail-qualifier-0',
@@ -132,6 +149,7 @@ describe('CARD-VIEW-DATA-001 — display-only labels are NOT buttons', () => {
 
   it('standing + evidence-debt are text, not buttons', () => {
     const { getByTestId } = render(<CardDetailPanel model={model()} />);
+    fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(roleOf(getByTestId('card-detail-standing'))).not.toBe('button');
     expect(roleOf(getByTestId('card-detail-evidence-debt'))).not.toBe('button');
   });
