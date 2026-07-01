@@ -10,3 +10,6 @@
  */
 
 export * from './friendlyFlagMap';
+export * from './pointFeedbackFlagsModel';
+export { PointFeedbackFlagPill } from './PointFeedbackFlagPill';
+export { PointFeedbackFlagsRow } from './PointFeedbackFlagsRow';
