@@ -29,6 +29,7 @@ import type { CardMappingSectionModel } from './cardView/cardMappingSectionModel
 import type { RailActionCode, RailViewerRole } from './railActionCategories';
 import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
 import type { RefereeNavVerb } from './cardView/RefereeCardView';
+import type { PrioritizedPointFeedbackFlags } from '../feedbackFlags';
 
 interface Props {
   viewModel: ArgumentBubbleViewModel;
@@ -68,6 +69,11 @@ interface Props {
   /** REF-004 — Referee Card navigation verbs (Inspect / Focus on board); bound
    *  to this card's messageId exactly as onRefereeMove. */
   onRefereeNavigate?: (verb: RefereeNavVerb, ctx: { activeMessageId: string | null }) => void;
+  /** VISUAL-SIMPLIFY-001 — prioritized friendly feedback flags for the active
+   *  point, computed once at the surface. Forwarded into the active card's
+   *  CardDetailPanel as the single calm standing surface. Omitted / non-active
+   *  -> no flag row. */
+  pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
 }
 
 export function ArgumentBubbleCard({
@@ -85,6 +91,7 @@ export function ArgumentBubbleCard({
   refereeCard,
   onRefereeMove,
   onRefereeNavigate,
+  pointFeedbackFlags,
 }: Props) {
   const isOwn = vm.actor === 'self';
   // CARD-VIEW-DATA-001 — the exploded detail renders only on the active
@@ -192,6 +199,10 @@ export function ArgumentBubbleCard({
                 ? (verb) => onRefereeNavigate(verb, { activeMessageId: vm.messageId })
                 : undefined
             }
+            // VISUAL-SIMPLIFY-001 — the prioritized friendly flag row for the
+            // active point (single calm standing surface in the collapsed
+            // default). Pure pass-through; the surface owns the derivation.
+            pointFeedbackFlags={pointFeedbackFlags ?? null}
             testID={`card-detail-panel-${vm.messageId}`}
           />
         </ScrollView>

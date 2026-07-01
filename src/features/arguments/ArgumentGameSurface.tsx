@@ -2382,6 +2382,11 @@ export function ArgumentGameSurface({
               // verbs. Routes to the existing Inspect popout / setGoLens path;
               // no new write path.
               onRefereeNavigate={handleRefereeNavigate}
+              // VISUAL-SIMPLIFY-001 — the prioritized friendly flags for the
+              // active point, computed once above and forwarded to the active
+              // card as the single calm standing surface in the collapsed
+              // default. Same derivation the timeline-path flag row consumes.
+              pointFeedbackFlags={activePointFeedbackFlags}
             />
             {/* Stage 6.4: legacy chip cluster is hidden in observer mode;
                 the action rail below is the single entry point for both
