@@ -831,7 +831,12 @@ export const TIMELINE_KIND_COLORS: Record<TimelineKindColorFamily, string> = {
   default: '#475569',     // slate
 };
 
-const STANDING_BAND_COLOR: Record<TimelineStandingBand, string> = {
+/**
+ * Strength-band → color map. Exported for opt-in Inspect-path consumers and
+ * the VISUAL-SIMPLIFY-003 band-neutral contract test — `STANDING_BAND_COLOR.unscored`
+ * is the neutral grey the DEFAULT edge standing stop collapses to.
+ */
+export const STANDING_BAND_COLOR: Record<TimelineStandingBand, string> = {
   pretty_wrong: '#b91c1c',
   slightly_wrong: '#f97316',
   neutral: '#64748b',
@@ -1058,6 +1063,19 @@ export interface BuildTimelineMapInput {
    * omitted, `resolveNodeGapPx` resolves to `'normal'` (44px).
    */
   density?: TimelineDensityMode;
+  /**
+   * VISUAL-SIMPLIFY-003 — When `true` (the default), the DEFAULT timeline
+   * path is band-NEUTRAL: the per-node strength band is NOT rendered as a
+   * verdict-adjacent decoration. Two effects only: (a) each edge's standing
+   * gradient stop is forced to the neutral `unscored` grey instead of a
+   * strength color, and (b) the per-node accessibility label omits the
+   * strength fragment. The underlying `node.standingBand` field STAYS
+   * populated so opt-in Inspect / popover / detail surfaces keep their
+   * signal. Pass `false` (Inspect / admin path) to restore the strength
+   * decoration + a11y fragment. Resolves the product audit's per-node
+   * verdict-adjacency flag (see docs/designs/VISUAL-SIMPLIFY-003.md).
+   */
+  neutralizeStandingBands?: boolean;
 }
 
 // ── Band detection (deterministic) ─────────────────────────────
@@ -1292,6 +1310,11 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
   const total = sorted.length;
   const latestId = total > 0 ? sorted[total - 1].id : null;
   const activeId = input.activeMessageId || latestId;
+  // VISUAL-SIMPLIFY-003 — default-path band neutralization. `undefined`
+  // (the default caller) resolves to TRUE → the strength band is not
+  // rendered as a per-node verdict-adjacent decoration. The Inspect / admin
+  // path opts back in with `neutralizeStandingBands: false`.
+  const neutralize = input.neutralizeStandingBands !== false;
 
   if (total === 0) {
     return {
@@ -1510,6 +1533,9 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
       kindLabel: node.kindLabel,
       sideLabel: node.sideLabel,
       standingBand: node.standingBand,
+      // VISUAL-SIMPLIFY-003 — omit the strength fragment on the default
+      // (band-neutral) path; the Inspect path opts back in.
+      includeStandingBand: !neutralize,
       branchLabel: deriveBranchLabel({ lane: node.lane, isDetached: node.isDetached }),
       isActive: node.isActive,
       isLatest: node.isLatest,
@@ -1528,7 +1554,15 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
     if (!nodeById.has(node.parentId)) continue; // detached: no edge
     const parent = nodeById.get(node.parentId)!;
     const isActivePath = activeSet.has(node.messageId) && activeSet.has(parent.messageId);
-    const standingColor = STANDING_BAND_COLOR[node.standingBand] || '#475569';
+    // VISUAL-SIMPLIFY-003 — on the DEFAULT (band-neutral) path the standing
+    // stop collapses to the neutral `unscored` grey so the rail no longer
+    // carries a per-edge strength tint (the verdict-adjacent decoration the
+    // audit flagged). The 5-stop array length is preserved either way — the
+    // kind stops at [0]/[length-3] stay intact. The Inspect path
+    // (`neutralizeStandingBands: false`) keeps the real band color.
+    const standingColor = neutralize
+      ? STANDING_BAND_COLOR.unscored
+      : (STANDING_BAND_COLOR[node.standingBand] || '#475569');
     const toneColor = TONE_BAND_COLOR[node.toneBand] || '#475569';
     const gradientStops = [
       parent.kindColor,

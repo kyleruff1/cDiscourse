@@ -300,6 +300,11 @@ function NodeDot({
       kindLabel: node.kindLabel,
       sideLabel: node.sideLabel,
       standingBand: node.standingBand,
+      // VISUAL-SIMPLIFY-003 — the default timeline is band-neutral, so the
+      // rendered NodeDot label omits the strength fragment to match the
+      // model's Pass 4c output (`node.accessibilityLabel`). Keeping this in
+      // lockstep with the model prevents render/model a11y drift.
+      includeStandingBand: false,
       branchLabel: deriveBranchLabel({ lane: node.lane, isDetached: node.isDetached }),
       isActive: node.isActive,
       isLatest: node.isLatest,
