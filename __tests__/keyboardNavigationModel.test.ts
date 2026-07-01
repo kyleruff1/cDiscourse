@@ -347,6 +347,27 @@ describe('buildNodeAccessibilityLabel', () => {
     );
   });
 
+  // VISUAL-SIMPLIFY-003 — the default band-neutral timeline path passes
+  // `includeStandingBand: false`, which drops the strength fragment. The flag
+  // defaults to `true` (back-compat), so the ALL_BANDS blocks below still see
+  // the fragment.
+  it('omits the strength fragment when includeStandingBand is false', () => {
+    const label = buildNodeAccessibilityLabel(
+      labelInput({ standingBand: 'pretty_right', includeStandingBand: false }),
+    );
+    expect(label).not.toContain(STANDING_BAND_SOFT_LABEL.pretty_right);
+    // The rest of the label is intact: type + ordinal + branch + state + time.
+    expect(label).toContain('rebuttal on side Aff');
+    expect(label).toContain('position 4 of 12');
+    expect(label).toContain('on a side branch');
+    expect(label.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the strength fragment when includeStandingBand is omitted (default true)', () => {
+    const label = buildNodeAccessibilityLabel(labelInput({ standingBand: 'pretty_right' }));
+    expect(label).toContain(STANDING_BAND_SOFT_LABEL.pretty_right);
+  });
+
   it('omits the side fragment when sideLabel is "—"', () => {
     const label = buildNodeAccessibilityLabel(labelInput({ sideLabel: '—' }));
     expect(label).toMatch(/^rebuttal, position 4 of 12/);

@@ -22,6 +22,7 @@ import {
   mixHex,
   TIMELINE_KIND_COLORS,
   TIMELINE_NODE_SIZE,
+  STANDING_BAND_COLOR,
   type ArgumentTimelineMapMessageInput,
   type ArgumentTimelineMapModel,
 } from '../src/features/arguments/argumentGameSurfaceModel';
@@ -155,6 +156,35 @@ describe('buildArgumentTimelineMap — edges', () => {
     // Parent thesis (claim family) is indigo; rebuttal (challenge) is orange.
     expect(map.edges[0].gradientStops[0]).toBe(TIMELINE_KIND_COLORS.claim);
     expect(map.edges[0].gradientStops[map.edges[0].gradientStops.length - 3]).toBe(TIMELINE_KIND_COLORS.challenge);
+    // VISUAL-SIMPLIFY-003 — on the DEFAULT (band-neutral) path the standing
+    // stop (index length-2) is the neutral `unscored` grey, NOT a strength
+    // color, even though this child carries an `ad_hominem` flag (which
+    // `inferStandingBand` maps to `pretty_wrong` / red). The kind stops are
+    // untouched (asserted above).
+    expect(map.edges[0].gradientStops[map.edges[0].gradientStops.length - 2]).toBe(
+      STANDING_BAND_COLOR.unscored,
+    );
+    expect(map.edges[0].gradientStops[map.edges[0].gradientStops.length - 2]).not.toBe(
+      STANDING_BAND_COLOR.pretty_wrong,
+    );
+  });
+
+  it('Inspect path (neutralizeStandingBands:false) restores the strength stop color', () => {
+    const map = buildArgumentTimelineMap({
+      messages: [
+        msg({ id: 'r', createdAt: isoAt(0), argumentType: 'thesis' }),
+        msg({ id: 'a', parentId: 'r', createdAt: isoAt(1000), argumentType: 'rebuttal', flagCodes: ['ad_hominem'] }),
+      ],
+      currentUserId: 'me',
+      neutralizeStandingBands: false,
+    });
+    // Same kind stops (grammar unchanged), but the standing stop now
+    // reflects the real band color — `ad_hominem` → `pretty_wrong`.
+    expect(map.edges[0].gradientStops[0]).toBe(TIMELINE_KIND_COLORS.claim);
+    expect(map.edges[0].gradientStops[map.edges[0].gradientStops.length - 3]).toBe(TIMELINE_KIND_COLORS.challenge);
+    expect(map.edges[0].gradientStops[map.edges[0].gradientStops.length - 2]).toBe(
+      STANDING_BAND_COLOR.pretty_wrong,
+    );
   });
 });
 

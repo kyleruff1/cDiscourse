@@ -109,6 +109,13 @@ export interface NodeAccessibilityInput {
   /** 'Aff' | 'Neg' | 'Obs' | 'Mod' | '—' — '—' omits the side fragment. */
   sideLabel: string;
   standingBand: TimelineStandingBand;
+  /**
+   * VISUAL-SIMPLIFY-003 — when `false`, the strength (standing) fragment is
+   * omitted from the assembled label. Defaults to `true` (back-compat: the
+   * fragment is present). The DEFAULT band-neutral timeline path passes
+   * `false`; the Inspect path leaves it `true`.
+   */
+  includeStandingBand?: boolean;
   /** Plain-language branch descriptor — see `deriveBranchLabel`. */
   branchLabel: string;
   isActive: boolean;
@@ -270,7 +277,12 @@ export function buildNodeAccessibilityLabel(input: NodeAccessibilityInput): stri
   parts.push(`position ${input.ordinal} of ${input.totalNodes}`);
 
   // Strength band — plain-language gameplay standing, never a verdict.
-  parts.push(STANDING_BAND_SOFT_LABEL[input.standingBand]);
+  // VISUAL-SIMPLIFY-003 — omitted on the default band-neutral path
+  // (`includeStandingBand: false`); present by default for back-compat and
+  // for the opt-in Inspect path.
+  if (input.includeStandingBand !== false) {
+    parts.push(STANDING_BAND_SOFT_LABEL[input.standingBand]);
+  }
 
   // Branch — mainline / side / detached topology.
   parts.push(input.branchLabel);
