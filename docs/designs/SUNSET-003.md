@@ -144,3 +144,35 @@ Contingency map, if a residual source gate is required:
 ## Operator steps (if any)
 
 None — pure client-side change (a new test, plus at most a visibility gate). No `db push`, no `functions deploy`, no env var, no migration.
+
+## Implementer note (2026-07-01) — Surface-10 residual found + relocated
+
+The Surface-10 written verification the design called for (confirm the timeline
+node popover COMPONENT maps `toneBand` / `temperatureBand` through the plain
+band map) surfaced a real residual: `TimelineNodePopover.tsx` rendered the raw
+band tokens directly — `<Text>{model.toneBand}</Text>` and
+`<Text>{model.temperatureBand}</Text>` (was at lines 283 / 287). Those raw union
+values (`measured` / `heated` / `hostile` / `unknown` · `warm` / etc.) trip
+`looksLikeInternalCode` and are exactly the kind of internal token
+cdiscourse-doctrine §9 forbids in rendered text. Standing already routed through
+`formatStandingBandShort`; tone and heat did not.
+
+This is the design's anticipated CONTINGENCY (see the Surface-10 row + the
+Residual-relocations Surface-10 written verification): a label-only fix, no new
+toggle, smallest correct move. The relocation:
+
+- `src/features/arguments/TimelineNodePopover.tsx` — import the existing
+  `TONE_BAND_PLAIN_LABEL` / `HEAT_BAND_PLAIN_LABEL` maps from
+  `detail/argumentDetailModel.ts` and render
+  `TONE_BAND_PLAIN_LABEL[model.toneBand]` /
+  `HEAT_BAND_PLAIN_LABEL[model.temperatureBand]` (Calm / Measured / Cool /
+  Warm / …) instead of the raw token. The popover MODEL is unchanged (it still
+  carries the raw band tokens for tests + a11y); only the component display
+  routes through the plain map. `timelineNodePopoverModel.test.ts` still asserts
+  `model.toneBand === 'calm'` and passes unchanged.
+
+This surface is opt-in-on-tap (not the default render path), so the residual was
+NOT a default-path leak — but the fix is the smallest correct move and closes the
+§9 gap while the card is open. `TimelineNodePopover.tsx` is not pinned by any
+boundary suite (verified green). All new comments are apostrophe-free with
+balanced quotes/backticks.

@@ -21,6 +21,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ArgumentBubbleControl } from './argumentGameSurfaceModel';
 import type { TimelineNodePopoverModel } from './timelineNodePopoverModel';
+// SUNSET-003 — the popover model carries the raw tone / temperature band
+// tokens (calm / measured / heated / hostile · cool / mild / warm / hot /
+// unknown) for tests and a11y. Those raw codes must NOT reach rendered text
+// (cdiscourse-doctrine section 9); route them through the shared plain-language
+// band maps so the opt-in popover shows Calm / Measured / Cool / Warm rather
+// than the internal token. Standing already routes through formatStandingBandShort.
+import { TONE_BAND_PLAIN_LABEL, HEAT_BAND_PLAIN_LABEL } from './detail/argumentDetailModel';
 import { ReceiptChip } from '../evidence/ReceiptChip';
 import { SourceChainPopover } from '../evidence/SourceChainPopover';
 import { buildSourceChainPopoverModel } from '../evidence/sourceChainPopoverModel';
@@ -280,11 +287,11 @@ export function TimelineNodePopover({
           </View>
           <View style={styles.bandChip} testID={`popover-tone-${model.messageId}`}>
             <Text style={styles.bandLabel}>Tone</Text>
-            <Text style={styles.bandValue} numberOfLines={1}>{model.toneBand}</Text>
+            <Text style={styles.bandValue} numberOfLines={1}>{TONE_BAND_PLAIN_LABEL[model.toneBand]}</Text>
           </View>
           <View style={styles.bandChip} testID={`popover-temperature-${model.messageId}`}>
             <Text style={styles.bandLabel}>Heat</Text>
-            <Text style={styles.bandValue} numberOfLines={1}>{model.temperatureBand}</Text>
+            <Text style={styles.bandValue} numberOfLines={1}>{HEAT_BAND_PLAIN_LABEL[model.temperatureBand]}</Text>
           </View>
           {evidenceContract && receiptChipContract ? (
             <ReceiptChip
