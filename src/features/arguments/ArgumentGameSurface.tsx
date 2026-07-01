@@ -32,6 +32,7 @@ import {
   buildPointFeedbackFlags,
   PointFeedbackFlagsRow,
 } from '../feedbackFlags';
+import { prioritizePointFeedbackFlags } from '../feedbackFlags/feedbackFlagPriority';
 import { buildSidecarViewModel } from './argumentReplySidecarModel';
 import { TimelineSelectedReadoutPanel } from './TimelineSelectedReadoutPanel';
 import {
@@ -1188,22 +1189,28 @@ export function ArgumentGameSurface({
     return buildCardMappingSection(results);
   }, [activeMessageId, persistedObservationsByArgumentId]);
 
-  // ── UX-FLAGS-002 — point-level friendly feedback flags ──
+  // ── UX-FLAGS-002 / UX-FLAGS-003 — point-level friendly feedback flags ──
   //
   // POST-STORAGE, DISPLAY-ONLY, sibling to `activeMappingSection`. For the
   // ACTIVE node only: read the persisted machine-observation rows already
   // resident here and route them through the #850 descriptor layer (via the
-  // pure adapter) into a small calm list of renderable feedback-flag view
+  // #851 pure adapter) into a small calm list of renderable feedback-flag view
   // models. Own-bubble challenge-adjacent suppression uses the resident
   // `activeViewModel.actor === 'self'` signal ('unknown' → not own → no
   // over-suppression). This never calls the classifier / network and is never
-  // in the submit path. NO cap / priority / ranking here — that policy is #835.
+  // in the submit path.
+  //
+  // The 1–3 cap / priority lands HERE (#835): the #851 adapter is deliberately
+  // uncapped, and `prioritizePointFeedbackFlags` is the downstream owner of the
+  // display budget. The memo now yields a PrioritizedPointFeedbackFlags object
+  // (`{ visible, suppressedCount }`), consumed only at the render site below.
   const activePointFeedbackFlags = useMemo(() => {
-    if (!activeMessageId) return Object.freeze([]);
+    if (!activeMessageId) return prioritizePointFeedbackFlags([]);
     const rows = persistedObservationsByArgumentId?.[activeMessageId] ?? [];
-    return buildPointFeedbackFlags(rows, {
+    const built = buildPointFeedbackFlags(rows, {
       isOwnPoint: activeViewModel?.actor === 'self',
     });
+    return prioritizePointFeedbackFlags(built);
   }, [activeMessageId, persistedObservationsByArgumentId, activeViewModel?.actor]);
 
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
@@ -2400,9 +2407,12 @@ export function ArgumentGameSurface({
                 flags for the active node. Renders NOTHING when there are no
                 flags (the default room stays visually calm). Derived
                 POST-STORAGE above from the active node's persisted MCP rows,
-                routed through the #850 descriptor layer. No cap / priority
-                here (that is #835); no composer wiring. */}
-            <PointFeedbackFlagsRow flags={activePointFeedbackFlags} />
+                routed through the #850 descriptor layer, then capped to <= 3 by
+                the #835 priority module; no composer wiring. */}
+            <PointFeedbackFlagsRow
+              flags={activePointFeedbackFlags.visible}
+              suppressedCount={activePointFeedbackFlags.suppressedCount}
+            />
             {/* UX-FEEDBACK-001 — default-visible STATIC current-state cue near
                 the selected-node responding-to anchor. "Point anchored." is a
                 local ephemeral acknowledgement that the response is bound to a

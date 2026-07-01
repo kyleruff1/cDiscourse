@@ -11,5 +11,6 @@
 
 export * from './friendlyFlagMap';
 export * from './pointFeedbackFlagsModel';
+export * from './feedbackFlagPriority';
 export { PointFeedbackFlagPill } from './PointFeedbackFlagPill';
 export { PointFeedbackFlagsRow } from './PointFeedbackFlagsRow';
