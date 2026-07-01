@@ -108,7 +108,11 @@ create table public.circles (
   id                uuid        primary key default gen_random_uuid(),
   -- The owner. Hard FK to auth.users; a deleted owner cascades (ownership must
   -- always resolve). Ownership can be transferred by the owner (PRIVATE-GROUPS-002),
-  -- never orphaned.
+  -- never orphaned. EXPLICIT deletion semantics: `on delete cascade` here means
+  -- deleting the owner's auth.users row deletes the WHOLE circles row (the circle
+  -- itself), not just a membership — acceptable for v1 because account deletion is
+  -- not self-serve today; PRIVATE-GROUPS-002 must either transfer ownership before
+  -- any account-deletion flow ships or revisit this FK to `restrict`.
   owner_id          uuid        not null references auth.users(id) on delete cascade,
   -- User-chosen name. Doctrine-neutral free text; the ban-list test scans it in
   -- rendered UI (a circle name is user content — treated like a room title).
@@ -167,6 +171,19 @@ create index circle_members_circle on public.circle_members (circle_id) where is
 alter table public.debates
   add column circle_id uuid null references public.circles(id) on delete set null;
 
+-- DB-level guarantee for Invariant 1 (circle rooms are ALWAYS private). A plain
+-- same-row CHECK works because both columns live on public.debates; it validates
+-- trivially on add (every existing row has circle_id NULL). Combined with the
+-- QOL-039 one-way visibility trigger (private can never flip back to public),
+-- the invariant is durable at the DB level — not an app-path promise.
+-- `on delete set null` keeps the CHECK satisfied (NULL passes) if a circle row
+-- is ever removed. Adopting an EXISTING room into a circle therefore requires
+-- it to be (or become) private first — consistent with the one-way trigger,
+-- which permits public -> private.
+alter table public.debates
+  add constraint debates_circle_requires_private
+  check (circle_id is null or visibility = 'private');
+
 create index debates_circle_id on public.debates (circle_id) where circle_id is not null;
 ```
 
@@ -215,6 +232,12 @@ create unique index circle_invites_one_live
 create index circle_invites_token_hash on public.circle_invites (token_hash);
 create index circle_invites_circle on public.circle_invites (circle_id);
 ```
+
+> **Intentional two-FK-target pattern — do not "clean up" to one target.** `invitee_profile_id`
+> references `public.profiles` (bind-at-accept identity, mirroring `argument_room_invites`), while
+> `invited_by` and the membership/ownership FKs reference `auth.users` (write-attribution, mirroring
+> `debate_participants.user_id`). The split is deliberate and matches the existing invite substrate;
+> unifying the targets would break either pre-signup redemption or attribution semantics.
 
 Note: `circle_invites` deliberately has **no per-circle single-invite cap** (unlike
 `argument_room_invites_one_live_per_room`, which encodes the 1:1-room seat matrix). A circle is a
@@ -296,6 +319,12 @@ returns boolean language sql stable security definer set search_path = public as
         and a.inactive_at is null
         and not public.is_debate_inactive(a.debate_id)
         and d.circle_id is not null
+        -- Defense-in-depth: the circle arm is self-enforcing on privacy. The
+        -- debates_circle_requires_private CHECK (see the debates.circle_id DDL)
+        -- already guarantees circle rooms are private at the DB level; this
+        -- predicate makes the helper true-by-inspection even if that constraint
+        -- were ever relaxed, and makes Invariant 2's prose literally match the SQL.
+        and d.visibility = 'private'
         and public.is_circle_member(d.circle_id, viewer_id)
     );
 $$;
@@ -371,20 +400,27 @@ and `room_visibility_changes`. Reads are membership-gated via the helpers.
 
 This is the load-bearing safety property. Three rules, stated as invariants:
 
-1. **A circle room is at least as private as a private room today.** A room with `circle_id IS NOT
-   NULL` must set `visibility = 'private'` at creation (enforced by the future room-creation path;
-   asserted in the implementation card's RLS scan). A circle room is therefore *never* globally
-   readable — the public arm (`is_debate_open_or_locked_public`) can never fire for it because
-   `visibility = 'private'` makes that helper return false.
+1. **A circle room is at least as private as a private room today — enforced at the DB level, not
+   by an app-path promise.** Three stacked mechanisms: (a) the `debates_circle_requires_private`
+   CHECK constraint (see the `debates.circle_id` DDL) makes `circle_id IS NOT NULL ⇒ visibility =
+   'private'` a hard database invariant — no code path, service-role included, can create or adopt a
+   circle room that is not private; (b) the existing QOL-039 one-way visibility trigger guarantees a
+   private room can never flip back to public, so the invariant is durable over time; (c) the
+   room-creation path sets `visibility = 'private'` for circle rooms and the implementation card's
+   RLS scan pins both the CHECK and the helper predicate as belt-and-suspenders. A circle room is
+   therefore *never* globally readable — the public arm (`is_debate_open_or_locked_public`) can
+   never fire for it.
 
 2. **Circle membership is an ADDITIVE read grant layered on top of the existing participant arm — it
    never replaces or loosens an arm.** The canonical `arguments` SELECT policy (COV-004,
    `is_argument_visible`) is **not edited**. The circle grant lives in the *sibling* helper
    `is_argument_visible_in_circle`, which is a strict superset: `is_argument_visible(...) OR
-   (circle-member arm)`. Because the circle arm additionally requires `d.visibility` to already be
-   private-and-scoped and the debate to be non-inactive and the argument posted, it can only *add*
-   the circle's own members to the read audience of the circle's own private rooms — never expose a
-   public-hall argument differently, never widen a non-circle room, never grant a non-member anything.
+   (circle-member arm)`. The circle arm carries an explicit `d.visibility = 'private'` predicate in
+   its SQL body (matched by the `debates_circle_requires_private` CHECK), plus `d.circle_id IS NOT
+   NULL`, debate-non-inactive, argument-posted, and `is_circle_member(d.circle_id, viewer_id)` —
+   so it can only *add* the circle's own members to the read audience of the circle's own private
+   rooms — never expose a public-hall argument differently, never widen a non-circle room, never
+   grant a non-member anything.
 
 3. **No arm of the existing `arguments` / `debates` / `debate_participants` SELECT policies is
    loosened.** The implementation card MUST NOT touch the COV-004 `is_argument_visible` body or the
@@ -651,8 +687,9 @@ the PR merges), the operator runs:
 
 - `npx supabase db push --linked` — applies `20260701000001_private_groups_001_circles.sql` (the exact
   filename is confirmed by the implementer as the highest sequential timestamp at build time).
-- Register `manage-circle` and `manage-circle-invite` in `supabase/config.toml` **before** relying on
-  auto-deploy (unregistered function dirs silently never deploy — operator memory
+- Register `manage-circle` and `manage-circle-invite` in `supabase/config.toml` **in the SAME
+  implementation PR that adds the function directories** (registration and functions land together —
+  an unregistered function dir silently never deploys; operator memory
   `supabase-merge-autodeploy`), then `npx supabase functions deploy manage-circle --linked` and
   `npx supabase functions deploy manage-circle-invite --linked` (or let the merge-to-main Supabase
   integration redeploy the *registered* functions).
