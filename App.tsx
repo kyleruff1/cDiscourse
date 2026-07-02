@@ -634,6 +634,34 @@ function MainAppShell({
     [debates, selectDebate],
   );
 
+  // QUOTE-FORGE-001 — open a PRIOR settled argument room referenced by a
+  // linked-prior chip. REUSES the exact deep-link mechanism the notification
+  // + admin handlers use (resolveRoomDeepLinkAccess + debates.find +
+  // selectDebate). An id absent from the RLS-filtered `debates` list drives
+  // the same neutral "unavailable" notice (the no-enumeration guarantee) —
+  // never a silent drop, never a new room-open path. Only reached for an
+  // authorized chip (title_only / unavailable chips disable Open).
+  const handleOpenPriorRoom = React.useCallback(
+    (targetDebateId: string): void => {
+      const access = resolveRoomDeepLinkAccess({
+        requestedDebateId: targetDebateId,
+        loadedDebateIds: debates.map((d) => d.id),
+      });
+      if (access.outcome === 'unavailable') {
+        setRoomUnavailableOpen(true);
+        return;
+      }
+      const target = debates.find((d) => d.id === targetDebateId);
+      if (!target) {
+        setRoomUnavailableOpen(true);
+        return;
+      }
+      const side = target.myParticipantSide ?? 'observer';
+      selectDebate(target, side);
+    },
+    [debates, selectDebate],
+  );
+
   // QOL-038 — consume the accepted-invite hand-off. Wait until debates
   // is loaded (so the participant row from the accept step is in scope)
   // then select that debate with the side stored on the participant row.
@@ -1095,6 +1123,9 @@ function MainAppShell({
               // seat strip + the rail's full-room state (disabled Join chips +
               // observe nudge). Null for private rooms.
               seatAvailability={seatAvailability}
+              // QUOTE-FORGE-001 — open a referenced prior settled argument
+              // room. Reuses the existing deep-link mechanism.
+              onOpenPriorRoom={handleOpenPriorRoom}
             />
 
             {/* COMPOSER-002 — in-room composer dock. Overlays the room

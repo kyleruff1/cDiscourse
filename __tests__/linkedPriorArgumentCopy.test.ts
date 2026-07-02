@@ -107,3 +107,60 @@ describe('linkedPriorArgumentCopy — doctrine ban-list', () => {
     }
   });
 });
+
+// ── QUOTE-FORGE-001 — new picker-model / sheet strings ban-list ──
+//
+// The create-link picker sheet carries inline user-facing strings that are
+// NOT part of LINKED_PRIOR_ARGUMENT_COPY. Scan the sheet + model source for
+// any string literal carrying a forbidden token (same doctrine bar).
+describe('QUOTE-FORGE-001 — picker source strings ban-list', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const REPO = process.cwd();
+
+  const SCANNED_FILES = [
+    'src/features/arguments/crossRoom/LinkTargetPickerSheet.tsx',
+    'src/features/arguments/crossRoom/linkTargetPickerModel.ts',
+  ];
+
+  // Extract every quoted string literal from source (like the doctrine
+  // scanner) — we only care about copy, not identifiers / comments.
+  const STRING_RE = /(['"`])(?:(?!\1|\\)[\s\S]|\\[\s\S])*?\1/g;
+  function extractStrings(src: string): string[] {
+    const out: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = STRING_RE.exec(src))) out.push(m[0].slice(1, -1));
+    return out;
+  }
+
+  // Strip comments before extracting string literals — a doctrine doc
+  // comment legitimately names the banned tokens it forbids ("won / proved
+  // / correct" signal); only actual copy literals are scanned.
+  function stripComments(src: string): string {
+    return src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .map((line) => line.replace(/\/\/.*$/, ''))
+      .join('\n');
+  }
+
+  for (const rel of SCANNED_FILES) {
+    it(`${rel} has no string literal with a forbidden token`, () => {
+      const src = stripComments(fs.readFileSync(path.join(REPO, rel), 'utf8'));
+      const literals = extractStrings(src);
+      for (const lit of literals) {
+        for (const token of _forbiddenLinkedPriorTokens()) {
+          if (token.includes(' ')) {
+            expect(lit.toLowerCase()).not.toContain(token);
+          } else {
+            const re = new RegExp(
+              `\\b${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+              'i',
+            );
+            expect(re.test(lit)).toBe(false);
+          }
+        }
+      }
+    });
+  }
+});
