@@ -26,6 +26,10 @@ import { useAppSession } from '../session/useAppSession';
 import { useArgumentRoomMessages } from './useArgumentRoomMessages';
 import { quickActionToPreset } from './quickActionPresets';
 import { useSemanticReferee } from './useSemanticReferee';
+// QUOTE-FORGE-001 — cross-room linked-prior wire + create-link picker.
+import { useLinkedPriorRooms } from './crossRoom/useLinkedPriorRooms';
+import { LinkTargetPickerSheet } from './crossRoom/LinkTargetPickerSheet';
+import type { LinkTargetPickerModel } from './crossRoom/linkTargetPickerModel';
 
 /**
  * Stage 6.2 — Normal users only ever see `stack` or `timeline`. The
@@ -100,9 +104,17 @@ interface Props {
    * omitted => no strip, Join chips enabled (back-compat).
    */
   seatAvailability?: SeatAvailability | null;
+  /**
+   * QUOTE-FORGE-001 — open a PRIOR settled argument room referenced by a
+   * linked-prior chip. The caller (App.tsx) reuses the existing deep-link
+   * mechanism (resolveRoomDeepLinkAccess + debates.find + selectDebate); an
+   * id absent from the RLS-filtered list drives the neutral unavailable
+   * notice. Only reached for an authorized chip. Optional.
+   */
+  onOpenPriorRoom?: (targetDebateId: string) => void;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom }: Props) {
   const {
     cache,
     viewport,
@@ -165,6 +177,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         onComposerExpand={onComposerExpand}
         onLeaveRoom={onLeaveRoom}
         seatAvailability={seatAvailability}
+        onOpenPriorRoom={onOpenPriorRoom}
       />
     );
   }
@@ -314,11 +327,36 @@ interface FullRoomGameSurfaceMountProps {
   onLeaveRoom?: () => void;
   /** ARG-ROOM-005 — public-room seat availability (forwarded to the surface). */
   seatAvailability?: SeatAvailability | null;
+  /** QUOTE-FORGE-001 — open a referenced prior settled argument room. */
+  onOpenPriorRoom?: (targetDebateId: string) => void;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
+
+  // QUOTE-FORGE-001 — load the cross-room links for THIS room and build the
+  // chip view models. The hook is caller-scoped (RLS + the QOL-042 trigger
+  // do every enforcement); it never writes public.arguments.
+  const linkedPrior = useLinkedPriorRooms(debate.id, currentUserId);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerModel, setPickerModel] = useState<LinkTargetPickerModel | null>(null);
+  const [pickerLoading, setPickerLoading] = useState(false);
+
+  // The current viewer may create a link only as a participant of THIS room
+  // (INSERT RLS needs source-room participation). Observers see chips but the
+  // create affordance disables with a visible reason.
+  const isParticipant =
+    !!participantSide && participantSide !== 'observer' && participantSide !== 'moderator';
+
+  const handleOpenLinkPicker = React.useCallback(() => {
+    setPickerOpen(true);
+    setPickerLoading(true);
+    void linkedPrior.loadLinkCandidates().then((model) => {
+      setPickerModel(model);
+      setPickerLoading(false);
+    });
+  }, [linkedPrior]);
 
   const {
     messages: rows,
@@ -528,6 +566,19 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         composerResolution={debate.resolution ?? null}
         onLeaveRoom={onLeaveRoom}
         seatAvailability={seatAvailability}
+        // QUOTE-FORGE-001 — light the cross-room linked-prior wire. Chips
+        // render through the timeline map's already-wired seams; the two
+        // handlers open the prior room / the Inspect context section; the
+        // picker opens the create-link sheet.
+        linkedPriorChips={linkedPrior.chips}
+        onOpenLinkedPrior={(linkId) => {
+          const targetDebateId = linkedPrior.targetDebateIdForLink(linkId);
+          if (targetDebateId && onOpenPriorRoom) onOpenPriorRoom(targetDebateId);
+        }}
+        // onViewLinkedPriorContext is intentionally not passed — the game
+        // surface opens its own Inspect popout ("From the linked prior
+        // argument" section) as the smallest correct affordance.
+        onOpenLinkPicker={handleOpenLinkPicker}
         // MCP-019 — banner / override slice for the move just posted.
         // Both are null when the semantic layer is off (the v1 default).
         refereeBanner={refereeMoveState?.banner ?? null}
@@ -542,6 +593,18 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
             });
           }
         }}
+      />
+      {/* QUOTE-FORGE-001 — the create-link picker sheet. On-demand overlay
+          opened from the timeline-header affordance; caller-scoped create
+          flow through the useLinkedPriorRooms hook. */}
+      <LinkTargetPickerSheet
+        visible={pickerOpen}
+        model={pickerModel}
+        loadingCandidates={pickerLoading}
+        canCreate={isParticipant}
+        onCreate={(candidate, note) => linkedPrior.createLink(candidate, note)}
+        onClose={() => setPickerOpen(false)}
+        reduceMotionOverride={reduceMotionOverride}
       />
     </View>
   );

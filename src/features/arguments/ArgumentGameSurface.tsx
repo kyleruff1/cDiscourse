@@ -14,6 +14,9 @@ import { useHeaderBreakpoint } from '../../hooks/useHeaderBreakpoint';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
 import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
+// QUOTE-FORGE-001 — linked prior argument chips built by the room shell.
+import type { LinkedPriorArgumentChip } from './crossRoom/linkedPriorArgumentModel';
+import { LINKED_PRIOR_ARGUMENT_COPY } from './crossRoom/linkedPriorArgumentCopy';
 // UX-BOARD-RAIL-002 — pure presentational band-driven board grid. Receives the
 // already-built render-tree subtrees as slot props and arranges them into a
 // 1 / 2 / 3-column board by the resident `headerBand`. No hook / handler /
@@ -429,6 +432,31 @@ interface Props {
    * (byte-identical to the pre-ARG-ROOM-005 surface).
    */
   seatAvailability?: SeatAvailability | null;
+  /**
+   * QUOTE-FORGE-001 — linked prior argument context chips for THIS room,
+   * built by the room shell with the pure buildLinkedPriorArgumentChip
+   * model. Forwarded verbatim into the single ArgumentTimelineMap mount so
+   * the already-wired chip row renders. Optional; omitting it (or an empty
+   * array) renders nothing (back-compat, calm default).
+   */
+  linkedPriorChips?: ReadonlyArray<LinkedPriorArgumentChip>;
+  /**
+   * QUOTE-FORGE-001 — open a linked prior settled argument room. Fired by a
+   * chip Open action; only reached for an authorized chip (title_only /
+   * unavailable chips disable Open in the model).
+   */
+  onOpenLinkedPrior?: (linkId: string) => void;
+  /**
+   * QUOTE-FORGE-001 — open the Inspect popout section for a linked prior
+   * argument. Fired by a chip View context action.
+   */
+  onViewLinkedPriorContext?: (linkId: string) => void;
+  /**
+   * QUOTE-FORGE-001 — open the create-link picker. When present, a single
+   * lightweight Reference a prior argument affordance renders in the
+   * timeline header. Omitting it hides the affordance (calm default).
+   */
+  onOpenLinkPicker?: () => void;
 }
 
 export function ArgumentGameSurface({
@@ -463,6 +491,10 @@ export function ArgumentGameSurface({
   composerResolution,
   onLeaveRoom,
   seatAvailability,
+  linkedPriorChips,
+  onOpenLinkedPrior,
+  onViewLinkedPriorContext,
+  onOpenLinkPicker,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // ARG-ROOM-005 — read-only seat-availability display + rail full-room state.
@@ -2450,7 +2482,42 @@ export function ArgumentGameSurface({
               onActionDockAction={handleActionDockAction}
               onOpenCardsDetail={handleOpenCardsDetail}
               reduceMotionOverride={reduceMotionOverride}
+              // QUOTE-FORGE-001 — light the cross-room linked-prior wire.
+              // The room shell loads the links and builds the chip view
+              // models; the timeline already renders the chip row through
+              // its own seams. title_only / unavailable chips disable Open
+              // in the model, so onOpenLinkedPrior only fires for authorized
+              // links.
+              linkedPriorChips={linkedPriorChips}
+              onOpenLinkedPrior={onOpenLinkedPrior}
+              onViewLinkedPriorContext={(linkId) => {
+                // The View context action opens the Inspect popout, whose
+                // From the linked prior argument section already exists.
+                // This is the smallest correct affordance. If the room shell
+                // supplies its own handler it takes precedence.
+                if (onViewLinkedPriorContext) onViewLinkedPriorContext(linkId);
+                else setInspectVisible(true);
+              }}
             />
+            {/* QUOTE-FORGE-001 — the create-link affordance is a single
+                lightweight timeline-header entry that opens the picker
+                sheet on demand. It renders only when the room shell
+                supplies onOpenLinkPicker, keeping the default header calm. */}
+            {onOpenLinkPicker ? (
+              <Pressable
+                onPress={onOpenLinkPicker}
+                accessibilityRole="button"
+                accessibilityLabel={LINKED_PRIOR_ARGUMENT_COPY.createAffordance}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                testID="link-target-create-affordance-entry"
+                style={styles.linkAffordance}
+              >
+                <Text style={styles.linkAffordanceGlyph}>⤴ </Text>
+                <Text style={styles.linkAffordanceText}>
+                  {LINKED_PRIOR_ARGUMENT_COPY.createAffordance}
+                </Text>
+              </Pressable>
+            ) : null}
           </>
         )}
         </View>
@@ -3168,6 +3235,24 @@ const styles = StyleSheet.create({
   },
   microMomentText: { color: '#a5b4fc', fontSize: 12, fontWeight: '700' as const },
   microMomentHelper: { color: '#94a3b8', fontSize: 11, fontWeight: '400' as const, marginTop: 2 },
+  // QUOTE-FORGE-001 — the single lightweight create-link affordance in the
+  // timeline header. A calm one-line entry, not a dense panel.
+  linkAffordance: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    alignSelf: 'flex-start' as const,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginHorizontal: 8,
+    marginTop: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#111827',
+    minHeight: 32,
+  },
+  linkAffordanceGlyph: { color: '#a5b4fc', fontWeight: '800' as const, fontSize: 12 },
+  linkAffordanceText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' as const },
   // UX-MEDIATOR-002 — one-chip row: the single primary state chip + the
   // chip-adjacent Inspect caret (O-2). Rendered only when there IS a chip.
   nodeChipRow: {

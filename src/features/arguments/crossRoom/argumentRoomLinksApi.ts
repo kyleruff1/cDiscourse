@@ -38,12 +38,16 @@ import type {
   LinkAccessState,
   PriorRoomSummary,
 } from './linkedPriorArgumentModel';
+import {
+  MAX_LINK_TARGET_CANDIDATES,
+  type LinkTargetCandidate,
+} from './linkTargetPickerModel';
 
 // ── Result envelope ────────────────────────────────────────────
 
 /** A uniform result envelope for the QOL-042 API calls. */
 export type ArgumentRoomLinkResult<T> =
-  | { ok: true; data: T }
+  | { ok: true; data: T; duplicate?: boolean }
   | { ok: false; error: string };
 
 // ── Row shapes (the on-the-wire `argument_room_links` row) ──────
@@ -191,7 +195,11 @@ export async function createArgumentRoomLink(
         .eq('is_removed', false)
         .maybeSingle();
       if (!existing.error && existing.data) {
-        return { ok: true, data: mapLinkRow(existing.data as ArgumentRoomLinkRow) };
+        return {
+          ok: true,
+          data: mapLinkRow(existing.data as ArgumentRoomLinkRow),
+          duplicate: true,
+        };
       }
     }
     return { ok: false, error: `createArgumentRoomLink failed: ${sanitizeError(error)}` };
@@ -238,6 +246,91 @@ export async function removeArgumentRoomLink(
     };
   }
   return { ok: true, data: { linkId: (data as { id: string }).id } };
+}
+
+// ── listLinkTargetCandidates ───────────────────────────────────
+
+/**
+ * The `debates` row shape read for a link-target candidate. `circle_id`
+ * exists on `debates` (PRIVATE-GROUPS-002) but is not carried by the shared
+ * `Debate` type; the picker reads it here rather than widening that type.
+ */
+interface LinkTargetCandidateRow {
+  id: string;
+  title: string | null;
+  status: string | null;
+  circle_id: string | null;
+}
+
+/**
+ * Lists the PRIOR rooms the caller may reference from `currentDebateId` —
+ * a caller-scoped `.select()` on `debates`, NOT a free-text search
+ * (QUOTE-FORGE-001 design §Picker · Query). RLS returns only the rooms the
+ * caller can already read; the `status = 'locked'` filter mirrors the
+ * `link_target_must_be_locked` trigger so the picker never offers a room a
+ * create would be rejected on. Recency-ordered (`updated_at desc`, an
+ * ACTIVITY fact — never heat / score). Fetches `MAX + 1` rows so the caller
+ * can flag "more not shown" without a second count query.
+ *
+ * The current room is excluded server-side (`.neq('id', current)`). Each
+ * row maps to a `LinkTargetCandidate` with `sameCircle = false` — the pure
+ * `buildLinkTargetPickerModel` sets the real `sameCircle` flag against the
+ * current room's circle id.
+ */
+export async function listLinkTargetCandidates(
+  currentDebateId: string,
+): Promise<ArgumentRoomLinkResult<LinkTargetCandidate[]>> {
+  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+  if (!currentDebateId) return { ok: false, error: 'currentDebateId required' };
+
+  const { data, error } = await supabase
+    .from('debates')
+    .select('id, title, status, circle_id')
+    .eq('status', 'locked')
+    .neq('id', currentDebateId)
+    .order('updated_at', { ascending: false })
+    .limit(MAX_LINK_TARGET_CANDIDATES + 1);
+
+  if (error) {
+    return { ok: false, error: `listLinkTargetCandidates failed: ${sanitizeError(error)}` };
+  }
+  const rows = (data ?? []) as LinkTargetCandidateRow[];
+  const candidates: LinkTargetCandidate[] = rows.map((row) => ({
+    debateId: row.id,
+    title: row.title ?? '',
+    circleId: row.circle_id ?? null,
+    sameCircle: false,
+  }));
+  return { ok: true, data: candidates };
+}
+
+// ── loadCurrentRoomCircleId ────────────────────────────────────
+
+/**
+ * Reads the current room's `circle_id` (PRIVATE-GROUPS-002) so the picker
+ * can segment same-circle candidates first. The shared `Debate` type does
+ * not carry `circle_id`, so this one-row caller-scoped read supplies it
+ * without widening that type / the `listDebates` select. Every room today
+ * has `circle_id = null` (zero backfill), so this returns `null` until
+ * circles carry rooms. RLS gates the read to a room the caller can see.
+ */
+export async function loadCurrentRoomCircleId(
+  currentDebateId: string,
+): Promise<ArgumentRoomLinkResult<string | null>> {
+  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+  if (!currentDebateId) return { ok: false, error: 'currentDebateId required' };
+
+  const { data, error } = await supabase
+    .from('debates')
+    .select('circle_id')
+    .eq('id', currentDebateId)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: `loadCurrentRoomCircleId failed: ${sanitizeError(error)}` };
+  }
+  const row = data as { circle_id: string | null } | null;
+  return { ok: true, data: row?.circle_id ?? null };
 }
 
 // ── loadPriorRoomContext ───────────────────────────────────────
