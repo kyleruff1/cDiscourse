@@ -485,6 +485,32 @@ verify_jwt = true
 [functions.create-argument-room]
 verify_jwt = true
 
+# PRIVATE-GROUPS-002 (#859) — manage-circle. verify_jwt = true: every action
+# requires a valid JWT. The function ADDITIONALLY validates the JWT via
+# createCallerClient + getUser (defense-in-depth) to resolve the caller id,
+# authorizes owner-gated actions (rename / soft_delete / transfer_ownership /
+# remove_member) via is_circle_owner BEFORE any mutation, and calls the
+# SECURITY DEFINER create_circle RPC via service-role for create (p_owner_id =
+# the caller). There is NO authenticated write policy on circles /
+# circle_members — this function's service-role client is the only writer.
+# Registration here is what makes it auto-deploy on merge (the Supabase GitHub
+# integration keys off the root [functions.*] blocks).
+[functions.manage-circle]
+verify_jwt = true
+
+# PRIVATE-GROUPS-002 (#859) — manage-circle-invite. verify_jwt = false because
+# the `lookup_by_token` action MUST work for a brand-new invitee who has not
+# yet signed up — the token is the auth for that single read-only action (the
+# same posture as manage-room-invite). Every mutating / JWT action (create /
+# revoke / list_for_circle / accept) re-checks the JWT explicitly inside the
+# function via createCallerClient + getUser; create is owner-gated via
+# is_circle_owner. provision_and_accept enforces email-binding BEFORE
+# provisioning. Accept enrolls the redeemer into circle_members (role
+# 'member') via service-role. The raw token is stored only as token_hash and
+# returned once at create time; never logged or echoed elsewhere.
+[functions.manage-circle-invite]
+verify_jwt = false
+
 # MCP-021C-EDGE — classify-argument-boolean-observations. Admin-gated for
 # BOTH production and admin_validation modes at this ship per Decision 7.
 # verify_jwt is true; requireAdmin(req) inside the function enforces the
