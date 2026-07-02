@@ -6,8 +6,11 @@
  * with `moreNotShown`, the empty-input path, defensive current-id exclusion,
  * and determinism.
  */
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   buildLinkTargetPickerModel,
+  canCreatePriorLink,
   MAX_LINK_TARGET_CANDIDATES,
   type LinkTargetCandidate,
 } from '../src/features/arguments/crossRoom/linkTargetPickerModel';
@@ -149,5 +152,39 @@ describe('buildLinkTargetPickerModel — determinism', () => {
     const snapshot = JSON.parse(JSON.stringify(candidates));
     buildLinkTargetPickerModel(candidates, 'c1');
     expect(candidates).toEqual(snapshot);
+  });
+});
+
+describe('canCreatePriorLink — link-create eligibility (reviewer blocker regression)', () => {
+  it('grants the room HOST (side moderator) create eligibility — is_debate_participant is side-agnostic', () => {
+    // The host/creator is seated in debate_participants with side
+    // moderator (ARG-ROOM-002); the INSERT RLS permits their create.
+    expect(canCreatePriorLink('moderator')).toBe(true);
+  });
+
+  it('grants seated debaters on either side', () => {
+    expect(canCreatePriorLink('affirmative')).toBe(true);
+    expect(canCreatePriorLink('negative')).toBe(true);
+  });
+
+  it('denies observers (not seated; INSERT RLS would reject)', () => {
+    expect(canCreatePriorLink('observer')).toBe(false);
+  });
+
+  it('denies absent side (null / undefined / empty)', () => {
+    expect(canCreatePriorLink(null)).toBe(false);
+    expect(canCreatePriorLink(undefined)).toBe(false);
+    expect(canCreatePriorLink('')).toBe(false);
+  });
+
+  it('ArgumentTreeScreen derives the create gate from canCreatePriorLink and never re-excludes side moderator', () => {
+    const source = readFileSync(
+      join(__dirname, '..', 'src', 'features', 'arguments', 'ArgumentTreeScreen.tsx'),
+      'utf8',
+    );
+    expect(source).toContain('canCreatePriorLink(participantSide)');
+    // Pin the blocker fix: no local re-derivation that excludes the host.
+    const linkGateReDerivation = /isParticipant\s*=[^;]*moderator/;
+    expect(source).not.toMatch(linkGateReDerivation);
   });
 });

@@ -79,6 +79,22 @@ export const MAX_LINK_TARGET_CANDIDATES = 20;
  */
 export const MAX_LINK_NOTE_CHARS = 280;
 
+/**
+ * Link-create eligibility for the viewer of the CURRENT (source) room.
+ *
+ * The INSERT RLS on argument_room_links requires source-room participation
+ * via is_debate_participant, which is SIDE-AGNOSTIC. The side value
+ * `moderator` is the ROOM HOST (the creator, a real seated participant per
+ * ARG-ROOM-002) — the DB permits the host to create links, so only
+ * `observer` (not seated) is excluded here. Do not reuse the rail
+ * viewerRole exclusion, which serves a different purpose.
+ *
+ * Pure. Accepts the loose string type the screen props carry.
+ */
+export function canCreatePriorLink(participantSide: string | null | undefined): boolean {
+  return !!participantSide && participantSide !== 'observer';
+}
+
 // ── buildLinkTargetPickerModel ─────────────────────────────────
 
 /**

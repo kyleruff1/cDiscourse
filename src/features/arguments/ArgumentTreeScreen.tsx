@@ -29,6 +29,7 @@ import { useSemanticReferee } from './useSemanticReferee';
 // QUOTE-FORGE-001 — cross-room linked-prior wire + create-link picker.
 import { useLinkedPriorRooms } from './crossRoom/useLinkedPriorRooms';
 import { LinkTargetPickerSheet } from './crossRoom/LinkTargetPickerSheet';
+import { canCreatePriorLink } from './crossRoom/linkTargetPickerModel';
 import type { LinkTargetPickerModel } from './crossRoom/linkTargetPickerModel';
 
 /**
@@ -343,11 +344,11 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
   const [pickerModel, setPickerModel] = useState<LinkTargetPickerModel | null>(null);
   const [pickerLoading, setPickerLoading] = useState(false);
 
-  // The current viewer may create a link only as a participant of THIS room
-  // (INSERT RLS needs source-room participation). Observers see chips but the
-  // create affordance disables with a visible reason.
-  const isParticipant =
-    !!participantSide && participantSide !== 'observer' && participantSide !== 'moderator';
+  // The current viewer may create a link only as a seated participant of
+  // THIS room (INSERT RLS needs source-room participation; it is
+  // side-agnostic, so the host — side moderator — qualifies). Observers see
+  // chips but the create affordance disables with a visible reason.
+  const isParticipant = canCreatePriorLink(participantSide);
 
   const handleOpenLinkPicker = React.useCallback(() => {
     setPickerOpen(true);
