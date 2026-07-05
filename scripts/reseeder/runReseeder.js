@@ -9,9 +9,16 @@
  * Boundaries (doctrine):
  *   - NO direct insert into public.arguments — every argument goes through
  *     `invokeSubmitArgument` -> submit-argument (JWT, RLS-respecting).
+ *   - NO direct insert into public.debates — every room goes through
+ *     `invokeCreateArgumentRoom` -> create-argument-room (JWT, server-
+ *     authoritative). ARG-ROOM-002 (#613) dropped the client `debates` INSERT
+ *     policy; the SECURITY DEFINER RPC behind the Edge Function is the sole
+ *     room creator and auto-joins the creator.
  *   - NO service-role in the posting path — the bot client only receives the
  *     publishable/anon key.
- *   - Debate + participant inserts use the AUTHENTICATED bot client (allowed).
+ *   - `debate_participants` self-joins use the AUTHENTICATED bot client (a
+ *     public-room self-join is the intended client path; unlike debates /
+ *     arguments, which are server-authoritative).
  *   - `--no-provider` (default) makes ZERO model calls. `--provider sonnet`
  *     requires `--pilot` + the Anthropic env gate. Live posting requires
  *     `--pilot` + `.env.bot-tests`.
@@ -31,7 +38,13 @@ const { randomUUID } = require('node:crypto');
 const { loadEnvFiles, buildBotConfig } = require('../bot-fixtures/loadEnv');
 const { createBotClient, signInBot } = require('../bot-fixtures/supabaseClient');
 const { ensureBotUser } = require('../bot-fixtures/adminOps');
-const { buildSubmitArgumentBody, invokeSubmitArgument } = require('../bot-fixtures/submitMove');
+const {
+  buildSubmitArgumentBody,
+  invokeSubmitArgument,
+  extractErrorStatus,
+  extractErrorBody,
+  summarizeErrorDetail,
+} = require('../bot-fixtures/submitMove');
 const { mapPersonaSideToParticipantSide } = require('../bot-fixtures/personaMapping');
 
 const { RESEED_PACK_NAMES } = require('./reseedPacks');
@@ -292,6 +305,9 @@ async function postScenarios({ args, scenarios, runId, record }) {
   }
   const botAliases = Object.keys(botByAlias);
 
+  // Preflight only: create-argument-room resolves the active constitution
+  // server-side, so we no longer pass an id. But if none is active, every room
+  // create would 409 (no_active_constitution) — fail fast before rendering.
   const constitutionRes = await adminClient.from('constitution_versions').select('id').eq('active', true).single();
   if (constitutionRes.error || !constitutionRes.data) {
     console.error('[reseed] fatal: no active constitution');
@@ -305,18 +321,28 @@ async function postScenarios({ args, scenarios, runId, record }) {
 
     const botA = botByAlias[botAliases[0]];
     const runTag = buildReseedRunTag(sc.scenarioId.split('-t')[0] || 'baseline', yyyymmdd(new Date()), shortHash(runId + sc.scenarioId));
+    // The runTag rides in the TITLE (via buildRoomTitle) — create-argument-room
+    // does NOT accept a `run_tag` field (schema is .strict()), so the
+    // debates.run_tag column is left null. That is acceptable; the report and
+    // the visual dedupe key off the [run_tag] suffix inside the title.
     const roomTitle = buildRoomTitle(sc.title, runTag);
-    const debateInsert = await botA.client.from('debates').insert({
-      created_by: botA.userId, title: roomTitle, run_tag: runTag, resolution: sc.resolution,
-      description: '', status: 'open', constitution_id: constitutionRes.data.id,
-    }).select('id').single();
-    if (debateInsert.error || !debateInsert.data) {
-      console.warn(`[reseed] create_room_failed for ${sc.scenarioId}`);
+    // Server-authoritative room creation. ARG-ROOM-002 (#613) dropped the client
+    // `debates` INSERT policy, so a direct insert is now RLS-blocked. The
+    // create-argument-room Edge Function calls the SECURITY DEFINER RPC (the sole
+    // room creator) and AUTO-JOINS the creator — no creator participant insert
+    // here. public + no invite -> 200 (see supabase/functions/create-argument-room).
+    const roomRes = await invokeCreateArgumentRoom(botA.client, {
+      title: roomTitle, resolution: sc.resolution, visibility: 'public',
+    });
+    if (!roomRes.ok || !roomRes.debateId) {
+      console.warn(`[reseed] create_room_failed for ${sc.scenarioId}: ${roomRes.detail || `status_${roomRes.status}`}`);
       continue;
     }
-    const debateId = debateInsert.data.id;
+    const debateId = roomRes.debateId;
 
-    await botA.client.from('debate_participants').insert({ debate_id: debateId, user_id: botA.userId, side: 'moderator' });
+    // Public-room participant self-join is the intended CLIENT path (unlike
+    // debates / arguments, which are server-authoritative). The creator was
+    // already auto-joined by the RPC, so we only self-join the OTHER bots here.
     for (let p = 1; p < botAliases.length && p < personas.length; p++) {
       const bot = botByAlias[botAliases[p]];
       const side = mapPersonaSideToParticipantSide(personas[p].side);
@@ -355,6 +381,32 @@ async function postScenarios({ args, scenarios, runId, record }) {
       }
     }
   }
+}
+
+/**
+ * Invoke the create-argument-room Edge Function as the caller (bot client).
+ * Mirrors invokeSubmitArgument's convention: repo `functions.invoke(name,
+ * { body })`, success => `{ data }` at error==null, failure => status via
+ * `error.context.status` + a sanitized detail string (never headers / JWT /
+ * apikey). The success response carries the created debate id as `debateId`.
+ *
+ * The bot client already holds the caller's JWT, so the Edge Function resolves
+ * `p_created_by` from the validated token and auto-joins the creator. We send
+ * only the .strict() schema fields: title, resolution, visibility. `public` +
+ * no invite => 200 (creator auto-joined).
+ */
+async function invokeCreateArgumentRoom(sb, { title, resolution, visibility }) {
+  const { data, error } = await sb.functions.invoke('create-argument-room', {
+    body: { title, resolution, visibility },
+  });
+  if (!error) {
+    return { ok: true, debateId: data && data.debateId ? data.debateId : null, status: 200 };
+  }
+  const errorBody = (await extractErrorBody(error)) || { error: 'unknown_error' };
+  let status = extractErrorStatus(error);
+  if (status === 0) status = 500;
+  const detail = summarizeErrorDetail(errorBody) || (errorBody && errorBody.error) || null;
+  return { ok: false, debateId: null, status, detail };
 }
 
 function hashMove(id) {
