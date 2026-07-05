@@ -45,17 +45,38 @@ describe('reseeder doctrine fence — source scan', () => {
     }
   });
 
-  it('never directly inserts into public.arguments', () => {
+  it('never directly inserts into server-authoritative tables (arguments, debates)', () => {
+    // public.arguments -> submit-argument only; public.debates -> create-argument-room
+    // only (ARG-ROOM-002 / #613 dropped the client debates INSERT policy). A
+    // direct client insert into either is an RLS-blocked doctrine violation.
+    // NOTE: the `debates')` closing token means `debate_participants` (which is a
+    // legitimate public-room self-join) is NOT matched by these patterns.
     const bannedPatterns = [
       ".from('arguments').insert",
       'from("arguments").insert',
       ".from(`arguments`).insert",
+      ".from('debates').insert",
+      'from("debates").insert',
+      ".from(`debates`).insert",
     ];
     for (const [name, src] of Object.entries(contents)) {
       for (const p of bannedPatterns) {
         expect({ file: name, pattern: p, found: src.includes(p) }).toEqual({ file: name, pattern: p, found: false });
       }
     }
+  });
+
+  it('STILL allows debate_participants inserts (public-room self-join is the intended client path)', () => {
+    // The ban above must not become a blanket "no participant writes" rule. A
+    // public-room participant self-join is legitimate (unlike debates / arguments,
+    // which are server-authoritative). Assert the reseeder still performs one and
+    // that the ban patterns do not accidentally forbid it.
+    const runner = contents['runReseeder.js'];
+    expect(runner).toBeDefined();
+    expect(runner.includes(".from('debate_participants').insert")).toBe(true);
+    // The debates ban tokens end in `debates')` — prove they cannot match the
+    // participant table's `debate_participants')` token.
+    expect(".from('debate_participants').insert".includes(".from('debates').insert")).toBe(false);
   });
 
   it('routes every argument write through invokeSubmitArgument / buildSubmitArgumentBody', () => {
@@ -65,6 +86,15 @@ describe('reseeder doctrine fence — source scan', () => {
     expect(runner.includes('buildSubmitArgumentBody')).toBe(true);
     // The orchestrator imports these from the submitMove fence.
     expect(runner.includes("require('../bot-fixtures/submitMove')")).toBe(true);
+  });
+
+  it('routes room creation through the create-argument-room Edge Function', () => {
+    // RESEED-002 (#867): rooms are created server-side via create-argument-room,
+    // not a direct client debates insert. The runner must name the function.
+    const runner = contents['runReseeder.js'];
+    expect(runner).toBeDefined();
+    expect(runner.includes("'create-argument-room'")).toBe(true);
+    expect(runner.includes('invokeCreateArgumentRoom')).toBe(true);
   });
 
   it("buildSubmitArgumentBody output passes isAllowedSubmitBody for a representative reseeder move", () => {
