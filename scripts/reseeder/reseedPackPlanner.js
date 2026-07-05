@@ -125,15 +125,15 @@ function buildMove(params) {
   };
 
   // Render the body (deterministic) unless a forced body was supplied
-  // (used by the archive-cluster near-verbatim siblings).
-  const body =
+  // (used by the archive-cluster near-verbatim siblings). Render ONCE so the
+  // reported optionIndex matches the body actually used and the rng advances
+  // a single step per move.
+  const rendered =
     typeof forcedBody === 'string'
-      ? forcedBody
-      : renderNoProvider(partialMove, seedRecord, rng).body;
-  const optionIndex =
-    typeof forcedBody === 'string'
-      ? 0
-      : renderNoProvider(partialMove, seedRecord, rng).optionIndex;
+      ? { body: forcedBody, optionIndex: 0 }
+      : renderNoProvider(partialMove, seedRecord, rng);
+  const body = rendered.body;
+  const optionIndex = rendered.optionIndex;
 
   const candidate = { ...partialMove, body };
 
