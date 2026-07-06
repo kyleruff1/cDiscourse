@@ -135,9 +135,13 @@ describe('UX-001.2 — Internal rail offset replaces the legacy 120 literal', ()
 });
 
 describe('UX-001.2 — ArgumentScoreTracker mount-site moved below the Timeline', () => {
-  it('the score tracker JSX renders AFTER the ArgumentTimelineMap mount-site', () => {
+  it('the score tracker JSX renders AFTER the timeline (MapView) mount-site', () => {
+    // ASP-EXTRACT-001 — the mode === timeline col1 body is now <MapView>
+    // (the ArgumentTimelineMap moved inside it). The ordering constraint is
+    // unchanged: the col1 timeline body still precedes col2 ScoreTracker in
+    // source order.
     const trackerIdx = SURFACE_SRC.indexOf('<ArgumentScoreTracker');
-    const mapIdx = SURFACE_SRC.indexOf('<ArgumentTimelineMap');
+    const mapIdx = SURFACE_SRC.indexOf('<MapView');
     expect(trackerIdx).toBeGreaterThan(-1);
     expect(mapIdx).toBeGreaterThan(-1);
     expect(trackerIdx).toBeGreaterThan(mapIdx);
@@ -158,9 +162,10 @@ describe('UX-001.2 — TimelineSelectedReadoutPanel mount-site uses compact prop
     );
   });
 
-  it('the readout panel mount-site is AFTER the ArgumentTimelineMap mount-site', () => {
+  it('the readout panel mount-site is AFTER the timeline (MapView) mount-site', () => {
+    // ASP-EXTRACT-001 — timeline body is now <MapView> (see note above).
     const panelIdx = SURFACE_SRC.indexOf('<TimelineSelectedReadoutPanel');
-    const mapIdx = SURFACE_SRC.indexOf('<ArgumentTimelineMap');
+    const mapIdx = SURFACE_SRC.indexOf('<MapView');
     expect(panelIdx).toBeGreaterThan(-1);
     expect(mapIdx).toBeGreaterThan(-1);
     expect(panelIdx).toBeGreaterThan(mapIdx);

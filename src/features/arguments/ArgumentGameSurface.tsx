@@ -12,11 +12,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useHeaderBreakpoint } from '../../hooks/useHeaderBreakpoint';
 import { ArgumentBubbleStack } from './ArgumentBubbleStack';
-import { ArgumentTimelineMap } from './ArgumentTimelineMap';
 import { ArgumentBubbleActions } from './ArgumentBubbleActions';
+// ASP-EXTRACT-001 (Slice 1) — the timeline-map lens, extracted from the
+// mode === timeline col1 branch. A thin pass-through wrapper over
+// ArgumentTimelineMap; owns no state / derivation / handler. The
+// ArgumentTimelineMap component + the linked-prior create-affordance copy
+// and styles now live in MapView, so they are no longer imported here.
+import { MapView } from './room/MapView';
 // QUOTE-FORGE-001 — linked prior argument chips built by the room shell.
 import type { LinkedPriorArgumentChip } from './crossRoom/linkedPriorArgumentModel';
-import { LINKED_PRIOR_ARGUMENT_COPY } from './crossRoom/linkedPriorArgumentCopy';
 // UX-BOARD-RAIL-002 — pure presentational band-driven board grid. Receives the
 // already-built render-tree subtrees as slot props and arranges them into a
 // 1 / 2 / 3-column board by the resident `headerBand`. No hook / handler /
@@ -1705,6 +1709,41 @@ export function ArgumentGameSurface({
     }
   }, [chronologicalIds, activeMessageId]);
 
+  // ASP-EXTRACT-001 (Slice 1) — the three timeline inline arrows and the
+  // view-linked-prior-context arrow were lifted out of the mode === timeline
+  // col1 branch into these named handlers so MapView can receive them as
+  // props. Each body is copied verbatim from the former inline arrow; the
+  // behavior is identical. UX-001.2 — meaningful Timeline interactions
+  // dismiss the microMoment banner.
+  const handleJumpLatest = useCallback(() => {
+    if (latestId) {
+      setActiveMessageId(latestId);
+      setSelectionStatus('explicit');
+      setMicroMomentDismissed(true);
+    }
+  }, [latestId]);
+  const handleJumpToRoot = useCallback(() => {
+    if (timelineMap.rootMessageId) {
+      setActiveMessageId(timelineMap.rootMessageId);
+      setSelectionStatus('explicit');
+      setMicroMomentDismissed(true);
+    }
+  }, [timelineMap]);
+  const handleOpenDetailsFromTimeline = useCallback((id: string) => {
+    setActiveMessageId(id);
+    setSelectionStatus('explicit');
+    setMode('stack');
+    setMicroMomentDismissed(true);
+  }, []);
+  // The View context action opens the Inspect popout, whose From the
+  // linked prior argument section already exists. This is the smallest
+  // sufficient affordance. If the room shell supplies its own handler it
+  // takes precedence.
+  const handleViewLinkedPriorContext = useCallback((linkId: string) => {
+    if (onViewLinkedPriorContext) onViewLinkedPriorContext(linkId);
+    else setInspectVisible(true);
+  }, [onViewLinkedPriorContext]);
+
   const handleAction = useCallback((
     control: ArgumentBubbleControl,
     messageId: string,
@@ -2432,93 +2471,42 @@ export function ArgumentGameSurface({
             ) : null}
           </>
         ) : (
-          <>
-            {/* UX-001.2 — Timeline is the first substantive board object
-                under the AppHeader + compact strip. Score tracker and
-                selected-readout move BELOW the Timeline so the rail
-                appears within the brief's hard cap (200 px wide / 168 px
-                tablet / 128 px phone). */}
-            <ArgumentTimelineMap
-              map={timelineMap}
-              onActivate={handleActivate}
-              onPrev={handlePrev}
-              onNext={handleNext}
-              onJumpLatest={() => {
-                if (latestId) {
-                  setActiveMessageId(latestId);
-                  setSelectionStatus('explicit');
-                  // UX-001.2 — meaningful Timeline interaction; dismiss
-                  // the microMoment banner.
-                  setMicroMomentDismissed(true);
-                }
-              }}
-              onJumpToRoot={() => {
-                if (timelineMap.rootMessageId) {
-                  setActiveMessageId(timelineMap.rootMessageId);
-                  setSelectionStatus('explicit');
-                  // UX-001.2 — meaningful Timeline interaction; dismiss
-                  // the microMoment banner.
-                  setMicroMomentDismissed(true);
-                }
-              }}
-              onToggleMode={handleToggleMode}
-              activeViewModel={activeViewModel}
-              totalCount={timelineMap.nodes.length}
-              onAction={handleBubbleAction}
-              onOpenDetails={(id) => {
-                setActiveMessageId(id);
-                setSelectionStatus('explicit');
-                setMode('stack');
-                setMicroMomentDismissed(true);
-              }}
-              artifactsByMessageId={artifactsByMessageId}
-              evidenceContractFor={evidenceContractFor}
-              evidenceDebtSummaryFor={evidenceDebtSummaryFor}
-              isReadModeViewer={resolvedViewerRole === 'observer'}
-              selectedTarget={selectedDockTarget}
-              actionDockModel={dockModel}
-              actingOnLabel={timelineReadoutViewModel.actingOnShortLabel}
-              onSelectTarget={setSelectedDockTarget}
-              onActionDockAction={handleActionDockAction}
-              onOpenCardsDetail={handleOpenCardsDetail}
-              reduceMotionOverride={reduceMotionOverride}
-              // QUOTE-FORGE-001 — light the cross-room linked-prior wire.
-              // The room shell loads the links and builds the chip view
-              // models; the timeline already renders the chip row through
-              // its own seams. title_only / unavailable chips disable Open
-              // in the model, so onOpenLinkedPrior only fires for authorized
-              // links.
-              linkedPriorChips={linkedPriorChips}
-              onOpenLinkedPrior={onOpenLinkedPrior}
-              onViewLinkedPriorContext={(linkId) => {
-                // The View context action opens the Inspect popout, whose
-                // From the linked prior argument section already exists.
-                // This is the smallest correct affordance. If the room shell
-                // supplies its own handler it takes precedence.
-                if (onViewLinkedPriorContext) onViewLinkedPriorContext(linkId);
-                else setInspectVisible(true);
-              }}
-            />
-            {/* QUOTE-FORGE-001 — the create-link affordance is a single
-                lightweight timeline-header entry that opens the picker
-                sheet on demand. It renders only when the room shell
-                supplies onOpenLinkPicker, keeping the default header calm. */}
-            {onOpenLinkPicker ? (
-              <Pressable
-                onPress={onOpenLinkPicker}
-                accessibilityRole="button"
-                accessibilityLabel={LINKED_PRIOR_ARGUMENT_COPY.createAffordance}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                testID="link-target-create-affordance-entry"
-                style={styles.linkAffordance}
-              >
-                <Text style={styles.linkAffordanceGlyph}>⤴ </Text>
-                <Text style={styles.linkAffordanceText}>
-                  {LINKED_PRIOR_ARGUMENT_COPY.createAffordance}
-                </Text>
-              </Pressable>
-            ) : null}
-          </>
+          // ASP-EXTRACT-001 (Slice 1) — the mode === timeline body is now the
+          // MapView lens. Every prop is forwarded verbatim; the three former
+          // inline arrows (jump-latest / jump-to-root / open-details) and the
+          // view-linked-prior-context arrow were lifted to named orchestrator
+          // handlers above and are passed here already-bound. Behavior is
+          // byte-identical to the former inline branch. The styles.body
+          // wrapper stays here (a RoomBoardLayout col1 concern), so the slot
+          // tree is unchanged.
+          <MapView
+            map={timelineMap}
+            onActivate={handleActivate}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            onJumpLatest={handleJumpLatest}
+            onJumpToRoot={handleJumpToRoot}
+            onToggleMode={handleToggleMode}
+            activeViewModel={activeViewModel}
+            totalCount={timelineMap.nodes.length}
+            onAction={handleBubbleAction}
+            onOpenDetails={handleOpenDetailsFromTimeline}
+            artifactsByMessageId={artifactsByMessageId}
+            evidenceContractFor={evidenceContractFor}
+            evidenceDebtSummaryFor={evidenceDebtSummaryFor}
+            isReadModeViewer={resolvedViewerRole === 'observer'}
+            selectedTarget={selectedDockTarget}
+            actionDockModel={dockModel}
+            actingOnLabel={timelineReadoutViewModel.actingOnShortLabel}
+            onSelectTarget={setSelectedDockTarget}
+            onActionDockAction={handleActionDockAction}
+            onOpenCardsDetail={handleOpenCardsDetail}
+            reduceMotionOverride={reduceMotionOverride}
+            linkedPriorChips={linkedPriorChips}
+            onOpenLinkedPrior={onOpenLinkedPrior}
+            onViewLinkedPriorContext={handleViewLinkedPriorContext}
+            onOpenLinkPicker={onOpenLinkPicker}
+          />
         )}
         </View>
       }
@@ -3235,24 +3223,10 @@ const styles = StyleSheet.create({
   },
   microMomentText: { color: '#a5b4fc', fontSize: 12, fontWeight: '700' as const },
   microMomentHelper: { color: '#94a3b8', fontSize: 11, fontWeight: '400' as const, marginTop: 2 },
-  // QUOTE-FORGE-001 — the single lightweight create-link affordance in the
-  // timeline header. A calm one-line entry, not a dense panel.
-  linkAffordance: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    alignSelf: 'flex-start' as const,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginHorizontal: 8,
-    marginTop: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#111827',
-    minHeight: 32,
-  },
-  linkAffordanceGlyph: { color: '#a5b4fc', fontWeight: '800' as const, fontSize: 12 },
-  linkAffordanceText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' as const },
+  // ASP-EXTRACT-001 (Slice 1) — the QUOTE-FORGE-001 create-link affordance
+  // styles (linkAffordance / linkAffordanceGlyph / linkAffordanceText) moved
+  // into MapView alongside the affordance JSX. They are no longer referenced
+  // here.
   // UX-MEDIATOR-002 — one-chip row: the single primary state chip + the
   // chip-adjacent Inspect caret (O-2). Rendered only when there IS a chip.
   nodeChipRow: {

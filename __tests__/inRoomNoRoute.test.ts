@@ -48,6 +48,9 @@ describe('TL-003 — no routing primitive in the in-room view', () => {
     'App.tsx',
     'src/features/arguments/ArgumentGameSurface.tsx',
     'src/features/arguments/ArgumentTimelineMap.tsx',
+    // ASP-EXTRACT-001 (Slice 1) — the extracted timeline-map lens is an
+    // in-room surface; held to the same no-routing invariant.
+    'src/features/arguments/room/MapView.tsx',
     'src/features/arguments/ArgumentBubbleStack.tsx',
     'src/features/arguments/ArgumentReplySidecar.tsx',
     'src/features/arguments/ArgumentBubbleActions.tsx',
@@ -145,27 +148,40 @@ describe('TL-003 — Cards/Timeline toggle is state-based', () => {
 
 describe('TL-003 — timeline quick actions use setActiveMessageId, not routing', () => {
   const surface = read('src/features/arguments/ArgumentGameSurface.tsx');
+  // ASP-EXTRACT-001 (Slice 1) — the <ArgumentTimelineMap> mount moved into
+  // MapView. The timeline nav handlers stayed in the orchestrator (they own
+  // activeMessageId state); ASP-EXTRACT-001 lifted the former onJumpLatest /
+  // onJumpToRoot inline arrows into named handlers there. So the local-setter
+  // scan reads the named handlers in the surface, and the no-routing scan of
+  // the map mount reads MapView.
+  const mapView = read('src/features/arguments/room/MapView.tsx');
 
-  it('the ArgumentTimelineMap callbacks are wired to local state setters', () => {
-    // onJumpLatest / onJumpToRoot closures call setActiveMessageId (local
-    // state). IX-004 expanded these inline arrows into block bodies that
-    // also set the readout's selectionStatus, so the scan is window-based
-    // rather than a tight single-line regex.
-    const latestIdx = surface.indexOf('onJumpLatest=');
+  it('the timeline jump handlers are wired to local state setters', () => {
+    // handleJumpLatest / handleJumpToRoot (lifted from the former inline
+    // arrows) call setActiveMessageId (local state). Window-based scan since
+    // each handler body also sets the readout selectionStatus + microMoment.
+    const latestIdx = surface.indexOf('const handleJumpLatest');
     expect(latestIdx).toBeGreaterThan(-1);
     expect(surface.slice(latestIdx, latestIdx + 220)).toMatch(/setActiveMessageId\(/);
-    const rootIdx = surface.indexOf('onJumpToRoot=');
+    const rootIdx = surface.indexOf('const handleJumpToRoot');
     expect(rootIdx).toBeGreaterThan(-1);
     expect(surface.slice(rootIdx, rootIdx + 220)).toMatch(/setActiveMessageId\(/);
   });
 
-  it('no navigation call sits in the ArgumentTimelineMap callback path', () => {
-    // Cheap window scan around each map handler.
-    const idx = surface.indexOf('<ArgumentTimelineMap');
+  it('no navigation call sits in the ArgumentTimelineMap callback path (MapView) or the lifted handlers', () => {
+    // The <ArgumentTimelineMap> mount now lives in MapView; scan its window.
+    const idx = mapView.indexOf('<ArgumentTimelineMap');
     expect(idx).toBeGreaterThan(-1);
-    const block = surface.slice(idx, idx + 1500);
+    const mapBlock = mapView.slice(idx, idx + 1500);
     for (const routeRe of ROUTING_CALL_PATTERNS) {
-      expect(block).not.toMatch(routeRe);
+      expect(mapBlock).not.toMatch(routeRe);
+    }
+    // The lifted timeline nav handlers in the orchestrator are also routing-free.
+    const handlersIdx = surface.indexOf('const handleJumpLatest');
+    expect(handlersIdx).toBeGreaterThan(-1);
+    const handlersBlock = surface.slice(handlersIdx, handlersIdx + 900);
+    for (const routeRe of ROUTING_CALL_PATTERNS) {
+      expect(handlersBlock).not.toMatch(routeRe);
     }
   });
 });
@@ -179,6 +195,8 @@ describe('TL-003 — Linking.openURL is only used for the dev banner report link
   const inRoomFiles = [
     'src/features/arguments/ArgumentGameSurface.tsx',
     'src/features/arguments/ArgumentTimelineMap.tsx',
+    // ASP-EXTRACT-001 (Slice 1) — the extracted timeline-map lens.
+    'src/features/arguments/room/MapView.tsx',
     'src/features/arguments/ArgumentBubbleStack.tsx',
     'src/features/arguments/ArgumentReplySidecar.tsx',
     'src/features/arguments/ArgumentBubbleActions.tsx',

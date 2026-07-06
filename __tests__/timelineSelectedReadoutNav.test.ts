@@ -16,9 +16,11 @@
  *      (prev / next / latest / root) yields the matching subject +
  *      accessibilityPanelLabel.
  *   2. A source scan of `ArgumentGameSurface.tsx` proving `handlePrev`,
- *      `handleNext`, the `onJumpLatest` / `onJumpToRoot` closures and
- *      the keyboard-driven `onActivate` (`handleActivate`) path each set
- *      `selectionStatus` to `'explicit'` alongside `setActiveMessageId`.
+ *      `handleNext`, the `handleJumpLatest` / `handleJumpToRoot` handlers
+ *      (ASP-EXTRACT-001 lifted these from the former onJumpLatest /
+ *      onJumpToRoot inline closures) and the keyboard-driven `onActivate`
+ *      (`handleActivate`) path each set `selectionStatus` to `'explicit'`
+ *      alongside `setActiveMessageId`.
  */
 import fs from 'fs';
 import path from 'path';
@@ -194,16 +196,19 @@ describe('IX-004 — ArgumentGameSurface nav callbacks set selectionStatus expli
     );
   });
 
-  it('the onJumpLatest closure sets selectionStatus to explicit', () => {
-    const idx = GAME_SURFACE_SRC.indexOf('onJumpLatest=');
+  it('the handleJumpLatest handler (lifted onJumpLatest) sets selectionStatus to explicit', () => {
+    // ASP-EXTRACT-001 — the former onJumpLatest inline arrow was lifted into
+    // this named orchestrator handler so MapView can receive it as a prop.
+    const idx = GAME_SURFACE_SRC.indexOf('const handleJumpLatest');
     expect(idx).toBeGreaterThan(-1);
     const block = GAME_SURFACE_SRC.slice(idx, idx + 240);
     expect(block).toMatch(/setActiveMessageId\(latestId\)/);
     expect(block).toMatch(/setSelectionStatus\('explicit'\)/);
   });
 
-  it('the onJumpToRoot closure sets selectionStatus to explicit', () => {
-    const idx = GAME_SURFACE_SRC.indexOf('onJumpToRoot=');
+  it('the handleJumpToRoot handler (lifted onJumpToRoot) sets selectionStatus to explicit', () => {
+    // ASP-EXTRACT-001 — lifted from the former onJumpToRoot inline arrow.
+    const idx = GAME_SURFACE_SRC.indexOf('const handleJumpToRoot');
     expect(idx).toBeGreaterThan(-1);
     const block = GAME_SURFACE_SRC.slice(idx, idx + 260);
     expect(block).toMatch(/setActiveMessageId\(timelineMap\.rootMessageId\)/);
@@ -216,14 +221,17 @@ describe('IX-004 — ArgumentGameSurface nav callbacks set selectionStatus expli
     );
   });
 
-  it('UX-001.2 — the readout panel is rendered BELOW ArgumentTimelineMap in the timeline branch', () => {
+  it('UX-001.2 — the readout panel is rendered BELOW the timeline (MapView) in the timeline branch', () => {
     // IX-004 originally placed the panel above the Timeline; UX-001.2
     // relocates it below so the Timeline becomes the first substantive
     // in-room object beneath the AppHeader + compact strip. The IX-004
     // contract (model, selection source of truth, a11y live region) is
     // preserved verbatim — only the mount-site flips.
+    // ASP-EXTRACT-001 (Slice 1) — the mode === timeline col1 body is now
+    // <MapView> (ArgumentTimelineMap moved inside it). The col1-before-col2
+    // ordering is unchanged.
     const panelIdx = GAME_SURFACE_SRC.indexOf('<TimelineSelectedReadoutPanel');
-    const mapIdx = GAME_SURFACE_SRC.indexOf('<ArgumentTimelineMap');
+    const mapIdx = GAME_SURFACE_SRC.indexOf('<MapView');
     expect(panelIdx).toBeGreaterThan(-1);
     expect(mapIdx).toBeGreaterThan(-1);
     expect(panelIdx).toBeGreaterThan(mapIdx);

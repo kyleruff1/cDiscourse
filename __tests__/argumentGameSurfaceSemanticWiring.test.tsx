@@ -14,6 +14,14 @@ const SURFACE = fs.readFileSync(
   path.join(process.cwd(), 'src/features/arguments/ArgumentGameSurface.tsx'),
   'utf8',
 );
+// ASP-EXTRACT-001 (Slice 1) — the mode === timeline body was extracted into
+// MapView, so the <ArgumentTimelineMap> mount now lives here. The sanity
+// check that the surface still renders the timeline map reads MapView for
+// that token (the orchestrator renders <MapView>, which renders the map).
+const MAP_VIEW = fs.readFileSync(
+  path.join(process.cwd(), 'src/features/arguments/room/MapView.tsx'),
+  'utf8',
+);
 const TREE = fs.readFileSync(
   path.join(process.cwd(), 'src/features/arguments/ArgumentTreeScreen.tsx'),
   'utf8',
@@ -69,9 +77,15 @@ describe('ArgumentGameSurface — additive, non-blocking', () => {
 
   it('the surface still imports its pre-MCP-019 core components', () => {
     // A sanity check that the change was additive — the existing surface is intact.
+    // ASP-EXTRACT-001 (Slice 1) — the stack branch (ArgumentBubbleStack) and
+    // the bottom-chrome rail (ArgumentSideActionRail) stay in the surface; the
+    // timeline map (ArgumentTimelineMap) moved into MapView, so that token is
+    // asserted there (the surface renders <MapView>, MapView renders the map).
     expect(SURFACE).toMatch(/ArgumentBubbleStack/);
-    expect(SURFACE).toMatch(/ArgumentTimelineMap/);
+    expect(MAP_VIEW).toMatch(/ArgumentTimelineMap/);
     expect(SURFACE).toMatch(/ArgumentSideActionRail/);
+    // The surface now dispatches the timeline body through the MapView lens.
+    expect(SURFACE).toMatch(/<MapView/);
   });
 });
 
