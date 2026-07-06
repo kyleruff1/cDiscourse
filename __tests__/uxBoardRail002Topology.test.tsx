@@ -60,7 +60,7 @@ import type {
 
 const ROOT = process.cwd();
 const SURFACE_SRC = fs.readFileSync(
-  path.resolve(ROOT, 'src/features/arguments/ArgumentGameSurface.tsx'),
+  path.resolve(ROOT, 'src/features/arguments/room/ArgumentRoom.tsx'),
   'utf8',
 );
 const WRAPPER_SRC = fs.readFileSync(
@@ -488,7 +488,7 @@ describe('UX-BOARD-RAIL-002 — logged-out Sign In surface is unaffected', () =>
   it('RoomBoardLayout is only consumed by the room surface (ArgumentGameSurface)', () => {
     // The board grid is internal to the room shell; the Sign In path never
     // mounts it. (ArgumentGameSurface is not mounted on the logged-out path.)
-    expect(SURFACE_SRC).toMatch(/import \{ RoomBoardLayout \} from '\.\/RoomBoardLayout'/);
+    expect(SURFACE_SRC).toMatch(/import \{ RoomBoardLayout \} from '\.\.\/RoomBoardLayout'/);
   });
 });
 
@@ -575,7 +575,7 @@ describe('UX-BOARD-RAIL-004 — bottomChrome slot resolves through board-bottom-
 
   it('the surface source passes the bottomChrome slot through BoardBottomChrome', () => {
     // The slot's children are wrapped; the wrapper import + mount are present.
-    expect(SURFACE_SRC).toMatch(/import \{ BoardBottomChrome \} from '\.\/BoardBottomChrome'/);
+    expect(SURFACE_SRC).toMatch(/import \{ BoardBottomChrome \} from '\.\.\/BoardBottomChrome'/);
     expect(SURFACE_SRC).toContain('<BoardBottomChrome>');
     expect(SURFACE_SRC).toContain('</BoardBottomChrome>');
     // The three bottom surfaces remain textually in-file (no extraction).

@@ -39,7 +39,7 @@ import type {
 } from '../src/features/arguments/argumentReplySidecarModel';
 
 const GAME_SURFACE_SRC = fs.readFileSync(
-  path.join(process.cwd(), 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+  path.join(process.cwd(), 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
   'utf8',
 );
 
@@ -180,7 +180,11 @@ describe('IX-004 — ArgumentGameSurface uses one shared activeMessageId', () =>
   });
 
   it('the Stack branch reads the shared activeMessageId', () => {
-    expect(GAME_SURFACE_SRC).toMatch(/<ArgumentBubbleStack[\s\S]*?activeMessageId=\{activeMessageId\}/);
+    // ASP-EXTRACT-001 (Slice 2) — the stack mount moved into ExchangeView.
+    // The orchestrator threads the single shared activeMessageId into the
+    // stack lens via <ExchangeView activeMessageId={activeMessageId} />, which
+    // forwards it to <ArgumentBubbleStack activeMessageId={props.activeMessageId} />.
+    expect(GAME_SURFACE_SRC).toMatch(/<ExchangeView[\s\S]*?activeMessageId=\{activeMessageId\}/);
   });
 
   it('the Timeline map is built from the shared activeMessageId', () => {

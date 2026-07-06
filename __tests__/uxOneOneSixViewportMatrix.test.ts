@@ -314,7 +314,7 @@ describe('UX-001.6 matrix — Surface 5: TimelineSelectedReadoutPanel compact-mo
 
 describe('UX-001.6 matrix — Surface 6: ArgumentScoreTracker mount site below readout', () => {
   const SURFACE_SRC = fs.readFileSync(
-    path.resolve(ROOT, 'src/features/arguments/ArgumentGameSurface.tsx'),
+    path.resolve(ROOT, 'src/features/arguments/room/ArgumentRoom.tsx'),
     'utf8',
   );
 
@@ -645,7 +645,7 @@ describe('UX-001.6 matrix — Surface 17: RefereeBannerView composer-only Observ
       'src/features/arguments/composer',
       'src/features/arguments/ArgumentComposer',
       'src/features/arguments/ArgumentComposerDock',
-      // UX-001.5A — ArgumentGameSurface owns the canonical MCP-019
+      // UX-001.5A — the room orchestrator owns the canonical MCP-019
       // referee-banner mount site (composer-scoped per UX-001.3 Phase
       // 3 framing). The UX-001.5A design §10.1 wires the composer-
       // only Observation chips through the existing optional
@@ -655,7 +655,12 @@ describe('UX-001.6 matrix — Surface 17: RefereeBannerView composer-only Observ
       // level scope rule still applies: no NON-banner board mount
       // passes the prop, and no board-level component beyond the
       // banner consumes it.
+      // ASP-EXTRACT-001 (Slice 2) — the banner mount moved out of the
+      // ArgumentGameSurface monolith into room/ArgumentRoom (the shim
+      // ArgumentGameSurface.tsx no longer holds the mount). Both prefixes
+      // stay allow-listed so the composer-only rule tracks the mount.
       'src/features/arguments/ArgumentGameSurface',
+      'src/features/arguments/room/ArgumentRoom',
     ];
     const filesScanned: string[] = [];
     walkDir(path.resolve(ROOT, 'src'), filesScanned, ['.ts', '.tsx']);

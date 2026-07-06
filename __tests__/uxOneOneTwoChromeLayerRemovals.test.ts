@@ -16,7 +16,7 @@ function read(rel: string): string {
 }
 
 const APP_SRC = read('App.tsx');
-const SURFACE_SRC = read('src/features/arguments/ArgumentGameSurface.tsx');
+const SURFACE_SRC = read('src/features/arguments/room/ArgumentRoom.tsx');
 const TIMELINE_MAP_SRC = read('src/features/arguments/ArgumentTimelineMap.tsx');
 
 describe('UX-001.2 — App.tsx roomToolbar is dissolved', () => {

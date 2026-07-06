@@ -44,7 +44,7 @@ import type {
 import { computeNodeLabelInspectGroups } from '../src/features/nodeLabels/NodeLabelInspectGroups';
 
 const SURFACE = fs.readFileSync(
-  path.join(process.cwd(), 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+  path.join(process.cwd(), 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
   'utf8',
 );
 

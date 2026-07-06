@@ -127,7 +127,9 @@ describe('UX-001.2 — no Modal import in any UX-001.2 file (TL-003 doctrine)', 
   const UX_001_2_FILES = [
     'App.tsx',
     'src/features/debates/DebateDetailHeader.tsx',
-    'src/features/arguments/ArgumentGameSurface.tsx',
+    // ASP-EXTRACT-001 (Slice 2) — surface content moved into the room/
+    // orchestrator; ArgumentGameSurface.tsx is now a re-export shim.
+    'src/features/arguments/room/ArgumentRoom.tsx',
     'src/features/arguments/ArgumentTimelineMap.tsx',
     'src/features/arguments/TimelineSelectedReadoutPanel.tsx',
     'src/features/arguments/timelineViewportLayoutModel.ts',
@@ -147,7 +149,9 @@ describe('UX-001.2 — no AI provider import in any UX-001.2 file', () => {
   const UX_001_2_FILES = [
     'App.tsx',
     'src/features/debates/DebateDetailHeader.tsx',
-    'src/features/arguments/ArgumentGameSurface.tsx',
+    // ASP-EXTRACT-001 (Slice 2) — surface content moved into the room/
+    // orchestrator; ArgumentGameSurface.tsx is now a re-export shim.
+    'src/features/arguments/room/ArgumentRoom.tsx',
     'src/features/arguments/ArgumentTimelineMap.tsx',
     'src/features/arguments/TimelineSelectedReadoutPanel.tsx',
     'src/features/arguments/timelineViewportLayoutModel.ts',

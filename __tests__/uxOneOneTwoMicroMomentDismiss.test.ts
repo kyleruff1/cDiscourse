@@ -38,7 +38,7 @@ function read(rel: string): string {
   return fs.readFileSync(path.join(REPO, rel), 'utf8');
 }
 
-const SURFACE_SRC = read('src/features/arguments/ArgumentGameSurface.tsx');
+const SURFACE_SRC = read('src/features/arguments/room/ArgumentRoom.tsx');
 
 describe('UX-001.2 — microMomentDismissed state', () => {
   it('the surface declares a single microMomentDismissed boolean (initial false)', () => {

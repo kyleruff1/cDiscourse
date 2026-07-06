@@ -63,7 +63,7 @@ function TOUCH_TARGET_OK(hitSlop: unknown): boolean {
 
 const REPO = process.cwd();
 const SURFACE_SRC = fs.readFileSync(
-  path.join(REPO, 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+  path.join(REPO, 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
   'utf8',
 );
 const CARD_SRC = fs.readFileSync(
@@ -478,10 +478,10 @@ describe('UX-NEXT-MOVE-001 — mobile + a11y', () => {
 describe('UX-NEXT-MOVE-001 — ArgumentGameSurface drawer-slot wiring', () => {
   it('imports the card + helper from the mediator feature', () => {
     expect(SURFACE_SRC).toMatch(
-      /import \{ MediatorNextMovesCard \} from '\.\.\/mediator\/MediatorNextMovesCard'/,
+      /import \{ MediatorNextMovesCard \} from '\.\.\/\.\.\/mediator\/MediatorNextMovesCard'/,
     );
     expect(SURFACE_SRC).toMatch(
-      /import \{ nextMovesForState \} from '\.\.\/mediator\/nextMovesForState'/,
+      /import \{ nextMovesForState \} from '\.\.\/\.\.\/mediator\/nextMovesForState'/,
     );
   });
 

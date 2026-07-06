@@ -1,7 +1,8 @@
 /**
  * UX-001.4 — Board-level ActPopout mount site source scan.
  *
- * Verifies the board-level Act mount exists in ArgumentGameSurface.tsx,
+ * Verifies the board-level Act mount exists in the room/ArgumentRoom.tsx
+ * orchestrator (ASP-EXTRACT-001 Slice 2 moved it out of ArgumentGameSurface),
  * wires the expected props (actingOnLabel, maxHeightOverride, etc.),
  * and consumes the existing 3-gate `buildActPopout` via the existing
  * `actEntryToQuickAction` + `quickActionToPreset` round-trip — never a
@@ -16,14 +17,17 @@ const SURFACE_PATH = path.resolve(
   'src',
   'features',
   'arguments',
-  'ArgumentGameSurface.tsx',
+  'room',
+  'ArgumentRoom.tsx',
 );
 
 describe('UX-001.4 — board-level ActPopout mount source scan', () => {
   const src = fs.readFileSync(SURFACE_PATH, 'utf8');
 
   it('imports ActPopout from oneBox/ActPopout', () => {
-    expect(src).toMatch(/import\s+\{\s*ActPopout\s*\}\s+from\s+['"]\.\/oneBox\/ActPopout['"]/);
+    // ASP-EXTRACT-001 (Slice 2) — the orchestrator sits one dir deeper (room/),
+    // so its relative import of oneBox/ is ../oneBox/ not ./oneBox/.
+    expect(src).toMatch(/import\s+\{\s*ActPopout\s*\}\s+from\s+['"]\.\.\/oneBox\/ActPopout['"]/);
   });
 
   it('mounts <ActPopout> with testID "board-act-popout"', () => {

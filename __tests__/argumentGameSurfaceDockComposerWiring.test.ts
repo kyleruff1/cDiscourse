@@ -56,7 +56,7 @@ import {
 } from '../src/features/evidence/sourceChainPresetCopy';
 
 const GAME_SURFACE_SRC = fs.readFileSync(
-  path.join(__dirname, '..', 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+  path.join(__dirname, '..', 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
   'utf8',
 );
 const TREE_SCREEN_SRC = fs.readFileSync(

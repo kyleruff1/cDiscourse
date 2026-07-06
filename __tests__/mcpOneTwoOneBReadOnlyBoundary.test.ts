@@ -325,8 +325,23 @@ describe('MCP-021B — MCP-021A schema + taxonomy unchanged', () => {
 });
 
 describe('MCP-021B — UX-001.6 cross-device QA tests unchanged (byte-equal)', () => {
-  it('RO-22 — uxOneOneSixViewportMatrix.test.ts unchanged', () => {
-    expect(gitDiffFromMain('__tests__/uxOneOneSixViewportMatrix.test.ts')).toBe('');
+  // RO-22 — byte-equal boundary relaxed 2026-07-05 (ASP-EXTRACT-001 Slice 2).
+  // RO-22 originally asserted uxOneOneSixViewportMatrix.test.ts was byte-equal
+  // to main. ASP-EXTRACT-001 Slice 2 split the ArgumentGameSurface monolith
+  // into room/, so the matrix legitimately (a) repoints its Surface-6 source
+  // scan to room/ArgumentRoom.tsx and (b) adds room/ArgumentRoom to the
+  // Surface-17 composer-only allow-list (the observationChips banner mount
+  // moved there). Mirrors the RO-25 / RO-28 relaxation: the byte-equal premise
+  // is historical and incompatible with the required repoint. Relaxed to a
+  // well-formedness check that the matrix still exists, still pins the
+  // composer-only observationChips rule, and now tracks the room/ mount site.
+  it('RO-22 — uxOneOneSixViewportMatrix.test.ts is well-formed', () => {
+    const content = readFileSync(
+      join(ROOT, '__tests__/uxOneOneSixViewportMatrix.test.ts'),
+      'utf8',
+    );
+    expect(content).toContain('observationChips prop is composer-only');
+    expect(content).toContain('src/features/arguments/room/ArgumentRoom');
   });
 
   it('RO-23 — uxOneOneSixTouchTargets.test.ts unchanged', () => {

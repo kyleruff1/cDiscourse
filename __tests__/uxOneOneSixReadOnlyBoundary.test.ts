@@ -110,6 +110,20 @@ const READ_ONLY_FILES: ReadonlyArray<ReadOnlyFile> = Object.freeze([
       'ROOM_RAIL_ACTION_CODES',
     ],
   },
+  // ASP-EXTRACT-001 (Slice 2) — NOTE: the room surface split completed. The
+  // ArgumentGameSurface.tsx entry above now scans the thin re-export shim (it
+  // still exports the ArgumentGameSurface name, so its token pin holds). The
+  // orchestrator (ArgumentRoom) and the stack lens (ExchangeView) are the new
+  // edit seams the Argument Surface Pivot cards target, so their public API is
+  // pinned here so a later card cannot silently drop it.
+  {
+    relPath: 'src/features/arguments/room/ArgumentRoom.tsx',
+    requiredApi: ['ArgumentRoom', 'Props'],
+  },
+  {
+    relPath: 'src/features/arguments/room/ExchangeView.tsx',
+    requiredApi: ['ExchangeView', 'ExchangeViewProps'],
+  },
   {
     relPath: 'src/features/arguments/TimelineSelectedReadoutPanel.tsx',
     requiredApi: ['TimelineSelectedReadoutPanel'],

@@ -15,14 +15,14 @@ import * as path from 'path';
 const REPO_ROOT = process.cwd();
 
 const GAME_SURFACE_SRC = fs.readFileSync(
-  path.join(REPO_ROOT, 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+  path.join(REPO_ROOT, 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
   'utf8',
 );
 
 describe('UX-001.5A — Edit A: composer-only observationChips into RefereeBannerView', () => {
   it('imports adaptSemanticRefereeSourceComposer from nodeLabels', () => {
     expect(GAME_SURFACE_SRC).toMatch(/adaptSemanticRefereeSourceComposer/);
-    expect(GAME_SURFACE_SRC).toMatch(/from '\.\.\/nodeLabels'/);
+    expect(GAME_SURFACE_SRC).toMatch(/from '\.\.\/\.\.\/nodeLabels'/);
   });
 
   it('imports toAnnotationChipDescriptors from nodeLabels', () => {

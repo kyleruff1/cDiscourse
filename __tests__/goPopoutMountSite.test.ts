@@ -15,7 +15,8 @@ const SURFACE_PATH = path.resolve(
   'src',
   'features',
   'arguments',
-  'ArgumentGameSurface.tsx',
+  'room',
+  'ArgumentRoom.tsx',
 );
 const APP_PATH = path.resolve(
   __dirname,
@@ -27,7 +28,9 @@ describe('UX-001.4 — GoPopout mount source scan', () => {
   const src = fs.readFileSync(SURFACE_PATH, 'utf8');
 
   it('imports GoPopout from oneBox/GoPopout', () => {
-    expect(src).toMatch(/import\s+\{\s*GoPopout\s*\}\s+from\s+['"]\.\/oneBox\/GoPopout['"]/);
+    // ASP-EXTRACT-001 (Slice 2) — orchestrator sits in room/, one dir deeper,
+    // so oneBox/ imports are ../oneBox/ not ./oneBox/.
+    expect(src).toMatch(/import\s+\{\s*GoPopout\s*\}\s+from\s+['"]\.\.\/oneBox\/GoPopout['"]/);
   });
 
   it('mounts <GoPopout> with testID "board-go-popout"', () => {
@@ -60,8 +63,10 @@ describe('UX-001.4 — GoPopout mount source scan', () => {
   });
 
   it('Go popout builds mini-map model via buildTimelineMiniMapModel (read-only)', () => {
+    // ASP-EXTRACT-001 (Slice 2) — orchestrator sits in room/, one dir deeper,
+    // so the sibling model import is ../timelineMiniMapModel not ./.
     expect(src).toMatch(
-      /import\s+\{\s*buildTimelineMiniMapModel\s*\}\s+from\s+['"]\.\/timelineMiniMapModel['"]/,
+      /import\s+\{\s*buildTimelineMiniMapModel\s*\}\s+from\s+['"]\.\.\/timelineMiniMapModel['"]/,
     );
     expect(src).toMatch(/buildTimelineMiniMapModel\(\{ timelineMap \}\)/);
   });

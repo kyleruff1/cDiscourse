@@ -46,7 +46,7 @@ const ROUTING_CALL_PATTERNS: RegExp[] = [
 describe('TL-003 — no routing primitive in the in-room view', () => {
   const inRoomFiles = [
     'App.tsx',
-    'src/features/arguments/ArgumentGameSurface.tsx',
+    'src/features/arguments/room/ArgumentRoom.tsx',
     'src/features/arguments/ArgumentTimelineMap.tsx',
     // ASP-EXTRACT-001 (Slice 1) — the extracted timeline-map lens is an
     // in-room surface; held to the same no-routing invariant.
@@ -147,7 +147,7 @@ describe('TL-003 — Cards/Timeline toggle is state-based', () => {
 // ── Quick-action callbacks are local state changes ───────────────
 
 describe('TL-003 — timeline quick actions use setActiveMessageId, not routing', () => {
-  const surface = read('src/features/arguments/ArgumentGameSurface.tsx');
+  const surface = read('src/features/arguments/room/ArgumentRoom.tsx');
   // ASP-EXTRACT-001 (Slice 1) — the <ArgumentTimelineMap> mount moved into
   // MapView. The timeline nav handlers stayed in the orchestrator (they own
   // activeMessageId state); ASP-EXTRACT-001 lifted the former onJumpLatest /
@@ -193,7 +193,7 @@ describe('TL-003 — Linking.openURL is only used for the dev banner report link
   // link. Nothing inside the room (Timeline / Cards / sidecar / actions)
   // should be calling Linking.openURL.
   const inRoomFiles = [
-    'src/features/arguments/ArgumentGameSurface.tsx',
+    'src/features/arguments/room/ArgumentRoom.tsx',
     'src/features/arguments/ArgumentTimelineMap.tsx',
     // ASP-EXTRACT-001 (Slice 1) — the extracted timeline-map lens.
     'src/features/arguments/room/MapView.tsx',

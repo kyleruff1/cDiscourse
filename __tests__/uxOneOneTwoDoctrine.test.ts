@@ -38,6 +38,13 @@ const UX_001_2_FILES = [
   // provider-import / no-console.log coverage the monolith had.
   'src/features/arguments/room/MapView.tsx',
   'src/features/arguments/room/roomActionCodes.ts',
+  // ASP-EXTRACT-001 (Slice 2) — the orchestrator (ArgumentRoom) and the stack
+  // lens (ExchangeView) carved out of the ArgumentGameSurface monolith. They
+  // inherit the same verdict-ban / internal-code-leak / security /
+  // provider-import / no-console.log coverage the monolith had. The
+  // ArgumentGameSurface.tsx entry above now scans the thin re-export shim.
+  'src/features/arguments/room/ArgumentRoom.tsx',
+  'src/features/arguments/room/ExchangeView.tsx',
 ];
 
 // Strings that must NEVER appear inside a UI string literal in any

@@ -14,19 +14,22 @@ const SURFACE_PATH = path.resolve(
   'src',
   'features',
   'arguments',
-  'ArgumentGameSurface.tsx',
+  'room',
+  'ArgumentRoom.tsx',
 );
 
 describe('UX-001.4 — InspectPopout mount source scan', () => {
   const src = fs.readFileSync(SURFACE_PATH, 'utf8');
 
   it('imports InspectPopout from oneBox/InspectPopout', () => {
-    expect(src).toMatch(/import\s+\{\s*InspectPopout\s*\}\s+from\s+['"]\.\/oneBox\/InspectPopout['"]/);
+    // ASP-EXTRACT-001 (Slice 2) — orchestrator sits in room/, one dir deeper,
+    // so oneBox/ imports are ../oneBox/ not ./oneBox/.
+    expect(src).toMatch(/import\s+\{\s*InspectPopout\s*\}\s+from\s+['"]\.\.\/oneBox\/InspectPopout['"]/);
   });
 
   it('imports buildInspectContent from oneBox/inspectContentBuilder', () => {
     expect(src).toMatch(
-      /import\s+\{\s*buildInspectContent\s*\}\s+from\s+['"]\.\/oneBox\/inspectContentBuilder['"]/,
+      /import\s+\{\s*buildInspectContent\s*\}\s+from\s+['"]\.\.\/oneBox\/inspectContentBuilder['"]/,
     );
   });
 

@@ -150,7 +150,7 @@ describe('CARD-VIEW-REFINE-001 — the 3-col layout still resolves at ≥1024', 
 // ── (2) Nav wiring (source-scan) ─────────────────────────────────────────
 
 describe('CARD-VIEW-REFINE-001 — Stack-mode keyboard nav is wired', () => {
-  const surface = read('src/features/arguments/ArgumentGameSurface.tsx');
+  const surface = read('src/features/arguments/room/ArgumentRoom.tsx');
 
   it('wires a document keydown that routes through resolveStackKeyEffect', () => {
     expect(surface).toMatch(/resolveStackKeyEffect/);

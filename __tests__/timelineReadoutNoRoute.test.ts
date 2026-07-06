@@ -30,7 +30,7 @@ function read(rel: string): string {
 
 const MODEL_REL = 'src/features/arguments/timelineSelectedReadoutModel.ts';
 const PANEL_REL = 'src/features/arguments/TimelineSelectedReadoutPanel.tsx';
-const SURFACE_REL = 'src/features/arguments/ArgumentGameSurface.tsx';
+const SURFACE_REL = 'src/features/arguments/room/ArgumentRoom.tsx';
 
 const ROUTING_IMPORT_PATTERNS: RegExp[] = [
   /from\s+['"]@react-navigation\/[^'"]+['"]/,

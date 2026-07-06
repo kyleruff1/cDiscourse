@@ -10,8 +10,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+// ASP-EXTRACT-001 (Slice 2) — the ArgumentGameSurface monolith was split into
+// room/. The orchestrator (ArgumentRoom) holds the referee banner + override
+// sheet wiring, the Props declarations, the bottom-chrome ArgumentSideActionRail,
+// and the col1 <MapView> dispatch, so those tokens are asserted against it.
 const SURFACE = fs.readFileSync(
-  path.join(process.cwd(), 'src/features/arguments/ArgumentGameSurface.tsx'),
+  path.join(process.cwd(), 'src/features/arguments/room/ArgumentRoom.tsx'),
   'utf8',
 );
 // ASP-EXTRACT-001 (Slice 1) — the mode === timeline body was extracted into
@@ -20,6 +24,14 @@ const SURFACE = fs.readFileSync(
 // that token (the orchestrator renders <MapView>, which renders the map).
 const MAP_VIEW = fs.readFileSync(
   path.join(process.cwd(), 'src/features/arguments/room/MapView.tsx'),
+  'utf8',
+);
+// ASP-EXTRACT-001 (Slice 2) — the mode === stack body was extracted into
+// ExchangeView, so the <ArgumentBubbleStack> mount now lives here. The sanity
+// check that the surface still renders the stack reads ExchangeView for that
+// token (the orchestrator renders <ExchangeView>, which renders the stack).
+const EXCHANGE_VIEW = fs.readFileSync(
+  path.join(process.cwd(), 'src/features/arguments/room/ExchangeView.tsx'),
   'utf8',
 );
 const TREE = fs.readFileSync(
@@ -77,14 +89,16 @@ describe('ArgumentGameSurface — additive, non-blocking', () => {
 
   it('the surface still imports its pre-MCP-019 core components', () => {
     // A sanity check that the change was additive — the existing surface is intact.
-    // ASP-EXTRACT-001 (Slice 1) — the stack branch (ArgumentBubbleStack) and
-    // the bottom-chrome rail (ArgumentSideActionRail) stay in the surface; the
-    // timeline map (ArgumentTimelineMap) moved into MapView, so that token is
-    // asserted there (the surface renders <MapView>, MapView renders the map).
-    expect(SURFACE).toMatch(/ArgumentBubbleStack/);
+    // ASP-EXTRACT-001 (Slice 2) — the stack branch (ArgumentBubbleStack) moved
+    // into ExchangeView and the timeline map (ArgumentTimelineMap) into MapView,
+    // so those tokens are asserted against those lens files; the bottom-chrome
+    // rail (ArgumentSideActionRail) stays in the orchestrator, which dispatches
+    // both lens bodies through <ExchangeView> / <MapView>.
+    expect(EXCHANGE_VIEW).toMatch(/ArgumentBubbleStack/);
     expect(MAP_VIEW).toMatch(/ArgumentTimelineMap/);
     expect(SURFACE).toMatch(/ArgumentSideActionRail/);
-    // The surface now dispatches the timeline body through the MapView lens.
+    // The surface now dispatches the two lens bodies through ExchangeView / MapView.
+    expect(SURFACE).toMatch(/<ExchangeView/);
     expect(SURFACE).toMatch(/<MapView/);
   });
 });
