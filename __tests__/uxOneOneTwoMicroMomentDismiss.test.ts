@@ -10,9 +10,12 @@
  * Meaningful interactions:
  *   - handleActivate (node tap)
  *   - handlePrev / handleNext
- *   - onJumpLatest / onJumpToRoot inline closures
+ *   - handleJumpLatest / handleJumpToRoot (ASP-EXTRACT-001 lifted the former
+ *     onJumpLatest / onJumpToRoot inline closures into these named handlers;
+ *     the dismiss behavior is unchanged, only relocated to the handler body)
  *   - handleToggleMode (Timeline / Cards toggle)
- *   - onOpenDetails (when the Timeline action dock opens cards detail)
+ *   - handleOpenDetailsFromTimeline (ASP-EXTRACT-001 lifted the former
+ *     onOpenDetails inline closure; opens cards detail from the Timeline)
  *
  * NOT a dismiss trigger:
  *   - initial render
@@ -83,25 +86,28 @@ describe('UX-001.2 — meaningful interactions dismiss the banner', () => {
     );
   });
 
-  it('onJumpLatest inline closure sets microMomentDismissed to true', () => {
-    const idx = SURFACE_SRC.indexOf('onJumpLatest=');
-    expect(idx).toBeGreaterThan(-1);
-    const block = SURFACE_SRC.slice(idx, idx + 400);
-    expect(block).toMatch(/setMicroMomentDismissed\(true\)/);
+  it('handleJumpLatest (lifted onJumpLatest) sets microMomentDismissed to true', () => {
+    // ASP-EXTRACT-001 — the former onJumpLatest inline arrow was lifted into
+    // this named handler so MapView can receive it as a prop. The dismiss
+    // flag is set in the handler body, verbatim from the former closure.
+    expect(SURFACE_SRC).toMatch(
+      /const handleJumpLatest = useCallback\(\(\) => \{[\s\S]*?if \(latestId\) \{[\s\S]*?setMicroMomentDismissed\(true\);[\s\S]*?\}/,
+    );
   });
 
-  it('onJumpToRoot inline closure sets microMomentDismissed to true', () => {
-    const idx = SURFACE_SRC.indexOf('onJumpToRoot=');
-    expect(idx).toBeGreaterThan(-1);
-    const block = SURFACE_SRC.slice(idx, idx + 400);
-    expect(block).toMatch(/setMicroMomentDismissed\(true\)/);
+  it('handleJumpToRoot (lifted onJumpToRoot) sets microMomentDismissed to true', () => {
+    // ASP-EXTRACT-001 — lifted from the former onJumpToRoot inline arrow.
+    expect(SURFACE_SRC).toMatch(
+      /const handleJumpToRoot = useCallback\(\(\) => \{[\s\S]*?if \(timelineMap\.rootMessageId\) \{[\s\S]*?setMicroMomentDismissed\(true\);[\s\S]*?\}/,
+    );
   });
 
-  it('onOpenDetails inline closure sets microMomentDismissed to true', () => {
-    const idx = SURFACE_SRC.indexOf('onOpenDetails=');
-    expect(idx).toBeGreaterThan(-1);
-    const block = SURFACE_SRC.slice(idx, idx + 240);
-    expect(block).toMatch(/setMicroMomentDismissed\(true\)/);
+  it('handleOpenDetailsFromTimeline (lifted onOpenDetails) sets microMomentDismissed to true', () => {
+    // ASP-EXTRACT-001 — lifted from the former onOpenDetails inline arrow;
+    // it also switches to Stack mode (setMode('stack')) exactly as before.
+    expect(SURFACE_SRC).toMatch(
+      /const handleOpenDetailsFromTimeline = useCallback\(\(id: string\) => \{[\s\S]*?setMode\('stack'\);[\s\S]*?setMicroMomentDismissed\(true\);[\s\S]*?\}/,
+    );
   });
 });
 

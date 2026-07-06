@@ -89,6 +89,27 @@ const READ_ONLY_FILES: ReadonlyArray<ReadOnlyFile> = Object.freeze([
     relPath: 'src/features/arguments/ArgumentGameSurface.tsx',
     requiredApi: ['ArgumentGameSurface'],
   },
+  // ASP-EXTRACT-001 (Slice 1) — NOTE: the room surface is being split into
+  // src/features/arguments/room/. Slice 1 lands the timeline-map lens
+  // (MapView) + the shared action-code registry (roomActionCodes). The
+  // ArgumentGameSurface.tsx entry above stays (its function name is
+  // unchanged; the shim / rename is Slice 2). These new seams are pinned so
+  // a later card cannot silently drop their public API. ExchangeView /
+  // ArgumentRoom land in Slice 2 and get their own entries then.
+  {
+    relPath: 'src/features/arguments/room/MapView.tsx',
+    requiredApi: ['MapView', 'MapViewProps'],
+  },
+  {
+    relPath: 'src/features/arguments/room/roomActionCodes.ts',
+    requiredApi: [
+      'RoomActionCode',
+      'RoomRailActionCode',
+      'RoomBubbleControlCode',
+      'railActionToBubbleControl',
+      'ROOM_RAIL_ACTION_CODES',
+    ],
+  },
   {
     relPath: 'src/features/arguments/TimelineSelectedReadoutPanel.tsx',
     requiredApi: ['TimelineSelectedReadoutPanel'],
