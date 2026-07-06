@@ -28,7 +28,11 @@ const REQUEST_REVIEW_FILES = [
 const MODIFIED_FILES = [
   'src/features/arguments/oneBox/actPopoutModel.ts',
   'src/features/arguments/ArgumentBubbleActions.tsx',
-  'src/features/arguments/ArgumentGameSurface.tsx',
+  // ASP-EXTRACT-001 (Slice 2) — the REF-005-modified surface content moved
+  // into room/ArgumentRoom.tsx (ArgumentGameSurface.tsx is now a re-export
+  // shim). Scan the orchestrator so the no-write / no-flags-query check stays
+  // on the real code.
+  'src/features/arguments/room/ArgumentRoom.tsx',
 ];
 
 const WRITE_TOKENS = ['.insert(', '.upsert(', '.update(', '.delete('];

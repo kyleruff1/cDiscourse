@@ -54,7 +54,7 @@ describe('SC-004 mutual exclusion — SC-002 popover vs SC-004 dock', () => {
 
 describe('SC-004 mutual exclusion — opening cards-detail dismisses the dock', () => {
   const GAME_SURFACE_SRC = fs.readFileSync(
-    path.join(__dirname, '..', 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+    path.join(__dirname, '..', 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
     'utf8',
   );
 

@@ -48,7 +48,7 @@ import { DemoCorridorScreen } from '../src/features/demoCorridor/DemoCorridorScr
 
 const ROOT = process.cwd();
 const SURFACE_SRC = fs.readFileSync(
-  path.resolve(ROOT, 'src/features/arguments/ArgumentGameSurface.tsx'),
+  path.resolve(ROOT, 'src/features/arguments/room/ArgumentRoom.tsx'),
   'utf8',
 );
 const WRAPPER_SRC = fs.readFileSync(

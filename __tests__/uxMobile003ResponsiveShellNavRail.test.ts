@@ -98,7 +98,10 @@ describe('UX-MOBILE-003 — responsive shell structure is pinned (report "1467px
   it('no primary end-user surface renders a 1px-font element (report finding does not exist)', () => {
     for (const rel of [
       'src/features/debates/ConversationGalleryScreen.tsx',
-      'src/features/arguments/ArgumentGameSurface.tsx',
+      // ASP-EXTRACT-001 (Slice 2) — the room surface content moved into
+      // room/ArgumentRoom.tsx (ArgumentGameSurface.tsx is now a shim); scan
+      // the orchestrator to keep the 1px-font guard on the real surface.
+      'src/features/arguments/room/ArgumentRoom.tsx',
       'src/features/arguments/ArgumentTimelineMap.tsx',
     ]) {
       expect(read(rel)).not.toMatch(/fontSize:\s*1\b/);

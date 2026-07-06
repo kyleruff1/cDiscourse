@@ -352,8 +352,11 @@ describe('point-scoped chime-in copy is DORMANT in this card', () => {
     // two live room surfaces the design names.
     const APP_SRC = fs.readFileSync(path.join(REPO, 'App.tsx'), 'utf8');
     expect(APP_SRC).not.toContain('POINT_SCOPED_CHIME_IN_COPY');
+    // ASP-EXTRACT-001 (Slice 2) — the live room surface content moved into
+    // room/ArgumentRoom.tsx (ArgumentGameSurface.tsx is now a re-export shim),
+    // so scan the orchestrator to keep this negative check on real UI.
     const GAME_SURFACE = fs.readFileSync(
-      path.join(REPO, 'src/features/arguments/ArgumentGameSurface.tsx'),
+      path.join(REPO, 'src/features/arguments/room/ArgumentRoom.tsx'),
       'utf8',
     );
     expect(GAME_SURFACE).not.toContain('POINT_SCOPED_CHIME_IN_COPY');

@@ -126,7 +126,8 @@ describe('UX-001.4 — ArgumentGameSurface mount imports (read-only doctrine)', 
     'src',
     'features',
     'arguments',
-    'ArgumentGameSurface.tsx',
+    'room',
+    'ArgumentRoom.tsx',
   );
   const src = fs.readFileSync(SURFACE_PATH, 'utf8');
 

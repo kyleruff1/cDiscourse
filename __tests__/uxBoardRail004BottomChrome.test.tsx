@@ -41,7 +41,7 @@ import { makeRailCandidate, makeRailIssue } from './fixtures/openIssuesRailFixtu
 
 const ROOT = process.cwd();
 const SURFACE_SRC = fs.readFileSync(
-  path.resolve(ROOT, 'src/features/arguments/ArgumentGameSurface.tsx'),
+  path.resolve(ROOT, 'src/features/arguments/room/ArgumentRoom.tsx'),
   'utf8',
 );
 const WRAPPER_SRC = fs.readFileSync(
@@ -232,7 +232,7 @@ describe('UX-BOARD-RAIL-004 — BoardBottomChrome is a pure presentational wrapp
 
 describe('UX-BOARD-RAIL-004 — ArgumentGameSurface routes bottom chrome through the wrapper', () => {
   it('imports and mounts BoardBottomChrome in the surface', () => {
-    expect(SURFACE_SRC).toMatch(/import \{ BoardBottomChrome \} from '\.\/BoardBottomChrome'/);
+    expect(SURFACE_SRC).toMatch(/import \{ BoardBottomChrome \} from '\.\.\/BoardBottomChrome'/);
     expect(SURFACE_SRC).toContain('<BoardBottomChrome>');
     expect(SURFACE_SRC).toContain('</BoardBottomChrome>');
   });

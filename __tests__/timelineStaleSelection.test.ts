@@ -40,7 +40,7 @@ import type {
 import type { SidecarViewModel } from '../src/features/arguments/argumentReplySidecarModel';
 
 const GAME_SURFACE_SRC = fs.readFileSync(
-  path.join(process.cwd(), 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+  path.join(process.cwd(), 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
   'utf8',
 );
 

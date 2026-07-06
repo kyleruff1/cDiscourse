@@ -315,8 +315,13 @@ describe('EV-002 buildArtifactsByMessageId', () => {
 describe('EV-003 ArgumentGameSurface — evidence-debt wiring', () => {
   const fs = require('fs');
   const path = require('path');
+  // ASP-EXTRACT-001 (Slice 2) — the surface split into room/. The evidence-debt
+  // derivation (deriveEvidenceDebts / getNodeEvidenceDebtSummary /
+  // evidenceDebtSummaryFor / artifacts: artifactsByMessageId[m.id]) and the
+  // MapView mount that threads evidenceDebtSummaryFor={evidenceDebtSummaryFor}
+  // all live in the ArgumentRoom orchestrator now, so this scan reads that file.
   const src: string = fs.readFileSync(
-    path.join(process.cwd(), 'src/features/arguments/ArgumentGameSurface.tsx'),
+    path.join(process.cwd(), 'src/features/arguments/room/ArgumentRoom.tsx'),
     'utf8',
   );
 

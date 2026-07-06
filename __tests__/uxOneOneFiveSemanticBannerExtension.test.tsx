@@ -39,7 +39,8 @@ const ARGUMENT_GAME_SURFACE_SRC = fs.readFileSync(
     'src',
     'features',
     'arguments',
-    'ArgumentGameSurface.tsx',
+    'room',
+    'ArgumentRoom.tsx',
   ),
   'utf8',
 );

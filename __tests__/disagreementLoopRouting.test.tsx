@@ -38,9 +38,11 @@ import {
 } from '../src/features/refereeLoop';
 import { makeInput } from './fixtures/openIssueFixtures';
 
+// ASP-EXTRACT-001 (Slice 2) — the surface split into room/; the Act handoff
+// wiring this scans lives in the ArgumentRoom orchestrator.
 const SURFACE_PATH = join(
   __dirname,
-  '../src/features/arguments/ArgumentGameSurface.tsx',
+  '../src/features/arguments/room/ArgumentRoom.tsx',
 );
 
 /**

@@ -31,7 +31,7 @@ import {
 
 const REPO = process.cwd();
 const SURFACE_SRC = fs.readFileSync(
-  path.join(REPO, 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+  path.join(REPO, 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
   'utf8',
 );
 const NOTE_SRC = fs.readFileSync(
@@ -221,10 +221,10 @@ describe('UX-FEEDBACK-001 — mobile width', () => {
 describe('UX-FEEDBACK-001 — ArgumentGameSurface host wiring', () => {
   it('imports the helper + the note component from the mediator feature', () => {
     expect(SURFACE_SRC).toMatch(
-      /import \{ feedbackForMediatorProgress \} from '\.\.\/mediator\/feedbackForMediatorProgress'/,
+      /import \{ feedbackForMediatorProgress \} from '\.\.\/\.\.\/mediator\/feedbackForMediatorProgress'/,
     );
     expect(SURFACE_SRC).toMatch(
-      /import \{ MediatorProgressNote \} from '\.\.\/mediator\/MediatorProgressNote'/,
+      /import \{ MediatorProgressNote \} from '\.\.\/\.\.\/mediator\/MediatorProgressNote'/,
     );
   });
 

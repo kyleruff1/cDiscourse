@@ -56,7 +56,7 @@ const RAIL_SRC = read('src/features/mediator/DisagreementPointsRail.tsx');
 const PANEL_SRC = read('src/features/arguments/TimelineSelectedReadoutPanel.tsx');
 const SCORE_SRC = read('src/features/arguments/ArgumentScoreTracker.tsx');
 const TIMELINE_SRC = read('src/features/arguments/ArgumentTimelineMap.tsx');
-const SURFACE_SRC = read('src/features/arguments/ArgumentGameSurface.tsx');
+const SURFACE_SRC = read('src/features/arguments/room/ArgumentRoom.tsx');
 const LAYOUT_SRC = read('src/features/arguments/RoomBoardLayout.tsx');
 const BUBBLE_SRC = read('src/features/arguments/ArgumentBubbleCard.tsx');
 

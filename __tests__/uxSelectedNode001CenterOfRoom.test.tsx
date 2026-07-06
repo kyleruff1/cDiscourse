@@ -46,7 +46,7 @@ import { Text } from 'react-native';
 
 const REPO = process.cwd();
 const SURFACE_SRC = fs.readFileSync(
-  path.join(REPO, 'src', 'features', 'arguments', 'ArgumentGameSurface.tsx'),
+  path.join(REPO, 'src', 'features', 'arguments', 'room', 'ArgumentRoom.tsx'),
   'utf8',
 );
 const PANEL_SRC = fs.readFileSync(
@@ -331,7 +331,7 @@ describe('UX-SELECTED-NODE-001 — ArgumentGameSurface drawer wiring', () => {
 
   it('imports the drawer wrapper from the mediator feature', () => {
     expect(SURFACE_SRC).toMatch(
-      /import \{ SelectedNodeInspectDrawer \} from '\.\.\/mediator\/SelectedNodeInspectDrawer'/,
+      /import \{ SelectedNodeInspectDrawer \} from '\.\.\/\.\.\/mediator\/SelectedNodeInspectDrawer'/,
     );
   });
 });
