@@ -213,13 +213,16 @@ export function deriveArgumentStateRail(input: ArgumentStateRailInput): Argument
   // 6. Saved recordings — RESERVED. Renders nothing until the P5-6 voice cards
   // ship (VOICE-ADR-002). openChimeInSeatCount / watchingCount are reserved
   // inputs with no in-room source yet (scope-reality audit) and render nothing.
+  const savedRecordingLabel = ''; // RESERVED — no copy until VOICE-ADR-002 ships.
   candidates.push({
     id: 'saved_recordings',
-    label: '',
-    accessibilityLabel: '',
+    label: savedRecordingLabel,
+    accessibilityLabel: savedRecordingLabel,
     tone: 'neutral',
     deepLink: null,
-    isVisible: savedRecordings > 0,
+    // Gate on a NON-EMPTY label so a future VOICE wiring card cannot render a
+    // blank chip by supplying a count without copy.
+    isVisible: savedRecordings > 0 && savedRecordingLabel.length > 0,
   });
 
   const chips = candidates.filter((c) => c.isVisible);

@@ -192,9 +192,12 @@ describe('deriveArgumentStateRail — reserved slots render nothing', () => {
     ).toBeUndefined();
   });
 
-  it('renders the saved_recordings slot only when a positive count is supplied (forward-compat)', () => {
+  it('blank-chip guard — a positive count with an empty label stays suppressed (no blank chip)', () => {
+    // The reserved slot has no copy yet (VOICE-ADR-002). A future VOICE wiring
+    // card that supplies a count MUST also supply a non-empty label; until then
+    // the chip never renders, so a positive count alone cannot paint a blank chip.
     const chip = chipById(deriveArgumentStateRail(baseInput({ savedRecordingCount: 2 })).chips, 'saved_recordings');
-    expect(chip?.isVisible).toBe(true);
+    expect(chip).toBeUndefined();
   });
 
   it('ignores reserved openChimeInSeatCount / watchingCount inputs (no chip, no crash)', () => {

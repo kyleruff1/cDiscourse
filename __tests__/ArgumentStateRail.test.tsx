@@ -6,15 +6,23 @@
  * callback wiring (no state write on tap — the callback is the only effect),
  * accessibility (role / label / state, 44px target), color-independence (glyph +
  * text carry meaning), the 3-inline + overflow + horizontal-scroll structure,
- * and reduce-motion parity.
+ * and reduce-motion parity. Also carries the #876 AC read-only source scan over
+ * the VIEW file (the model scan lives in argumentStateRailModel.test.ts).
  */
 import React from 'react';
+import * as fs from 'fs';
+import * as path from 'path';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ArgumentStateRail } from '../src/features/arguments/room/ArgumentStateRail';
 import {
   deriveArgumentStateRail,
   type ArgumentStateRailInput,
 } from '../src/features/arguments/room/argumentStateRailModel';
+
+const VIEW_SRC = fs.readFileSync(
+  path.resolve(process.cwd(), 'src/features/arguments/room/ArgumentStateRail.tsx'),
+  'utf8',
+);
 
 function baseInput(overrides: Partial<ArgumentStateRailInput> = {}): ArgumentStateRailInput {
   return {
@@ -175,5 +183,31 @@ describe('ArgumentStateRail — reduce motion', () => {
     for (const chip of model.chips) {
       expect(getByTestId(`argument-state-rail-chip-${chip.id}`)).toBeTruthy();
     }
+  });
+});
+
+describe('ArgumentStateRail — read-only source scan (view; #876 AC)', () => {
+  // The #876 acceptance criterion requires the source scan to cover BOTH the
+  // view AND the model. The model scan lives in argumentStateRailModel.test.ts;
+  // this mirrors it for the view file so neither can regress into a client /
+  // query / mutation / board deriver.
+  it('imports no data client and contains no query / mutation call', () => {
+    expect(VIEW_SRC).not.toMatch(/supabase/i);
+    expect(VIEW_SRC).not.toMatch(/\.from\(/);
+    expect(VIEW_SRC).not.toMatch(/\bfetch\(/);
+    expect(VIEW_SRC).not.toMatch(/\.(insert|update|delete|upsert)\(/);
+  });
+
+  it('does not import or call the mediator-board deriver (props-only view)', () => {
+    expect(VIEW_SRC).not.toMatch(/deriveMediatorBoardState|deriveRoomMediatorBoardState/);
+  });
+
+  it('positive control — the guard fires on a planted client / query / deriver token', () => {
+    const planted =
+      "import { supabase } from '../../../lib/supabase';\nawait supabase.from('x').insert({}); deriveRoomMediatorBoardState();";
+    expect(planted).toMatch(/supabase/i);
+    expect(planted).toMatch(/\.from\(/);
+    expect(planted).toMatch(/\.(insert|update|delete|upsert)\(/);
+    expect(planted).toMatch(/deriveMediatorBoardState|deriveRoomMediatorBoardState/);
   });
 });
