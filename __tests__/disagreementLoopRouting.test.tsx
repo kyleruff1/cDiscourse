@@ -178,7 +178,14 @@ describe('REF-004 routing — board-path equivalence (single enterBoxForActEntry
     // handleAction('reply', …) sequence the board Act path always used.
     expect(src).toMatch(/actEntryToQuickAction\(entryId\)/);
     expect(src).toMatch(/quickActionToPreset\(/);
-    expect(src).toMatch(/handleAction\('reply', activeMessageId \?\? '', preset\)/);
+    // ASP-EXTRACT-003 (#871) — this pin now matches the REAL bridge code line
+    // (handleAction with the resolved messageId), not the comment literal it
+    // previously matched. The de-apostrophize pass rewrote that comment prose,
+    // which contained the exact activeMessageId ?? '' spelling; the actual
+    // enterBoxForActEntry body dispatches handleAction('reply', messageId, preset)
+    // where messageId = targetMessageId ?? activeMessageId ?? ''. Pinning the
+    // code path is strictly more correct than pinning comment prose.
+    expect(src).toMatch(/handleAction\('reply', messageId, preset\)/);
   });
 
   it('handleRefereeMove delegates to enterBoxForActEntry (the swapped card path)', () => {

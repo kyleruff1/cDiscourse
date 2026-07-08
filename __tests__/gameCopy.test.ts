@@ -64,6 +64,18 @@ describe('gameCopy', () => {
       expect(MOVE_COPY.dropReceipts).toBeTruthy();
       expect(RECEIPT_COPY.receipts).toBeTruthy();
     });
+
+    it('ASP-CLEAN-001 — primary reply verbs are Reply / Disagree', () => {
+      expect(MOVE_COPY.reply).toBe('Reply');
+      expect(MOVE_COPY.counter).toBe('Reply'); // code kept; label unified
+      expect(MOVE_COPY.challenge).toBe('Disagree');
+    });
+
+    it('ASP-CLEAN-001 — retired verbs Counter / Challenge are absent from MOVE_COPY values', () => {
+      const values = Object.values(MOVE_COPY);
+      expect(values).not.toContain('Counter');
+      expect(values).not.toContain('Challenge');
+    });
   });
 
   describe('concession copy', () => {
