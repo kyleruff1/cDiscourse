@@ -1846,6 +1846,57 @@ export const ROOM_ONE_TO_ONE_COPY = Object.freeze({
 } as const);
 
 /**
+ * ROOM-001 (#876) — ArgumentStateRail plain-language copy.
+ *
+ * The ambient state strip atop the argument room: turn cue, open-points count,
+ * receipts-owed count, visibility badge, seat segment, and the overflow "+N"
+ * affordance. Pure display copy — advisory, verdict-free, structural only. The
+ * strip never gates a post, never shows a score / standing band / winner /
+ * loser / heat / popularity value, and counts points and receipts owed on the
+ * ARGUMENT, never per-person standing (point-standing-economy: mark the point,
+ * not the person). Visibility labels reuse ROOM_ONE_TO_ONE_COPY above.
+ *
+ * Doctrine (cdiscourse-doctrine §1 / §2 / §3 / §9): no verdict token, no
+ * amplification framing, no raw internal code (no evidence_debt /
+ * resolved_or_settled). Scanned by __tests__/argumentStateRailCopy.test.ts.
+ *
+ * The "{n}" tokens are numeric placeholders the pure model fills; they carry no
+ * letters, so the ban-list scan is trivially clean.
+ */
+export const STATE_RAIL_COPY = Object.freeze({
+  // Turn-cue chip labels (short, informational — never an enforced lock).
+  turn_your_move: 'Your move',
+  turn_waiting: 'Waiting',
+  turn_resting: 'Resting',
+  turn_observer: 'Watching',
+  // Turn-cue full screen-reader sentences.
+  turn_your_move_a11y: 'It is your move.',
+  turn_waiting_a11y: 'Waiting for the other voice to move.',
+  turn_resting_a11y: 'Nothing open right now.',
+  turn_observer_a11y: 'You are watching this argument.',
+  // Open disagreement-points count. Rendered as "{n} open point(s)".
+  open_point_word_one: 'open point',
+  open_point_word_many: 'open points',
+  open_points_a11y_suffix: 'on this argument.',
+  // Receipts-owed (open evidence-debt) count. Rendered as "{n} receipt(s) owed".
+  receipt_word_one: 'receipt owed',
+  receipt_word_many: 'receipts owed',
+  receipts_owed_a11y_suffix: 'on this argument.',
+  // Seat segment (no-new-query subset of #681).
+  seat_open_label: 'Seat open',
+  seat_open_a11y: 'Respondent seat open.',
+  // Visibility chip a11y tails (labels themselves reuse ROOM_ONE_TO_ONE_COPY).
+  visibility_public_a11y: 'Public one to one argument.',
+  visibility_private_a11y: 'Private one to one argument.',
+  visibility_details_hint: 'Opens room details.',
+  // Overflow affordance.
+  overflow_more: '+{n}',
+  overflow_more_a11y: '{n} more state chip(s). Scroll to see them.',
+  // Root strip a11y summary.
+  rail_root_a11y: 'Argument state',
+} as const);
+
+/**
  * UX-ROOM-1V1-CHIMEIN-001A — DORMANT point-scoped chime-in copy (Layer A).
  *
  * Authored now so the GATE-C (Layer B/C) card that builds the chime-in
