@@ -2004,6 +2004,41 @@ export const START_SHEET_COPY = Object.freeze({
 } as const);
 
 /**
+ * START-003 (#875) — Public-argument toggle control copy.
+ *
+ * The control chrome for the public two-tap ceremony (switch label / helper /
+ * hint, the not-yet-public + confirmed status lines, and the confirm / cancel
+ * button labels). It authors NO consequences prose: the two consequence bullets
+ * reuse ROOM_VISIBILITY_COPY.option_public_helper (visibility) and
+ * fillArgumentRoomCapacityCopy over ARGUMENT_ROOM_CREATE_COPY.capacity_public_*
+ * (capacity), so the cap/open numbers stay validator-derived. It also authors
+ * NO public->private one-way transition copy (that rule is in-room only).
+ *
+ * SEPARATE export from ARGUMENT_ROOM_CREATE_COPY so the create-copy doctrine
+ * suite stays byte-identical; scanned by
+ * __tests__/publicArgumentToggleCopyDoctrine.test.ts. No urgency / persuasion /
+ * verdict token. Comments apostrophe-free (scanner-covered file).
+ */
+export const PUBLIC_ARGUMENT_TOGGLE_COPY = Object.freeze({
+  // The switch itself — OFF by default, plainly stated (no urgency nudge).
+  switch_label: 'Make this a public argument',
+  switch_helper: 'Off by default. Turn it on to preview what public means, then confirm.',
+  switch_a11y_hint:
+    'Turning this on shows a preview of what public means. You still confirm before it takes effect.',
+
+  // Color-independent status lines (carry state as text, not color).
+  status_not_yet_public: 'Not public yet — confirm below.',
+  status_confirmed: 'Public confirmed. Anyone can find and read this argument.',
+  // The confirmed glyph is announced by this label so a reader is not left with
+  // a bare check mark.
+  confirmed_glyph_a11y: 'Confirmed',
+
+  // The second deliberate tap + the retreat.
+  confirm: 'Make it public',
+  cancel: 'Keep it private',
+} as const);
+
+/**
  * META-1B — Plain-language strings for the realtime point-tags layer.
  *
  * The realtime channel makes other participants' tag changes visible

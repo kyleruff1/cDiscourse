@@ -41,6 +41,19 @@ export { StartArgumentSheet } from './StartArgumentSheet';
 export type { StartArgumentSheetProps, PublicToggleSlotProps } from './StartArgumentSheet';
 export { PersonArgumentPicker } from './PersonArgumentPicker';
 export type { PersonArgumentPickerProps } from './PersonArgumentPicker';
+// START-003 (#875) — public two-tap ceremony toggle + its state machine.
+export { PublicArgumentToggle } from './PublicArgumentToggle';
+export type { PublicArgumentToggleProps } from './PublicArgumentToggle';
+export {
+  nextPublicToggleState,
+  resolveCreationVisibility,
+  isPublicPreviewVisible,
+  isSwitchOn,
+  initialStateForVisibility,
+  ALL_PUBLIC_TOGGLE_STATES,
+  ALL_PUBLIC_TOGGLE_EVENTS,
+} from './publicArgumentToggleModel';
+export type { PublicToggleState, PublicToggleEvent } from './publicArgumentToggleModel';
 export { useRecentOpponents } from './useRecentOpponents';
 export {
   listRecentOpponentInvites,

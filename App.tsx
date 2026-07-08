@@ -54,7 +54,11 @@ import { ArgumentTreeScreen } from './src/features/arguments';
 // START-001 (#827) — person-first start sheet + its recents hook. Mounts only
 // behind home_v2 (see the startSheetActive branch below); the legacy
 // StartArgumentPage stays the flag-off create surface.
-import { StartArgumentSheet, useRecentOpponents } from './src/features/arguments/startArgument';
+import {
+  StartArgumentSheet,
+  useRecentOpponents,
+  PublicArgumentToggle,
+} from './src/features/arguments/startArgument';
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
 // "Your Move" screen swap. The room stays mounted behind the dock.
 import { ArgumentComposerDock } from './src/features/arguments/ArgumentComposerDock';
@@ -992,6 +996,10 @@ function MainAppShell({
               setViewMode(surface === 'card' ? 'stack' : 'timeline');
               selectDebate(debate, 'moderator');
             }}
+            // START-003 (#875) — the public two-tap ceremony fills the Advanced
+            // slot. The toggle is controlled by the sheet-held visibility and
+            // emits 'public' only on its confirm transition.
+            renderPublicToggle={(toggleProps) => <PublicArgumentToggle {...toggleProps} />}
           />
         )}
         {/* HOME-001 (#874) — Arguments tab: ArgumentHome ("Your table") landing.
