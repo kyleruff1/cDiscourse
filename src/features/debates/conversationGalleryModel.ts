@@ -431,12 +431,21 @@ function kindColor(family: ConversationTimelinePreviewSegment['kindFamily']): st
  *   "Bike lanes are better curb space [xai-adv 9018694f c45188c5]"
  *   "Pitch clock changed baseball pacing [ai-corpus fa172432 ai-seed-pitch-clock]"
  *   "Sports debate [stress-2026-05-17 #scenario-7]"
- * The cleaned title becomes the dedupe key when sourceHash/scenarioId
- * aren't directly available.
+ *   "Remote work productivity [reseed-baseline-20260708-1a2b3c4d]"
+ * The cleaned title becomes the dedupe key when sourceHash / scenarioId
+ * are not directly available.
+ *
+ * HOME-001 (#874): patterns 1 and 2 gained a `reseed` alternative so the
+ * reseeder title tag `[reseed-<pack>-<yyyymmdd>-<hash8>]`
+ * (scripts/reseeder/runReseeder.js buildReseedRunTag) is recognised. The
+ * `\b`-anchored `seed-` alternative did NOT catch `reseed` (reseed has no
+ * word boundary before the inner `seed`), so a distinct alternative was
+ * required. Kept in lockstep with botRoomPolicyModel.BOT_SEED_TAG_PATTERNS
+ * (the shared parity fixture in __tests__/botRoomPolicyModel.test.ts).
  */
 const SUFFIX_TAG_PATTERNS = [
-  /\s*\[(?:xai-adv|ai-corpus|stress|stage-\d+(?:\.\d+)*|run-\d+|scenario-\d+|seed-\d+)\b[^\]]*\]\s*$/i,
-  /\s*\[(?:xai|ai|bot|corpus|stress|scenario|seed)[\w\d\s\-_:.,#]*\]\s*$/i,
+  /\s*\[(?:xai-adv|ai-corpus|stress|reseed|stage-\d+(?:\.\d+)*|run-\d+|scenario-\d+|seed-\d+)\b[^\]]*\]\s*$/i,
+  /\s*\[(?:xai|ai|bot|corpus|stress|scenario|seed|reseed)[\w\d\s\-_:.,#]*\]\s*$/i,
   /\s*\([\w\d\s\-_:.,#]*?(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d\s\-_:.,#]*?\)\s*$/i,
   /\s*#(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d_-]+\s*$/i,
 ];
@@ -453,6 +462,25 @@ export function cleanTitleForDedupe(title: string): string {
   }
   return t;
 }
+
+/**
+ * HOME-001 (#874) — the three display literals the card latestPostAuthor
+ * field can take. Hoisted from the inline ternary in the card builder so a
+ * downstream deriver (isWaitingOnViewer) can key off `LATEST_AUTHOR_LABEL.other`
+ * instead of a magic string. Emitted output is byte-identical to the prior
+ * inline literals ('You' / 'Other voice' / 'Unknown'), so existing snapshot /
+ * equality tests stay green.
+ *
+ * `latestPostAuthor` is a DISPLAY string, never a raw author id — the id is
+ * intentionally not exposed on the card. `other` means the latest non-deleted
+ * move author is a known account that is not the viewer; `you` means the viewer
+ * authored it; `unknown` means there is no attributable latest author.
+ */
+export const LATEST_AUTHOR_LABEL = Object.freeze({
+  you: 'You',
+  other: 'Other voice',
+  unknown: 'Unknown',
+} as const);
 
 function normaliseRootBodyForDedupe(s: string): string {
   return normaliseWhitespace(s)
@@ -982,10 +1010,10 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
       firstPostExcerpt: truncate(stats.rootBody, 200),
       latestPostExcerpt: truncate(stats.latestBody, 200),
       latestPostAuthor: stats.latestAuthorId === input.currentUserId
-        ? 'You'
+        ? LATEST_AUTHOR_LABEL.you
         : stats.latestAuthorId
-          ? 'Other voice'
-          : 'Unknown',
+          ? LATEST_AUTHOR_LABEL.other
+          : LATEST_AUTHOR_LABEL.unknown,
 
       createdAt: debate.createdAt,
       updatedAt: debate.updatedAt,
@@ -1448,6 +1476,144 @@ export function deriveGalleryEntryHint(card: ConversationGalleryCard): GalleryEn
 }
 
 // ── End GAL-002 region ───────────────────────────────────────
+
+// ── HOME-001 (#874) — your-turn projection ───────────────────
+//
+// A pure, deterministic projection over the already-built gallery cards that
+// answers one question: which joined disputes are waiting on the viewer, and
+// in what order should they be surfaced on the "Your table" home strip.
+//
+// Doctrine guards (cdiscourse-doctrine §1-§3): the projection reads ONLY
+// structural turn-state / recency / unread signals. It never reads heat,
+// temperament, amplification, engagement, view counts, or follower counts, and
+// it never surfaces a standing / band / winner / verdict. Fixture exclusion
+// (bot / corpus / reseed rooms) is applied by the home model layer via the
+// `fixtureDebateIds` option, keyed by raw title tag — never by popularity.
+
+/**
+ * HOME-001 — true when a card is a joined, answerable dispute whose latest
+ * non-deleted move was posted by a known OTHER voice (not the viewer, not an
+ * unattributable author). This is the "waiting on me" predicate.
+ *
+ * Requires (all four):
+ *  - `hasUserJoined === true`   — the viewer is a participant (mySide seam at
+ *    the card builder already folds `myParticipantSide != null` into this).
+ *  - `openStatus === 'open'`    — answerable (not draft / locked / archived).
+ *  - `moveCount > 0`            — there is at least one move to be waiting on.
+ *  - `latestPostAuthor === LATEST_AUTHOR_LABEL.other` — the latest non-deleted
+ *    move author is a known account that is not the viewer. `'You'` (viewer
+ *    authored latest) and `'Unknown'` (no attributable author) both return
+ *    false, so the viewer can never be "waiting on" themselves or a null author.
+ */
+export function isWaitingOnViewer(card: ConversationGalleryCard): boolean {
+  return (
+    card.hasUserJoined === true &&
+    card.openStatus === 'open' &&
+    card.moveCount > 0 &&
+    card.latestPostAuthor === LATEST_AUTHOR_LABEL.other
+  );
+}
+
+/**
+ * HOME-001 — deterministic rank for each entry-hint code used as the PRIMARY
+ * your-turn sort key. Lower rank = more actionable = surfaced first. The order
+ * mirrors "how directly does this awaited move ask the viewer to answer": a
+ * first rebuttal or a mechanism/source challenge is the most answerable; a
+ * read-only `watch_first` is the least. This is a structural actionability
+ * ordering, NOT a heat / popularity ordering (doctrine §2/§3).
+ */
+export const YOUR_TURN_HINT_RANK: Readonly<Record<GalleryEntryHintCode, number>> =
+  Object.freeze({
+    be_first_rebuttal: 0,
+    challenge_mechanism: 1,
+    ask_source: 2,
+    narrow: 3,
+    synthesize: 4,
+    join_when_ready: 5,
+    watch_first: 6,
+  });
+
+export interface DeriveYourTurnOptions {
+  /**
+   * Set of debateIds that carry an unread notification for the viewer. Pure
+   * input (built by the home model from the loaded notification list). A card
+   * whose `debateId` is in this set sorts ahead of an otherwise-equal card.
+   */
+  unreadDebateIds?: ReadonlySet<string>;
+  /**
+   * debateIds whose RAW title matches a bot / corpus / reseed fixture tag.
+   * Cards in this set are excluded for a non-admin viewer. Built from the raw
+   * `debate.title` (NOT the already-cleaned `card.title`) — see the home model
+   * `collectFixtureDebateIds`. Ignored when `isAdminViewer` is true.
+   */
+  fixtureDebateIds?: ReadonlySet<string>;
+  /** Admins keep fixture rooms visible (AC5). Non-admins get the filtered set. */
+  isAdminViewer?: boolean;
+}
+
+export interface YourTurnItem {
+  card: ConversationGalleryCard;
+  /** The pre-activation hint the room shell consumes on entry (J2 resume). */
+  entryHint: GalleryEntryHint;
+  hasUnread: boolean;
+}
+
+/**
+ * HOME-001 — build the ordered your-turn strip.
+ *
+ * Steps:
+ *  1. Filter to `isWaitingOnViewer`.
+ *  2. Apply fixture exclusion (unless `isAdminViewer`): drop any card whose
+ *     `debateId` is in `fixtureDebateIds`.
+ *  3. Rank deterministically by the tuple
+ *       [ YOUR_TURN_HINT_RANK[entryHint.code] asc,
+ *         hasUnread ? 0 : 1 asc,
+ *         -latestActivityMs (recency desc),
+ *         debateId asc (total-order tie-break) ].
+ *     Same input array => identical output order.
+ *
+ * Pure and side-effect-free: does not mutate the input array.
+ */
+export function deriveYourTurn(
+  cards: ConversationGalleryCard[],
+  opts?: DeriveYourTurnOptions,
+): YourTurnItem[] {
+  const unread = opts?.unreadDebateIds;
+  const fixtures = opts?.fixtureDebateIds;
+  const isAdmin = opts?.isAdminViewer === true;
+
+  const items: YourTurnItem[] = [];
+  for (const card of cards) {
+    if (!isWaitingOnViewer(card)) continue;
+    if (!isAdmin && fixtures !== undefined && fixtures.has(card.debateId)) continue;
+    items.push({
+      card,
+      entryHint: deriveGalleryEntryHint(card),
+      hasUnread: unread !== undefined && unread.has(card.debateId),
+    });
+  }
+
+  return items.sort((a, b) => {
+    const rankA = YOUR_TURN_HINT_RANK[a.entryHint.code];
+    const rankB = YOUR_TURN_HINT_RANK[b.entryHint.code];
+    if (rankA !== rankB) return rankA - rankB;
+
+    const unreadA = a.hasUnread ? 0 : 1;
+    const unreadB = b.hasUnread ? 0 : 1;
+    if (unreadA !== unreadB) return unreadA - unreadB;
+
+    const recencyA = a.card.sortKeys.latestActivityMs;
+    const recencyB = b.card.sortKeys.latestActivityMs;
+    if (recencyA !== recencyB) return recencyB - recencyA;
+
+    // Total-order tie-break so the ordering is fully deterministic.
+    if (a.card.debateId < b.card.debateId) return -1;
+    if (a.card.debateId > b.card.debateId) return 1;
+    return 0;
+  });
+}
+
+// ── End HOME-001 region ──────────────────────────────────────
 
 // ── GAL-001 — Play-lane grouping ─────────────────────────────
 //

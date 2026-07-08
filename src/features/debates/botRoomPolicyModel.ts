@@ -318,9 +318,16 @@ export function isBotSeededRoom(inputs: BotRoomInputs): boolean {
  * shared test fixture in `__tests__/botRoomPolicyModel.test.ts` asserts both
  * agree.
  */
+// HOME-001 (#874): patterns 1 and 2 gained a `reseed` alternative in lockstep
+// with conversationGalleryModel.SUFFIX_TAG_PATTERNS so the reseeder title tag
+// `[reseed-<pack>-<yyyymmdd>-<hash8>]` is recognised as a bot-seed tag. The
+// `\b`-anchored `seed-` alternative did not catch `reseed` (no word boundary
+// before the inner `seed`), so a distinct alternative was required. The shared
+// parity fixture in __tests__/botRoomPolicyModel.test.ts asserts both families
+// agree on the reseed family.
 const BOT_SEED_TAG_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
-  /\s*\[(?:xai-adv|ai-corpus|stress|stage-\d+(?:\.\d+)*|run-\d+|scenario-\d+|seed-\d+)\b[^\]]*\]\s*$/i,
-  /\s*\[(?:xai|ai|bot|corpus|stress|scenario|seed)[\w\d\s\-_:.,#]*\]\s*$/i,
+  /\s*\[(?:xai-adv|ai-corpus|stress|reseed|stage-\d+(?:\.\d+)*|run-\d+|scenario-\d+|seed-\d+)\b[^\]]*\]\s*$/i,
+  /\s*\[(?:xai|ai|bot|corpus|stress|scenario|seed|reseed)[\w\d\s\-_:.,#]*\]\s*$/i,
   /\s*\([\w\d\s\-_:.,#]*?(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d\s\-_:.,#]*?\)\s*$/i,
   /\s*#(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d_-]+\s*$/i,
 ]);
