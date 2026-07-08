@@ -87,8 +87,15 @@ describe('ASP-FLAGS-001 (#873) — no dynamic env-index read anywhere under src/
   });
 });
 
-describe('ASP-FLAGS-001 (#873) — zero consumers this slice', () => {
-  it('no file under src/features or src/components imports featureFlags', () => {
+describe('ASP-FLAGS-001 (#873) / HOME-001 (#874) — feature-flag consumer allowlist', () => {
+  // NOTE: HOME-001 (#874) is the first legitimate consumer of the flag
+  // registry. The nav seam (App.tsx, repo root) owns the landing choice, so the
+  // flag read lives there and NOWHERE in the feature/component tree. This guard
+  // is relaxed from the slice-02b "zero consumers" assertion into a POSITIVE
+  // allowlist: the feature/component tree must stay clean (a presentational
+  // component must never couple to global env state), and App.tsx is the sole
+  // allowlisted importer.
+  it('no file under src/features or src/components imports featureFlags (guard preserved)', () => {
     const dirs = [path.join(ROOT, 'src', 'features'), path.join(ROOT, 'src', 'components')];
     const importers: string[] = [];
     for (const dir of dirs) {
@@ -100,5 +107,12 @@ describe('ASP-FLAGS-001 (#873) — zero consumers this slice', () => {
       }
     }
     expect(importers).toEqual([]);
+  });
+
+  it('App.tsx is the sole allowlisted production consumer of the flag registry', () => {
+    const appSource = fs.readFileSync(path.join(ROOT, 'App.tsx'), 'utf8');
+    // App.tsx reads exactly the HOME-001 accessor from the registry.
+    expect(appSource).toMatch(/import\s+\{\s*isHomeV2Enabled\s*\}\s+from\s+['"]\.\/src\/lib\/featureFlags['"]/);
+    expect(appSource).toContain('isHomeV2Enabled()');
   });
 });
