@@ -51,6 +51,10 @@ import { resolveRoomDeepLinkAccess } from './src/features/debates/roomAccessMode
 import { RoomUnavailableNotice } from './src/features/debates/RoomUnavailableNotice';
 import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
 import { ArgumentTreeScreen } from './src/features/arguments';
+// START-001 (#827) — person-first start sheet + its recents hook. Mounts only
+// behind home_v2 (see the startSheetActive branch below); the legacy
+// StartArgumentPage stays the flag-off create surface.
+import { StartArgumentSheet, useRecentOpponents } from './src/features/arguments/startArgument';
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
 // "Your Move" screen swap. The room stays mounted behind the dock.
 import { ArgumentComposerDock } from './src/features/arguments/ArgumentComposerDock';
@@ -571,6 +575,10 @@ function MainAppShell({
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
   const galleryArgs = useGalleryArguments(debates.map((d) => d.id));
   const { profile: currentProfile } = useAccountProfile(state.snapshot.userId);
+  // START-001 (#827) — recent-opponent invites for the person-first sheet. The
+  // hook is a no-op ([]) when the sheet is not mounted (unconfigured / signed
+  // out); it never blocks and never enumerates other users (RLS-scoped read).
+  const recentOpponents = useRecentOpponents(state.snapshot.userId || null);
 
   const hasDebate = Boolean(state.snapshot.selectedDebateId);
 
@@ -849,6 +857,23 @@ function MainAppShell({
         })
       : null;
 
+  // START-001 (#827) — whether the person-first StartArgumentSheet is the active
+  // Arguments-tab surface. It requires home_v2 AND the start-open flag, and the
+  // same not-over-a-subscreen guards the ArgumentHome / gallery blocks use. When
+  // true it takes precedence: the ArgumentHome + gallery blocks below add
+  // `&& !startSheetActive` so exactly one surface renders. Flag OFF =>
+  // homeV2Enabled is false => startSheetActive is ALWAYS false => those guards
+  // and the gallery `showCreate` all evaluate byte-identically to today, and the
+  // legacy StartArgumentPage remains the create surface (no behavior change).
+  const startSheetActive =
+    homeV2Enabled &&
+    startArgumentOpen &&
+    activeTab === 'arguments' &&
+    !hasDebate &&
+    !notificationsOpen &&
+    !aboutOpen &&
+    !demoCorridorOpen;
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar style="auto" />
@@ -948,13 +973,35 @@ function MainAppShell({
             onOpenDeepLink={handleOpenNotificationDeepLink}
           />
         )}
+        {/* START-001 (#827) — person-first StartArgumentSheet. Mounts behind
+            home_v2 in place of the legacy StartArgumentPage (which the gallery
+            still shows when the flag is OFF). Takes precedence over the
+            ArgumentHome + gallery blocks (they add `&& !startSheetActive`), so
+            exactly one Arguments-tab surface renders. The create path is the
+            SAME `create` the gallery uses; onCreated mirrors
+            `onCreatedWithSurface` so the author lands in the chosen view. */}
+        {startSheetActive && (
+          <StartArgumentSheet
+            onCreate={create}
+            recents={recentOpponents.recents}
+            recentsLoading={recentOpponents.loading}
+            onCancel={() => setStartArgumentOpen(false)}
+            onCreated={(debate, surface) => {
+              setEntryHint(null);
+              setStartArgumentOpen(false);
+              setViewMode(surface === 'card' ? 'stack' : 'timeline');
+              selectDebate(debate, 'moderator');
+            }}
+          />
+        )}
         {/* HOME-001 (#874) — Arguments tab: ArgumentHome ("Your table") landing.
             Mounts ONLY when the home_v2 flag is on AND the lane is 'home'. The
             belt-and-braces homeV2Enabled guard means a stale 'home' lane value
             can never mount this with the flag off. Mutually exclusive with the
             gallery-with-toolbar block below (guarded by galleryLane !== 'home'),
-            so the two never co-render. */}
-        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && galleryLane === 'home' && homeV2Enabled && (
+            so the two never co-render. START-001 — `&& !startSheetActive` hides
+            Home while the start sheet is open (flag-off: always true, no-op). */}
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && !startSheetActive && galleryLane === 'home' && homeV2Enabled && (
           <ArgumentHome
             debates={debates}
             argumentsByDebateId={galleryArgs.argumentsByDebateId}
@@ -979,8 +1026,12 @@ function MainAppShell({
             onOpenNotificationDeepLink={handleOpenNotificationDeepLink}
           />
         )}
-        {/* Arguments tab: Conversation Gallery (no room selected). */}
-        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && galleryLane !== 'home' && (
+        {/* Arguments tab: Conversation Gallery (no room selected).
+            START-001 — `&& !startSheetActive` hides the gallery (and its legacy
+            StartArgumentPage create surface) while the person-first sheet is
+            open. Flag OFF: startSheetActive is always false, so this is a no-op
+            and the gallery renders byte-identically to today. */}
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && !startSheetActive && galleryLane !== 'home' && (
           <View style={styles.galleryWithToolbar}>
             {/* QOL-040 — gallery toolbar exposes the
                 "Notifications" entry. The badge mirrors the tab
@@ -1053,7 +1104,13 @@ function MainAppShell({
               // safe: this block only renders when galleryLane !== 'home'.
               activeLane={galleryLane as ConversationGallerySection | 'all'}
               onActiveLaneChange={setGalleryLane}
-              showCreate={startArgumentOpen}
+              // START-001 (#827) — under home_v2 ALL start entries open the new
+              // StartArgumentSheet (the startSheetActive branch above), so the
+              // gallery must NOT also show the legacy StartArgumentPage. Gating
+              // showCreate on `!homeV2Enabled` keeps the old page as the create
+              // surface ONLY when the flag is OFF, where it is byte-identical to
+              // `showCreate={startArgumentOpen}` (the previous behavior).
+              showCreate={startArgumentOpen && !homeV2Enabled}
               onShowCreateChange={setStartArgumentOpen}
             />
           </View>
