@@ -35,3 +35,31 @@ export {
   resolveStartArgumentRoute,
 } from './startArgumentRoutes';
 export type { StartArgumentRouteTarget } from './startArgumentRoutes';
+
+// START-001 (#827) — person-first start sheet + picker (mounts behind home_v2).
+export { StartArgumentSheet } from './StartArgumentSheet';
+export type { StartArgumentSheetProps, PublicToggleSlotProps } from './StartArgumentSheet';
+export { PersonArgumentPicker } from './PersonArgumentPicker';
+export type { PersonArgumentPickerProps } from './PersonArgumentPicker';
+export { useRecentOpponents } from './useRecentOpponents';
+export {
+  listRecentOpponentInvites,
+  RECENT_OPPONENT_INVITE_READ_LIMIT,
+} from './recentOpponentsApi';
+export {
+  deriveRecentOpponents,
+  personTargetToInviteEmail,
+  personTargetToCreationIntent,
+  orderPickerRows,
+  isOpenFloorLast,
+  DEFAULT_RECENT_OPPONENTS_LIMIT,
+  _forbiddenPersonPickerTokens,
+} from './personArgumentPickerModel';
+export type {
+  PersonTarget,
+  RecentOpponent,
+  RecentInviteRow,
+  CircleOption,
+  PickerRow,
+  PickerRowKind,
+} from './personArgumentPickerModel';

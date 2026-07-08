@@ -1950,6 +1950,60 @@ export function fillArgumentRoomCapacityCopy(
 }
 
 /**
+ * START-001 (#827) — Person-first start-sheet copy.
+ *
+ * The new StartArgumentSheet + PersonArgumentPicker copy. Authored beside the
+ * create-surface copy so the gameCopy ban-list test scans one place. Every
+ * string is person-neutral and verdict-free: a person is named only as an
+ * INVITEE (an address), never with a standing / verdict / amplification word.
+ * The visibility OPTION helpers + capacity numbers + disabled-reason lines are
+ * NOT duplicated here — they stay owned by ROOM_VISIBILITY_COPY /
+ * ARGUMENT_ROOM_CREATE_COPY / the creation matrix (byte-identical). START-003
+ * owns the public-toggle ceremony copy in its own PUBLIC_ARGUMENT_TOGGLE_COPY
+ * block; this block never authors public-consequences prose.
+ *
+ * Scanned by __tests__/gameCopy.test.ts (added to the copy-group ban list).
+ * Comments here are apostrophe-free by convention (the doctrine-scanner
+ * quote-parity gotcha in this scanner-covered file).
+ */
+export const START_SHEET_COPY = Object.freeze({
+  // Sheet chrome.
+  sheetTitle: 'Start an argument',
+
+  // Who step (person-first).
+  whoStepLabel: 'Who are you arguing with?',
+  whoStepHelper: 'Pick someone you have argued with before, invite by email, or open it to the floor.',
+  recentsLabel: 'Recent',
+  recentRowA11yHint: 'Starts a private argument with this person.',
+  emailEntryLabel: 'Invite by email',
+  emailEntryPlaceholder: 'name@example.com',
+  emailEntryHelper: 'Anyone with an email works — they do not need an account first.',
+  emailEntryA11yLabel: 'Invite one person by email',
+  openFloorLabel: 'No one — open floor',
+  openFloorHelper: 'Set it up for anyone to answer. You choose public in Advanced.',
+  openFloorA11yHint: 'Opens the Advanced section so you can choose public visibility.',
+  recentsEmpty: 'No recent people yet — invite someone by email to start.',
+
+  // What step (declaration — wording matches the existing create surface).
+  pointStepLabel: 'Your point',
+  pointStepHelper: 'State the point or claim others will respond to. People respond to specific points.',
+  pointPlaceholder: 'What point are you starting with?',
+
+  // Private summary line (J3). {person} is filled with the masked invitee email.
+  privateWithPerson: 'Private — just you and {person}.',
+  privateNeedsPerson: 'Private — add one person to start.',
+
+  // Advanced disclosure (hosts the START-003 public toggle slot).
+  advancedLabel: 'Advanced',
+  advancedHelper: 'Visibility and other options.',
+
+  // Actions.
+  submitLabel: 'Start argument',
+  cancelLabel: 'Cancel',
+  submitError: 'Could not start the argument. Please try again.',
+} as const);
+
+/**
  * META-1B — Plain-language strings for the realtime point-tags layer.
  *
  * The realtime channel makes other participants' tag changes visible
