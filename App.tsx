@@ -68,6 +68,10 @@ import { useRecentOpponents } from './src/features/arguments/startArgument/useRe
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
 // "Your Move" screen swap. The room stays mounted behind the dock.
 import { ArgumentComposerDock } from './src/features/arguments/ArgumentComposerDock';
+// ROOM-003 (#829) — the one-bar entry composer. Mounted only when the
+// room_exchange_v2 flag is on (rides the same threaded boolean as the
+// ROOM-001 state rail); flag OFF leaves the dock-primary composer untouched.
+import { ArgumentEntryComposer } from './src/features/arguments/composer/ArgumentEntryComposer';
 import { AccountScreen } from './src/features/account';
 import { useAccountProfile } from './src/features/account/useAccountProfile';
 import { fetchCurrentAuthUser } from './src/features/account/accountApi';
@@ -1236,7 +1240,11 @@ function MainAppShell({
               // so the dock can show a divergence cue; render the
               // persistent collapsed composer strip via onComposerExpand.
               onActiveMessageChange={setTimelineActiveMessageId}
-              onComposerExpand={handleComposerExpand}
+              // ROOM-003 (#829) — with room_exchange_v2 ON the one-bar entry
+              // composer is the primary compose surface, so suppress the
+              // collapsed strip (ArgumentRoom renders no strip when this prop
+              // is undefined). OFF keeps today collapsed-strip behavior.
+              onComposerExpand={roomExchangeV2Enabled ? undefined : handleComposerExpand}
               // UX-001.4 — Go popout's "Leave argument" entry calls the
               // existing handleLeaveRoom path (not a new room-exit path).
               onLeaveRoom={handleLeaveRoom}
@@ -1267,6 +1275,27 @@ function MainAppShell({
               // UX-001.3 — read-only Timeline active id for divergence cue.
               activeMessageId={timelineActiveMessageId}
             />
+
+            {/* ROOM-003 (#829) — the one-bar entry composer. Mounted only
+                with room_exchange_v2 ON (co-activates with the ROOM-001 state
+                rail); it is the fast-path compose surface. Its Source + More
+                affordances open the SAME shipped dock above via
+                handleComposerExpand, so structure stays reachable and the
+                pre-send review survives on the More path. The dock stays the
+                primary composer with the flag OFF (this subtree unmounted). */}
+            {roomExchangeV2Enabled ? (
+              <ArgumentEntryComposer
+                debate={currentDebate}
+                selectedParentId={replyTarget?.id ?? null}
+                parentArgument={replyTarget?.argument ?? null}
+                activeMessageId={timelineActiveMessageId}
+                participantSide={participantSide as ParticipantSide | null}
+                reduceMotionOverride={preferences.effectiveReduceMotion}
+                onOpenMore={handleComposerExpand}
+                onSubmitSuccess={handleSubmitSuccess}
+                onClearParent={handleClearParent}
+              />
+            ) : null}
           </View>
         )}
 
