@@ -20,7 +20,7 @@ import { AuthCallbackScreen } from './src/features/auth/AuthCallbackScreen';
 import { isAuthCallbackPath } from './src/lib/auth/parseAuthCallbackUrl';
 import { LoadingNotice } from './src/components/LoadingNotice';
 import { useAuthSession } from './src/features/auth/useAuthSession';
-import { DebateListScreen, DebateDetailHeader, useDebates, useCurrentDebate, useRoomContract } from './src/features/debates';
+import { DebateDetailHeader, useDebates, useCurrentDebate, useRoomContract } from './src/features/debates';
 // ARG-ROOM-005 — public seat claiming: live active-participant count + the
 // pure seat-availability model + the post-claim side-effect resolver.
 import {
@@ -1007,19 +1007,6 @@ function MainAppShell({
               onShowCreateChange={setStartArgumentOpen}
             />
           </View>
-        )}
-        {/* Old sortable table is dev-only behind the chip; keep mount path so
-            admin / tests can still reach it via a separate route if needed. */}
-        {false && activeTab === 'arguments' && !hasDebate && (
-          <DebateListScreen
-            debates={debates}
-            loading={debatesLoading}
-            error={debatesError}
-            onRefresh={refresh}
-            onCreate={create}
-            onJoin={join}
-            onSelect={selectDebate}
-          />
         )}
 
         {/* Arguments tab: room view.

@@ -29,8 +29,15 @@ export const ROOM_COPY = {
 
 // ── Move copy ──────────────────────────────────────────────────
 
+// ASP-CLEAN-001 — primary reply-verb unification. Display labels only:
+// the move-type CODES (challenge / counter) are unchanged, so every
+// consumer keeps compiling. Reply / Disagree are the verbs the shipped
+// Stage 6.4 side-action rail already renders on default surfaces
+// (ArgumentSideActionRail.tsx reply / disagree). Counter / Challenge are
+// retired as primary reply-verb display labels; the global COPY-001 sweep
+// across the other drift sites lands in the later surface cards (P1 / P2).
 export const MOVE_COPY = {
-  challenge: 'Challenge',
+  challenge: 'Disagree',
   clarify: 'Clarify',
   dropReceipts: 'Drop receipts',
   concede: 'Concede',
@@ -38,7 +45,7 @@ export const MOVE_COPY = {
   synthesize: 'Synthesize',
   branchOff: 'Branch this off',
   reply: 'Reply',
-  counter: 'Counter',
+  counter: 'Reply',
   yourMove: 'Your Move',
 } as const;
 
