@@ -54,11 +54,11 @@ import { ArgumentTreeScreen } from './src/features/arguments';
 // START-001 (#827) — person-first start sheet + its recents hook. Mounts only
 // behind home_v2 (see the startSheetActive branch below); the legacy
 // StartArgumentPage stays the flag-off create surface.
-import {
-  StartArgumentSheet,
-  useRecentOpponents,
-  PublicArgumentToggle,
-} from './src/features/arguments/startArgument';
+import { StartArgumentSheet, PublicArgumentToggle } from './src/features/arguments/startArgument';
+// Imported from its own module path (NOT the barrel) so the barrel stays
+// supabase-free — the hook pulls src/lib/supabase transitively, and the barrel
+// is imported by presentational consumers (ConversationGalleryScreen).
+import { useRecentOpponents } from './src/features/arguments/startArgument/useRecentOpponents';
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
 // "Your Move" screen swap. The room stays mounted behind the dock.
 import { ArgumentComposerDock } from './src/features/arguments/ArgumentComposerDock';

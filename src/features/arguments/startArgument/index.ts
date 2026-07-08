@@ -41,6 +41,12 @@ export { StartArgumentSheet } from './StartArgumentSheet';
 export type { StartArgumentSheetProps, PublicToggleSlotProps } from './StartArgumentSheet';
 export { PersonArgumentPicker } from './PersonArgumentPicker';
 export type { PersonArgumentPickerProps } from './PersonArgumentPicker';
+// NOTE: useRecentOpponents / recentOpponentsApi are DELIBERATELY NOT re-exported
+// from this barrel. They import src/lib/supabase (and AsyncStorage) transitively;
+// re-exporting them here would drag supabase into the module graph of every
+// barrel consumer (e.g. ConversationGalleryScreen imports StartArgumentPage from
+// this barrel). App.tsx imports the hook from its own module path instead, so the
+// barrel stays supabase-free and presentational-only.
 // START-003 (#875) — public two-tap ceremony toggle + its state machine.
 export { PublicArgumentToggle } from './PublicArgumentToggle';
 export type { PublicArgumentToggleProps } from './PublicArgumentToggle';
@@ -54,11 +60,6 @@ export {
   ALL_PUBLIC_TOGGLE_EVENTS,
 } from './publicArgumentToggleModel';
 export type { PublicToggleState, PublicToggleEvent } from './publicArgumentToggleModel';
-export { useRecentOpponents } from './useRecentOpponents';
-export {
-  listRecentOpponentInvites,
-  RECENT_OPPONENT_INVITE_READ_LIMIT,
-} from './recentOpponentsApi';
 export {
   deriveRecentOpponents,
   personTargetToInviteEmail,
