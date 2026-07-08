@@ -113,7 +113,7 @@ import {
 } from '../cardView/cardDetailModel';
 // MCP-MAPPING-EXPANSION-001 (Slice B) — wire the POST-STORAGE observation-
 // mapping evaluator into the active Cards-view card. The surface derives the
-// active node's set of POSITIVE persisted rawKeys, runs the Slice-A evaluator
+// POSITIVE persisted rawKeys of the active node, runs the Slice-A evaluator
 // at the `card` surface, and formats the results into the "Combination
 // observations" section. Pure + memoized; the evaluator NEVER calls the
 // classifier/network (it reads already-persisted booleans) and is NEVER in
@@ -141,7 +141,7 @@ import { MediatorNodeMarker } from '../../mediator/MediatorNodeMarker';
 // intelligence deleted).
 import { MediatorNodeInspectDetail } from '../../mediator/MediatorNodeInspectDetail';
 // UX-SELECTED-NODE-001 (O-4) — pure presentational wrapper that sections the
-// four already-mounted Inspect siblings into the v4 drawer's four named
+// four already-mounted Inspect siblings into the four named sections of the v4 drawer
 // sections ("Why this state · Other structure notes · Move forward · History").
 // Local Inspect-overlay presentation only; the siblings are composed, never
 // modified; no board / topology change.
@@ -150,7 +150,7 @@ import { getNodeMediatorMarker } from '../../mediator/nodeMediatorMarkers';
 import { helperForMediatorState } from '../../mediator/mediatorPlainLanguage';
 // UX-NEXT-MOVE-001 — "What would move this forward?" guidance for the active
 // node, rendered in the existing SelectedNodeInspectDrawer "Move forward:" slot.
-// Pure display: the move set is a deterministic function of the active node's
+// Pure display: the move set is a deterministic function of the active node
 // v4 display state (no re-derivation, no network/AI, no submit change).
 import { MediatorNextMovesCard } from '../../mediator/MediatorNextMovesCard';
 import { nextMovesForState } from '../../mediator/nextMovesForState';
@@ -218,7 +218,7 @@ import type {
 } from '../oneBox/actPopoutModel';
 import { actEntryToQuickAction } from '../oneBox/actPopoutModel';
 import type { GoJumpTarget, GoLens } from '../oneBox/goPopoutModel';
-// REF-004 — map an active Open Issue's IssueState onto an existing Go lens
+// REF-004 — map the IssueState of an active Open Issue onto an existing Go lens
 // (dims, never hides). Pure model addition; no new FocusLensId.
 import { issueStateToGoLens } from '../oneBox/goPopoutModel';
 import { quickActionToPreset, type QuickActionLabel } from '../quickActionPresets';
@@ -266,7 +266,7 @@ import { buildOpenIssue } from '../../refereeLoop';
 import type { DisagreementContract, MoveSuggestion } from '../../refereeLoop';
 import { buildRefereeCardInput } from '../cardView/refereeCardAssembly';
 // REF-004 — the Inspect-only Open Issue detail sibling overlay + the Referee
-// Card navigation-verb type. The overlay is the single home for the issue's
+// Card navigation-verb type. The overlay is the single home for the issue
 // raw provenance; it mounts beside the existing Inspect sibling overlays.
 import { InspectOpenIssueDetail } from '../cardView/InspectOpenIssueDetail';
 import type { RefereeNavVerb } from '../cardView/RefereeCardView';
@@ -303,7 +303,7 @@ export interface Props {
   debate: {
     id: string;
     title: string | null;
-    /** Optional explicit root claim body. If null, falls back to the first chronological message's body. */
+    /** Optional explicit root claim body. If null, falls back to the body of the first chronological message. */
     rootBody?: string | null;
   };
   messages: ArgumentMessageInput[];
@@ -354,7 +354,7 @@ export interface Props {
     messageId: string,
     preset?: MoveDraftPatch | null,
   ) => void;
-  /** Optional refresh trigger (e.g., the room hook's refresh). */
+  /** Optional refresh trigger (e.g., the refresh from the room hook). */
   onRefresh?: () => void;
   /**
    * Stage 6.4 — Viewer role at entry. `observer` collapses the side action
@@ -375,26 +375,26 @@ export interface Props {
    */
   entryHint?: GalleryEntryHint;
   /**
-   * PR-001 — user's visual-density preference. Passed to
-   * `buildArgumentTimelineMap({ density })`, which drives VG-004's
-   * `resolveNodeGapPx`. Defaults to `'normal'` when omitted.
+   * PR-001 — the visual-density preference of the user. Passed to
+   * `buildArgumentTimelineMap({ density })`, which drives the VG-004
+   * `resolveNodeGapPx`. Defaults to normal when omitted.
    */
   density?: TimelineDensityMode;
   /**
-   * PR-001 — user's effective reduce-motion preference (OS value
-   * composed with the user's override). When supplied it replaces the
-   * timeline board's independent OS read.
+   * PR-001 — the effective reduce-motion preference (OS value
+   * composed with the user override). When supplied it replaces the
+   * independent OS read of the timeline board.
    */
   reduceMotionOverride?: boolean;
   /**
-   * SC-005 — optional "Start an argument" CTA folded into the side action
-   * rail's expanded dock (replaces App.tsx's separate bottom actionBar).
+   * SC-005 — optional "Start an argument" CTA folded into the expanded dock
+   * of the side action rail (replaces the separate bottom actionBar in App.tsx).
    * When omitted, no CTA chip renders in the dock.
    */
   startArgumentAction?: { label: string; onPress: () => void } | null;
   /**
    * MCP-019 — the semantic-referee banner for the currently-active move, or
-   * null. Rendered as a non-blocking strip anchored under the active node's
+   * null. Rendered as a non-blocking strip anchored under the active node
    * readout (both Stack and Timeline modes). Absent → no banner; the surface
    * is byte-identical to the pre-MCP-019 render.
    */
@@ -412,7 +412,7 @@ export interface Props {
    */
   onConfirmOverride?: (choice: SemanticOverrideChoice) => void;
   /**
-   * UX-001.3 — fires when the Timeline's `activeMessageId` changes. The
+   * UX-001.3 — fires when the Timeline `activeMessageId` changes. The
    * composer reads this id (one-way) so its `ComposerContextStrip` can
    * show a divergence cue when the user has selected a different node
    * than the composer is currently bound to. Additive optional; omitted
@@ -428,13 +428,13 @@ export interface Props {
    */
   onComposerExpand?: () => void;
   /**
-   * UX-001.3 — additional context for the `CollapsedComposerStrip`'s
-   * label. The strip can use this to render the room's resolution in
+   * UX-001.3 — additional context for the `CollapsedComposerStrip`
+   * label. The strip can use this to render the room resolution in
    * the root_claim default case. Additive optional.
    */
   composerResolution?: string | null;
   /**
-   * UX-001.4 — fires when the user picks the Go popout's new
+   * UX-001.4 — fires when the user picks the new Go popout
    * `Leave argument` entry. The caller (App.tsx) wires the existing
    * `handleLeaveRoom` path (deselectDebate + cleanup); this is NOT a
    * new room-exit path. Additive optional; the Go entry renders
@@ -444,8 +444,8 @@ export interface Props {
   /**
    * ARG-ROOM-005 — live public-room seat availability, derived by the room
    * shell (App.tsx) from the active-participant count + the room visibility +
-   * the viewer's side. When present, the surface renders the read-only seat
-   * strip and drives the rail's full-room state (disabled Join chips + nudge).
+   * the side of the viewer. When present, the surface renders the read-only seat
+   * strip and drives the full-room state of the rail (disabled Join chips + nudge).
    * Absent (older callers, private rooms, tests) => no strip, chips enabled
    * (byte-identical to the pre-ARG-ROOM-005 surface).
    */
@@ -522,7 +522,7 @@ export function ArgumentRoom({
     ? buildSeatAvailabilityViewModel(seatAvailability, participantSide ?? null)
     : null;
   // UX-001.4 — band drives the per-menu presentation variant via
-  // `menuPresentationModel.resolveMenuPresentation`. UX-001.1's
+  // `menuPresentationModel.resolveMenuPresentation`. The UX-001.1
   // useHeaderBreakpoint is the single source of truth for the band.
   const { band: headerBand } = useHeaderBreakpoint();
   const menuBand: MenuBand = headerBand;
@@ -533,7 +533,7 @@ export function ArgumentRoom({
   // breakpoint helper, no second band read.
   const boardPresentation: 'sheet' | 'pane' = headerBand === 'phone' ? 'sheet' : 'pane';
   // UX-001.4 — constitution rules thread into the board-level Act mount
-  // (Act's 3-gate engine filter requires them). Pulled once at the
+  // (the Act 3-gate engine filter requires them). Pulled once at the
   // surface level so both the in-composer and the board-level mounts
   // consume identical rules (single source of truth).
   const constitution = useConstitution();
@@ -550,13 +550,13 @@ export function ArgumentRoom({
   // in the loaded slice and falls through to the `activate` policy when
   // it is absent (soft-deleted / wrong-room / RLS-hidden). The natural
   // composition of debate-list RLS + argument-row RLS + soft-delete
-  // filter (`useArgumentRoomMessages` only loads `status === 'posted'`)
+  // filter (`useArgumentRoomMessages` only loads posted rows)
   // makes `sorted.find(...)` returning undefined the single gate for
   // every inaccessible case.
   const initialActiveId = useMemo<string | null>(() => {
     // QOL-040.3 — Dev-only diagnostic for the rare fallback case. No PII;
     // only opaque ids. The pure deriver is silent; the warn lives here so
-    // the unit tests (which call the deriver directly) don't have to
+    // the unit tests (which call the deriver directly) do not have to
     // assert on a logging side effect.
     if (
       __DEV__ &&
@@ -578,7 +578,7 @@ export function ArgumentRoom({
   // is. `activeMessageId` stays the single selection source of truth; this
   // value only labels the selection (entry-hint pre-activation, default
   // latest, an explicit user pick, or a stale auto-snap to latest). It
-  // never picks the message — it only drives the readout's stale banner.
+  // never picks the message — it only drives the readout stale banner.
   const [selectionStatus, setSelectionStatus] = useState<ReadoutSelectionStatus>(
     entryHint ? 'entry_hint' : 'default_latest',
   );
@@ -633,7 +633,7 @@ export function ArgumentRoom({
   const [boardActVisible, setBoardActVisible] = useState(false);
   const [inspectVisible, setInspectVisible] = useState(false);
   const [goVisible, setGoVisible] = useState(false);
-  // UX-001.4 — Go popout's current Lens. Local state because the lens
+  // UX-001.4 — current Lens of the Go popout. Local state because the lens
   // is a render-mode preference owned by the surface, not threaded
   // through from App.tsx (a Lens dims rendering — it does NOT mutate
   // any timeline data).
@@ -652,7 +652,7 @@ export function ArgumentRoom({
       // Active message disappeared (e.g., admin removal). Snap to latest.
       // IX-004 — mark the snap as a stale fallback so the readout panel
       // shows the "That message is no longer here" banner. The next
-      // explicit user action resets the status back to 'explicit'.
+      // explicit user action resets the status back to the explicit state.
       setActiveMessageId(latestId);
       setSelectionStatus('stale_fallback');
     }
@@ -700,8 +700,8 @@ export function ArgumentRoom({
     parentHintLookup: parentLookup,
   }), [sorted, currentUserId, isAdmin, activeMessageId, deletionRequestedMap, parentLookup]);
 
-  // Enrich messages with per-message tags + flags for the timeline map's
-  // standing/tone inference.
+  // Enrich messages with per-message tags + flags for the standing/tone
+  // inference of the timeline map.
   const enrichedMessages = useMemo(() => sorted.map((m) => ({
     ...m,
     tagCodes: (tagsByArgumentId?.[m.id] || []).map((t) => t.tagCode),
@@ -712,9 +712,9 @@ export function ArgumentRoom({
     messages: enrichedMessages,
     currentUserId,
     activeMessageId,
-    // VG-004 / PR-001 — explicit density. PR-001 threads the user's
+    // VG-004 / PR-001 — explicit density. PR-001 threads the
     // visual-density preference here; `resolveNodeGapPx` falls back to
-    // 'normal' (44px) when the preference is undefined.
+    // normal (44px) when the preference is undefined.
     density: density ?? 'normal',
   }), [enrichedMessages, currentUserId, activeMessageId, density]);
 
@@ -742,8 +742,8 @@ export function ArgumentRoom({
     return m;
   }, [chronologicalIds]);
 
-  // EV-002 — Build the artifact map once per render from each message's
-  // optional `attachedEvidence` payload (typed defensively). Empty /
+  // EV-002 — Build the artifact map once per render from the optional
+  // `attachedEvidence` payload of each message (typed defensively). Empty /
   // missing payloads yield an empty list, which produces the `no_source`
   // form downstream. No service-role, no Supabase call.
   const artifactsByMessageId = useMemo<Record<string, ReadonlyArray<EvidenceArtifact>>>(
@@ -759,7 +759,7 @@ export function ArgumentRoom({
     return getTimelineEvidenceContract(argumentType, arr);
   }, [artifactsByMessageId, sorted]);
 
-  // EV-003 — Derive the room's evidence debts once per render from the same
+  // EV-003 — Derive the room evidence debts once per render from the same
   // already-fetched rows (tag codes carry the request signal; the EV-001
   // artifact map carries the resolution signal). Pure, deterministic — the
   // injected `nowMs` keeps the staleness calc honest. No new fetch, no
@@ -853,7 +853,7 @@ export function ArgumentRoom({
   }, [activeNodeMediatorMarker, activeMessageId, mediatorBoard]);
 
   // UX-NEXT-MOVE-001 — the ordered "What would move this forward?" move set for
-  // the active node. A pure function of the marker's v4 DISPLAY state (the
+  // the active node. A pure function of the v4 DISPLAY state of the marker (the
   // marker code is already projected; v4DisplayStateFor is idempotent on it and
   // satisfies the type). No board re-derivation, no network/AI, no mutation.
   // Empty when there is no actionable marker, or when the state is terminal
@@ -883,7 +883,7 @@ export function ArgumentRoom({
     const node = timelineMap.nodes.find((n) => n.messageId === activeMessageId);
     const isNodeAnchored = node != null && node.isRoot !== true;
     // The display state is irrelevant to the anchoring cue (a local UI event);
-    // pass the active marker display state when present, else neutral 'open'.
+    // pass the active marker display state when present, else the neutral open state.
     const displayState = activeNodeMediatorMarker
       ? v4DisplayStateFor(activeNodeMediatorMarker.code)
       : 'open';
@@ -965,11 +965,11 @@ export function ArgumentRoom({
     return toAnnotationChipDescriptors(marks);
   }, [refereeBanner, activeMessageId]);
 
-  // UX-001.3 — Derive the CollapsedComposerStrip's preview target. The
-  // strip names the next compose action's parent so the user always
+  // UX-001.3 — Derive the CollapsedComposerStrip preview target. The
+  // strip names the parent of the next compose action so the user always
   // sees what they would be acting on, even with the dock closed.
-  // When the Timeline has an active node, default to `'respond'` mode;
-  // otherwise (no active node) default to `'root_claim'` mode.
+  // When the Timeline has an active node, default to `respond` mode;
+  // otherwise (no active node) default to `root_claim` mode.
   const composerStripBoxType: BoxType = activeMessageId ? 'respond' : 'root_claim';
   const composerStripParent: ArgumentRow | null = useMemo(() => {
     if (!activeMessageId) return null;
@@ -1033,8 +1033,8 @@ export function ArgumentRoom({
 
   // SC-004 — Classify the actor for the dock from the currently-active
   // bubble. Observer comes from the resolved viewer role; otherwise we
-  // mirror the bubble view-model's actor (mapped onto the dock's
-  // observer-inclusive union).
+  // mirror the actor of the bubble view-model (mapped onto the
+  // observer-inclusive union of the dock).
   const dockActor: TimelineNodeActionDockActor = useMemo(() => {
     if (resolvedViewerRole === 'observer') return 'observer';
     const ba = activeViewModel?.actor;
@@ -1100,7 +1100,7 @@ export function ArgumentRoom({
     [sidecarViewModel, timelineMap, activeMessageId, selectionStatus],
   );
 
-  // UX-SELECTED-NODE-001 (§6 / row §9.3) — the active node's parent message
+  // UX-SELECTED-NODE-001 (§6 / row §9.3) — the parent message of the active node
   // id, read off the ALREADY-built timeline map (no new derivation, no fetch).
   // Drives the read-only "Go to parent point" jump on the responding-to
   // anchor. null at the root (no parent) → the affordance is omitted cleanly.
@@ -1139,7 +1139,7 @@ export function ArgumentRoom({
       debtChip.isVisible
         ? [debtChip.label, debtChip.helper].filter((s) => s && s.length > 0).join(' — ')
         : null;
-    // Zone 8 — semantic-flag labels: reuse the sidecar's semantic_flags
+    // Zone 8 — semantic-flag labels: reuse the sidecar semantic_flags
     // section chip labels (already plain-language, §10a-safe).
     const flagSection = sidecarViewModel.sections.find(
       (s) => s.kind === 'semantic_flags',
@@ -1151,8 +1151,8 @@ export function ArgumentRoom({
 
     // ── CARD-VIEW-DETAIL-HUB-001 (Slice 2) — new threaded hub inputs ──
     //
-    // ask i — parent quote: resolve the parent node's bodyPreview off the
-    // ALREADY-COMPUTED `timelineMap` (no fetch; replicates the sidecar's
+    // ask i — parent quote: resolve the parent node bodyPreview off the
+    // ALREADY-COMPUTED `timelineMap` (no fetch; replicates the sidecar
     // parent lookup at argumentReplySidecarModel.ts). null when the parent
     // is soft-deleted / RLS-hidden / out-of-slice → neutral degrade.
     const activeNode =
@@ -1164,9 +1164,9 @@ export function ArgumentRoom({
     const parentBodyPreview = parentNode ? parentNode.bodyPreview ?? null : null;
 
     // CVDH-001 Slice 3 — parent COMPARISON bubble inputs (operator
-    // refinement). The parent's ordinal / kind / actorLabel come off the
+    // refinement). The parent ordinal / kind / actorLabel come off the
     // already-computed timeline node; the raw `actor` enum (which drives the
-    // distinct bubble color per timeline-grammar) comes off the parent's
+    // distinct bubble color per timeline-grammar) comes off the parent
     // bubble view-model. All read off in-scope memos — no fetch.
     const parentViewModel = parentNode
       ? viewModels.find((v) => v.messageId === parentNode.messageId) ?? null
@@ -1177,7 +1177,7 @@ export function ArgumentRoom({
     const parentActorLabel = parentNode ? parentNode.actorLabel : null;
     const parentMessageId = parentNode ? parentNode.messageId : null;
 
-    // ask ii — structural labels: the node's dropped-tag qualifiers, already
+    // ask ii — structural labels: the dropped-tag qualifiers of the node, already
     // plain-language on the timeline node. Defensive: drop any value that
     // still looks like an internal code (never echo a raw code).
     const structuralTagLabels = (activeNode?.droppedTags ?? [])
@@ -1251,7 +1251,7 @@ export function ArgumentRoom({
   // and format the results into the "Combination observations" section. The
   // evaluator reads already-persisted booleans; it NEVER calls the classifier
   // / network and is NEVER in the submit/acceptance path (engine.ts is the
-  // sole gate). Memoized on the active node's persisted rows so it recomputes
+  // sole gate). Memoized on the persisted rows of the active node so it recomputes
   // only when the active node or its observations change.
   const activeMappingSection = useMemo(() => {
     if (!activeMessageId) return null;
@@ -1274,7 +1274,7 @@ export function ArgumentRoom({
   // resident here and route them through the #850 descriptor layer (via the
   // #851 pure adapter) into a small calm list of renderable feedback-flag view
   // models. Own-bubble challenge-adjacent suppression uses the resident
-  // `activeViewModel.actor === 'self'` signal ('unknown' → not own → no
+  // `activeViewModel.actor === self` signal (unknown → not own → no
   // over-suppression). This never calls the classifier / network and is never
   // in the submit path.
   //
@@ -1298,8 +1298,8 @@ export function ArgumentRoom({
   // touches the engine / role / stage gates inside `actPopoutModel`.
   // UX-001.4 is presentation + wiring only.
 
-  // The active node's lifecycle stage drives Act's stage promotion and
-  // Inspect's emphasized-section pull. `null` when no node is selected
+  // The lifecycle stage of the active node drives the Act stage promotion and
+  // the Inspect emphasized-section pull. `null` when no node is selected
   // or LIFE-001 has no entry for the cluster.
   const activeClusterId = useMemo(() => {
     if (!activeMessageId) return null;
@@ -1311,7 +1311,7 @@ export function ArgumentRoom({
     return lifecycleMap.byCluster.get(activeClusterId)?.state ?? null;
   }, [activeClusterId, lifecycleMap]);
 
-  // The active node's parent argument type — Act's hard engine gate
+  // The parent argument type of the active node — the Act hard engine gate
   // keys off it. `null` for a root-claim context (no parent) and when
   // no node is selected (Act on the room itself).
   const activeParentType = useMemo<ConstitutionArgumentType | null>(() => {
@@ -1339,7 +1339,7 @@ export function ArgumentRoom({
   // prop) so a late classifier result (a new `persistedObservationsByArgumentId`
   // entry or an updated `refereeBanner`) re-derives the card on the next
   // render — no imperative refresh, no subscription. The assembly helper is
-  // pure (no fetch, no Edge, no classifier call); REF-002's `buildOpenIssue`
+  // pure (no fetch, no Edge, no classifier call); the REF-002 `buildOpenIssue`
   // runs the Act / suggested joins internally with the engine + role hard
   // gates. The card is NEVER in any submit path. `null` when no active node.
   // REF-006-RAIL — per-node parent argument type (O(1)). Generalizes
@@ -1376,7 +1376,7 @@ export function ArgumentRoom({
       // All debts attached to the node; the assembly helper OPEN-filters.
       const nodeDebts = getNodeEvidenceDebtSummary(messageId, evidenceDebts).debts;
 
-      // Source-chain status — the cluster's worst evidence status (a real
+      // Source-chain status — the worst evidence status of the cluster (a real
       // SourceChainStatus); null when no cluster summary exists.
       const sourceChainStatus = clusterSummary?.worstEvidenceStatus ?? null;
 
@@ -1561,10 +1561,10 @@ export function ArgumentRoom({
     });
   }, [openIssueCandidates, activeMessageId]);
 
-  // "Acting on" label for the board-level Act mount. The composer's
+  // "Acting on" label for the board-level Act mount. The composer
   // `composerActingOnModel.deriveComposerActingOnLabel` is the same
-  // helper UX-001.3's `ComposerContextStrip` consumes; reusing it
-  // keeps Act's header and the composer's compact strip synchronized.
+  // helper the UX-001.3 `ComposerContextStrip` consumes; reusing it
+  // keeps the Act header and the composer compact strip synchronized.
   // `null` when no node is selected.
   const boardActActingOnLabel = useMemo<string | null>(() => {
     if (!activeMessageId) return null;
@@ -1588,7 +1588,7 @@ export function ArgumentRoom({
     return buildInspectContent({ sidecarViewModel });
   }, [sidecarViewModel]);
 
-  // Inspect's prev / next traversal — wraps the existing chronological
+  // Inspect prev / next traversal — wraps the existing chronological
   // navigation. `null` at the ends (no wrap, per IX-003).
   const inspectHasPrev = useMemo(
     () => Boolean(getPreviousMessageId(chronologicalIds, activeMessageId)),
@@ -1599,7 +1599,7 @@ export function ArgumentRoom({
     [chronologicalIds, activeMessageId],
   );
 
-  // Go's mini-map model — built once per timelineMap change. Empty
+  // Go mini-map model — built once per timelineMap change. Empty
   // collapse state (every branch expanded) matches the existing
   // behavior; BR-001 wiring is a separate follow-up.
   const goMiniMap = useMemo(
@@ -1608,7 +1608,7 @@ export function ArgumentRoom({
   );
   // Full-coverage viewport window — the board-level Go mount does not
   // (yet) thread per-scroll viewport state through; a full-coverage
-  // window keeps the mini-map's region indicator faithful for now.
+  // window keeps the mini-map region indicator faithful for now.
   const goViewportWindow = useMemo(
     () => ({ xStartFraction: 0, xEndFraction: 1, coversAll: true }),
     [],
@@ -1666,10 +1666,10 @@ export function ArgumentRoom({
   }, []);
 
   // IX-004 — every explicit selection mutation (tap, Prev, Next, Latest,
-  // Back-to-root, keyboard nav) marks the selection 'explicit' so a
-  // lingering 'stale_fallback' banner is cleared the moment the user
-  // moves on. Only the auto-snap on a vanished message stays
-  // 'stale_fallback'.
+  // Back-to-root, keyboard nav) marks the selection explicit so a
+  // lingering stale-fallback banner is cleared the moment the user
+  // moves on. Only the auto-snap on a vanished message stays in the
+  // stale-fallback state.
   // UX-001.2 — Every explicit selection move also dismisses the
   // microMoment banner (transient on first meaningful interaction).
   const handleActivate = useCallback((id: string) => {
@@ -1678,8 +1678,8 @@ export function ArgumentRoom({
     setMicroMomentDismissed(true);
   }, []);
   // UX-SELECTED-NODE-001 (§6 / §9.3) — "Go to parent point". A READ-ONLY
-  // navigation jump that selects the active node's parent — the SAME
-  // setActiveMessageId path the 005 rail's "View in timeline" jump uses. No
+  // navigation jump that selects the parent of the active node — the SAME
+  // setActiveMessageId path the 005 rail "View in timeline" jump uses. No
   // routing-semantics change, no submit, no write. Returns early at the root
   // (no parent), where the affordance is not rendered anyway.
   const handleGoToParentPoint = useCallback(() => {
@@ -1772,7 +1772,7 @@ export function ArgumentRoom({
 
   // REF-005 — bubble / popover control interceptor. The `flag` control opens
   // the structured Request-review composer (by setting the target message id)
-  // instead of firing the loose `handleAction('flag')` notify; every other
+  // instead of firing the loose handleAction flag notify; every other
   // control delegates to the existing handleAction path unchanged. Used by the
   // active-bubble chip cluster AND the timeline node popover (both previously
   // routed a bare `flag` straight to the host). `setRequestReviewTarget` is a
@@ -1801,7 +1801,7 @@ export function ArgumentRoom({
   // `actionDockToComposerPreset` result through the optional `preset`
   // argument on `handleAction`. The room shell uses the supplied preset
   // verbatim instead of recomputing one from the bubble control, so the
-  // dock's chosen scaffolding (e.g. `NARROW_PRESET_BODY`) lands in the
+  // chosen scaffolding of the dock (e.g. `NARROW_PRESET_BODY`) lands in the
   // composer body field on mount. The user can still edit before submit.
   const handleActionDockAction = useCallback((
     action: TimelineNodeActionDockActionCode,
@@ -1813,11 +1813,11 @@ export function ArgumentRoom({
       target.kind === 'node' ? target.messageId : target.branchRootMessageId;
 
     // COMPOSER-001 — Resolve the parent argumentType for the preset
-    // computation. For node targets that's the message's own type (the
+    // computation. For node targets that is the own type of the message (the
     // composer treats the targeted message as its parent when replying);
-    // for cluster / collapsed_stub targets we use the branch root's type.
+    // for cluster / collapsed_stub targets we use the branch root type.
     // null is safe — the SC-004 preset bodies for narrow / confirm /
-    // synthesize don't depend on parent type; only `challenge` does.
+    // synthesize do not depend on parent type; only challenge does.
     const targetMsg = sorted.find((m) => m.id === targetMessageId) || null;
     const parentType = (targetMsg?.argumentType ?? null) as ArgumentType | null;
     const preset = actionDockToComposerPreset(action, target, parentType);
@@ -1899,14 +1899,14 @@ export function ArgumentRoom({
   // REF-004 — the SINGLE Act entry→box bridge. Extracted verbatim from the
   // board-Act `handleBoardActSelectBoxType` body so "Act changes the issue" is
   // ONE code path: `actEntryToQuickAction(entryId)` → `quickActionToPreset` →
-  // `handleAction('reply', activeMessageId ?? '', preset)` (the EXISTING
+  // the reply handleAction on the active message with the preset (the EXISTING
   // composer-open path; no submit, no new preset, no new fetch, no engine/role
   // gate call). A `null` quickAction (the non-padded `reply` /
   // `respond_to_concession` / `offer_concession` entries) opens the composer
   // with no forced preset — identical to the board Act path.
   // REF-006-RAIL — generalized with optional explicit target args. Existing
   // call sites pass no extra args → `targetMessageId`/`targetParentType` are
-  // undefined → `activeMessageId ?? ''` / `activeParentType` (byte-identical
+  // undefined → the active message fallback / `activeParentType` (byte-identical
   // behavior). The Open Issues rail passes an explicit target node + its
   // parent type so a move can open the composer on a NON-active node.
   const enterBoxForActEntry = useCallback(
@@ -1941,7 +1941,7 @@ export function ArgumentRoom({
     setDeletionTarget(null);
   }, []);
 
-  // SC-005 — mutual exclusion between the side action rail's dock and the
+  // SC-005 — mutual exclusion between the side action rail dock and the
   // SC-002/SC-004 timeline node selection. Expanding the rail clears the
   // node-action target (one-open-at-a-time); selecting a node target
   // collapses the rail reactively via the `isAnyPanelOpen` prop the rail
@@ -2064,7 +2064,7 @@ export function ArgumentRoom({
   // ── UX-001.4 — Board menu callbacks ──
   //
   // The board-level Act mount routes box-opening entries through the
-  // existing composer + draft-registry path (reuses UX-001.3's
+  // existing composer + draft-registry path (reuses the UX-001.3
   // quickActionPresets + actEntryToQuickAction). Direct entries route
   // through the existing `handleAction` callback the rail / dock
   // already use. Role-change entries route through `onJoinSide` or
@@ -2076,10 +2076,10 @@ export function ArgumentRoom({
     (entryId: ActEntryId) => {
       // REF-004 — delegate to the shared `enterBoxForActEntry` bridge (the
       // extracted body: actEntryToQuickAction(entryId) → quickActionToPreset →
-      // handleAction('reply', activeMessageId ?? '', preset)), then close the
+      // the reply handleAction on the active message with the preset), then close the
       // board Act menu. Behavior is byte-equivalent to the pre-REF-004 inline
-      // body (the prior `if (activeMessageId) … else handleAction('reply', '',
-      // …)` collapses to `activeMessageId ?? ''`).
+      // body (the prior active-message conditional collapses to the same
+      // active-message fallback).
       enterBoxForActEntry(entryId);
       setBoardActVisible(false);
     },
@@ -2102,8 +2102,8 @@ export function ArgumentRoom({
         handleAction('request_deletion', activeMessageId);
       }
       // `make_private` is owned by DebateDetailHeader. The Act
-      // popout's role gate already filters this entry on the room
-      // target; if it surfaces on a node it's a no-op.
+      // popout role gate already filters this entry on the room
+      // target; if it surfaces on a node it is a no-op.
       setBoardActVisible(false);
     },
     [activeMessageId, handleAction],
@@ -2131,7 +2131,7 @@ export function ArgumentRoom({
   // Inspect → Act handoff. Closes Inspect (the chassis handles that
   // via its own onClose call after onHandoffToAct returns) and opens
   // Act on the SAME selected node. The actEntryId is surfaced via the
-  // popout's accessibility label; v1 does not scroll/focus the specific
+  // popout accessibility label; v1 does not scroll/focus the specific
   // entry inside Act (deferred per design §4.4).
   const handleInspectHandoffToAct = useCallback(
     (_entryId: ActEntryId) => {
@@ -2141,8 +2141,8 @@ export function ArgumentRoom({
     [],
   );
 
-  // Go's view / density / lens callbacks. View toggle ↔ mode (Cards /
-  // Timeline). Density is owned upstream (PR-001) — Go's density
+  // Go view / density / lens callbacks. View toggle ↔ mode (Cards /
+  // Timeline). Density is owned upstream (PR-001) — the Go density
   // entries are present but currently no-ops (the host already
   // controls density via the props). Lens is local to the surface.
   const handleGoJump = useCallback(
@@ -2166,16 +2166,16 @@ export function ArgumentRoom({
 
   // REF-004 — Inspect handoff. Opens the EXISTING Inspect popout on the active
   // node; the InspectOpenIssueDetail sibling overlay (gated on inspectVisible +
-  // the active issue) then renders the issue's full detail + its Inspect-only
+  // the active issue) then renders the full detail of the issue + its Inspect-only
   // raw provenance. Read-only for every role (no Act routing fires here).
   const handleRefereeInspect = useCallback(() => {
     setInspectVisible(true);
   }, []);
 
-  // REF-004 — Go handoff. Jumps to the issue's target node and focuses the
-  // board by the issue's state-derived lens (`issueStateToGoLens`). A lens DIMS
+  // REF-004 — Go handoff. Jumps to the target node of the issue and focuses the
+  // board by the state-derived lens of the issue (`issueStateToGoLens`). A lens DIMS
   // timeline nodes, so the board is switched to timeline view first; the lens
-  // can never hide a node (shipped applyTimelineLens has no 'hidden' emphasis).
+  // can never hide a node (shipped applyTimelineLens has no hidden emphasis).
   // The affordance hides when `targetNodeId == null`, so this is never reached
   // with a null target — the guard is defensive. Reads ONLY the procedural
   // IssueState (no heat / popularity / strength signal).
@@ -2188,7 +2188,7 @@ export function ArgumentRoom({
     setMicroMomentDismissed(true);
     // A lens dims TIMELINE nodes — the board must be in timeline view to read.
     if (mode !== 'timeline') setMode('timeline');
-    // Filter half — the existing setGoLens path the GoPopout's onSelectLens uses.
+    // Filter half — the existing setGoLens path the GoPopout onSelectLens uses.
     setGoLens(issueStateToGoLens(issue.state));
   }, [refereeCardIssue, mode]);
 
@@ -2206,22 +2206,22 @@ export function ArgumentRoom({
   //
   // Pure-TS resolver decides the effect; the host dispatches. The
   // composerFocused check is read indirectly via the keyboard
-  // resolver's input — `useComposerFocusContext` lives on the
+  // resolver input — `useComposerFocusContext` lives on the
   // composer side, so this surface uses a simpler signal: the
   // composer is "focused" when an open menu is NOT the cause and a
-  // text input has focus. Since this surface doesn't host the
+  // text input has focus. Since this surface does not host the
   // composer, the conservative default is to treat the board as
-  // focused when the surface itself is mounted; the composer's own
-  // shortcut handler already returns 'none' when it isn't focused, so
+  // focused when the surface itself is mounted; the own shortcut
+  // handler of the composer already returns none when it is not focused, so
   // the only collision is a TextInput inside the surface (none in v1).
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     if (typeof document === 'undefined' || !document.addEventListener) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      // The composer's focus context lives in ArgumentComposerDock.
+      // The composer focus context lives in ArgumentComposerDock.
       // This handler runs at the surface level; we approximate
       // composerFocused by checking if the focused element is a
-      // text input / contenteditable (the composer's TextInput is
+      // text input / contenteditable (the composer TextInput is
       // the only such element rendered while the room is mounted).
       const activeEl = document.activeElement as HTMLElement | null;
       const composerFocused =
@@ -2276,8 +2276,8 @@ export function ArgumentRoom({
 
   // ── CARD-VIEW-REFINE-001 — Stack-mode ←/→ (+ Home/End) keyboard nav ──
   //
-  // Document-level keydown ACTIVE ONLY in Stack (Cards) mode (mode === 'stack')
-  // so it never double-fires with the Timeline's own ArrowLeft/Right handler.
+  // Document-level keydown ACTIVE ONLY in Stack (Cards) mode (mode === stack)
+  // so it never double-fires with the own ArrowLeft/Right handler of the Timeline.
   // ArrowLeft → previous (older) move; ArrowRight → next (newer) move;
   // Home/End → oldest/newest. Chronological prev/next is correct for the
   // stack — this deliberately does NOT use the Timeline DAG navigation.
@@ -2342,8 +2342,8 @@ export function ArgumentRoom({
   // apply-manual-tag Edge Function (the single write path; never a direct
   // client insert) and refresh the room on success so the persisted tag
   // hydrates the metadata ledger. No tag-apply UI control is wired yet —
-  // SC-004 / TimelineNodeActionDock's tag affordance is a thin follow-up
-  // card (META-1A's acceptance criterion "UI reflects persisted state" is
+  // SC-004 / the TimelineNodeActionDock tag affordance is a thin follow-up
+  // card (the META-1A acceptance criterion "UI reflects persisted state" is
   // met by the read path above). These callbacks are exposed so that
   // follow-up control can call them without re-plumbing the Edge Function.
   const handleApplyManualTag = useCallback(async (
@@ -2385,7 +2385,7 @@ export function ArgumentRoom({
     // in this file. The single mediator-board derivation (above) is consumed by
     // all columns and never re-derived. On phone the wrapper renders one
     // vertical column (byte-identical to today); the col3 rail is a collapsed
-    // bottom sheet (`presentation='sheet'`). On tablet/wide the rail docks as a
+    // bottom sheet (presentation sheet). On tablet/wide the rail docks as a
     // persistent pane. col1 JSX is emitted BEFORE col2 JSX in source order
     // (uxOneOneTwoChromeLayerRemovals indexOf pins).
     <RoomBoardLayout
@@ -2424,7 +2424,7 @@ export function ArgumentRoom({
         // (+ participant bubble actions) OR the horizontal timeline map. The
         // supporting panels (readout / score / chip / composer) move into col2
         // below; on phone the single-column wrapper re-stacks them directly
-        // beneath this body, preserving today's vertical order.
+        // beneath this body, preserving the vertical order used today.
         <View style={styles.body}>
           {mode === 'stack' ? (
           // ASP-EXTRACT-001 (Slice 2) — the mode === stack body is now the
@@ -2502,7 +2502,7 @@ export function ArgumentRoom({
         // immediately below the col1 body; on tablet they ride in the left
         // spine; on wide they own the middle column. The JSX is MOVED, not
         // changed — same props, same handlers, same testIDs. col2 JSX is
-        // emitted AFTER col1's ArgumentTimelineMap in source order, so the
+        // emitted AFTER the col1 ArgumentTimelineMap in source order, so the
         // uxOneOneTwoChromeLayerRemovals indexOf pins (TimelineMap before
         // ScoreTracker / Readout) still hold.
         mode === 'timeline' ? (
@@ -3021,7 +3021,7 @@ export function ArgumentRoom({
         // SC-005 — "selected node" means an EXPLICIT SC-002/SC-004 node
         // selection, not the always-present default-active message. This
         // is what keeps the default room-entry collapsed label "Watch"
-        // (per the design's edge-case table) rather than "Actions on this
+        // (per the edge-case table of the design) rather than "Actions on this
         // point" the moment the room mounts.
         hasSelectedNode={Boolean(selectedDockTarget)}
         // REF-006-RAIL — also force-collapse when the Open Issues rail is
@@ -3091,7 +3091,7 @@ export function ArgumentRoom({
           }}
           onSendForModeratorReview={() => {
             // v1 interim: the existing, unchanged "Send for review" callback
-            // (handleAction('flag', …) → host onAction). Nothing hides
+            // (the flag handleAction → host onAction). Nothing hides
             // automatically; a human moderator acts. REF-005B replaces this
             // with the persisted, RLS-gated moderator concern queue.
             if (requestReviewTarget) handleAction('flag', requestReviewTarget);
@@ -3114,9 +3114,9 @@ const styles = StyleSheet.create({
   // entries were removed when the ArgumentGameSurface.header block was
   // deleted. The title + mode toggle moved to the compact strip in
   // DebateDetailHeader; the "Latest: …" line is subsumed by the
-  // selected-readout panel's "what this move says" line.
+  // "what this move says" line of the selected-readout panel.
   // UX-BOARD-READABILITY-001 (2026-06-19): col1 gutters 8 -> 12 (matches the
-  // strip's paddingHorizontal:12) so the timeline/stack content has calmer side
+  // strip paddingHorizontal:12) so the timeline/stack content has calmer side
   // air. Surface-local; col1/col2 JSX order + board derivation unchanged.
   body: { flex: 1, paddingHorizontal: 12, paddingBottom: 12 },
   microMoment: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1e1b4b', borderBottomWidth: 1, borderBottomColor: '#312e81' },
