@@ -17,6 +17,7 @@ import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import type { Debate } from '../debates/types';
 import type { SeatAvailability } from '../debates/seatClaimModel';
+import type { RoomContractViewModel } from '../debates/roomContractModel';
 import type { GalleryEntryHint } from '../debates/conversationGalleryModel';
 import type { ArgumentRow } from './types';
 import type { ArgumentMessageInput, ArgumentBubbleControl, ArgumentSurfaceMode } from './argumentGameSurfaceModel';
@@ -113,9 +114,20 @@ interface Props {
    * notice. Only reached for an authorized chip. Optional.
    */
   onOpenPriorRoom?: (targetDebateId: string) => void;
+  /**
+   * ROOM-001 (#876) — ambient ArgumentStateRail wiring. All additive optional
+   * pass-through props; forwarded verbatim to the game surface (ArgumentRoom).
+   * `roomExchangeV2Enabled` gates the rail mount (default OFF => not mounted);
+   * `roomContract` / `roomVisibility` feed the rail turn cue + visibility badge;
+   * `onOpenRoomDetails` is the visibility/seat chip in-app deep-link.
+   */
+  roomExchangeV2Enabled?: boolean;
+  roomContract?: RoomContractViewModel;
+  roomVisibility?: 'public' | 'private';
+  onOpenRoomDetails?: () => void;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails }: Props) {
   const {
     cache,
     viewport,
@@ -179,6 +191,10 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         onLeaveRoom={onLeaveRoom}
         seatAvailability={seatAvailability}
         onOpenPriorRoom={onOpenPriorRoom}
+        roomExchangeV2Enabled={roomExchangeV2Enabled}
+        roomContract={roomContract}
+        roomVisibility={roomVisibility}
+        onOpenRoomDetails={onOpenRoomDetails}
       />
     );
   }
@@ -330,9 +346,14 @@ interface FullRoomGameSurfaceMountProps {
   seatAvailability?: SeatAvailability | null;
   /** QUOTE-FORGE-001 — open a referenced prior settled argument room. */
   onOpenPriorRoom?: (targetDebateId: string) => void;
+  /** ROOM-001 (#876) — ambient state rail pass-through (see Props above). */
+  roomExchangeV2Enabled?: boolean;
+  roomContract?: RoomContractViewModel;
+  roomVisibility?: 'public' | 'private';
+  onOpenRoomDetails?: () => void;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -594,6 +615,12 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
             });
           }
         }}
+        // ROOM-001 (#876) — ambient state rail pass-through to the room
+        // orchestrator. Flag OFF => the rail subtree is never mounted.
+        roomExchangeV2Enabled={roomExchangeV2Enabled}
+        roomContract={roomContract}
+        roomVisibility={roomVisibility}
+        onOpenRoomDetails={onOpenRoomDetails}
       />
       {/* QUOTE-FORGE-001 — the create-link picker sheet. On-demand overlay
           opened from the timeline-header affordance; caller-scoped create

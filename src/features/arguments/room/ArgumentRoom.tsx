@@ -96,6 +96,7 @@ import {
   deriveEvidenceDebts,
   getNodeEvidenceDebtChip,
   getNodeEvidenceDebtSummary,
+  getRoomEvidenceDebtSummary,
   getTimelineEvidenceContract,
   type EvidenceArtifact,
   type EvidenceDebtArgumentInput,
@@ -177,6 +178,11 @@ import {
 import { diffPointTagSets, pickLatestChange } from '../../metadata/pointTagsRealtime';
 import type { ManualTagCode } from '../../metadata';
 import { ROOM_REALTIME_COPY, looksLikeInternalCode } from '../gameCopy';
+// ROOM-001 (#876) — ambient state rail + its pure model. Consumes the already
+// derived mediatorBoard + evidenceDebts as precomputed counts; never re-derives.
+import { ArgumentStateRail } from './ArgumentStateRail';
+import { deriveArgumentStateRail } from './argumentStateRailModel';
+import type { RoomContractViewModel } from '../../debates/roomContractModel';
 import type { PersistedPointTag, MachineObservationResultRow } from '../types';
 import {
   buildTimelineNodeActionDockModel,
@@ -475,6 +481,16 @@ export interface Props {
    * timeline header. Omitting it hides the affordance (calm default).
    */
   onOpenLinkPicker?: () => void;
+  /**
+   * ROOM-001 (#876) — ambient ArgumentStateRail wiring. Additive optional. The
+   * flag gates the mount (default OFF => rail never mounted, room byte-identical
+   * to today); roomContract + roomVisibility feed the turn / visibility cue;
+   * onOpenRoomDetails is an in-app state jump (never a route).
+   */
+  roomExchangeV2Enabled?: boolean;
+  roomContract?: RoomContractViewModel;
+  roomVisibility?: 'public' | 'private';
+  onOpenRoomDetails?: () => void;
 }
 
 export function ArgumentRoom({
@@ -513,6 +529,10 @@ export function ArgumentRoom({
   onOpenLinkedPrior,
   onViewLinkedPriorContext,
   onOpenLinkPicker,
+  roomExchangeV2Enabled,
+  roomContract,
+  roomVisibility,
+  onOpenRoomDetails,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // ARG-ROOM-005 — read-only seat-availability display + rail full-room state.
@@ -823,6 +843,32 @@ export function ArgumentRoom({
       activeNodeId: activeMessageId,
     }),
     [debate.id, timelineMap, lifecycleMap, evidenceDebts, persistedObservationsByArgumentId, activeMessageId],
+  );
+
+  // ROOM-001 (#876) — ambient state rail counts + model. Both counts READ the
+  // board / debts derived above (no second board derivation). The live-point
+  // rule matches the DisagreementPointsRail selectLivePoints rule so the counts
+  // never drift. Read-only projection: no fetch, no write, never a submit gate.
+  const openPointCount = useMemo(
+    () => mediatorBoard.points.filter((p) => p.state !== 'resolved_or_settled').length,
+    [mediatorBoard],
+  );
+  const receiptsOwedCount = useMemo(
+    () => getRoomEvidenceDebtSummary(debate.id, evidenceDebts).openCount,
+    [debate.id, evidenceDebts],
+  );
+  const stateRailModel = useMemo(
+    () =>
+      deriveArgumentStateRail({
+        viewerRole: resolvedViewerRole,
+        participantSide: participantSide ?? null,
+        turnLabel: roomContract?.turnLabel ?? null,
+        visibility: roomVisibility ?? 'private',
+        opponentSeatIsOpen: roomContract?.opponentSeat.isOpen ?? false,
+        openPointCount,
+        receiptsOwedCount,
+      }),
+    [resolvedViewerRole, participantSide, roomContract, roomVisibility, openPointCount, receiptsOwedCount],
   );
 
   // UX-MEDIATOR-002 — the SINGLE primary state chip for the active node,
@@ -2393,16 +2439,32 @@ export function ArgumentRoom({
       accessibilityLabel="argument-game-surface"
       testID="argument-game-surface"
       topBanner={
-        /* UX-001.2 — microMoment banner. Repositioned out of the old
-           ArgumentGameSurface.header (which was deleted) so it now sits
-           directly under the AppHeader + compact strip. The banner is
-           transient: it dismisses on the first meaningful Timeline
-           interaction (handleActivate / handlePrev / handleNext /
-           handleToggleMode / onJumpLatest / onJumpToRoot). The visual
-           treatment, copy, accessibility behavior, and triggering logic
-           are unchanged from QOL-040.3 — only the persistence model is
-           updated. A new entryHint re-shows the banner. */
-        entryHint?.verbPhrase && !microMomentDismissed ? (
+        <>
+          {/* ROOM-001 (#876) — ambient state rail ABOVE the microMoment, gated
+              behind room_exchange_v2 (flag OFF => never mounted, topBanner
+              byte-identical). Deep-links are in-app state jumps (never a route).
+              */}
+          {roomExchangeV2Enabled ? (
+            <ArgumentStateRail
+              model={stateRailModel}
+              onOpenMap={() => {
+                if (mode !== 'timeline') setMode('timeline');
+              }}
+              onOpenDebts={() => handleOpenAnalysisSurface('disagreement')}
+              onOpenRoomDetails={onOpenRoomDetails}
+              reduceMotion={reduceMotionOverride === true}
+            />
+          ) : null}
+          {/* UX-001.2 — microMoment banner. Repositioned out of the old
+              ArgumentGameSurface.header (which was deleted) so it now sits
+              directly under the AppHeader + compact strip. The banner is
+              transient: it dismisses on the first meaningful Timeline
+              interaction (handleActivate / handlePrev / handleNext /
+              handleToggleMode / onJumpLatest / onJumpToRoot). The visual
+              treatment, copy, accessibility behavior, and triggering logic
+              are unchanged from QOL-040.3 — only the persistence model is
+              updated. A new entryHint re-shows the banner. */}
+          {entryHint?.verbPhrase && !microMomentDismissed ? (
           <View
             style={styles.microMoment}
             testID="argument-micro-moment"
@@ -2417,7 +2479,8 @@ export function ArgumentRoom({
               <Text style={styles.microMomentHelper}>{entryHint.helperLine}</Text>
             ) : null}
           </View>
-        ) : null
+          ) : null}
+        </>
       }
       col1={
         // col1 — the argument path (spine). Both body modes: the bubble stack
