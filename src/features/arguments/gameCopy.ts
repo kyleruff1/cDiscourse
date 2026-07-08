@@ -1950,6 +1950,95 @@ export function fillArgumentRoomCapacityCopy(
 }
 
 /**
+ * START-001 (#827) — Person-first start-sheet copy.
+ *
+ * The new StartArgumentSheet + PersonArgumentPicker copy. Authored beside the
+ * create-surface copy so the gameCopy ban-list test scans one place. Every
+ * string is person-neutral and verdict-free: a person is named only as an
+ * INVITEE (an address), never with a standing / verdict / amplification word.
+ * The visibility OPTION helpers + capacity numbers + disabled-reason lines are
+ * NOT duplicated here — they stay owned by ROOM_VISIBILITY_COPY /
+ * ARGUMENT_ROOM_CREATE_COPY / the creation matrix (byte-identical). START-003
+ * owns the public-toggle ceremony copy in its own PUBLIC_ARGUMENT_TOGGLE_COPY
+ * block; this block never authors public-consequences prose.
+ *
+ * Scanned by __tests__/gameCopy.test.ts (added to the copy-group ban list).
+ * Comments here are apostrophe-free by convention (the doctrine-scanner
+ * quote-parity gotcha in this scanner-covered file).
+ */
+export const START_SHEET_COPY = Object.freeze({
+  // Sheet chrome.
+  sheetTitle: 'Start an argument',
+
+  // Who step (person-first).
+  whoStepLabel: 'Who are you arguing with?',
+  whoStepHelper: 'Pick someone you have argued with before, invite by email, or open it to the floor.',
+  recentsLabel: 'Recent',
+  recentRowA11yHint: 'Starts a private argument with this person.',
+  emailEntryLabel: 'Invite by email',
+  emailEntryPlaceholder: 'name@example.com',
+  emailEntryHelper: 'Anyone with an email works — they do not need an account first.',
+  emailEntryA11yLabel: 'Invite one person by email',
+  openFloorLabel: 'No one — open floor',
+  openFloorHelper: 'Set it up for anyone to answer. You choose public in Advanced.',
+  openFloorA11yHint: 'Opens the Advanced section so you can choose public visibility.',
+  recentsEmpty: 'No recent people yet — invite someone by email to start.',
+
+  // What step (declaration — wording matches the existing create surface).
+  pointStepLabel: 'Your point',
+  pointStepHelper: 'State the point or claim others will respond to. People respond to specific points.',
+  pointPlaceholder: 'What point are you starting with?',
+
+  // Private summary line (J3). {person} is filled with the masked invitee email.
+  privateWithPerson: 'Private — just you and {person}.',
+  privateNeedsPerson: 'Private — add one person to start.',
+
+  // Advanced disclosure (hosts the START-003 public toggle slot).
+  advancedLabel: 'Advanced',
+  advancedHelper: 'Visibility and other options.',
+
+  // Actions.
+  submitLabel: 'Start argument',
+  cancelLabel: 'Cancel',
+  submitError: 'Could not start the argument. Please try again.',
+} as const);
+
+/**
+ * START-003 (#875) — Public-argument toggle control copy.
+ *
+ * The control chrome for the public two-tap ceremony (switch label / helper /
+ * hint, the not-yet-public + confirmed status lines, and the confirm / cancel
+ * button labels). It authors NO consequences prose: the two consequence bullets
+ * reuse ROOM_VISIBILITY_COPY.option_public_helper (visibility) and
+ * fillArgumentRoomCapacityCopy over ARGUMENT_ROOM_CREATE_COPY.capacity_public_*
+ * (capacity), so the cap/open numbers stay validator-derived. It also authors
+ * NO public->private one-way transition copy (that rule is in-room only).
+ *
+ * SEPARATE export from ARGUMENT_ROOM_CREATE_COPY so the create-copy doctrine
+ * suite stays byte-identical; scanned by
+ * __tests__/publicArgumentToggleCopyDoctrine.test.ts. No urgency / persuasion /
+ * verdict token. Comments apostrophe-free (scanner-covered file).
+ */
+export const PUBLIC_ARGUMENT_TOGGLE_COPY = Object.freeze({
+  // The switch itself — OFF by default, plainly stated (no urgency nudge).
+  switch_label: 'Make this a public argument',
+  switch_helper: 'Off by default. Turn it on to preview what public means, then confirm.',
+  switch_a11y_hint:
+    'Turning this on shows a preview of what public means. You still confirm before it takes effect.',
+
+  // Color-independent status lines (carry state as text, not color).
+  status_not_yet_public: 'Not public yet — confirm below.',
+  status_confirmed: 'Public confirmed. Anyone can find and read this argument.',
+  // The confirmed glyph is announced by this label so a reader is not left with
+  // a bare check mark.
+  confirmed_glyph_a11y: 'Confirmed',
+
+  // The second deliberate tap + the retreat.
+  confirm: 'Make it public',
+  cancel: 'Keep it private',
+} as const);
+
+/**
  * META-1B — Plain-language strings for the realtime point-tags layer.
  *
  * The realtime channel makes other participants' tag changes visible

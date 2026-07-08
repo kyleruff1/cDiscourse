@@ -8,6 +8,7 @@ import {
   INVITE_COPY,
   COMPOSER_COPY,
   VALIDATION_COPY,
+  START_SHEET_COPY,
   ALL_COPY,
 } from '../src/features/arguments/gameCopy';
 
@@ -29,6 +30,8 @@ describe('gameCopy', () => {
     const allCopyGroups = [
       ROOM_COPY, MOVE_COPY, RECEIPT_COPY, CONCESSION_COPY,
       STATUS_COPY, TIMELINE_COPY, INVITE_COPY, COMPOSER_COPY, VALIDATION_COPY,
+      // START-001 (#827) — the person-first start-sheet copy is scanned here.
+      START_SHEET_COPY,
     ] as Record<string, unknown>[];
 
     it('no copy group contains forbidden terms', () => {
