@@ -157,6 +157,26 @@ describe('looksLikeBotSeedTag', () => {
     expect(looksLikeBotSeedTag('Sports debate [stress-2026-05-17 #scenario-7]')).toBe(true);
   });
 
+  it('recognises a [reseed-<pack>-<yyyymmdd>-<hash8>] tag (HOME-001 #874)', () => {
+    // Real reseeder runTag shape: scripts/reseeder/runReseeder.js buildReseedRunTag.
+    expect(looksLikeBotSeedTag('Remote work productivity [reseed-baseline-20260708-1a2b3c4d]')).toBe(
+      true,
+    );
+    expect(looksLikeBotSeedTag('Nuclear power tradeoffs [reseed-sonnet-20260708-deadbeef]')).toBe(
+      true,
+    );
+    // Hyphenated pack (scenarioId-derived) still folds under one trailing bracket.
+    expect(
+      looksLikeBotSeedTag('Housing supply [reseed-some-scenario-20260708-00ab12cd]'),
+    ).toBe(true);
+  });
+
+  it('does NOT match a title merely mentioning reseed mid-body (no trailing tag)', () => {
+    // The pattern is anchored to a trailing bracket, so an innocent title that
+    // uses the word reseed in prose is not treated as a fixture room.
+    expect(looksLikeBotSeedTag('A talk about how to reseed your lawn in spring')).toBe(false);
+  });
+
   it('returns false for an ordinary human title', () => {
     expect(looksLikeBotSeedTag('Should cities expand bike lanes?')).toBe(false);
   });
@@ -177,6 +197,10 @@ describe('looksLikeBotSeedTag', () => {
       'Sports debate [stress-2026-05-17 #scenario-7]',
       'Topic [scenario-12 detail]',
       'Topic #ai-corpus-seed-9',
+      // HOME-001 (#874) — reseed family, both lists extended in lockstep.
+      'Remote work productivity [reseed-baseline-20260708-1a2b3c4d]',
+      'Nuclear power tradeoffs [reseed-sonnet-20260708-deadbeef]',
+      'Housing supply [reseed-some-scenario-20260708-00ab12cd]',
     ];
     for (const title of taggedTitles) {
       const stripped = cleanTitleForDedupe(title) !== title.trim();
@@ -186,10 +210,34 @@ describe('looksLikeBotSeedTag', () => {
     const plainTitles = [
       'Should cities expand bike lanes?',
       'Is the pitch clock good for baseball?',
+      // Mentions reseed in prose but carries no trailing fixture tag.
+      'A talk about how to reseed your lawn in spring',
     ];
     for (const title of plainTitles) {
       expect(cleanTitleForDedupe(title)).toBe(title.trim());
       expect(looksLikeBotSeedTag(title)).toBe(false);
+    }
+  });
+
+  it('re-proves the regex parity in-test (mirrors the manual verification harness)', () => {
+    // HOME-001 (#874) — the whole reason the reseed family slipped through is
+    // the \b-anchored inner seed- alternative; CI re-proves the regex here
+    // rather than trusting an eyeball. Both pattern families (gallery
+    // SUFFIX_TAG_PATTERNS via cleanTitleForDedupe, and botRoomPolicy
+    // BOT_SEED_TAG_PATTERNS via looksLikeBotSeedTag) must agree per title.
+    const cases: ReadonlyArray<[string, boolean]> = [
+      ['Bike lanes are better [reseed-baseline-20260708-1a2b3c4d]', true],
+      ['Remote work [reseed-sonnet-20260708-deadbeef]', true],
+      ['Housing [reseed-some-scenario-20260708-00ab12cd]', true],
+      ['Bike lanes [xai-adv 9018694f]', true],
+      ['Pitch clock [ai-corpus fa172432]', true],
+      ['Ordinary human title with no tag', false],
+      ['A talk about how to reseed your lawn in spring', false],
+    ];
+    for (const [title, expected] of cases) {
+      const galleryStrips = cleanTitleForDedupe(title) !== title.trim();
+      expect(galleryStrips).toBe(expected);
+      expect(looksLikeBotSeedTag(title)).toBe(expected);
     }
   });
 });

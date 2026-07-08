@@ -30,6 +30,13 @@ import {
 } from './src/features/debates';
 import type { ParticipantSide } from './src/features/debates';
 import { ConversationGalleryScreen } from './src/features/debates/ConversationGalleryScreen';
+// HOME-001 (#874) — App.tsx is the intended SOLE consumer of the ASP feature
+// flag registry: the nav seam owns the landing choice, so the flag read lives
+// here (repo root), never inside src/features/** (that would trip the
+// featureFlagsStaticEnv consumer guard AND couple a presentational component to
+// global env state). See featureFlagsStaticEnv.test.ts allowlist.
+import { isHomeV2Enabled } from './src/lib/featureFlags';
+import { ArgumentHome } from './src/features/home';
 import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
 // QOL-040.3 — pure helper that builds the entry hint from a notification
 // deep-link target. Lives in `src/features/debates/` because it produces
@@ -541,7 +548,17 @@ function MainAppShell({
   // They are CONTROLLED into ConversationGalleryScreen / mounted screens so
   // the centered primary nav can drive the same surfaces the gallery's own
   // chips + "+ New room" button already drive.
-  const [galleryLane, setGalleryLane] = useState<ConversationGallerySection | 'all'>('all');
+  // HOME-001 (#874) — the ONE home_v2 flag read. It controls only (i) the
+  // galleryLane initial value below and (ii) whether the ArgumentHome branch is
+  // allowed to mount. Flag OFF => initial lane is 'all', 'home' is never set by
+  // any code path, so the gallery landing renders byte-identically to today.
+  const homeV2Enabled = isHomeV2Enabled();
+  // 'home' is deliberately NOT a ConversationGallerySection (that union drives
+  // groupGalleryCardsBySection / gallery chips); it lives only in this
+  // App.tsx-local lane state, so the gallery model is not perturbed.
+  const [galleryLane, setGalleryLane] = useState<ConversationGallerySection | 'all' | 'home'>(
+    homeV2Enabled ? 'home' : 'all',
+  );
   const [startArgumentOpen, setStartArgumentOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   // DEMO-001 — whether the Recruitable Debate Demo Corridor is showing.
@@ -931,8 +948,39 @@ function MainAppShell({
             onOpenDeepLink={handleOpenNotificationDeepLink}
           />
         )}
+        {/* HOME-001 (#874) — Arguments tab: ArgumentHome ("Your table") landing.
+            Mounts ONLY when the home_v2 flag is on AND the lane is 'home'. The
+            belt-and-braces homeV2Enabled guard means a stale 'home' lane value
+            can never mount this with the flag off. Mutually exclusive with the
+            gallery-with-toolbar block below (guarded by galleryLane !== 'home'),
+            so the two never co-render. */}
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && galleryLane === 'home' && homeV2Enabled && (
+          <ArgumentHome
+            debates={debates}
+            argumentsByDebateId={galleryArgs.argumentsByDebateId}
+            currentUserId={state.snapshot.userId || null}
+            isAdminViewer={currentProfile?.role === 'admin'}
+            notifications={notifications.notifications}
+            unreadCount={notifications.unreadCount}
+            notificationsLoading={notifications.loading}
+            loading={debatesLoading || galleryArgs.loading}
+            error={debatesError || galleryArgs.error}
+            onRefresh={() => { refresh(); galleryArgs.refresh(); }}
+            // J2 resume — reuse the exact gallery onSelect hand-off so the
+            // entryHint threads into the room shell via the shipped
+            // activeMessageId / entryHintForArgumentId path.
+            onOpen={(debate, side, hint) => {
+              setEntryHint(hint || null);
+              selectDebate(debate, side ?? 'observer');
+            }}
+            onStart={() => setStartArgumentOpen(true)}
+            onOpenFloor={() => setGalleryLane('all')}
+            onOpenDemoCorridor={() => setDemoCorridorOpen(true)}
+            onOpenNotificationDeepLink={handleOpenNotificationDeepLink}
+          />
+        )}
         {/* Arguments tab: Conversation Gallery (no room selected). */}
-        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && (
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'arguments' && !hasDebate && !notificationsOpen && galleryLane !== 'home' && (
           <View style={styles.galleryWithToolbar}>
             {/* QOL-040 — gallery toolbar exposes the
                 "Notifications" entry. The badge mirrors the tab
@@ -1001,7 +1049,9 @@ function MainAppShell({
               // "Start An Argument" items drive the same surfaces. The gallery
               // still reports its own chip / "+ New room" taps back so its
               // internal affordances keep working.
-              activeLane={galleryLane}
+              // 'home' is peeled off by the branch guard above, so the cast is
+              // safe: this block only renders when galleryLane !== 'home'.
+              activeLane={galleryLane as ConversationGallerySection | 'all'}
               onActiveLaneChange={setGalleryLane}
               showCreate={startArgumentOpen}
               onShowCreateChange={setStartArgumentOpen}
