@@ -36,6 +36,12 @@ import { ConversationGalleryScreen } from './src/features/debates/ConversationGa
 // featureFlagsStaticEnv consumer guard AND couple a presentational component to
 // global env state). See featureFlagsStaticEnv.test.ts allowlist.
 import { isHomeV2Enabled } from './src/lib/featureFlags';
+// ROOM-001 (#876) — App.tsx (the nav seam) is also the sole consumer of the
+// room_exchange_v2 flag. SEPARATE import line by design: the
+// featureFlagsStaticEnv pin matches the isHomeV2Enabled import EXACTLY, so this
+// accessor must not merge into that specifier list. The boolean threads down
+// as a prop; no src/features file imports featureFlags.
+import { isRoomExchangeV2Enabled } from './src/lib/featureFlags';
 import { ArgumentHome } from './src/features/home';
 import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
 // QOL-040.3 — pure helper that builds the entry hint from a notification
@@ -561,6 +567,9 @@ function MainAppShell({
   // allowed to mount. Flag OFF => initial lane is 'all', 'home' is never set by
   // any code path, so the gallery landing renders byte-identically to today.
   const homeV2Enabled = isHomeV2Enabled();
+  // ROOM-001 (#876) — default OFF. Threaded into ArgumentTreeScreen so the room
+  // orchestrator mounts the ambient ArgumentStateRail only behind the flag.
+  const roomExchangeV2Enabled = isRoomExchangeV2Enabled();
   // 'home' is deliberately NOT a ConversationGallerySection (that union drives
   // groupGalleryCardsBySection / gallery chips); it lives only in this
   // App.tsx-local lane state, so the gallery model is not perturbed.
@@ -1183,6 +1192,16 @@ function MainAppShell({
               onComposerPreset={setComposerPreset}
               entryHint={entryHint}
               participantSide={participantSide}
+              // ROOM-001 (#876) — ambient state rail wiring. All additive and
+              // read-only: the flag gates the mount, roomContract carries the
+              // already-derived turn label + seat state, roomVisibility is the
+              // persisted room visibility, and onOpenRoomDetails reveals the
+              // existing invite / room-details panel (an in-app state jump, no
+              // route). Flag OFF => the rail subtree is never mounted.
+              roomExchangeV2Enabled={roomExchangeV2Enabled}
+              roomContract={roomContract.viewModel ?? undefined}
+              roomVisibility={currentDebate.visibility}
+              onOpenRoomDetails={() => setInviteOpen((v) => !v)}
               // PR-001 — thread the user's visual-density preference into
               // the timeline map (drives VG-004's resolveNodeGapPx) and
               // the reduce-motion override (OS value composed with the
