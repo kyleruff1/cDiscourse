@@ -1452,6 +1452,53 @@ export const BOT_MARKER_COPY = Object.freeze({
 } as const);
 
 /**
+ * HOME-001 (#874) — plain-language copy for the ArgumentHome ("Your table")
+ * landing surface. All home UI strings live here so the COPY-SYSTEM ban-list
+ * scan (copySystemBanList.test.ts) covers them in one place.
+ *
+ * Doctrine: none of these strings assert truth, a winner/loser, popularity, or
+ * a person-verdict. "The floor" is the neutral public-browse door; "hot" is the
+ * gallery activity carve-out and is not used here. The your-turn card VERB
+ * comes from deriveGalleryEntryHint(card).verbPhrase (already plain language),
+ * not from this block. Any internal code that could surface is routed through
+ * toPlainLanguage; unknown codes are suppressed, not echoed.
+ */
+export const HOME_COPY = Object.freeze({
+  // First-run (J1) empty state: one headline + exactly three verbs.
+  firstRunHeadline: 'Nothing waiting on you yet.',
+  verbResume: 'Resume',
+  verbStartWithSomeone: 'Start with someone',
+  verbWatchFloor: 'Watch the floor',
+  startFirstArgument: 'Start your first argument',
+  seeARealOne: 'See a real one',
+
+  // Section headings.
+  yourTurnHeading: 'Your turn',
+  ongoingHeading: 'Ongoing',
+  activityHeading: 'Activity',
+
+  // Primary CTA + floor door.
+  startCta: 'Start an argument',
+  floorDoorLabel: 'The floor',
+  floorDoorSublabel: 'Browse every public argument',
+  floorDoorA11yLabel: 'Open the floor — browse public arguments',
+  floorDoorA11yHint: 'Shows every public room.',
+
+  /**
+   * Neutral per-card STATE words. These carry the card state independently of
+   * color (the gold your-turn ring is never the only signal). They are plain
+   * activity words, never a standing / verdict — "resting" describes a quiet
+   * room, not a weak one.
+   */
+  cardState: Object.freeze({
+    your_turn: 'Your turn',
+    waiting: 'Waiting',
+    resting: 'Resting',
+    observer: 'Observing',
+  }),
+} as const);
+
+/**
  * GAME-003 — plain-language copy for argument modes. A "mode" is a
  * consented, visible strictness profile both parties accept at room setup.
  * It changes FRICTION, never truth: nothing in this block declares a
