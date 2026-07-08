@@ -61,6 +61,13 @@ const CreateArgumentRoomSchema = z
     description: z.string().trim().max(10000).optional(),
     visibility: z.enum(['public', 'private']),
     invite: InviteObject.optional(),
+    // START-002 (#839) — OPTIONAL, ADDITIVE. Present => the room is scoped to a
+    // circle audience (a private room whose N-member audience arrives via the
+    // shipped membership helper, NOT via minted invites). Absent => the request
+    // parses + behaves byte-identically to the pre-START-002 contract. `.strict()`
+    // is preserved so an unknown key still 422s and a non-uuid circle_id 422s at
+    // the schema.
+    circle_id: z.string().uuid().optional(),
   })
   .strict();
 
@@ -115,6 +122,15 @@ async function handleCreateArgumentRoom(
   if (userErr || !userRes?.user?.id) return unauthorized();
   const callerId = userRes.user.id as string;
   const callerEmail = (userRes.user.email || '').toLowerCase();
+
+  // START-002 (#839) — circle-audience path. A single early branch keeps the
+  // NON-circle path structurally UNTOUCHED (AC1 provable by diff): requests
+  // without `circle_id` fall straight through to the existing logic below. All
+  // circle guards run BEFORE any DB write.
+  if (body.circle_id !== undefined) {
+    return await handleCircleRoomCreate(body, callerId, callerClient);
+  }
+  // ── existing non-circle path continues unchanged below ──
 
   const hasInvite = body.invite !== undefined;
   const inviteeEmailLower = hasInvite ? body.invite!.email.trim().toLowerCase() : null;
@@ -208,6 +224,140 @@ async function handleCreateArgumentRoom(
     visibility: body.visibility,
     inviteId: row.invite_id ?? null,
     inviteLink, // omitted (null) when there is no invite or origin sanitisation failed
+  });
+}
+
+// ── START-002 (#839) — circle-audience room creation ────────────
+
+/**
+ * Create a circle-scoped room. Additive path; the non-circle handler above is
+ * untouched. Doctrine:
+ *   - Forced private by REJECT, not coerce (never silently override an explicit
+ *     `public`); the debates_circle_requires_private CHECK is the DB backstop.
+ *   - One audience per room: a circle IS the audience, so an invite is refused.
+ *   - No enumeration oracle: non-member, nonexistent, and soft-deleted circle
+ *     all return the identical `circle_not_found` (is_circle_member returns
+ *     false for all three).
+ *   - Write lane needs NO migration: the atomic RPC hard-rejects private+no-invite,
+ *     so the room is created PUBLIC + no invite, then flipped to private +
+ *     stamped with the circle in one UPDATE. The QOL-039 one-way visibility
+ *     trigger permits public->private. The service-role client touches ONLY the
+ *     RPC + that one `debates` UPDATE (never a direct `debates` INSERT).
+ *   - Zero `argument_room_invites` rows are minted on this path (membership,
+ *     not invite fan-out).
+ */
+async function handleCircleRoomCreate(
+  body: CreateArgumentRoomRequest,
+  callerId: string,
+  callerClient: ReturnType<typeof createCallerClient>,
+): Promise<Response> {
+  const circleId = body.circle_id as string;
+
+  // Guard 1 — forced-private (reject, not coerce). Client never sends this; the
+  // picker disables the public toggle for circles. Defense-in-depth.
+  if (body.visibility === 'public') {
+    return jsonError(400, 'circle_requires_private', 'A circle argument is always private.');
+  }
+
+  // Guard 2 — one audience per room (the circle is the audience).
+  if (body.invite !== undefined) {
+    return validationFailed({
+      error: 'validation_failed',
+      issues: [
+        {
+          path: ['invite'],
+          message: 'A circle argument reaches its whole circle — do not add an invite.',
+        },
+      ],
+    });
+  }
+
+  // Guard 3 — membership (NO oracle). Caller-scoped is_circle_member RPC:
+  // p_user_id defaults to auth.uid() under the caller JWT = caller. A transport
+  // error is distinct (circle_lookup_failed) from a clean not-member; a false
+  // result (non-member / nonexistent / soft-deleted) is the identical 404.
+  const { data: isMember, error: memberErr } = await callerClient.rpc('is_circle_member', {
+    p_circle_id: circleId,
+  });
+  if (memberErr) {
+    return jsonError(500, 'circle_lookup_failed', 'Could not check that circle. Try again in a moment.');
+  }
+  if (isMember !== true) {
+    return jsonError(404, 'circle_not_found', 'We could not find that circle.');
+  }
+
+  // Guard 4 — active constitution id (caller-scoped read; same as the non-circle
+  // path). Runs before any write.
+  const { data: constitutionRow, error: constErr } = await callerClient
+    .from('constitution_versions')
+    .select('id')
+    .eq('active', true)
+    .maybeSingle<{ id: string }>();
+  if (constErr) return internalError('constitution_lookup_failed');
+  if (!constitutionRow?.id) {
+    return jsonError(409, 'no_active_constitution', 'No active constitution found. Ask an admin to publish one.');
+  }
+
+  // Write lane (no migration): 1) atomic room + creator participant, created
+  // PUBLIC + no invite so the RPC's private_requires_invite rule does not fire.
+  const svc = createServiceClient();
+  const { data: rpcData, error: rpcErr } = await svc.rpc('create_argument_room', {
+    p_created_by: callerId,
+    p_title: body.title,
+    p_resolution: body.resolution,
+    p_description: body.description ?? null,
+    p_constitution_id: constitutionRow.id,
+    p_visibility: 'public', // internal mechanism only; flipped to private below
+    p_invitee_email_lower: null,
+    p_intended_seat: null,
+    p_token_hash: null,
+    p_expires_at: null,
+  });
+  if (rpcErr) return internalError('room_create_failed');
+
+  const row = Array.isArray(rpcData)
+    ? (rpcData[0] as CreateRpcRow | undefined)
+    : (rpcData as CreateRpcRow | null);
+  const debateId = row?.debate_id;
+  if (!debateId) return internalError('room_create_failed');
+
+  // 2) Flip PUBLIC -> PRIVATE + stamp the circle in ONE statement. QOL-039's
+  //    one-way trigger permits public->private; the debates_circle_requires_private
+  //    CHECK backstops circle_id NOT NULL => private.
+  const { data: updRows, error: updErr } = await svc
+    .from('debates')
+    .update({ visibility: 'private', circle_id: circleId })
+    .eq('id', debateId)
+    .select('id');
+  if (updErr || !updRows || updRows.length !== 1) {
+    // Never leave a stranded public room SILENTLY: log the orphan short id for
+    // operator cleanup (the orphan is a valid public empty room the creator
+    // joined — no arguments, no circle data can leak in the window), then fail
+    // loudly. We do NOT return the room id to the client (no id leak in the
+    // error body); the operator reconciles from this structured log.
+    // eslint-disable-next-line no-console
+    console.error('create_argument_room_circle_flip_failed', {
+      debateIdShort: shortId(debateId),
+    });
+    return internalError('room_create_failed');
+  }
+
+  // Structured log — short ids only. No full circle_id value, no Authorization,
+  // no service-role key.
+  // eslint-disable-next-line no-console
+  console.error('create_argument_room_circle_ok', {
+    callerIdShort: shortId(callerId),
+    debateIdShort: shortId(debateId),
+    circleIdShort: shortId(circleId),
+    visibility: 'private',
+  });
+
+  return ok({
+    debateId,
+    visibility: 'private',
+    inviteId: null,
+    inviteLink: null,
+    circleId, // present ONLY on circle-path 200s (a testable round-trip signal)
   });
 }
 
