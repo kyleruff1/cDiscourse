@@ -795,3 +795,158 @@ export function adminErrorMessage(err: AdminUsersError, status: number): string 
   if (err.reason) return err.reason;
   return err.error;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// attach-proof (PROOF-003, #890)
+//
+// The low-level JWT-scoped wrapper for the attach-proof Edge Function (anon key
+// + caller JWT only; NEVER the service role — that lives in Deno). Mirrors the
+// reactToMove idiom: idempotent, never throws, returns { ok, data } |
+// { ok, error, status }. The narrow drawer-facing seam
+// (src/features/proof/attachProofApi.ts, PROOF-002) maps its domain input onto
+// these payloads and normalises the outcome to plain language.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The six attachable proof kinds (mirrors ATTACHABLE_PROOF_KINDS in the Edge). */
+export type ProofAttachKind = 'url' | 'quote' | 'source_text' | 'note' | 'prior_move' | 'external_ref';
+
+/** The four relation kinds proof_relations admits. */
+export type ProofRelationKind = 'supports' | 'contradicts' | 'contextualizes' | 'answers_request';
+
+/**
+ * Advisory per-move source cap, mirrored client-side for pre-checks (the
+ * ADMIN_BULK_INACTIVE_ID_CAP precedent). The Edge is the authority; this is a
+ * UX hint only.
+ */
+export const MAX_PROOFS_PER_MOVE = 8;
+
+export interface AttachProofRelationInput {
+  claimArgumentId: string;
+  kind: ProofRelationKind;
+}
+
+export interface AttachProofPayload {
+  action: 'attach';
+  debateId: string;
+  argumentId: string;
+  kind: ProofAttachKind;
+  label?: string;
+  url?: string;
+  sourceText?: string;
+  quote?: string;
+  referencedArgumentId?: string;
+  relation?: AttachProofRelationInput;
+}
+
+export interface DetachProofPayload {
+  action: 'detach';
+  debateId: string;
+  proofItemId: string;
+}
+
+/** The proof_items row echoed back on a successful attach (camelCase). */
+export interface AttachedProofItem {
+  id: string;
+  debateId: string;
+  argumentId: string;
+  /** The author (= the caller; the Edge enforces added_by = callerId). */
+  addedBy: string;
+  kind: ProofAttachKind;
+  label: string;
+  url: string | null;
+  sourceText: string | null;
+  quote: string | null;
+  referencedArgumentId: string | null;
+  sourceChainStatus: 'unverified' | 'source_no_quote' | 'source_and_quote' | 'broken' | 'primary_present';
+  risk: 'low' | 'medium' | 'high' | 'unknown';
+  createdAt: string;
+  deletedAt: string | null;
+}
+
+export interface AttachedProofRelation {
+  id: string;
+  proofItemId: string;
+  claimArgumentId: string;
+  relation: ProofRelationKind;
+  createdAt: string;
+}
+
+export interface AttachProofSuccess {
+  ok: true;
+  proofItem: AttachedProofItem;
+  relation: AttachedProofRelation | null;
+  idempotent: boolean;
+  relationIdempotent: boolean;
+  debtSignalEmitted: boolean;
+}
+
+export interface DetachProofSuccess {
+  ok: true;
+  proofItemId: string;
+  deletedAt: string;
+  idempotent: boolean;
+}
+
+export type AttachProofOutcome =
+  | { ok: true; data: AttachProofSuccess }
+  | { ok: false; error: { error: string; message?: string; reason?: string; detail?: string }; status: number };
+
+export type DetachProofOutcome =
+  | { ok: true; data: DetachProofSuccess }
+  | { ok: false; error: { error: string; message?: string; reason?: string; detail?: string }; status: number };
+
+/**
+ * Attach a source to the caller's own move (or answer a source request). Never
+ * throws; a dropped response is safe to retry (the Edge dedups an identical
+ * receipt).
+ */
+export async function attachProof(payload: AttachProofPayload): Promise<AttachProofOutcome> {
+  const { data, error } = await supabase.functions.invoke<AttachProofSuccess>('attach-proof', {
+    body: payload,
+  });
+  if (error) {
+    let errorBody: { error: string; message?: string; reason?: string; detail?: string } = {
+      error: 'network_error',
+    };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) {
+        errorBody = (await raw.json()) as { error: string; message?: string; reason?: string; detail?: string };
+      }
+    } catch {
+      /* ignore */
+    }
+    const status =
+      (error as { status?: number }).status ??
+      ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+  if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
+  return { ok: true, data };
+}
+
+/** Soft-delete a source the caller added. Idempotent; never throws. */
+export async function detachProof(payload: DetachProofPayload): Promise<DetachProofOutcome> {
+  const { data, error } = await supabase.functions.invoke<DetachProofSuccess>('attach-proof', {
+    body: payload,
+  });
+  if (error) {
+    let errorBody: { error: string; message?: string; reason?: string; detail?: string } = {
+      error: 'network_error',
+    };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) {
+        errorBody = (await raw.json()) as { error: string; message?: string; reason?: string; detail?: string };
+      }
+    } catch {
+      /* ignore */
+    }
+    const status =
+      (error as { status?: number }).status ??
+      ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+  if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
+  return { ok: true, data };
+}

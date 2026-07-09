@@ -42,7 +42,7 @@ import {
 import { useEntryComposerSubmit } from './useEntryComposerSubmit';
 import type { ArgumentRow } from '../types';
 import type { Debate, ParticipantSide } from '../../debates/types';
-import { RADIUS, SPACING, SURFACE_TOKENS, CONTROL, TOUCH_TARGET } from '../../../lib/designTokens';
+import { RADIUS, SPACING, SURFACE_TOKENS, CONTROL, TOUCH_TARGET, BRAND } from '../../../lib/designTokens';
 
 export interface ArgumentEntryComposerProps {
   debate: Debate;
@@ -58,6 +58,19 @@ export interface ArgumentEntryComposerProps {
   reduceMotionOverride?: boolean;
   /** Open the full OneBox (the shipped dock). */
   onOpenMore: () => void;
+  /**
+   * PROOF-002 — open the source drawer. When present the Source slot opens the
+   * drawer instead of More; when absent the Source slot routes to More
+   * (byte-identical to the pre-PROOF-002 bar). App threads this (the flag lives
+   * there); the composer never reads the flag registry itself.
+   */
+  onOpenProof?: () => void;
+  /**
+   * PROOF-002 — true when a source is owed on the scoped own move (J7). Renders
+   * the gold owed treatment on the Source slot. Additive optional; absent =>
+   * the plain Source slot (byte-identical).
+   */
+  proofOwed?: boolean;
   /** Post succeeded — refreshes the room. */
   onSubmitSuccess: () => void;
   /** Clear the reply target (context chip clear). Optional. */
@@ -78,6 +91,8 @@ export function ArgumentEntryComposer({
   participantSide,
   reduceMotionOverride,
   onOpenMore,
+  onOpenProof,
+  proofOwed,
   onSubmitSuccess,
   onClearParent,
   onFastPathCivilitySignal,
@@ -216,18 +231,25 @@ export function ArgumentEntryComposer({
               testID="argument-entry-composer-input"
             />
 
-            {/* Controls: Source (to More) - Voice (disabled) - More - Send. */}
+            {/* Controls: Source (drawer when wired, else More) - Voice (disabled) - More - Send. */}
             <View style={styles.controlsRow}>
               <Pressable
-                onPress={onOpenMore}
+                onPress={onOpenProof ?? onOpenMore}
                 accessibilityRole="button"
-                accessibilityLabel={COPY.proofA11yLabel}
-                accessibilityHint={COPY.proofA11yHint}
+                accessibilityLabel={proofOwed ? COPY.proofOwedA11yLabel : COPY.proofA11yLabel}
+                accessibilityHint={onOpenProof ? COPY.proofDrawerA11yHint : COPY.proofA11yHint}
                 hitSlop={TOUCH_TARGET.hitSlopAll}
-                style={styles.slotButton}
+                style={[styles.slotButton, proofOwed && styles.slotButtonOwed]}
                 testID="argument-entry-composer-proof"
               >
-                <Text style={styles.slotLabel}>{COPY.proofLabel}</Text>
+                {proofOwed ? (
+                  <Text style={styles.slotOwedMarker} testID="argument-entry-composer-proof-owed">
+                    {'◆ '}
+                    {COPY.proofOwedLabel}
+                  </Text>
+                ) : (
+                  <Text style={styles.slotLabel}>{COPY.proofLabel}</Text>
+                )}
               </Pressable>
 
               {/* Reserved voice slot — disabled until VOICE-UI-001. No audio code. */}
@@ -384,6 +406,19 @@ const styles = StyleSheet.create({
     color: SURFACE_TOKENS.textPrimary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  // PROOF-002 owed treatment: the ROOM-001 private_gold triple (goldSoft bg /
+  // goldBorder hairline / gold text). Static ring (reduce-motion-safe by
+  // construction — the bar has no animation) and paired with a glyph + text so
+  // it reads in monochrome.
+  slotButtonOwed: {
+    backgroundColor: BRAND.accent.goldSoft,
+    borderColor: BRAND.accent.goldBorder,
+  },
+  slotOwedMarker: {
+    color: BRAND.accent.gold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   micSlot: {
     minHeight: 56,

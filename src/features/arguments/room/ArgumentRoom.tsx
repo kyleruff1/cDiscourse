@@ -113,6 +113,7 @@ import {
   type TimelineEvidenceContract,
 } from '../../evidence';
 import { buildArtifactsByMessageId } from '../argumentGameSurfaceEvidence';
+import { useProofItems } from '../../proof/useProofItems';
 // CARD-VIEW-DATA-001 — exploded-detail builder for the active Cards-view
 // card. Pure-TS; memoized below keyed on `activeMessageId` (+ upstream
 // maps). The component is imported by ArgumentBubbleCard. No new fetch, no
@@ -500,6 +501,13 @@ export interface Props {
   roomContract?: RoomContractViewModel;
   roomVisibility?: 'public' | 'private';
   onOpenRoomDetails?: () => void;
+  /**
+   * PROOF-002 (#889) — gates the read-path flip. Additive optional. When true
+   * the room fetches proof_items rows (useProofItems) and feeds them into
+   * buildArtifactsByMessageId (rows-first, JSONB fallback). Default/false =>
+   * hook disabled => JSONB-only, byte-identical to today.
+   */
+  proofDrawerEnabled?: boolean;
 }
 
 export function ArgumentRoom({
@@ -542,6 +550,7 @@ export function ArgumentRoom({
   roomContract,
   roomVisibility,
   onOpenRoomDetails,
+  proofDrawerEnabled,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // ARG-ROOM-005 — read-only seat-availability display + rail full-room state.
@@ -715,6 +724,13 @@ export function ArgumentRoom({
   }, [activeMessageId, onActiveMessageChange]);
 
   const chronologicalIds = useMemo(() => sorted.map((m) => m.id), [sorted]);
+
+  // PROOF-002 (#889) — optional proof_items rows for the read-path flip. The
+  // hook fetches nothing and returns {} when proofDrawerEnabled is falsy (the
+  // flag-off path), so buildArtifactsByMessageId below falls back to the JSONB
+  // path byte-identically. Additive; no service-role, no write.
+  const { proofItemsByMessageId } = useProofItems(debate.id, chronologicalIds, proofDrawerEnabled === true);
+
   const parentLookup = useCallback((parentId: string) => {
     const p = sorted.find((m) => m.id === parentId);
     return p ? p.body : null;
@@ -776,8 +792,8 @@ export function ArgumentRoom({
   // missing payloads yield an empty list, which produces the `no_source`
   // form downstream. No service-role, no Supabase call.
   const artifactsByMessageId = useMemo<Record<string, ReadonlyArray<EvidenceArtifact>>>(
-    () => buildArtifactsByMessageId(sorted),
-    [sorted],
+    () => buildArtifactsByMessageId(sorted, proofItemsByMessageId),
+    [sorted, proofItemsByMessageId],
   );
 
   const evidenceContractFor = useCallback((messageId: string): TimelineEvidenceContract | null => {
