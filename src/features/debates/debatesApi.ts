@@ -41,6 +41,12 @@ interface DebateRow {
    * only — `inactive_reason` is NEVER selected, mapped, or surfaced (§10a).
    */
   inactive_at: string | null;
+  /**
+   * HOME-003 (#840) — the room's circle FK (`20260702000001`), or null for a
+   * non-circle room. Widened onto the existing debates SELECT (one extra
+   * column, same round-trip); no RLS change. Absent on a pre-widen fixture.
+   */
+  circle_id?: string | null;
 }
 
 interface ParticipantRow {
@@ -76,6 +82,9 @@ function mapDebateRow(row: DebateRow, myParticipantSide: ParticipantSide | null)
     // timestamp (#514). Default to null (active) when absent. `inactive_reason`
     // is never read here (§10a).
     inactiveAt: row.inactive_at ?? null,
+    // HOME-003 (#840) — thread the circle FK for the circle-home filter. Null
+    // for a non-circle room (or a pre-widen fixture that omits the column).
+    circleId: row.circle_id ?? null,
   };
 }
 
@@ -92,7 +101,7 @@ export async function listDebates(userId: string): Promise<DebateApiResult<Debat
   const [debatesRes, partRes] = await Promise.all([
     supabase
       .from('debates')
-      .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at')
+      .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at, circle_id')
       .order('created_at', { ascending: false }),
     supabase
       .from('debate_participants')
@@ -121,7 +130,7 @@ export async function listDebates(userId: string): Promise<DebateApiResult<Debat
 
 /** Column projection for a single `debates` row (shared by reads). */
 const DEBATE_ROW_COLUMNS =
-  'id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at';
+  'id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at, circle_id';
 
 /**
  * ARG-ROOM-002 — input to the server-authoritative create path. The chosen

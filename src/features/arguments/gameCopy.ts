@@ -1483,6 +1483,16 @@ export const HOME_COPY = Object.freeze({
   ongoingHeading: 'Ongoing',
   activityHeading: 'Activity',
 
+  // HOME-003 (#840) — circle filter lens. A circle is a size + a name, never a
+  // rating; the empty state is never a dead end. Comments apostrophe-free
+  // (scanner-covered file).
+  circleFilterAllLabel: 'All',
+  circleFilterAllA11yLabel: 'All circles',
+  circleFilterRowA11yLabel: 'Filter your table by circle',
+  circleFilterEmptyHeadline: 'No rooms with this circle yet.',
+  circleFilterEmptyBody: 'Arguments you start with this circle show up here.',
+  circleFilterStartCta: 'Start one with this circle',
+
   // Primary CTA + floor door.
   startCta: 'Start an argument',
   floorDoorLabel: 'The floor',

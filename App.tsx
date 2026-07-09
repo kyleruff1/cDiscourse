@@ -69,6 +69,9 @@ import { useRecentOpponents } from './src/features/arguments/startArgument/useRe
 // sheet (a circle audience) and the HOME-003 circle-home filter lane. RLS-scoped
 // SELECT-only read; no service role. A no-op ([]) when signed out / unconfigured.
 import { useMyCircles } from './src/features/circles/useMyCircles';
+// HOME-003 (#840) — map the shared circle summaries into the ArgumentHome
+// filter lens (identity-free: id + name + size).
+import { toCircleLens } from './src/features/circles/circleHomeFilter';
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
 // "Your Move" screen swap. The room stays mounted behind the dock.
 import { ArgumentComposerDock } from './src/features/arguments/ArgumentComposerDock';
@@ -1061,6 +1064,10 @@ function MainAppShell({
             onOpenFloor={() => setGalleryLane('all')}
             onOpenDemoCorridor={() => setDemoCorridorOpen(true)}
             onOpenNotificationDeepLink={handleOpenNotificationDeepLink}
+            // HOME-003 (#840) — circle filter lens data. Same one read the start
+            // sheet uses, mapped to the identity-free CircleLens shape.
+            circles={myCircles.circles.map(toCircleLens)}
+            circlesLoading={myCircles.loading}
           />
         )}
         {/* Arguments tab: Conversation Gallery (no room selected).

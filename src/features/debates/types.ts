@@ -38,6 +38,15 @@ export interface Debate {
    * as active.
    */
   inactiveAt?: string | null;
+  /**
+   * START-002 / HOME-003 (#839 / #840) — the circle this room is scoped to, or
+   * `null` for a non-circle room. Additive nullable column
+   * (`20260702000001_private_groups_002_circles.sql`; every existing row is
+   * NULL). HOME-003's circle-home filter matches a room to a selected circle by
+   * `circleId === selectedCircle.id`. Optional in the type because pre-widen
+   * callers / fixtures may omit it; absence is treated as "no circle".
+   */
+  circleId?: string | null;
 }
 
 export interface CreateDebateInput {

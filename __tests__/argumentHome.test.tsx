@@ -26,6 +26,7 @@ import {
 } from '../src/features/debates/conversationGalleryModel';
 import type { Debate } from '../src/features/debates/types';
 import type { RoomNotification } from '../src/features/notifications/notificationModel';
+import type { CircleLens } from '../src/features/circles/circleHomeFilter';
 
 // ── Fixtures ────────────────────────────────────────────────────
 
@@ -47,6 +48,8 @@ function debate(partial: Partial<Debate> & { id: string }): Debate {
     myParticipantSide: partial.myParticipantSide ?? null,
     visibility: partial.visibility ?? 'public',
     inactiveAt: partial.inactiveAt ?? null,
+    // HOME-003 — the circle FK the filter matches on (null = non-circle room).
+    circleId: partial.circleId ?? null,
   };
 }
 
@@ -319,6 +322,116 @@ describe('HOME-001 — fixture exclusion at the surface', () => {
       <ArgumentHome {...baseProps({ debates, argumentsByDebateId, isAdminViewer: true })} />,
     );
     expect(queryByTestId('argument-card-d-fix')).toBeTruthy();
+  });
+});
+
+// ── HOME-003 — circle filter lane ───────────────────────────────
+
+describe('HOME-003 — circle filter lens', () => {
+  const CIRCLES: CircleLens[] = [
+    { id: 'c1', name: 'Book Club', memberCount: 3 },
+    { id: 'c2', name: 'Study Group', memberCount: 2 },
+  ];
+  // Two your-turn rooms in different circles + one non-circle your-turn room.
+  const YT_C1 = debate({ id: 'd-c1', title: 'Circle one topic', myParticipantSide: 'affirmative', circleId: 'c1' });
+  const YT_C2 = debate({ id: 'd-c2', title: 'Circle two topic', myParticipantSide: 'affirmative', circleId: 'c2' });
+  const YT_NONE = debate({ id: 'd-none', title: 'No circle topic', myParticipantSide: 'affirmative', circleId: null });
+  const debates = [YT_C1, YT_C2, YT_NONE];
+  const argumentsByDebateId: Record<string, GalleryArgumentInput[]> = {
+    'd-c1': [arg({ id: 'c1-root', debateId: 'd-c1', authorId: 'opponent', body: 'A claim inside book club to answer.' })],
+    'd-c2': [arg({ id: 'c2-root', debateId: 'd-c2', authorId: 'opponent', body: 'A claim inside study group to answer.' })],
+    'd-none': [arg({ id: 'none-root', debateId: 'd-none', authorId: 'opponent', body: 'A claim in a non-circle room to answer.' })],
+  };
+
+  it('renders the chip row when the caller has circles, hides it with none', () => {
+    const withCircles = render(
+      <ArgumentHome {...baseProps({ debates, argumentsByDebateId, circles: CIRCLES })} />,
+    );
+    expect(withCircles.getByTestId('home-circle-filter-row')).toBeTruthy();
+
+    const noCircles = render(
+      <ArgumentHome {...baseProps({ debates, argumentsByDebateId, circles: [] })} />,
+    );
+    expect(noCircles.queryByTestId('home-circle-filter-row')).toBeNull();
+  });
+
+  it('selecting a circle narrows the lane to that circle only', () => {
+    const { getByTestId, queryByTestId } = render(
+      <ArgumentHome {...baseProps({ debates, argumentsByDebateId, circles: CIRCLES })} />,
+    );
+    // Unfiltered: all three your-turn cards render.
+    expect(getByTestId('argument-card-d-c1')).toBeTruthy();
+    expect(getByTestId('argument-card-d-c2')).toBeTruthy();
+    expect(getByTestId('argument-card-d-none')).toBeTruthy();
+
+    fireEvent.press(getByTestId('home-circle-chip-c1'));
+
+    // Only the c1 room survives the lens; the c2 + non-circle rooms drop out.
+    expect(getByTestId('argument-card-d-c1')).toBeTruthy();
+    expect(queryByTestId('argument-card-d-c2')).toBeNull();
+    expect(queryByTestId('argument-card-d-none')).toBeNull();
+  });
+
+  it('clearing back to All restores the full lane', () => {
+    const { getByTestId, queryByTestId } = render(
+      <ArgumentHome {...baseProps({ debates, argumentsByDebateId, circles: CIRCLES })} />,
+    );
+    fireEvent.press(getByTestId('home-circle-chip-c1'));
+    expect(queryByTestId('argument-card-d-c2')).toBeNull();
+    fireEvent.press(getByTestId('home-circle-chip-all'));
+    expect(getByTestId('argument-card-d-c2')).toBeTruthy();
+  });
+
+  it('shows the filtered-empty block with a Start CTA when a circle matches nothing', () => {
+    // c2 has a room, but select a circle with no rooms in the fixture (there is
+    // no room tagged c-empty), so the lane is empty but not first-run.
+    const circles: CircleLens[] = [...CIRCLES, { id: 'c-empty', name: 'Empty Circle', memberCount: 5 }];
+    const onStart = jest.fn();
+    const { getByTestId } = render(
+      <ArgumentHome {...baseProps({ debates, argumentsByDebateId, circles, onStart })} />,
+    );
+    fireEvent.press(getByTestId('home-circle-chip-c-empty'));
+    expect(getByTestId('home-circle-empty')).toBeTruthy();
+    fireEvent.press(getByTestId('home-circle-empty-start'));
+    expect(onStart).toHaveBeenCalledTimes(1);
+    // The CTA passes the selected circle id (backwards-compat prefill arg).
+    expect(onStart).toHaveBeenCalledWith('c-empty');
+  });
+
+  it('D8 fixture exclusion holds under a circle filter (a bot room is never resurfaced)', () => {
+    // A fixture room tagged with circle c1: even selecting c1 must NOT show it.
+    const fixture = debate({
+      id: 'd-fix-c1',
+      title: 'Seeded topic [reseed-baseline-20260708-9z8y7x6w]',
+      myParticipantSide: 'affirmative',
+      circleId: 'c1',
+    });
+    const withFixture = [...debates, fixture];
+    const withFixtureArgs = {
+      ...argumentsByDebateId,
+      'd-fix-c1': [arg({ id: 'fix-root', debateId: 'd-fix-c1', authorId: 'opponent', body: 'A seeded corpus claim here.' })],
+    };
+    const { getByTestId, queryByTestId } = render(
+      <ArgumentHome
+        {...baseProps({ debates: withFixture, argumentsByDebateId: withFixtureArgs, circles: CIRCLES, isAdminViewer: false })}
+      />,
+    );
+    // Non-admin: the fixture room is excluded before the filter runs.
+    expect(queryByTestId('argument-card-d-fix-c1')).toBeNull();
+    fireEvent.press(getByTestId('home-circle-chip-c1'));
+    // Selecting its circle does NOT resurface it (D8 before circle).
+    expect(queryByTestId('argument-card-d-fix-c1')).toBeNull();
+    expect(getByTestId('argument-card-d-c1')).toBeTruthy();
+  });
+
+  it('with no circle selected the lane matches the unfiltered HOME-001 output', () => {
+    const withRow = render(
+      <ArgumentHome {...baseProps({ debates, argumentsByDebateId, circles: CIRCLES })} />,
+    );
+    // All three rooms render (chip row present but nothing selected).
+    expect(withRow.getByTestId('argument-card-d-c1')).toBeTruthy();
+    expect(withRow.getByTestId('argument-card-d-c2')).toBeTruthy();
+    expect(withRow.getByTestId('argument-card-d-none')).toBeTruthy();
   });
 });
 
