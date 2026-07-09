@@ -2068,7 +2068,7 @@ export const START_SHEET_COPY = Object.freeze({
   // a ranking; the member count is a structural size. Comments apostrophe-free.
   circlesLabel: 'Your circles',
   circleRowA11yHint: 'Starts a private argument inside this circle.',
-  circlePrivateSummary: 'Inside {circle} — only its members can read it.',
+  circlePrivateSummary: 'Inside {circle} — kept private to this circle.',
   circleForcesPrivate: 'Circle arguments are always private.',
 
   // Actions.

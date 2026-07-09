@@ -80,7 +80,13 @@ describe('START-002 — circle audience selection', () => {
   it('selecting a circle shows the private circle summary and no needs-person prompt', () => {
     const { getByTestId, queryByTestId } = renderSheet();
     fireEvent.press(getByTestId('person-picker-circle-c1'));
-    expect(getByTestId('start-sheet-circle-summary')).toBeTruthy();
+    const summary = getByTestId('start-sheet-circle-summary');
+    expect(summary).toBeTruthy();
+    // Present-honest phrasing (AC2 read deferred to #882): the summary states
+    // the room is kept private to the circle, NOT that its members can read it
+    // (only the creator can read it until the read-arm migration lands).
+    expect(summary.props.children).toBe('Inside Book Club — kept private to this circle.');
+    expect(summary.props.children).not.toContain('members can read');
     // The non-circle "add one person" private summary is NOT shown for a circle.
     expect(queryByTestId('start-sheet-private-summary')).toBeNull();
     // The private_requires_invite disabled reason must NOT appear for a circle.
