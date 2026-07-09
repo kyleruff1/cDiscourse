@@ -35,6 +35,12 @@ import type {
 } from '../timelineNodeActionDockModel';
 import type { LinkedPriorArgumentChip } from '../crossRoom/linkedPriorArgumentModel';
 import { LINKED_PRIOR_ARGUMENT_COPY } from '../crossRoom/linkedPriorArgumentCopy';
+// ROOM-004 (#886) — the actor-aware node action popover. It renders as a
+// docked card AFTER the timeline map when a surface is supplied; when absent
+// the Map render is byte-identical to today (back-compat by omission).
+import { MapNodeActionPopover } from './MapNodeActionPopover';
+import type { MapNodeActionSurface } from './mapNodeActionSurfaceModel';
+import type { RailActionCode } from '../railActionCategories';
 
 export interface MapViewProps {
   // ArgumentTimelineMap core inputs (forwarded verbatim).
@@ -72,6 +78,18 @@ export interface MapViewProps {
   // Drives the create-link affordance. Renders only when supplied, keeping
   // the default header calm.
   onOpenLinkPicker?: () => void;
+
+  // ROOM-004 (#886) — node action popover threading (all optional, back-compat
+  // safe). When nodeActionPopover is supplied the popover renders as a docked
+  // card AFTER the timeline map; when absent nothing new renders. The
+  // orchestrator node-gates the SC-004 dock to null under flag-on so the
+  // popover is the single node-action surface (cluster / stub dock preserved).
+  nodeActionPopover?: MapNodeActionSurface | null;
+  onPopoverAction?: (code: RailActionCode) => void;
+  onAnswerThis?: () => void;
+  onPopoverOpenDetails?: () => void;
+  onPopoverOpenAct?: () => void;
+  onPopoverClose?: () => void;
 }
 
 /**
@@ -137,6 +155,22 @@ export function MapView(props: MapViewProps) {
             {LINKED_PRIOR_ARGUMENT_COPY.createAffordance}
           </Text>
         </Pressable>
+      ) : null}
+      {/* ROOM-004 (#886) — the node action popover, a docked card AFTER the
+          timeline map. Renders only when the orchestrator supplies a surface
+          (flag-on + a node selection); absent otherwise, so the Map is
+          byte-identical to today. onPopoverAction dispatches through the SAME
+          handleRailAction the Exchange lens uses; onAnswerThis is the J9 jump. */}
+      {props.nodeActionPopover ? (
+        <MapNodeActionPopover
+          surface={props.nodeActionPopover}
+          onAction={(code) => props.onPopoverAction?.(code)}
+          onAnswerThis={() => props.onAnswerThis?.()}
+          onOpenDetails={props.onPopoverOpenDetails}
+          onOpenAct={props.onPopoverOpenAct}
+          onClose={() => props.onPopoverClose?.()}
+          reduceMotion={props.reduceMotionOverride}
+        />
       ) : null}
     </>
   );

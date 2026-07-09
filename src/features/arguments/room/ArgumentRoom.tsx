@@ -88,6 +88,11 @@ import type { RailActionCode, RailViewerRole } from '../ArgumentSideActionRail';
 // derivations the orchestrator already holds and passed into ExchangeView only
 // when room_exchange_v2 is on.
 import { buildRingsideFeed, type RingsideFeedViewModel } from './ringsideFeedModel';
+// ROOM-004 (#886) — the pure Map node-action surface projection + the sidecar
+// links footer. The surface is built here (the single reconciliation point)
+// and passed into MapView; the footer mounts in col2 under the reused flags.
+import { buildMapNodeActionSurface, type MapNodeActionSurface } from './mapNodeActionSurfaceModel';
+import { MapNodeSidecarLinks } from './MapNodeSidecarLinks';
 import { SeatAvailabilityStrip } from '../SeatAvailabilityStrip';
 import { buildSeatAvailabilityViewModel } from '../../debates/seatClaimModel';
 import type { SeatAvailability } from '../../debates/seatClaimModel';
@@ -1375,6 +1380,39 @@ export function ArgumentRoom({
     activePointFeedbackFlags,
   ]);
 
+  // ROOM-004 (#886) — the Map node-action surface. Built ONLY when
+  // room_exchange_v2 is on AND a node target is selected (the popover
+  // supersedes the SC-004 node dock). It mirrors the Exchange action row by
+  // consuming the SAME getRailActions derivation (injected, never forked) and
+  // adds the low-density sidecar links + open-point membership line. The
+  // open-point membership is a read-only projection of the already-derived
+  // mediator board; it is never re-derived. Null when off / no node selected.
+  const mapNodeActionSurface = useMemo<MapNodeActionSurface | null>(() => {
+    if (!roomExchangeV2Enabled) return null;
+    if (!activeMessageId) return null;
+    if (selectedDockTarget?.kind !== 'node') return null;
+    const pointId = mediatorBoard.markupByNodeId?.[activeMessageId]?.pointId ?? null;
+    const point = pointId ? mediatorBoard.points.find((p) => p.id === pointId) ?? null : null;
+    const isOpenPointMember = Boolean(point && point.state !== 'resolved_or_settled');
+    const actor = activeViewModel?.actor ?? 'unknown';
+    return buildMapNodeActionSurface({
+      activeMessageId,
+      viewerRole: resolvedViewerRole,
+      actor,
+      actions: getRailActions(resolvedViewerRole, actor),
+      actingOnShortLabel: timelineReadoutViewModel.actingOnShortLabel,
+      isOpenPointMember,
+    });
+  }, [
+    roomExchangeV2Enabled,
+    activeMessageId,
+    selectedDockTarget,
+    mediatorBoard,
+    resolvedViewerRole,
+    activeViewModel?.actor,
+    timelineReadoutViewModel,
+  ]);
+
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
   //
   // The three mounts below consume already-resident client state. None
@@ -1979,6 +2017,17 @@ export function ArgumentRoom({
     const ctrl = railActionToBubbleControl(code);
     if (ctrl && ctx.activeMessageId) handleAction(ctrl, ctx.activeMessageId);
   }, [onJoinSide, onShareRoom, mode, handleAction]);
+
+  // ROOM-004 (#886) — J9. Answer this from the Map jumps to the Exchange lens
+  // (setMode stack) and opens the composer scoped to the selected node
+  // (handleAction reply). The Map selection id is preserved into Exchange, so
+  // the flow is at most two taps: select the node, then Answer this. No new
+  // write path; reuses the EXISTING handleAction reply route.
+  const handleAnswerThisFromMap = useCallback(() => {
+    if (!activeMessageId) return;
+    setMode('stack');
+    handleAction('reply', activeMessageId);
+  }, [activeMessageId, handleAction]);
 
   // REF-004 — the SINGLE Act entry→box bridge. Extracted verbatim from the
   // board-Act `handleBoardActSelectBoxType` body so "Act changes the issue" is
@@ -2590,7 +2639,14 @@ export function ArgumentRoom({
             evidenceDebtSummaryFor={evidenceDebtSummaryFor}
             isReadModeViewer={resolvedViewerRole === 'observer'}
             selectedTarget={selectedDockTarget}
-            actionDockModel={dockModel}
+            // ROOM-004 (#886) — SC-004 node-dock supersession. Under flag-on,
+            // a node selection hands the dock to null so the ROOM-004 popover
+            // is the single node-action surface; cluster / collapsed_stub
+            // targets keep the dock (expand_branch preserved). Flag-off passes
+            // dockModel unchanged, so the SC-004 dock is byte-identical.
+            actionDockModel={
+              roomExchangeV2Enabled && selectedDockTarget?.kind === 'node' ? null : dockModel
+            }
             actingOnLabel={timelineReadoutViewModel.actingOnShortLabel}
             onSelectTarget={setSelectedDockTarget}
             onActionDockAction={handleActionDockAction}
@@ -2600,6 +2656,19 @@ export function ArgumentRoom({
             onOpenLinkedPrior={onOpenLinkedPrior}
             onViewLinkedPriorContext={handleViewLinkedPriorContext}
             onOpenLinkPicker={onOpenLinkPicker}
+            // ROOM-004 (#886) — the node action popover surface + its bindings.
+            // onPopoverAction dispatches through the SAME handleRailAction the
+            // Exchange lens receives (parity handler identity); onAnswerThis is
+            // the J9 jump; onPopoverClose clears the node selection (matches the
+            // dock dismissal). Absent surface => nothing new renders.
+            nodeActionPopover={mapNodeActionSurface}
+            onPopoverAction={(code) => handleRailAction(code, { activeMessageId })}
+            onAnswerThis={handleAnswerThisFromMap}
+            onPopoverOpenDetails={
+              activeMessageId ? () => handleOpenDetailsFromTimeline(activeMessageId) : undefined
+            }
+            onPopoverOpenAct={() => setBoardActVisible(true)}
+            onPopoverClose={() => setSelectedDockTarget(null)}
           />
         )}
         </View>
@@ -2637,6 +2706,19 @@ export function ArgumentRoom({
               flags={activePointFeedbackFlags.visible}
               suppressedCount={activePointFeedbackFlags.suppressedCount}
             />
+            {/* ROOM-004 (#886) — the low-density sidecar deep-link footer.
+                Mounts AFTER the reused readout + flags (never before MapView),
+                gated on room_exchange_v2 + a supplied surface. Answer this is
+                the J9 jump; Open disagreement points reuses the existing
+                analysis toggle. Flag-off => not mounted, col2 byte-identical. */}
+            {roomExchangeV2Enabled && mapNodeActionSurface ? (
+              <MapNodeSidecarLinks
+                surface={mapNodeActionSurface}
+                onAnswerThis={handleAnswerThisFromMap}
+                onOpenDebts={() => handleOpenAnalysisSurface('disagreement')}
+                reduceMotion={reduceMotionOverride === true}
+              />
+            ) : null}
             {/* UX-FEEDBACK-001 — default-visible STATIC current-state cue near
                 the selected-node responding-to anchor. "Point anchored." is a
                 local ephemeral acknowledgement that the response is bound to a
