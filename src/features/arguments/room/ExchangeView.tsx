@@ -34,6 +34,11 @@ import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
 // shared room action-code registry so both lenses reference ONE handle. It
 // aliases the shipped RailActionCode; no new code enters the type system.
 import type { RoomRailActionCode } from './roomActionCodes';
+// ROOM-002 (#885) — the Ringside feed is the flag-on Exchange lens. It is a
+// NEW sibling to the stack; the stack subtree stays as the flag-off else
+// branch, byte-identical, so the flag-off render is regression-proof.
+import { RingsideFeed } from './RingsideFeed';
+import type { RingsideFeedViewModel } from './ringsideFeedModel';
 
 export interface ExchangeViewProps {
   // ArgumentBubbleStack core inputs (forwarded verbatim).
@@ -59,6 +64,17 @@ export interface ExchangeViewProps {
   onRefereeMove: (move: MoveSuggestion, ctx: { activeMessageId: string | null }) => void;
   onRefereeNavigate: (verb: RefereeNavVerb, ctx: { activeMessageId: string | null }) => void;
   onBubbleAction: (control: ArgumentBubbleControl, messageId: string) => void;
+
+  // ROOM-002 (#885) — flag-on Ringside re-weight. All optional so the flag-off
+  // callers are unaffected. When roomExchangeV2Enabled is true AND ringsideFeed
+  // is supplied, ExchangeView renders the Ringside feed; otherwise it renders
+  // the stack subtree unchanged.
+  roomExchangeV2Enabled?: boolean;
+  ringsideFeed?: RingsideFeedViewModel | null;
+  /** Branch-pill deep-link from a Ringside card into the Map lens. */
+  onOpenMap?: () => void;
+  /** Effective reduce-motion, threaded for symmetry (the feed is transform-free). */
+  reduceMotion?: boolean;
 }
 
 /**
@@ -67,6 +83,27 @@ export interface ExchangeViewProps {
  * prop.
  */
 export function ExchangeView(props: ExchangeViewProps) {
+  // ROOM-002 (#885) — flag-on renders the Ringside feed. The stack subtree
+  // below is preserved verbatim as the flag-off else branch (byte-identical),
+  // which keeps the argumentGameSurfaceSemanticWiring ArgumentBubbleStack pin
+  // green and makes the flag-off render regression-proof. Every value the feed
+  // needs is already a prop; the action row reuses onBubbleAction (participant)
+  // and onRailAction (observer), the SAME handlers the stack path dispatches.
+  if (props.roomExchangeV2Enabled && props.ringsideFeed) {
+    return (
+      <RingsideFeed
+        feed={props.ringsideFeed}
+        viewerRole={props.viewerRole}
+        onActivate={props.onActivate}
+        onActivateAncestor={props.onActivateAncestor}
+        onCardAction={props.onBubbleAction}
+        onRailAction={props.onRailAction}
+        onOpenMap={props.onOpenMap ?? props.onToggleMode}
+        pointFeedbackFlags={props.pointFeedbackFlags}
+        reduceMotion={props.reduceMotion}
+      />
+    );
+  }
   return (
     <>
             <ArgumentBubbleStack

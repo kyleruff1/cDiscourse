@@ -82,8 +82,12 @@ import { BRAND } from '../../../lib/designTokens';
 import { resolveStackKeyEffect } from '../stackKeyboardSwipeModel';
 import type { TimelineDensityMode } from '../timelineNodeVisualModel';
 import { ArgumentScoreTracker } from '../ArgumentScoreTracker';
-import { ArgumentSideActionRail, railActionToBubbleControl } from '../ArgumentSideActionRail';
+import { ArgumentSideActionRail, getRailActions, railActionToBubbleControl } from '../ArgumentSideActionRail';
 import type { RailActionCode, RailViewerRole } from '../ArgumentSideActionRail';
+// ROOM-002 (#885) — the pure Ringside feed projection. Built here from the
+// derivations the orchestrator already holds and passed into ExchangeView only
+// when room_exchange_v2 is on.
+import { buildRingsideFeed, type RingsideFeedViewModel } from './ringsideFeedModel';
 import { SeatAvailabilityStrip } from '../SeatAvailabilityStrip';
 import { buildSeatAvailabilityViewModel } from '../../debates/seatClaimModel';
 import type { SeatAvailability } from '../../debates/seatClaimModel';
@@ -1337,6 +1341,40 @@ export function ArgumentRoom({
     return prioritizePointFeedbackFlags(built);
   }, [activeMessageId, persistedObservationsByArgumentId, activeViewModel?.actor]);
 
+  // ROOM-002 (#885) — the Ringside feed projection. Built ONLY when
+  // room_exchange_v2 is on (else null, so the flag-off path wastes no
+  // derivation). A pure join over structures already derived above: the bubble
+  // view-models carry the actor-gated allowedControls; the timeline node
+  // carries the kind color family, descendant count, and parent id; the
+  // artifact map carries the proof count; the evidence-debt summary carries the
+  // owed-receipt signal; getRailActions supplies the observer set. No standing,
+  // heat, or classifier data reaches the card face.
+  const ringsideFeed = useMemo<RingsideFeedViewModel | null>(() => {
+    if (!roomExchangeV2Enabled) return null;
+    return buildRingsideFeed({
+      viewModels,
+      viewerRole: resolvedViewerRole,
+      activeMessageId,
+      kindColorFamilyFor: (id) => nodeByMessageId.get(id)?.kindColorFamily ?? 'default',
+      descendantCountFor: (id) => nodeByMessageId.get(id)?.descendantCount ?? 0,
+      parentMessageIdFor: (id) => nodeByMessageId.get(id)?.parentId ?? null,
+      proofChipCountFor: (id) => artifactsByMessageId[id]?.length ?? 0,
+      owedReceiptFor: (id) => getNodeEvidenceDebtSummary(id, evidenceDebts).hasOpenDebt,
+      observerActionsFor: (actor) => getRailActions('observer', actor),
+      friendlyFlagCountFor: (id) =>
+        id === activeMessageId ? activePointFeedbackFlags.visible.length : 0,
+    });
+  }, [
+    roomExchangeV2Enabled,
+    viewModels,
+    resolvedViewerRole,
+    activeMessageId,
+    nodeByMessageId,
+    artifactsByMessageId,
+    evidenceDebts,
+    activePointFeedbackFlags,
+  ]);
+
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
   //
   // The three mounts below consume already-resident client state. None
@@ -2517,6 +2555,14 @@ export function ArgumentRoom({
             pointFeedbackFlags={activePointFeedbackFlags}
             activeViewModel={activeViewModel}
             onBubbleAction={handleBubbleAction}
+            // ROOM-002 (#885) — flag-on Ringside re-weight. ringsideFeed is null
+            // when the flag is off, so ExchangeView renders the stack subtree
+            // byte-identical. onOpenMap forces the Map lens for branch-pill
+            // deep-links; reduceMotion is threaded for symmetry.
+            roomExchangeV2Enabled={roomExchangeV2Enabled}
+            ringsideFeed={ringsideFeed}
+            onOpenMap={() => setMode('timeline')}
+            reduceMotion={reduceMotionOverride === true}
           />
         ) : (
           // ASP-EXTRACT-001 (Slice 1) — the mode === timeline body is now the
