@@ -426,3 +426,36 @@ Record the result in the review/verification doc; this is the substitute for the
 - **Verify (after apply):** run §12.1 (pg_policies presence via `npx supabase db query`) then §12.2 (authed member-read smoke: member → rows, non-member → 0, non-circle → unchanged).
 - **Then:** #882 closes and the `home_v2` pre-flip gate is satisfied. `home_v2` remains OFF until the operator flips it separately.
 - **Rollback (if ever):** ship a new drop-policy migration (§11); do **not** edit the applied file.
+
+---
+
+## Implementer note: cannot proceed to "done" — frozen anchor `circleMigration.test.ts` cannot stay both UNMODIFIED and green (operator decision required)
+
+**Status:** migration + new scan suite implemented and green; card BLOCKED on a pre-existing anchor tripwire the design (§7) did not account for.
+
+**What was built (correct, committed):**
+- `supabase/migrations/20260709000001_asp_circles_rls_001_circle_read_arm.sql` — byte-equal to §3 (diff exit 0; 8367 bytes / 121 lines).
+- `__tests__/circleReadArmRlsScan.test.ts` — 25 tests, all green in isolation; typecheck + lint clean.
+
+**The blocker.** The existing anchor `__tests__/circleMigration.test.ts:37` — `it('is the highest sequential migration (no later 14-digit timestamp)')` — reads the WHOLE `supabase/migrations/` directory and asserts that `20260702000001_private_groups_002_circles.sql` has the highest 14-digit timestamp of any file there:
+
+```
+for (const f of files) {
+  if (f === path.basename(migPath)) continue;
+  const other = Number(f.match(/^(\d{14})/)?.[1] ?? '0');
+  expect(other).toBeLessThan(oursStamp);   // fails: 20260709000001 > 20260702000001
+}
+```
+
+This is a **self-pin tripwire** that fires on the addition of ANY later migration. This card's migration (`20260709000001`, whose timestamp MUST be strictly greater than `20260702000001` per §3 and supabase-edge-contract append-only discipline) necessarily trips it. There is no timestamp that both satisfies "sequential-after-circles" and leaves this anchor green — the two requirements are mutually exclusive.
+
+**Why this is a STOP, not a silent fix.** The spawn-card prompt makes `circleMigration.test.ts` a hard boundary: it must "remain UNMODIFIED and green" and there must be "zero existing test-file modifications." Given the anchor's content, UNMODIFIED and green cannot both hold once this card's migration exists. Resolving it requires editing a file the card explicitly froze — a test-suite-policy decision the operator/designer reserved (the design's §7 deliberately reasoned the anchors would stay untouched). The implementer will not silently edit a frozen anchor, and will not ship a red suite as "done."
+
+**Blast radius is exactly this one assertion.** Full-suite run: 934 suites / 33,311 tests → 2 failed. The second failure (`pointLifecycleModel.test.ts`, LIFE-001) is the documented wall-clock flake — it PASSES isolated (76/76) and is not in this diff. The other directory-reading anchors are unaffected: `semanticRuntimeConfigMigration.test.ts:143` checks a PREDECESSOR position (stable); the two `uxOneOneFiveA*` tests match a name pattern this migration does not hit. So `circleMigration.test.ts:37` is the sole real, deterministic new red.
+
+**Decision needed from operator/designer — pick one:**
+- **Option A (re-point the tripwire; smallest edit).** Authorize a one-assertion update to `circleMigration.test.ts:37-47` so the "highest migration" is now `20260709000001_asp_circles_rls_001_circle_read_arm.sql` (or add it to an allowlist of later migrations). Standard per-migration maintenance edit; ~5 changed lines in one suite. Requires lifting the "circleMigration UNMODIFIED" boundary for this card.
+- **Option B (relax the tripwire permanently).** Change the assertion from "no later migration exists" to "the circles migration's timestamp is well-formed and greater than its documented predecessor (`20260630000001_cov_004…`)", so it never again fires on unrelated future migrations. Larger semantic change to the anchor's intent; also a `circleMigration.test.ts` edit.
+- **Option C.** Some other operator-preferred resolution.
+
+The implementer stopped here and did NOT write the §7 `current-status.md` "done" entry (slice 3), since the card is not green end-to-end. Once the operator rules, the remaining work is the chosen anchor edit + the current-status entry, then final green gate.
