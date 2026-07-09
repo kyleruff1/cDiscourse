@@ -36,6 +36,13 @@ export const ARGUMENT_ENTRY_COMPOSER_COPY = Object.freeze({
   proofLabel: 'Source',
   proofA11yLabel: 'Add a source',
   proofA11yHint: 'Open the full composer to attach a source.',
+  // PROOF-002 — when the source drawer is wired (onOpenProof present), the
+  // Source slot opens the drawer instead of More. Distinct a11y copy.
+  proofDrawerA11yHint: 'Open the source drawer to attach a source.',
+  // PROOF-002 — owed state on the Source slot: a source was asked for on the
+  // scoped own move. An obligation marker, never a verdict; reads in monochrome.
+  proofOwedLabel: 'Source owed',
+  proofOwedA11yLabel: 'Source owed, add a source',
   micLabel: 'Voice — coming soon',
   micA11yLabel: 'Voice reply, coming soon',
   moreLabel: 'More',
@@ -175,7 +182,7 @@ export function deriveEntryComposerDefaults(input: EntryComposerDefaultsInput): 
 /** Bar element visibility (which slots render), derived from viewer/flag/target. */
 export interface EntryComposerBarLayout {
   showContextChip: boolean;
-  showProofSlot: boolean; // always true (routes to More until PROOF-002)
+  showProofSlot: boolean; // always true (routes to the source drawer when wired, else More)
   showMicSlot: boolean; // always true; ALWAYS disabled in this card
   showMoreButton: boolean; // always true
   canSend: boolean; // body non-empty AND evaluation.allowPost
