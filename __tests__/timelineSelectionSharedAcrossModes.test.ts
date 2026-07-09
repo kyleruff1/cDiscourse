@@ -197,6 +197,16 @@ describe('IX-004 — ArgumentGameSurface uses one shared activeMessageId', () =>
     );
   });
 
+  it('ROOM-002 — the shared activeMessageId flows into the Ringside feed', () => {
+    // The Ringside feed is built from the SAME single shared activeMessageId
+    // (never a second selection state), so a lens switch preserves the
+    // selection in the flag-on Exchange lens too.
+    expect(GAME_SURFACE_SRC).toMatch(/buildRingsideFeed\(\{[\s\S]*?activeMessageId,/);
+    // The feed is passed into ExchangeView as ringsideFeed, sharing the same
+    // selection the stack + timeline lenses read.
+    expect(GAME_SURFACE_SRC).toMatch(/<ExchangeView[\s\S]*?ringsideFeed=\{ringsideFeed\}/);
+  });
+
   it('the mode toggle uses toggleSurfaceMode and does NOT reset activeMessageId', () => {
     // handleToggleMode flips only `mode`; it must not call setActiveMessageId.
     const idx = GAME_SURFACE_SRC.indexOf('const handleToggleMode');

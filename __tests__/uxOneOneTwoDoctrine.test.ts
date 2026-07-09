@@ -45,6 +45,12 @@ const UX_001_2_FILES = [
   // ArgumentGameSurface.tsx entry above now scans the thin re-export shim.
   'src/features/arguments/room/ArgumentRoom.tsx',
   'src/features/arguments/room/ExchangeView.tsx',
+  // ROOM-002 (#885) — the Ringside Exchange re-weight UI carries user-facing
+  // copy, so it inherits the same verdict-ban / internal-code-leak / security /
+  // provider-import / no-console.log coverage. Comments in these files are kept
+  // apostrophe-free for the naive quote-parity STRING_RE scanner.
+  'src/features/arguments/room/RingsideFeed.tsx',
+  'src/features/arguments/room/RingsideCard.tsx',
 ];
 
 // Strings that must NEVER appear inside a UI string literal in any

@@ -82,8 +82,17 @@ import { BRAND } from '../../../lib/designTokens';
 import { resolveStackKeyEffect } from '../stackKeyboardSwipeModel';
 import type { TimelineDensityMode } from '../timelineNodeVisualModel';
 import { ArgumentScoreTracker } from '../ArgumentScoreTracker';
-import { ArgumentSideActionRail, railActionToBubbleControl } from '../ArgumentSideActionRail';
+import { ArgumentSideActionRail, getRailActions, railActionToBubbleControl } from '../ArgumentSideActionRail';
 import type { RailActionCode, RailViewerRole } from '../ArgumentSideActionRail';
+// ROOM-002 (#885) — the pure Ringside feed projection. Built here from the
+// derivations the orchestrator already holds and passed into ExchangeView only
+// when room_exchange_v2 is on.
+import { buildRingsideFeed, type RingsideFeedViewModel } from './ringsideFeedModel';
+// ROOM-004 (#886) — the pure Map node-action surface projection + the sidecar
+// links footer. The surface is built here (the single reconciliation point)
+// and passed into MapView; the footer mounts in col2 under the reused flags.
+import { buildMapNodeActionSurface, type MapNodeActionSurface } from './mapNodeActionSurfaceModel';
+import { MapNodeSidecarLinks } from './MapNodeSidecarLinks';
 import { SeatAvailabilityStrip } from '../SeatAvailabilityStrip';
 import { buildSeatAvailabilityViewModel } from '../../debates/seatClaimModel';
 import type { SeatAvailability } from '../../debates/seatClaimModel';
@@ -1337,6 +1346,78 @@ export function ArgumentRoom({
     return prioritizePointFeedbackFlags(built);
   }, [activeMessageId, persistedObservationsByArgumentId, activeViewModel?.actor]);
 
+  // ROOM-002 (#885) — the Ringside feed projection. Built ONLY when
+  // room_exchange_v2 is on (else null, so the flag-off path wastes no
+  // derivation). A pure join over structures already derived above: the bubble
+  // view-models carry the actor-gated allowedControls; the timeline node
+  // carries the kind color family, descendant count, and parent id; the
+  // artifact map carries the proof count; the evidence-debt summary carries the
+  // owed-receipt signal; getRailActions supplies the observer set. No standing,
+  // heat, or classifier data reaches the card face.
+  const ringsideFeed = useMemo<RingsideFeedViewModel | null>(() => {
+    if (!roomExchangeV2Enabled) return null;
+    return buildRingsideFeed({
+      viewModels,
+      viewerRole: resolvedViewerRole,
+      activeMessageId,
+      kindColorFamilyFor: (id) => nodeByMessageId.get(id)?.kindColorFamily ?? 'default',
+      descendantCountFor: (id) => nodeByMessageId.get(id)?.descendantCount ?? 0,
+      parentMessageIdFor: (id) => nodeByMessageId.get(id)?.parentId ?? null,
+      proofChipCountFor: (id) => artifactsByMessageId[id]?.length ?? 0,
+      owedReceiptFor: (id) => getNodeEvidenceDebtSummary(id, evidenceDebts).hasOpenDebt,
+      observerActionsFor: (actor) => getRailActions('observer', actor),
+      friendlyFlagCountFor: (id) =>
+        id === activeMessageId ? activePointFeedbackFlags.visible.length : 0,
+    });
+  }, [
+    roomExchangeV2Enabled,
+    viewModels,
+    resolvedViewerRole,
+    activeMessageId,
+    nodeByMessageId,
+    artifactsByMessageId,
+    evidenceDebts,
+    activePointFeedbackFlags,
+  ]);
+
+  // ROOM-004 (#886) — the Map node-action surface. Built ONLY when
+  // room_exchange_v2 is on AND a node target is selected (the popover
+  // supersedes the SC-004 node dock). It MIRRORS the Ringside card exactly
+  // (R1): participant viewers get the SAME activeViewModel.allowedControls the
+  // card renders (own node reduces to qualifiers + request deletion via
+  // getBubbleControlsForActor), dispatched through handleBubbleAction; observers
+  // get the getRailActions observer set, dispatched through handleRailAction.
+  // Plus the low-density sidecar links + open-point membership line (a read-only
+  // projection of the already-derived mediator board, never re-derived). Null
+  // when off / no node selected.
+  const mapNodeActionSurface = useMemo<MapNodeActionSurface | null>(() => {
+    if (!roomExchangeV2Enabled) return null;
+    if (!activeMessageId) return null;
+    if (selectedDockTarget?.kind !== 'node') return null;
+    const pointId = mediatorBoard.markupByNodeId?.[activeMessageId]?.pointId ?? null;
+    const point = pointId ? mediatorBoard.points.find((p) => p.id === pointId) ?? null : null;
+    const isOpenPointMember = Boolean(point && point.state !== 'resolved_or_settled');
+    const actor = activeViewModel?.actor ?? 'unknown';
+    return buildMapNodeActionSurface({
+      activeMessageId,
+      viewerRole: resolvedViewerRole,
+      actor,
+      participantControls: activeViewModel?.allowedControls ?? [],
+      observerActions: getRailActions('observer', actor),
+      actingOnShortLabel: timelineReadoutViewModel.actingOnShortLabel,
+      isOpenPointMember,
+    });
+  }, [
+    roomExchangeV2Enabled,
+    activeMessageId,
+    selectedDockTarget,
+    mediatorBoard,
+    resolvedViewerRole,
+    activeViewModel?.actor,
+    activeViewModel?.allowedControls,
+    timelineReadoutViewModel,
+  ]);
+
   // ── UX-001.4 — Board-level Act / Inspect / Go derivations ──
   //
   // The three mounts below consume already-resident client state. None
@@ -1942,6 +2023,17 @@ export function ArgumentRoom({
     if (ctrl && ctx.activeMessageId) handleAction(ctrl, ctx.activeMessageId);
   }, [onJoinSide, onShareRoom, mode, handleAction]);
 
+  // ROOM-004 (#886) — J9. Answer this from the Map jumps to the Exchange lens
+  // (setMode stack) and opens the composer scoped to the selected node
+  // (handleAction reply). The Map selection id is preserved into Exchange, so
+  // the flow is at most two taps: select the node, then Answer this. No new
+  // write path; reuses the EXISTING handleAction reply route.
+  const handleAnswerThisFromMap = useCallback(() => {
+    if (!activeMessageId) return;
+    setMode('stack');
+    handleAction('reply', activeMessageId);
+  }, [activeMessageId, handleAction]);
+
   // REF-004 — the SINGLE Act entry→box bridge. Extracted verbatim from the
   // board-Act `handleBoardActSelectBoxType` body so "Act changes the issue" is
   // ONE code path: `actEntryToQuickAction(entryId)` → `quickActionToPreset` →
@@ -2517,6 +2609,14 @@ export function ArgumentRoom({
             pointFeedbackFlags={activePointFeedbackFlags}
             activeViewModel={activeViewModel}
             onBubbleAction={handleBubbleAction}
+            // ROOM-002 (#885) — flag-on Ringside re-weight. ringsideFeed is null
+            // when the flag is off, so ExchangeView renders the stack subtree
+            // byte-identical. onOpenMap forces the Map lens for branch-pill
+            // deep-links; reduceMotion is threaded for symmetry.
+            roomExchangeV2Enabled={roomExchangeV2Enabled}
+            ringsideFeed={ringsideFeed}
+            onOpenMap={() => setMode('timeline')}
+            reduceMotion={reduceMotionOverride === true}
           />
         ) : (
           // ASP-EXTRACT-001 (Slice 1) — the mode === timeline body is now the
@@ -2544,7 +2644,14 @@ export function ArgumentRoom({
             evidenceDebtSummaryFor={evidenceDebtSummaryFor}
             isReadModeViewer={resolvedViewerRole === 'observer'}
             selectedTarget={selectedDockTarget}
-            actionDockModel={dockModel}
+            // ROOM-004 (#886) — SC-004 node-dock supersession. Under flag-on,
+            // a node selection hands the dock to null so the ROOM-004 popover
+            // is the single node-action surface; cluster / collapsed_stub
+            // targets keep the dock (expand_branch preserved). Flag-off passes
+            // dockModel unchanged, so the SC-004 dock is byte-identical.
+            actionDockModel={
+              roomExchangeV2Enabled && selectedDockTarget?.kind === 'node' ? null : dockModel
+            }
             actingOnLabel={timelineReadoutViewModel.actingOnShortLabel}
             onSelectTarget={setSelectedDockTarget}
             onActionDockAction={handleActionDockAction}
@@ -2554,6 +2661,24 @@ export function ArgumentRoom({
             onOpenLinkedPrior={onOpenLinkedPrior}
             onViewLinkedPriorContext={handleViewLinkedPriorContext}
             onOpenLinkPicker={onOpenLinkPicker}
+            // ROOM-004 (#886) — the node action popover surface + its bindings.
+            // R1 mirroring: onPopoverControl dispatches participant controls
+            // through the SAME handleBubbleAction the Ringside card uses, and
+            // onPopoverAction dispatches observer codes through the SAME
+            // handleRailAction the Exchange rail uses (parity handler identity
+            // on BOTH paths). onAnswerThis is the J9 jump; onPopoverClose clears
+            // the node selection (matches the dock dismissal). Absent surface
+            // => nothing new renders.
+            nodeActionPopover={mapNodeActionSurface}
+            onPopoverControl={(control) => {
+              if (activeMessageId) handleBubbleAction(control, activeMessageId);
+            }}
+            onPopoverAction={(code) => handleRailAction(code, { activeMessageId })}
+            onAnswerThis={handleAnswerThisFromMap}
+            onPopoverOpenDetails={
+              activeMessageId ? () => handleOpenDetailsFromTimeline(activeMessageId) : undefined
+            }
+            onPopoverClose={() => setSelectedDockTarget(null)}
           />
         )}
         </View>
@@ -2591,6 +2716,19 @@ export function ArgumentRoom({
               flags={activePointFeedbackFlags.visible}
               suppressedCount={activePointFeedbackFlags.suppressedCount}
             />
+            {/* ROOM-004 (#886) — the low-density sidecar deep-link footer.
+                Mounts AFTER the reused readout + flags (never before MapView),
+                gated on room_exchange_v2 + a supplied surface. Answer this is
+                the J9 jump; Open disagreement points reuses the existing
+                analysis toggle. Flag-off => not mounted, col2 byte-identical. */}
+            {roomExchangeV2Enabled && mapNodeActionSurface ? (
+              <MapNodeSidecarLinks
+                surface={mapNodeActionSurface}
+                onAnswerThis={handleAnswerThisFromMap}
+                onOpenDebts={() => handleOpenAnalysisSurface('disagreement')}
+                reduceMotion={reduceMotionOverride === true}
+              />
+            ) : null}
             {/* UX-FEEDBACK-001 — default-visible STATIC current-state cue near
                 the selected-node responding-to anchor. "Point anchored." is a
                 local ephemeral acknowledgement that the response is bound to a
