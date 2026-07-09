@@ -125,9 +125,11 @@ interface Props {
   roomContract?: RoomContractViewModel;
   roomVisibility?: 'public' | 'private';
   onOpenRoomDetails?: () => void;
+  /** PROOF-002 (#889) — pass-through gate for the read-path flip; forwarded verbatim to ArgumentRoom. */
+  proofDrawerEnabled?: boolean;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled }: Props) {
   const {
     cache,
     viewport,
@@ -195,6 +197,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         roomContract={roomContract}
         roomVisibility={roomVisibility}
         onOpenRoomDetails={onOpenRoomDetails}
+        proofDrawerEnabled={proofDrawerEnabled}
       />
     );
   }
@@ -351,9 +354,11 @@ interface FullRoomGameSurfaceMountProps {
   roomContract?: RoomContractViewModel;
   roomVisibility?: 'public' | 'private';
   onOpenRoomDetails?: () => void;
+  /** PROOF-002 (#889) — read-path flip gate; forwarded to ArgumentRoom. */
+  proofDrawerEnabled?: boolean;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -621,6 +626,9 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         roomContract={roomContract}
         roomVisibility={roomVisibility}
         onOpenRoomDetails={onOpenRoomDetails}
+        // PROOF-002 (#889) — read-path flip gate. Flag OFF => useProofItems is
+        // disabled and the room reads JSONB byte-identically.
+        proofDrawerEnabled={proofDrawerEnabled}
       />
       {/* QUOTE-FORGE-001 — the create-link picker sheet. On-demand overlay
           opened from the timeline-header affordance; caller-scoped create

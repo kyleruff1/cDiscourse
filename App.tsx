@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { AppSessionProvider } from './src/features/session/AppSessionProvider';
@@ -42,6 +43,13 @@ import { isHomeV2Enabled } from './src/lib/featureFlags';
 // accessor must not merge into that specifier list. The boolean threads down
 // as a prop; no src/features file imports featureFlags.
 import { isRoomExchangeV2Enabled } from './src/lib/featureFlags';
+// PROOF-002 (#889) — App.tsx (the sole flag consumer) reads the proof_drawer
+// flag here and threads the boolean down as a prop. SEPARATE import line by
+// design: the featureFlagsStaticEnv pin matches the isHomeV2Enabled import
+// EXACTLY, so this accessor must not merge into that specifier list.
+import { isProofDrawerEnabled } from './src/lib/featureFlags';
+import { ProofDrawer, attachProof, detachProof } from './src/features/proof';
+import type { ProofDrawerScope } from './src/features/proof';
 import { ArgumentHome } from './src/features/home';
 import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
 // QOL-040.3 — pure helper that builds the entry hint from a notification
@@ -581,6 +589,11 @@ function MainAppShell({
   // ROOM-001 (#876) — default OFF. Threaded into ArgumentTreeScreen so the room
   // orchestrator mounts the ambient ArgumentStateRail only behind the flag.
   const roomExchangeV2Enabled = isRoomExchangeV2Enabled();
+  // PROOF-002 (#889) — default OFF. Threaded into ArgumentTreeScreen (read-path
+  // flip) + gates the Source-slot onOpenProof callback + the ProofDrawer mount.
+  const proofDrawerEnabled = isProofDrawerEnabled();
+  const { width: proofDrawerWidth, height: proofDrawerHeight } = useWindowDimensions();
+  const [proofDrawerScope, setProofDrawerScope] = useState<ProofDrawerScope | null>(null);
   // 'home' is deliberately NOT a ConversationGallerySection (that union drives
   // groupGalleryCardsBySection / gallery chips); it lives only in this
   // App.tsx-local lane state, so the gallery model is not perturbed.
@@ -800,6 +813,21 @@ function MainAppShell({
     setComposerOpen(false);
     setComposerPreset(null);
     refreshTreeRef.current?.();
+  };
+
+  // PROOF-002 (#889) — open the source drawer from the composer Source slot.
+  // Scopes to the authors OWN posted move (a real attach target) when the reply
+  // target is that move; otherwise a draft scope (attach applies after posting).
+  const openProofForDraft = () => {
+    if (!currentDebate) return;
+    const target = replyTarget;
+    const isOwnPostedMove =
+      !!target && target.argument.authorId === state.snapshot.userId && target.argument.status === 'posted';
+    setProofDrawerScope(
+      isOwnPostedMove
+        ? { kind: 'argument', debateId: currentDebate.id, argumentId: target!.argument.id, owedDebtKind: null }
+        : { kind: 'draft', debateId: currentDebate.id, argumentId: null },
+    );
   };
 
   const handleLeaveRoom = () => {
@@ -1229,6 +1257,9 @@ function MainAppShell({
               roomContract={roomContract.viewModel ?? undefined}
               roomVisibility={currentDebate.visibility}
               onOpenRoomDetails={() => setInviteOpen((v) => !v)}
+              // PROOF-002 (#889) — read-path flip gate. Flag OFF => the room
+              // fetches no proof_items rows and reads JSONB byte-identically.
+              proofDrawerEnabled={proofDrawerEnabled}
               // PR-001 — thread the user's visual-density preference into
               // the timeline map (drives VG-004's resolveNodeGapPx) and
               // the reduce-motion override (OS value composed with the
@@ -1315,8 +1346,34 @@ function MainAppShell({
                 participantSide={participantSide as ParticipantSide | null}
                 reduceMotionOverride={preferences.effectiveReduceMotion}
                 onOpenMore={handleComposerExpand}
+                // PROOF-002 (#889) — with proof_drawer ON the Source slot opens
+                // the drawer; OFF => undefined => the slot routes to More
+                // (byte-identical). The composer never reads the flag registry.
+                onOpenProof={proofDrawerEnabled ? openProofForDraft : undefined}
                 onSubmitSuccess={handleSubmitSuccess}
                 onClearParent={handleClearParent}
+              />
+            ) : null}
+
+            {/* PROOF-002 (#889) — the source drawer, mounted as a sibling of the
+                one-bar composer. Behind proof_drawer AND a live scope; OFF or
+                no scope => never mounted (flag-off byte-identical). The write
+                goes through the JWT-scoped attach-proof wrapper (no service
+                role in the client). */}
+            {proofDrawerEnabled && proofDrawerScope !== null ? (
+              <ProofDrawer
+                scope={proofDrawerScope}
+                windowWidth={proofDrawerWidth}
+                windowHeight={proofDrawerHeight}
+                reduceMotion={preferences.effectiveReduceMotion}
+                currentUserId={state.snapshot.userId}
+                onAttach={async (input) => {
+                  const result = await attachProof(input);
+                  if (result.ok) refreshTreeRef.current?.();
+                  return result;
+                }}
+                onDetach={detachProof}
+                onClose={() => setProofDrawerScope(null)}
               />
             ) : null}
           </View>
