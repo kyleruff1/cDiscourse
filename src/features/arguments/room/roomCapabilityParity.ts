@@ -21,9 +21,14 @@
  * All comments apostrophe-free for the doctrine scanner.
  */
 import type { RailActionCode, RailBubbleActor, RailViewerRole } from '../railActionCategories';
+import { getBubbleControlsForActor } from '../argumentGameSurfaceModel';
 import { getRailActions } from '../ArgumentSideActionRail';
 import { ROOM_RAIL_ACTION_CODES } from './roomActionCodes';
-import { buildMapNodeActionSurface } from './mapNodeActionSurfaceModel';
+import {
+  BUBBLE_CONTROL_TO_RAIL_ACTION_CODE,
+  buildMapNodeActionSurface,
+  mapActionRowToRailCodes,
+} from './mapNodeActionSurfaceModel';
 
 export type RoomLens = 'exchange' | 'map';
 
@@ -70,23 +75,34 @@ export function railActionHandlerId(code: RailActionCode): RailActionHandlerClas
   }
 }
 
-/** The node-level action-row codes for a lens. Both arms derive from getRailActions. */
-function nodeRowCodes(lens: RoomLens, viewerRole: RailViewerRole, actor: RailBubbleActor): RailActionCode[] {
-  const railActions = getRailActions(viewerRole, actor);
-  if (lens === 'exchange') {
-    // The Exchange element row consumes getRailActions directly (ROOM-002).
-    return railActions.map((a) => a.code);
-  }
-  // The Map popover consumes the SAME list through the surface model (ROOM-004).
+/**
+ * The Exchange node-row codes — the REAL Ringside derivation. Participants use
+ * getBubbleControlsForActor (the SAME source vm.allowedControls / the Ringside
+ * card consume), normalized into RailActionCode space; observers use the
+ * getRailActions observer set. This is the exchange arm the matrix compares.
+ */
+export function exchangeNodeRowCodes(viewerRole: RailViewerRole, actor: RailBubbleActor): RailActionCode[] {
+  if (viewerRole === 'observer') return getRailActions('observer', actor).map((a) => a.code);
+  return getBubbleControlsForActor(actor).map((c) => BUBBLE_CONTROL_TO_RAIL_ACTION_CODE[c]);
+}
+
+/**
+ * The Map node-row codes — the REAL popover injection. It runs the SAME
+ * derivations the Exchange arm uses THROUGH buildMapNodeActionSurface (the
+ * actual popover surface), so a future popover-side filter / re-order makes the
+ * two arms diverge and FAILS the matrix. This is the map arm the matrix compares.
+ */
+export function mapNodeRowCodes(viewerRole: RailViewerRole, actor: RailBubbleActor): RailActionCode[] {
   const surface = buildMapNodeActionSurface({
     activeMessageId: 'parity-probe',
     viewerRole,
     actor,
-    actions: railActions,
+    participantControls: getBubbleControlsForActor(actor),
+    observerActions: getRailActions('observer', actor),
     actingOnShortLabel: null,
     isOpenPointMember: false,
   });
-  return surface.actionRow.map((a) => a.code);
+  return mapActionRowToRailCodes(surface.actionRow);
 }
 
 /** The lens-agnostic board Act menu codes reachable for an actor. */
@@ -102,19 +118,33 @@ function goCodes(): RailActionCode[] {
 }
 
 /**
+ * Compose a reachable set from an EXPLICIT node-row plus the lens-agnostic
+ * board Act + Go menus. Exposed so a negative-control test can inject a stubbed
+ * (subset) node row and PROVE the set-equality guard fires on divergence.
+ */
+export function reachableRailActionCodesWith(
+  nodeRow: readonly RailActionCode[],
+  viewerRole: RailViewerRole,
+  actor: RailBubbleActor,
+): ReadonlySet<RailActionCode> {
+  const out = new Set<RailActionCode>();
+  for (const c of nodeRow) out.add(c);
+  for (const c of boardActCodes(viewerRole, actor)) out.add(c);
+  for (const c of goCodes()) out.add(c);
+  return out;
+}
+
+/**
  * The set of RailActionCodes reachable in a lens for an actor. The union of the
- * node-level row (lens-specific derivation) plus the lens-agnostic board Act +
- * Go menus. Parity holds because the node rows share getRailActions and the
- * board surfaces are lens-agnostic.
+ * node-level row (the REAL per-lens derivation) plus the lens-agnostic board
+ * Act + Go menus. The exchange arm is the Ringside derivation; the map arm is
+ * the popover injection — so set-equality genuinely fails on any lens divergence.
  */
 export function reachableRailActionCodes(
   lens: RoomLens,
   viewerRole: RailViewerRole,
   actor: RailBubbleActor,
 ): ReadonlySet<RailActionCode> {
-  const out = new Set<RailActionCode>();
-  for (const c of nodeRowCodes(lens, viewerRole, actor)) out.add(c);
-  for (const c of boardActCodes(viewerRole, actor)) out.add(c);
-  for (const c of goCodes()) out.add(c);
-  return out;
+  const nodeRow = lens === 'exchange' ? exchangeNodeRowCodes(viewerRole, actor) : mapNodeRowCodes(viewerRole, actor);
+  return reachableRailActionCodesWith(nodeRow, viewerRole, actor);
 }

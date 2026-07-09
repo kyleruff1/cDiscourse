@@ -1382,11 +1382,14 @@ export function ArgumentRoom({
 
   // ROOM-004 (#886) — the Map node-action surface. Built ONLY when
   // room_exchange_v2 is on AND a node target is selected (the popover
-  // supersedes the SC-004 node dock). It mirrors the Exchange action row by
-  // consuming the SAME getRailActions derivation (injected, never forked) and
-  // adds the low-density sidecar links + open-point membership line. The
-  // open-point membership is a read-only projection of the already-derived
-  // mediator board; it is never re-derived. Null when off / no node selected.
+  // supersedes the SC-004 node dock). It MIRRORS the Ringside card exactly
+  // (R1): participant viewers get the SAME activeViewModel.allowedControls the
+  // card renders (own node reduces to qualifiers + request deletion via
+  // getBubbleControlsForActor), dispatched through handleBubbleAction; observers
+  // get the getRailActions observer set, dispatched through handleRailAction.
+  // Plus the low-density sidecar links + open-point membership line (a read-only
+  // projection of the already-derived mediator board, never re-derived). Null
+  // when off / no node selected.
   const mapNodeActionSurface = useMemo<MapNodeActionSurface | null>(() => {
     if (!roomExchangeV2Enabled) return null;
     if (!activeMessageId) return null;
@@ -1399,7 +1402,8 @@ export function ArgumentRoom({
       activeMessageId,
       viewerRole: resolvedViewerRole,
       actor,
-      actions: getRailActions(resolvedViewerRole, actor),
+      participantControls: activeViewModel?.allowedControls ?? [],
+      observerActions: getRailActions('observer', actor),
       actingOnShortLabel: timelineReadoutViewModel.actingOnShortLabel,
       isOpenPointMember,
     });
@@ -1410,6 +1414,7 @@ export function ArgumentRoom({
     mediatorBoard,
     resolvedViewerRole,
     activeViewModel?.actor,
+    activeViewModel?.allowedControls,
     timelineReadoutViewModel,
   ]);
 
@@ -2657,17 +2662,22 @@ export function ArgumentRoom({
             onViewLinkedPriorContext={handleViewLinkedPriorContext}
             onOpenLinkPicker={onOpenLinkPicker}
             // ROOM-004 (#886) — the node action popover surface + its bindings.
-            // onPopoverAction dispatches through the SAME handleRailAction the
-            // Exchange lens receives (parity handler identity); onAnswerThis is
-            // the J9 jump; onPopoverClose clears the node selection (matches the
-            // dock dismissal). Absent surface => nothing new renders.
+            // R1 mirroring: onPopoverControl dispatches participant controls
+            // through the SAME handleBubbleAction the Ringside card uses, and
+            // onPopoverAction dispatches observer codes through the SAME
+            // handleRailAction the Exchange rail uses (parity handler identity
+            // on BOTH paths). onAnswerThis is the J9 jump; onPopoverClose clears
+            // the node selection (matches the dock dismissal). Absent surface
+            // => nothing new renders.
             nodeActionPopover={mapNodeActionSurface}
+            onPopoverControl={(control) => {
+              if (activeMessageId) handleBubbleAction(control, activeMessageId);
+            }}
             onPopoverAction={(code) => handleRailAction(code, { activeMessageId })}
             onAnswerThis={handleAnswerThisFromMap}
             onPopoverOpenDetails={
               activeMessageId ? () => handleOpenDetailsFromTimeline(activeMessageId) : undefined
             }
-            onPopoverOpenAct={() => setBoardActVisible(true)}
             onPopoverClose={() => setSelectedDockTarget(null)}
           />
         )}

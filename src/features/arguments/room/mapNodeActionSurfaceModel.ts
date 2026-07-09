@@ -18,7 +18,8 @@
  *
  * All comments apostrophe-free for the naive quote-parity doctrine scanner.
  */
-import type { RailAction, RailBubbleActor, RailViewerRole } from '../railActionCategories';
+import type { ArgumentBubbleControl } from '../argumentGameSurfaceModel';
+import type { RailAction, RailActionCode, RailBubbleActor, RailViewerRole } from '../railActionCategories';
 
 /** Sidecar deep-link descriptor. */
 export interface MapNodeSidecarLink {
@@ -27,12 +28,48 @@ export interface MapNodeSidecarLink {
   hint: string;
 }
 
+/**
+ * Actor-aware popover action row. This MIRRORS the Ringside card exactly (R1):
+ *   - participant → the SAME allowedControls the Ringside card renders,
+ *     dispatched through handleBubbleAction;
+ *   - observer → the getRailActions observer set, dispatched through
+ *     handleRailAction.
+ * Exactly one variant is populated per actor / viewer.
+ */
+export type MapNodeActionRow =
+  | { kind: 'participant'; controls: ArgumentBubbleControl[] }
+  | { kind: 'observer'; actions: RailAction[] };
+
+/**
+ * The bridge from an ArgumentBubbleControl to its RailActionCode capability
+ * name. This is the exact inverse of railActionToBubbleControl and lets the
+ * parity model normalize the participant control row into the shared
+ * RailActionCode space. Pure map; no React.
+ */
+export const BUBBLE_CONTROL_TO_RAIL_ACTION_CODE: Readonly<Record<ArgumentBubbleControl, RailActionCode>> =
+  Object.freeze({
+    reply: 'reply',
+    disagree: 'disagree',
+    flag: 'flag',
+    ask_for_source: 'ask_source',
+    ask_for_quote: 'ask_quote',
+    branch: 'split_branch',
+    view_qualifiers: 'qualifiers',
+    request_deletion: 'request_deletion',
+  });
+
+/** Normalize a popover action row into RailActionCode capability names. */
+export function mapActionRowToRailCodes(row: MapNodeActionRow): RailActionCode[] {
+  if (row.kind === 'observer') return row.actions.map((a) => a.code);
+  return row.controls.map((c) => BUBBLE_CONTROL_TO_RAIL_ACTION_CODE[c]);
+}
+
 /** The full projected Map node-action surface. */
 export interface MapNodeActionSurface {
   messageId: string | null;
-  /** Ordered actor-aware action row (the popover chips). Mirrors the Exchange row. */
-  actionRow: RailAction[];
-  /** True when the active move is the viewer own move (empty rail row → Open Act). */
+  /** Actor-aware popover action row. Mirrors the Ringside card exactly. */
+  actionRow: MapNodeActionRow;
+  /** True when the active move is the viewer own move (own node = qualifiers + request deletion). */
   isOwnMove: boolean;
   /** Sidecar deep-link descriptors (Answer this, Open disagreement points). */
   sidecarLinks: MapNodeSidecarLink[];
@@ -42,8 +79,6 @@ export interface MapNodeActionSurface {
   accessibilityLabel: string;
   answerThisLabel: string;
   answerThisHint: string;
-  openActLabel: string;
-  openActHint: string;
   closeLabel: string;
 }
 
@@ -52,8 +87,17 @@ export interface MapNodeActionSurfaceInput {
   viewerRole: RailViewerRole;
   /** The active move actor (activeViewModel.actor). */
   actor: RailBubbleActor;
-  /** Injected actor->actions list (getRailActions output). This model never derives it. */
-  actions: RailAction[];
+  /**
+   * Participant controls — the SAME activeViewModel.allowedControls the Ringside
+   * card renders (already actor-gated by getBubbleControlsForActor). Used for
+   * participant viewers; ignored for observers. This model never derives it.
+   */
+  participantControls: ArgumentBubbleControl[];
+  /**
+   * Observer actions — the getRailActions observer set. Used for observer
+   * viewers; ignored for participants. This model never derives it.
+   */
+  observerActions: RailAction[];
   /** Short acting-on label for the popover a11y root (timelineReadoutViewModel). */
   actingOnShortLabel: string | null;
   /** True when the node belongs to an OPEN (not settled) mediator point. */
@@ -64,8 +108,6 @@ export interface MapNodeActionSurfaceInput {
 
 const ANSWER_THIS_LABEL = 'Answer this ↗';
 const ANSWER_THIS_HINT = 'Opens the reply composer scoped to this point in the conversation view.';
-const OPEN_ACT_LABEL = 'Open Act ▾';
-const OPEN_ACT_HINT = 'View qualifiers or request deletion';
 const OPEN_DEBTS_LABEL = 'Open disagreement points';
 const OPEN_DEBTS_HINT = 'Review owed sources and open points for this move.';
 const OPEN_POINT_MEMBERSHIP_LINE = 'Part of an open point';
@@ -113,13 +155,17 @@ function buildAccessibilityLabel(actingOnShortLabel: string | null): string {
 }
 
 /**
- * Build the Map node-action surface. Pure projection; the action row is a
- * faithful pass-through of the injected actor actions (the popover mirrors the
- * Exchange row for the SAME actor). Own moves have an empty rail row and route
- * to the board Act menu instead.
+ * Build the Map node-action surface. Pure projection; the action row MIRRORS
+ * the Ringside card exactly (R1): participant viewers get the SAME
+ * allowedControls (own node = qualifiers + request deletion only), dispatched
+ * through handleBubbleAction; observers get the getRailActions observer set,
+ * dispatched through handleRailAction. The model never derives either list.
  */
 export function buildMapNodeActionSurface(input: MapNodeActionSurfaceInput): MapNodeActionSurface {
-  const actions = Array.isArray(input?.actions) ? input.actions.slice() : [];
+  const isObserver = input?.viewerRole === 'observer';
+  const actionRow: MapNodeActionRow = isObserver
+    ? { kind: 'observer', actions: Array.isArray(input?.observerActions) ? input.observerActions.slice() : [] }
+    : { kind: 'participant', controls: Array.isArray(input?.participantControls) ? input.participantControls.slice() : [] };
   const isOwnMove = input?.actor === 'self';
   const sidecarLinks: MapNodeSidecarLink[] = [
     { key: 'answer_this', label: ANSWER_THIS_LABEL, hint: ANSWER_THIS_HINT },
@@ -127,15 +173,13 @@ export function buildMapNodeActionSurface(input: MapNodeActionSurfaceInput): Map
   ];
   return {
     messageId: input?.activeMessageId ?? null,
-    actionRow: actions,
+    actionRow,
     isOwnMove,
     sidecarLinks,
     openPointMembershipLine: input?.isOpenPointMember ? OPEN_POINT_MEMBERSHIP_LINE : null,
     accessibilityLabel: buildAccessibilityLabel(input?.actingOnShortLabel ?? null),
     answerThisLabel: ANSWER_THIS_LABEL,
     answerThisHint: ANSWER_THIS_HINT,
-    openActLabel: OPEN_ACT_LABEL,
-    openActHint: OPEN_ACT_HINT,
     closeLabel: CLOSE_LABEL,
   };
 }

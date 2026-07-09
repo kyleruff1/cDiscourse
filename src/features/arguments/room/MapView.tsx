@@ -85,10 +85,12 @@ export interface MapViewProps {
   // orchestrator node-gates the SC-004 dock to null under flag-on so the
   // popover is the single node-action surface (cluster / stub dock preserved).
   nodeActionPopover?: MapNodeActionSurface | null;
+  /** Participant control dispatch — handleBubbleAction (mirrors the Ringside card). */
+  onPopoverControl?: (control: ArgumentBubbleControl) => void;
+  /** Observer action dispatch — handleRailAction. */
   onPopoverAction?: (code: RailActionCode) => void;
   onAnswerThis?: () => void;
   onPopoverOpenDetails?: () => void;
-  onPopoverOpenAct?: () => void;
   onPopoverClose?: () => void;
 }
 
@@ -159,15 +161,16 @@ export function MapView(props: MapViewProps) {
       {/* ROOM-004 (#886) — the node action popover, a docked card AFTER the
           timeline map. Renders only when the orchestrator supplies a surface
           (flag-on + a node selection); absent otherwise, so the Map is
-          byte-identical to today. onPopoverAction dispatches through the SAME
-          handleRailAction the Exchange lens uses; onAnswerThis is the J9 jump. */}
+          byte-identical to today. Participant controls dispatch through the
+          SAME handleBubbleAction the Ringside card uses; observer actions
+          through the SAME handleRailAction; onAnswerThis is the J9 jump. */}
       {props.nodeActionPopover ? (
         <MapNodeActionPopover
           surface={props.nodeActionPopover}
+          onControl={(control) => props.onPopoverControl?.(control)}
           onAction={(code) => props.onPopoverAction?.(code)}
           onAnswerThis={() => props.onAnswerThis?.()}
           onOpenDetails={props.onPopoverOpenDetails}
-          onOpenAct={props.onPopoverOpenAct}
           onClose={() => props.onPopoverClose?.()}
           reduceMotion={props.reduceMotionOverride}
         />

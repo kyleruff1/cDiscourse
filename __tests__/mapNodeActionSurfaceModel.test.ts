@@ -1,17 +1,24 @@
 /**
  * ROOM-004 (#886) — mapNodeActionSurfaceModel unit coverage (S1).
  *
- * Pure-model: the popover action row mirrors the injected actor actions,
- * own-move is band-free with an Open Act path, the open-point membership line
- * is derived from the injected flag, accessibility labels are well-formed,
- * empty / null input is defensive, and the produced copy is ban-list clean.
+ * Pure-model: the popover action row MIRRORS the Ringside card (participant =
+ * allowedControls; observer = getRailActions), the open-point membership line is
+ * derived from the injected flag, accessibility labels are well-formed, empty /
+ * null input is defensive, the control->rail-code bridge is exact, and the
+ * produced copy is ban-list clean.
  */
 import {
   buildMapNodeActionSurface,
+  mapActionRowToRailCodes,
+  BUBBLE_CONTROL_TO_RAIL_ACTION_CODE,
   _forbiddenMapSurfaceTokens,
   type MapNodeActionSurfaceInput,
 } from '../src/features/arguments/room/mapNodeActionSurfaceModel';
-import { getRailActions } from '../src/features/arguments/ArgumentSideActionRail';
+import {
+  getBubbleControlsForActor,
+  type ArgumentBubbleControl,
+} from '../src/features/arguments/argumentGameSurfaceModel';
+import { getRailActions, railActionToBubbleControl } from '../src/features/arguments/ArgumentSideActionRail';
 import type { RailBubbleActor, RailViewerRole } from '../src/features/arguments/railActionCategories';
 
 function makeInput(over: Partial<MapNodeActionSurfaceInput> = {}): MapNodeActionSurfaceInput {
@@ -22,41 +29,96 @@ function makeInput(over: Partial<MapNodeActionSurfaceInput> = {}): MapNodeAction
     activeMessageId: has('activeMessageId') ? (over.activeMessageId as string | null) : 'm4',
     viewerRole,
     actor,
-    actions: has('actions') ? (over.actions as MapNodeActionSurfaceInput['actions']) : getRailActions(viewerRole, actor),
+    participantControls: has('participantControls')
+      ? (over.participantControls as ArgumentBubbleControl[])
+      : getBubbleControlsForActor(actor),
+    observerActions: has('observerActions')
+      ? (over.observerActions as MapNodeActionSurfaceInput['observerActions'])
+      : getRailActions('observer', actor),
     actingOnShortLabel: has('actingOnShortLabel') ? (over.actingOnShortLabel as string | null) : 'Message 4',
     isOpenPointMember: over.isOpenPointMember ?? false,
   };
 }
 
-// ── Action row mirrors the injected actor actions ─────────────
+// ── Action row mirrors the Ringside card ──────────────────────
 
-describe('mapNodeActionSurfaceModel — action row', () => {
-  it('participant-other → reply / disagree popover row', () => {
+describe('mapNodeActionSurfaceModel — action row mirrors the Ringside card', () => {
+  it('participant-other → the FULL allowedControls set (7 controls), not just reply/disagree', () => {
     const surface = buildMapNodeActionSurface(makeInput({ viewerRole: 'participant', actor: 'other' }));
-    expect(surface.actionRow.map((a) => a.code)).toEqual(['reply', 'disagree']);
+    expect(surface.actionRow.kind).toBe('participant');
+    if (surface.actionRow.kind === 'participant') {
+      expect(surface.actionRow.controls).toEqual([
+        'reply',
+        'disagree',
+        'flag',
+        'ask_for_source',
+        'ask_for_quote',
+        'branch',
+        'view_qualifiers',
+      ] as ArgumentBubbleControl[]);
+    }
     expect(surface.isOwnMove).toBe(false);
   });
 
-  it('observer → watch / join / share popover row', () => {
+  it('participant-self (own node) → view_qualifiers + request_deletion ONLY', () => {
+    const surface = buildMapNodeActionSurface(makeInput({ viewerRole: 'participant', actor: 'self' }));
+    expect(surface.actionRow.kind).toBe('participant');
+    if (surface.actionRow.kind === 'participant') {
+      expect(surface.actionRow.controls).toEqual(['view_qualifiers', 'request_deletion'] as ArgumentBubbleControl[]);
+    }
+    expect(surface.isOwnMove).toBe(true);
+  });
+
+  it('own node with an open deletion request drops request_deletion', () => {
+    const surface = buildMapNodeActionSurface(
+      makeInput({
+        viewerRole: 'participant',
+        actor: 'self',
+        participantControls: getBubbleControlsForActor('self', { hasOpenDeletionRequest: true }),
+      }),
+    );
+    expect(surface.actionRow.kind === 'participant' && surface.actionRow.controls).toEqual([
+      'view_qualifiers',
+    ] as ArgumentBubbleControl[]);
+  });
+
+  it('observer → watch / join / share', () => {
     const surface = buildMapNodeActionSurface(
       makeInput({ viewerRole: 'observer' as RailViewerRole, actor: 'other' }),
     );
-    expect(surface.actionRow.map((a) => a.code)).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
-    expect(surface.isOwnMove).toBe(false);
+    expect(surface.actionRow.kind).toBe('observer');
+    if (surface.actionRow.kind === 'observer') {
+      expect(surface.actionRow.actions.map((a) => a.code)).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
+    }
+  });
+});
+
+// ── Control -> rail-code bridge ───────────────────────────────
+
+describe('mapNodeActionSurfaceModel — control bridge + normalization', () => {
+  it('BUBBLE_CONTROL_TO_RAIL_ACTION_CODE is the exact inverse of railActionToBubbleControl', () => {
+    for (const control of Object.keys(BUBBLE_CONTROL_TO_RAIL_ACTION_CODE) as ArgumentBubbleControl[]) {
+      const railCode = BUBBLE_CONTROL_TO_RAIL_ACTION_CODE[control];
+      expect(railActionToBubbleControl(railCode)).toBe(control);
+    }
   });
 
-  it('own move → empty rail row + isOwnMove true + Open Act path', () => {
-    const surface = buildMapNodeActionSurface(makeInput({ viewerRole: 'participant', actor: 'self' }));
-    expect(surface.actionRow).toEqual([]);
-    expect(surface.isOwnMove).toBe(true);
-    expect(surface.openActLabel).toBe('Open Act ▾');
-    expect(surface.openActHint).toBe('View qualifiers or request deletion');
+  it('mapActionRowToRailCodes normalizes a participant row into rail codes', () => {
+    const surface = buildMapNodeActionSurface(makeInput({ viewerRole: 'participant', actor: 'other' }));
+    expect(mapActionRowToRailCodes(surface.actionRow)).toEqual([
+      'reply',
+      'disagree',
+      'flag',
+      'ask_source',
+      'ask_quote',
+      'split_branch',
+      'qualifiers',
+    ]);
   });
 
-  it('the action row is a faithful pass-through of the injected list (never re-authored)', () => {
-    const injected = getRailActions('participant', 'other');
-    const surface = buildMapNodeActionSurface(makeInput({ actions: injected }));
-    expect(surface.actionRow).toEqual(injected);
+  it('mapActionRowToRailCodes passes observer codes through', () => {
+    const surface = buildMapNodeActionSurface(makeInput({ viewerRole: 'observer' as RailViewerRole, actor: 'other' }));
+    expect(mapActionRowToRailCodes(surface.actionRow)).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
   });
 });
 
@@ -107,14 +169,14 @@ describe('mapNodeActionSurfaceModel — defensive input', () => {
   it('null activeMessageId → messageId null, defined surface', () => {
     const surface = buildMapNodeActionSurface(makeInput({ activeMessageId: null }));
     expect(surface.messageId).toBeNull();
-    expect(Array.isArray(surface.actionRow)).toBe(true);
+    expect(surface.actionRow.kind).toBe('participant');
   });
 
-  it('missing actions → empty action row', () => {
+  it('missing participant controls → empty participant row', () => {
     const surface = buildMapNodeActionSurface(
-      makeInput({ actions: undefined as unknown as MapNodeActionSurfaceInput['actions'] }),
+      makeInput({ participantControls: undefined as unknown as ArgumentBubbleControl[] }),
     );
-    expect(surface.actionRow).toEqual([]);
+    expect(surface.actionRow.kind === 'participant' && surface.actionRow.controls).toEqual([]);
   });
 });
 
@@ -133,8 +195,6 @@ describe('mapNodeActionSurfaceModel — ban-list', () => {
     const strings = [
       surface.answerThisLabel,
       surface.answerThisHint,
-      surface.openActLabel,
-      surface.openActHint,
       surface.closeLabel,
       surface.openPointMembershipLine ?? '',
       ...surface.sidecarLinks.flatMap((l) => [l.label, l.hint]),

@@ -1,11 +1,13 @@
 /**
  * ROOM-004 (#886) — MapNodeActionPopover.
  *
- * The band-free, actor-aware node action popover for the Map lens. It surfaces
- * the SAME action set ROOM-002 gives an Exchange element (the 44px rule: small
- * nodes open a popover before actions), plus an Answer this deep-link and, for
- * own moves, an Open Act affordance. Presentational only: it imports NO
- * derivation. Every value arrives as a prop from the orchestrator via MapView.
+ * The band-free, actor-aware node action popover for the Map lens. It MIRRORS
+ * the Ringside card action row exactly (the 44px rule: small nodes open a
+ * popover before actions): participant viewers get the SAME allowedControls
+ * (own node = qualifiers plus request deletion only), dispatched through the
+ * SAME handleBubbleAction; observers get the getRailActions observer set,
+ * dispatched through handleRailAction. Plus an Answer this deep-link.
+ * Presentational only: it imports NO derivation. Every value arrives as a prop.
  *
  * Doctrine (cdiscourse-doctrine, timeline-grammar, accessibility-targets):
  *   - Band-free: NO standing / tone / heat chips (VISUAL-SIMPLIFY-003 stays).
@@ -17,15 +19,31 @@
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ArgumentBubbleControl } from '../argumentGameSurfaceModel';
 import type { RailActionCode } from '../railActionCategories';
 import type { MapNodeActionSurface } from './mapNodeActionSurfaceModel';
 
+// Plain-language control labels. Values mirror the shipped ArgumentBubbleActions
+// map (no new action copy invented). Ban-list clean.
+const CONTROL_LABEL: Record<ArgumentBubbleControl, string> = {
+  reply: 'Reply',
+  disagree: 'Disagree',
+  flag: 'Request review',
+  ask_for_source: 'Ask for source',
+  ask_for_quote: 'Ask for quote',
+  branch: 'Branch',
+  view_qualifiers: 'View qualifiers',
+  request_deletion: 'Request deletion',
+};
+
 export interface MapNodeActionPopoverProps {
   surface: MapNodeActionSurface;
+  /** Participant control dispatch — handleBubbleAction (mirrors the Ringside card). */
+  onControl: (control: ArgumentBubbleControl) => void;
+  /** Observer action dispatch — handleRailAction. */
   onAction: (code: RailActionCode) => void;
   onAnswerThis: () => void;
   onOpenDetails?: () => void;
-  onOpenAct?: () => void;
   onClose: () => void;
   reduceMotion?: boolean;
 }
@@ -33,6 +51,7 @@ export interface MapNodeActionPopoverProps {
 export function MapNodeActionPopover(props: MapNodeActionPopoverProps) {
   const { surface } = props;
   const idSuffix = surface.messageId ?? 'none';
+  const row = surface.actionRow;
 
   return (
     <View
@@ -41,39 +60,44 @@ export function MapNodeActionPopover(props: MapNodeActionPopoverProps) {
       testID={`map-node-action-popover-${idSuffix}`}
       style={styles.dock}
     >
-      {/* Actor action row — the SAME ordered codes the Exchange row surfaces. */}
-      {surface.isOwnMove ? (
-        <Pressable
-          onPress={props.onOpenAct}
-          accessibilityRole="button"
-          accessibilityLabel="Open Act menu"
-          accessibilityHint={surface.openActHint}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          testID={`map-popover-open-act-${idSuffix}`}
-          style={[styles.chip, styles.chipGhost]}
-        >
-          <Text style={styles.chipTextGhost}>{surface.openActLabel}</Text>
-        </Pressable>
-      ) : (
-        <View style={styles.actionRow}>
-          {surface.actionRow.map((action, i) => (
-            <Pressable
-              key={action.code}
-              onPress={() => props.onAction(action.code)}
-              accessibilityRole="button"
-              accessibilityLabel={action.label}
-              accessibilityHint={action.helper}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              testID={`map-popover-action-${action.code}-${idSuffix}`}
-              style={[styles.chip, i === 0 ? styles.chipPrimary : styles.chipGhost]}
-            >
-              <Text style={i === 0 ? styles.chipTextPrimary : styles.chipTextGhost}>
-                {action.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
+      {/* Actor action row — MIRRORS the Ringside card. Participant controls
+          dispatch through onControl (handleBubbleAction); observer actions
+          dispatch through onAction (handleRailAction). One primary chip, the
+          rest quiet ghost chips. */}
+      <View style={styles.actionRow}>
+        {row.kind === 'participant'
+          ? row.controls.map((control, i) => (
+              <Pressable
+                key={control}
+                onPress={() => props.onControl(control)}
+                accessibilityRole="button"
+                accessibilityLabel={CONTROL_LABEL[control]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                testID={`map-popover-control-${control}-${idSuffix}`}
+                style={[styles.chip, i === 0 ? styles.chipPrimary : styles.chipGhost]}
+              >
+                <Text style={i === 0 ? styles.chipTextPrimary : styles.chipTextGhost}>
+                  {CONTROL_LABEL[control]}
+                </Text>
+              </Pressable>
+            ))
+          : row.actions.map((action, i) => (
+              <Pressable
+                key={action.code}
+                onPress={() => props.onAction(action.code)}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+                accessibilityHint={action.helper}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                testID={`map-popover-action-${action.code}-${idSuffix}`}
+                style={[styles.chip, i === 0 ? styles.chipPrimary : styles.chipGhost]}
+              >
+                <Text style={i === 0 ? styles.chipTextPrimary : styles.chipTextGhost}>
+                  {action.label}
+                </Text>
+              </Pressable>
+            ))}
+      </View>
 
       {/* J9 — Answer this jumps to the Exchange lens with the composer scoped. */}
       <Pressable

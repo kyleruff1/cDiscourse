@@ -12,6 +12,7 @@ import {
   buildMapNodeActionSurface,
   type MapNodeActionSurfaceInput,
 } from '../src/features/arguments/room/mapNodeActionSurfaceModel';
+import { getBubbleControlsForActor } from '../src/features/arguments/argumentGameSurfaceModel';
 import { getRailActions } from '../src/features/arguments/ArgumentSideActionRail';
 
 function surfaceFor(isOpenPointMember: boolean) {
@@ -19,7 +20,8 @@ function surfaceFor(isOpenPointMember: boolean) {
     activeMessageId: 'm4',
     viewerRole: 'participant',
     actor: 'other',
-    actions: getRailActions('participant', 'other'),
+    participantControls: getBubbleControlsForActor('other'),
+    observerActions: getRailActions('observer', 'other'),
     actingOnShortLabel: 'Message 4',
     isOpenPointMember,
   };
