@@ -34,16 +34,27 @@ describe('PRIVATE-GROUPS-002 migration — file presence + append-only', () => {
     expect(migSrc.length).toBeGreaterThan(0);
   });
 
-  it('is the highest sequential migration (no later 14-digit timestamp)', () => {
+  // NOTE (ASP-CIRCLES-RLS-001 / #882): retired the prior assertion
+  //   "is the highest sequential migration (no later 14-digit timestamp)".
+  //   That form scanned the whole migrations directory and required THIS file
+  //   to be the latest 14-digit timestamp, so it fired on the FIRST migration
+  //   added after 20260702000001 no matter what that migration was. It guarded
+  //   a moment in time, not any behavior, and broke when
+  //   20260709000001_asp_circles_rls_001_circle_read_arm.sql landed as the next
+  //   migration. Re-pointed to the durable invariant it was reaching for: the
+  //   circles migration is sequenced strictly AFTER its documented predecessor
+  //   20260630000001_cov_004_argument_visibility_helper.sql (append-only
+  //   ordering). This encodes the real ordering guarantee and no longer fires
+  //   on unrelated future migrations.
+  it('is sequenced strictly after its documented predecessor (cov_004 20260630000001)', () => {
     const migDir = path.join(process.cwd(), 'supabase/migrations');
     const files = fs.readdirSync(migDir).filter((f) => f.endsWith('.sql'));
     const oursStamp = Number(path.basename(migPath).match(/^(\d{14})/)?.[1] ?? '0');
     expect(oursStamp).toBeGreaterThan(0);
-    for (const f of files) {
-      if (f === path.basename(migPath)) continue;
-      const other = Number(f.match(/^(\d{14})/)?.[1] ?? '0');
-      expect(other).toBeLessThan(oursStamp);
-    }
+    const predecessor = '20260630000001_cov_004_argument_visibility_helper.sql';
+    expect(files).toContain(predecessor);
+    const predStamp = Number(predecessor.match(/^(\d{14})/)?.[1] ?? '0');
+    expect(oursStamp).toBeGreaterThan(predStamp);
   });
 
   it('documents the pgcrypto dependency in the header (OPS-001 §4)', () => {
