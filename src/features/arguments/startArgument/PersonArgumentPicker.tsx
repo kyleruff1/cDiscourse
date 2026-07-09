@@ -101,24 +101,47 @@ export function PersonArgumentPicker({
           }
 
           if (row.kind === 'circle' && row.circle) {
-            // START-002 slot — no circle read path exists yet, so circles is
-            // always [] in START-001 and this branch does not render in practice.
+            // START-002 (#839) — a circle audience. Selecting it forces the room
+            // private (the circle IS the audience). The member count is a
+            // STRUCTURAL size, never a ranking. The lock glyph carries the
+            // private meaning independent of color (grayscale-legible).
             const circle = row.circle;
-            const selected = false;
+            const selected = value?.kind === 'circle' && value.circleId === circle.id;
+            const countLabel =
+              typeof circle.memberCount === 'number' && circle.memberCount > 0
+                ? `${circle.memberCount} ${circle.memberCount === 1 ? 'person' : 'people'}`
+                : null;
             return (
               <Pressable
                 key={row.key}
-                onPress={() => undefined}
+                onPress={() => onChange({ kind: 'circle', circleId: circle.id, label: circle.label })}
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
-                accessibilityLabel={`Circle: ${circle.label}`}
+                accessibilityLabel={
+                  `Argue inside the circle ${circle.label}` +
+                  (countLabel ? `, ${countLabel}` : '') +
+                  '. Stays private.'
+                }
+                accessibilityHint={START_SHEET_COPY.circleRowA11yHint}
                 hitSlop={TOUCH_TARGET.hitSlopCompact}
-                style={styles.row}
+                style={[styles.row, selected && styles.rowSelected]}
                 testID={`person-picker-circle-${circle.id}`}
               >
-                <Text style={styles.check}>○</Text>
+                <Text style={[styles.check, selected && styles.checkOn]}>
+                  {selected ? '●' : '○'}
+                </Text>
+                <Text style={styles.circleGlyph} accessibilityElementsHidden>
+                  {'●●'}
+                </Text>
                 <View style={styles.rowTextCol}>
-                  <Text style={styles.rowLabel}>{circle.label}</Text>
+                  <Text style={[styles.rowLabel, selected && styles.rowLabelSelected]}>
+                    {circle.label}
+                  </Text>
+                  <Text style={styles.rowSublabel}>
+                    {countLabel
+                      ? `${START_SHEET_COPY.circlesLabel} · ${countLabel}`
+                      : START_SHEET_COPY.circlesLabel}
+                  </Text>
                 </View>
               </Pressable>
             );
@@ -228,6 +251,9 @@ const styles = StyleSheet.create({
   },
   check: { fontSize: 15, color: SURFACE_TOKENS.textMuted, width: 18, textAlign: 'center' },
   checkOn: { color: SURFACE_TOKENS.textPrimary },
+  // START-002 — a small two-dot glyph so a circle row reads as a group even in
+  // grayscale (shape carries meaning, not color). Decorative; hidden from a11y.
+  circleGlyph: { fontSize: 12, color: SURFACE_TOKENS.textSecondary, width: 22, textAlign: 'center', letterSpacing: -2 },
   rowTextCol: { flex: 1, gap: 2 },
   rowLabel: { fontSize: 14, fontWeight: '600', color: SURFACE_TOKENS.textSecondary },
   rowLabelSelected: { fontWeight: '800', color: SURFACE_TOKENS.textPrimary },

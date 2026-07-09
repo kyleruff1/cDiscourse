@@ -21,6 +21,8 @@ import {
   personTargetToCreationIntent,
   orderPickerRows,
   isOpenFloorLast,
+  isCircleTarget,
+  circleTargetId,
   DEFAULT_RECENT_OPPONENTS_LIMIT,
   _forbiddenPersonPickerTokens,
   type RecentInviteRow,
@@ -249,6 +251,48 @@ describe('orderPickerRows', () => {
     const rows = orderPickerRows(recents, null);
     expect(rows.some((r) => r.kind === 'circle')).toBe(false);
     expect(isOpenFloorLast(rows)).toBe(true);
+  });
+});
+
+// ── START-002 (#839) — circle target ────────────────────────────
+
+describe('START-002 circle PersonTarget variant', () => {
+  const circle: PersonTarget = { kind: 'circle', circleId: 'c1', label: 'Book Club' };
+
+  it('personTargetToInviteEmail returns empty string for a circle target (no invite)', () => {
+    expect(personTargetToInviteEmail(circle)).toBe('');
+  });
+
+  it('isCircleTarget narrows only the circle variant', () => {
+    expect(isCircleTarget(circle)).toBe(true);
+    expect(isCircleTarget({ kind: 'profile', email: 'a@example.com' })).toBe(false);
+    expect(isCircleTarget({ kind: 'email', email: 'b@example.com' })).toBe(false);
+    expect(isCircleTarget({ kind: 'open_floor' })).toBe(false);
+    expect(isCircleTarget(null)).toBe(false);
+    expect(isCircleTarget(undefined)).toBe(false);
+  });
+
+  it('circleTargetId returns the id for a circle target, null otherwise', () => {
+    expect(circleTargetId(circle)).toBe('c1');
+    expect(circleTargetId({ kind: 'profile', email: 'a@example.com' })).toBeNull();
+    expect(circleTargetId({ kind: 'open_floor' })).toBeNull();
+    expect(circleTargetId(null)).toBeNull();
+  });
+
+  it('orderPickerRows renders circle rows with memberCount carried, slot order unchanged', () => {
+    const circles: CircleOption[] = [{ id: 'c1', label: 'Book Club', memberCount: 4 }];
+    const rows = orderPickerRows(
+      [{ email: 'a@example.com', maskedEmail: 'a•••@example.com', lastInvitedAtMs: 1 }],
+      circles,
+    );
+    expect(rows.map((r) => r.kind)).toEqual([
+      'recent',
+      'circle',
+      'email_entry',
+      'open_floor',
+    ]);
+    const circleRow = rows.find((r) => r.kind === 'circle');
+    expect(circleRow?.circle?.memberCount).toBe(4);
   });
 });
 

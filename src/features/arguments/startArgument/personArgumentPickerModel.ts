@@ -58,6 +58,11 @@ import type { RoomVisibility } from '../../debates/types';
 export type PersonTarget =
   | { kind: 'profile'; email: string; id?: string | null } // a recent opponent (history)
   | { kind: 'email'; email: string } // a freshly typed address
+  // START-002 (#839) — a circle audience. The circle IS the audience: it
+  // resolves to NO invite e-mail (membership, not invite fan-out) and forces
+  // the room private. `label` is the circle name (user content); `circleId` is
+  // threaded into the create payload as `circleId`.
+  | { kind: 'circle'; circleId: string; label: string }
   | { kind: 'open_floor' }; // public, no invite
 
 /** One recent opponent, derived from the viewer OWN sent-invite rows. */
@@ -78,10 +83,15 @@ export interface RecentInviteRow {
   status: string;
 }
 
-/** A circle option slot — RESERVED for START-002; always `[]` in START-001. */
+/**
+ * A circle option slot. START-002 (#839) populates it from `listMyCircles`.
+ * `memberCount` is a STRUCTURAL size (how many people are in the circle), never
+ * a ranking — surfaced as an N-people subtitle in the picker row.
+ */
 export interface CircleOption {
   id: string;
   label: string;
+  memberCount?: number;
 }
 
 // ── Ordered picker rows ─────────────────────────────────────────
@@ -161,7 +171,27 @@ export function deriveRecentOpponents(
 export function personTargetToInviteEmail(target: PersonTarget | null | undefined): string {
   if (!target) return '';
   if (target.kind === 'open_floor') return '';
+  // START-002 — a circle audience resolves to NO invite e-mail (membership,
+  // not invite fan-out). The `circleId` rides the create payload separately.
+  if (target.kind === 'circle') return '';
   return typeof target.email === 'string' ? target.email : '';
+}
+
+// ── Circle-target guards (START-002) ────────────────────────────
+
+/** True iff the target is a circle audience. */
+export function isCircleTarget(
+  target: PersonTarget | null | undefined,
+): target is { kind: 'circle'; circleId: string; label: string } {
+  return !!target && target.kind === 'circle';
+}
+
+/**
+ * The circle id for a circle target, else `null`. Callers thread this into the
+ * create payload as `circleId`; a non-circle target contributes no circle id.
+ */
+export function circleTargetId(target: PersonTarget | null | undefined): string | null {
+  return isCircleTarget(target) ? target.circleId : null;
 }
 
 // ── personTargetToCreationIntent ────────────────────────────────

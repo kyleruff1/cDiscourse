@@ -43,6 +43,12 @@ import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import { SURFACE_TOKENS, CONTROL, TOUCH_TARGET } from '../../lib/designTokens';
 import { useHeaderBreakpoint } from '../../hooks/useHeaderBreakpoint';
+import { CircleFilterRow } from '../circles/CircleFilterRow';
+import {
+  buildCircleIdIndex,
+  filterArgumentHomeByCircle,
+  type CircleLens,
+} from '../circles/circleHomeFilter';
 
 /** How many notifications the home activity module surfaces (bounded reuse). */
 const ACTIVITY_MODULE_LIMIT = 5;
@@ -64,8 +70,16 @@ export interface ArgumentHomeProps {
     side: ParticipantSide | null,
     entryHint: GalleryEntryHint | null,
   ) => void;
-  /** Route to today's start page (START-001 later mounts the sheet here). */
-  onStart: () => void;
+  /**
+   * Route to today's start page (START-001 mounts the sheet here). HOME-003
+   * widens this to accept an optional circle id for the filtered-empty Start
+   * CTA (backwards-compatible; a plain `() => void` handler still satisfies it).
+   */
+  onStart: (circleId?: string) => void;
+  /** HOME-003 (#840) — the caller's circles (mapped in App.tsx from START-002). */
+  circles?: CircleLens[];
+  /** HOME-003 — optional loading flag for the circle read. */
+  circlesLoading?: boolean;
   /** Open the public floor (gallery) — setGalleryLane('all'). */
   onOpenFloor: () => void;
   /** Open the demo corridor — reused trigger. */
@@ -98,10 +112,16 @@ export function ArgumentHome(props: ArgumentHomeProps): React.ReactElement {
     onOpenFloor,
     onOpenDemoCorridor,
     onOpenNotificationDeepLink,
+    circles = [],
+    circlesLoading = false,
   } = props;
 
   const { band } = useHeaderBreakpoint();
   const isPhone = band === 'phone';
+
+  // HOME-003 (#840) — circle-home filter lens. `null` = "All" (no filter): the
+  // lane is byte-identical to HOME-001.
+  const [selectedCircleId, setSelectedCircleId] = React.useState<string | null>(null);
 
   // Re-run the PURE gallery build on the already-loaded inputs, then dedupe —
   // exactly what ConversationGalleryScreen does. No new query.
@@ -135,6 +155,27 @@ export function ArgumentHome(props: ArgumentHomeProps): React.ReactElement {
     for (const d of debates) m.set(d.id, d);
     return m;
   }, [debates]);
+
+  // HOME-003 — per-debate circle id index (from the widened debates load), and
+  // the circle-filtered projection. The filter runs AFTER the VM (D8 fixture
+  // exclusion already applied), so a circle can never resurface an excluded
+  // fixture room. When no circle is selected the filter returns the VM's own
+  // references unchanged (zero-diff to HOME-001).
+  const circleIdByDebateId = useMemo(() => buildCircleIdIndex(debates), [debates]);
+  const filtered = useMemo(
+    () =>
+      filterArgumentHomeByCircle({
+        yourTurn: vm.yourTurn,
+        ongoing: vm.ongoing,
+        circleIdByDebateId,
+        selectedCircleId,
+      }),
+    [vm, circleIdByDebateId, selectedCircleId],
+  );
+  const circleFilterActive = selectedCircleId !== null;
+  const filteredEmpty =
+    circleFilterActive && filtered.yourTurn.length === 0 && filtered.ongoing.length === 0;
+  const showCircleRow = !circlesLoading && circles.length > 0;
 
   const openCard = useCallback(
     (card: ConversationGalleryCard, entryHint: GalleryEntryHint): void => {
@@ -192,7 +233,34 @@ export function ArgumentHome(props: ArgumentHomeProps): React.ReactElement {
         />
       ) : (
         <>
-          {vm.yourTurn.length > 0 ? (
+          {/* HOME-003 — circle filter lens above the content it narrows. */}
+          {showCircleRow ? (
+            <CircleFilterRow
+              circles={circles}
+              selectedCircleId={selectedCircleId}
+              onSelect={setSelectedCircleId}
+            />
+          ) : null}
+
+          {filteredEmpty ? (
+            <View style={styles.circleEmpty} testID="home-circle-empty">
+              <Text style={styles.circleEmptyHeadline}>{HOME_COPY.circleFilterEmptyHeadline}</Text>
+              <Text style={styles.circleEmptyBody}>{HOME_COPY.circleFilterEmptyBody}</Text>
+              <Pressable
+                onPress={() => onStart(selectedCircleId ?? undefined)}
+                accessibilityRole="button"
+                accessibilityLabel={HOME_COPY.circleFilterStartCta}
+                accessibilityState={{}}
+                hitSlop={TOUCH_TARGET.hitSlopCompact}
+                style={({ pressed }) => [styles.startCta, pressed && styles.pressed]}
+                testID="home-circle-empty-start"
+              >
+                <Text style={styles.startCtaText}>{HOME_COPY.circleFilterStartCta}</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {!filteredEmpty && filtered.yourTurn.length > 0 ? (
             <View style={styles.section}>
               <Text style={styles.sectionHeading} accessibilityRole="header">
                 {HOME_COPY.yourTurnHeading}
@@ -204,7 +272,7 @@ export function ArgumentHome(props: ArgumentHomeProps): React.ReactElement {
                 contentContainerStyle={styles.strip}
                 testID="home-your-turn-strip"
               >
-                {vm.yourTurn.map((item) => (
+                {filtered.yourTurn.map((item) => (
                   <View key={item.card.debateId} style={{ width: stripCardWidth }}>
                     <ArgumentCard
                       card={item.card}
@@ -219,12 +287,12 @@ export function ArgumentHome(props: ArgumentHomeProps): React.ReactElement {
             </View>
           ) : null}
 
-          {vm.ongoing.length > 0 ? (
+          {!filteredEmpty && filtered.ongoing.length > 0 ? (
             <View style={styles.section} testID="home-ongoing-list">
               <Text style={styles.sectionHeading} accessibilityRole="header">
                 {HOME_COPY.ongoingHeading}
               </Text>
-              {vm.ongoing.map((card) => {
+              {filtered.ongoing.map((card) => {
                 const entryHint = deriveGalleryEntryHint(card);
                 return (
                   <ArgumentCard
@@ -242,7 +310,7 @@ export function ArgumentHome(props: ArgumentHomeProps): React.ReactElement {
 
           {/* One primary CTA. */}
           <Pressable
-            onPress={onStart}
+            onPress={() => onStart()}
             accessibilityRole="button"
             accessibilityLabel={HOME_COPY.startCta}
             accessibilityState={{}}
@@ -453,6 +521,21 @@ const styles = StyleSheet.create({
     color: SURFACE_TOKENS.textSecondary,
     fontSize: 13,
     paddingVertical: 8,
+  },
+  // HOME-003 — circle filtered-empty block (never a dead end).
+  circleEmpty: {
+    gap: 8,
+    paddingVertical: 16,
+    alignItems: 'flex-start',
+  },
+  circleEmptyHeadline: {
+    color: SURFACE_TOKENS.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  circleEmptyBody: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: 13,
   },
   pressed: {
     opacity: 0.85,

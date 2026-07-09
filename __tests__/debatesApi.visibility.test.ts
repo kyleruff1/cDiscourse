@@ -299,6 +299,65 @@ describe('listDebates — inactive_at round-trip (#514 / ADMIN-CONV-INACTIVE-VIS
   });
 });
 
+// ── listDebates — HOME-003 (#840) circle_id round-trip ──────────
+
+describe('listDebates — circle_id round-trip (HOME-003 / #840)', () => {
+  it('selects circle_id in the widened SELECT (additive; no pin fires)', async () => {
+    mockState.results['debates'] = { data: [], error: null };
+    mockState.results['debate_participants'] = { data: [], error: null };
+    await listDebates('u1');
+    const debatesCall = mockState.calls.find((c) => c.table === 'debates' && c.op === 'select');
+    expect(debatesCall?.columns).toContain('circle_id');
+    // Prior pins still hold — the widen is purely additive.
+    expect(debatesCall?.columns).toContain('visibility');
+    expect(debatesCall?.columns).toContain('inactive_at');
+    expect(debatesCall?.columns).not.toContain('inactive_reason');
+  });
+
+  it('maps circle_id → circleId, defaulting a missing / null column to null', async () => {
+    mockState.results['debates'] = {
+      data: [
+        {
+          id: 'd-circle',
+          created_by: 'u1',
+          title: 'A',
+          resolution: 'R',
+          description: '',
+          status: 'open',
+          constitution_id: 'c1',
+          created_at: '2026-07-08T00:00:00Z',
+          updated_at: '2026-07-08T00:00:00Z',
+          visibility: 'private',
+          inactive_at: null,
+          circle_id: 'circle-abc',
+        },
+        {
+          id: 'd-plain',
+          created_by: 'u2',
+          title: 'B',
+          resolution: 'R',
+          description: '',
+          status: 'open',
+          constitution_id: 'c1',
+          created_at: '2026-07-08T00:00:00Z',
+          updated_at: '2026-07-08T00:00:00Z',
+          visibility: 'public',
+          inactive_at: null,
+          // circle_id intentionally absent (non-circle room).
+        },
+      ],
+      error: null,
+    };
+    mockState.results['debate_participants'] = { data: [], error: null };
+    const res = await listDebates('u1');
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data[0].circleId).toBe('circle-abc');
+      expect(res.data[1].circleId).toBeNull();
+    }
+  });
+});
+
 // ── createArgumentRoom (ARG-ROOM-002 — server-authoritative Edge path) ──
 
 function debateRow(over: Record<string, unknown> = {}): Record<string, unknown> {

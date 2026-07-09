@@ -219,6 +219,12 @@ export const PLAIN_LANGUAGE_COPY = {
   // person; "full" is a seat fact. Ban-list clean, no snake_case leak.
   private_requires_invite: 'A private argument needs one person invited to start it.',
   room_capacity_reached: 'This argument already has the most people it can hold.',
+  // START-002 (#839) — circle-audience room creation denial codes. Surfaced to
+  // the creator when create-argument-room refuses a circle request. A circle is
+  // an audience boundary, never a verdict; "not found" hides membership vs
+  // existence (no enumeration oracle). Ban-list clean, no snake_case leak.
+  circle_requires_private: 'A circle argument is always private.',
+  circle_not_found: 'We could not find that circle.',
   // ADMIN-ARGS-INACTIVE-001 — admin-only lifecycle visibility state codes.
   // Surfaced in admin row detail + audit; NEVER on a target argument's
   // public-facing node (doctrine §10a sensitive composer-only). Plain
@@ -1477,6 +1483,16 @@ export const HOME_COPY = Object.freeze({
   ongoingHeading: 'Ongoing',
   activityHeading: 'Activity',
 
+  // HOME-003 (#840) — circle filter lens. A circle is a size + a name, never a
+  // rating; the empty state is never a dead end. Comments apostrophe-free
+  // (scanner-covered file).
+  circleFilterAllLabel: 'All',
+  circleFilterAllA11yLabel: 'All circles',
+  circleFilterRowA11yLabel: 'Filter your table by circle',
+  circleFilterEmptyHeadline: 'No rooms with this circle yet.',
+  circleFilterEmptyBody: 'Arguments you start with this circle show up here.',
+  circleFilterStartCta: 'Start one with this circle',
+
   // Primary CTA + floor door.
   startCta: 'Start an argument',
   floorDoorLabel: 'The floor',
@@ -2047,6 +2063,13 @@ export const START_SHEET_COPY = Object.freeze({
   // Advanced disclosure (hosts the START-003 public toggle slot).
   advancedLabel: 'Advanced',
   advancedHelper: 'Visibility and other options.',
+
+  // START-002 (#839) — circle audience. A circle is an access boundary, never
+  // a ranking; the member count is a structural size. Comments apostrophe-free.
+  circlesLabel: 'Your circles',
+  circleRowA11yHint: 'Starts a private argument inside this circle.',
+  circlePrivateSummary: 'Inside {circle} — kept private to this circle.',
+  circleForcesPrivate: 'Circle arguments are always private.',
 
   // Actions.
   submitLabel: 'Start argument',

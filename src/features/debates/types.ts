@@ -38,6 +38,15 @@ export interface Debate {
    * as active.
    */
   inactiveAt?: string | null;
+  /**
+   * START-002 / HOME-003 (#839 / #840) — the circle this room is scoped to, or
+   * `null` for a non-circle room. Additive nullable column
+   * (`20260702000001_private_groups_002_circles.sql`; every existing row is
+   * NULL). HOME-003's circle-home filter matches a room to a selected circle by
+   * `circleId === selectedCircle.id`. Optional in the type because pre-widen
+   * callers / fixtures may omit it; absence is treated as "no circle".
+   */
+  circleId?: string | null;
 }
 
 export interface CreateDebateInput {
@@ -62,6 +71,14 @@ export interface CreateDebateInput {
    * is optional — the wrapper defaults it to `'respondent'`.
    */
   invite?: { email: string; intendedSeat?: 'respondent' | 'co_primary' };
+  /**
+   * START-002 (#839) — optional circle audience. When present the room is
+   * created PRIVATE and scoped to this circle (a private room whose N-member
+   * audience arrives via the shipped membership helper, NOT via a minted
+   * invite). Mutually exclusive with `invite` (enforced server-side). Omitted
+   * entirely for a non-circle create, so the non-circle payload is unchanged.
+   */
+  circleId?: string;
 }
 
 /**

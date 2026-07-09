@@ -41,6 +41,12 @@ interface DebateRow {
    * only — `inactive_reason` is NEVER selected, mapped, or surfaced (§10a).
    */
   inactive_at: string | null;
+  /**
+   * HOME-003 (#840) — the room's circle FK (`20260702000001`), or null for a
+   * non-circle room. Widened onto the existing debates SELECT (one extra
+   * column, same round-trip); no RLS change. Absent on a pre-widen fixture.
+   */
+  circle_id?: string | null;
 }
 
 interface ParticipantRow {
@@ -76,6 +82,9 @@ function mapDebateRow(row: DebateRow, myParticipantSide: ParticipantSide | null)
     // timestamp (#514). Default to null (active) when absent. `inactive_reason`
     // is never read here (§10a).
     inactiveAt: row.inactive_at ?? null,
+    // HOME-003 (#840) — thread the circle FK for the circle-home filter. Null
+    // for a non-circle room (or a pre-widen fixture that omits the column).
+    circleId: row.circle_id ?? null,
   };
 }
 
@@ -92,7 +101,7 @@ export async function listDebates(userId: string): Promise<DebateApiResult<Debat
   const [debatesRes, partRes] = await Promise.all([
     supabase
       .from('debates')
-      .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at')
+      .select('id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at, circle_id')
       .order('created_at', { ascending: false }),
     supabase
       .from('debate_participants')
@@ -121,7 +130,7 @@ export async function listDebates(userId: string): Promise<DebateApiResult<Debat
 
 /** Column projection for a single `debates` row (shared by reads). */
 const DEBATE_ROW_COLUMNS =
-  'id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at';
+  'id, created_by, title, resolution, description, status, constitution_id, created_at, updated_at, visibility, inactive_at, circle_id';
 
 /**
  * ARG-ROOM-002 — input to the server-authoritative create path. The chosen
@@ -136,6 +145,13 @@ export interface CreateArgumentRoomInput {
   description?: string;
   visibility: RoomVisibility;
   invite?: { email: string; intendedSeat?: 'respondent' | 'co_primary' };
+  /**
+   * START-002 (#839) — optional circle audience. When set, the Edge Function
+   * creates the room PRIVATE and scoped to this circle (membership audience, no
+   * invite). Threaded as `circle_id` in the request body ONLY when present, so
+   * the non-circle request body is byte-identical.
+   */
+  circleId?: string;
 }
 
 /**
@@ -148,6 +164,11 @@ export interface CreateArgumentRoomResult {
   visibility: RoomVisibility;
   inviteId: string | null;
   inviteLink: string | null;
+  /**
+   * START-002 (#839) — present ONLY on a circle-path 200 (a testable
+   * round-trip signal). Absent / null for a non-circle create.
+   */
+  circleId?: string | null;
 }
 
 /**
@@ -176,6 +197,11 @@ export async function createArgumentRoom(
       email: input.invite.email.trim(),
       intendedSeat: input.invite.intendedSeat ?? 'respondent',
     };
+  }
+  // START-002 — thread the circle audience ONLY when present, so a non-circle
+  // request body carries no `circle_id` key (byte-shape preserved).
+  if (input.circleId) {
+    body.circle_id = input.circleId;
   }
 
   const { data, error } = await supabase.functions.invoke<CreateArgumentRoomResult>(
@@ -270,6 +296,9 @@ export async function createDebate(
     // the public/no-invite body is unchanged. `createArgumentRoom` trims the
     // email and defaults `intendedSeat` to `'respondent'`.
     ...(input.invite ? { invite: input.invite } : {}),
+    // START-002 (#839) — thread the optional circle audience the SAME way:
+    // omitted entirely when absent, so the non-circle call is unchanged.
+    ...(input.circleId ? { circleId: input.circleId } : {}),
   });
   if (!created.ok) return { ok: false, error: created.error };
 
