@@ -849,6 +849,8 @@ export interface AttachedProofItem {
   id: string;
   debateId: string;
   argumentId: string;
+  /** The author (= the caller; the Edge enforces added_by = callerId). */
+  addedBy: string;
   kind: ProofAttachKind;
   label: string;
   url: string | null;

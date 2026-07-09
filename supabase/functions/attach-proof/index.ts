@@ -141,6 +141,9 @@ function proofItemResponse(row: ProofItemDbRow) {
     id: row.id,
     debateId: row.debate_id,
     argumentId: row.argument_id,
+    // addedBy is echoed so the PROOF-002 drawer can build the ProofItemRow it
+    // renders optimistically (added_by === caller always; no leak). R1 seam.
+    addedBy: row.added_by,
     kind: row.kind,
     label: row.label,
     url: row.url,
