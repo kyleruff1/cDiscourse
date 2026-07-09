@@ -1,0 +1,45 @@
+{
+  // PROOF-001 (#888) — dedicated CommonJS-targeted tsconfig for the operator-
+  // gated evidence back-fill CLI. Used ONLY by the `proof:backfill:*` npm
+  // scripts. It is NEVER picked up by `npm run typecheck` (root tsconfig),
+  // `npm run lint`, or `npm run test` — those already type-check + lint the
+  // same .ts files under the root config.
+  //
+  // Mirrors tsconfig.diagnostics.json (the AN-003 §5 precedent): standalone
+  // (no `extends`), because the root tsconfig inherits Expo's bundler-targeted
+  // `customConditions: ["react-native"]`, which TypeScript only accepts with a
+  // bundler/node16 resolver — incompatible with the plain `node` CommonJS
+  // resolver this script runs under. The imported closure
+  // (src/features/evidence/evidenceModel.ts + the fold + @supabase/supabase-js)
+  // is React-Native-free and uses only relative imports (no `@/*` aliases), so
+  // a clean CommonJS config with `strict` mode is sufficient.
+  "compilerOptions": {
+    "strict": true,
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false,
+    // Pin the emit layout so the compiled entry path in package.json is exact:
+    // `<outDir>/scripts/proof-backfill/backfillProofItems.js`.
+    "rootDir": ".",
+    "outDir": "artifacts/proof-backfill-build",
+    "types": ["node"]
+  },
+  // Only the CLI entry is listed. `tsc` compiles the transitive import closure
+  // automatically (the core engine + the shared fold + evidenceModel).
+  "files": ["scripts/proof-backfill/backfillProofItems.ts"],
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}
