@@ -58,6 +58,11 @@ logs/engagement-intelligence/*/
 
 # Diagnostic inspect packages (staging folders + ZIPs are local artifacts).
 artifacts/diagnostics/
+
+# PROOF-001 back-fill: compiled runner (tsconfig.proof-backfill.json emit) +
+# emitted dry-run report / reviewed SQL. Both are local runtime artifacts.
+artifacts/proof-backfill-build/
+out/
 data/engagement-intelligence/raw/
 data/engagement-intelligence/redacted/
 data/engagement-intelligence/classified/
