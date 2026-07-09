@@ -562,6 +562,24 @@ verify_jwt = false
 # deployed function via `npx supabase functions delete upload-avatar
 # --linked`. See docs/designs/PR-004.md and migration 17.
 
+# PROOF-003 (#890) — attach-proof. Post-hoc evidence attach to an already-posted
+# move (J7). verify_jwt = true: every call requires a valid JWT. The function
+# ALSO validates the JWT via createCallerClient + getUser (defense-in-depth) to
+# resolve the caller id, then gates participant + own-move scope + kind vocabulary
+# + the 8-per-move cap BEFORE any write. Because PROOF-001 shipped proof_items /
+# proof_relations SELECT-only (no authenticated write policy, no immutability
+# trigger), this function's service-role client is the ONLY writer for both
+# tables and OWNS: tombstone/field immutability (attach = INSERT only; detach
+# writes ONLY deleted_at; never un-deletes) and the evidence-doctrine rule that a
+# client can never set a privileged source-chain status (status is derived
+# server-side, restricted to the three client-derivable values). On an
+# answers_request relation it fires the EXISTING evidence_supplied
+# room_notifications path (no parallel mechanism). Registration here is what makes
+# it auto-deploy on merge (the Supabase GitHub integration keys off the root
+# [functions.*] blocks) — the #509 hazard.
+[functions.attach-proof]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
