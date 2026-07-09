@@ -55,6 +55,7 @@ function makeInput(
     activeMessageId: over.activeMessageId ?? null,
     kindColorFamilyFor: over.kindColorFamilyFor ?? (() => 'default'),
     descendantCountFor: over.descendantCountFor ?? (() => 0),
+    parentMessageIdFor: over.parentMessageIdFor ?? (() => null),
     proofChipCountFor: over.proofChipCountFor ?? (() => 0),
     owedReceiptFor: over.owedReceiptFor ?? (() => false),
     observerActionsFor:
@@ -155,6 +156,17 @@ describe('ringsideFeedModel — card fields', () => {
       makeInput([makeVm({ messageId: 'm2', parentHint: "replying to: 'narrow the scope'" })]),
     );
     expect(reply.cards[0].quoteChip).toBe("replying to: 'narrow the scope'");
+  });
+
+  it('parentMessageId is joined from the injected node lookup (null at root)', () => {
+    const root = buildRingsideFeed(
+      makeInput([makeVm({ messageId: 'm1' })], { parentMessageIdFor: () => null }),
+    );
+    expect(root.cards[0].parentMessageId).toBeNull();
+    const reply = buildRingsideFeed(
+      makeInput([makeVm({ messageId: 'm2' })], { parentMessageIdFor: () => 'm1' }),
+    );
+    expect(reply.cards[0].parentMessageId).toBe('m1');
   });
 
   it('proofChipCount comes from the injected artifact count', () => {

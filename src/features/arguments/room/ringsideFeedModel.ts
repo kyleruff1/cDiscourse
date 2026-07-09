@@ -51,6 +51,9 @@ export interface RingsideCardViewModel {
   relativeLabel: string;
   /** parentHint — the reply-context excerpt (NOT the move own targetExcerpt). */
   quoteChip: string | null;
+  /** Parent message id, joined from the timeline node. Drives the quote-chip
+   *  ancestor activation. Null for a root move. */
+  parentMessageId: string | null;
   /** Count of attached evidence artifacts for this move. */
   proofChipCount: number;
   /** True when an evidence debt is owed on this move. */
@@ -97,6 +100,8 @@ export interface RingsideFeedInput {
   kindColorFamilyFor: (messageId: string) => TimelineKindColorFamily;
   /** node.descendantCount for a message. Defaults handled by the caller. */
   descendantCountFor: (messageId: string) => number;
+  /** Parent message id for a message, joined from the timeline node. Null at root. */
+  parentMessageIdFor: (messageId: string) => string | null;
   /** Count of attached evidence artifacts for a message. */
   proofChipCountFor: (messageId: string) => number;
   /** True when an evidence debt is owed on the message. */
@@ -150,6 +155,7 @@ function buildRingsideCard(
     createdAtLabel: vm.createdAtLabel,
     relativeLabel: vm.relativeLabel,
     quoteChip: vm.parentHint ?? null,
+    parentMessageId: input.parentMessageIdFor(vm.messageId) ?? null,
     proofChipCount: Math.max(0, Math.trunc(input.proofChipCountFor(vm.messageId)) || 0),
     owedReceiptChip: input.owedReceiptFor(vm.messageId) === true,
     branchPill: buildBranchPill(input.descendantCountFor(vm.messageId)),
