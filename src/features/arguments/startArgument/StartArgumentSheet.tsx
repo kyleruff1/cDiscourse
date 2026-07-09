@@ -108,7 +108,18 @@ export function StartArgumentSheet({
   const inviteEmail = personTargetToInviteEmail(target);
   const directInviteEmails = inviteEmail.trim().length > 0 ? [inviteEmail] : [];
 
+  // START-002 (#839) — a circle audience forces the room private and carries NO
+  // invite (the circle IS the audience). It never enters the START-003
+  // previewing_public state: visibility stays 'private' and the public toggle is
+  // disabled for a circle target.
+  const isCircle = target?.kind === 'circle';
+  const circleId = target?.kind === 'circle' ? target.circleId : null;
+  const circleLabel = target?.kind === 'circle' ? target.label : '';
+
   // The SINGLE creation decision — same validator, same inputs the page feeds.
+  // NOT the gate for a circle target: a circle create needs no invite, so the
+  // matrix (which would report private_requires_invite for private+no-invite) is
+  // bypassed via `isCircle` below, never forked.
   const creation = deriveArgumentRoomCreation({ visibility, directInviteEmails });
 
   // Public capacity preview for the toggle consequences copy (validator-derived
@@ -132,13 +143,16 @@ export function StartArgumentSheet({
       : null;
 
   // Non-email disabled reason (e.g. private_requires_invite) shown near submit.
+  // Suppressed for a circle target — a circle needs no invite, so the matrix
+  // private_requires_invite is not a real blocker there.
   const submitReasonCopy =
-    !creation.valid && creation.reason === 'private_requires_invite'
+    !isCircle && !creation.valid && creation.reason === 'private_requires_invite'
       ? plainLanguageForCreationReason(creation.reason)
       : null;
 
-  // Private summary line (J3). Not shown for open-floor / public.
-  const showPrivateSummary = visibility === 'private' && target?.kind !== 'open_floor';
+  // Private summary line (J3). Not shown for open-floor / public / circle.
+  const showPrivateSummary =
+    visibility === 'private' && target?.kind !== 'open_floor' && !isCircle;
   const privateSummary = showPrivateSummary
     ? creation.valid && creation.normalisedDirectInviteEmail
       ? START_SHEET_COPY.privateWithPerson.replace(
@@ -148,8 +162,16 @@ export function StartArgumentSheet({
       : START_SHEET_COPY.privateNeedsPerson
     : null;
 
+  // START-002 — circle summary line (analogous to the private summary). Neutral,
+  // structural: names the circle audience without a ranking.
+  const circleSummary = isCircle
+    ? START_SHEET_COPY.circlePrivateSummary.replace('{circle}', circleLabel)
+    : null;
+
+  // A circle target is submittable on the draft alone (no invite required); a
+  // non-circle target still needs the matrix to be valid.
   const canSubmit =
-    isStartArgumentDraftSubmittable({ declaration }) && creation.valid && !submitting;
+    isStartArgumentDraftSubmittable({ declaration }) && (isCircle || creation.valid) && !submitting;
 
   const handleTargetChange = (next: PersonTarget) => {
     setTarget(next);
@@ -167,21 +189,32 @@ export function StartArgumentSheet({
   };
 
   const handleSubmit = async () => {
-    if (!isStartArgumentDraftSubmittable({ declaration }) || !creation.valid || submitting) {
+    if (!isStartArgumentDraftSubmittable({ declaration }) || (!isCircle && !creation.valid) || submitting) {
       return;
     }
     setSubmitting(true);
     setError(null);
     const trimmed = declaration.trim();
-    const input: CreateDebateInput = {
-      title: pickDisplayTitle({ rootBody: trimmed }),
-      resolution: trimmed,
-      description: '',
-      visibility,
-      ...(creation.normalisedDirectInviteEmail
-        ? { invite: { email: creation.normalisedDirectInviteEmail } }
-        : {}),
-    };
+    // START-002 — a circle create is PRIVATE + circleId + NO invite. A
+    // non-circle create is unchanged (byte-identical to the START-001 contract).
+    const input: CreateDebateInput =
+      isCircle && circleId
+        ? {
+            title: pickDisplayTitle({ rootBody: trimmed }),
+            resolution: trimmed,
+            description: '',
+            visibility: 'private',
+            circleId,
+          }
+        : {
+            title: pickDisplayTitle({ rootBody: trimmed }),
+            resolution: trimmed,
+            description: '',
+            visibility,
+            ...(creation.normalisedDirectInviteEmail
+              ? { invite: { email: creation.normalisedDirectInviteEmail } }
+              : {}),
+          };
     try {
       const created = await onCreate(input);
       if (created) {
@@ -283,6 +316,12 @@ export function StartArgumentSheet({
           </Text>
         ) : null}
 
+        {circleSummary ? (
+          <Text style={styles.privateSummary} testID="start-sheet-circle-summary">
+            {circleSummary}
+          </Text>
+        ) : null}
+
         {/* ── What (the declaration) ─────────────────────────── */}
         <View style={styles.declarationBlock}>
           <Text style={styles.declarationLabel}>{START_SHEET_COPY.pointStepLabel}</Text>
@@ -330,9 +369,16 @@ export function StartArgumentSheet({
                     onChange: setVisibility,
                     capacityPreview,
                     expanded: advancedExpanded,
-                    disabled: submitting,
+                    // START-002 — public is LOCKED off for a circle target: a
+                    // circle argument is always private (never previews public).
+                    disabled: submitting || isCircle,
                   })
                 : null}
+              {isCircle ? (
+                <Text style={styles.helper} testID="start-sheet-circle-forces-private">
+                  {START_SHEET_COPY.circleForcesPrivate}
+                </Text>
+              ) : null}
             </View>
           ) : null}
         </View>

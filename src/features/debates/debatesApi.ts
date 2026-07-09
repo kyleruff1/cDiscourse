@@ -136,6 +136,13 @@ export interface CreateArgumentRoomInput {
   description?: string;
   visibility: RoomVisibility;
   invite?: { email: string; intendedSeat?: 'respondent' | 'co_primary' };
+  /**
+   * START-002 (#839) — optional circle audience. When set, the Edge Function
+   * creates the room PRIVATE and scoped to this circle (membership audience, no
+   * invite). Threaded as `circle_id` in the request body ONLY when present, so
+   * the non-circle request body is byte-identical.
+   */
+  circleId?: string;
 }
 
 /**
@@ -148,6 +155,11 @@ export interface CreateArgumentRoomResult {
   visibility: RoomVisibility;
   inviteId: string | null;
   inviteLink: string | null;
+  /**
+   * START-002 (#839) — present ONLY on a circle-path 200 (a testable
+   * round-trip signal). Absent / null for a non-circle create.
+   */
+  circleId?: string | null;
 }
 
 /**
@@ -176,6 +188,11 @@ export async function createArgumentRoom(
       email: input.invite.email.trim(),
       intendedSeat: input.invite.intendedSeat ?? 'respondent',
     };
+  }
+  // START-002 — thread the circle audience ONLY when present, so a non-circle
+  // request body carries no `circle_id` key (byte-shape preserved).
+  if (input.circleId) {
+    body.circle_id = input.circleId;
   }
 
   const { data, error } = await supabase.functions.invoke<CreateArgumentRoomResult>(
@@ -270,6 +287,9 @@ export async function createDebate(
     // the public/no-invite body is unchanged. `createArgumentRoom` trims the
     // email and defaults `intendedSeat` to `'respondent'`.
     ...(input.invite ? { invite: input.invite } : {}),
+    // START-002 (#839) — thread the optional circle audience the SAME way:
+    // omitted entirely when absent, so the non-circle call is unchanged.
+    ...(input.circleId ? { circleId: input.circleId } : {}),
   });
   if (!created.ok) return { ok: false, error: created.error };
 

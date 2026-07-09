@@ -62,6 +62,14 @@ export interface CreateDebateInput {
    * is optional — the wrapper defaults it to `'respondent'`.
    */
   invite?: { email: string; intendedSeat?: 'respondent' | 'co_primary' };
+  /**
+   * START-002 (#839) — optional circle audience. When present the room is
+   * created PRIVATE and scoped to this circle (a private room whose N-member
+   * audience arrives via the shipped membership helper, NOT via a minted
+   * invite). Mutually exclusive with `invite` (enforced server-side). Omitted
+   * entirely for a non-circle create, so the non-circle payload is unchanged.
+   */
+  circleId?: string;
 }
 
 /**

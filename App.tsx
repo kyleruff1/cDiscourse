@@ -65,6 +65,10 @@ import { StartArgumentSheet, PublicArgumentToggle } from './src/features/argumen
 // supabase-free — the hook pulls src/lib/supabase transitively, and the barrel
 // is imported by presentational consumers (ConversationGalleryScreen).
 import { useRecentOpponents } from './src/features/arguments/startArgument/useRecentOpponents';
+// START-002 (#839) — circles the caller is a live member of. Feeds the start
+// sheet (a circle audience) and the HOME-003 circle-home filter lane. RLS-scoped
+// SELECT-only read; no service role. A no-op ([]) when signed out / unconfigured.
+import { useMyCircles } from './src/features/circles/useMyCircles';
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
 // "Your Move" screen swap. The room stays mounted behind the dock.
 import { ArgumentComposerDock } from './src/features/arguments/ArgumentComposerDock';
@@ -596,6 +600,10 @@ function MainAppShell({
   // hook is a no-op ([]) when the sheet is not mounted (unconfigured / signed
   // out); it never blocks and never enumerates other users (RLS-scoped read).
   const recentOpponents = useRecentOpponents(state.snapshot.userId || null);
+  // START-002 (#839) — the caller's live circles. One RLS-scoped read shared by
+  // the start sheet (circle audience) and the HOME-003 filter lane. A no-op ([])
+  // when signed out / unconfigured; never blocks a surface.
+  const myCircles = useMyCircles(state.snapshot.userId || null);
 
   const hasDebate = Boolean(state.snapshot.selectedDebateId);
 
@@ -1002,6 +1010,14 @@ function MainAppShell({
             onCreate={create}
             recents={recentOpponents.recents}
             recentsLoading={recentOpponents.loading}
+            // START-002 (#839) — the caller's circles as picker rows (name +
+            // structural size). Selecting one creates a private circle-scoped
+            // room. [] when signed out / no circles (the slot collapses).
+            circles={myCircles.circles.map((c) => ({
+              id: c.id,
+              label: c.name,
+              memberCount: c.memberCount,
+            }))}
             onCancel={() => setStartArgumentOpen(false)}
             onCreated={(debate, surface) => {
               setEntryHint(null);
