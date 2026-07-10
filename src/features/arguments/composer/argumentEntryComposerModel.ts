@@ -17,6 +17,10 @@ import type { ParticipantSide } from '../../debates/types';
 import type { ConstitutionRule, EvaluationResult, FlagCode } from '../../../domain/constitution/types';
 import { FLAG_CODES } from '../../../domain/constitution/types';
 import { getAllowedArgumentTypesForParent } from '../composerHelpers';
+// MARK-002 (#894) — the scoped-marker context label (pure imports; no runtime
+// cycle: MarkerKind is a type-only import inside timestampMarkerModel).
+import { formatMarkerChipLabel, type PendingMarkerScope } from '../markers/timestampMarkerModel';
+import { MARKER_COPY } from '../markers/markerCopy';
 
 // ── Copy (frozen; scanned by argumentEntryComposerCopyBanList.test.ts) ──
 
@@ -69,6 +73,12 @@ export interface EntryComposerTarget {
   chipLabel: string;
   /** True when the chip clear affordance should be offered (a parent is scoped). */
   clearable: boolean;
+  /**
+   * MARK-002 (#894) — present ONLY when a marker scope is active: the one-line
+   * Quoting: <phrase> context label the bar shows above the composer_scope chip.
+   * Absent (no scoped marker) => the output is byte-identical to today.
+   */
+  scopedQuoteLabel?: string;
 }
 
 /** Max characters of parent body shown inside the context chip. */
@@ -87,6 +97,13 @@ export function deriveEntryComposerTarget(input: {
   parentId: string | null;
   parentType: ArgumentType | null;
   parentBody: string | null;
+  /**
+   * MARK-002 (#894) — the active scoped marker (a picked phrase of the target),
+   * or null / absent. When present, the returned target carries scopedQuoteLabel
+   * so the bar renders the Quoting: <phrase> context above the composer_scope
+   * chip. Absent => the output is byte-identical to the pre-MARK-002 shape.
+   */
+  scopedMarker?: PendingMarkerScope | null;
 }): EntryComposerTarget {
   const hasParent = input.parentId !== null;
   let chipLabel: string;
@@ -98,12 +115,19 @@ export function deriveEntryComposerTarget(input: {
   } else {
     chipLabel = ARGUMENT_ENTRY_COMPOSER_COPY.chipNewPoint;
   }
-  return {
+  const base: EntryComposerTarget = {
     parentId: input.parentId,
     parentType: input.parentType,
     chipLabel,
     clearable: hasParent,
   };
+  if (input.scopedMarker && typeof input.scopedMarker.quote === 'string' && input.scopedMarker.quote.length > 0) {
+    return {
+      ...base,
+      scopedQuoteLabel: MARKER_COPY.composerScopeContextPrefix + formatMarkerChipLabel(input.scopedMarker.quote),
+    };
+  }
+  return base;
 }
 
 // ── Type + side defaulting ─────────────────────────────────────

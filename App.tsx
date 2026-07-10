@@ -48,7 +48,15 @@ import { isRoomExchangeV2Enabled } from './src/lib/featureFlags';
 // design: the featureFlagsStaticEnv pin matches the isHomeV2Enabled import
 // EXACTLY, so this accessor must not merge into that specifier list.
 import { isProofDrawerEnabled } from './src/lib/featureFlags';
+// MARK-002 (#894) — App.tsx (the sole flag consumer) reads the timestamp_rebuttals
+// flag here and threads the boolean down as a prop. SEPARATE import line by
+// design (the featureFlagsStaticEnv pin matches the isHomeV2Enabled import
+// EXACTLY, so this accessor must not merge into that specifier list).
+import { isTimestampRebuttalsEnabled } from './src/lib/featureFlags';
 import { ProofDrawer, attachProof, detachProof } from './src/features/proof';
+// MARK-002 (#894) — the narrow create-marker client seam + the pending scope type.
+import { createMarkerScoped } from './src/features/arguments/markers/createMarkerApi';
+import type { PendingMarkerScope } from './src/features/arguments/markers/timestampMarkerModel';
 import type { ProofDrawerScope } from './src/features/proof';
 import { ArgumentHome } from './src/features/home';
 import type { GalleryEntryHint } from './src/features/debates/conversationGalleryModel';
@@ -592,8 +600,16 @@ function MainAppShell({
   // PROOF-002 (#889) — default OFF. Threaded into ArgumentTreeScreen (read-path
   // flip) + gates the Source-slot onOpenProof callback + the ProofDrawer mount.
   const proofDrawerEnabled = isProofDrawerEnabled();
+  // MARK-002 (#894) — default OFF. Threaded into ArgumentTreeScreen (gates the
+  // marker read + Ringside surface + phrase picker) and into the entry composer
+  // (the composer_scope chip). OFF => no marker prop passed => byte-identical.
+  const timestampRebuttalsEnabled = isTimestampRebuttalsEnabled();
   const { width: proofDrawerWidth, height: proofDrawerHeight } = useWindowDimensions();
   const [proofDrawerScope, setProofDrawerScope] = useState<ProofDrawerScope | null>(null);
+  // MARK-002 — the pending marker scope (a picked phrase) during composition. The
+  // marker mints post-submit (atomic mint + link, no orphans); null when no
+  // phrase is scoped. Only ever set when the flag is on.
+  const [pendingMarkerScope, setPendingMarkerScope] = useState<PendingMarkerScope | null>(null);
   // 'home' is deliberately NOT a ConversationGallerySection (that union drives
   // groupGalleryCardsBySection / gallery chips); it lives only in this
   // App.tsx-local lane state, so the gallery model is not perturbed.
@@ -802,17 +818,44 @@ function MainAppShell({
     setReplyTarget(null);
   };
 
+  // MARK-002 (#894) — the room emitted a picked phrase scope. Hold it as client
+  // state; the composer_scope chip renders it and the marker mints post-submit.
+  const handleMarkerScopePicked = (scope: PendingMarkerScope) => {
+    setPendingMarkerScope(scope);
+  };
+  const handleClearScopedMarker = () => {
+    setPendingMarkerScope(null);
+  };
+
   const handleComposerClose = () => {
     setReplyTarget(null);
     setComposerOpen(false);
     setComposerPreset(null);
   };
 
-  const handleSubmitSuccess = () => {
+  // MARK-002 (#894) — widened to receive the new reply id from the entry composer
+  // so a scoped marker mints + links to the just-posted reply (post-submit,
+  // atomic, no orphans). The pinned dock composer calls this with no argument =>
+  // no mint (byte-identical). A mint failure never blocks the reply (already
+  // posted); createMarkerScoped never throws.
+  const handleSubmitSuccess = (newArgumentId?: string) => {
     setReplyTarget(null);
     setComposerOpen(false);
     setComposerPreset(null);
     refreshTreeRef.current?.();
+    const scope = pendingMarkerScope;
+    setPendingMarkerScope(null);
+    if (timestampRebuttalsEnabled && scope && newArgumentId && currentDebate) {
+      void createMarkerScoped({
+        debateId: currentDebate.id,
+        scope,
+        replyArgumentId: newArgumentId,
+      }).then((result) => {
+        // Converge the reply chip once the marker exists (the new reply id also
+        // re-runs useMarkers via idsKey, but a refresh guarantees the read).
+        if (result.ok) refreshTreeRef.current?.();
+      });
+    }
   };
 
   // PROOF-002 (#889) — open the source drawer from the composer Source slot.
@@ -1260,6 +1303,11 @@ function MainAppShell({
               // PROOF-002 (#889) — read-path flip gate. Flag OFF => the room
               // fetches no proof_items rows and reads JSONB byte-identically.
               proofDrawerEnabled={proofDrawerEnabled}
+              // MARK-002 (#894) — marker text-half gate + the picked-scope
+              // callback. Flag OFF => useMarkers fetches nothing, no marker
+              // surface mounts, no picker opens (byte-identical).
+              timestampRebuttalsEnabled={timestampRebuttalsEnabled}
+              onMarkerScopePicked={timestampRebuttalsEnabled ? handleMarkerScopePicked : undefined}
               // PR-001 — thread the user's visual-density preference into
               // the timeline map (drives VG-004's resolveNodeGapPx) and
               // the reduce-motion override (OS value composed with the
@@ -1352,6 +1400,10 @@ function MainAppShell({
                 onOpenProof={proofDrawerEnabled ? openProofForDraft : undefined}
                 onSubmitSuccess={handleSubmitSuccess}
                 onClearParent={handleClearParent}
+                // MARK-002 (#894) — the composer_scope chip + its clear. Null when
+                // the flag is off or no phrase is scoped => byte-identical bar.
+                scopedMarker={timestampRebuttalsEnabled ? pendingMarkerScope : null}
+                onClearScopedMarker={timestampRebuttalsEnabled ? handleClearScopedMarker : undefined}
               />
             ) : null}
 

@@ -18,12 +18,26 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { MapNodeActionSurface } from './mapNodeActionSurfaceModel';
+// MARK-002 (#894) — the reply reference chips for the active Map node (additive,
+// parity with the Ringside card). Absent when the flag is off => byte-identical.
+import { TimestampMarker } from '../markers/TimestampMarker';
+import { buildTimestampMarker, type MarkerRow } from '../markers/timestampMarkerModel';
 
 export interface MapNodeSidecarLinksProps {
   surface: MapNodeActionSurface;
   onAnswerThis: () => void;
   onOpenDebts: () => void;
   reduceMotion?: boolean;
+  /**
+   * MARK-002 (#894) — markers whose reply is the active node (this node quotes an
+   * earlier move). Rendered as reply reference chips that deep-link to the source
+   * span, at parity with the Ringside card. Absent / empty => nothing renders.
+   */
+  replyMarkersForActiveNode?: ReadonlyArray<MarkerRow>;
+  /** MARK-002 — is a markers target loaded (drives the orphaned tombstone)? */
+  isMarkerTargetLoaded?: (targetArgumentId: string) => boolean;
+  /** MARK-002 — deep-link a reply chip to its quoted source span. */
+  onOpenMarkerSource?: (targetArgumentId: string, markerId: string) => void;
 }
 
 export function MapNodeSidecarLinks(props: MapNodeSidecarLinksProps) {
@@ -60,6 +74,26 @@ export function MapNodeSidecarLinks(props: MapNodeSidecarLinksProps) {
           {surface.openPointMembershipLine}
         </Text>
       ) : null}
+
+      {/* MARK-002 — reply reference chips for the active node (parity with the
+          Ringside card). Renders nothing when the node quotes no earlier move. */}
+      {props.replyMarkersForActiveNode && props.replyMarkersForActiveNode.length > 0 ? (
+        <View style={styles.markerRow} testID="map-sidecar-marker-replies">
+          {props.replyMarkersForActiveNode.map((m) => (
+            <TimestampMarker
+              key={m.id}
+              placement="reply_reference"
+              marker={buildTimestampMarker(m, {
+                targetExists: props.isMarkerTargetLoaded
+                  ? props.isMarkerTargetLoaded(m.target_argument_id)
+                  : true,
+              })}
+              onOpenSource={props.onOpenMarkerSource}
+              reduceMotion={props.reduceMotion}
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -81,4 +115,5 @@ const styles = StyleSheet.create({
   linkTextPrimary: { color: '#f8fafc', fontSize: 13, fontWeight: '800' },
   linkTextGhost: { color: '#cbd5e1', fontSize: 13, fontWeight: '700' },
   membership: { color: '#94a3b8', fontSize: 12, fontWeight: '600', paddingTop: 2 },
+  markerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 4 },
 });

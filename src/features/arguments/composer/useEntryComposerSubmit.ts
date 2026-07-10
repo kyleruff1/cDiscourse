@@ -32,7 +32,13 @@ export interface UseEntryComposerSubmitResult {
   serverErrors: string[] | null;
 }
 
-export function useEntryComposerSubmit(onSubmitSuccess: () => void): UseEntryComposerSubmitResult {
+export function useEntryComposerSubmit(
+  // MARK-002 (#894) — widened to surface the new reply id so the room shell can
+  // link a scoped marker to the just-posted reply. Additive: existing callers
+  // that ignore the argument are unaffected (the dock composer passes a no-arg
+  // handler and the JS extra argument is dropped).
+  onSubmitSuccess: (newArgumentId?: string) => void,
+): UseEntryComposerSubmitResult {
   const { state, dispatch } = useAppSession();
   const userId = state.snapshot.userId;
   const pendingSubmission = state.snapshot.pendingSubmission;
@@ -72,7 +78,10 @@ export function useEntryComposerSubmit(onSubmitSuccess: () => void): UseEntryCom
         if (userId) {
           void deleteDraft(userId, draft.draftId, draft.debateId);
         }
-        onSubmitSuccess();
+        // MARK-002 — surface the new reply id so the room shell can link a scoped
+        // marker to it. undefined when the Edge omits it (older payloads).
+        const newArgumentId = (result.data.argument as { id?: string })?.id;
+        onSubmitSuccess(newArgumentId);
       } else {
         const errorMsg = extractServerValidationError(result.error);
         dispatch({ type: 'SUBMISSION_FAILED', clientSubmissionId, error: errorMsg });
