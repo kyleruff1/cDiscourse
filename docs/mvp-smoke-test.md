@@ -133,3 +133,21 @@ Remaining:
 2. Rotate the ANTHROPIC_API_KEY (exposed in chat) — see `docs/core/known-blockers.md`
 
 See `docs/browser-visual-test.md` for the full checklist.
+
+---
+
+## Successor gate — J1–J10 ASP journey gate (L1)
+
+This MVP smoke test is the **L0** gate: it proves the app boots and the pre-ASP
+core loop (auth, debate create/join, tree, composer) works. The Argument Surface
+Pivot ships its own **L1** gate that scripts the Design Pass's ten core user
+journeys (J1–J10) against the shipped ASP surfaces:
+
+- **L1 gate:** `docs/qa/journey-gate-j1-j10.md` (card QA-001, #692).
+- **Index:** `docs/qa/README.md`.
+- **Executable manifest:** `__tests__/journeyGateCoverageMap.test.ts`.
+
+Run **L0 first** (this file), then arm and walk the relevant L1 journey per its
+flag. L1 is **conditionally green**: seven journeys are automatable today; J5, J8,
+and the audio half of J6 are **BLOCKED ON VOICE-ADR-002 (#863)** and documented as
+unarmed.
