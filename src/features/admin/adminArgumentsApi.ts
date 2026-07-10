@@ -40,6 +40,8 @@ interface RawArgumentRow {
   id: string;
   debate_id: string;
   author_id: string | null;
+  // INTEL-002 (#901) — root/reply discriminator for the specificity KPI.
+  parent_id: string | null;
   argument_type: string;
   side: string;
   body: string;
@@ -127,7 +129,7 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
     .from('arguments')
     .select(
       [
-        'id', 'debate_id', 'author_id', 'argument_type', 'side', 'body', 'status',
+        'id', 'debate_id', 'author_id', 'parent_id', 'argument_type', 'side', 'body', 'status',
         'created_at', 'updated_at', 'disagreement_axis', 'argument_tags(tag_code)',
         'target_excerpt', 'server_validation',
         'inactive_at', 'inactive_by', 'inactive_reason',
@@ -175,6 +177,8 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
     // distinct from the per-argument `inactiveAt` below. NULL = active.
     debateInactiveAt: asDebateInactiveAt(r.debates),
     authorId: r.author_id,
+    // INTEL-002 (#901) — root/reply discriminator for the specificity KPI.
+    parentId: r.parent_id,
     authorDisplayName: asDisplayName(r.profiles),
     argumentType: r.argument_type,
     side: r.side,
@@ -191,6 +195,30 @@ export async function loadAdminArguments(options: LoadAdminArgumentsOptions = {}
     inactiveBy: r.inactive_by,
     inactiveReason: r.inactive_reason,
   }));
+}
+
+/**
+ * INTEL-002 (#901) — batched active-marker reply-link read for the loaded rooms.
+ * The specificity KPI numerator source (a non-null reply_argument_id on an active
+ * marker means "that reply targeted a moment"). Caller-scoped anon-key + JWT
+ * client; RLS-bounded (timestamp_markers is circle/room-visibility scoped, NOT an
+ * admin-broad arm — see the visibility caveat). No service-role, never throws:
+ * returns [] on error so the readout degrades to a dash. Reads ONLY the two
+ * structural columns — NEVER `created_by` / any person field (doctrine, T-NP).
+ */
+export async function loadRoomMarkerReplyLinks(
+  debateIds: string[],
+): Promise<Array<{ debateId: string; replyArgumentId: string | null; deletedAt: string | null }>> {
+  if (!SUPABASE_CONFIGURED || debateIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('timestamp_markers')
+    .select('debate_id, reply_argument_id, deleted_at')
+    .in('debate_id', debateIds)
+    .is('deleted_at', null);
+  if (error) return [];
+  return ((data ?? []) as Array<{ debate_id: string; reply_argument_id: string | null; deleted_at: string | null }>).map(
+    (r) => ({ debateId: r.debate_id, replyArgumentId: r.reply_argument_id, deletedAt: r.deleted_at }),
+  );
 }
 
 export async function countArgumentFlags(argumentIds: string[]): Promise<Record<string, number>> {

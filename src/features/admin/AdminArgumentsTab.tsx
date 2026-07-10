@@ -5,9 +5,24 @@ import {
 import {
   loadAdminArguments,
   countArgumentFlags,
+  loadRoomMarkerReplyLinks,
   type AdminArgumentsSortField,
   type AdminArgumentsSortDirection,
 } from './adminArgumentsApi';
+// INTEL-002 (#901) — the specificity KPI derivation (admin-only advisory).
+// Pure TS; room + aggregate only, never per-person, no standing coupling.
+import {
+  deriveRoomSpecificityKpi,
+  deriveAggregateSpecificityKpi,
+  type RoomSpecificityKpi,
+  type SpecificityMarkerInput,
+  type SpecificityReplyInput,
+} from '../intel';
+import {
+  SPECIFICITY_VISIBILITY_CAVEAT,
+  roomSpecificityChipText,
+  aggregateSpecificityText,
+} from './adminSpecificityReadoutCopy';
 import {
   markArgumentInactive,
   markArgumentActive,
@@ -168,6 +183,12 @@ export interface AdminArgumentsTabProps {
 export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabProps = {}) {
   const [rows, setRows] = useState<AdminArgumentRow[]>([]);
   const [flagsByArgId, setFlagsByArgId] = useState<Record<string, number>>({});
+  // INTEL-002 (#901) — active marker reply-links for the loaded rooms (the
+  // specificity KPI numerator source). Empty until markers accrue; the readout
+  // degrades to a dash + the visibility caveat. Never carries a person field.
+  const [markerLinks, setMarkerLinks] = useState<
+    Array<{ debateId: string; replyArgumentId: string | null; deletedAt: string | null }>
+  >([]);
   const [state, setState] = useState<LoadState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -223,6 +244,11 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
       setRows(fresh);
       const counts = await countArgumentFlags(fresh.map((r) => r.id));
       setFlagsByArgId(counts);
+      // INTEL-002 (#901) — batched active-marker reply-links for the loaded rooms
+      // (RLS-bounded; never throws, [] on error). Feeds the specificity KPI.
+      const debateIds = [...new Set(fresh.map((r) => r.debateId))];
+      const links = await loadRoomMarkerReplyLinks(debateIds);
+      setMarkerLinks(links);
       // Selection state should be pruned to rows still present after a reload.
       setSelectedIds((prev) => {
         const visible = new Set(fresh.map((r) => r.id));
@@ -484,6 +510,54 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
     for (const { artifact, primaryRow } of artifactRows) m.set(artifact.artifactId, primaryRow);
     return m;
   }, [artifactRows]);
+
+  // INTEL-002 (#901) — per-room + pooled specificity KPI over the LOADED rows.
+  // The denominator is reply moves (parentId !== null, active); the numerator is
+  // distinct replies a live marker targets. Room + aggregate only, never
+  // per-person (no author field is read). Honest zero-data: null rate on an empty
+  // denominator; 0 when replies exist but no visible marker links them.
+  const markersByDebate = useMemo(() => {
+    const m = new Map<string, SpecificityMarkerInput[]>();
+    for (const link of markerLinks) {
+      const arr = m.get(link.debateId);
+      const entry: SpecificityMarkerInput = {
+        replyArgumentId: link.replyArgumentId,
+        deletedAt: link.deletedAt,
+      };
+      if (arr) arr.push(entry);
+      else m.set(link.debateId, [entry]);
+    }
+    return m;
+  }, [markerLinks]);
+
+  const roomSpecificityByDebateId = useMemo(() => {
+    const repliesByDebate = new Map<string, SpecificityReplyInput[]>();
+    for (const r of rows) {
+      const entry: SpecificityReplyInput = {
+        id: r.id,
+        parentId: r.parentId,
+        argumentType: r.argumentType,
+        status: r.status,
+        inactiveAt: r.inactiveAt,
+      };
+      const arr = repliesByDebate.get(r.debateId);
+      if (arr) arr.push(entry);
+      else repliesByDebate.set(r.debateId, [entry]);
+    }
+    const out = new Map<string, RoomSpecificityKpi>();
+    for (const [debateId, replies] of repliesByDebate) {
+      out.set(
+        debateId,
+        deriveRoomSpecificityKpi({ debateId, replies, markers: markersByDebate.get(debateId) ?? [] }),
+      );
+    }
+    return out;
+  }, [rows, markersByDebate]);
+
+  const aggregateSpecificity = useMemo(
+    () => deriveAggregateSpecificityKpi([...roomSpecificityByDebateId.values()]),
+    [roomSpecificityByDebateId],
+  );
 
   // #508 — per-room collapse/expand. DEFAULT = all collapsed (one row per
   // conversation), which is the fix the operator asked for. Only rooms whose
@@ -916,6 +990,27 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
             <PlainHeader label="Action" width={COL.action} />
           </View>
 
+          {/* INTEL-002 (#901) — admin-only specificity KPI aggregate readout.
+              Advisory, room/program-level only (never per-person, never a
+              user-facing score). Literal count + the marker-visibility caveat
+              (RLS is circle-scoped, so the aggregate covers only rooms whose
+              markers this admin can see). Ban-list clean. */}
+          <View
+            style={styles.specificityAggregate}
+            accessibilityLabel="admin-arguments-specificity-aggregate"
+            testID="admin-arguments-specificity-aggregate"
+          >
+            <Text style={styles.specificityAggregateText}>
+              {`Moment specificity: ${aggregateSpecificityText(aggregateSpecificity)}`}
+            </Text>
+            <Text
+              style={styles.specificityCaveat}
+              testID="admin-arguments-specificity-caveat"
+            >
+              {SPECIFICITY_VISIBILITY_CAVEAT}
+            </Text>
+          </View>
+
           <ScrollView style={styles.bodyScroller} accessibilityLabel="admin-arguments-list">
             {/* #508 — one collapsible header per room/conversation. The header
                 is a real button (Pressable + accessibilityRole="button" +
@@ -1001,6 +1096,21 @@ export function AdminArgumentsTab({ onOpenArgumentTimeline }: AdminArgumentsTabP
                               {group.messageCount} {group.messageCount === 1 ? 'message' : 'messages'}
                             </Text>
                           </View>
+                          {/* INTEL-002 (#901) — per-room specificity chip. Admin-
+                              only advisory; a literal count of replies that pinned
+                              a moment (never per-person, never a verdict). Absent
+                              when the room has no loaded reply KPI. */}
+                          {roomSpecificityByDebateId.has(group.roomId) && (
+                            <View
+                              style={styles.roomSpecificityChip}
+                              accessibilityLabel={`admin-arguments-room-specificity-${group.roomId}`}
+                              testID={`admin-arguments-room-specificity-${group.roomId}`}
+                            >
+                              <Text style={styles.roomSpecificityText} numberOfLines={1}>
+                                {roomSpecificityChipText(roomSpecificityByDebateId.get(group.roomId)!)}
+                              </Text>
+                            </View>
+                          )}
                           {group.isInactive && (
                             <View style={styles.roomGroupInactiveBadge}>
                               <Text style={styles.roomGroupInactiveText}>Inactive</Text>
@@ -1548,6 +1658,22 @@ const styles = StyleSheet.create({
     backgroundColor: STATUS.neutral.bg,
   },
   roomGroupCountText: { fontSize: 10, fontWeight: '600', color: STATUS.neutral.fg },
+  // INTEL-002 (#901) — per-room specificity chip + the aggregate readout. Neutral
+  // surface (advisory, never a verdict tone).
+  roomSpecificityChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: STATUS.neutral.bg,
+  },
+  roomSpecificityText: { fontSize: 10, fontWeight: '600', color: STATUS.neutral.fg },
+  specificityAggregate: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 2,
+  },
+  specificityAggregateText: { fontSize: 12, fontWeight: '600', color: STATUS.neutral.fg },
+  specificityCaveat: { fontSize: 10, color: STATUS.neutral.fg, opacity: 0.75 },
   roomGroupInactiveBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,

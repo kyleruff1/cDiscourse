@@ -9,3 +9,4 @@
 export * from './dodgeChainModel';
 export * from './debtAnswerRateModel';
 export * from './roomIntelSignals';
+export * from './markerSpecificityModel';
