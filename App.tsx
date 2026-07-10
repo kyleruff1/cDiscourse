@@ -649,8 +649,8 @@ function MainAppShell({
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
   const galleryArgs = useGalleryArguments(debates.map((d) => d.id));
-  // INTEL-001 (#900) — gated batched gallery move-marks fetch (dodge-chain heat
-  // feed). moveMarksEnabled OFF => no fetch => {} => gallery heat byte-identical.
+  // INTEL-001 (#900) — gated batched gallery move-marks read for the dodge-chain
+  // heat feed. moveMarksEnabled OFF => no read => {} => gallery heat byte-identical.
   const galleryMarks = useGalleryMoveMarks(debates.map((d) => d.id), moveMarksEnabled);
   const { profile: currentProfile } = useAccountProfile(state.snapshot.userId);
   // START-001 (#827) — recent-opponent invites for the person-first sheet. The

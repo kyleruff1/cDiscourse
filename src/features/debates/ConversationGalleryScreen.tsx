@@ -57,7 +57,8 @@ interface Props {
   participantCountByDebateId?: Record<string, number>;
   /**
    * INTEL-001 (#900) — OPTIONAL per-debate unaddressed argument ids from the
-   * gated gallery move_marks fetch (present only when the move_marks flag is on).
+   * gated gallery move_marks read (supplied only when the move_marks flag is on;
+   * the read itself lives in the App-level hook, never in this screen).
    * Absent => the deriver omits the dodge-chain heat term => heat byte-identical.
    */
   unaddressedMoveIdsByDebateId?: Record<string, readonly string[]>;
