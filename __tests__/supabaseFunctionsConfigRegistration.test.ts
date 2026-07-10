@@ -121,4 +121,19 @@ describe('supabase/config.toml ⇄ supabase/functions/ registration parity', () 
     expect(block).toMatch(/verify_jwt = true/);
     expect(block).not.toMatch(/verify_jwt = false/);
   });
+
+  it('create-marker is registered with verify_jwt = true (MARK-002 #894, the #509 hazard forcing function)', () => {
+    // The sole server-authoritative writer for the SELECT-only timestamp_markers
+    // table MUST be config.toml-registered or it silently never deploys.
+    expect(functionDirs).toContain('create-marker');
+    expect(registered).toContain('create-marker');
+    const header = '[functions.create-marker]';
+    const idx = CONFIG_SRC.indexOf(header);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const tail = CONFIG_SRC.slice(idx + header.length);
+    const nextSectionIdx = tail.search(/\n\[/);
+    const block = nextSectionIdx >= 0 ? tail.slice(0, nextSectionIdx) : tail;
+    expect(block).toMatch(/verify_jwt = true/);
+    expect(block).not.toMatch(/verify_jwt = false/);
+  });
 });
