@@ -856,13 +856,35 @@ function deriveNextAction(
   let chosen: DisagreementPoint | null =
     activePointId ? actionable.find((p) => p.id === activePointId) ?? null : null;
   if (!chosen) {
-    // Most pressing = worst lifecycle priority; ties broken by earliest member.
+    // INTEL-001 (#900) — OPTIONAL engagement-lane tie-break. Absent/empty
+    // `weightingSignals` => this contributes 0 and the sort is byte-identical to
+    // today. When present, among points of EQUAL lifecycle priority a point whose
+    // members intersect the pressured set (or which carries an open evidence debt
+    // when debt pressure is on) is preferred FIRST. It only re-orders which point
+    // `nextAction` names; it never changes a state, label, or the inputHash.
+    const weighting = options.weightingSignals;
+    const pressuredSet = weighting?.pressuredNodeIds
+      ? new Set(weighting.pressuredNodeIds)
+      : null;
+    const debtPressureOn =
+      typeof weighting?.unresolvedDebtPressure === 'number' && weighting.unresolvedDebtPressure > 0;
+    const pressureRank = (p: DisagreementPoint): number => {
+      let rank = 0;
+      if (pressuredSet && p.memberNodeIds.some((id) => pressuredSet.has(id))) rank += 2;
+      if (debtPressureOn && p.openEvidenceDebtIds.length > 0) rank += 1;
+      return rank;
+    };
+    // Most pressing = worst lifecycle priority; ties broken by weighting (0 when
+    // absent), then by earliest member.
     chosen = actionable
       .slice()
       .sort((a, b) => {
         const pa = LIFECYCLE_PRIORITY[a.lifecycleState] ?? 0;
         const pb = LIFECYCLE_PRIORITY[b.lifecycleState] ?? 0;
         if (pa !== pb) return pb - pa;
+        const wa = pressureRank(a);
+        const wb = pressureRank(b);
+        if (wa !== wb) return wb - wa;
         return compareStrings(a.id, b.id);
       })[0];
   }

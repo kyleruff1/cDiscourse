@@ -277,6 +277,19 @@ export interface MediatorGraphInput {
 export interface MediatorBoardOptions {
   /** When set, biases `nextAction` toward the point containing this node. */
   activeNodeId?: string | null;
+  /**
+   * INTEL-001 (#900) — OPTIONAL engagement-lane weighting for the `nextAction`
+   * tie-break ONLY. Absent/empty => byte-identical board (incl. `inputHash`).
+   * It changes WHICH open point `nextAction` names among equally-pressing ones;
+   * it invents no state, no label, no field on any point. It is a SUMMARY
+   * weighting, never a verdict and never a standing.
+   */
+  weightingSignals?: {
+    /** Nodes participating in a dodge-chain. A point whose members intersect this set is more pressing. */
+    pressuredNodeIds?: readonly string[];
+    /** Room debt-answer pressure 0..1 (1 - answerRate); biases toward unresolved points. */
+    unresolvedDebtPressure?: number;
+  };
 }
 
 // ── Output marker types ───────────────────────────────────────

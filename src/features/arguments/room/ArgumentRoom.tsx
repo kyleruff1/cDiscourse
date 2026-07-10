@@ -160,6 +160,9 @@ import {
 // change.
 import { buildPointLifecycleMap } from '../../lifecycle';
 import { DisagreementPointsRail } from '../../mediator/DisagreementPointsRail';
+// INTEL-001 (#900) — engagement-lane derivations for the mediator next-action
+// tie-break. Pure TS; no pointStanding, no standing coupling, no person axis.
+import { deriveDodgeChains, deriveRoomDebtAnswerRate } from '../../intel';
 // VISUAL-SIMPLIFY-002 — reuse the shipped, ban-list-clean rail chrome title as
 // the on-demand analysis-trigger label (no new gameCopy mapping required).
 import { DISAGREEMENT_POINTS_RAIL_COPY } from '../../mediator/mediatorRailCopy';
@@ -967,6 +970,25 @@ export function ArgumentRoom({
     [timelineMap, artifactsByMessageIdMap],
   );
 
+  // INTEL-001 (#900) — engagement-lane weighting for the mediator next-action
+  // tie-break, derived from the SAME marks aggregate + tree + debts the room
+  // already holds (no new fetch). Gated on moveMarksEnabled: OFF => undefined =>
+  // the board (incl. inputHash) is byte-identical. It only re-orders WHICH open
+  // point nextAction names; it never touches standing.
+  const mediatorWeightingSignals = useMemo(() => {
+    if (!moveMarksEnabled || !moveMarkAggregate) return undefined;
+    const nodes = timelineMap.nodes.map((n) => ({ id: n.messageId, parentId: n.parentId }));
+    const dodge = deriveDodgeChains({
+      unaddressedMoveIds: moveMarkAggregate.unaddressedMoveIds,
+      nodes,
+    });
+    const debtAnswer = deriveRoomDebtAnswerRate({ debateId: debate.id, debts: evidenceDebts });
+    return {
+      pressuredNodeIds: dodge.chains.flatMap((c) => c.memberArgumentIds),
+      unresolvedDebtPressure: 1 - (debtAnswer.answerRate ?? 1),
+    };
+  }, [moveMarksEnabled, moveMarkAggregate, timelineMap, evidenceDebts, debate.id]);
+
   // UX-MEDIATOR-005 — Read-only mediator board for the Disagreement Points
   // rail. A pure projection over the data already built in-room (timeline map,
   // LIFE-001 lifecycle map, EV-003 evidence debts, persisted A–I observations).
@@ -980,8 +1002,10 @@ export function ArgumentRoom({
       evidenceDebts,
       persistedObservationsByArgumentId: persistedObservationsByArgumentId ?? null,
       activeNodeId: activeMessageId,
+      // INTEL-001 (#900) — undefined when move_marks OFF => byte-identical board.
+      weightingSignals: mediatorWeightingSignals,
     }),
-    [debate.id, timelineMap, lifecycleMap, evidenceDebts, persistedObservationsByArgumentId, activeMessageId],
+    [debate.id, timelineMap, lifecycleMap, evidenceDebts, persistedObservationsByArgumentId, activeMessageId, mediatorWeightingSignals],
   );
 
   // FEEDBACK-002 (#899) — the derived cross-family advisory signals. A pure fold

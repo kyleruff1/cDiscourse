@@ -82,6 +82,10 @@ import { buildDeepLinkEntryHint } from './src/features/debates/deepLinkEntryHint
 import { resolveRoomDeepLinkAccess } from './src/features/debates/roomAccessModel';
 import { RoomUnavailableNotice } from './src/features/debates/RoomUnavailableNotice';
 import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
+// INTEL-001 (#900) — the gated batched gallery move-marks loader. Fetches only
+// when moveMarksEnabled (the boolean App.tsx already reads is threaded in as the
+// `enabled` prop); returns {} otherwise so the gallery heat is byte-identical.
+import { useGalleryMoveMarks } from './src/features/debates/useGalleryMoveMarks';
 import { ArgumentTreeScreen } from './src/features/arguments';
 // START-001 (#827) — person-first start sheet + its recents hook. Mounts only
 // behind home_v2 (see the startSheetActive branch below); the legacy
@@ -645,6 +649,9 @@ function MainAppShell({
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
   const galleryArgs = useGalleryArguments(debates.map((d) => d.id));
+  // INTEL-001 (#900) — gated batched gallery move-marks fetch (dodge-chain heat
+  // feed). moveMarksEnabled OFF => no fetch => {} => gallery heat byte-identical.
+  const galleryMarks = useGalleryMoveMarks(debates.map((d) => d.id), moveMarksEnabled);
   const { profile: currentProfile } = useAccountProfile(state.snapshot.userId);
   // START-001 (#827) — recent-opponent invites for the person-first sheet. The
   // hook is a no-op ([]) when the sheet is not mounted (unconfigured / signed
@@ -1210,6 +1217,9 @@ function MainAppShell({
             <ConversationGalleryScreen
               debates={debates}
               argumentsByDebateId={galleryArgs.argumentsByDebateId}
+              // INTEL-001 (#900) — dodge-chain heat feed. {} when move_marks OFF
+              // => the deriver omits the term => heat byte-identical.
+              unaddressedMoveIdsByDebateId={galleryMarks.unaddressedMoveIdsByDebateId}
               currentUserId={state.snapshot.userId || null}
               loading={debatesLoading || galleryArgs.loading}
               error={debatesError || galleryArgs.error}
