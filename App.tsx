@@ -833,16 +833,21 @@ function MainAppShell({
     setComposerPreset(null);
   };
 
-  // MARK-002 (#894) — widened to receive the new reply id from the entry composer
-  // so a scoped marker mints + links to the just-posted reply (post-submit,
-  // atomic, no orphans). The pinned dock composer calls this with no argument =>
-  // no mint (byte-identical). A mint failure never blocks the reply (already
-  // posted); createMarkerScoped never throws.
-  const handleSubmitSuccess = (newArgumentId?: string) => {
+  const handleSubmitSuccess = () => {
     setReplyTarget(null);
     setComposerOpen(false);
     setComposerPreset(null);
     refreshTreeRef.current?.();
+  };
+
+  // MARK-002 (#894) — the entry-composer submit variant: reset exactly like
+  // handleSubmitSuccess, then mint + link a scoped marker to the just-posted
+  // reply (post-submit, atomic, no orphans). The pinned dock composer keeps
+  // handleSubmitSuccess (no id, no mint) so the COMPOSER-002 dock wiring stays
+  // byte-identical. A mint failure never blocks the reply (already posted);
+  // createMarkerScoped never throws.
+  const handleEntrySubmitSuccess = (newArgumentId?: string) => {
+    handleSubmitSuccess();
     const scope = pendingMarkerScope;
     setPendingMarkerScope(null);
     if (timestampRebuttalsEnabled && scope && newArgumentId && currentDebate) {
@@ -1398,7 +1403,9 @@ function MainAppShell({
                 // the drawer; OFF => undefined => the slot routes to More
                 // (byte-identical). The composer never reads the flag registry.
                 onOpenProof={proofDrawerEnabled ? openProofForDraft : undefined}
-                onSubmitSuccess={handleSubmitSuccess}
+                // MARK-002 (#894) — the entry variant mints the scoped marker on
+                // success; the dock above keeps handleSubmitSuccess unchanged.
+                onSubmitSuccess={handleEntrySubmitSuccess}
                 onClearParent={handleClearParent}
                 // MARK-002 (#894) — the composer_scope chip + its clear. Null when
                 // the flag is off or no phrase is scoped => byte-identical bar.
