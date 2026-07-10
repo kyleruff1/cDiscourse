@@ -18,3 +18,4 @@ export { PointFeedbackFlagsRow } from './PointFeedbackFlagsRow';
 // mandated consumer selectors. Pure TS; no React, no featureFlags import.
 export * from './derivedObservationSignals';
 export * from './derivedSignalConsumerModel';
+export { DerivedSignalAdvisoryLines } from './DerivedSignalAdvisoryLines';

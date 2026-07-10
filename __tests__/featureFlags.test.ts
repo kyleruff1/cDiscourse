@@ -27,6 +27,7 @@ import {
   isTimestampRebuttalsEnabled,
   isOneTimePlaybackEnabled,
   isMoveMarksEnabled,
+  isDerivedSignalsEnabled,
   resolveAspFeatureFlag,
   ASP_FEATURE_FLAGS,
   HOME_V2_FLAG,
@@ -36,6 +37,7 @@ import {
   TIMESTAMP_REBUTTALS_FLAG,
   ONE_TIME_PLAYBACK_FLAG,
   MOVE_MARKS_FLAG,
+  DERIVED_SIGNALS_FLAG,
   type AspFeatureFlag,
 } from '../src/lib/featureFlags';
 
@@ -57,6 +59,7 @@ const FLAG_CASES: FlagCase[] = [
   },
   { key: 'one_time_playback', envName: ONE_TIME_PLAYBACK_FLAG, accessor: isOneTimePlaybackEnabled },
   { key: 'move_marks', envName: MOVE_MARKS_FLAG, accessor: isMoveMarksEnabled },
+  { key: 'derived_signals', envName: DERIVED_SIGNALS_FLAG, accessor: isDerivedSignalsEnabled },
 ];
 
 const ALL_ENV_NAMES = FLAG_CASES.map((c) => c.envName);
@@ -89,7 +92,7 @@ describe('featureFlags — flag env names', () => {
     }
   });
 
-  it('exposes exactly the seven expected env-name literals', () => {
+  it('exposes exactly the eight expected env-name literals', () => {
     expect(ALL_ENV_NAMES).toEqual([
       'EXPO_PUBLIC_HOME_V2',
       'EXPO_PUBLIC_ROOM_EXCHANGE_V2',
@@ -98,6 +101,7 @@ describe('featureFlags — flag env names', () => {
       'EXPO_PUBLIC_TIMESTAMP_REBUTTALS',
       'EXPO_PUBLIC_ONE_TIME_PLAYBACK',
       'EXPO_PUBLIC_MOVE_MARKS',
+      'EXPO_PUBLIC_DERIVED_SIGNALS',
     ]);
   });
 });
@@ -149,6 +153,10 @@ describe('featureFlags — exact "true" enables (via process.env static read)', 
     process.env.EXPO_PUBLIC_MOVE_MARKS = 'true';
     expect(isMoveMarksEnabled()).toBe(true);
   });
+  it('EXPO_PUBLIC_DERIVED_SIGNALS === "true" enables derived_signals', () => {
+    process.env.EXPO_PUBLIC_DERIVED_SIGNALS = 'true';
+    expect(isDerivedSignalsEnabled()).toBe(true);
+  });
 });
 
 describe('featureFlags — runtime-env shim override', () => {
@@ -196,10 +204,11 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       timestamp_rebuttals: isTimestampRebuttalsEnabled(),
       one_time_playback: isOneTimePlaybackEnabled(),
       move_marks: isMoveMarksEnabled(),
+      derived_signals: isDerivedSignalsEnabled(),
     };
   }
 
-  it('setting one flag ON via process.env leaves the other six OFF', () => {
+  it('setting one flag ON via process.env leaves the other seven OFF', () => {
     process.env.EXPO_PUBLIC_HOME_V2 = 'true';
     const all = readAll();
     expect(all).toEqual({
@@ -210,10 +219,11 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       timestamp_rebuttals: false,
       one_time_playback: false,
       move_marks: false,
+      derived_signals: false,
     });
   });
 
-  it('setting a different single flag ON via the shim leaves the other six OFF', () => {
+  it('setting a different single flag ON via the shim leaves the other seven OFF', () => {
     mockReadRuntimeEnv.mockReturnValue({ [MOVE_MARKS_FLAG]: 'true' });
     const all = readAll();
     expect(all).toEqual({
@@ -224,6 +234,7 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       timestamp_rebuttals: false,
       one_time_playback: false,
       move_marks: true,
+      derived_signals: false,
     });
   });
 });
@@ -240,9 +251,10 @@ describe('featureFlags — registry + dispatcher', () => {
     expect(resolveAspFeatureFlag('home_v2')).toBe(isHomeV2Enabled());
   });
 
-  it('ASP_FEATURE_FLAGS has exactly the seven expected keys', () => {
+  it('ASP_FEATURE_FLAGS has exactly the eight expected keys', () => {
     expect(Object.keys(ASP_FEATURE_FLAGS).sort()).toEqual(
       [
+        'derived_signals',
         'home_v2',
         'move_marks',
         'one_time_playback',

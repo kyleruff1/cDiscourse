@@ -65,6 +65,7 @@ import {
   buildDisagreementDistribution,
   type DisagreementDistributionSegment,
 } from './mediatorDistribution';
+import type { DerivedSignalLine } from '../feedbackFlags/derivedSignalConsumerModel';
 import { getEvidenceDebtForPoint, type PointEvidenceDisplay } from './evidenceDebtDisplay';
 import {
   getDefinitionScopeBridgeForPoint,
@@ -139,6 +140,14 @@ export interface DisagreementPointsRailProps {
    * count.
    */
   marksLegendLine?: string;
+  /**
+   * FEEDBACK-002 (#899) — optional advisory overlay keyed by board point id (the
+   * dodge_chain / talking_past derived-signal lines). ADDITIVE ONLY: it renders a
+   * calm sub-line under the matching point and NEVER reorders points or re-reads
+   * the board. Absent (default {}) => byte-identical rail (the single-derivation
+   * pin: the board object is passed through untouched).
+   */
+  advisoryOverlayByPointId?: Readonly<Record<string, DerivedSignalLine>>;
   testID?: string;
 }
 
@@ -166,6 +175,7 @@ export function DisagreementPointsRail({
   onExpandedChange,
   onJump,
   marksLegendLine,
+  advisoryOverlayByPointId,
   testID,
 }: DisagreementPointsRailProps): React.ReactElement | null {
   const rootTestID = testID ?? 'disagreement-points-rail';
@@ -532,6 +542,7 @@ export function DisagreementPointsRail({
               onMeasureOffset={(y) => {
                 rowOffsetsRef.current[point.id] = y;
               }}
+              advisoryOverlayLine={advisoryOverlayByPointId?.[point.id]}
             />
           ))}
           {!showAll && moreCount > 0 ? (
@@ -607,6 +618,11 @@ interface DisagreementPointRowProps {
    * rail's own ScrollView (via onLayout) so a segment press can scrollTo it.
    */
   onMeasureOffset?: (y: number) => void;
+  /**
+   * FEEDBACK-002 (#899) — optional advisory sub-line (dodge_chain / talking_past)
+   * for this point. Absent => byte-identical row. Ban-list-clean, never a verdict.
+   */
+  advisoryOverlayLine?: DerivedSignalLine;
 }
 
 function DisagreementPointRow({
@@ -619,6 +635,7 @@ function DisagreementPointRow({
   onJump,
   inSelectedSegment,
   onMeasureOffset,
+  advisoryOverlayLine,
 }: DisagreementPointRowProps): React.ReactElement {
   // UX-MEDIATOR-005 (O-1) — project the badge through the v4 display vocabulary
   // so the rail row matches the node chip; `point.state` stays intact for Inspect.
@@ -771,6 +788,21 @@ function DisagreementPointRow({
         {evidence?.isBlocked ? (
           <Text style={styles.blockedPathLine} numberOfLines={1} testID={`disagreement-points-rail-blocked-${point.id}`}>
             {DISAGREEMENT_POINTS_RAIL_COPY.blockedEvidencePath}
+          </Text>
+        ) : null}
+
+        {/* FEEDBACK-002 (#899) — optional advisory overlay sub-line (dodge_chain
+            / talking_past). Additive, calm, ban-list-clean; never a verdict,
+            never reorders the point. Absent => byte-identical row. */}
+        {advisoryOverlayLine ? (
+          <Text
+            style={styles.derivedAdvisoryLine}
+            numberOfLines={2}
+            accessibilityRole="text"
+            accessibilityLabel={advisoryOverlayLine.accessibilityLabel}
+            testID={`disagreement-points-rail-advisory-${point.id}`}
+          >
+            {advisoryOverlayLine.text}
           </Text>
         ) : null}
 
@@ -1153,6 +1185,14 @@ const styles = StyleSheet.create({
     color: SURFACE_TOKENS.textMuted,
     fontSize: TYPOGRAPHY.chipLabel.fontSize,
     lineHeight: 15,
+  },
+  // FEEDBACK-002 (#899) — advisory overlay sub-line. Calm muted tone; the words
+  // carry the meaning (never color-only). Italic-free plain advisory copy.
+  derivedAdvisoryLine: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: 15,
+    marginTop: 2,
   },
   // UX-MEDIATOR-003 — blocked evidence path: attention tone via the focus-ring
   // color + weight (not color alone — the explicit "Blocked evidence path"

@@ -52,6 +52,12 @@ import { RequestReviewComposer } from '../../requestReview';
 import {
   buildPointFeedbackFlags,
   PointFeedbackFlagsRow,
+  DerivedSignalAdvisoryLines,
+  deriveDerivedObservationSignals,
+  selectInspectAdvisoryLines,
+  selectMediatorRailOverlay,
+  type DerivedSignal,
+  type DerivedSignalNodeInput,
 } from '../../feedbackFlags';
 import { prioritizePointFeedbackFlags } from '../../feedbackFlags/feedbackFlagPriority';
 import { buildSidecarViewModel } from '../argumentReplySidecarModel';
@@ -328,6 +334,9 @@ import {
  */
 type AnalysisSurfaceKey = 'disagreement' | 'open_issues' | 'readout' | null;
 
+/** FEEDBACK-002 (#899) — the shared frozen empty result for the flag-off path. */
+const EMPTY_DERIVED_SIGNALS: readonly DerivedSignal[] = Object.freeze([]);
+
 export interface Props {
   debate: {
     id: string;
@@ -544,6 +553,13 @@ export interface Props {
    * fetches nothing, the aggregate is null, no bar mounts (byte-identical).
    */
   moveMarksEnabled?: boolean;
+  /**
+   * FEEDBACK-002 (#899) — gates the derived-signal advisory surfaces (the Inspect
+   * active-node advisory lines + the mediator rail overlay). Additive optional.
+   * Default/false => the derivation returns empty, so both surfaces render nothing
+   * (byte-identical). App.tsx is the sole flag reader; this arrives as a prop.
+   */
+  derivedSignalsEnabled?: boolean;
 }
 
 export function ArgumentRoom({
@@ -590,6 +606,7 @@ export function ArgumentRoom({
   timestampRebuttalsEnabled,
   onMarkerScopePicked,
   moveMarksEnabled,
+  derivedSignalsEnabled,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // ARG-ROOM-005 — read-only seat-availability display + rail full-room state.
@@ -965,6 +982,82 @@ export function ArgumentRoom({
       activeNodeId: activeMessageId,
     }),
     [debate.id, timelineMap, lifecycleMap, evidenceDebts, persistedObservationsByArgumentId, activeMessageId],
+  );
+
+  // FEEDBACK-002 (#899) — the derived cross-family advisory signals. A pure fold
+  // over data ALREADY in-room (timeline structure, persisted A-I observations,
+  // move-marks, evidence debts). It NEVER re-derives the mediator board / debts;
+  // the two selectors below compose over this output at display time. Gated on
+  // derivedSignalsEnabled (App.tsx is the sole flag reader). Flag OFF => empty
+  // => both surfaces render nothing => byte-identical.
+  const derivedSignals = useMemo<readonly DerivedSignal[]>(() => {
+    if (derivedSignalsEnabled !== true) return EMPTY_DERIVED_SIGNALS;
+    const msgById = new Map(sorted.map((m) => [m.id, m]));
+    const nodes: DerivedSignalNodeInput[] = timelineMap.nodes.map((n) => {
+      const msg = msgById.get(n.messageId);
+      const authorId = msg?.authorId ?? null;
+      const actor: 'self' | 'other' | 'unknown' =
+        authorId && currentUserId && authorId === currentUserId
+          ? 'self'
+          : authorId
+            ? 'other'
+            : 'unknown';
+      return {
+        argumentId: n.messageId,
+        parentId: n.parentId,
+        branchRootId: n.branchRootMessageId,
+        authorId,
+        side: msg?.side ?? null,
+        ordinal: n.ordinal,
+        actor,
+      };
+    });
+    const observationsByArgumentId: Record<string, { family: string; rawKey: string }[]> = {};
+    const obsMap = persistedObservationsByArgumentId ?? {};
+    for (const argumentId of Object.keys(obsMap)) {
+      const rows = obsMap[argumentId];
+      if (!rows) continue;
+      observationsByArgumentId[argumentId] = rows.map((r) => ({
+        family: String(r.family),
+        rawKey: r.rawKey,
+      }));
+    }
+    return deriveDerivedObservationSignals({
+      debateId: debate.id,
+      nodes,
+      observationsByArgumentId,
+      evidenceDebts,
+      moveMarks: moveMarksEnabled ? moveMarks.activeRows : [],
+      // The room does not derive a deterministic heat band; pass null (safe
+      // under-fire: hot_but_proof_light stays dormant and its only consumer is
+      // the gallery bucket, not wired here). No popularity input ever enters.
+      heatBand: null,
+      draftContext: null,
+    });
+  }, [
+    derivedSignalsEnabled,
+    timelineMap,
+    sorted,
+    currentUserId,
+    persistedObservationsByArgumentId,
+    evidenceDebts,
+    moveMarksEnabled,
+    moveMarks.activeRows,
+    debate.id,
+  ]);
+
+  // FEEDBACK-002 surface 1 — advisory lines for the Inspect active-node
+  // disclosure. Empty (no active node / flag off) => nothing renders.
+  const inspectAdvisoryLines = useMemo(
+    () => selectInspectAdvisoryLines(derivedSignals, activeMessageId),
+    [derivedSignals, activeMessageId],
+  );
+  // FEEDBACK-002 surface 2 — mediator rail overlay keyed to the ALREADY-derived
+  // board points (dodge_chain / talking_past). Additive; never reorders the
+  // board. Empty when flag off.
+  const mediatorAdvisoryOverlay = useMemo(
+    () => selectMediatorRailOverlay(derivedSignals, mediatorBoard.points.map((p) => p.id)),
+    [derivedSignals, mediatorBoard],
   );
 
   // ROOM-001 (#876) — ambient state rail counts + model. Both counts READ the
@@ -2875,6 +2968,11 @@ export function ArgumentRoom({
               flags={activePointFeedbackFlags.visible}
               suppressedCount={activePointFeedbackFlags.suppressedCount}
             />
+            {/* FEEDBACK-002 (#899) — calm derived-signal advisory lines for the
+                active node, composed at display time over the derived signals.
+                Empty (flag off / no active-node signal) => renders null =>
+                byte-identical. Never a verdict, never a submit gate. */}
+            <DerivedSignalAdvisoryLines lines={inspectAdvisoryLines} />
             {/* ROOM-004 (#886) — the low-density sidecar deep-link footer.
                 Mounts AFTER the reused readout + flags (never before MapView),
                 gated on room_exchange_v2 + a supplied surface. Answer this is
@@ -3319,6 +3417,10 @@ export function ArgumentRoom({
                 ? MOVE_MARKS_LEGEND_LINE
                 : undefined
             }
+            // FEEDBACK-002 (#899) — additive advisory overlay keyed by board
+            // point id (dodge_chain / talking_past). Empty when the flag is off
+            // => byte-identical; never reorders or re-derives the board.
+            advisoryOverlayByPointId={mediatorAdvisoryOverlay}
             // VISUAL-SIMPLIFY-002 — the rail is summoned expanded (the user asked
             // for it). On the phone sheet this opens it immediately rather than
             // as a second collapsed pill; on the tablet/wide pane it is the
