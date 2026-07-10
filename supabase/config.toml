@@ -580,6 +580,18 @@ verify_jwt = false
 [functions.attach-proof]
 verify_jwt = true
 
+# MARK-002 (#894) — create-marker. The SOLE server-authoritative writer for
+# public.timestamp_markers (MARK-001 shipped it SELECT-only). verify_jwt = true; the
+# function ALSO validates the JWT via createCallerClient + getUser (defense-in-depth) to
+# resolve the caller id, then gates target-visibility + participant + span-bounds +
+# SERVER-SIDE quote verification + caps BEFORE the service-role insert. quoted_text is
+# snapshotted VERBATIM from arguments.body server-side so the quote cannot be
+# client-forged (the Output 13 Q5 misrepresentation mitigation + the fabricated-quote
+# acceptance criterion). Registration here is what makes it auto-deploy on merge (the
+# Supabase GitHub integration keys off the root [functions.*] blocks) — the #509 hazard.
+[functions.create-marker]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

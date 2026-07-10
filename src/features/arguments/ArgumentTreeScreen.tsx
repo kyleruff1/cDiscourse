@@ -13,6 +13,8 @@ import { ArgumentPathBar } from './ArgumentPathBar';
 import { ArgumentTimelineScreen } from './ArgumentTimelineScreen';
 import { ArgumentGameSurface } from './ArgumentGameSurface';
 import { getKnownChildCount } from './argumentCache';
+// MARK-002 (#894) — pass-through type for the picked phrase scope.
+import type { PendingMarkerScope } from './markers/timestampMarkerModel';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import type { Debate } from '../debates/types';
@@ -127,9 +129,13 @@ interface Props {
   onOpenRoomDetails?: () => void;
   /** PROOF-002 (#889) — pass-through gate for the read-path flip; forwarded verbatim to ArgumentRoom. */
   proofDrawerEnabled?: boolean;
+  /** MARK-002 (#894) — pass-through gate for the marker text-half; forwarded verbatim to ArgumentRoom. */
+  timestampRebuttalsEnabled?: boolean;
+  /** MARK-002 (#894) — pass-through: the picked phrase scope, forwarded verbatim to the room shell. */
+  onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked }: Props) {
   const {
     cache,
     viewport,
@@ -198,6 +204,8 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         roomVisibility={roomVisibility}
         onOpenRoomDetails={onOpenRoomDetails}
         proofDrawerEnabled={proofDrawerEnabled}
+        timestampRebuttalsEnabled={timestampRebuttalsEnabled}
+        onMarkerScopePicked={onMarkerScopePicked}
       />
     );
   }
@@ -356,9 +364,13 @@ interface FullRoomGameSurfaceMountProps {
   onOpenRoomDetails?: () => void;
   /** PROOF-002 (#889) — read-path flip gate; forwarded to ArgumentRoom. */
   proofDrawerEnabled?: boolean;
+  /** MARK-002 (#894) — marker text-half gate; forwarded to ArgumentRoom. */
+  timestampRebuttalsEnabled?: boolean;
+  /** MARK-002 (#894) — picked phrase scope; forwarded to the room shell. */
+  onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -629,6 +641,10 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         // PROOF-002 (#889) — read-path flip gate. Flag OFF => useProofItems is
         // disabled and the room reads JSONB byte-identically.
         proofDrawerEnabled={proofDrawerEnabled}
+        // MARK-002 (#894) — marker text-half gate + the picked-scope callback.
+        // Flag OFF => useMarkers fetches nothing and no marker surface mounts.
+        timestampRebuttalsEnabled={timestampRebuttalsEnabled}
+        onMarkerScopePicked={onMarkerScopePicked}
       />
       {/* QUOTE-FORGE-001 — the create-link picker sheet. On-demand overlay
           opened from the timeline-header affordance; caller-scoped create

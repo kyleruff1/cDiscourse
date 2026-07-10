@@ -114,6 +114,12 @@ import {
 } from '../../evidence';
 import { buildArtifactsByMessageId } from '../argumentGameSurfaceEvidence';
 import { useProofItems } from '../../proof/useProofItems';
+// MARK-002 (#894) — the marker read hook + the phrase-picker sheet + the pending
+// scope type. All gated by timestampRebuttalsEnabled (default off => the hook
+// fetches nothing, the picker never mounts, every card renders byte-identically).
+import { useMarkers } from '../markers/useMarkers';
+import { MarkerPhrasePickerSheet } from '../markers/MarkerPhrasePickerSheet';
+import type { PendingMarkerScope } from '../markers/timestampMarkerModel';
 // CARD-VIEW-DATA-001 — exploded-detail builder for the active Cards-view
 // card. Pure-TS; memoized below keyed on `activeMessageId` (+ upstream
 // maps). The component is imported by ArgumentBubbleCard. No new fetch, no
@@ -508,6 +514,20 @@ export interface Props {
    * hook disabled => JSONB-only, byte-identical to today.
    */
   proofDrawerEnabled?: boolean;
+  /**
+   * MARK-002 (#894) — gates the marker text-half surface. Additive optional. When
+   * true the room fetches timestamp_markers (useMarkers), renders the source-span
+   * highlight + reply chips on Ringside cards, and offers the Respond to this
+   * phrase-picker. Default/false => the hook fetches nothing and no marker surface
+   * mounts (byte-identical to today).
+   */
+  timestampRebuttalsEnabled?: boolean;
+  /**
+   * MARK-002 — emits the picked phrase scope up to the room shell (App.tsx), which
+   * scopes the composer and mints the marker on submit. The room owns the picker
+   * (it holds the bodies); the shell owns the composer + the mint.
+   */
+  onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
 }
 
 export function ArgumentRoom({
@@ -551,6 +571,8 @@ export function ArgumentRoom({
   roomVisibility,
   onOpenRoomDetails,
   proofDrawerEnabled,
+  timestampRebuttalsEnabled,
+  onMarkerScopePicked,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // ARG-ROOM-005 — read-only seat-availability display + rail full-room state.
@@ -730,6 +752,39 @@ export function ArgumentRoom({
   // flag-off path), so buildArtifactsByMessageId below falls back to the JSONB
   // path byte-identically. Additive; no service-role, no write.
   const { proofItemsByMessageId } = useProofItems(debate.id, chronologicalIds, proofDrawerEnabled === true);
+
+  // MARK-002 (#894) — markers for the loaded moves, grouped by target + by reply.
+  // The hook fetches nothing and returns empty maps when the flag is off, so the
+  // Ringside cards render byte-identically. refetch converges the reply chip after
+  // a post + mint (a new reply id also re-runs the effect via idsKey).
+  const { markersByTargetId, markersByReplyId } = useMarkers(
+    debate.id,
+    chronologicalIds,
+    timestampRebuttalsEnabled === true,
+  );
+  // The set of loaded message ids drives the orphaned tombstone (a reply chip
+  // whose quoted move is no longer in the room).
+  const loadedIdSet = useMemo(() => new Set(chronologicalIds), [chronologicalIds]);
+  const isMarkerTargetLoaded = useCallback(
+    (targetArgumentId: string) => loadedIdSet.has(targetArgumentId),
+    [loadedIdSet],
+  );
+  // MARK-002 — the phrase-picker target (the non-own card being quoted). Null =
+  // the picker is closed. Only ever set when the flag is on.
+  const [markerPickerTargetId, setMarkerPickerTargetId] = useState<string | null>(null);
+  const handleRespondToThis = useCallback((messageId: string) => {
+    setMarkerPickerTargetId(messageId);
+  }, []);
+  const handleCancelMarkerPicker = useCallback(() => {
+    setMarkerPickerTargetId(null);
+  }, []);
+  const handlePickMarkerScope = useCallback(
+    (scope: PendingMarkerScope) => {
+      setMarkerPickerTargetId(null);
+      onMarkerScopePicked?.(scope);
+    },
+    [onMarkerScopePicked],
+  );
 
   const parentLookup = useCallback((parentId: string) => {
     const p = sorted.find((m) => m.id === parentId);
@@ -1820,6 +1875,20 @@ export function ArgumentRoom({
     setSelectionStatus('explicit');
     setMicroMomentDismissed(true);
   }, []);
+  // MARK-002 (#894) — deep-link a reply reference chip to its quoted source span.
+  // Reuses the single selection path (setActiveMessageId) so the target card
+  // activates and renders its source-span highlight in FULL body context (the Q5
+  // mitigation). A no-op when the target is not in the loaded slice (graceful).
+  const handleOpenMarkerSource = useCallback(
+    (targetArgumentId: string, _markerId: string) => {
+      if (loadedIdSet.has(targetArgumentId)) {
+        setActiveMessageId(targetArgumentId);
+        setSelectionStatus('explicit');
+        setMicroMomentDismissed(true);
+      }
+    },
+    [loadedIdSet],
+  );
   // UX-SELECTED-NODE-001 (§6 / §9.3) — "Go to parent point". A READ-ONLY
   // navigation jump that selects the parent of the active node — the SAME
   // setActiveMessageId path the 005 rail "View in timeline" jump uses. No
@@ -2633,6 +2702,14 @@ export function ArgumentRoom({
             ringsideFeed={ringsideFeed}
             onOpenMap={() => setMode('timeline')}
             reduceMotion={reduceMotionOverride === true}
+            // MARK-002 (#894) — marker maps + callbacks. Empty maps + undefined
+            // callbacks when the flag is off => the Ringside cards render
+            // byte-identically. onRespondToThis is only wired when the flag is on.
+            markersByTargetId={markersByTargetId}
+            markersByReplyId={markersByReplyId}
+            isMarkerTargetLoaded={isMarkerTargetLoaded}
+            onRespondToThis={timestampRebuttalsEnabled ? handleRespondToThis : undefined}
+            onOpenMarkerSource={timestampRebuttalsEnabled ? handleOpenMarkerSource : undefined}
           />
         ) : (
           // ASP-EXTRACT-001 (Slice 1) — the mode === timeline body is now the
@@ -2743,6 +2820,13 @@ export function ArgumentRoom({
                 onAnswerThis={handleAnswerThisFromMap}
                 onOpenDebts={() => handleOpenAnalysisSurface('disagreement')}
                 reduceMotion={reduceMotionOverride === true}
+                // MARK-002 (#894) — reply chips for the active node (parity with
+                // the Ringside card). Empty when the flag is off => byte-identical.
+                replyMarkersForActiveNode={
+                  activeMessageId ? markersByReplyId[activeMessageId] : undefined
+                }
+                isMarkerTargetLoaded={isMarkerTargetLoaded}
+                onOpenMarkerSource={timestampRebuttalsEnabled ? handleOpenMarkerSource : undefined}
               />
             ) : null}
             {/* UX-FEEDBACK-001 — default-visible STATIC current-state cue near
@@ -3318,6 +3402,22 @@ export function ArgumentRoom({
           testID="request-review-composer"
         />
       )}
+
+      {/* MARK-002 (#894) — the phrase picker. markerPickerTargetId is only ever
+          set when timestampRebuttalsEnabled is on (handleRespondToThis is wired
+          only then), so this overlay never mounts with the flag off. The target
+          body is the offset authority; picking a phrase emits the scope up to the
+          room shell, which scopes the composer + mints the marker on submit. */}
+      {markerPickerTargetId ? (
+        <MarkerPhrasePickerSheet
+          targetArgumentId={markerPickerTargetId}
+          targetBody={messageById.get(markerPickerTargetId)?.body ?? ''}
+          windowWidth={windowWidth}
+          onPick={handlePickMarkerScope}
+          onCancel={handleCancelMarkerPicker}
+          reduceMotion={reduceMotionOverride === true}
+        />
+      ) : null}
         </>
       }
     />

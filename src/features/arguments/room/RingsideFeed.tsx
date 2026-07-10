@@ -20,6 +20,9 @@ import type { RailActionCode, RailViewerRole } from '../railActionCategories';
 import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
 import type { RingsideFeedViewModel } from './ringsideFeedModel';
 import { RingsideCard } from './RingsideCard';
+// MARK-002 (#894) — per-card marker maps threaded from the orchestrator (all
+// additive optional; absent when timestamp_rebuttals is off => byte-identical).
+import type { MarkerRow } from '../markers/timestampMarkerModel';
 
 export interface RingsideFeedProps {
   feed: RingsideFeedViewModel;
@@ -33,26 +36,49 @@ export interface RingsideFeedProps {
   /** Active-card calm friendly-flag row. */
   pointFeedbackFlags: PrioritizedPointFeedbackFlags | null;
   reduceMotion?: boolean;
+  /** MARK-002 — markers grouped by the quoted (target) argument id. */
+  markersByTargetId?: Record<string, ReadonlyArray<MarkerRow>>;
+  /** MARK-002 — markers grouped by the reply that consumed them. */
+  markersByReplyId?: Record<string, ReadonlyArray<MarkerRow>>;
+  /** MARK-002 — is a markers target loaded (drives the orphaned tombstone)? */
+  isMarkerTargetLoaded?: (targetArgumentId: string) => boolean;
+  /** MARK-002 — open the phrase picker for a non-own card. */
+  onRespondToThis?: (messageId: string) => void;
+  /** MARK-002 — deep-link a reply chip to its quoted source span. */
+  onOpenMarkerSource?: (targetArgumentId: string, markerId: string) => void;
 }
 
 export function RingsideFeed(props: RingsideFeedProps) {
   const { feed } = props;
   return (
     <View style={styles.feed} testID="ringside-feed">
-      {feed.cards.map((card) => (
-        <RingsideCard
-          key={card.messageId}
-          card={card}
-          total={feed.cards.length}
-          onActivate={props.onActivate}
-          onActivateAncestor={props.onActivateAncestor}
-          onCardAction={props.onCardAction}
-          onRailAction={props.onRailAction}
-          onOpenMap={props.onOpenMap}
-          pointFeedbackFlags={card.isActive ? props.pointFeedbackFlags : null}
-          reduceMotion={props.reduceMotion}
-        />
-      ))}
+      {feed.cards.map((card) => {
+        // MARK-002 — the union of markers quoting this card (source-span) and
+        // markers this card carries as a reply (reference chips). Empty when the
+        // feature is off (both maps absent), so the card is byte-identical.
+        const forTarget = props.markersByTargetId?.[card.messageId] ?? [];
+        const forReply = props.markersByReplyId?.[card.messageId] ?? [];
+        const markersForCard =
+          forTarget.length === 0 && forReply.length === 0 ? undefined : [...forTarget, ...forReply];
+        return (
+          <RingsideCard
+            key={card.messageId}
+            card={card}
+            total={feed.cards.length}
+            onActivate={props.onActivate}
+            onActivateAncestor={props.onActivateAncestor}
+            onCardAction={props.onCardAction}
+            onRailAction={props.onRailAction}
+            onOpenMap={props.onOpenMap}
+            pointFeedbackFlags={card.isActive ? props.pointFeedbackFlags : null}
+            reduceMotion={props.reduceMotion}
+            markersForCard={markersForCard}
+            isMarkerTargetLoaded={props.isMarkerTargetLoaded}
+            onRespondToThis={props.onRespondToThis}
+            onOpenMarkerSource={props.onOpenMarkerSource}
+          />
+        );
+      })}
     </View>
   );
 }

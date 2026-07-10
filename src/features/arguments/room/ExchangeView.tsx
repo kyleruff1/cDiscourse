@@ -39,6 +39,9 @@ import type { RoomRailActionCode } from './roomActionCodes';
 // branch, byte-identical, so the flag-off render is regression-proof.
 import { RingsideFeed } from './RingsideFeed';
 import type { RingsideFeedViewModel } from './ringsideFeedModel';
+// MARK-002 (#894) — marker maps + callbacks passed straight through to the
+// Ringside feed (all additive optional; absent when the flag is off).
+import type { MarkerRow } from '../markers/timestampMarkerModel';
 
 export interface ExchangeViewProps {
   // ArgumentBubbleStack core inputs (forwarded verbatim).
@@ -75,6 +78,13 @@ export interface ExchangeViewProps {
   onOpenMap?: () => void;
   /** Effective reduce-motion, threaded for symmetry (the feed is transform-free). */
   reduceMotion?: boolean;
+  // MARK-002 (#894) — marker maps + callbacks, passed straight to the Ringside
+  // feed. All absent when timestamp_rebuttals is off => byte-identical.
+  markersByTargetId?: Record<string, ReadonlyArray<MarkerRow>>;
+  markersByReplyId?: Record<string, ReadonlyArray<MarkerRow>>;
+  isMarkerTargetLoaded?: (targetArgumentId: string) => boolean;
+  onRespondToThis?: (messageId: string) => void;
+  onOpenMarkerSource?: (targetArgumentId: string, markerId: string) => void;
 }
 
 /**
@@ -101,6 +111,11 @@ export function ExchangeView(props: ExchangeViewProps) {
         onOpenMap={props.onOpenMap ?? props.onToggleMode}
         pointFeedbackFlags={props.pointFeedbackFlags}
         reduceMotion={props.reduceMotion}
+        markersByTargetId={props.markersByTargetId}
+        markersByReplyId={props.markersByReplyId}
+        isMarkerTargetLoaded={props.isMarkerTargetLoaded}
+        onRespondToThis={props.onRespondToThis}
+        onOpenMarkerSource={props.onOpenMarkerSource}
       />
     );
   }

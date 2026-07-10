@@ -40,6 +40,11 @@ import {
   deriveFastPathCivilitySignal,
 } from './argumentEntryComposerModel';
 import { useEntryComposerSubmit } from './useEntryComposerSubmit';
+// MARK-002 (#894) — the composer_scope placement of the ONE TimestampMarker
+// component + the pending-scope type. Rendered only when a marker is scoped;
+// absent => the bar is byte-identical to the pre-MARK-002 render.
+import { TimestampMarker } from '../markers/TimestampMarker';
+import type { PendingMarkerScope, TimestampMarkerViewModel } from '../markers/timestampMarkerModel';
 import type { ArgumentRow } from '../types';
 import type { Debate, ParticipantSide } from '../../debates/types';
 import { RADIUS, SPACING, SURFACE_TOKENS, CONTROL, TOUCH_TARGET, BRAND } from '../../../lib/designTokens';
@@ -71,10 +76,23 @@ export interface ArgumentEntryComposerProps {
    * the plain Source slot (byte-identical).
    */
   proofOwed?: boolean;
-  /** Post succeeded — refreshes the room. */
-  onSubmitSuccess: () => void;
+  /**
+   * Post succeeded — refreshes the room. MARK-002 (#894): widened to receive the
+   * new reply id so the room shell can link a scoped marker to it. Existing
+   * callers that ignore the argument are unaffected.
+   */
+  onSubmitSuccess: (newArgumentId?: string) => void;
   /** Clear the reply target (context chip clear). Optional. */
   onClearParent?: () => void;
+  /**
+   * MARK-002 (#894) — the active scoped marker (a picked phrase of the target).
+   * When present the bar renders the composer_scope chip; the reply mints a
+   * marker linked to it on submit. Absent / null => the bar is byte-identical to
+   * the pre-MARK-002 render (the flag-off + no-pick path).
+   */
+  scopedMarker?: PendingMarkerScope | null;
+  /** MARK-002 — clear the scoped marker (the composer_scope chip clear). */
+  onClearScopedMarker?: () => void;
   /** Q10 advisory-only instrumentation sink. Default no-op. */
   onFastPathCivilitySignal?: (s: { hadCivilityAdvisory: boolean; flagCodes: ReadonlyArray<string> }) => void;
 }
@@ -95,6 +113,8 @@ export function ArgumentEntryComposer({
   proofOwed,
   onSubmitSuccess,
   onClearParent,
+  scopedMarker,
+  onClearScopedMarker,
   onFastPathCivilitySignal,
 }: ArgumentEntryComposerProps) {
   const { draft, updateField } = useArgumentComposer(debate.id, selectedParentId);
@@ -164,7 +184,23 @@ export function ArgumentEntryComposer({
     parentId: selectedParentId,
     parentType: parentArgument?.argumentType ?? null,
     parentBody: parentArgument?.body ?? null,
+    scopedMarker: scopedMarker ?? null,
   });
+
+  // MARK-002 — the composer_scope chip view-model, built from the pending scope.
+  // No row exists yet (the marker mints post-submit); this is client-only state.
+  const scopedMarkerViewModel: TimestampMarkerViewModel | null = scopedMarker
+    ? {
+        id: 'pending-scope',
+        targetArgumentId: scopedMarker.targetArgumentId,
+        replyArgumentId: null,
+        kind: 'rebuttal_anchor',
+        spanStart: scopedMarker.spanStart,
+        spanEnd: scopedMarker.spanEnd,
+        quotedText: scopedMarker.quote,
+        state: 'live',
+      }
+    : null;
 
   const blockingFlag = deriveEntryComposerBlockingFlag(evaluation);
   const blockedReason = blockingFlag
@@ -194,6 +230,25 @@ export function ArgumentEntryComposer({
           </View>
         ) : (
           <>
+            {/* MARK-002 — composer_scope chip: the picked phrase this reply
+                quotes. Renders only when a marker is scoped; absent => this whole
+                block is skipped and the bar is byte-identical. */}
+            {scopedMarkerViewModel ? (
+              <View style={styles.scopeRow} testID="argument-entry-composer-marker-scope">
+                {target.scopedQuoteLabel ? (
+                  <Text style={styles.scopeLabel} numberOfLines={1}>
+                    {target.scopedQuoteLabel}
+                  </Text>
+                ) : null}
+                <TimestampMarker
+                  placement="composer_scope"
+                  marker={scopedMarkerViewModel}
+                  onClear={onClearScopedMarker}
+                  reduceMotion={reduceMotion}
+                />
+              </View>
+            ) : null}
+
             {/* Context chip — names the target; never lost. */}
             <View style={styles.chipRow}>
               <Text
@@ -358,6 +413,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.s,
+  },
+  // MARK-002 — the composer_scope row (context label + the TimestampMarker chip).
+  scopeRow: {
+    gap: SPACING.xs,
+  },
+  scopeLabel: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   chipText: {
     flex: 1,

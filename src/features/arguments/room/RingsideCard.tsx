@@ -30,6 +30,16 @@ import type { RailActionCode } from '../railActionCategories';
 import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
 import { PointFeedbackFlagsRow } from '../../feedbackFlags';
 import type { RingsideCardViewModel } from './ringsideFeedModel';
+// MARK-002 (#894) — the ONE TimestampMarker component (source_span + reply chips)
+// + the pure model helpers. All additive + flag-gated at the source (markersForCard
+// is absent when the flag is off), so the flag-off card render is byte-identical.
+import { TimestampMarker } from '../markers/TimestampMarker';
+import {
+  buildSourceSpanSegments,
+  buildTimestampMarker,
+  type MarkerRow,
+} from '../markers/timestampMarkerModel';
+import { MARKER_COPY } from '../markers/markerCopy';
 
 // Plain-language control labels. Values mirror the shipped ArgumentBubbleActions
 // map (no new action copy is invented). Ban-list clean.
@@ -61,6 +71,23 @@ export interface RingsideCardProps {
   /** Active-card friendly flags. Only supplied for the active card. */
   pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
   reduceMotion?: boolean;
+  /**
+   * MARK-002 (#894) — markers relevant to this card: those quoting this card
+   * (target -> source-span highlight) and those this card carries as a reply
+   * (reply -> reference chip). Absent when timestamp_rebuttals is off => the card
+   * renders byte-identically to the pre-MARK-002 surface.
+   */
+  markersForCard?: ReadonlyArray<MarkerRow>;
+  /**
+   * MARK-002 — predicate: is a markers target argument loaded / visible? Drives
+   * the orphaned tombstone on a reply chip whose quoted move was removed. Absent
+   * => treat targets as present (live).
+   */
+  isMarkerTargetLoaded?: (targetArgumentId: string) => boolean;
+  /** MARK-002 — open the phrase picker for this (non-own) move. */
+  onRespondToThis?: (messageId: string) => void;
+  /** MARK-002 — deep-link a reply chip to its quoted source span. */
+  onOpenMarkerSource?: (targetArgumentId: string, markerId: string) => void;
 }
 
 function buildCardAccessibilityLabel(card: RingsideCardViewModel, total: number): string {
@@ -78,6 +105,20 @@ export function RingsideCard(props: RingsideCardProps) {
   const testIdBase = card.isActive
     ? `ringside-card-active-${card.messageId}`
     : `ringside-card-${card.messageId}`;
+
+  // MARK-002 — split this cards markers into the two placements. A marker quoting
+  // this card highlights the span in the body; a marker whose reply is this card
+  // renders a reference chip that deep-links to its source.
+  const markers = props.markersForCard ?? [];
+  const targetMarkers = markers.filter((m) => m.target_argument_id === card.messageId);
+  const replyMarkers = markers.filter((m) => m.reply_argument_id === card.messageId);
+  // Highlight the first quoted span whose offsets still index the body (v1 = one
+  // highlight; multi-span is a follow-up). Drift => plain body via the null path.
+  const highlightRow =
+    targetMarkers.find(
+      (m) => buildSourceSpanSegments(card.body, { spanStart: m.span_start, spanEnd: m.span_end }) !== null,
+    ) ?? null;
+  const showRespondToThis = !card.isOwn && typeof props.onRespondToThis === 'function';
 
   return (
     <Pressable
@@ -125,10 +166,56 @@ export function RingsideCard(props: RingsideCardProps) {
             </Pressable>
           ) : null}
 
-          {/* Body — 15px floor. */}
-          <Text style={styles.body} testID={`ringside-body-${card.messageId}`}>
-            {card.body}
-          </Text>
+          {/* Body — 15px floor. MARK-002: when a marker quotes this card, the
+              body renders with the quoted span highlighted (source_span
+              placement); otherwise the plain body. */}
+          {highlightRow ? (
+            <TimestampMarker
+              placement="source_span"
+              marker={buildTimestampMarker(highlightRow, { targetExists: true })}
+              body={card.body}
+              reduceMotion={props.reduceMotion}
+            />
+          ) : (
+            <Text style={styles.body} testID={`ringside-body-${card.messageId}`}>
+              {card.body}
+            </Text>
+          )}
+
+          {/* MARK-002 — reply reference chips: this card quotes an earlier move.
+              Tap deep-links to the source span with full body context (Q5). */}
+          {replyMarkers.length > 0 ? (
+            <View style={styles.markerReplyRow} testID={`ringside-marker-replies-${card.messageId}`}>
+              {replyMarkers.map((m) => (
+                <TimestampMarker
+                  key={m.id}
+                  placement="reply_reference"
+                  marker={buildTimestampMarker(m, {
+                    targetExists: props.isMarkerTargetLoaded
+                      ? props.isMarkerTargetLoaded(m.target_argument_id)
+                      : true,
+                  })}
+                  onOpenSource={props.onOpenMarkerSource}
+                  reduceMotion={props.reduceMotion}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {/* MARK-002 — the flag-gated Respond to this affordance on a non-own
+              card (you cannot rebut yourself). Opens the phrase picker. */}
+          {showRespondToThis ? (
+            <Pressable
+              onPress={() => props.onRespondToThis?.(card.messageId)}
+              accessibilityRole="button"
+              accessibilityLabel={MARKER_COPY.respondToThisA11yLabel}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              testID={`ringside-respond-to-this-${card.messageId}`}
+              style={styles.respondToThis}
+            >
+              <Text style={styles.respondToThisText}>{MARKER_COPY.respondToThis}</Text>
+            </Pressable>
+          ) : null}
 
           {/* Proof / owed / branch indicator row. */}
           {card.proofChipCount > 0 || card.owedReceiptChip || card.branchPill ? (
@@ -288,6 +375,22 @@ const styles = StyleSheet.create({
   },
   quoteChipText: { color: '#94a3b8', fontSize: 12, fontStyle: 'italic' },
   body: { color: '#e2e8f0', fontSize: 15, lineHeight: 21, marginTop: 8 },
+  // MARK-002 — reply reference chips + the Respond to this affordance.
+  markerReplyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' },
+  respondToThis: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#334155',
+    backgroundColor: '#111827',
+    minHeight: 32,
+    minWidth: 44,
+    justifyContent: 'center',
+  },
+  respondToThisText: { color: '#a5b4fc', fontSize: 12, fontWeight: '700' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, alignItems: 'center' },
   proofChip: {
     paddingHorizontal: 10,
