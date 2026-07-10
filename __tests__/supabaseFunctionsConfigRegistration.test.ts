@@ -136,4 +136,20 @@ describe('supabase/config.toml ⇄ supabase/functions/ registration parity', () 
     expect(block).toMatch(/verify_jwt = true/);
     expect(block).not.toMatch(/verify_jwt = false/);
   });
+
+  it('mark-move is registered with verify_jwt = true (FEEDBACK-001 #898, the #509 hazard forcing function)', () => {
+    // The sole server-authoritative writer for the SELECT-only move_marks table
+    // MUST be config.toml-registered or it silently never deploys and every tap
+    // throws network_error.
+    expect(functionDirs).toContain('mark-move');
+    expect(registered).toContain('mark-move');
+    const header = '[functions.mark-move]';
+    const idx = CONFIG_SRC.indexOf(header);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const tail = CONFIG_SRC.slice(idx + header.length);
+    const nextSectionIdx = tail.search(/\n\[/);
+    const block = nextSectionIdx >= 0 ? tail.slice(0, nextSectionIdx) : tail;
+    expect(block).toMatch(/verify_jwt = true/);
+    expect(block).not.toMatch(/verify_jwt = false/);
+  });
 });
