@@ -22,6 +22,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ArgumentBubbleControl } from '../argumentGameSurfaceModel';
 import type { RailActionCode } from '../railActionCategories';
 import type { MapNodeActionSurface } from './mapNodeActionSurfaceModel';
+// FEEDBACK-001 (#898) — the SAME ghost feedback bar the Ringside card mounts,
+// wired to the SAME useMoveMarks handlers => capability parity by construction.
+// All props additive + flag-gated; absent when move_marks is off => byte-identical.
+import { BooleanFeedbackBar } from '../../feedback/BooleanFeedbackBar';
+import type { MoveMarkCode, ViewerMoveMarkState } from '../../feedback/moveMarksModel';
 
 // Plain-language control labels. Values mirror the shipped ArgumentBubbleActions
 // map (no new action copy invented). Ban-list clean.
@@ -46,6 +51,16 @@ export interface MapNodeActionPopoverProps {
   onOpenDetails?: () => void;
   onClose: () => void;
   reduceMotion?: boolean;
+  /**
+   * FEEDBACK-001 (#898) — ghost feedback bar props (parity with the Ringside
+   * card). Absent when move_marks is off => byte-identical.
+   */
+  moveMarksEnabled?: boolean;
+  viewerMoveMarksFor?: (argumentId: string) => ViewerMoveMarkState;
+  moveMarkErrorFor?: (argumentId: string) => string | undefined;
+  showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
+  onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
 }
 
 export function MapNodeActionPopover(props: MapNodeActionPopoverProps) {
@@ -98,6 +113,29 @@ export function MapNodeActionPopover(props: MapNodeActionPopoverProps) {
               </Pressable>
             ))}
       </View>
+
+      {/* FEEDBACK-001 (#898) — the SAME ghost feedback bar as the Ringside card,
+          mounted after the actor action row for capability parity. Gated: flag on
+          + not your own node + you are a participant. Flag off / observer / own
+          node => nothing renders (byte-identical). */}
+      {props.moveMarksEnabled
+      && !surface.isOwnMove
+      && row.kind === 'participant'
+      && surface.messageId
+      && props.viewerMoveMarksFor
+      && props.onMarkMove
+      && props.onUnmarkMove ? (
+        <BooleanFeedbackBar
+          argumentId={surface.messageId}
+          viewerState={props.viewerMoveMarksFor(surface.messageId)}
+          showReceiptsRequested={props.showMoveMarkReceiptsFor?.(surface.messageId) ?? false}
+          errorMessage={props.moveMarkErrorFor?.(surface.messageId)}
+          onMark={props.onMarkMove}
+          onUnmark={props.onUnmarkMove}
+          reduceMotion={props.reduceMotion}
+          testID={`map-popover-feedback-bar-${idSuffix}`}
+        />
+      ) : null}
 
       {/* J9 — Answer this jumps to the Exchange lens with the composer scoped. */}
       <Pressable
