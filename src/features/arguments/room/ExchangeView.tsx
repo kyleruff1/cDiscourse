@@ -42,6 +42,9 @@ import type { RingsideFeedViewModel } from './ringsideFeedModel';
 // MARK-002 (#894) — marker maps + callbacks passed straight through to the
 // Ringside feed (all additive optional; absent when the flag is off).
 import type { MarkerRow } from '../markers/timestampMarkerModel';
+// FEEDBACK-001 (#898) — ghost feedback bar props passed straight through to the
+// Ringside feed (all additive optional; absent when move_marks is off).
+import type { MoveMarkCode, ViewerMoveMarkState } from '../../feedback/moveMarksModel';
 
 export interface ExchangeViewProps {
   // ArgumentBubbleStack core inputs (forwarded verbatim).
@@ -85,6 +88,14 @@ export interface ExchangeViewProps {
   isMarkerTargetLoaded?: (targetArgumentId: string) => boolean;
   onRespondToThis?: (messageId: string) => void;
   onOpenMarkerSource?: (targetArgumentId: string, markerId: string) => void;
+  // FEEDBACK-001 (#898) — ghost feedback bar props, passed straight to the
+  // Ringside feed. All absent when move_marks is off => byte-identical.
+  moveMarksEnabled?: boolean;
+  viewerMoveMarksFor?: (argumentId: string) => ViewerMoveMarkState;
+  moveMarkErrorFor?: (argumentId: string) => string | undefined;
+  showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
+  onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
 }
 
 /**
@@ -116,6 +127,12 @@ export function ExchangeView(props: ExchangeViewProps) {
         isMarkerTargetLoaded={props.isMarkerTargetLoaded}
         onRespondToThis={props.onRespondToThis}
         onOpenMarkerSource={props.onOpenMarkerSource}
+        moveMarksEnabled={props.moveMarksEnabled}
+        viewerMoveMarksFor={props.viewerMoveMarksFor}
+        moveMarkErrorFor={props.moveMarkErrorFor}
+        showMoveMarkReceiptsFor={props.showMoveMarkReceiptsFor}
+        onMarkMove={props.onMarkMove}
+        onUnmarkMove={props.onUnmarkMove}
       />
     );
   }

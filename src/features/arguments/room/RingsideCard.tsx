@@ -40,6 +40,11 @@ import {
   type MarkerRow,
 } from '../markers/timestampMarkerModel';
 import { MARKER_COPY } from '../markers/markerCopy';
+// FEEDBACK-001 (#898) — the ghost feedback bar. All props additive + flag-gated at
+// the source (moveMarksEnabled is absent when the flag is off), so the flag-off
+// card render is byte-identical.
+import { BooleanFeedbackBar } from '../../feedback/BooleanFeedbackBar';
+import type { MoveMarkCode, ViewerMoveMarkState } from '../../feedback/moveMarksModel';
 
 // Plain-language control labels. Values mirror the shipped ArgumentBubbleActions
 // map (no new action copy is invented). Ban-list clean.
@@ -88,6 +93,16 @@ export interface RingsideCardProps {
   onRespondToThis?: (messageId: string) => void;
   /** MARK-002 — deep-link a reply chip to its quoted source span. */
   onOpenMarkerSource?: (targetArgumentId: string, markerId: string) => void;
+  /**
+   * FEEDBACK-001 (#898) — the ghost feedback bar mounts on the ACTIVE non-own
+   * participant card only. Absent when move_marks is off => byte-identical.
+   */
+  moveMarksEnabled?: boolean;
+  viewerMoveMarksFor?: (argumentId: string) => ViewerMoveMarkState;
+  moveMarkErrorFor?: (argumentId: string) => string | undefined;
+  showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
+  onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
 }
 
 function buildCardAccessibilityLabel(card: RingsideCardViewModel, total: number): string {
@@ -255,6 +270,28 @@ export function RingsideCard(props: RingsideCardProps) {
             />
           ) : null}
           {card.isActive ? <CardActionRow {...props} /> : null}
+          {/* FEEDBACK-001 (#898) — the ghost feedback bar under the ACTIVE
+              opponent move only. Gated: flag on + not your own move + you are a
+              participant (never an observer). Flag off / observer / own move =>
+              nothing renders (byte-identical). */}
+          {card.isActive
+          && props.moveMarksEnabled
+          && !card.isOwn
+          && card.actionRow.kind === 'participant'
+          && props.viewerMoveMarksFor
+          && props.onMarkMove
+          && props.onUnmarkMove ? (
+            <BooleanFeedbackBar
+              argumentId={card.messageId}
+              viewerState={props.viewerMoveMarksFor(card.messageId)}
+              showReceiptsRequested={props.showMoveMarkReceiptsFor?.(card.messageId) ?? false}
+              errorMessage={props.moveMarkErrorFor?.(card.messageId)}
+              onMark={props.onMarkMove}
+              onUnmark={props.onUnmarkMove}
+              reduceMotion={props.reduceMotion}
+              testID={`ringside-feedback-bar-${card.messageId}`}
+            />
+          ) : null}
         </View>
       </View>
     </Pressable>

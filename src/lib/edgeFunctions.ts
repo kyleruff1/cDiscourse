@@ -13,6 +13,7 @@ import type { ArgumentType, ArgumentSide, DisagreementAxis } from '../domain/con
 import type { SemanticRefereePacket } from '../features/semanticReferee';
 import type { AcceptanceLevel } from '../features/concessions/acceptanceGradient';
 import type { MoveReactionKind } from '../features/concessions/moveReactionModel';
+import type { MoveMarkCode, ViewerMoveMarkState } from '../features/feedback/moveMarksModel';
 
 // ── Request / response types ──────────────────────────────────
 
@@ -1010,6 +1011,68 @@ export type CreateMarkerOutcome =
  */
 export async function createMarker(payload: CreateMarkerPayload): Promise<CreateMarkerOutcome> {
   const { data, error } = await supabase.functions.invoke<CreateMarkerSuccess>('create-marker', {
+    body: payload,
+  });
+  if (error) {
+    let errorBody: { error: string; message?: string; reason?: string; detail?: string } = {
+      error: 'network_error',
+    };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) {
+        errorBody = (await raw.json()) as { error: string; message?: string; reason?: string; detail?: string };
+      }
+    } catch {
+      /* ignore */
+    }
+    const status =
+      (error as { status?: number }).status ??
+      ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+  if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
+  return { ok: true, data };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// mark-move (FEEDBACK-001, #898)
+//
+// The low-level JWT-scoped wrapper for the mark-move Edge Function (anon key +
+// caller JWT only; NEVER the service role — that lives in Deno). Mirrors the
+// createMarker / reactToMove idiom: idempotent, never throws, returns { ok, data }
+// | { ok, error, status }. A failed tap never blocks anything. The narrow
+// room-facing seam (src/features/feedback/moveMarksApi.ts) maps its domain input
+// onto this payload and normalises the outcome to plain language.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type MoveMarkAction = 'mark' | 'retract';
+
+export interface MarkMovePayload {
+  action: MoveMarkAction;
+  debateId: string;
+  argumentId: string;
+  markCode: MoveMarkCode;
+}
+
+/** The mark-move success shape: the caller's OWN new state only (no counts). */
+export interface MarkMoveSuccess {
+  ok: true;
+  argumentId: string;
+  viewerMarks: ViewerMoveMarkState;
+}
+
+export type MarkMoveOutcome =
+  | { ok: true; data: MarkMoveSuccess }
+  | { ok: false; error: { error: string; message?: string; reason?: string; detail?: string }; status: number };
+
+/**
+ * Set or retract one move-mark for the caller on a room-visible non-own move.
+ * Never throws; a double-mark / retract-with-no-active-row is an idempotent
+ * success. The response carries only the caller's own viewerMarks (no counts of
+ * others — the un-game-like posture).
+ */
+export async function markMove(payload: MarkMovePayload): Promise<MarkMoveOutcome> {
+  const { data, error } = await supabase.functions.invoke<MarkMoveSuccess>('mark-move', {
     body: payload,
   });
   if (error) {

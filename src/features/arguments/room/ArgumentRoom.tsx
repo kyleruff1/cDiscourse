@@ -120,6 +120,13 @@ import { useProofItems } from '../../proof/useProofItems';
 import { useMarkers } from '../markers/useMarkers';
 import { MarkerPhrasePickerSheet } from '../markers/MarkerPhrasePickerSheet';
 import type { PendingMarkerScope } from '../markers/timestampMarkerModel';
+// FEEDBACK-001 (#898) — the move-marks hook + the ONE aggregate derivation + the
+// ambient legend line. All gated by moveMarksEnabled (default off => the hook
+// fetches nothing, the aggregate is null, the bar never mounts, and both aggregate
+// surfaces are byte-identical to today).
+import { useMoveMarks } from '../../feedback/useMoveMarks';
+import { deriveMoveMarkAggregate, receiptsPromptMoveIds } from '../../feedback/moveMarkAggregateModel';
+import { MOVE_MARKS_LEGEND_LINE } from '../../feedback/moveMarksCopy';
 // CARD-VIEW-DATA-001 — exploded-detail builder for the active Cards-view
 // card. Pure-TS; memoized below keyed on `activeMessageId` (+ upstream
 // maps). The component is imported by ArgumentBubbleCard. No new fetch, no
@@ -528,6 +535,15 @@ export interface Props {
    * (it holds the bodies); the shell owns the composer + the mint.
    */
   onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
+  /**
+   * FEEDBACK-001 (#898) — gates the human move-mark surface. Additive optional.
+   * When true the room fetches active move_marks (useMoveMarks), mounts the ghost
+   * BooleanFeedbackBar on the active non-own participant move in both lenses, and
+   * folds the ONE deriveMoveMarkAggregate into the two ambient surfaces (the
+   * state-rail openPointCount + the Map legend line). Default/false => the hook
+   * fetches nothing, the aggregate is null, no bar mounts (byte-identical).
+   */
+  moveMarksEnabled?: boolean;
 }
 
 export function ArgumentRoom({
@@ -573,6 +589,7 @@ export function ArgumentRoom({
   proofDrawerEnabled,
   timestampRebuttalsEnabled,
   onMarkerScopePicked,
+  moveMarksEnabled,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // ARG-ROOM-005 — read-only seat-availability display + rail full-room state.
@@ -890,6 +907,31 @@ export function ArgumentRoom({
     [evidenceDebts],
   );
 
+  // FEEDBACK-001 (#898) — the room-shell move-marks seam. The hook fetches the
+  // ACTIVE move_marks rows for the loaded moves (the SELECT-only read), holds each
+  // viewer own per-move state for the ghost bar, and exposes optimistic
+  // onMark / onUnmark. It fetches nothing and returns empty data when
+  // moveMarksEnabled is falsy (the flag-off path), so the aggregate memo below is
+  // null and every surface is byte-identical.
+  const moveMarks = useMoveMarks({
+    debateId: debate.id,
+    argumentIds: chronologicalIds,
+    viewerId: currentUserId,
+    enabled: moveMarksEnabled === true,
+  });
+  // The ONE aggregate derivation both ambient surfaces consume. Null when off.
+  const moveMarkAggregate = useMemo(
+    () => (moveMarksEnabled ? deriveMoveMarkAggregate(moveMarks.activeRows) : null),
+    [moveMarksEnabled, moveMarks.activeRows],
+  );
+  // Contextual receipts trigger: the ghost bar shows the "Receipts?" option when
+  // the opponent move already owes a source (an open evidence debt). Reuses the
+  // existing debt signal; a mark is procedural, never a verdict.
+  const showMoveMarkReceiptsFor = useCallback(
+    (argumentId: string): boolean => getNodeEvidenceDebtSummary(argumentId, evidenceDebts).hasOpenDebt,
+    [evidenceDebts],
+  );
+
   // SC-004 — Convert the record-shaped artifacts map to a ReadonlyMap form
   // for the lifecycle / metadata builders, which prefer that interface.
   const artifactsByMessageIdMap = useMemo(() => {
@@ -929,14 +971,21 @@ export function ArgumentRoom({
   // board / debts derived above (no second board derivation). The live-point
   // rule matches the DisagreementPointsRail selectLivePoints rule so the counts
   // never drift. Read-only projection: no fetch, no write, never a submit gate.
-  const openPointCount = useMemo(
-    () => mediatorBoard.points.filter((p) => p.state !== 'resolved_or_settled').length,
-    [mediatorBoard],
-  );
-  const receiptsOwedCount = useMemo(
-    () => getRoomEvidenceDebtSummary(debate.id, evidenceDebts).openCount,
-    [debate.id, evidenceDebts],
-  );
+  const openPointCount = useMemo(() => {
+    const base = mediatorBoard.points.filter((p) => p.state !== 'resolved_or_settled').length;
+    // FEEDBACK-001 (#898) surface #1: did_not_address chains contribute to the
+    // ambient open-points reading (never a per-message counter). Flag OFF =>
+    // aggregate null => base unchanged => byte-identical.
+    if (!moveMarkAggregate) return base;
+    return base + moveMarkAggregate.unaddressedMoveIds.length;
+  }, [mediatorBoard, moveMarkAggregate]);
+  const receiptsOwedCount = useMemo(() => {
+    const base = getRoomEvidenceDebtSummary(debate.id, evidenceDebts).openCount;
+    // FEEDBACK-001 (#898) surface #1: a claim with 2+ receipts_requested marks
+    // reads as receipts-owed (Output 9 proof-prompt). Flag OFF => byte-identical.
+    if (!moveMarkAggregate) return base;
+    return base + receiptsPromptMoveIds(moveMarkAggregate).length;
+  }, [debate.id, evidenceDebts, moveMarkAggregate]);
   const stateRailModel = useMemo(
     () =>
       deriveArgumentStateRail({
@@ -2710,6 +2759,14 @@ export function ArgumentRoom({
             isMarkerTargetLoaded={isMarkerTargetLoaded}
             onRespondToThis={timestampRebuttalsEnabled ? handleRespondToThis : undefined}
             onOpenMarkerSource={timestampRebuttalsEnabled ? handleOpenMarkerSource : undefined}
+            // FEEDBACK-001 (#898) — the ghost feedback bar props for the Ringside
+            // active card. All undefined when the flag is off => byte-identical.
+            moveMarksEnabled={moveMarksEnabled}
+            viewerMoveMarksFor={moveMarksEnabled ? moveMarks.viewerMoveMarksFor : undefined}
+            moveMarkErrorFor={moveMarksEnabled ? moveMarks.moveMarkErrorFor : undefined}
+            showMoveMarkReceiptsFor={moveMarksEnabled ? showMoveMarkReceiptsFor : undefined}
+            onMarkMove={moveMarksEnabled ? moveMarks.onMark : undefined}
+            onUnmarkMove={moveMarksEnabled ? moveMarks.onUnmark : undefined}
           />
         ) : (
           // ASP-EXTRACT-001 (Slice 1) — the mode === timeline body is now the
@@ -2772,6 +2829,15 @@ export function ArgumentRoom({
               activeMessageId ? () => handleOpenDetailsFromTimeline(activeMessageId) : undefined
             }
             onPopoverClose={() => setSelectedDockTarget(null)}
+            // FEEDBACK-001 (#898) — the SAME ghost feedback bar props for the Map
+            // node popover (parity). All undefined when the flag is off =>
+            // byte-identical.
+            moveMarksEnabled={moveMarksEnabled}
+            viewerMoveMarksFor={moveMarksEnabled ? moveMarks.viewerMoveMarksFor : undefined}
+            moveMarkErrorFor={moveMarksEnabled ? moveMarks.moveMarkErrorFor : undefined}
+            showMoveMarkReceiptsFor={moveMarksEnabled ? showMoveMarkReceiptsFor : undefined}
+            onMarkMove={moveMarksEnabled ? moveMarks.onMark : undefined}
+            onUnmarkMove={moveMarksEnabled ? moveMarks.onUnmark : undefined}
           />
         )}
         </View>
@@ -3245,6 +3311,14 @@ export function ArgumentRoom({
             windowWidth={windowWidth}
             windowHeight={windowHeight}
             reduceMotionOverride={reduceMotionOverride}
+            // FEEDBACK-001 (#898) surface #2: an ambient room-level line when at
+            // least one move has been marked unanswered. Absent when the flag is
+            // off / no unanswered marks => byte-identical. Never a per-node count.
+            marksLegendLine={
+              moveMarkAggregate && moveMarkAggregate.unaddressedMoveIds.length > 0
+                ? MOVE_MARKS_LEGEND_LINE
+                : undefined
+            }
             // VISUAL-SIMPLIFY-002 — the rail is summoned expanded (the user asked
             // for it). On the phone sheet this opens it immediately rather than
             // as a second collapsed pill; on the tablet/wide pane it is the

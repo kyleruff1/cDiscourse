@@ -53,6 +53,11 @@ import { isProofDrawerEnabled } from './src/lib/featureFlags';
 // design (the featureFlagsStaticEnv pin matches the isHomeV2Enabled import
 // EXACTLY, so this accessor must not merge into that specifier list).
 import { isTimestampRebuttalsEnabled } from './src/lib/featureFlags';
+// FEEDBACK-001 (#898) — App.tsx (the sole flag consumer) reads the move_marks
+// flag here and threads the boolean down as a prop. SEPARATE import line by
+// design (the featureFlagsStaticEnv pin matches the isHomeV2Enabled import
+// EXACTLY, so this accessor must not merge into that specifier list).
+import { isMoveMarksEnabled } from './src/lib/featureFlags';
 import { ProofDrawer, attachProof, detachProof } from './src/features/proof';
 // MARK-002 (#894) — the narrow create-marker client seam + the pending scope type.
 import { createMarkerScoped } from './src/features/arguments/markers/createMarkerApi';
@@ -604,6 +609,10 @@ function MainAppShell({
   // marker read + Ringside surface + phrase picker) and into the entry composer
   // (the composer_scope chip). OFF => no marker prop passed => byte-identical.
   const timestampRebuttalsEnabled = isTimestampRebuttalsEnabled();
+  // FEEDBACK-001 (#898) — default OFF. Threaded into ArgumentTreeScreen; gates the
+  // move-marks read + the ghost BooleanFeedbackBar in both lenses + the two
+  // ambient aggregate surfaces. OFF => no prop passed => byte-identical.
+  const moveMarksEnabled = isMoveMarksEnabled();
   const { width: proofDrawerWidth, height: proofDrawerHeight } = useWindowDimensions();
   const [proofDrawerScope, setProofDrawerScope] = useState<ProofDrawerScope | null>(null);
   // MARK-002 — the pending marker scope (a picked phrase) during composition. The
@@ -1313,6 +1322,10 @@ function MainAppShell({
               // surface mounts, no picker opens (byte-identical).
               timestampRebuttalsEnabled={timestampRebuttalsEnabled}
               onMarkerScopePicked={timestampRebuttalsEnabled ? handleMarkerScopePicked : undefined}
+              // FEEDBACK-001 (#898) — the move-marks surface gate. Flag OFF =>
+              // useMoveMarks fetches nothing, no bar mounts, both aggregate
+              // surfaces are byte-identical.
+              moveMarksEnabled={moveMarksEnabled}
               // PR-001 — thread the user's visual-density preference into
               // the timeline map (drives VG-004's resolveNodeGapPx) and
               // the reduce-motion override (OS value composed with the

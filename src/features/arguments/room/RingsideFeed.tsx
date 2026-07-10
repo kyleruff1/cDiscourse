@@ -23,6 +23,9 @@ import { RingsideCard } from './RingsideCard';
 // MARK-002 (#894) — per-card marker maps threaded from the orchestrator (all
 // additive optional; absent when timestamp_rebuttals is off => byte-identical).
 import type { MarkerRow } from '../markers/timestampMarkerModel';
+// FEEDBACK-001 (#898) — ghost feedback bar props, forwarded straight to the
+// active card (all additive optional; absent when move_marks is off).
+import type { MoveMarkCode, ViewerMoveMarkState } from '../../feedback/moveMarksModel';
 
 export interface RingsideFeedProps {
   feed: RingsideFeedViewModel;
@@ -46,6 +49,13 @@ export interface RingsideFeedProps {
   onRespondToThis?: (messageId: string) => void;
   /** MARK-002 — deep-link a reply chip to its quoted source span. */
   onOpenMarkerSource?: (targetArgumentId: string, markerId: string) => void;
+  /** FEEDBACK-001 — ghost feedback bar props (forwarded to the active card). */
+  moveMarksEnabled?: boolean;
+  viewerMoveMarksFor?: (argumentId: string) => ViewerMoveMarkState;
+  moveMarkErrorFor?: (argumentId: string) => string | undefined;
+  showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
+  onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
 }
 
 export function RingsideFeed(props: RingsideFeedProps) {
@@ -76,6 +86,12 @@ export function RingsideFeed(props: RingsideFeedProps) {
             isMarkerTargetLoaded={props.isMarkerTargetLoaded}
             onRespondToThis={props.onRespondToThis}
             onOpenMarkerSource={props.onOpenMarkerSource}
+            moveMarksEnabled={props.moveMarksEnabled}
+            viewerMoveMarksFor={props.viewerMoveMarksFor}
+            moveMarkErrorFor={props.moveMarkErrorFor}
+            showMoveMarkReceiptsFor={props.showMoveMarkReceiptsFor}
+            onMarkMove={props.onMarkMove}
+            onUnmarkMove={props.onUnmarkMove}
           />
         );
       })}
