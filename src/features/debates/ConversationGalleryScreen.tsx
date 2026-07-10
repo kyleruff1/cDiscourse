@@ -55,6 +55,13 @@ interface Props {
   flagsByArgumentId?: Record<string, GalleryFlagInput[]>;
   tagsByArgumentId?: Record<string, GalleryTagInput[]>;
   participantCountByDebateId?: Record<string, number>;
+  /**
+   * INTEL-001 (#900) — OPTIONAL per-debate unaddressed argument ids from the
+   * gated gallery move_marks read (supplied only when the move_marks flag is on;
+   * the read itself lives in the App-level hook, never in this screen).
+   * Absent => the deriver omits the dodge-chain heat term => heat byte-identical.
+   */
+  unaddressedMoveIdsByDebateId?: Record<string, readonly string[]>;
   joinedDebateIds?: Set<string> | string[];
   currentUserId?: string | null;
   loading: boolean;
@@ -149,6 +156,7 @@ export function ConversationGalleryScreen({
   flagsByArgumentId,
   tagsByArgumentId,
   participantCountByDebateId,
+  unaddressedMoveIdsByDebateId,
   joinedDebateIds,
   currentUserId,
   loading,
@@ -195,9 +203,10 @@ export function ConversationGalleryScreen({
     flagsByArgumentId,
     tagsByArgumentId,
     participantCountByDebateId,
+    unaddressedMoveIdsByDebateId,
     joinedDebateIds,
     currentUserId,
-  }), [debates, argumentsByDebateId, flagsByArgumentId, tagsByArgumentId, participantCountByDebateId, joinedDebateIds, currentUserId]);
+  }), [debates, argumentsByDebateId, flagsByArgumentId, tagsByArgumentId, participantCountByDebateId, unaddressedMoveIdsByDebateId, joinedDebateIds, currentUserId]);
 
   const dedupedCards = useMemo(() => dedupeConversationCards(allCards), [allCards]);
   const duplicatesCollapsed = allCards.length - dedupedCards.length;

@@ -41,6 +41,8 @@ const STATIC_FLAG_LITERALS = [
   'process.env.EXPO_PUBLIC_TIMESTAMP_REBUTTALS',
   'process.env.EXPO_PUBLIC_ONE_TIME_PLAYBACK',
   'process.env.EXPO_PUBLIC_MOVE_MARKS',
+  // FEEDBACK-002 (#899) — the 8th ASP flag; static dot read for web inlining.
+  'process.env.EXPO_PUBLIC_DERIVED_SIGNALS',
 ];
 
 /** Recursively collect all `.ts` / `.tsx` source under a directory. */

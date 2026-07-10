@@ -29,6 +29,9 @@ import {
   type EvidenceDebtArgumentInput,
   type RoomEvidenceDebtSummary,
 } from '../evidence/evidenceDebtModel';
+// INTEL-001 (#900) — the engagement-lane dodge-chain deriver. Pure TS; no
+// pointStanding, no standing coupling, no person axis.
+import { deriveDodgeChains } from '../intel/dodgeChainModel';
 
 // ── Shared input shapes ────────────────────────────────────────
 
@@ -98,6 +101,14 @@ export interface BuildGalleryInput {
   joinedDebateIds?: Set<string> | string[];
   /** Current user id (for `mySide`). */
   currentUserId?: string | null;
+  /**
+   * INTEL-001 (#900) — OPTIONAL per-debate `did_not_address` argument ids (the
+   * FEEDBACK-001 MoveMarkAggregate.unaddressedMoveIds). Present ONLY when the
+   * gallery load fetched active move_marks (gated on the move_marks flag). When
+   * present, the deriver folds dodge-chain hits into the engagement-lane heat
+   * term. Absent (flag OFF, no fetch) => heat byte-identical.
+   */
+  unaddressedMoveIdsByDebateId?: Record<string, readonly string[]>;
   /** Optional injected "now" timestamp for deterministic tests. Defaults to Date.now(). */
   nowMs?: number;
 }
@@ -523,6 +534,13 @@ export function computeConversationHeat(args: {
   challengeRunLength: number;
   hostileToneHits: number;
   platformSupportWarning: boolean;
+  /**
+   * INTEL-001 (#900) — OPTIONAL engagement-lane friction term: distinct nodes in
+   * a dodge-chain (>= 2 consecutive `did_not_address` on one thread). Default 0.
+   * Existing callers are unaffected; absent/0 => identical score. Engagement lane
+   * only — friction, never correctness, popularity, or standing.
+   */
+  dodgeChainHits?: number;
 }): { score: number; level: ConversationHeatLevel } {
   const recency =
     args.latestActivityAgeMs <= 60 * 60 * 1000 ? 0.30 :       // <1h
@@ -538,8 +556,11 @@ export function computeConversationHeat(args: {
   const challengeRun = Math.min(args.challengeRunLength, 6) * 0.020;
   const hostile = Math.min(args.hostileToneHits, 6) * 0.025;
   const platform = args.platformSupportWarning ? 0.05 : 0;
+  // INTEL-001 (#900) — dodge-chain friction (same weight band as challengeRun,
+  // capped at 6). Absent/0 => identical score.
+  const dodge = Math.min(args.dodgeChainHits ?? 0, 6) * 0.020;
 
-  const raw = recency + move + rebuttal + participants + sourceChain + evidence + challengeRun + hostile + platform;
+  const raw = recency + move + rebuttal + participants + sourceChain + evidence + challengeRun + hostile + platform + dodge;
   const score = Math.max(0, Math.min(1, raw));
   let level: ConversationHeatLevel = 'cold';
   if (score >= 0.78) level = 'overheated';
@@ -948,6 +969,18 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
     const hasNoRebuttal = stats.moveCount >= 1 && stats.rebuttalCount === 0;
     const latestActivityMs = safeMs(debate.updatedAt) || safeMs(stats.latestCreatedAt) || safeMs(debate.createdAt);
     const latestActivityAgeMs = Math.max(0, now - latestActivityMs);
+    // INTEL-001 (#900) — engagement-lane dodge-chain hits. Present ONLY when the
+    // gallery load fetched active move_marks (gated on the move_marks flag);
+    // absent => the heat term is 0 => heat byte-identical. Deduped node count
+    // (never a sum, never a person) neutralises branch inflation at the feed.
+    const unaddressedForDebate = input.unaddressedMoveIdsByDebateId?.[debate.id];
+    const dodgeChainHits =
+      unaddressedForDebate && unaddressedForDebate.length > 0
+        ? deriveDodgeChains({
+            unaddressedMoveIds: unaddressedForDebate,
+            nodes: messages.map((m) => ({ id: m.id, parentId: m.parentId })),
+          }).unaddressedChainNodeCount
+        : undefined;
     const heat = computeConversationHeat({
       moveCount: stats.moveCount,
       rebuttalCount: stats.rebuttalCount,
@@ -958,6 +991,7 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
       challengeRunLength: stats.challengeRunLength,
       hostileToneHits: stats.hostileToneHits,
       platformSupportWarning: stats.platformSupportWarning,
+      dodgeChainHits,
     });
     const temperament = computeConversationTemperament({
       moveCount: stats.moveCount,

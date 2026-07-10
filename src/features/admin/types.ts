@@ -151,6 +151,11 @@ export interface AdminArgumentRow {
   debateInactiveAt: string | null;
   authorId: string | null;
   authorDisplayName: string | null;
+  /**
+   * INTEL-002 (#901) — root/reply discriminator for the specificity KPI
+   * denominator (null => room root). WHAT only, never a verdict, never a person.
+   */
+  parentId: string | null;
   argumentType: string;
   side: string;
   body: string;

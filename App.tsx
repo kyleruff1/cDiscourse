@@ -58,6 +58,11 @@ import { isTimestampRebuttalsEnabled } from './src/lib/featureFlags';
 // design (the featureFlagsStaticEnv pin matches the isHomeV2Enabled import
 // EXACTLY, so this accessor must not merge into that specifier list).
 import { isMoveMarksEnabled } from './src/lib/featureFlags';
+// FEEDBACK-002 (#899) — App.tsx (the sole flag consumer) reads the derived_signals
+// flag here and threads the boolean down as a prop. SEPARATE import line by design
+// (the featureFlagsStaticEnv pin matches the isHomeV2Enabled import EXACTLY, so this
+// accessor must not merge into that specifier list); no src/features file imports it.
+import { isDerivedSignalsEnabled } from './src/lib/featureFlags';
 import { ProofDrawer, attachProof, detachProof } from './src/features/proof';
 // MARK-002 (#894) — the narrow create-marker client seam + the pending scope type.
 import { createMarkerScoped } from './src/features/arguments/markers/createMarkerApi';
@@ -77,6 +82,10 @@ import { buildDeepLinkEntryHint } from './src/features/debates/deepLinkEntryHint
 import { resolveRoomDeepLinkAccess } from './src/features/debates/roomAccessModel';
 import { RoomUnavailableNotice } from './src/features/debates/RoomUnavailableNotice';
 import { useGalleryArguments } from './src/features/debates/useGalleryArguments';
+// INTEL-001 (#900) — the gated batched gallery move-marks loader. Fetches only
+// when moveMarksEnabled (the boolean App.tsx already reads is threaded in as the
+// `enabled` prop); returns {} otherwise so the gallery heat is byte-identical.
+import { useGalleryMoveMarks } from './src/features/debates/useGalleryMoveMarks';
 import { ArgumentTreeScreen } from './src/features/arguments';
 // START-001 (#827) — person-first start sheet + its recents hook. Mounts only
 // behind home_v2 (see the startSheetActive branch below); the legacy
@@ -613,6 +622,10 @@ function MainAppShell({
   // move-marks read + the ghost BooleanFeedbackBar in both lenses + the two
   // ambient aggregate surfaces. OFF => no prop passed => byte-identical.
   const moveMarksEnabled = isMoveMarksEnabled();
+  // FEEDBACK-002 (#899) — default OFF. Threaded into ArgumentTreeScreen; gates the
+  // derived-signal advisory surfaces (Inspect active-node lines + mediator rail
+  // overlay). OFF => the derivation returns empty => both surfaces byte-identical.
+  const derivedSignalsEnabled = isDerivedSignalsEnabled();
   const { width: proofDrawerWidth, height: proofDrawerHeight } = useWindowDimensions();
   const [proofDrawerScope, setProofDrawerScope] = useState<ProofDrawerScope | null>(null);
   // MARK-002 — the pending marker scope (a picked phrase) during composition. The
@@ -636,6 +649,9 @@ function MainAppShell({
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
   const galleryArgs = useGalleryArguments(debates.map((d) => d.id));
+  // INTEL-001 (#900) — gated batched gallery move-marks read for the dodge-chain
+  // heat feed. moveMarksEnabled OFF => no read => {} => gallery heat byte-identical.
+  const galleryMarks = useGalleryMoveMarks(debates.map((d) => d.id), moveMarksEnabled);
   const { profile: currentProfile } = useAccountProfile(state.snapshot.userId);
   // START-001 (#827) — recent-opponent invites for the person-first sheet. The
   // hook is a no-op ([]) when the sheet is not mounted (unconfigured / signed
@@ -1201,6 +1217,9 @@ function MainAppShell({
             <ConversationGalleryScreen
               debates={debates}
               argumentsByDebateId={galleryArgs.argumentsByDebateId}
+              // INTEL-001 (#900) — dodge-chain heat feed. {} when move_marks OFF
+              // => the deriver omits the term => heat byte-identical.
+              unaddressedMoveIdsByDebateId={galleryMarks.unaddressedMoveIdsByDebateId}
               currentUserId={state.snapshot.userId || null}
               loading={debatesLoading || galleryArgs.loading}
               error={debatesError || galleryArgs.error}
@@ -1326,6 +1345,10 @@ function MainAppShell({
               // useMoveMarks fetches nothing, no bar mounts, both aggregate
               // surfaces are byte-identical.
               moveMarksEnabled={moveMarksEnabled}
+              // FEEDBACK-002 (#899) — the derived-signal advisory surfaces gate.
+              // Flag OFF => the derivation returns empty, so the Inspect advisory
+              // lines + mediator rail overlay render nothing (byte-identical).
+              derivedSignalsEnabled={derivedSignalsEnabled}
               // PR-001 — thread the user's visual-density preference into
               // the timeline map (drives VG-004's resolveNodeGapPx) and
               // the reduce-motion override (OS value composed with the

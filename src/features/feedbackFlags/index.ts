@@ -14,3 +14,8 @@ export * from './pointFeedbackFlagsModel';
 export * from './feedbackFlagPriority';
 export { PointFeedbackFlagPill } from './PointFeedbackFlagPill';
 export { PointFeedbackFlagsRow } from './PointFeedbackFlagsRow';
+// FEEDBACK-002 (#899) — the derived cross-family composition layer + the two
+// mandated consumer selectors. Pure TS; no React, no featureFlags import.
+export * from './derivedObservationSignals';
+export * from './derivedSignalConsumerModel';
+export { DerivedSignalAdvisoryLines } from './DerivedSignalAdvisoryLines';

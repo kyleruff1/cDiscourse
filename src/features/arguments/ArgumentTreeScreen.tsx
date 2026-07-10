@@ -135,9 +135,11 @@ interface Props {
   onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
   /** FEEDBACK-001 (#898) — pass-through gate for the move-marks surface; forwarded verbatim to ArgumentRoom. */
   moveMarksEnabled?: boolean;
+  /** FEEDBACK-002 (#899) — pass-through gate for the derived-signal advisory surfaces; forwarded verbatim to ArgumentRoom. */
+  derivedSignalsEnabled?: boolean;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled }: Props) {
   const {
     cache,
     viewport,
@@ -209,6 +211,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         timestampRebuttalsEnabled={timestampRebuttalsEnabled}
         onMarkerScopePicked={onMarkerScopePicked}
         moveMarksEnabled={moveMarksEnabled}
+        derivedSignalsEnabled={derivedSignalsEnabled}
       />
     );
   }
@@ -373,9 +376,11 @@ interface FullRoomGameSurfaceMountProps {
   onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
   /** FEEDBACK-001 (#898) — move-marks surface gate; forwarded to ArgumentRoom. */
   moveMarksEnabled?: boolean;
+  /** FEEDBACK-002 (#899) — derived-signal advisory surfaces gate; forwarded to ArgumentRoom. */
+  derivedSignalsEnabled?: boolean;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -653,6 +658,10 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         // FEEDBACK-001 (#898) — move-marks surface gate. Flag OFF => useMoveMarks
         // fetches nothing, no bar mounts, both aggregate surfaces byte-identical.
         moveMarksEnabled={moveMarksEnabled}
+        // FEEDBACK-002 (#899) — derived-signal advisory surfaces gate. Flag OFF =>
+        // the derivation returns empty, so the Inspect advisory lines + mediator
+        // rail overlay render nothing (byte-identical).
+        derivedSignalsEnabled={derivedSignalsEnabled}
       />
       {/* QUOTE-FORGE-001 — the create-link picker sheet. On-demand overlay
           opened from the timeline-header affordance; caller-scoped create

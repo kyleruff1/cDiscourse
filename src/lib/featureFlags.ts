@@ -51,7 +51,8 @@ export type AspFeatureFlag =
   | 'voice_entries'
   | 'timestamp_rebuttals'
   | 'one_time_playback'
-  | 'move_marks';
+  | 'move_marks'
+  | 'derived_signals';
 
 /** A single flag descriptor. `resolve()` returns the current boolean state. */
 export interface AspFeatureFlagDescriptor {
@@ -75,6 +76,7 @@ export const VOICE_ENTRIES_FLAG = 'EXPO_PUBLIC_VOICE_ENTRIES' as const;
 export const TIMESTAMP_REBUTTALS_FLAG = 'EXPO_PUBLIC_TIMESTAMP_REBUTTALS' as const;
 export const ONE_TIME_PLAYBACK_FLAG = 'EXPO_PUBLIC_ONE_TIME_PLAYBACK' as const;
 export const MOVE_MARKS_FLAG = 'EXPO_PUBLIC_MOVE_MARKS' as const;
+export const DERIVED_SIGNALS_FLAG = 'EXPO_PUBLIC_DERIVED_SIGNALS' as const;
 
 // ── Resolvers ──────────────────────────────────────────────────────
 // One per flag. Each is default OFF: true ONLY when the resolved value is the
@@ -140,6 +142,19 @@ export function isMoveMarksEnabled(): boolean {
   return value === 'true';
 }
 
+/**
+ * FEEDBACK-002 (#899) — the 8th ASP flag. Gates the derivedObservationSignals
+ * advisory surfaces (Inspect active-node lines + mediator rail overlay). Default
+ * OFF, byte-identical when off. True only when EXPO_PUBLIC_DERIVED_SIGNALS
+ * resolves to the exact string 'true'.
+ */
+export function isDerivedSignalsEnabled(): boolean {
+  const fromRuntime = (readRuntimeEnv() as Record<string, unknown>)[DERIVED_SIGNALS_FLAG];
+  const fromEnv = process.env.EXPO_PUBLIC_DERIVED_SIGNALS; // STATIC dot access REQUIRED (#776)
+  const value = typeof fromRuntime === 'string' ? fromRuntime : fromEnv;
+  return value === 'true';
+}
+
 // ── Registry + dispatcher ──────────────────────────────────────────
 
 /** Frozen registry of the seven ASP flag descriptors, keyed by AspFeatureFlag. */
@@ -168,6 +183,11 @@ export const ASP_FEATURE_FLAGS: Readonly<Record<AspFeatureFlag, AspFeatureFlagDe
       resolve: isOneTimePlaybackEnabled,
     },
     move_marks: { key: 'move_marks', envName: MOVE_MARKS_FLAG, resolve: isMoveMarksEnabled },
+    derived_signals: {
+      key: 'derived_signals',
+      envName: DERIVED_SIGNALS_FLAG,
+      resolve: isDerivedSignalsEnabled,
+    },
   });
 
 /**

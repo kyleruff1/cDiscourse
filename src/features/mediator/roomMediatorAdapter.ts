@@ -17,6 +17,7 @@ import type { PointLifecycleMap } from '../lifecycle/pointLifecycleModel';
 import type { MachineObservationResultRow } from '../nodeLabels/machineObservationPersistenceTypes';
 import { deriveMediatorBoardState } from './deriveMediatorBoardState';
 import type {
+  MediatorBoardOptions,
   MediatorBoardState,
   MediatorGraphNode,
   MediatorObservationInput,
@@ -45,6 +46,12 @@ export interface RoomMediatorAdapterInput {
   targetExcerptByMessageId?: ReadonlyMap<string, string | null>;
   /** The currently-active timeline node — biases `nextAction`. */
   activeNodeId?: string | null;
+  /**
+   * INTEL-001 (#900) — OPTIONAL engagement-lane weighting for the `nextAction`
+   * tie-break only. Absent/empty => byte-identical board (incl. `inputHash`).
+   * Forwarded verbatim into the SINGLE `deriveMediatorBoardState` options seam.
+   */
+  weightingSignals?: MediatorBoardOptions['weightingSignals'];
 }
 
 /**
@@ -91,6 +98,6 @@ export function deriveRoomMediatorBoardState(input: RoomMediatorAdapterInput): M
       evidenceDebts: input.evidenceDebts,
     },
     observations,
-    { activeNodeId: input.activeNodeId ?? null },
+    { activeNodeId: input.activeNodeId ?? null, weightingSignals: input.weightingSignals },
   );
 }
