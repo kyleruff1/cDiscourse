@@ -132,6 +132,13 @@ export interface DisagreementPointsRailProps {
   onExpandedChange?: (expanded: boolean) => void;
   /** Read-only navigation to a point's anchor node. */
   onJump?: (nodeId: string) => void;
+  /**
+   * FEEDBACK-001 (#898) surface #2 — an optional ambient room-level line rendered
+   * alongside the distribution legend (e.g. moves marked unanswered feed what
+   * remains unresolved). Absent => byte-identical. Never a per-node / per-person
+   * count.
+   */
+  marksLegendLine?: string;
   testID?: string;
 }
 
@@ -158,6 +165,7 @@ export function DisagreementPointsRail({
   isAnyPanelOpen,
   onExpandedChange,
   onJump,
+  marksLegendLine,
   testID,
 }: DisagreementPointsRailProps): React.ReactElement | null {
   const rootTestID = testID ?? 'disagreement-points-rail';
@@ -443,6 +451,19 @@ export function DisagreementPointsRail({
           selectedSegment={selectedSegment}
           onSegmentPress={handleSegmentPress}
         />
+      ) : null}
+
+      {/* FEEDBACK-001 (#898) surface #2 — the ambient move-marks legend line,
+          rendered alongside the distribution legend. A room-level reading, never a
+          per-node count and never a per-person tally. Absent => byte-identical. */}
+      {marksLegendLine ? (
+        <Text
+          style={styles.marksLegendLine}
+          numberOfLines={2}
+          testID="disagreement-points-rail-marks-legend"
+        >
+          {marksLegendLine}
+        </Text>
       ) : null}
 
       {/* UX-BOARD-RAIL-003 — segment-selection anchor + reset. When a segment is
@@ -1235,6 +1256,14 @@ const styles = StyleSheet.create({
     color: SURFACE_TOKENS.textSecondary,
     fontSize: TYPOGRAPHY.badgeLabel.fontSize,
     fontWeight: '600',
+  },
+  // FEEDBACK-001 (#898) surface #2 — the ambient move-marks legend line. A quiet
+  // secondary caption; neutral tone, never a count.
+  marksLegendLine: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.badgeLabel.fontSize,
+    fontWeight: '500',
+    marginTop: SPACING.xs,
   },
 
   overflowRow: {

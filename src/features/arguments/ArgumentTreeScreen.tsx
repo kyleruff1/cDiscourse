@@ -133,9 +133,11 @@ interface Props {
   timestampRebuttalsEnabled?: boolean;
   /** MARK-002 (#894) — pass-through: the picked phrase scope, forwarded verbatim to the room shell. */
   onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
+  /** FEEDBACK-001 (#898) — pass-through gate for the move-marks surface; forwarded verbatim to ArgumentRoom. */
+  moveMarksEnabled?: boolean;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled }: Props) {
   const {
     cache,
     viewport,
@@ -206,6 +208,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         proofDrawerEnabled={proofDrawerEnabled}
         timestampRebuttalsEnabled={timestampRebuttalsEnabled}
         onMarkerScopePicked={onMarkerScopePicked}
+        moveMarksEnabled={moveMarksEnabled}
       />
     );
   }
@@ -368,9 +371,11 @@ interface FullRoomGameSurfaceMountProps {
   timestampRebuttalsEnabled?: boolean;
   /** MARK-002 (#894) — picked phrase scope; forwarded to the room shell. */
   onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
+  /** FEEDBACK-001 (#898) — move-marks surface gate; forwarded to ArgumentRoom. */
+  moveMarksEnabled?: boolean;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -645,6 +650,9 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         // Flag OFF => useMarkers fetches nothing and no marker surface mounts.
         timestampRebuttalsEnabled={timestampRebuttalsEnabled}
         onMarkerScopePicked={onMarkerScopePicked}
+        // FEEDBACK-001 (#898) — move-marks surface gate. Flag OFF => useMoveMarks
+        // fetches nothing, no bar mounts, both aggregate surfaces byte-identical.
+        moveMarksEnabled={moveMarksEnabled}
       />
       {/* QUOTE-FORGE-001 — the create-link picker sheet. On-demand overlay
           opened from the timeline-header affordance; caller-scoped create
