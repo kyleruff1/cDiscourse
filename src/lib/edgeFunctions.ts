@@ -950,3 +950,85 @@ export async function detachProof(payload: DetachProofPayload): Promise<DetachPr
   if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
   return { ok: true, data };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// create-marker (MARK-002, #894)
+//
+// The low-level JWT-scoped wrapper for the create-marker Edge Function (anon key
+// + caller JWT only; NEVER the service role — that lives in Deno). Mirrors the
+// attachProof idiom: idempotent, never throws, returns { ok, data } |
+// { ok, error, status }. The narrow room-facing seam
+// (src/features/arguments/markers/createMarkerApi.ts) maps its domain input onto
+// this payload and normalises the outcome to plain language.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The two verdict-free marker kinds (mirrors MARKER_KINDS in the Edge). */
+export type MarkerKind = 'rebuttal_anchor' | 'note';
+
+export interface CreateMarkerPayload {
+  action: 'mint';
+  debateId: string;
+  targetArgumentId: string;
+  spanStart: number;
+  spanEnd: number;
+  /** The client claimed span text — for VERIFICATION only, never stored. */
+  quote: string;
+  kind: MarkerKind;
+  /** The callers OWN reply that consumes this marker (the J6 text-half). */
+  replyArgumentId?: string;
+}
+
+/** The timestamp_markers row echoed back on a successful mint (camelCase). */
+export interface CreatedMarker {
+  id: string;
+  debateId: string;
+  targetArgumentId: string;
+  replyArgumentId: string | null;
+  kind: MarkerKind;
+  spanStart: number;
+  spanEnd: number;
+  spanUnit: 'chars';
+  /** The SERVER slice of arguments.body (never the client quote). */
+  quotedText: string;
+  createdAt: string;
+}
+
+export interface CreateMarkerSuccess {
+  ok: true;
+  idempotent: boolean;
+  marker: CreatedMarker;
+}
+
+export type CreateMarkerOutcome =
+  | { ok: true; data: CreateMarkerSuccess }
+  | { ok: false; error: { error: string; message?: string; reason?: string; detail?: string }; status: number };
+
+/**
+ * Mint a marker quoting a phrase of a room-visible move, optionally linked to
+ * the callers own reply. Never throws; a dropped response is safe to retry (the
+ * Edge returns the existing marker when the reply is already linked).
+ */
+export async function createMarker(payload: CreateMarkerPayload): Promise<CreateMarkerOutcome> {
+  const { data, error } = await supabase.functions.invoke<CreateMarkerSuccess>('create-marker', {
+    body: payload,
+  });
+  if (error) {
+    let errorBody: { error: string; message?: string; reason?: string; detail?: string } = {
+      error: 'network_error',
+    };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) {
+        errorBody = (await raw.json()) as { error: string; message?: string; reason?: string; detail?: string };
+      }
+    } catch {
+      /* ignore */
+    }
+    const status =
+      (error as { status?: number }).status ??
+      ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+  if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
+  return { ok: true, data };
+}
