@@ -88,6 +88,24 @@ export type {
   OneToOneSeatLineViewModel,
 } from './oneToOneRoomModel';
 
+// P8-CHIMEIN-ARC Round 1 (#680) — 1:1-first room LIFECYCLE transition machine.
+// Additive over the shipped snapshot classifier; dormant-safe (author now, wire
+// later). The chime-in CONTRIBUTION path is Round 2 (#761), operator-gated.
+export {
+  initialRoomLifecycleState,
+  applyRoomLifecycleEvent,
+  projectToDisplayState,
+  CHIME_IN_CAP_PUBLIC,
+  ALL_ROOM_LIFECYCLE_PHASES,
+  ALL_ROOM_LIFECYCLE_EVENT_KINDS,
+  _forbiddenRoomLifecycleTokens,
+} from './oneToOneRoomLifecycle';
+export type {
+  RoomLifecyclePhase,
+  RoomLifecycleEvent,
+  RoomLifecycleState,
+} from './oneToOneRoomLifecycle';
+
 // GAME-005 — public-room participant seats + chime-in governance.
 export { ChimeInGovernanceControl } from './ChimeInGovernanceControl';
 export { PublicRoomMetricsStrip } from './PublicRoomMetricsStrip';
