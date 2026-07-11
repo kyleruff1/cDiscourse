@@ -57,6 +57,9 @@ import {
   deriveDerivedObservationSignals,
   selectInspectAdvisoryLines,
   selectMediatorRailOverlay,
+  // UX-FLAGS-004 (#836) — resolve a flag key to its composer intent so a pill
+  // tap can enter the shipped reply-with-preset lane pre-typed.
+  flagIntentForKey,
   type DerivedSignal,
   type DerivedSignalNodeInput,
 } from '../../feedbackFlags';
@@ -577,6 +580,24 @@ export interface Props {
    * (byte-identical). App.tsx is the sole flag reader; this arrives as a prop.
    */
   derivedSignalsEnabled?: boolean;
+  /**
+   * UX-FLAGS-004 (#836) — gates the tappability of the point feedback-flag pills.
+   * Additive optional. Default/false => onFlagIntent stays undefined at both the
+   * Timeline and Ringside mounts, so the pills render byte-identically to today
+   * (non-tappable, role text). App.tsx is the sole flag reader; this arrives as a
+   * prop.
+   */
+  feedbackFlagIntentsEnabled?: boolean;
+}
+
+/**
+ * UX-FLAGS-004 (#836) — seats that may post. Mirrors the private predicate in
+ * ArgumentEntryComposer (pinned, so it cannot be imported): a flag intent opens
+ * a reply, so an observer / no-seat viewer never fires one. Kept module-level so
+ * it is not re-created per render.
+ */
+function seatCanPostFlagIntent(side: ParticipantSide | null | undefined): boolean {
+  return side === 'affirmative' || side === 'negative' || side === 'moderator';
 }
 
 export function ArgumentRoom({
@@ -626,6 +647,7 @@ export function ArgumentRoom({
   onMarkerScopePicked,
   moveMarksEnabled,
   derivedSignalsEnabled,
+  feedbackFlagIntentsEnabled,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   // ARG-ROOM-005 — read-only seat-availability display + rail full-room state.
@@ -2332,6 +2354,45 @@ export function ArgumentRoom({
     [activeMessageId, activeParentType, handleAction],
   );
 
+  // UX-FLAGS-004 (#836) — the shared quick-action to reply-with-preset tail. Both
+  // enterBoxForActEntry (above) and handleFlagIntent (below) reach the composer
+  // through the SAME shipped handleAction('reply', messageId, preset) dispatch,
+  // so a flag tap behaves exactly like the rail Ask-source tap.
+  const enterBoxForQuickAction = useCallback(
+    (quickAction: QuickActionLabel, messageId: string, parentType: ArgumentType | null) => {
+      const preset = quickActionToPreset(quickAction, parentType);
+      handleAction('reply', messageId, preset);
+    },
+    [handleAction],
+  );
+
+  // UX-FLAGS-004 (#836) — a feedback-flag pill tap. Resolves the flag key to its
+  // composer intent (null for non-actionable / unknown => no-op) and opens the
+  // composer pre-typed against the flagged move = the active node. The row / card
+  // only receive this handler when the flag + actor gate below is satisfied, so
+  // it never fires on the viewer own move or for an observer.
+  const handleFlagIntent = useCallback(
+    (flagKey: string) => {
+      if (!activeMessageId) return;
+      const resolved = flagIntentForKey(flagKey);
+      if (!resolved) return;
+      enterBoxForQuickAction(resolved.quickAction, activeMessageId, activeParentType);
+    },
+    [activeMessageId, activeParentType, enterBoxForQuickAction],
+  );
+
+  // UX-FLAGS-004 (#836) — the actor gate. Only a seated participant / host,
+  // viewing another author active move, with the flag on, gets a live handler.
+  // Otherwise undefined => inert pills (byte-identical). Both lenses fire the
+  // SAME handler through the SAME handleAction (view is a lens, not a capability
+  // gate). RingsideCard additionally applies its own per-card participant gate.
+  const flagIntentHandler =
+    feedbackFlagIntentsEnabled === true &&
+    seatCanPostFlagIntent(participantSide) &&
+    activeViewModel?.actor !== 'self'
+      ? handleFlagIntent
+      : undefined;
+
   // REF-003 → REF-004 — zone-3 next-move dispatch from the Referee Card, now
   // routed through the SAME `enterBoxForActEntry` bridge the board Act mount
   // uses (no parallel composer path). Recovery routes (`branch_tangent`,
@@ -2880,6 +2941,10 @@ export function ArgumentRoom({
             pointFeedbackFlags={activePointFeedbackFlags}
             activeViewModel={activeViewModel}
             onBubbleAction={handleBubbleAction}
+            // UX-FLAGS-004 (#836) — Ringside flag-intent handler. Undefined unless
+            // the flag + actor gate is met; RingsideCard additionally applies its
+            // per-card participant gate (parity with the FEEDBACK-001 ghost bar).
+            onFlagIntent={flagIntentHandler}
             // ROOM-002 (#885) — flag-on Ringside re-weight. ringsideFeed is null
             // when the flag is off, so ExchangeView renders the stack subtree
             // byte-identical. onOpenMap forces the Map lens for branch-pill
@@ -3018,6 +3083,10 @@ export function ArgumentRoom({
             <PointFeedbackFlagsRow
               flags={activePointFeedbackFlags.visible}
               suppressedCount={activePointFeedbackFlags.suppressedCount}
+              // UX-FLAGS-004 (#836) — undefined unless the flag + actor gate is
+              // met => inert pills (byte-identical). The reply targets the active
+              // node = the flagged move.
+              onFlagIntent={flagIntentHandler}
             />
             {/* FEEDBACK-002 (#899) — calm derived-signal advisory lines for the
                 active node, composed at display time over the derived signals.

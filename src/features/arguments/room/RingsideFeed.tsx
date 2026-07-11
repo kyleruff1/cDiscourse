@@ -56,6 +56,8 @@ export interface RingsideFeedProps {
   showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
   onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
   onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  /** UX-FLAGS-004 (#836) — feedback-flag intent handler (forwarded to the active card). */
+  onFlagIntent?: (flagKey: string) => void;
   /** QUOTE-FORGE-002 (#842) — open a referenced prior room from a card callback echo. */
   onOpenPriorRoom?: (targetDebateId: string) => void;
 }
@@ -94,6 +96,7 @@ export function RingsideFeed(props: RingsideFeedProps) {
             showMoveMarkReceiptsFor={props.showMoveMarkReceiptsFor}
             onMarkMove={props.onMarkMove}
             onUnmarkMove={props.onUnmarkMove}
+            onFlagIntent={props.onFlagIntent}
             onOpenPriorRoom={props.onOpenPriorRoom}
           />
         );

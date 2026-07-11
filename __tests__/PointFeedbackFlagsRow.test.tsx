@@ -185,3 +185,52 @@ describe('UX-FLAGS-003 PointFeedbackFlagsRow "+N more"', () => {
     }
   });
 });
+
+describe('UX-FLAGS-004 PointFeedbackFlagsRow — actionable pills', () => {
+  // THREE_TONES: needs_a_receipt is actionable (Family D -> ask_for_source);
+  // nice_bridge + new_issue are non-actionable => must stay inert.
+  it('onFlagIntent absent => every pill is inert (role text), byte-identical to today', () => {
+    const { getByTestId } = render(<PointFeedbackFlagsRow flags={THREE_TONES} />);
+    expect(getByTestId('point-feedback-flag-nice_bridge').props.accessibilityRole).toBe('text');
+    expect(getByTestId('point-feedback-flag-needs_a_receipt').props.accessibilityRole).toBe('text');
+    expect(getByTestId('point-feedback-flag-new_issue').props.accessibilityRole).toBe('text');
+  });
+
+  it('onFlagIntent present => actionable pills become buttons; non-actionable stay text', () => {
+    const onFlagIntent = jest.fn();
+    const { getByTestId } = render(
+      <PointFeedbackFlagsRow flags={THREE_TONES} onFlagIntent={onFlagIntent} />,
+    );
+    expect(getByTestId('point-feedback-flag-needs_a_receipt').props.accessibilityRole).toBe('button');
+    expect(getByTestId('point-feedback-flag-nice_bridge').props.accessibilityRole).toBe('text');
+    expect(getByTestId('point-feedback-flag-new_issue').props.accessibilityRole).toBe('text');
+  });
+
+  it('tapping an actionable pill fires onFlagIntent with the flag id', () => {
+    const onFlagIntent = jest.fn();
+    const { getByTestId } = render(
+      <PointFeedbackFlagsRow flags={THREE_TONES} onFlagIntent={onFlagIntent} />,
+    );
+    fireEvent.press(getByTestId('point-feedback-flag-needs_a_receipt'));
+    expect(onFlagIntent).toHaveBeenCalledTimes(1);
+    expect(onFlagIntent).toHaveBeenCalledWith('needs_a_receipt');
+  });
+
+  it('a non-actionable pill renders inert with no press handler (even while a sibling is actionable)', () => {
+    const { getByTestId } = render(
+      <PointFeedbackFlagsRow flags={THREE_TONES} onFlagIntent={jest.fn()} />,
+    );
+    const bridge = getByTestId('point-feedback-flag-nice_bridge');
+    expect(bridge.props.accessibilityRole).toBe('text');
+    expect(bridge.props.onPress).toBeUndefined();
+  });
+
+  it('the "why?" toggle path is unchanged when onFlagIntent is present', () => {
+    const { getByTestId, queryByTestId } = render(
+      <PointFeedbackFlagsRow flags={THREE_TONES} onFlagIntent={jest.fn()} />,
+    );
+    expect(queryByTestId('point-feedback-flags-helpers')).toBeNull();
+    fireEvent.press(getByTestId('point-feedback-flags-why-toggle'));
+    expect(getByTestId('point-feedback-flags-helpers')).toBeTruthy();
+  });
+});

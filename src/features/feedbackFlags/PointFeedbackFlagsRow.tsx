@@ -28,6 +28,7 @@ import {
 } from '../../lib/designTokens';
 import { PointFeedbackFlagPill } from './PointFeedbackFlagPill';
 import type { PointFeedbackFlagViewModel } from './pointFeedbackFlagsModel';
+import { flagIntentForKey } from './flagComposerIntentMap';
 
 export interface PointFeedbackFlagsRowProps {
   flags: ReadonlyArray<PointFeedbackFlagViewModel>;
@@ -39,6 +40,13 @@ export interface PointFeedbackFlagsRowProps {
    * > 0 AND `flags` is non-empty. Reveals nothing; not a control. Default 0.
    */
   suppressedCount?: number;
+  /**
+   * UX-FLAGS-004 (#836) — when present, actionable pills become tappable and
+   * fire this with the flag key. Absent => every pill renders inert exactly as
+   * UX-FLAGS-002 shipped (flag off / observer / own move / legacy surface). The
+   * "why?" toggle path is untouched.
+   */
+  onFlagIntent?: (flagKey: string) => void;
   testID?: string;
 }
 
@@ -56,6 +64,7 @@ export function PointFeedbackFlagsRow({
   flags,
   heading = 'On this point',
   suppressedCount = 0,
+  onFlagIntent,
   testID,
 }: PointFeedbackFlagsRowProps): React.ReactElement | null {
   const [expanded, setExpanded] = useState(false);
@@ -100,7 +109,16 @@ export function PointFeedbackFlagsRow({
 
       <View style={styles.pillRow}>
         {flags.map((flag) => (
-          <PointFeedbackFlagPill key={flag.id} flag={flag} />
+          <PointFeedbackFlagPill
+            key={flag.id}
+            flag={flag}
+            // UX-FLAGS-004 — onFlagIntent absent => onPress undefined + actionable
+            // false => inert pill (byte-identical to today). Present => the pill
+            // becomes a button ONLY for flags that resolve to a composer intent;
+            // non-actionable flags stay inert (actionable false).
+            onPress={onFlagIntent}
+            actionable={onFlagIntent ? flagIntentForKey(flag.id) !== null : false}
+          />
         ))}
       </View>
 

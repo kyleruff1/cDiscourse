@@ -2,7 +2,7 @@
  * ASP-FLAGS-001 (#873) — feature-flag registry for the Argument Surface Pivot.
  *
  * Pure decision module. NO React, NO Supabase call, NO network, NO secret. Each
- * of the nine flags it resolves reads a PUBLIC runtime flag whose name carries
+ * of the ten flags it resolves reads a PUBLIC runtime flag whose name carries
  * the `EXPO_PUBLIC_` prefix; that prefix is the public-config contract, so these
  * are runtime toggles, never key material. Merging this card changes zero live
  * surfaces: every flag defaults OFF and no component consumes an accessor in this
@@ -24,7 +24,7 @@
  * the env, a shared helper that takes an env-name argument) is left un-inlined and
  * resolves to `undefined` in the deployed Netlify web bundle, silently forcing
  * every flag OFF in production while jest and typecheck stay green (Node has a
- * real process.env). Therefore there are NINE hard-coded static dot reads below,
+ * real process.env). Therefore there are TEN hard-coded static dot reads below,
  * one per flag — never a loop, never a computed key. Do NOT refactor them into a
  * single dynamic read. The source-scan guard in
  * __tests__/featureFlagsStaticEnv.test.ts asserts each static literal is present
@@ -43,7 +43,7 @@
  */
 import { readRuntimeEnv } from './supabase';
 
-/** The nine ASP surface flags. Stable string ids used as registry keys. */
+/** The ten ASP surface flags. Stable string ids used as registry keys. */
 export type AspFeatureFlag =
   | 'home_v2'
   | 'room_exchange_v2'
@@ -53,7 +53,8 @@ export type AspFeatureFlag =
   | 'one_time_playback'
   | 'move_marks'
   | 'derived_signals'
-  | 'quote_forge';
+  | 'quote_forge'
+  | 'feedback_flag_intents';
 
 /** A single flag descriptor. `resolve()` returns the current boolean state. */
 export interface AspFeatureFlagDescriptor {
@@ -79,6 +80,7 @@ export const ONE_TIME_PLAYBACK_FLAG = 'EXPO_PUBLIC_ONE_TIME_PLAYBACK' as const;
 export const MOVE_MARKS_FLAG = 'EXPO_PUBLIC_MOVE_MARKS' as const;
 export const DERIVED_SIGNALS_FLAG = 'EXPO_PUBLIC_DERIVED_SIGNALS' as const;
 export const QUOTE_FORGE_FLAG = 'EXPO_PUBLIC_QUOTE_FORGE' as const;
+export const FEEDBACK_FLAG_INTENTS_FLAG = 'EXPO_PUBLIC_FEEDBACK_FLAG_INTENTS' as const;
 
 // ── Resolvers ──────────────────────────────────────────────────────
 // One per flag. Each is default OFF: true ONLY when the resolved value is the
@@ -172,9 +174,24 @@ export function isQuoteForgeEnabled(): boolean {
   return value === 'true';
 }
 
+/**
+ * UX-FLAGS-004 (#836) — the 10th ASP flag. Gates the tappability of the (already
+ * live, currently read-only) point feedback-flag pills: when on, an actionable
+ * pill opens the shipped reply-with-preset composer lane pre-typed to the flag
+ * intent. Default OFF, byte-identical when off (onFlagIntent stays undefined at
+ * every mount, pills render exactly as UX-FLAGS-002 shipped). True only when
+ * EXPO_PUBLIC_FEEDBACK_FLAG_INTENTS resolves to the exact string 'true'.
+ */
+export function isFeedbackFlagIntentsEnabled(): boolean {
+  const fromRuntime = (readRuntimeEnv() as Record<string, unknown>)[FEEDBACK_FLAG_INTENTS_FLAG];
+  const fromEnv = process.env.EXPO_PUBLIC_FEEDBACK_FLAG_INTENTS; // STATIC dot access REQUIRED (#776)
+  const value = typeof fromRuntime === 'string' ? fromRuntime : fromEnv;
+  return value === 'true';
+}
+
 // ── Registry + dispatcher ──────────────────────────────────────────
 
-/** Frozen registry of the nine ASP flag descriptors, keyed by AspFeatureFlag. */
+/** Frozen registry of the ten ASP flag descriptors, keyed by AspFeatureFlag. */
 export const ASP_FEATURE_FLAGS: Readonly<Record<AspFeatureFlag, AspFeatureFlagDescriptor>> =
   Object.freeze({
     home_v2: { key: 'home_v2', envName: HOME_V2_FLAG, resolve: isHomeV2Enabled },
@@ -206,6 +223,11 @@ export const ASP_FEATURE_FLAGS: Readonly<Record<AspFeatureFlag, AspFeatureFlagDe
       resolve: isDerivedSignalsEnabled,
     },
     quote_forge: { key: 'quote_forge', envName: QUOTE_FORGE_FLAG, resolve: isQuoteForgeEnabled },
+    feedback_flag_intents: {
+      key: 'feedback_flag_intents',
+      envName: FEEDBACK_FLAG_INTENTS_FLAG,
+      resolve: isFeedbackFlagIntentsEnabled,
+    },
   });
 
 /**

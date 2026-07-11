@@ -69,8 +69,17 @@ describe('COMPOSER-002 — App.tsx threads composerPreset into the dock', () => 
     expect(block).toMatch(/refreshTreeRef\.current\?\.\(\)/);
   });
 
-  it('onComposerPreset is still wired into ArgumentTreeScreen (preset emission unchanged)', () => {
-    expect(APP_SRC).toMatch(/onComposerPreset=\{setComposerPreset\}/);
+  it('onComposerPreset is wired into ArgumentTreeScreen through the seed-if-empty guard (UX-FLAGS-004 Decision 8)', () => {
+    // The raw setComposerPreset is wrapped by handleComposerPreset so no seeded
+    // preset overwrites a mid-typed draft. Preset emission is preserved: on the
+    // empty-draft path (the common case) the guard calls setComposerPreset with
+    // the full preset, so the COMPOSER-001 round trip still holds.
+    expect(APP_SRC).toMatch(/onComposerPreset=\{handleComposerPreset\}/);
+    const block = APP_SRC.slice(
+      APP_SRC.indexOf('handleComposerPreset = ('),
+      APP_SRC.indexOf('handleComposerPreset = (') + 400,
+    );
+    expect(block).toMatch(/setComposerPreset\(/);
   });
 });
 
