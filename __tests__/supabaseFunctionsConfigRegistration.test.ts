@@ -152,4 +152,20 @@ describe('supabase/config.toml ⇄ supabase/functions/ registration parity', () 
     expect(block).toMatch(/verify_jwt = true/);
     expect(block).not.toMatch(/verify_jwt = false/);
   });
+
+  it('chime-in is registered with verify_jwt = true (CHIMEIN-P8 #761, the #509 hazard forcing function)', () => {
+    // The sole server-authoritative writer for the SELECT-only
+    // chime_in_contributions table MUST be config.toml-registered or it silently
+    // never deploys and every chime attach throws network_error.
+    expect(functionDirs).toContain('chime-in');
+    expect(registered).toContain('chime-in');
+    const header = '[functions.chime-in]';
+    const idx = CONFIG_SRC.indexOf(header);
+    expect(idx).toBeGreaterThanOrEqual(0);
+    const tail = CONFIG_SRC.slice(idx + header.length);
+    const nextSectionIdx = tail.search(/\n\[/);
+    const block = nextSectionIdx >= 0 ? tail.slice(0, nextSectionIdx) : tail;
+    expect(block).toMatch(/verify_jwt = true/);
+    expect(block).not.toMatch(/verify_jwt = false/);
+  });
 });
