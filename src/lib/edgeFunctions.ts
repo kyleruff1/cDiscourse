@@ -1095,3 +1095,80 @@ export async function markMove(payload: MarkMovePayload): Promise<MarkMoveOutcom
   if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
   return { ok: true, data };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// chime-in (CHIMEIN-P8 Round 2, #761)
+//
+// The low-level JWT-scoped wrapper for the chime-in Edge Function (anon key +
+// caller JWT only; NEVER the service role — that lives in Deno). Mirrors the
+// markMove / attachProof idiom: idempotent, never throws, returns { ok, data } |
+// { ok, error, status }. The chime CONTENT is an ordinary argument posted through
+// submitArgumentDraft FIRST; this wrapper records the marker post-storage. The
+// narrow room-facing seam (src/features/debates/chimeInApi.ts) maps its domain
+// input onto this payload and normalises the outcome to plain language.
+//
+// Doctrine: a chime-in is a bounded contribution, never a third principal voice,
+// never a node structural state, never factual standing.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ChimeInAction = 'attach' | 'retract';
+
+export interface ChimeInPayload {
+  action: ChimeInAction;
+  /** The caller OWN reply that becomes the chime-in (its content already posted). */
+  argument_id: string;
+  /** The point the chime-in attaches to. Required for attach (= arguments.parent_id). */
+  target_argument_id?: string;
+  /** Optional narrowing for retract. */
+  contribution_id?: string;
+}
+
+/** The chime_in_contributions row echoed back on a successful attach. */
+export interface ChimeInAttached {
+  id: string;
+  seat_index: number;
+  target_argument_id: string;
+}
+
+export interface ChimeInSuccess {
+  ok: true;
+  /** Present on attach; absent on retract. */
+  chime_in?: ChimeInAttached;
+  /** Free chime seats remaining in the room (0..3). Advisory to display only. */
+  open_chime_in_seat_count: number;
+}
+
+export type ChimeInOutcome =
+  | { ok: true; data: ChimeInSuccess }
+  | { ok: false; error: { error: string; message?: string; reason?: string; detail?: string }; status: number };
+
+/**
+ * Attach or retract a chime-in marker on the caller OWN reply. Never throws; a
+ * dropped attach is safe to retry (the Edge returns the existing marker when the
+ * reply is already an active chime-in). The marker is advisory to display only —
+ * it never blocks or re-gates the post.
+ */
+export async function chimeIn(payload: ChimeInPayload): Promise<ChimeInOutcome> {
+  const { data, error } = await supabase.functions.invoke<ChimeInSuccess>('chime-in', {
+    body: payload,
+  });
+  if (error) {
+    let errorBody: { error: string; message?: string; reason?: string; detail?: string } = {
+      error: 'network_error',
+    };
+    try {
+      const raw = (error as { context?: { json?: () => Promise<unknown> } }).context;
+      if (raw?.json) {
+        errorBody = (await raw.json()) as { error: string; message?: string; reason?: string; detail?: string };
+      }
+    } catch {
+      /* ignore */
+    }
+    const status =
+      (error as { status?: number }).status ??
+      ((error as { name?: string }).name === 'FunctionsFetchError' ? 503 : 500);
+    return { ok: false, error: errorBody, status };
+  }
+  if (!data) return { ok: false, error: { error: 'empty_response' }, status: 500 };
+  return { ok: true, data };
+}
