@@ -128,6 +128,7 @@ function ChipView({
   return (
     <View
       style={[styles.chip, toneChipStyle]}
+      accessibilityRole="text"
       accessibilityLabel={chip.accessibilityLabel}
       testID={testID}
     >
@@ -181,6 +182,7 @@ export function ArgumentStateRail({
       {model.overflowCount > 0 ? (
         <View
           style={styles.overflowBadge}
+          accessibilityRole="text"
           accessibilityLabel={formatStateRailOverflowAccessibilityLabel(model.overflowCount)}
           testID={`${testID}-overflow`}
         >
