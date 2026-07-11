@@ -45,6 +45,8 @@ const STATIC_FLAG_LITERALS = [
   'process.env.EXPO_PUBLIC_DERIVED_SIGNALS',
   // UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — the 9th ASP flag.
   'process.env.EXPO_PUBLIC_QUOTE_FORGE',
+  // UX-FLAGS-004 (#836) — the 10th ASP flag; static dot read for web inlining.
+  'process.env.EXPO_PUBLIC_FEEDBACK_FLAG_INTENTS',
 ];
 
 /** Recursively collect all `.ts` / `.tsx` source under a directory. */
