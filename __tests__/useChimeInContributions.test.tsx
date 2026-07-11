@@ -15,7 +15,7 @@ queryBuilder.select = jest.fn(() => queryBuilder);
 queryBuilder.eq = jest.fn(() => queryBuilder);
 queryBuilder.is = jest.fn(() => Promise.resolve({ data: mockRows, error: mockError }));
 
-const mockFrom = jest.fn(() => queryBuilder);
+const mockFrom = jest.fn((..._args: unknown[]) => queryBuilder);
 
 jest.mock('../src/lib/supabase', () => ({
   SUPABASE_CONFIGURED: true,
