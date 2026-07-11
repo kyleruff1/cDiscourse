@@ -100,6 +100,11 @@ export interface ExchangeViewProps {
   showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
   onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
   onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  // UX-FLAGS-004 (#836) — feedback-flag intent handler, passed straight to the
+  // Ringside feed (the ROOM-003 Exchange surface). Absent when the flag / actor
+  // gate is not met => the Ringside pills render inert (byte-identical). The
+  // legacy stack subtree below never receives it (read-only, like CardDetail).
+  onFlagIntent?: (flagKey: string) => void;
   // QUOTE-FORGE-002 (#842) — the active-card woven-callback echo (for the Stack)
   // and the open-prior-room nav (for both the Stack echo and the Ringside cards).
   // Absent / null when quote_forge is off => byte-identical.
@@ -142,6 +147,7 @@ export function ExchangeView(props: ExchangeViewProps) {
         showMoveMarkReceiptsFor={props.showMoveMarkReceiptsFor}
         onMarkMove={props.onMarkMove}
         onUnmarkMove={props.onUnmarkMove}
+        onFlagIntent={props.onFlagIntent}
         onOpenPriorRoom={props.onOpenPriorRoom}
       />
     );

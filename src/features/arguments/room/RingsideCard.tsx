@@ -108,6 +108,12 @@ export interface RingsideCardProps {
   onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
   onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
   /**
+   * UX-FLAGS-004 (#836) — feedback-flag intent handler for the ACTIVE non-own
+   * participant card only (parity with the ghost bar gate). Absent => the flag
+   * pills render inert (byte-identical).
+   */
+  onFlagIntent?: (flagKey: string) => void;
+  /**
    * QUOTE-FORGE-002 (#842) — open a referenced prior room from the callback
    * echo. Reuses the shipped room-level nav channel (targetDebateId). Absent =>
    * an authorized echo origin renders as plain text (no tap).
@@ -284,6 +290,14 @@ export function RingsideCard(props: RingsideCardProps) {
             <PointFeedbackFlagsRow
               flags={props.pointFeedbackFlags.visible}
               suppressedCount={props.pointFeedbackFlags.suppressedCount}
+              // UX-FLAGS-004 (#836) — actionable only on another author active
+              // move for a participant (SAME gate as the ghost bar below). Absent
+              // => inert pills (byte-identical). card.isActive is already true here.
+              onFlagIntent={
+                props.onFlagIntent && !card.isOwn && card.actionRow.kind === 'participant'
+                  ? props.onFlagIntent
+                  : undefined
+              }
             />
           ) : null}
           {card.isActive ? <CardActionRow {...props} /> : null}
