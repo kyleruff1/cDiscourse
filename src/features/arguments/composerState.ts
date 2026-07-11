@@ -48,9 +48,11 @@ export function draftToSession(draft: ComposerDraft): ComposerDraftSession {
       label: e.label,
       source_text: e.sourceText,
     })),
-    // Conditional spread so a callback-less draft serializes byte-identically
-    // to the pre-#831 session shape (no pendingCallback key emitted).
-    ...(draft.pendingCallback ? { pendingCallback: draft.pendingCallback } : {}),
+    // Always emit pendingCallback (null when absent), mirroring targetExcerpt /
+    // disagreementAxis. draftToSession doubles as the DRAFT_UPDATED merge patch,
+    // so an omitted key would keep a stale callback on a merge — the explicit
+    // null is what lets Remove clear it.
+    pendingCallback: draft.pendingCallback ?? null,
     updatedAt: draft.updatedAt,
     dirty: draft.dirty,
   };

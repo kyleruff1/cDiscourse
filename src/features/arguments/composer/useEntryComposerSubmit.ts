@@ -24,6 +24,7 @@ import {
 } from '../composerSubmit';
 import type { ComposerDraft } from '../composerState';
 import type { PendingSubmission } from '../../session/types';
+import type { CrossRoomCallback } from '../crossRoom/crossRoomCallbackRef';
 
 export interface UseEntryComposerSubmitResult {
   /** Builds the payload via buildSubmitArgumentPayload and posts it. */
@@ -38,6 +39,11 @@ export function useEntryComposerSubmit(
   // that ignore the argument are unaffected (the dock composer passes a no-arg
   // handler and the JS extra argument is dropped).
   onSubmitSuccess: (newArgumentId?: string) => void,
+  // UX-COMPOSER-005 (#831) — fires AFTER a successful post when the draft
+  // carried a woven callback, so the shell can create the QOL-042 room link
+  // (ruling R6, post-success ordering). Additive-optional: absent => no-op and
+  // the submit flow is byte-identical.
+  onCallbackPosted?: (callback: CrossRoomCallback, newArgumentId?: string) => void,
 ): UseEntryComposerSubmitResult {
   const { state, dispatch } = useAppSession();
   const userId = state.snapshot.userId;
@@ -50,6 +56,9 @@ export function useEntryComposerSubmit(
     async (draft: ComposerDraft) => {
       if (!draft || !draft.argumentType || !draft.side) return;
       if (isSubmitting) return;
+
+      // #831 — capture the woven callback BEFORE the draft is cleared on success.
+      const postedCallback = draft.pendingCallback ?? null;
 
       const fingerprint = createSubmissionFingerprint(draft);
       const clientSubmissionId = getOrCreateClientSubmissionId(pendingSubmission, fingerprint);
@@ -82,6 +91,11 @@ export function useEntryComposerSubmit(
         // marker to it. undefined when the Edge omits it (older payloads).
         const newArgumentId = (result.data.argument as { id?: string })?.id;
         onSubmitSuccess(newArgumentId);
+        // #831 — fire the post-success callback link hook only when this move
+        // actually carried a woven callback (ruling R6).
+        if (postedCallback && onCallbackPosted) {
+          onCallbackPosted(postedCallback, newArgumentId);
+        }
       } else {
         const errorMsg = extractServerValidationError(result.error);
         dispatch({ type: 'SUBMISSION_FAILED', clientSubmissionId, error: errorMsg });
@@ -93,7 +107,7 @@ export function useEntryComposerSubmit(
         }
       }
     },
-    [dispatch, isSubmitting, onSubmitSuccess, pendingSubmission, userId],
+    [dispatch, isSubmitting, onCallbackPosted, onSubmitSuccess, pendingSubmission, userId],
   );
 
   return { submit, isSubmitting, serverErrors };
