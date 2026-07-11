@@ -224,6 +224,8 @@ import { deriveArgumentStateRail } from './argumentStateRailModel';
 import { useChimeInContributions } from '../../debates/useChimeInContributions';
 import { deriveChimeInContributionState } from '../../debates/chimeInContributionModel';
 import { ChimeInGovernanceSurface } from '../../debates/ChimeInGovernanceSurface';
+import { ChimeInAffordance } from '../../debates/ChimeInAffordance';
+import { attachChimeIn, retractChimeIn } from '../../debates/chimeInApi';
 import type { RoomContractViewModel } from '../../debates/roomContractModel';
 import type { PersistedPointTag, MachineObservationResultRow } from '../types';
 import {
@@ -1002,6 +1004,41 @@ export function ArgumentRoom({
   const chimeInState = useMemo(
     () => deriveChimeInContributionState(chimeInContributions.rows),
     [chimeInContributions.rows],
+  );
+  // CHIMEIN-P8 Round 2 (#761) — the affordance candidate (the active message when
+  // it is the viewer OWN point-scoped reply) + the attach/retract handlers (the
+  // chimeInApi call, then a refetch so the seat count + marker converge). Flag off
+  // => chimeInCandidate is null and the affordance renders nothing.
+  const [chimeInBusy, setChimeInBusy] = useState(false);
+  const chimeInCandidate = useMemo(() => {
+    if (!chimeInEnabled || !activeMessageId) return null;
+    const msg = sorted.find((m) => m.id === activeMessageId);
+    if (!msg) return null;
+    return { argumentId: msg.id, parentId: msg.parentId ?? null, authorId: msg.authorId ?? null };
+  }, [chimeInEnabled, activeMessageId, sorted]);
+  const handleChimeInAttach = useCallback(
+    async (input: { argumentId: string; targetArgumentId: string }) => {
+      setChimeInBusy(true);
+      try {
+        const res = await attachChimeIn(input);
+        if (res.ok) await chimeInContributions.refetch();
+      } finally {
+        setChimeInBusy(false);
+      }
+    },
+    [chimeInContributions],
+  );
+  const handleChimeInRetract = useCallback(
+    async (input: { argumentId: string }) => {
+      setChimeInBusy(true);
+      try {
+        const res = await retractChimeIn(input);
+        if (res.ok) await chimeInContributions.refetch();
+      } finally {
+        setChimeInBusy(false);
+      }
+    },
+    [chimeInContributions],
   );
   // The ONE aggregate derivation both ambient surfaces consume. Null when off.
   const moveMarkAggregate = useMemo(
@@ -2937,6 +2974,25 @@ export function ArgumentRoom({
               viewerUserId={currentUserId ?? null}
             />
           ) : null}
+          {/* CHIMEIN-P8 Round 2 (#761) clause 1 — the flag-gated "Chime in on this
+              point" affordance on the viewer OWN active reply (attach/retract).
+              Flag off / observer / private / principal / someone else move / no
+              open seat => renders null (byte-identical). */}
+          {chimeInEnabled ? (
+            <ChimeInAffordance
+              chimeInEnabled={chimeInEnabled}
+              roomVisibility={roomVisibility ?? null}
+              viewerUserId={currentUserId ?? null}
+              viewerParticipantSide={participantSide ?? null}
+              initiatorUserId={roomContract?.initiatorSeat.userId ?? null}
+              primaryOpponentUserId={roomContract?.opponentSeat.userId ?? null}
+              candidate={chimeInCandidate}
+              contributions={chimeInContributions.rows}
+              onAttach={handleChimeInAttach}
+              onRetract={handleChimeInRetract}
+              busy={chimeInBusy}
+            />
+          ) : null}
           {/* UX-001.2 — microMoment banner. Repositioned out of the old
               ArgumentGameSurface.header (which was deleted) so it now sits
               directly under the AppHeader + compact strip. The banner is
@@ -3599,6 +3655,13 @@ export function ArgumentRoom({
             // point id (dodge_chain / talking_past). Empty when the flag is off
             // => byte-identical; never reorders or re-derives the board.
             advisoryOverlayByPointId={mediatorAdvisoryOverlay}
+            // CHIMEIN-P8 Round 2 (#761) — feed the contributionKind='chime_in'
+            // marker from the loaded chime rows (keyed by the chime CONTENT
+            // argument id = the anchor node). Undefined when the flag is off =>
+            // no marker on any row => byte-identical rail.
+            contributionKindByNodeId={
+              chimeInEnabled ? chimeInState.contributionKindByArgumentId : undefined
+            }
             // VISUAL-SIMPLIFY-002 — the rail is summoned expanded (the user asked
             // for it). On the phone sheet this opens it immediately rather than
             // as a second collapsed pill; on the tablet/wide pane it is the
