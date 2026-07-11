@@ -45,6 +45,10 @@ import type { MarkerRow } from '../markers/timestampMarkerModel';
 // FEEDBACK-001 (#898) — ghost feedback bar props passed straight through to the
 // Ringside feed (all additive optional; absent when move_marks is off).
 import type { MoveMarkCode, ViewerMoveMarkState } from '../../feedback/moveMarksModel';
+// QUOTE-FORGE-002 (#842) — the woven-callback echo VM, passed straight to the
+// active Stack card + the Ringside cards (all additive optional; absent when
+// quote_forge is off => byte-identical).
+import type { CallbackEchoViewModel } from '../crossRoom/callbackEchoModel';
 
 export interface ExchangeViewProps {
   // ArgumentBubbleStack core inputs (forwarded verbatim).
@@ -96,6 +100,11 @@ export interface ExchangeViewProps {
   showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
   onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
   onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  // QUOTE-FORGE-002 (#842) — the active-card woven-callback echo (for the Stack)
+  // and the open-prior-room nav (for both the Stack echo and the Ringside cards).
+  // Absent / null when quote_forge is off => byte-identical.
+  activeCallbackEcho?: CallbackEchoViewModel | null;
+  onOpenPriorRoom?: (targetDebateId: string) => void;
 }
 
 /**
@@ -133,6 +142,7 @@ export function ExchangeView(props: ExchangeViewProps) {
         showMoveMarkReceiptsFor={props.showMoveMarkReceiptsFor}
         onMarkMove={props.onMarkMove}
         onUnmarkMove={props.onUnmarkMove}
+        onOpenPriorRoom={props.onOpenPriorRoom}
       />
     );
   }
@@ -182,6 +192,11 @@ export function ExchangeView(props: ExchangeViewProps) {
               // card as the single calm standing surface in the collapsed
               // default. Same derivation the timeline-path flag row consumes.
               pointFeedbackFlags={props.pointFeedbackFlags}
+              // QUOTE-FORGE-002 (#842) — the active-card woven-callback echo
+              // banner + its open-prior-room nav. Null when the active card is
+              // not a callback (or quote_forge off) => byte-identical stack.
+              activeCallbackEcho={props.activeCallbackEcho}
+              onOpenPriorRoom={props.onOpenPriorRoom}
             />
             {/* Stage 6.4: legacy chip cluster is hidden in observer mode;
                 the action rail below is the single entry point for both

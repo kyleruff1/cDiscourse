@@ -63,6 +63,19 @@ import { isMoveMarksEnabled } from './src/lib/featureFlags';
 // (the featureFlagsStaticEnv pin matches the isHomeV2Enabled import EXACTLY, so this
 // accessor must not merge into that specifier list); no src/features file imports it.
 import { isDerivedSignalsEnabled } from './src/lib/featureFlags';
+// UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — the ONE quote_forge read. App
+// reads it and threads the boolean + the composer-side callback handlers down. No
+// src/features file imports the registry. SEPARATE import line by design (the
+// featureFlagsStaticEnv pin matches the isHomeV2Enabled import EXACTLY).
+import { isQuoteForgeEnabled } from './src/lib/featureFlags';
+import { useCallbackInsertion } from './src/features/arguments/crossRoom/useCallbackInsertion';
+import { LinkTargetPickerSheet } from './src/features/arguments/crossRoom/LinkTargetPickerSheet';
+import { CallbackCaptureSheet } from './src/features/arguments/crossRoom/CallbackCaptureSheet';
+import { canCreatePriorLink } from './src/features/arguments/crossRoom/linkTargetPickerModel';
+import { CALLBACK_COMPOSER_COPY } from './src/features/arguments/crossRoom/callbackComposerCopy';
+import type { CrossRoomCallback } from './src/features/arguments/crossRoom/crossRoomCallbackRef';
+import { updateDraftField } from './src/features/arguments/composerHelpers';
+import { sessionToDraft, draftToSession } from './src/features/arguments/composerState';
 import { ProofDrawer, attachProof, detachProof } from './src/features/proof';
 // MARK-002 (#894) — the narrow create-marker client seam + the pending scope type.
 import { createMarkerScoped } from './src/features/arguments/markers/createMarkerApi';
@@ -626,6 +639,11 @@ function MainAppShell({
   // derived-signal advisory surfaces (Inspect active-node lines + mediator rail
   // overlay). OFF => the derivation returns empty => both surfaces byte-identical.
   const derivedSignalsEnabled = isDerivedSignalsEnabled();
+  // UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — default OFF. Gates the
+  // composer-side weave affordance + draft echo AND the rendered-node echo. OFF
+  // => no Callback slot, no crossRoomCallback key in the submit payload, no echo
+  // chrome (byte-identical surfaces + payload).
+  const quoteForgeEnabled = isQuoteForgeEnabled();
   const { width: proofDrawerWidth, height: proofDrawerHeight } = useWindowDimensions();
   const [proofDrawerScope, setProofDrawerScope] = useState<ProofDrawerScope | null>(null);
   // MARK-002 — the pending marker scope (a picked phrase) during composition. The
@@ -645,9 +663,55 @@ function MainAppShell({
   // never sets this except via the gallery-toolbar "See how it works" trigger.
   const [demoCorridorOpen, setDemoCorridorOpen] = useState(false);
   const refreshTreeRef = useRef<(() => void) | null>(null);
+  // UX-COMPOSER-005 (#831) — the room shell registers its linkedPrior refresh
+  // here so a post-submit callback-link create reloads the chips (so the #842
+  // echo resolves). Only invoked on the quote_forge path.
+  const refreshLinkedPriorRef = useRef<(() => void) | null>(null);
+  // UX-COMPOSER-005 (#831) — a callback whose room-link create failed after the
+  // move posted; drives the non-blocking retry notice (failure matrix). Null =>
+  // no notice.
+  const [callbackLinkRetry, setCallbackLinkRetry] = useState<CrossRoomCallback | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
+  // UX-COMPOSER-005 (#831) — write the woven callback onto the shared session
+  // activeDraft (never a second useArgumentComposer mount). The entry composer
+  // reads draft.pendingCallback for its echo + the submit payload.
+  const setPendingCallbackOnDraft = React.useCallback(
+    (callback: CrossRoomCallback | null) => {
+      const active = state.snapshot.activeDraft;
+      if (!active || !currentDebate || active.debateId !== currentDebate.id) return;
+      const patched = updateDraftField(sessionToDraft(active), { pendingCallback: callback });
+      dispatch({ type: 'DRAFT_UPDATED', patch: draftToSession(patched) });
+    },
+    [state.snapshot.activeDraft, currentDebate, dispatch],
+  );
+  // UX-COMPOSER-005 (#831) — the composer-side callback capture flow (room picker
+  // -> line capture -> write pendingCallback). Self-contained caller-scoped reads;
+  // no service-role. Mounted unconditionally (guards on an empty sourceDebateId);
+  // the picker + capture sheets only render when quote_forge is on.
+  const callbackInsertion = useCallbackInsertion({
+    sourceDebateId: currentDebate?.id ?? '',
+    currentUserId: state.snapshot.userId,
+    setPendingCallback: setPendingCallbackOnDraft,
+  });
+  // UX-COMPOSER-005 (#831) — post-submit-success room-link create (R6). On success
+  // reload the tree chips so the #842 echo resolves; on a transient failure surface
+  // the non-blocking retry notice (the echo degrades to unavailable until retried).
+  const handleCallbackPosted = React.useCallback(
+    async (callback: CrossRoomCallback) => {
+      const result = await callbackInsertion.postCallbackLink(callback);
+      refreshLinkedPriorRef.current?.();
+      refreshTreeRef.current?.();
+      if (result.ok) {
+        setCallbackLinkRetry(null);
+      } else {
+        setCallbackLinkRetry(callback);
+        AccessibilityInfo.announceForAccessibility(CALLBACK_COMPOSER_COPY.linkAttachFailed);
+      }
+    },
+    [callbackInsertion],
+  );
   const galleryArgs = useGalleryArguments(debates.map((d) => d.id));
   // INTEL-001 (#900) — gated batched gallery move-marks read for the dodge-chain
   // heat feed. moveMarksEnabled OFF => no read => {} => gallery heat byte-identical.
@@ -1398,6 +1462,11 @@ function MainAppShell({
               // QUOTE-FORGE-001 — open a referenced prior settled argument
               // room. Reuses the existing deep-link mechanism.
               onOpenPriorRoom={handleOpenPriorRoom}
+              // UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — the quote_forge
+              // gate + the linkedPrior refresh registration. OFF => the room shell
+              // derives no echo map (byte-identical surfaces).
+              quoteForgeEnabled={quoteForgeEnabled}
+              refreshLinkedPriorRef={refreshLinkedPriorRef}
             />
 
             {/* COMPOSER-002 — in-room composer dock. Overlays the room
@@ -1447,7 +1516,60 @@ function MainAppShell({
                 // the flag is off or no phrase is scoped => byte-identical bar.
                 scopedMarker={timestampRebuttalsEnabled ? pendingMarkerScope : null}
                 onClearScopedMarker={timestampRebuttalsEnabled ? handleClearScopedMarker : undefined}
+                // UX-COMPOSER-005 (#831) — the Callback slot opener + the post-success
+                // room-link create. Both undefined when quote_forge is off => the bar
+                // renders no Callback slot / draft echo (byte-identical).
+                onInsertCallback={quoteForgeEnabled ? callbackInsertion.openInsertion : undefined}
+                onCallbackPosted={quoteForgeEnabled ? handleCallbackPosted : undefined}
               />
+            ) : null}
+
+            {/* UX-COMPOSER-005 (#831) — the callback capture flow overlays: the
+                reused room picker (repurposed to SELECT a prior room, no link
+                created at pick time — R6) then the verbatim line-capture sheet.
+                Behind quote_forge AND a live room; OFF => never mounted
+                (byte-identical). */}
+            {quoteForgeEnabled && currentDebate ? (
+              <>
+                <LinkTargetPickerSheet
+                  visible={callbackInsertion.pickerOpen}
+                  model={callbackInsertion.pickerModel}
+                  loadingCandidates={callbackInsertion.pickerLoading}
+                  canCreate={canCreatePriorLink(participantSide)}
+                  onCreate={async (candidate) => {
+                    callbackInsertion.pickRoom(candidate);
+                    return { ok: true };
+                  }}
+                  onClose={callbackInsertion.closePicker}
+                  reduceMotionOverride={preferences.effectiveReduceMotion}
+                />
+                <CallbackCaptureSheet
+                  visible={callbackInsertion.captureOpen}
+                  roomTitle={callbackInsertion.captureRoomTitle}
+                  loading={callbackInsertion.captureLoading}
+                  locked={callbackInsertion.captureLocked}
+                  moves={callbackInsertion.captureMoves}
+                  reduceMotion={preferences.effectiveReduceMotion}
+                  onCapture={callbackInsertion.captureLine}
+                  onClose={callbackInsertion.closeCapture}
+                />
+                {callbackLinkRetry ? (
+                  <View style={styles.callbackRetryBanner} accessibilityLiveRegion="polite">
+                    <Text style={styles.callbackRetryText}>{CALLBACK_COMPOSER_COPY.linkAttachFailed}</Text>
+                    <Pressable
+                      onPress={() => handleCallbackPosted(callbackLinkRetry)}
+                      accessibilityRole="button"
+                      accessibilityLabel={CALLBACK_COMPOSER_COPY.linkAttachRetryLabel}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={styles.callbackRetryButton}
+                    >
+                      <Text style={styles.callbackRetryButtonText}>
+                        {CALLBACK_COMPOSER_COPY.linkAttachRetryLabel}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </>
             ) : null}
 
             {/* PROOF-002 (#889) — the source drawer, mounted as a sibling of the
@@ -1508,6 +1630,27 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  // UX-COMPOSER-005 (#831) — the non-blocking callback link-retry notice.
+  callbackRetryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#1e293b',
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  callbackRetryText: { flex: 1, color: '#e2e8f0', fontSize: 13 },
+  callbackRetryButton: {
+    minHeight: 44,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#334155',
+  },
+  callbackRetryButtonText: { color: '#f8fafc', fontSize: 13, fontWeight: '700' },
   // BRAND-001 — `surface.app` (#08060F) is the global app backdrop that
   // matches the CivilDiscourse logo's black field. `surface.appElevated`
   // is the one-step-up tone for cards / rails / sidecar.
