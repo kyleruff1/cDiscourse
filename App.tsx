@@ -68,6 +68,11 @@ import { isDerivedSignalsEnabled } from './src/lib/featureFlags';
 // src/features file imports the registry. SEPARATE import line by design (the
 // featureFlagsStaticEnv pin matches the isHomeV2Enabled import EXACTLY).
 import { isQuoteForgeEnabled } from './src/lib/featureFlags';
+// UX-FLAGS-004 (#836) — the ONE feedback_flag_intents read. App reads it and
+// threads the boolean down; no src/features file imports the registry. SEPARATE
+// import line by design (the featureFlagsStaticEnv pin matches the isHomeV2Enabled
+// import EXACTLY).
+import { isFeedbackFlagIntentsEnabled } from './src/lib/featureFlags';
 import { useCallbackInsertion } from './src/features/arguments/crossRoom/useCallbackInsertion';
 import { LinkTargetPickerSheet } from './src/features/arguments/crossRoom/LinkTargetPickerSheet';
 import { CallbackCaptureSheet } from './src/features/arguments/crossRoom/CallbackCaptureSheet';
@@ -644,6 +649,10 @@ function MainAppShell({
   // => no Callback slot, no crossRoomCallback key in the submit payload, no echo
   // chrome (byte-identical surfaces + payload).
   const quoteForgeEnabled = isQuoteForgeEnabled();
+  // UX-FLAGS-004 (#836) — default OFF. Threaded into ArgumentTreeScreen; gates the
+  // tappability of the point feedback-flag pills. OFF => onFlagIntent stays
+  // undefined at every mount => pills byte-identical to today (non-tappable).
+  const feedbackFlagIntentsEnabled = isFeedbackFlagIntentsEnabled();
   const { width: proofDrawerWidth, height: proofDrawerHeight } = useWindowDimensions();
   const [proofDrawerScope, setProofDrawerScope] = useState<ProofDrawerScope | null>(null);
   // MARK-002 — the pending marker scope (a picked phrase) during composition. The
@@ -901,6 +910,26 @@ function MainAppShell({
   const handleReply = (argumentId: string, argument: ArgumentRow) => {
     setReplyTarget({ id: argumentId, argument });
     setComposerOpen(true);
+  };
+
+  // UX-FLAGS-004 (#836) — seed-if-empty guard (design Decision 8, composer-closed
+  // fallback). Every seeded composer preset (rail ask-source, Act, SC-004 dock,
+  // validation chip, and now a feedback-flag intent) routes through this one seam.
+  // When the dock is already OPEN the user may be mid-typing for the active
+  // target, so we never overwrite their body: strip preset.body and keep the type
+  // / tag fields. A CLOSED dock opens onto a fresh draft, so the seed is safe and
+  // byte-identical to today. App holds no draft registry (it lives inside the
+  // composer hook), so the design registry read is not reachable here; this is its
+  // sanctioned composer-closed fallback, and it keeps the flag tap behaving
+  // exactly like the rail Ask-source tap.
+  const handleComposerPreset = (preset: MoveDraftPatch | null) => {
+    if (preset && composerOpen && typeof preset.body === 'string') {
+      const withoutBody: MoveDraftPatch = { ...preset };
+      delete withoutBody.body;
+      setComposerPreset(withoutBody);
+      return;
+    }
+    setComposerPreset(preset);
   };
 
   const handleClearParent = () => {
@@ -1384,7 +1413,9 @@ function MainAppShell({
               onReply={handleReply}
               refreshRef={refreshTreeRef}
               viewMode={viewMode}
-              onComposerPreset={setComposerPreset}
+              // UX-FLAGS-004 (#836) — the seed-if-empty guard wraps the raw
+              // setComposerPreset so no seeded preset overwrites a mid-typed draft.
+              onComposerPreset={handleComposerPreset}
               entryHint={entryHint}
               participantSide={participantSide}
               // ROOM-001 (#876) — ambient state rail wiring. All additive and
@@ -1413,6 +1444,10 @@ function MainAppShell({
               // Flag OFF => the derivation returns empty, so the Inspect advisory
               // lines + mediator rail overlay render nothing (byte-identical).
               derivedSignalsEnabled={derivedSignalsEnabled}
+              // UX-FLAGS-004 (#836) — the feedback-flag pill tappability gate.
+              // Flag OFF => onFlagIntent stays undefined at every mount, so the
+              // pills render byte-identically to today (non-tappable, role text).
+              feedbackFlagIntentsEnabled={feedbackFlagIntentsEnabled}
               // PR-001 — thread the user's visual-density preference into
               // the timeline map (drives VG-004's resolveNodeGapPx) and
               // the reduce-motion override (OS value composed with the

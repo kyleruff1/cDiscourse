@@ -143,6 +143,8 @@ interface Props {
   moveMarksEnabled?: boolean;
   /** FEEDBACK-002 (#899) — pass-through gate for the derived-signal advisory surfaces; forwarded verbatim to ArgumentRoom. */
   derivedSignalsEnabled?: boolean;
+  /** UX-FLAGS-004 (#836) — pass-through gate for feedback-flag pill tappability; forwarded verbatim to ArgumentRoom. */
+  feedbackFlagIntentsEnabled?: boolean;
   /**
    * UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — quote_forge gate. When on,
    * the room shell derives the per-move callback echo map (from the move refs +
@@ -159,7 +161,7 @@ interface Props {
   refreshLinkedPriorRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled, feedbackFlagIntentsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: Props) {
   const {
     cache,
     viewport,
@@ -232,6 +234,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         onMarkerScopePicked={onMarkerScopePicked}
         moveMarksEnabled={moveMarksEnabled}
         derivedSignalsEnabled={derivedSignalsEnabled}
+        feedbackFlagIntentsEnabled={feedbackFlagIntentsEnabled}
         quoteForgeEnabled={quoteForgeEnabled}
         refreshLinkedPriorRef={refreshLinkedPriorRef}
       />
@@ -400,13 +403,15 @@ interface FullRoomGameSurfaceMountProps {
   moveMarksEnabled?: boolean;
   /** FEEDBACK-002 (#899) — derived-signal advisory surfaces gate; forwarded to ArgumentRoom. */
   derivedSignalsEnabled?: boolean;
+  /** UX-FLAGS-004 (#836) — feedback-flag pill tappability gate; forwarded to ArgumentRoom. */
+  feedbackFlagIntentsEnabled?: boolean;
   /** UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — quote_forge gate. */
   quoteForgeEnabled?: boolean;
   /** UX-COMPOSER-005 (#831) — register linkedPrior.refresh for post-link-create reloads. */
   refreshLinkedPriorRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled, feedbackFlagIntentsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -724,6 +729,10 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         // the derivation returns empty, so the Inspect advisory lines + mediator
         // rail overlay render nothing (byte-identical).
         derivedSignalsEnabled={derivedSignalsEnabled}
+        // UX-FLAGS-004 (#836) — feedback-flag pill tappability gate. Flag OFF =>
+        // onFlagIntent stays undefined at both flag-row mounts, so the pills
+        // render byte-identically to today (non-tappable, role text).
+        feedbackFlagIntentsEnabled={feedbackFlagIntentsEnabled}
       />
       {/* QUOTE-FORGE-001 — the create-link picker sheet. On-demand overlay
           opened from the timeline-header affordance; caller-scoped create
