@@ -30,6 +30,7 @@ import {
   isDerivedSignalsEnabled,
   isQuoteForgeEnabled,
   isFeedbackFlagIntentsEnabled,
+  isChimeInEnabled,
   resolveAspFeatureFlag,
   ASP_FEATURE_FLAGS,
   HOME_V2_FLAG,
@@ -42,6 +43,7 @@ import {
   DERIVED_SIGNALS_FLAG,
   QUOTE_FORGE_FLAG,
   FEEDBACK_FLAG_INTENTS_FLAG,
+  CHIME_IN_FLAG,
   type AspFeatureFlag,
 } from '../src/lib/featureFlags';
 
@@ -70,6 +72,7 @@ const FLAG_CASES: FlagCase[] = [
     envName: FEEDBACK_FLAG_INTENTS_FLAG,
     accessor: isFeedbackFlagIntentsEnabled,
   },
+  { key: 'chime_in', envName: CHIME_IN_FLAG, accessor: isChimeInEnabled },
 ];
 
 const ALL_ENV_NAMES = FLAG_CASES.map((c) => c.envName);
@@ -102,7 +105,7 @@ describe('featureFlags — flag env names', () => {
     }
   });
 
-  it('exposes exactly the ten expected env-name literals', () => {
+  it('exposes exactly the eleven expected env-name literals', () => {
     expect(ALL_ENV_NAMES).toEqual([
       'EXPO_PUBLIC_HOME_V2',
       'EXPO_PUBLIC_ROOM_EXCHANGE_V2',
@@ -114,6 +117,7 @@ describe('featureFlags — flag env names', () => {
       'EXPO_PUBLIC_DERIVED_SIGNALS',
       'EXPO_PUBLIC_QUOTE_FORGE',
       'EXPO_PUBLIC_FEEDBACK_FLAG_INTENTS',
+      'EXPO_PUBLIC_CHIME_IN',
     ]);
   });
 });
@@ -173,6 +177,10 @@ describe('featureFlags — exact "true" enables (via process.env static read)', 
     process.env.EXPO_PUBLIC_FEEDBACK_FLAG_INTENTS = 'true';
     expect(isFeedbackFlagIntentsEnabled()).toBe(true);
   });
+  it('EXPO_PUBLIC_CHIME_IN === "true" enables chime_in', () => {
+    process.env.EXPO_PUBLIC_CHIME_IN = 'true';
+    expect(isChimeInEnabled()).toBe(true);
+  });
 });
 
 describe('featureFlags — runtime-env shim override', () => {
@@ -223,10 +231,11 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       derived_signals: isDerivedSignalsEnabled(),
       quote_forge: isQuoteForgeEnabled(),
       feedback_flag_intents: isFeedbackFlagIntentsEnabled(),
+      chime_in: isChimeInEnabled(),
     };
   }
 
-  it('setting one flag ON via process.env leaves the other nine OFF', () => {
+  it('setting one flag ON via process.env leaves the other ten OFF', () => {
     process.env.EXPO_PUBLIC_HOME_V2 = 'true';
     const all = readAll();
     expect(all).toEqual({
@@ -240,10 +249,11 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       derived_signals: false,
       quote_forge: false,
       feedback_flag_intents: false,
+      chime_in: false,
     });
   });
 
-  it('setting a different single flag ON via the shim leaves the other nine OFF', () => {
+  it('setting a different single flag ON via the shim leaves the other ten OFF', () => {
     mockReadRuntimeEnv.mockReturnValue({ [MOVE_MARKS_FLAG]: 'true' });
     const all = readAll();
     expect(all).toEqual({
@@ -257,7 +267,17 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       derived_signals: false,
       quote_forge: false,
       feedback_flag_intents: false,
+      chime_in: false,
     });
+  });
+
+  it('setting the chime_in flag ON leaves the other ten OFF', () => {
+    mockReadRuntimeEnv.mockReturnValue({ [CHIME_IN_FLAG]: 'true' });
+    const all = readAll();
+    expect(all.chime_in).toBe(true);
+    expect(Object.entries(all).filter(([k]) => k !== 'chime_in').every(([, v]) => v === false)).toBe(
+      true,
+    );
   });
 });
 
@@ -273,9 +293,10 @@ describe('featureFlags — registry + dispatcher', () => {
     expect(resolveAspFeatureFlag('home_v2')).toBe(isHomeV2Enabled());
   });
 
-  it('ASP_FEATURE_FLAGS has exactly the ten expected keys', () => {
+  it('ASP_FEATURE_FLAGS has exactly the eleven expected keys', () => {
     expect(Object.keys(ASP_FEATURE_FLAGS).sort()).toEqual(
       [
+        'chime_in',
         'derived_signals',
         'feedback_flag_intents',
         'home_v2',

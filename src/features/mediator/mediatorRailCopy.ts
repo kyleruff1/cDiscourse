@@ -34,10 +34,12 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
    */
   totalSuffix: 'total',
   /**
-   * UX-MEDIATOR-005 — dormant contribution marker (rendered ONLY when a point's
-   * `anchor.contributionKind === 'chime_in'`; no such data ships today, see
-   * Finding B). A contribution label, NEVER a state, verdict, or third
-   * principal voice. The chime-in DATA is owned by UX-ROOM-1V1-CHIMEIN-001.
+   * UX-MEDIATOR-005 — contribution marker (rendered ONLY when a point anchor is a
+   * chime-in). As of CHIMEIN-P8 Round 2 (#761) the chime-in DATA ships: ArgumentRoom
+   * feeds `DisagreementPointsRail.contributionKindByNodeId` from the loaded
+   * chime_in_contributions rows when the chime_in flag is on (byte-identical, no
+   * marker, when off / no data). A contribution label, NEVER a state, verdict, or
+   * third principal voice.
    */
   chimeInMarker: '↳ chime-in',
   /** Marks the point anchored to the currently-active timeline node. */

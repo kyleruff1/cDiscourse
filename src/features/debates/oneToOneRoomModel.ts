@@ -130,6 +130,17 @@ export interface RoomOneToOneDisplayInput {
    * `public_principal_voices_established` (no chime classification).
    */
   openChimeInSeatCount?: number | null;
+  /**
+   * CHIMEIN-P8 Round 2 (#761) — whether the chime-in contribution surface is
+   * ACTIVE (the `chime_in` feature flag, threaded from App.tsx as a prop). Default
+   * `false` / absent keeps `chimeAffordanceVisible` hardcoded-false, so every
+   * pre-Round-2 caller and test is byte-identical. When `true` AND the room is
+   * public AND established with an open chime seat
+   * (`public_chime_in_available_dormant`), `chimeAffordanceVisible` becomes true —
+   * the "flip ONE boolean" the shipped `:234` comment reserved. It NEVER changes
+   * the display `state`, only whether the affordance MAY render.
+   */
+  chimeInActivationEnabled?: boolean | null;
 }
 
 // ── chimeInAllowed guard (design §5.3) ──────────────────────────
@@ -227,9 +238,13 @@ export interface RoomOneToOneViewModel {
   /** The one-line under-label, or '' when the state has none / is unknown. */
   subcopy: string;
   /**
-   * Whether a chime affordance may render. ALWAYS false in this card (controls
-   * are dormant); ALWAYS false for a private room (guard). Present so the
-   * GATE-C card flips ONE boolean rather than re-deriving the guard.
+   * Whether a chime affordance may render. Pre-Round-2 (and whenever the
+   * `chimeInActivationEnabled` input is absent / false) this is ALWAYS false —
+   * the dormant GATE-C posture. CHIMEIN-P8 Round 2 (#761) computes it: true ONLY
+   * when the chime-in flag is active AND the room is public (the private-room
+   * guard) AND established with an open chime seat
+   * (`public_chime_in_available_dormant`). ALWAYS false for a private room. It is
+   * a "may render" gate, never a verdict and never the display state.
    */
   chimeAffordanceVisible: boolean;
 }
@@ -274,12 +289,21 @@ export function buildRoomOneToOneViewModel(
       break;
   }
 
+  // CHIMEIN-P8 Round 2 (#761) — the "flip ONE boolean" the shipped :234 comment
+  // reserved. Default (activation absent / false) keeps this hardcoded-false, so
+  // every pre-Round-2 caller and test is byte-identical. When the chime-in flag is
+  // active the affordance MAY render only in the established-with-open-chime-seats
+  // public state; a private room stays guarded (chimeInAllowed is public-only).
+  const chimeAffordanceVisible =
+    input.chimeInActivationEnabled === true &&
+    chimeInAllowed(input.visibility) &&
+    state === 'public_chime_in_available_dormant';
+
   return Object.freeze({
     state,
     label,
     subcopy,
-    // Dormant in this card AND guarded for private rooms.
-    chimeAffordanceVisible: false,
+    chimeAffordanceVisible,
   });
 }
 

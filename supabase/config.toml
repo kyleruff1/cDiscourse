@@ -603,6 +603,22 @@ verify_jwt = true
 [functions.mark-move]
 verify_jwt = true
 
+# CHIMEIN-P8 Round 2 (#761) — chime-in. The SOLE server-authoritative writer for
+# the SELECT-only chime_in_contributions table. verify_jwt = true; the function
+# ALSO validates the JWT via createCallerClient + getUser (defense-in-depth) to
+# resolve the caller id, then enforces author-scope + point-scope + public-only +
+# the cap (the partial UNIQUE on active (debate_id, seat_index) is the atomic
+# guard) BEFORE the service-role insert. The chime CONTENT is an ordinary argument
+# through the byte-identical submit-argument gate FIRST; this function only records
+# the marker post-storage — it never blocks/re-gates a post, never writes
+# debate_participants, never inserts public.arguments, never touches point
+# standing. A chime-in is a bounded contribution, never a third principal voice,
+# never a node structural state. Registration here is what makes it auto-deploy on
+# merge (the Supabase GitHub integration keys off the root [functions.*] blocks) —
+# the #509 hazard.
+[functions.chime-in]
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

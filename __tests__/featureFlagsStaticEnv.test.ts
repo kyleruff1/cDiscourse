@@ -47,6 +47,8 @@ const STATIC_FLAG_LITERALS = [
   'process.env.EXPO_PUBLIC_QUOTE_FORGE',
   // UX-FLAGS-004 (#836) — the 10th ASP flag; static dot read for web inlining.
   'process.env.EXPO_PUBLIC_FEEDBACK_FLAG_INTENTS',
+  // CHIMEIN-P8 Round 2 (#761) — the 11th ASP flag; static dot read for web inlining.
+  'process.env.EXPO_PUBLIC_CHIME_IN',
 ];
 
 /** Recursively collect all `.ts` / `.tsx` source under a directory. */
@@ -120,5 +122,13 @@ describe('ASP-FLAGS-001 (#873) / HOME-001 (#874) — feature-flag consumer allow
     // App.tsx reads exactly the HOME-001 accessor from the registry.
     expect(appSource).toMatch(/import\s+\{\s*isHomeV2Enabled\s*\}\s+from\s+['"]\.\/src\/lib\/featureFlags['"]/);
     expect(appSource).toContain('isHomeV2Enabled()');
+  });
+
+  it('App.tsx reads the CHIMEIN-P8 chime_in accessor via its own separate import line', () => {
+    const appSource = fs.readFileSync(path.join(ROOT, 'App.tsx'), 'utf8');
+    // Separate import line by design (the featureFlagsStaticEnv pin matches the
+    // isHomeV2Enabled import EXACTLY, so this accessor must not merge into it).
+    expect(appSource).toMatch(/import\s+\{\s*isChimeInEnabled\s*\}\s+from\s+['"]\.\/src\/lib\/featureFlags['"]/);
+    expect(appSource).toContain('isChimeInEnabled()');
   });
 });

@@ -88,22 +88,28 @@ function v4RowBadgeLabel(point: DisagreementPoint): string {
 }
 
 /**
- * UX-MEDIATOR-005 (O-4a / Finding B) — the dormant chime-in contribution marker.
+ * UX-MEDIATOR-005 (O-4a / Finding B) — the chime-in contribution marker.
  *
- * The shipped board carries NO chime-in / principal / contribution data — that
- * model is owned by UX-ROOM-1V1-CHIMEIN-001 (not yet shipped). This card ships
- * only the RENDER SLOT: the row reads an OPTIONAL `contributionKind` from the
- * anchor without adding a field to `PointAnchor` (the producer can't fill it
- * yet). With no such data, every row returns false → no marker renders. We NEVER
- * synthesize the marker from absent data (doctrine §4 — observation-driven).
+ * The shipped board carries no chime-in data on the anchor itself. CHIMEIN-P8
+ * Round 2 (#761) FEEDS this render slot from the loaded chime_in_contributions
+ * rows via the `contributionKindByNodeId` adapter map (keyed by the anchor node =
+ * the chime CONTENT argument id), supplied by ArgumentRoom ONLY when the chime_in
+ * flag is on. With no map (flag off / no data) every row returns false → no marker
+ * renders, byte-identical to before. We NEVER synthesize the marker from absent
+ * data (doctrine §4 — observation-driven). The `anchor.contributionKind` field is
+ * also honored for a future producer that fills the anchor directly.
  */
 interface PointAnchorWithContribution extends PointAnchor {
-  /** OPTIONAL, dormant — supplied later by UX-ROOM-1V1-CHIMEIN-001 / its adapter. */
+  /** OPTIONAL — an anchor a future producer marks directly; the adapter map is the Round-2 path. */
   contributionKind?: 'principal' | 'chime_in';
 }
 
-function isChimeInAnchor(anchor: PointAnchor): boolean {
-  return (anchor as PointAnchorWithContribution).contributionKind === 'chime_in';
+function isChimeInAnchor(
+  anchor: PointAnchor,
+  contributionKindByNodeId?: Readonly<Record<string, 'chime_in'>>,
+): boolean {
+  if ((anchor as PointAnchorWithContribution).contributionKind === 'chime_in') return true;
+  return contributionKindByNodeId?.[anchor.nodeId] === 'chime_in';
 }
 
 export interface DisagreementPointsRailProps {
@@ -148,6 +154,14 @@ export interface DisagreementPointsRailProps {
    * pin: the board object is passed through untouched).
    */
   advisoryOverlayByPointId?: Readonly<Record<string, DerivedSignalLine>>;
+  /**
+   * CHIMEIN-P8 Round 2 (#761) — the chime-in contribution feed. Keyed by anchor
+   * node id (= the chime CONTENT argument id); a matching entry marks that point
+   * anchor a `chime_in` and renders the `↳ chime-in` marker. Supplied by
+   * ArgumentRoom ONLY when the chime_in flag is on. Absent (default) => no marker
+   * on any row => byte-identical rail. Never reorders / re-derives the board.
+   */
+  contributionKindByNodeId?: Readonly<Record<string, 'chime_in'>>;
   testID?: string;
 }
 
@@ -176,6 +190,7 @@ export function DisagreementPointsRail({
   onJump,
   marksLegendLine,
   advisoryOverlayByPointId,
+  contributionKindByNodeId,
   testID,
 }: DisagreementPointsRailProps): React.ReactElement | null {
   const rootTestID = testID ?? 'disagreement-points-rail';
@@ -509,6 +524,9 @@ export function DisagreementPointsRail({
                 rowOffsetsRef.current[point.id] = y;
               }}
               advisoryOverlayLine={advisoryOverlayByPointId?.[point.id]}
+              // CHIMEIN-P8 Round 2 (#761) — computed once in the parent from the
+              // fed adapter map; absent map => false => no marker (byte-identical).
+              isChimeIn={isChimeInAnchor(point.anchor, contributionKindByNodeId)}
             />
           ))}
           {!showAll && moreCount > 0 ? (
@@ -589,6 +607,12 @@ interface DisagreementPointRowProps {
    * for this point. Absent => byte-identical row. Ban-list-clean, never a verdict.
    */
   advisoryOverlayLine?: DerivedSignalLine;
+  /**
+   * CHIMEIN-P8 Round 2 (#761) — whether this point anchor is a chime-in
+   * contribution (computed by the parent from the fed adapter map). Absent /
+   * false => no marker => byte-identical row.
+   */
+  isChimeIn?: boolean;
 }
 
 function DisagreementPointRow({
@@ -602,14 +626,16 @@ function DisagreementPointRow({
   inSelectedSegment,
   onMeasureOffset,
   advisoryOverlayLine,
+  isChimeIn,
 }: DisagreementPointRowProps): React.ReactElement {
   // UX-MEDIATOR-005 (O-1) — project the badge through the v4 display vocabulary
   // so the rail row matches the node chip; `point.state` stays intact for Inspect.
   const stateLabel = displaySafe(v4RowBadgeLabel(point));
   const evidenceLine = evidenceRequestCountLabel(point.openEvidenceDebtIds.length);
-  // UX-MEDIATOR-005 (O-4a) — dormant unless the (optional, not-yet-shipped)
-  // contribution data marks this anchor as a chime-in.
-  const showChimeIn = isChimeInAnchor(point.anchor);
+  // UX-MEDIATOR-005 (O-4a) — rendered only when CHIMEIN-P8 Round 2 (#761) feeds
+  // the contribution data marking this anchor as a chime-in (computed in the
+  // parent from the adapter map). Absent => byte-identical (no marker).
+  const showChimeIn = isChimeIn === true;
 
   // UX-IMPASSE-001 (#689) — a structured-impasse point with no available pathway
   // step shows an empty "Move forward:" today (the only step is unavailable). Show

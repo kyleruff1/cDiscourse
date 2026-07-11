@@ -141,6 +141,8 @@ interface Props {
   onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
   /** FEEDBACK-001 (#898) — pass-through gate for the move-marks surface; forwarded verbatim to ArgumentRoom. */
   moveMarksEnabled?: boolean;
+  /** CHIMEIN-P8 (#761) — pass-through gate for the chime-in surface; forwarded verbatim to ArgumentRoom. */
+  chimeInEnabled?: boolean;
   /** FEEDBACK-002 (#899) — pass-through gate for the derived-signal advisory surfaces; forwarded verbatim to ArgumentRoom. */
   derivedSignalsEnabled?: boolean;
   /** UX-FLAGS-004 (#836) — pass-through gate for feedback-flag pill tappability; forwarded verbatim to ArgumentRoom. */
@@ -161,7 +163,7 @@ interface Props {
   refreshLinkedPriorRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled, feedbackFlagIntentsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, chimeInEnabled, derivedSignalsEnabled, feedbackFlagIntentsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: Props) {
   const {
     cache,
     viewport,
@@ -233,6 +235,7 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         timestampRebuttalsEnabled={timestampRebuttalsEnabled}
         onMarkerScopePicked={onMarkerScopePicked}
         moveMarksEnabled={moveMarksEnabled}
+        chimeInEnabled={chimeInEnabled}
         derivedSignalsEnabled={derivedSignalsEnabled}
         feedbackFlagIntentsEnabled={feedbackFlagIntentsEnabled}
         quoteForgeEnabled={quoteForgeEnabled}
@@ -401,6 +404,8 @@ interface FullRoomGameSurfaceMountProps {
   onMarkerScopePicked?: (scope: PendingMarkerScope) => void;
   /** FEEDBACK-001 (#898) — move-marks surface gate; forwarded to ArgumentRoom. */
   moveMarksEnabled?: boolean;
+  /** CHIMEIN-P8 (#761) — chime-in surface gate; forwarded to ArgumentRoom. */
+  chimeInEnabled?: boolean;
   /** FEEDBACK-002 (#899) — derived-signal advisory surfaces gate; forwarded to ArgumentRoom. */
   derivedSignalsEnabled?: boolean;
   /** UX-FLAGS-004 (#836) — feedback-flag pill tappability gate; forwarded to ArgumentRoom. */
@@ -411,7 +416,7 @@ interface FullRoomGameSurfaceMountProps {
   refreshLinkedPriorRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled, feedbackFlagIntentsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, chimeInEnabled, derivedSignalsEnabled, feedbackFlagIntentsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -725,6 +730,10 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         // FEEDBACK-001 (#898) — move-marks surface gate. Flag OFF => useMoveMarks
         // fetches nothing, no bar mounts, both aggregate surfaces byte-identical.
         moveMarksEnabled={moveMarksEnabled}
+        // CHIMEIN-P8 (#761) — chime-in surface gate. Flag OFF =>
+        // useChimeInContributions fetches nothing, the rail chime chip is absent,
+        // the governance surface renders null (byte-identical).
+        chimeInEnabled={chimeInEnabled}
         // FEEDBACK-002 (#899) — derived-signal advisory surfaces gate. Flag OFF =>
         // the derivation returns empty, so the Inspect advisory lines + mediator
         // rail overlay render nothing (byte-identical).
