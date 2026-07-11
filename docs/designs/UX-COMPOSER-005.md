@@ -757,4 +757,71 @@ ships **dark** at merge because the flag defaults OFF.
 - **Own-move callback.** Own callbacks render the draft echo (content, not a control/score)
   — consistent with the own-bubble control doctrine. Flag if product wants own callbacks
   visually quieter.
+
+---
+
+## Orchestrator reconciliation addendum (implementation — feat/quote-callback-pair)
+
+Recorded at implementation time (roadmap-implementer). The design body above is the
+spec; where a design assumption conflicts with the binding orchestrator rulings below,
+**the rulings win** (they resolve every open Gap and shared-seam item). This addendum is
+identical on both `UX-COMPOSER-005.md` (#831, composer side) and `QUOTE-FORGE-002.md`
+(#842, render side) so the pair reads as one contract.
+
+- **R1 — Persisted ref home.** The per-move callback ref lives at
+  `arguments.client_validation.crossRoomCallback` (namespaced key on the existing
+  permissive `z.record(z.unknown())` passthrough). #842's `server_validation` assumption is
+  **overruled** — `server_validation` is Edge-owned and `submit-argument` stays
+  byte-preserved. The excerpt is a **separate field** inside that block
+  (`crossRoomCallback.excerpt`), never woven into `body`. Single source of truth:
+  `crossRoom/crossRoomCallbackRef.ts` (this card writes; #842 reads).
+- **R2 — Join key `targetDebateId`.** The ref joins on `targetDebateId`, not `linkId`
+  (`linkId` is unknown at ref-write time under the safe post-success link ordering). The
+  ref also carries `capturedFromArgumentId` (future move-level deep-link), but nav stays
+  room-level via the shipped `onOpenPriorRoom(targetDebateId)` channel. #842's
+  `readCallbackRef` reads this shape and degrades to a plain move on an absent / malformed
+  ref.
+- **R3 — Privacy framing is UX-consistency, not RLS.** The excerpt is author-republished
+  speech in a broadly-readable JSONB column (equivalent to a body-paste). #842's
+  render-time suppression (`echoedExcerpt` forced empty for `title_only` / `unavailable`)
+  ships as a UX-consistency treatment per the card acceptance criterion and is documented
+  in code + docs as **NOT** an RLS / privacy boundary. No copy promises secrecy of the
+  excerpt (the "Private …" lock line describes the prior ROOM's QOL-042 access state, which
+  IS RLS-derived — not the excerpt). Additional rule: a ref present with **no matching
+  link row** (post-success link write failed) renders the locked / unavailable arm — never
+  an excerpt without an authorized access state resolved from `useLinkedPriorRooms`.
+- **R4 — One new 9th default-OFF flag `quote_forge` (`EXPO_PUBLIC_QUOTE_FORGE`).**
+  Registered exactly once in `featureFlags.ts` + `featureFlagsStaticEnv.test.ts` by this
+  card (the write side). Both surfaces consume via App.tsx prop-threading — **zero
+  `featureFlags` imports under `src/features`**. Flag-off ⇒ byte-identical surfaces AND no
+  `crossRoomCallback` key emitted in the submit payload (ROOM-003 deep-equal census stays
+  green). Ringside echo mounts only where Ringside mounts (`room_exchange_v2`) AND
+  `quote_forge` on; Timeline / Stack echo require `quote_forge` only.
+- **R5 — Minimal capture UI.** Pick a verbatim line from the shipped capture substrate (the
+  linked-prior room content the viewer legitimately sees via `listArgumentsForDebate`). No
+  span-selection UI, no cross-room search (that is QUOTE-FORGE-003 / the v1 no-search
+  guard). The legacy pinned dock gets nothing — the affordance exists only on the unpinned
+  `ArgumentEntryComposer` surface.
+- **R6 — Link created POST-submit-success** via the shipped idempotent
+  `createArgumentRoomLink`; a link-write failure degrades per R3 (no retry machinery).
+- **R7 — Excerpt snapshot persists** (MARK-002 server-snapshotted-quote precedent); no
+  redaction machinery. Own-authored callbacks render identically (no quieter variant).
+
+**Implementation-topology adaptation (recorded honestly).** The #831 file-list assumed
+`ArgumentEntryComposer` is rendered inside `room/ArgumentRoom.tsx` and that
+`useCallbackInsertion` + `CallbackCaptureSheet` mount in `ArgumentTreeScreen`. In the live
+tree, `ArgumentEntryComposer` is mounted directly in `App.tsx` (sibling of
+`ArgumentTreeScreen`), and `useLinkedPriorRooms` lives in
+`ArgumentTreeScreen.FullRoomGameSurfaceMount` (which also owns the `rows` carrying
+`clientValidation` and renders all three surfaces via `ArgumentGameSurface`/`ArgumentRoom`).
+Therefore: (a) the composer-side capture flow (`useCallbackInsertion` + `CallbackCaptureSheet`
++ `LinkTargetPickerSheet`) mounts in **App.tsx** next to the entry composer, writing
+`pendingCallback` onto the shared session draft and creating the room link on submit-success;
+and (b) the #842 echo map (`callbackEchoByMessageId`) is derived **ONCE** in
+`FullRoomGameSurfaceMount` — the single shell owning BOTH the per-move refs
+(`rows[].clientValidation`) AND the resolved QOL-042 links — and threaded down through
+`ArgumentGameSurface`/`ArgumentRoom` to Timeline / Stack / Ringside. This honors the
+single-derivation rule (derived once, threaded to all three) and the intent of every design
+contract; only the mount coordinates differ from the design's file-list. `pendingCallback`
+stays on the session draft so `buildSubmitArgumentPayload` reads it (submit path unchanged).
 ```
