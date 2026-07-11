@@ -21,6 +21,7 @@ import {
 } from '../src/features/arguments/argumentGameSurfaceModel';
 import { getRailActions } from '../src/features/arguments/ArgumentSideActionRail';
 import type { RailViewerRole } from '../src/features/arguments/railActionCategories';
+import { deriveCallbackEcho } from '../src/features/arguments/crossRoom/callbackEchoModel';
 
 // ── Fixtures ──────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ function makeInput(
     observerActionsFor:
       over.observerActionsFor ?? ((actor) => getRailActions('observer', actor)),
     friendlyFlagCountFor: over.friendlyFlagCountFor,
+    callbackEchoFor: over.callbackEchoFor,
   };
 }
 
@@ -286,5 +288,35 @@ describe('ringsideFeedModel — empty input', () => {
       cards: [],
       activeMessageId: null,
     });
+  });
+});
+
+// ── QUOTE-FORGE-002 callback echo join ────────────────────────
+
+describe('ringsideFeedModel — callbackEcho join (#842)', () => {
+  const echoVm = deriveCallbackEcho({
+    messageId: 'm1',
+    ref: {
+      targetDebateId: 'debate-prior-1',
+      excerpt: 'An echoed prior line.',
+      targetTitleSnapshot: 'Prior room',
+      capturedFromArgumentId: null,
+      v: 1,
+    },
+    link: { targetDebateId: 'debate-prior-1', accessState: 'authorized', title: 'Prior room' },
+  });
+
+  it('populates card.callbackEcho from the injected join', () => {
+    const feed = buildRingsideFeed(
+      makeInput([makeVm({ messageId: 'm1' })], {
+        callbackEchoFor: (id) => (id === 'm1' ? echoVm : null),
+      }),
+    );
+    expect(feed.cards[0].callbackEcho).toBe(echoVm);
+  });
+
+  it('defaults callbackEcho to null when no join is threaded (byte-identical)', () => {
+    const feed = buildRingsideFeed(makeInput([makeVm({ messageId: 'm1' })]));
+    expect(feed.cards[0].callbackEcho).toBeNull();
   });
 });

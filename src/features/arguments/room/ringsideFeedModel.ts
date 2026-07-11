@@ -28,6 +28,7 @@ import {
   type TimelineKindColorFamily,
 } from '../argumentGameSurfaceModel';
 import type { RailAction, RailViewerRole } from '../railActionCategories';
+import type { CallbackEchoViewModel } from '../crossRoom/callbackEchoModel';
 
 /** One Ringside card, projected from data the orchestrator already holds. */
 export interface RingsideCardViewModel {
@@ -69,6 +70,12 @@ export interface RingsideCardViewModel {
   deletionRequested: boolean;
   /** The FULL actor-aware action contract for this card. */
   actionRow: RingsideActionRow;
+  /**
+   * QUOTE-FORGE-002 (#842) — the woven-callback echo for this move, or null when
+   * the move is not a callback (or quote_forge is off / not threaded). Additive:
+   * a caller that does not thread callbackEchoFor produces null (byte-identical).
+   */
+  callbackEcho: CallbackEchoViewModel | null;
 }
 
 export interface RingsideBranchPill {
@@ -117,6 +124,13 @@ export interface RingsideFeedInput {
    * to 0 so a caller that does not thread flags still produces a valid model.
    */
   friendlyFlagCountFor?: (messageId: string) => number;
+  /**
+   * QUOTE-FORGE-002 (#842) — the woven-callback echo for a message, or null.
+   * Injected so this pure model never re-derives the echo; the orchestrator
+   * builds callbackEchoByMessageId ONCE and passes a lookup. Absent => every
+   * card callbackEcho is null (byte-identical).
+   */
+  callbackEchoFor?: (messageId: string) => CallbackEchoViewModel | null;
 }
 
 /** Build the plain branch-pill label. Activity count, never heat / verdict. */
@@ -165,6 +179,7 @@ function buildRingsideCard(
     isOwn,
     deletionRequested: vm.deletionRequested,
     actionRow,
+    callbackEcho: input.callbackEchoFor ? input.callbackEchoFor(vm.messageId) ?? null : null,
   };
 }
 

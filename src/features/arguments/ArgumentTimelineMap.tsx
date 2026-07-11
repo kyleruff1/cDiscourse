@@ -48,6 +48,7 @@ import type {
   TimelineNodeActionDockTarget,
 } from './timelineNodeActionDockModel';
 import type { EvidenceArtifact, TimelineEvidenceContract } from '../evidence/evidenceModel';
+import type { CallbackEchoViewModel } from './crossRoom/callbackEchoModel';
 import type { NodeEvidenceDebtSummary } from '../evidence/evidenceDebtModel';
 import {
   buildRailSegmentInput,
@@ -130,6 +131,12 @@ interface Props {
    * `ReceiptChip` + an inline `SourceChainPopover` section.
    */
   artifactsByMessageId?: Record<string, ReadonlyArray<EvidenceArtifact>>;
+  /**
+   * QUOTE-FORGE-002 (#842) — per-message woven-callback echo map, built ONCE by
+   * the room shell. When a node has an entry, the NodeDot renders a corner echo
+   * badge + a callback a11y fragment. Absent => byte-identical timeline.
+   */
+  callbackEchoByMessageId?: Record<string, CallbackEchoViewModel>;
   /**
    * EV-002 — Builder for the per-node `TimelineEvidenceContract`. The
    * room shell threads `getTimelineEvidenceContract(argumentType,
@@ -241,6 +248,7 @@ function NodeDot({
   isSelected,
   hasEvidenceArtifact,
   prefersReducedMotion,
+  callbackEcho,
 }: {
   node: ArgumentTimelineMapNode;
   /** IX-003 — total node count, for the "position N of M" a11y fragment. */
@@ -253,6 +261,12 @@ function NodeDot({
   hasEvidenceArtifact: boolean;
   /** VG-004 — AccessibilityInfo.isReduceMotionEnabled state (parent). */
   prefersReducedMotion: boolean;
+  /**
+   * QUOTE-FORGE-002 (#842) — the woven-callback echo for this node, or null.
+   * When present the node shows a corner echo badge and appends a callback
+   * a11y fragment. Null (or absent map) => byte-identical node.
+   */
+  callbackEcho?: CallbackEchoViewModel | null;
 }) {
   const ring = node.isActive ? styles.nodeRingActive : node.isLatest ? styles.nodeRingLatest : null;
 
@@ -314,9 +328,11 @@ function NodeDot({
       junctionChildCount: node.junctionChildCount,
       relativeOrAbsoluteTime: node.relativeLabel || node.createdAtLabel,
     });
-    return visual.accessibilityFragment
+    const withVisual = visual.accessibilityFragment
       ? `${base}, ${visual.accessibilityFragment}`
       : base;
+    // QUOTE-FORGE-002 — append the callback link fragment (never the excerpt).
+    return callbackEcho ? `${withVisual}, ${callbackEcho.a11yFragment}` : withVisual;
   })();
 
   return (
@@ -395,6 +411,19 @@ function NodeDot({
           <View style={styles.receiptMarkInner} />
         </View>
       ) : null}
+      {/* QUOTE-FORGE-002 — corner echo badge. The glyph in a bordered pill is
+          color-independent; the node a11y label already carries the callback
+          fragment, so the badge is decorative (hidden from the reader). */}
+      {callbackEcho ? (
+        <View
+          testID={`timeline-node-callback-${node.messageId}`}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={styles.callbackBadge}
+        >
+          <Text style={styles.callbackBadgeGlyph}>{callbackEcho.glyph}</Text>
+        </View>
+      ) : null}
       {node.isActive && onInfoTap ? (
         <Pressable
           onPress={() => onInfoTap(node.messageId)}
@@ -462,6 +491,7 @@ export function ArgumentTimelineMap({
   onOpenDetails,
   controlsContext,
   artifactsByMessageId,
+  callbackEchoByMessageId,
   evidenceContractFor,
   evidenceDebtSummaryFor,
   isReadModeViewer,
@@ -1214,6 +1244,7 @@ export function ArgumentTimelineMap({
                 (artifactsByMessageId?.[n.messageId]?.length ?? 0) > 0
               }
               prefersReducedMotion={effectiveReducedMotion}
+              callbackEcho={callbackEchoByMessageId?.[n.messageId] ?? null}
             />
           ))}
         </View>
@@ -1300,6 +1331,28 @@ const styles = StyleSheet.create({
     height: RECEIPT_MARK.sizePx / 3,
     borderRadius: RECEIPT_MARK.sizePx / 6,
     backgroundColor: RECEIPT_MARK.innerColor,
+  },
+  // QUOTE-FORGE-002 — corner echo badge (top-left; opposite the receipt mark).
+  // A glyph in a bordered pill, color-independent link identity.
+  callbackBadge: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 2,
+    borderRadius: 8,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#94a3b8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callbackBadgeGlyph: {
+    color: '#e2e8f0',
+    fontSize: 10,
+    fontWeight: '800',
+    lineHeight: 12,
   },
   node: {
     width: TIMELINE_NODE_SIZE,

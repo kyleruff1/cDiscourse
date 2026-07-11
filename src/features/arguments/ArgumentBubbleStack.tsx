@@ -35,6 +35,11 @@ import type { RailActionCode, RailViewerRole } from './railActionCategories';
 import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
 import type { RefereeNavVerb } from './cardView/RefereeCardView';
 import type { PrioritizedPointFeedbackFlags } from '../feedbackFlags';
+// QUOTE-FORGE-002 (#842) — the woven-callback echo strip on the active card.
+// Rendered only when the active card is a callback move (quote_forge on);
+// absent => byte-identical stack.
+import { CallbackEchoStrip } from './crossRoom/CallbackEchoStrip';
+import type { CallbackEchoViewModel } from './crossRoom/callbackEchoModel';
 
 interface Props {
   viewModels: ArgumentBubbleViewModel[];
@@ -94,6 +99,13 @@ interface Props {
    *  forwards this to the active card only (`t.isActive ? pointFeedbackFlags :
    *  null`), mirroring activeCardDetail. Omitted -> no flag row. */
   pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
+  /**
+   * QUOTE-FORGE-002 (#842) — the woven-callback echo for the ACTIVE card, or
+   * null. Built ONCE at the surface and forwarded here; the Stack renders it as
+   * an active-card banner. Omitted / null -> no echo chrome (byte-identical). */
+  activeCallbackEcho?: CallbackEchoViewModel | null;
+  /** QUOTE-FORGE-002 — open the referenced prior room from the echo origin. */
+  onOpenPriorRoom?: (targetDebateId: string) => void;
 }
 
 export function ArgumentBubbleStack({
@@ -113,6 +125,8 @@ export function ArgumentBubbleStack({
   onRefereeMove,
   onRefereeNavigate,
   pointFeedbackFlags,
+  activeCallbackEcho,
+  onOpenPriorRoom,
 }: Props) {
   const activeIndex = useMemo(() => {
     const i = viewModels.findIndex((v) => v.messageId === activeMessageId);
@@ -170,6 +184,14 @@ export function ArgumentBubbleStack({
 
   return (
     <View style={styles.container} accessibilityLabel="argument-bubble-stack" testID="argument-bubble-stack">
+      {/* QUOTE-FORGE-002 — the active-card woven-callback echo banner. Present
+          only for a callback active move (quote_forge on); the title-only /
+          unavailable arms never emit the excerpt (R3 render suppression). */}
+      {activeCallbackEcho ? (
+        <View style={styles.echoBanner} testID="stack-callback-echo">
+          <CallbackEchoStrip echo={activeCallbackEcho} onOpenOrigin={onOpenPriorRoom} />
+        </View>
+      ) : null}
       <View
         style={styles.stage}
         accessibilityLabel="argument-stack-stage"
@@ -274,6 +296,8 @@ export function ArgumentBubbleStack({
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'flex-end' },
+  // QUOTE-FORGE-002 — active-card callback echo banner.
+  echoBanner: { paddingHorizontal: 12, paddingBottom: 8 },
   // CARD-VIEW-REFINE-001 — TOP-ANCHORED (was justifyContent: 'center'). A
   // tall active card now overflows DOWN toward the controls only, never UP
   // into the masthead. `overflow: 'hidden'` keeps any residual overflow
