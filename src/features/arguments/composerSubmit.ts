@@ -11,6 +11,7 @@ import type {
   SubmitArgumentSuccess,
 } from '../../lib/edgeFunctions';
 import type { PendingSubmission } from '../session/types';
+import { writeCrossRoomCallback } from './crossRoom/crossRoomCallbackRef';
 
 // ── Fingerprinting ─────────────────────────────────────────────
 
@@ -30,6 +31,10 @@ export function createSubmissionFingerprint(draft: ComposerDraft): string {
     targetExcerpt: draft.targetExcerpt,
     disagreementAxis: draft.disagreementAxis,
     attachedEvidence: draft.attachedEvidence,
+    // #831 — a changed callback correctly mints a fresh clientSubmissionId. A
+    // callback-less draft has `undefined` here, which JSON.stringify DROPS, so
+    // the fingerprint stays byte-identical to the pre-#831 output.
+    pendingCallback: draft.pendingCallback,
   });
 }
 
@@ -97,6 +102,18 @@ export function buildSubmitArgumentPayload(
       target_excerpt: draft.targetExcerpt ?? undefined,
       disagreement_axis: draft.disagreementAxis ?? undefined,
     };
+  }
+
+  // #831 — emit the cross-room callback ref ONLY when a callback is attached.
+  // A callback-less draft adds NO `client_validation` key, so the ROOM-003
+  // byte-shape census (exact required-key set) stays green. The ref rides the
+  // existing permissive `client_validation` passthrough (no new top-level key,
+  // no Edge change). See crossRoomCallbackRef.ts (ruling R1).
+  if (draft.pendingCallback) {
+    payload.client_validation = writeCrossRoomCallback(
+      payload.client_validation,
+      draft.pendingCallback,
+    );
   }
 
   return payload;

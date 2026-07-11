@@ -258,6 +258,89 @@ describe('buildSubmitArgumentPayload', () => {
   });
 });
 
+// ── #831 cross-room callback payload emission ─────────────────
+
+describe('buildSubmitArgumentPayload — cross-room callback (#831)', () => {
+  const CLIENT_ID = 'client-uuid-123';
+
+  it('a callback-less draft emits NO client_validation key (ROOM-003 census guard)', () => {
+    const draft = makeDraft();
+    const payload = buildSubmitArgumentPayload(draft, CLIENT_ID) as unknown as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('client_validation');
+  });
+
+  it('a draft with pendingCallback emits client_validation.crossRoomCallback with exactly the ref shape', () => {
+    const draft = makeDraft({
+      pendingCallback: {
+        targetDebateId: 'debate-prior-1',
+        targetTitleSnapshot: 'Bike-lane baseline',
+        excerpt: 'Protected lanes reduce collisions on arterials.',
+        capturedFromArgumentId: 'arg-9',
+      },
+    });
+    const payload = buildSubmitArgumentPayload(draft, CLIENT_ID);
+    expect(payload.client_validation).toBeDefined();
+    const cv = payload.client_validation as Record<string, unknown>;
+    expect(Object.keys(cv)).toEqual(['crossRoomCallback']);
+    expect(cv.crossRoomCallback).toEqual({
+      targetDebateId: 'debate-prior-1',
+      excerpt: 'Protected lanes reduce collisions on arterials.',
+      targetTitleSnapshot: 'Bike-lane baseline',
+      capturedFromArgumentId: 'arg-9',
+      v: 1,
+    });
+  });
+
+  it('adds no OTHER top-level payload key beyond client_validation for a callback draft', () => {
+    const plain = buildSubmitArgumentPayload(makeDraft(), CLIENT_ID);
+    const withCallback = buildSubmitArgumentPayload(
+      makeDraft({
+        pendingCallback: {
+          targetDebateId: 'd',
+          targetTitleSnapshot: 't',
+          excerpt: 'e',
+          capturedFromArgumentId: null,
+        },
+      }),
+      CLIENT_ID,
+    );
+    const extraKeys = Object.keys(withCallback).filter((k) => !(k in plain));
+    expect(extraKeys).toEqual(['client_validation']);
+  });
+
+  it('createSubmissionFingerprint is byte-identical for a callback-less draft (absent vs explicit undefined)', () => {
+    const absent = createSubmissionFingerprint(makeDraft());
+    const explicitUndefined = createSubmissionFingerprint(makeDraft({ pendingCallback: undefined }));
+    expect(absent).toBe(explicitUndefined);
+  });
+
+  it('createSubmissionFingerprint differs once a callback is attached / changed', () => {
+    const none = createSubmissionFingerprint(makeDraft());
+    const withCb = createSubmissionFingerprint(
+      makeDraft({
+        pendingCallback: {
+          targetDebateId: 'd',
+          targetTitleSnapshot: 't',
+          excerpt: 'e',
+          capturedFromArgumentId: null,
+        },
+      }),
+    );
+    const withCb2 = createSubmissionFingerprint(
+      makeDraft({
+        pendingCallback: {
+          targetDebateId: 'd2',
+          targetTitleSnapshot: 't',
+          excerpt: 'e',
+          capturedFromArgumentId: null,
+        },
+      }),
+    );
+    expect(withCb).not.toBe(none);
+    expect(withCb).not.toBe(withCb2);
+  });
+});
+
 // ── extractServerValidationError ──────────────────────────────
 
 describe('extractServerValidationError', () => {

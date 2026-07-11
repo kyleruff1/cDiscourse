@@ -34,6 +34,7 @@ export function createEmptyDraft(input: CreateEmptyDraftInput): ComposerDraft {
     targetExcerpt: null,
     disagreementAxis: null,
     attachedEvidence: [],
+    pendingCallback: null,
     updatedAt: new Date().toISOString(),
     dirty: false,
   };
