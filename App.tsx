@@ -73,6 +73,11 @@ import { isQuoteForgeEnabled } from './src/lib/featureFlags';
 // import line by design (the featureFlagsStaticEnv pin matches the isHomeV2Enabled
 // import EXACTLY).
 import { isFeedbackFlagIntentsEnabled } from './src/lib/featureFlags';
+// CHIMEIN-P8 Round 2 (#761) — the ONE chime_in read. App reads it and threads the
+// boolean down as a prop; no src/features file imports the registry. SEPARATE
+// import line by design (the featureFlagsStaticEnv pin matches the isHomeV2Enabled
+// import EXACTLY). Default OFF; the chime-in Edge + RLS enforce regardless of it.
+import { isChimeInEnabled } from './src/lib/featureFlags';
 import { useCallbackInsertion } from './src/features/arguments/crossRoom/useCallbackInsertion';
 import { LinkTargetPickerSheet } from './src/features/arguments/crossRoom/LinkTargetPickerSheet';
 import { CallbackCaptureSheet } from './src/features/arguments/crossRoom/CallbackCaptureSheet';
@@ -653,6 +658,11 @@ function MainAppShell({
   // tappability of the point feedback-flag pills. OFF => onFlagIntent stays
   // undefined at every mount => pills byte-identical to today (non-tappable).
   const feedbackFlagIntentsEnabled = isFeedbackFlagIntentsEnabled();
+  // CHIMEIN-P8 Round 2 (#761) — default OFF. Threaded down as the chimeInEnabled
+  // prop; gates the chime-in composer affordance, the ArgumentStateRail chime-seat
+  // chip feed, and the ChimeInGovernanceSurface. OFF => byte-identical dormant UI.
+  // The chime-in Edge + RLS enforce public-only / cap / author-scope regardless.
+  const chimeInEnabled = isChimeInEnabled();
   const { width: proofDrawerWidth, height: proofDrawerHeight } = useWindowDimensions();
   const [proofDrawerScope, setProofDrawerScope] = useState<ProofDrawerScope | null>(null);
   // MARK-002 — the pending marker scope (a picked phrase) during composition. The
@@ -1440,6 +1450,11 @@ function MainAppShell({
               // useMoveMarks fetches nothing, no bar mounts, both aggregate
               // surfaces are byte-identical.
               moveMarksEnabled={moveMarksEnabled}
+              // CHIMEIN-P8 Round 2 (#761) — the chime-in surface gate. Flag OFF =>
+              // useChimeInContributions fetches nothing, the rail chime chip is
+              // absent, and the ChimeInGovernanceSurface renders null
+              // (byte-identical). The Edge + RLS enforce regardless of the flag.
+              chimeInEnabled={chimeInEnabled}
               // FEEDBACK-002 (#899) — the derived-signal advisory surfaces gate.
               // Flag OFF => the derivation returns empty, so the Inspect advisory
               // lines + mediator rail overlay render nothing (byte-identical).
