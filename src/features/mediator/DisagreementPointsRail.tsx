@@ -25,7 +25,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   Animated,
   Platform,
   Pressable,
@@ -48,6 +47,7 @@ import {
   resolveObserverDockVariant,
   resolveSheetMaxHeightPx,
 } from '../arguments/ObserverActionDockLayout';
+import { useReduceMotion } from '../preferences/useReduceMotion';
 import type {
   DisagreementPoint,
   MediatorBoardState,
@@ -209,44 +209,10 @@ export function DisagreementPointsRail({
   const scrollRef = useRef<ScrollView | null>(null);
   const rowOffsetsRef = useRef<Record<string, number>>({});
 
-  // ── reduce-motion read (mirrors OpenIssuesRail) ──
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    try {
-      const result = AccessibilityInfo.isReduceMotionEnabled();
-      if (result && typeof result.then === 'function') {
-        result
-          .then((enabled) => {
-            if (!cancelled) setPrefersReducedMotion(enabled === true);
-          })
-          .catch(() => {
-            // Some platforms reject — keep the default.
-          });
-      }
-    } catch {
-      // API unavailable — keep the default.
-    }
-    let subscription: { remove: () => void } | null = null;
-    try {
-      subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
-        if (!cancelled) setPrefersReducedMotion(enabled === true);
-      });
-    } catch {
-      // Listener API unavailable.
-    }
-    return () => {
-      cancelled = true;
-      try {
-        subscription?.remove();
-      } catch {
-        // Already torn down.
-      }
-    };
-  }, []);
-
-  const effectiveReducedMotion =
-    typeof reduceMotionOverride === 'boolean' ? reduceMotionOverride : prefersReducedMotion;
+  // ── reduce-motion read (shared useReduceMotion hook — A11Y-693) ──
+  // Behavior-preserving: the hook returns the identical value and honors the
+  // same reduceMotionOverride prop as the prior inline reduce-motion effect.
+  const effectiveReducedMotion = useReduceMotion(reduceMotionOverride);
 
   // ── mutual exclusion with the other bottom rails ──
   // UX-BOARD-RAIL-002 — a docked pane is NOT in the bottom shared-space group,
