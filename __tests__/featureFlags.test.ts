@@ -28,6 +28,7 @@ import {
   isOneTimePlaybackEnabled,
   isMoveMarksEnabled,
   isDerivedSignalsEnabled,
+  isQuoteForgeEnabled,
   resolveAspFeatureFlag,
   ASP_FEATURE_FLAGS,
   HOME_V2_FLAG,
@@ -38,6 +39,7 @@ import {
   ONE_TIME_PLAYBACK_FLAG,
   MOVE_MARKS_FLAG,
   DERIVED_SIGNALS_FLAG,
+  QUOTE_FORGE_FLAG,
   type AspFeatureFlag,
 } from '../src/lib/featureFlags';
 
@@ -60,6 +62,7 @@ const FLAG_CASES: FlagCase[] = [
   { key: 'one_time_playback', envName: ONE_TIME_PLAYBACK_FLAG, accessor: isOneTimePlaybackEnabled },
   { key: 'move_marks', envName: MOVE_MARKS_FLAG, accessor: isMoveMarksEnabled },
   { key: 'derived_signals', envName: DERIVED_SIGNALS_FLAG, accessor: isDerivedSignalsEnabled },
+  { key: 'quote_forge', envName: QUOTE_FORGE_FLAG, accessor: isQuoteForgeEnabled },
 ];
 
 const ALL_ENV_NAMES = FLAG_CASES.map((c) => c.envName);
@@ -92,7 +95,7 @@ describe('featureFlags — flag env names', () => {
     }
   });
 
-  it('exposes exactly the eight expected env-name literals', () => {
+  it('exposes exactly the nine expected env-name literals', () => {
     expect(ALL_ENV_NAMES).toEqual([
       'EXPO_PUBLIC_HOME_V2',
       'EXPO_PUBLIC_ROOM_EXCHANGE_V2',
@@ -102,6 +105,7 @@ describe('featureFlags — flag env names', () => {
       'EXPO_PUBLIC_ONE_TIME_PLAYBACK',
       'EXPO_PUBLIC_MOVE_MARKS',
       'EXPO_PUBLIC_DERIVED_SIGNALS',
+      'EXPO_PUBLIC_QUOTE_FORGE',
     ]);
   });
 });
@@ -205,10 +209,11 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       one_time_playback: isOneTimePlaybackEnabled(),
       move_marks: isMoveMarksEnabled(),
       derived_signals: isDerivedSignalsEnabled(),
+      quote_forge: isQuoteForgeEnabled(),
     };
   }
 
-  it('setting one flag ON via process.env leaves the other seven OFF', () => {
+  it('setting one flag ON via process.env leaves the other eight OFF', () => {
     process.env.EXPO_PUBLIC_HOME_V2 = 'true';
     const all = readAll();
     expect(all).toEqual({
@@ -220,10 +225,11 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       one_time_playback: false,
       move_marks: false,
       derived_signals: false,
+      quote_forge: false,
     });
   });
 
-  it('setting a different single flag ON via the shim leaves the other seven OFF', () => {
+  it('setting a different single flag ON via the shim leaves the other eight OFF', () => {
     mockReadRuntimeEnv.mockReturnValue({ [MOVE_MARKS_FLAG]: 'true' });
     const all = readAll();
     expect(all).toEqual({
@@ -235,6 +241,7 @@ describe('featureFlags — flag independence (no cross-talk)', () => {
       one_time_playback: false,
       move_marks: true,
       derived_signals: false,
+      quote_forge: false,
     });
   });
 });
@@ -251,7 +258,7 @@ describe('featureFlags — registry + dispatcher', () => {
     expect(resolveAspFeatureFlag('home_v2')).toBe(isHomeV2Enabled());
   });
 
-  it('ASP_FEATURE_FLAGS has exactly the eight expected keys', () => {
+  it('ASP_FEATURE_FLAGS has exactly the nine expected keys', () => {
     expect(Object.keys(ASP_FEATURE_FLAGS).sort()).toEqual(
       [
         'derived_signals',
@@ -259,6 +266,7 @@ describe('featureFlags — registry + dispatcher', () => {
         'move_marks',
         'one_time_playback',
         'proof_drawer',
+        'quote_forge',
         'room_exchange_v2',
         'timestamp_rebuttals',
         'voice_entries',

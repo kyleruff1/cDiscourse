@@ -30,6 +30,10 @@ import type { RailActionCode } from '../railActionCategories';
 import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
 import { PointFeedbackFlagsRow } from '../../feedbackFlags';
 import type { RingsideCardViewModel } from './ringsideFeedModel';
+// QUOTE-FORGE-002 (#842) — the woven-callback echo strip. Rendered only when the
+// card carries a callbackEcho (quote_forge on + a callback move); absent => the
+// card render is byte-identical.
+import { CallbackEchoStrip } from '../crossRoom/CallbackEchoStrip';
 // MARK-002 (#894) — the ONE TimestampMarker component (source_span + reply chips)
 // + the pure model helpers. All additive + flag-gated at the source (markersForCard
 // is absent when the flag is off), so the flag-off card render is byte-identical.
@@ -103,6 +107,12 @@ export interface RingsideCardProps {
   showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
   onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
   onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  /**
+   * QUOTE-FORGE-002 (#842) — open a referenced prior room from the callback
+   * echo. Reuses the shipped room-level nav channel (targetDebateId). Absent =>
+   * an authorized echo origin renders as plain text (no tap).
+   */
+  onOpenPriorRoom?: (targetDebateId: string) => void;
 }
 
 function buildCardAccessibilityLabel(card: RingsideCardViewModel, total: number): string {
@@ -230,6 +240,13 @@ export function RingsideCard(props: RingsideCardProps) {
             >
               <Text style={styles.respondToThisText}>{MARKER_COPY.respondToThis}</Text>
             </Pressable>
+          ) : null}
+
+          {/* QUOTE-FORGE-002 — the woven-callback echo. Present only on a
+              callback move (quote_forge on); the title-only / unavailable arms
+              never emit the excerpt (R3 render suppression). */}
+          {card.callbackEcho ? (
+            <CallbackEchoStrip echo={card.callbackEcho} onOpenOrigin={props.onOpenPriorRoom} />
           ) : null}
 
           {/* Proof / owed / branch indicator row. */}

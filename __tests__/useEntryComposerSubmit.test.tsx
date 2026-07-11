@@ -121,3 +121,72 @@ describe('ROOM-003 useEntryComposerSubmit', () => {
     expect(first).toBe(second);
   });
 });
+
+// ── #831 onCallbackPosted post-success hook ───────────────────
+
+describe('useEntryComposerSubmit — cross-room callback (#831)', () => {
+  const CALLBACK = {
+    targetDebateId: 'debate-prior-1',
+    targetTitleSnapshot: 'Bike-lane baseline',
+    excerpt: 'Protected lanes reduce collisions on arterials.',
+    capturedFromArgumentId: 'arg-9',
+  };
+
+  beforeEach(() => {
+    mockSubmit.mockReset();
+  });
+
+  it('fires onCallbackPosted ONCE with the callback + new argument id on success', async () => {
+    mockSubmit.mockResolvedValue({
+      ok: true,
+      data: { argument: { id: 'new-arg-1' }, tags: [], topic_satisfaction_check: null, flags: [], validation: {} },
+    });
+    const onSuccess = jest.fn();
+    const onCallbackPosted = jest.fn();
+    const { result } = renderHook(
+      () => useEntryComposerSubmit(onSuccess, onCallbackPosted),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.submit(draft({ pendingCallback: CALLBACK }));
+    });
+
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onCallbackPosted).toHaveBeenCalledTimes(1);
+    expect(onCallbackPosted).toHaveBeenCalledWith(CALLBACK, 'new-arg-1');
+  });
+
+  it('does NOT fire onCallbackPosted when the draft carried no callback', async () => {
+    mockSubmit.mockResolvedValue({
+      ok: true,
+      data: { argument: { id: 'new-arg-2' }, tags: [], topic_satisfaction_check: null, flags: [], validation: {} },
+    });
+    const onCallbackPosted = jest.fn();
+    const { result } = renderHook(
+      () => useEntryComposerSubmit(jest.fn(), onCallbackPosted),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.submit(draft());
+    });
+
+    expect(onCallbackPosted).not.toHaveBeenCalled();
+  });
+
+  it('does NOT fire onCallbackPosted on a submit failure', async () => {
+    mockSubmit.mockResolvedValue({ ok: false, status: 500, error: { error: 'network_error' } });
+    const onCallbackPosted = jest.fn();
+    const { result } = renderHook(
+      () => useEntryComposerSubmit(jest.fn(), onCallbackPosted),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await result.current.submit(draft({ pendingCallback: CALLBACK }));
+    });
+
+    expect(onCallbackPosted).not.toHaveBeenCalled();
+  });
+});

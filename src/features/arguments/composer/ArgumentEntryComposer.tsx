@@ -45,6 +45,12 @@ import { useEntryComposerSubmit } from './useEntryComposerSubmit';
 // absent => the bar is byte-identical to the pre-MARK-002 render.
 import { TimestampMarker } from '../markers/TimestampMarker';
 import type { PendingMarkerScope, TimestampMarkerViewModel } from '../markers/timestampMarkerModel';
+// UX-COMPOSER-005 (#831) — the inline draft echo + the Callback-slot copy. The
+// echo renders only when a callback is woven; absent => the bar is byte-identical
+// to the pre-#831 render.
+import { CallbackDraftEcho } from '../crossRoom/CallbackDraftEcho';
+import { CALLBACK_COMPOSER_COPY } from '../crossRoom/callbackComposerCopy';
+import type { CrossRoomCallback } from '../crossRoom/crossRoomCallbackRef';
 import type { ArgumentRow } from '../types';
 import type { Debate, ParticipantSide } from '../../debates/types';
 import { RADIUS, SPACING, SURFACE_TOKENS, CONTROL, TOUCH_TARGET, BRAND } from '../../../lib/designTokens';
@@ -93,6 +99,18 @@ export interface ArgumentEntryComposerProps {
   scopedMarker?: PendingMarkerScope | null;
   /** MARK-002 — clear the scoped marker (the composer_scope chip clear). */
   onClearScopedMarker?: () => void;
+  /**
+   * UX-COMPOSER-005 (#831) — quote_forge only. Opens the room-picker -> capture
+   * flow. Absent => no Callback slot and no draft echo (byte-identical bar). The
+   * composer never reads the flag registry; App threads this handler.
+   */
+  onInsertCallback?: () => void;
+  /**
+   * UX-COMPOSER-005 (#831) — fires AFTER a successful post that carried a woven
+   * callback, so the shell can create the QOL-042 room link (ruling R6).
+   * Additive-optional; absent => no-op.
+   */
+  onCallbackPosted?: (callback: CrossRoomCallback, newArgumentId?: string) => void;
   /** Q10 advisory-only instrumentation sink. Default no-op. */
   onFastPathCivilitySignal?: (s: { hadCivilityAdvisory: boolean; flagCodes: ReadonlyArray<string> }) => void;
 }
@@ -115,13 +133,24 @@ export function ArgumentEntryComposer({
   onClearParent,
   scopedMarker,
   onClearScopedMarker,
+  onInsertCallback,
+  onCallbackPosted,
   onFastPathCivilitySignal,
 }: ArgumentEntryComposerProps) {
   const { draft, updateField } = useArgumentComposer(debate.id, selectedParentId);
   const constitution = useConstitution();
   const { state } = useAppSession();
   const userId = state.snapshot.userId;
-  const { submit, isSubmitting, serverErrors } = useEntryComposerSubmit(onSubmitSuccess);
+  const { submit, isSubmitting, serverErrors } = useEntryComposerSubmit(
+    onSubmitSuccess,
+    onCallbackPosted,
+  );
+
+  // #831 — the woven callback attached to the active draft (if any). Read from
+  // the shared draft so the echo always mirrors the submit-path source. The
+  // Callback slot + echo render only when onInsertCallback is threaded (flag on).
+  const pendingCallback = draft?.pendingCallback ?? null;
+  const callbackEnabled = !!onInsertCallback;
 
   const reduceMotion = reduceMotionOverride === true;
   const canPost = seatCanPost(participantSide);
@@ -272,6 +301,17 @@ export function ArgumentEntryComposer({
               ) : null}
             </View>
 
+            {/* #831 — the inline woven-callback draft echo. Renders only when a
+                callback is attached AND the Callback affordance is threaded
+                (quote_forge on); absent => this whole block is skipped and the
+                bar is byte-identical. */}
+            {callbackEnabled && pendingCallback ? (
+              <CallbackDraftEcho
+                callback={pendingCallback}
+                onRemove={() => updateField({ pendingCallback: null })}
+              />
+            ) : null}
+
             {/* Text field — the primary action. */}
             <TextInput
               value={draft?.body ?? ''}
@@ -306,6 +346,25 @@ export function ArgumentEntryComposer({
                   <Text style={styles.slotLabel}>{COPY.proofLabel}</Text>
                 )}
               </Pressable>
+
+              {/* #831 — Callback slot. Present only when quote_forge is on
+                  (onInsertCallback threaded); opens the room picker -> capture
+                  flow. Absent => the controls row is byte-identical. */}
+              {callbackEnabled ? (
+                <Pressable
+                  onPress={onInsertCallback}
+                  accessibilityRole="button"
+                  accessibilityLabel={CALLBACK_COMPOSER_COPY.insertAffordanceA11y}
+                  hitSlop={TOUCH_TARGET.hitSlopAll}
+                  style={[styles.slotButton, pendingCallback != null && styles.slotButtonActive]}
+                  testID="argument-entry-composer-callback"
+                >
+                  <Text style={styles.slotLabel}>
+                    {'⤴ '}
+                    {CALLBACK_COMPOSER_COPY.insertAffordanceLabel}
+                  </Text>
+                </Pressable>
+              ) : null}
 
               {/* Reserved voice slot — disabled until VOICE-UI-001. No audio code. */}
               <Pressable
@@ -478,6 +537,12 @@ const styles = StyleSheet.create({
   slotButtonOwed: {
     backgroundColor: BRAND.accent.goldSoft,
     borderColor: BRAND.accent.goldBorder,
+  },
+  // #831 — the Callback slot carries a woven callback: a hairline accent so the
+  // active state reads without relying on color alone (the glyph + label carry
+  // the identity).
+  slotButtonActive: {
+    borderColor: SURFACE_TOKENS.textSecondary,
   },
   slotOwedMarker: {
     color: BRAND.accent.gold,

@@ -1,3 +1,5 @@
+import type { CrossRoomCallback } from '../arguments/crossRoom/crossRoomCallbackRef';
+
 export type AppSessionStatus =
   | 'unconfigured'
   | 'signed_out'
@@ -32,6 +34,13 @@ export interface ComposerDraftSession {
   targetExcerpt: string | null;
   disagreementAxis: string | null;
   attachedEvidence: Array<{ url?: string; label?: string; source_text?: string }>;
+  /**
+   * UX-COMPOSER-005 (#831) — the pending cross-room callback woven into this
+   * draft, round-tripped so it survives composer collapse / app backgrounding
+   * exactly like targetExcerpt / attachedEvidence. Optional + absent when no
+   * callback is attached (byte-identical session shape).
+   */
+  pendingCallback?: CrossRoomCallback | null;
   updatedAt: string;
   dirty: boolean;
 }

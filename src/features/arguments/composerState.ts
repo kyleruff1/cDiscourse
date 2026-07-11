@@ -1,5 +1,6 @@
 import type { ArgumentType, ArgumentSide, DisagreementAxis } from './types';
 import type { ComposerDraftSession } from '../session/types';
+import type { CrossRoomCallback } from './crossRoom/crossRoomCallbackRef';
 
 export interface EvidenceAttachmentLocal {
   url?: string;
@@ -19,6 +20,13 @@ export interface ComposerDraft {
   targetExcerpt: string | null;
   disagreementAxis: DisagreementAxis | null;
   attachedEvidence: EvidenceAttachmentLocal[];
+  /**
+   * UX-COMPOSER-005 (#831) — the pending cross-room callback woven into this
+   * draft. OPTIONAL so existing fixtures / drafts that omit it still type-check
+   * and round-trip byte-identically (an absent / null value emits no session
+   * key and no submit payload key). null / absent = no callback.
+   */
+  pendingCallback?: CrossRoomCallback | null;
   updatedAt: string;
   dirty: boolean;
 }
@@ -40,6 +48,11 @@ export function draftToSession(draft: ComposerDraft): ComposerDraftSession {
       label: e.label,
       source_text: e.sourceText,
     })),
+    // Always emit pendingCallback (null when absent), mirroring targetExcerpt /
+    // disagreementAxis. draftToSession doubles as the DRAFT_UPDATED merge patch,
+    // so an omitted key would keep a stale callback on a merge — the explicit
+    // null is what lets Remove clear it.
+    pendingCallback: draft.pendingCallback ?? null,
     updatedAt: draft.updatedAt,
     dirty: draft.dirty,
   };
@@ -62,6 +75,7 @@ export function sessionToDraft(session: ComposerDraftSession): ComposerDraft {
       label: e.label,
       sourceText: e.source_text,
     })),
+    pendingCallback: session.pendingCallback ?? null,
     updatedAt: session.updatedAt,
     dirty: session.dirty,
   };

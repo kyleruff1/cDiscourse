@@ -45,6 +45,9 @@ import type { RailActionCode } from '../railActionCategories';
 // (parity with the Ringside card). All additive optional; absent when the flag
 // is off => byte-identical.
 import type { MoveMarkCode, ViewerMoveMarkState } from '../../feedback/moveMarksModel';
+// QUOTE-FORGE-002 (#842) — per-message callback echo map, forwarded verbatim to
+// the timeline (NodeDot corner badge). Absent when quote_forge off => byte-identical.
+import type { CallbackEchoViewModel } from '../crossRoom/callbackEchoModel';
 
 export interface MapViewProps {
   // ArgumentTimelineMap core inputs (forwarded verbatim).
@@ -52,6 +55,8 @@ export interface MapViewProps {
   activeViewModel: ArgumentBubbleViewModel | null;
   totalCount: number;
   artifactsByMessageId: Record<string, ReadonlyArray<EvidenceArtifact>>;
+  /** QUOTE-FORGE-002 (#842) — per-message callback echo map; forwarded verbatim to the timeline. */
+  callbackEchoByMessageId?: Record<string, CallbackEchoViewModel>;
   selectedTarget: TimelineNodeActionDockTarget | null;
   actionDockModel: TimelineNodeActionDockModel | null;
   actingOnLabel: string | null;
@@ -132,6 +137,7 @@ export function MapView(props: MapViewProps) {
         onAction={props.onAction}
         onOpenDetails={props.onOpenDetails}
         artifactsByMessageId={props.artifactsByMessageId}
+        callbackEchoByMessageId={props.callbackEchoByMessageId}
         evidenceContractFor={props.evidenceContractFor}
         evidenceDebtSummaryFor={props.evidenceDebtSummaryFor}
         isReadModeViewer={props.isReadModeViewer}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -32,6 +32,12 @@ import { useSemanticReferee } from './useSemanticReferee';
 // QUOTE-FORGE-001 — cross-room linked-prior wire + create-link picker.
 import { useLinkedPriorRooms } from './crossRoom/useLinkedPriorRooms';
 import { LinkTargetPickerSheet } from './crossRoom/LinkTargetPickerSheet';
+import {
+  buildCallbackEchoesByMessageId,
+  readCallbackRef,
+  type CallbackEchoViewModel,
+  type ResolvedPriorLink,
+} from './crossRoom/callbackEchoModel';
 import { canCreatePriorLink } from './crossRoom/linkTargetPickerModel';
 import type { LinkTargetPickerModel } from './crossRoom/linkTargetPickerModel';
 
@@ -137,9 +143,23 @@ interface Props {
   moveMarksEnabled?: boolean;
   /** FEEDBACK-002 (#899) — pass-through gate for the derived-signal advisory surfaces; forwarded verbatim to ArgumentRoom. */
   derivedSignalsEnabled?: boolean;
+  /**
+   * UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — quote_forge gate. When on,
+   * the room shell derives the per-move callback echo map (from the move refs +
+   * the resolved QOL-042 links) and threads it to the three surfaces. Off =>
+   * no echo map => byte-identical surfaces.
+   */
+  quoteForgeEnabled?: boolean;
+  /**
+   * UX-COMPOSER-005 (#831) — the room shell registers its useLinkedPriorRooms
+   * refresh here so App.tsx can reload the chips after creating a callback room
+   * link post-submit (so #842 echoes resolve). Only invoked when quote_forge is
+   * on; registration is inert otherwise.
+   */
+  refreshLinkedPriorRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled }: Props) {
+export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tree', onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: Props) {
   const {
     cache,
     viewport,
@@ -212,6 +232,8 @@ export function ArgumentTreeScreen({ debate, onReply, refreshRef, viewMode = 'tr
         onMarkerScopePicked={onMarkerScopePicked}
         moveMarksEnabled={moveMarksEnabled}
         derivedSignalsEnabled={derivedSignalsEnabled}
+        quoteForgeEnabled={quoteForgeEnabled}
+        refreshLinkedPriorRef={refreshLinkedPriorRef}
       />
     );
   }
@@ -378,9 +400,13 @@ interface FullRoomGameSurfaceMountProps {
   moveMarksEnabled?: boolean;
   /** FEEDBACK-002 (#899) — derived-signal advisory surfaces gate; forwarded to ArgumentRoom. */
   derivedSignalsEnabled?: boolean;
+  /** UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — quote_forge gate. */
+  quoteForgeEnabled?: boolean;
+  /** UX-COMPOSER-005 (#831) — register linkedPrior.refresh for post-link-create reloads. */
+  refreshLinkedPriorRef?: React.MutableRefObject<(() => void) | null>;
 }
 
-function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled }: FullRoomGameSurfaceMountProps) {
+function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, onComposerPreset, entryHint, participantSide, onJoinSide, density, reduceMotionOverride, startArgumentAction, onActiveMessageChange, onComposerExpand, onLeaveRoom, seatAvailability, onOpenPriorRoom, roomExchangeV2Enabled, roomContract, roomVisibility, onOpenRoomDetails, proofDrawerEnabled, timestampRebuttalsEnabled, onMarkerScopePicked, moveMarksEnabled, derivedSignalsEnabled, quoteForgeEnabled, refreshLinkedPriorRef }: FullRoomGameSurfaceMountProps) {
   const { state } = useAppSession();
   const currentUserId = state.snapshot.userId || null;
 
@@ -423,6 +449,37 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
   useEffect(() => {
     if (refreshRef) refreshRef.current = refresh;
   }, [refresh, refreshRef]);
+
+  // UX-COMPOSER-005 (#831) — register the linked-prior refresh so App.tsx can
+  // reload the chips after creating a callback room link post-submit (so the
+  // #842 echo resolves to authorized). Registration is inert unless quote_forge
+  // callers invoke it; flag-off never calls it.
+  useEffect(() => {
+    if (refreshLinkedPriorRef) refreshLinkedPriorRef.current = linkedPrior.refresh;
+  }, [linkedPrior.refresh, refreshLinkedPriorRef]);
+
+  // QUOTE-FORGE-002 (#842) — build the per-move callback echo map ONCE from the
+  // move refs (client_validation, R1) joined to the resolved QOL-042 links
+  // (keyed by targetDebateId, R2). Undefined when quote_forge is off => the
+  // three surfaces render byte-identically. Single-derivation: this shell owns
+  // BOTH the raw rows (with clientValidation) and the linkedPrior chips, so the
+  // map is derived here and threaded down (never re-derived per surface).
+  const callbackEchoByMessageId = useMemo<Record<string, CallbackEchoViewModel> | undefined>(() => {
+    if (!quoteForgeEnabled) return undefined;
+    const linksByTargetDebateId = new Map<string, ResolvedPriorLink>();
+    for (const chip of linkedPrior.chips) {
+      const targetDebateId = linkedPrior.targetDebateIdForLink(chip.linkId);
+      if (targetDebateId) {
+        linksByTargetDebateId.set(targetDebateId, {
+          targetDebateId,
+          accessState: chip.accessState,
+          title: chip.title,
+        });
+      }
+    }
+    const moves = rows.map((r) => ({ messageId: r.id, ref: readCallbackRef(r.clientValidation) }));
+    return buildCallbackEchoesByMessageId({ moves, linksByTargetDebateId });
+  }, [quoteForgeEnabled, linkedPrior, rows]);
 
   // MCP-019 — semantic-referee room hook (mock mode). Called once at the
   // room-shell level. It owns the client packet cache, the trigger gates,
@@ -628,6 +685,11 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         // surface opens its own Inspect popout ("From the linked prior
         // argument" section) as the smallest correct affordance.
         onOpenLinkPicker={handleOpenLinkPicker}
+        // QUOTE-FORGE-002 (#842) — the single-derivation callback echo map +
+        // the open-prior-room nav (reuses the QOL-042 targetDebateId channel).
+        // Undefined map (quote_forge off) => byte-identical surfaces.
+        callbackEchoByMessageId={callbackEchoByMessageId}
+        onOpenPriorRoom={onOpenPriorRoom}
         // MCP-019 — banner / override slice for the move just posted.
         // Both are null when the semantic layer is off (the v1 default).
         refereeBanner={refereeMoveState?.banner ?? null}

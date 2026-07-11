@@ -2,7 +2,7 @@
  * ASP-FLAGS-001 (#873) — feature-flag registry for the Argument Surface Pivot.
  *
  * Pure decision module. NO React, NO Supabase call, NO network, NO secret. Each
- * of the seven flags it resolves reads a PUBLIC runtime flag whose name carries
+ * of the nine flags it resolves reads a PUBLIC runtime flag whose name carries
  * the `EXPO_PUBLIC_` prefix; that prefix is the public-config contract, so these
  * are runtime toggles, never key material. Merging this card changes zero live
  * surfaces: every flag defaults OFF and no component consumes an accessor in this
@@ -24,7 +24,7 @@
  * the env, a shared helper that takes an env-name argument) is left un-inlined and
  * resolves to `undefined` in the deployed Netlify web bundle, silently forcing
  * every flag OFF in production while jest and typecheck stay green (Node has a
- * real process.env). Therefore there are SEVEN hard-coded static dot reads below,
+ * real process.env). Therefore there are NINE hard-coded static dot reads below,
  * one per flag — never a loop, never a computed key. Do NOT refactor them into a
  * single dynamic read. The source-scan guard in
  * __tests__/featureFlagsStaticEnv.test.ts asserts each static literal is present
@@ -43,7 +43,7 @@
  */
 import { readRuntimeEnv } from './supabase';
 
-/** The seven ASP surface flags. Stable string ids used as registry keys. */
+/** The nine ASP surface flags. Stable string ids used as registry keys. */
 export type AspFeatureFlag =
   | 'home_v2'
   | 'room_exchange_v2'
@@ -52,7 +52,8 @@ export type AspFeatureFlag =
   | 'timestamp_rebuttals'
   | 'one_time_playback'
   | 'move_marks'
-  | 'derived_signals';
+  | 'derived_signals'
+  | 'quote_forge';
 
 /** A single flag descriptor. `resolve()` returns the current boolean state. */
 export interface AspFeatureFlagDescriptor {
@@ -77,6 +78,7 @@ export const TIMESTAMP_REBUTTALS_FLAG = 'EXPO_PUBLIC_TIMESTAMP_REBUTTALS' as con
 export const ONE_TIME_PLAYBACK_FLAG = 'EXPO_PUBLIC_ONE_TIME_PLAYBACK' as const;
 export const MOVE_MARKS_FLAG = 'EXPO_PUBLIC_MOVE_MARKS' as const;
 export const DERIVED_SIGNALS_FLAG = 'EXPO_PUBLIC_DERIVED_SIGNALS' as const;
+export const QUOTE_FORGE_FLAG = 'EXPO_PUBLIC_QUOTE_FORGE' as const;
 
 // ── Resolvers ──────────────────────────────────────────────────────
 // One per flag. Each is default OFF: true ONLY when the resolved value is the
@@ -155,9 +157,24 @@ export function isDerivedSignalsEnabled(): boolean {
   return value === 'true';
 }
 
+/**
+ * UX-COMPOSER-005 (#831) / QUOTE-FORGE-002 (#842) — the 9th ASP flag. Gates the
+ * cross-room quote/callback pair: the composer-side weave affordance + draft echo
+ * (#831) and the posted-node echo on Timeline / Stack / Ringside (#842). Default
+ * OFF, byte-identical when off (no crossRoomCallback key emitted in the submit
+ * payload, no echo chrome). True only when EXPO_PUBLIC_QUOTE_FORGE resolves to the
+ * exact string 'true'.
+ */
+export function isQuoteForgeEnabled(): boolean {
+  const fromRuntime = (readRuntimeEnv() as Record<string, unknown>)[QUOTE_FORGE_FLAG];
+  const fromEnv = process.env.EXPO_PUBLIC_QUOTE_FORGE; // STATIC dot access REQUIRED (#776)
+  const value = typeof fromRuntime === 'string' ? fromRuntime : fromEnv;
+  return value === 'true';
+}
+
 // ── Registry + dispatcher ──────────────────────────────────────────
 
-/** Frozen registry of the seven ASP flag descriptors, keyed by AspFeatureFlag. */
+/** Frozen registry of the nine ASP flag descriptors, keyed by AspFeatureFlag. */
 export const ASP_FEATURE_FLAGS: Readonly<Record<AspFeatureFlag, AspFeatureFlagDescriptor>> =
   Object.freeze({
     home_v2: { key: 'home_v2', envName: HOME_V2_FLAG, resolve: isHomeV2Enabled },
@@ -188,6 +205,7 @@ export const ASP_FEATURE_FLAGS: Readonly<Record<AspFeatureFlag, AspFeatureFlagDe
       envName: DERIVED_SIGNALS_FLAG,
       resolve: isDerivedSignalsEnabled,
     },
+    quote_forge: { key: 'quote_forge', envName: QUOTE_FORGE_FLAG, resolve: isQuoteForgeEnabled },
   });
 
 /**

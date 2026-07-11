@@ -56,6 +56,8 @@ export interface RingsideFeedProps {
   showMoveMarkReceiptsFor?: (argumentId: string) => boolean;
   onMarkMove?: (argumentId: string, code: MoveMarkCode) => void;
   onUnmarkMove?: (argumentId: string, code: MoveMarkCode) => void;
+  /** QUOTE-FORGE-002 (#842) — open a referenced prior room from a card callback echo. */
+  onOpenPriorRoom?: (targetDebateId: string) => void;
 }
 
 export function RingsideFeed(props: RingsideFeedProps) {
@@ -92,6 +94,7 @@ export function RingsideFeed(props: RingsideFeedProps) {
             showMoveMarkReceiptsFor={props.showMoveMarkReceiptsFor}
             onMarkMove={props.onMarkMove}
             onUnmarkMove={props.onUnmarkMove}
+            onOpenPriorRoom={props.onOpenPriorRoom}
           />
         );
       })}

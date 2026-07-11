@@ -35,6 +35,7 @@ import { MapView } from './MapView';
 import { ExchangeView } from './ExchangeView';
 // QUOTE-FORGE-001 — linked prior argument chips built by the room shell.
 import type { LinkedPriorArgumentChip } from '../crossRoom/linkedPriorArgumentModel';
+import type { CallbackEchoViewModel } from '../crossRoom/callbackEchoModel';
 // UX-BOARD-RAIL-002 — pure presentational band-driven board grid. Receives the
 // already-built render-tree subtrees as slot props and arranges them into a
 // 1 / 2 / 3-column board by the resident `headerBand`. No hook / handler /
@@ -517,6 +518,19 @@ export interface Props {
    */
   onOpenLinkPicker?: () => void;
   /**
+   * QUOTE-FORGE-002 (#842) — per-message woven-callback echo map, built ONCE by
+   * the room shell (FullRoomGameSurfaceMount) from the move refs + resolved
+   * QOL-042 links. Threaded to the Timeline (badge), the active Stack card
+   * (banner), and the Ringside cards. Absent when quote_forge is off =>
+   * byte-identical surfaces.
+   */
+  callbackEchoByMessageId?: Record<string, CallbackEchoViewModel>;
+  /**
+   * QUOTE-FORGE-002 (#842) — open a referenced prior room from a callback echo
+   * origin. Reuses the shipped room-level nav channel (targetDebateId).
+   */
+  onOpenPriorRoom?: (targetDebateId: string) => void;
+  /**
    * ROOM-001 (#876) — ambient ArgumentStateRail wiring. Additive optional. The
    * flag gates the mount (default OFF => rail never mounted, room byte-identical
    * to today); roomContract + roomVisibility feed the turn / visibility cue;
@@ -601,6 +615,8 @@ export function ArgumentRoom({
   onOpenLinkedPrior,
   onViewLinkedPriorContext,
   onOpenLinkPicker,
+  callbackEchoByMessageId,
+  onOpenPriorRoom,
   roomExchangeV2Enabled,
   roomContract,
   roomVisibility,
@@ -1605,6 +1621,9 @@ export function ArgumentRoom({
       observerActionsFor: (actor) => getRailActions('observer', actor),
       friendlyFlagCountFor: (id) =>
         id === activeMessageId ? activePointFeedbackFlags.visible.length : 0,
+      // QUOTE-FORGE-002 (#842) — inject the woven-callback echo join. Undefined
+      // map (quote_forge off) => null for every card => byte-identical Ringside.
+      callbackEchoFor: (id) => callbackEchoByMessageId?.[id] ?? null,
     });
   }, [
     roomExchangeV2Enabled,
@@ -1615,6 +1634,7 @@ export function ArgumentRoom({
     artifactsByMessageId,
     evidenceDebts,
     activePointFeedbackFlags,
+    callbackEchoByMessageId,
   ]);
 
   // ROOM-004 (#886) — the Map node-action surface. Built ONLY when
@@ -2884,6 +2904,12 @@ export function ArgumentRoom({
             showMoveMarkReceiptsFor={moveMarksEnabled ? showMoveMarkReceiptsFor : undefined}
             onMarkMove={moveMarksEnabled ? moveMarks.onMark : undefined}
             onUnmarkMove={moveMarksEnabled ? moveMarks.onUnmark : undefined}
+            // QUOTE-FORGE-002 (#842) — the active-card woven-callback echo +
+            // open-prior-room nav. Null map (quote_forge off) => byte-identical.
+            activeCallbackEcho={
+              activeMessageId ? callbackEchoByMessageId?.[activeMessageId] ?? null : null
+            }
+            onOpenPriorRoom={onOpenPriorRoom}
           />
         ) : (
           // ASP-EXTRACT-001 (Slice 1) — the mode === timeline body is now the
@@ -2924,6 +2950,7 @@ export function ArgumentRoom({
             onActionDockAction={handleActionDockAction}
             onOpenCardsDetail={handleOpenCardsDetail}
             reduceMotionOverride={reduceMotionOverride}
+            callbackEchoByMessageId={callbackEchoByMessageId}
             linkedPriorChips={linkedPriorChips}
             onOpenLinkedPrior={onOpenLinkedPrior}
             onViewLinkedPriorContext={handleViewLinkedPriorContext}
