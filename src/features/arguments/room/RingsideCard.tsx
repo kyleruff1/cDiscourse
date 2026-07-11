@@ -152,8 +152,13 @@ export function RingsideCard(props: RingsideCardProps) {
   const showRespondToThis = !card.isOwn && typeof props.onRespondToThis === 'function';
 
   return (
+    // A11Y-693 — accessible=false keeps the nested controls (quote chip, action
+    // chips, feedback bar) individually focusable under iOS VoiceOver; the root
+    // still activates on press. Without it VoiceOver collapses the whole card
+    // into one element and the inner controls become unreachable.
     <Pressable
       onPress={() => props.onActivate(card.messageId)}
+      accessible={false}
       accessibilityRole="button"
       accessibilityState={{ selected: card.isActive }}
       accessibilityLabel={buildCardAccessibilityLabel(card, total)}
@@ -186,6 +191,7 @@ export function RingsideCard(props: RingsideCardProps) {
               }
               disabled={!card.parentMessageId}
               accessibilityRole="button"
+              accessibilityState={{ disabled: !card.parentMessageId }}
               accessibilityLabel="Go to the point this move answers"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               testID={`ringside-quote-chip-${card.messageId}`}

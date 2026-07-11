@@ -124,7 +124,10 @@ describe('ArgumentStateRail — accessibility + informational fallback', () => {
     // No onOpenMap supplied → the open_points chip is informational.
     const { getByTestId } = render(<ArgumentStateRail model={model} />);
     const chip = getByTestId('argument-state-rail-chip-open_points');
-    expect(chip.props.accessibilityRole).toBeUndefined();
+    // A11Y-693 — the informational (non-pressable) chip now announces as static
+    // text (accessibilityRole="text"), not a button; the prior undefined-role
+    // assertion encoded the pre-fix gap. It remains non-interactive (no onPress).
+    expect(chip.props.accessibilityRole).toBe('text');
     // Still exposes a screen-reader label.
     expect(chip.props.accessibilityLabel.length).toBeGreaterThan(0);
   });

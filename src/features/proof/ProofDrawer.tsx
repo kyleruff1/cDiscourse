@@ -319,8 +319,12 @@ function FocusedInput({
                 style={[styles.priorItem, selected && styles.priorItemSelected]}
                 testID={`proof-drawer-prior-${m.id}`}
               >
+                {/* A11Y-693 — the selected prior-move carries a non-color signal
+                    (a check affix + a thicker border) so selection reads in
+                    grayscale. The affix stays visual-only; the screen reader
+                    hears the selected state via accessibilityState above. */}
                 <Text style={styles.priorItemText} numberOfLines={2}>
-                  {m.label}
+                  {selected ? `✓ ${m.label}` : m.label}
                 </Text>
               </Pressable>
             );
@@ -447,7 +451,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: SURFACE_TOKENS.inputBorder,
   },
-  priorItemSelected: { borderColor: CONTROL.primary.bg },
+  // A11Y-693 — thicker border pairs with the check affix so selection is not
+  // color-alone (grayscale-legible; mirrors the BooleanFeedbackBar marked style).
+  priorItemSelected: { borderColor: CONTROL.primary.bg, borderWidth: 2 },
   priorItemText: { color: SURFACE_TOKENS.textPrimary, fontSize: 13 },
   input: {
     minHeight: TOUCH_TARGET.minSizePx,
