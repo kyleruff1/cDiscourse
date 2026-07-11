@@ -38,7 +38,15 @@ export type QuickActionLabel =
   // primary recommendation never drops the player into a blank composer.
   | 'narrow'
   | 'confirm'
-  | 'synthesize';
+  | 'synthesize'
+  // UX-FLAGS-004 — three new "answer a feedback flag" presets. A friendly flag
+  // tap (needs-a-receipt, asks-for-clarification, unanswered-question, ...)
+  // routes its composerIntent through flagComposerIntentMap to one of these
+  // labels; ask_for_source / propose_synthesis reuse the existing source /
+  // synthesize labels above, so only three new labels are added here.
+  | 'ask_clarify' // Family C — asks the author to pin a term / reference down
+  | 'answer_question' // Family F — answer an open critical question (type free)
+  | 'sharpen_claim'; // Family H — ask the author to narrow / specify
 
 /**
  * SC-004 — composer-seeded body for the `narrow` action. Neutral
@@ -68,6 +76,44 @@ export const ALL_SC004_PRESET_BODIES: ReadonlyArray<string> = Object.freeze([
   NARROW_PRESET_BODY,
   CONFIRM_PRESET_BODY,
   SYNTHESIZE_PRESET_BODY,
+]);
+
+/**
+ * UX-FLAGS-004 — composer-seeded body for the `ask_clarify` action (Family C
+ * "asks for clarification"). Neutral scaffolding the user edits before posting.
+ * Advisory: names the move shape, never asserts the flag is right. First-person
+ * + a bracketed placeholder. No verdict / truth / popularity / "proof" token.
+ */
+export const ASK_CLARIFY_PRESET_BODY =
+  "Which part would you pin down for me? I want to make sure I'm answering what you actually mean by [term].";
+
+/**
+ * UX-FLAGS-004 — composer-seeded body for the `answer_question` action (Family F
+ * "unanswered question"). Body-only: the user keeps type freedom. Advisory, edit
+ * before posting; no verdict / truth / popularity / "proof" token.
+ */
+export const ANSWER_QUESTION_PRESET_BODY =
+  "Here's my answer to the open question: [your answer]. If I've missed what you were asking, tell me where.";
+
+/**
+ * UX-FLAGS-004 — composer-seeded body for the `sharpen_claim` action (Family H
+ * "could be more specific"). Own-bubble suppressed upstream, so it only ever
+ * seeds a reply to another author. Advisory scaffolding, edit before posting; no
+ * verdict / truth / popularity / "proof" token.
+ */
+export const SHARPEN_CLAIM_PRESET_BODY =
+  "Could you make this more specific? Narrowing it to [the exact case] would help me engage the specific point.";
+
+/**
+ * Frozen array of every UX-FLAGS-004 flag-intent preset body. Fed to the
+ * flagIntentPresetCopy ban-list test (mirrors ALL_SC004_PRESET_BODIES). Only the
+ * three NEW bodies live here; ask_for_source / propose_synthesis reuse the
+ * already-ban-listed ASK_SOURCE_PRESET_BODY / SYNTHESIZE_PRESET_BODY.
+ */
+export const ALL_FLAG_INTENT_PRESET_BODIES: ReadonlyArray<string> = Object.freeze([
+  ASK_CLARIFY_PRESET_BODY,
+  ANSWER_QUESTION_PRESET_BODY,
+  SHARPEN_CLAIM_PRESET_BODY,
 ]);
 
 /**
@@ -177,6 +223,30 @@ export function quickActionToPreset(action: QuickActionLabel, parentType: Argume
       return {
         argumentType: 'synthesis',
         body: SYNTHESIZE_PRESET_BODY,
+      };
+
+    case 'ask_clarify':
+      // UX-FLAGS-004 — answer a Family C "asks for clarification" flag with a
+      // clarification_request. Seeded body is scaffolding the user edits.
+      return {
+        argumentType: 'clarification_request',
+        body: ASK_CLARIFY_PRESET_BODY,
+      };
+
+    case 'answer_question':
+      // UX-FLAGS-004 — answer a Family F "unanswered question" flag. Body-only:
+      // the user keeps type freedom (an answer may be a claim, evidence, etc.).
+      return {
+        body: ANSWER_QUESTION_PRESET_BODY,
+      };
+
+    case 'sharpen_claim':
+      // UX-FLAGS-004 — answer a Family H "could be more specific" flag with a
+      // clarification_request. Own-bubble suppressed upstream, so this only ever
+      // seeds a reply to another author. Seeded body is scaffolding the user edits.
+      return {
+        argumentType: 'clarification_request',
+        body: SHARPEN_CLAIM_PRESET_BODY,
       };
 
     default:

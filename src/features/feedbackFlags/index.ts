@@ -12,6 +12,9 @@
 export * from './friendlyFlagMap';
 export * from './pointFeedbackFlagsModel';
 export * from './feedbackFlagPriority';
+// UX-FLAGS-004 (#836) — the flag intent to composer preset bridge (Layer 2 over
+// friendlyFlagMap's actionable / composerIntent declarations). Pure TS; no React.
+export * from './flagComposerIntentMap';
 export { PointFeedbackFlagPill } from './PointFeedbackFlagPill';
 export { PointFeedbackFlagsRow } from './PointFeedbackFlagsRow';
 // FEEDBACK-002 (#899) — the derived cross-family composition layer + the two
