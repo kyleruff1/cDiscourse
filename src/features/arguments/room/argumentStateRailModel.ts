@@ -40,6 +40,7 @@ export type StateRailChipKind =
   | 'receipts_owed' // open evidence-debt count
   | 'visibility' // Public 1:1 / Private 1:1 (gold when private)
   | 'seat' // respondent seat open (no-new-query subset of #681)
+  | 'chime_seats' // CHIMEIN-P8 Round 2 (#761) — open chime-in seat count (flag-gated feed)
   | 'saved_recordings'; // RESERVED (P5-6) — renders nothing until VOICE-ADR-002 ships
 
 export interface StateRailChip {
@@ -210,9 +211,29 @@ export function deriveArgumentStateRail(input: ArgumentStateRailInput): Argument
     isVisible: input.opponentSeatIsOpen === true,
   });
 
-  // 6. Saved recordings — RESERVED. Renders nothing until the P5-6 voice cards
-  // ship (VOICE-ADR-002). openChimeInSeatCount / watchingCount are reserved
-  // inputs with no in-room source yet (scope-reality audit) and render nothing.
+  // 6. Chime-in seats (CHIMEIN-P8 Round 2, #761) — an informational count of open
+  // bounded contribution seats. Visible only when the room shell supplies a
+  // positive openChimeInSeatCount (the chime_in flag ON + a public established
+  // room with capacity, fed from chimeInContributionModel). Absent / 0 => hidden
+  // => byte-identical to the pre-Round-2 rail. A chime seat is never a principal
+  // seat, never a verdict; deepLink null keeps it a pure count readout.
+  {
+    const openChime = safeCount(input.openChimeInSeatCount);
+    const chimeWord =
+      openChime === 1 ? STATE_RAIL_COPY.chime_seat_word_one : STATE_RAIL_COPY.chime_seat_word_many;
+    candidates.push({
+      id: 'chime_seats',
+      label: `${openChime} ${chimeWord}`,
+      accessibilityLabel: `${openChime} ${chimeWord} ${STATE_RAIL_COPY.chime_seats_a11y_suffix}`,
+      tone: 'neutral',
+      deepLink: null,
+      isVisible: openChime > 0,
+    });
+  }
+
+  // 7. Saved recordings — RESERVED. Renders nothing until the P5-6 voice cards
+  // ship (VOICE-ADR-002). watchingCount stays a reserved input with no in-room
+  // source yet (scope-reality audit) and renders nothing.
   const savedRecordingLabel = ''; // RESERVED — no copy until VOICE-ADR-002 ships.
   candidates.push({
     id: 'saved_recordings',

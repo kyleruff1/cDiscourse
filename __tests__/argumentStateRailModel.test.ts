@@ -200,9 +200,14 @@ describe('deriveArgumentStateRail — reserved slots render nothing', () => {
     expect(chip).toBeUndefined();
   });
 
-  it('ignores reserved openChimeInSeatCount / watchingCount inputs (no chip, no crash)', () => {
-    const m = deriveArgumentStateRail(baseInput({ openChimeInSeatCount: 2, watchingCount: 9 }));
-    expect(m.chips.map((c) => c.id)).toEqual(['turn', 'visibility']);
+  it('watchingCount stays reserved (no chip); openChimeInSeatCount now feeds the chime chip (CHIMEIN-P8 #761)', () => {
+    // watchingCount still has no in-room source -> it renders nothing.
+    const watchingOnly = deriveArgumentStateRail(baseInput({ watchingCount: 9 }));
+    expect(watchingOnly.chips.map((c) => c.id)).toEqual(['turn', 'visibility']);
+    // openChimeInSeatCount is wired by Round 2 -> a chime_seats chip appears in
+    // canonical (candidate push) order, after the visibility chip.
+    const withChime = deriveArgumentStateRail(baseInput({ openChimeInSeatCount: 2 }));
+    expect(withChime.chips.map((c) => c.id)).toEqual(['turn', 'visibility', 'chime_seats']);
   });
 });
 

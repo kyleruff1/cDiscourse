@@ -56,6 +56,7 @@ const CHIP_GLYPH: Record<StateRailChipKind, string> = {
   receipts_owed: '❖',
   visibility: '◈',
   seat: '☐',
+  chime_seats: '◇',
   saved_recordings: '',
 };
 

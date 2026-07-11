@@ -1901,6 +1901,12 @@ export const STATE_RAIL_COPY = Object.freeze({
   // Seat segment (no-new-query subset of #681).
   seat_open_label: 'Seat open',
   seat_open_a11y: 'Respondent seat open.',
+  // CHIMEIN-P8 Round 2 (#761) chime-in seat chip. Rendered as "{n} chime-in
+  // seat(s) open" — an informational count of open bounded contribution seats,
+  // never a principal seat, never a verdict. Absent count => the chip is hidden.
+  chime_seat_word_one: 'chime-in seat open',
+  chime_seat_word_many: 'chime-in seats open',
+  chime_seats_a11y_suffix: 'Open to chime in on this argument.',
   // Visibility chip a11y tails (labels themselves reuse ROOM_ONE_TO_ONE_COPY).
   visibility_public_a11y: 'Public one to one argument.',
   visibility_private_a11y: 'Private one to one argument.',
