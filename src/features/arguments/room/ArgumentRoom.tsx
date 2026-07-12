@@ -284,6 +284,10 @@ import {
   resolveKeyBadgeVisibility,
 } from '../oneBox/menuKeyBadgeModel';
 import { resolveBoardMenuKeyEffect } from '../boardMenuKeyboardModel';
+// A11Y-PR0 (#913, P0-3d) — fold the marker phrase picker + request-review
+// composer into hasOpenMenu so background board / stack shortcuts bail while
+// either containment sheet is open.
+import { computeRoomHasOpenMenu } from './roomOpenMenuModel';
 import { buildTimelineMiniMapModel } from '../timelineMiniMapModel';
 import type { ArgumentType as ConstitutionArgumentType } from '../../../domain/constitution/types';
 // UX-001.5A — Node labels (Machine Observations + User Allegations).
@@ -2781,7 +2785,13 @@ export function ArgumentRoom({
         (activeEl.tagName === 'INPUT' ||
           activeEl.tagName === 'TEXTAREA' ||
           activeEl.isContentEditable === true);
-      const hasOpenMenu = boardActVisible || inspectVisible || goVisible;
+      const hasOpenMenu = computeRoomHasOpenMenu({
+        boardActVisible,
+        inspectVisible,
+        goVisible,
+        markerPickerOpen: markerPickerTargetId !== null,
+        requestReviewOpen: requestReviewTarget !== null,
+      });
       const effect = resolveBoardMenuKeyEffect({
         key: event.key,
         metaKey: event.metaKey,
@@ -2824,7 +2834,7 @@ export function ArgumentRoom({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [boardActVisible, inspectVisible, goVisible]);
+  }, [boardActVisible, inspectVisible, goVisible, markerPickerTargetId, requestReviewTarget]);
 
   // ── CARD-VIEW-REFINE-001 — Stack-mode ←/→ (+ Home/End) keyboard nav ──
   //
@@ -2849,7 +2859,13 @@ export function ArgumentRoom({
         (activeEl.tagName === 'INPUT' ||
           activeEl.tagName === 'TEXTAREA' ||
           activeEl.isContentEditable === true);
-      const hasOpenMenu = boardActVisible || inspectVisible || goVisible;
+      const hasOpenMenu = computeRoomHasOpenMenu({
+        boardActVisible,
+        inspectVisible,
+        goVisible,
+        markerPickerOpen: markerPickerTargetId !== null,
+        requestReviewOpen: requestReviewTarget !== null,
+      });
       const effect = resolveStackKeyEffect({
         key: event.key,
         composerFocused,
@@ -2884,6 +2900,8 @@ export function ArgumentRoom({
     boardActVisible,
     inspectVisible,
     goVisible,
+    markerPickerTargetId,
+    requestReviewTarget,
     handlePrev,
     handleNext,
     handleFirst,
