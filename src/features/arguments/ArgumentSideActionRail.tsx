@@ -45,6 +45,7 @@ import {
 import {
   RAIL_ACTION_CATEGORIES,
   RAIL_ACTION_CATEGORY_LABEL,
+  RAIL_LOCALLY_ROUTED_CODES,
   groupRailActionsByCategory,
 } from './railActionCategories';
 import type {
@@ -64,6 +65,7 @@ import type { ParticipantSide } from '../debates/types';
 export {
   RAIL_ACTION_CATEGORIES,
   RAIL_ACTION_CATEGORY_LABEL,
+  RAIL_LOCALLY_ROUTED_CODES,
   groupRailActionsByCategory,
 };
 export type {
@@ -77,27 +79,26 @@ export type {
 };
 
 // UX-001.4 — Migrate-to-Act entries removed per design §1 Table B (B.1/B.2/B.3).
-// The remaining entries are either:
-//   - preserve-as-shortcut: high-frequency single-tap actions (watch /
-//     join_aff / join_neg for observers; reply / disagree for
-//     participants on other bubbles) that would lose value with an Act
-//     roundtrip.
-//   - retain-with-rationale: out-of-band actions that aren't moves
-//     (share — opens a native/browser share sheet; not a Constitution move).
+// The remaining entries are preserve-as-shortcut: high-frequency single-tap
+// actions (watch / join_aff / join_neg for observers; reply / disagree for
+// participants on other bubbles) that would lose value with an Act roundtrip.
 //
 // Migrated codes still exist in the RailActionCode union for back-compat
-// with railActionToBubbleControl; they simply don't render in the rail.
+// with railActionToBubbleControl; they simply do not render in the rail.
 // Act is the canonical home — open Act on a node to access Ask source /
 // Ask quote / Split branch / Flag / Qualifiers / Request deletion.
+//
+// UX-PR-G (#920) P1-12 — 'share' was REMOVED from the observer set: it was a
+// guaranteed no-op (onShareRoom had zero suppliers and rooms have no URLs), so
+// every observer saw a dead button. The 'share' code stays in the RailActionCode
+// union for back-compat (railActionToBubbleControl default -> null), and the
+// 'share' category stays in RAIL_ACTION_CATEGORIES (groupRailActionsByCategory
+// skips empty groups). The railHandlerPresenceGuard test asserts 'share' no
+// longer appears in any getRailActions set.
 const OBSERVER_ACTIONS: RailAction[] = [
   { code: 'watch', label: 'Watch', helper: OBSERVER_COPY.watchHelp, category: 'watch_observe', tone: 'neutral' },
   { code: 'join_aff', label: OBSERVER_COPY.joinAffShort, helper: OBSERVER_COPY.joinHelp + ' Argue For.', category: 'join_side', tone: 'primary' },
   { code: 'join_neg', label: OBSERVER_COPY.joinNegShort, helper: OBSERVER_COPY.joinHelp + ' Argue Against.', category: 'join_side', tone: 'primary' },
-  // UX-001.4: 'share' retained inline (NOT migrated to Act) because
-  // sharing is an out-of-band action (browser/native), not a debate
-  // move. Adding an Act roundtrip would add friction without
-  // consolidation benefit.
-  { code: 'share', label: 'Share', helper: OBSERVER_COPY.shareHelp, category: 'share', tone: 'neutral' },
 ];
 
 const PARTICIPANT_OTHER_ACTIONS: RailAction[] = [

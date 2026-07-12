@@ -435,8 +435,9 @@ export interface Props {
   participantSide?: ParticipantSide | null;
   /** Called when the user picks Join Aff / Join Neg in the action rail. */
   onJoinSide?: (side: 'affirmative' | 'negative') => void;
-  /** Called when the user picks Share in the action rail. */
-  onShareRoom?: () => void;
+  // UX-PR-G (#920) P1-12 — the dead `onShareRoom` prop was removed. Share had
+  // zero suppliers and rooms have no URLs, so it was a guaranteed no-op; the
+  // rail no longer renders a Share action.
   /**
    * Optional smart-entry hint computed from the gallery card the user
    * opened. The room shell uses it to pre-activate the right message
@@ -651,7 +652,6 @@ export function ArgumentRoom({
   viewerRole,
   participantSide,
   onJoinSide,
-  onShareRoom,
   entryHint,
   density,
   reduceMotionOverride,
@@ -2453,18 +2453,18 @@ export function ArgumentRoom({
     setSelectedDockTarget(null);
   }, []);
 
-  // Stage 6.4 — Action rail action dispatch. Routes rail-only codes
-  // (join_aff, join_neg, share, open_timeline, watch) locally; bubble
-  // controls reuse the existing handleAction path.
+  // Stage 6.4 — Action rail action dispatch. Routes the locally-routed codes
+  // (join_aff, join_neg, open_timeline, watch — RAIL_LOCALLY_ROUTED_CODES)
+  // locally; bubble controls reuse the existing handleAction path. UX-PR-G
+  // (#920) P1-12 removed the dead `share` branch (zero suppliers, no room URLs).
   const handleRailAction = useCallback((code: RailActionCode, ctx: { activeMessageId: string | null }) => {
     if (code === 'join_aff') { onJoinSide?.('affirmative'); return; }
     if (code === 'join_neg') { onJoinSide?.('negative'); return; }
     if (code === 'open_timeline') { if (mode !== 'timeline') setMode('timeline'); return; }
     if (code === 'watch') { /* no-op: observer stays observer */ return; }
-    if (code === 'share') { onShareRoom?.(); return; }
     const ctrl = railActionToBubbleControl(code);
     if (ctrl && ctx.activeMessageId) handleAction(ctrl, ctx.activeMessageId);
-  }, [onJoinSide, onShareRoom, mode, handleAction]);
+  }, [onJoinSide, mode, handleAction]);
 
   // ROOM-004 (#886) — J9. Answer this from the Map jumps to the Exchange lens
   // (setMode stack) and opens the composer scoped to the selected node

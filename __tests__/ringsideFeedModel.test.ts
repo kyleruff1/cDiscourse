@@ -123,13 +123,14 @@ describe('ringsideFeedModel — actor-aware action row', () => {
     expect(feed.cards[0].isOwn).toBe(false);
   });
 
-  it('observer → the injected observer set [watch, join_aff, join_neg, share]', () => {
+  it('observer → the injected observer set [watch, join_aff, join_neg] (UX-PR-G #920 removed share)', () => {
     const vm = makeVm({ actor: 'other' });
     const feed = buildRingsideFeed(makeInput([vm], { viewerRole: 'observer' as RailViewerRole }));
     const row = feed.cards[0].actionRow;
     expect(row.kind).toBe('observer');
     if (row.kind === 'observer') {
-      expect(row.actions.map((a) => a.code)).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
+      // UX-PR-G (#920) P1-12 — share removed (guaranteed no-op, no room URLs).
+      expect(row.actions.map((a) => a.code)).toEqual(['watch', 'join_aff', 'join_neg']);
     }
   });
 

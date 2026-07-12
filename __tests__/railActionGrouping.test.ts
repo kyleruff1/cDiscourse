@@ -65,9 +65,12 @@ describe('SC-001 every rail action has a category', () => {
 // ── UX-001.4 contract — Act consolidation (B.1/B.2/B.3 migration) ─
 
 describe('UX-001.4 contract — action codes per viewer/actor (post-Act-consolidation)', () => {
-  it('observer set: watch / join_aff / join_neg / share (ask_source / open_timeline migrated)', () => {
+  it('observer set: watch / join_aff / join_neg (UX-PR-G #920 removed share; ask_source / open_timeline migrated)', () => {
     const codes = getRailActions('observer', 'other').map((a) => a.code);
-    expect(codes).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
+    expect(codes).toEqual(['watch', 'join_aff', 'join_neg']);
+    // UX-PR-G (#920) P1-12 — share was a guaranteed no-op (zero suppliers, no
+    // room URLs); it no longer renders in the observer set.
+    expect(codes).not.toContain('share');
     // Migrated codes — no longer rendered (open Act on a node to access them).
     expect(codes).not.toContain('ask_source');
     expect(codes).not.toContain('open_timeline');
@@ -108,12 +111,15 @@ describe('SC-001 groupRailActionsByCategory', () => {
     }
   });
 
-  it('observer set covers watch_observe / join_side / share (UX-001.4: evidence migrated to Act)', () => {
+  it('observer set covers watch_observe / join_side (UX-PR-G #920 removed share; UX-001.4 evidence migrated)', () => {
     const groups = groupRailActionsByCategory(getRailActions('observer', 'other'));
     const cats = new Set(groups.map((g) => g.category));
-    for (const required of ['watch_observe', 'join_side', 'share'] as const) {
+    for (const required of ['watch_observe', 'join_side'] as const) {
       expect(cats).toContain(required);
     }
+    // UX-PR-G (#920) P1-12 — the share category is now empty for observers (no
+    // share action), so groupRailActionsByCategory skips it.
+    expect(cats.has('share')).toBe(false);
     // UX-001.4 — evidence category is now empty for observers (ask_source migrated to Act).
     expect(cats.has('evidence')).toBe(false);
   });

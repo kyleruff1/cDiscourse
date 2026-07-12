@@ -170,7 +170,7 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
 
   it('OBSERVER — renders the getRailActions observer set as Pressables that dispatch codes', () => {
     const onRailAction = jest.fn();
-    const { getByTestId } = render(
+    const { getByTestId, queryByTestId } = render(
       <CardDetailPanel
         model={model()}
         viewerRole="observer"
@@ -181,11 +181,13 @@ describe('CARD-VIEW-REFINE-001 — inline ActionsZone (USER MOVES, real buttons)
     // VISUAL-SIMPLIFY-001 — the ActionsZone lives inside the expansion now.
     fireEvent.press(getByTestId('card-detail-more-toggle'));
     expect(getByTestId('card-detail-actions-zone')).toBeTruthy();
-    // Observer set = watch · join_aff · join_neg · share (getRailActions).
-    for (const code of ['watch', 'join_aff', 'join_neg', 'share']) {
+    // Observer set = watch · join_aff · join_neg (getRailActions).
+    // UX-PR-G (#920) P1-12 — share removed (guaranteed no-op, no room URLs).
+    for (const code of ['watch', 'join_aff', 'join_neg']) {
       const chip = getByTestId(`card-detail-action-${code}`);
       expect(roleOf(chip)).toBe('button'); // USER MOVES are safe to be buttons
     }
+    expect(queryByTestId('card-detail-action-share')).toBeNull();
     // Dispatch routes the rail action code (single source of truth).
     fireEvent.press(getByTestId('card-detail-action-join_aff'));
     expect(onRailAction).toHaveBeenCalledTimes(1);

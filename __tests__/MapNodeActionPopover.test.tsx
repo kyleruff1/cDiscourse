@@ -84,11 +84,13 @@ describe('MapNodeActionPopover — actor matrix mirrors the Ringside card', () =
     expect(queryByTestId('map-popover-control-flag-m4')).toBeNull();
   });
 
-  it('observer renders watch / join / share', () => {
-    const { getByTestId } = renderPopover('observer', 'other');
-    for (const code of ['watch', 'join_aff', 'join_neg', 'share']) {
+  it('observer renders watch / join (UX-PR-G #920 removed share)', () => {
+    const { getByTestId, queryByTestId } = renderPopover('observer', 'other');
+    for (const code of ['watch', 'join_aff', 'join_neg']) {
       expect(getByTestId(`map-popover-action-${code}-m4`)).toBeTruthy();
     }
+    // UX-PR-G (#920) P1-12 — share removed (guaranteed no-op, no room URLs).
+    expect(queryByTestId('map-popover-action-share-m4')).toBeNull();
   });
 });
 
