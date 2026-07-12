@@ -16,6 +16,7 @@ import {
   classifyJoinOutcome,
   buildSeatAvailabilityViewModel,
   resolveJoinSideEffect,
+  resolveJoinPanelFeedback,
   type SeatAvailability,
 } from '../src/features/debates/seatClaimModel';
 import {
@@ -408,9 +409,50 @@ describe('resolveJoinSideEffect', () => {
     }
   });
 
-  it('is a no-op for unavailable / error with no side', () => {
-    expect(resolveJoinSideEffect({ side: null, outcome: 'unavailable' })).toEqual({ kind: 'none' });
-    expect(resolveJoinSideEffect({ side: null, outcome: 'error' })).toEqual({ kind: 'none' });
+  it('UX-PR-B (#918) — surfaces an HONEST error note for unavailable / error with no side', () => {
+    // Previously these were a silent { kind: 'none' } no-op; now they carry the
+    // plain-language join-failed message so the room shell can announce it.
+    expect(resolveJoinSideEffect({ side: null, outcome: 'unavailable' })).toEqual({
+      kind: 'error',
+      message: SEAT_CLAIM_COPY.joinFailed,
+    });
+    expect(resolveJoinSideEffect({ side: null, outcome: 'error' })).toEqual({
+      kind: 'error',
+      message: SEAT_CLAIM_COPY.joinFailed,
+    });
+  });
+});
+
+// ── resolveJoinPanelFeedback (JoinDebatePanel inline feedback) ───
+
+describe('resolveJoinPanelFeedback (UX-PR-B #918)', () => {
+  it('reports joined (no note) when a seat was taken', () => {
+    expect(resolveJoinPanelFeedback({ side: 'affirmative', outcome: 'claimed' })).toEqual({
+      joined: true,
+      message: null,
+    });
+    expect(resolveJoinPanelFeedback({ side: 'observer', outcome: 'already_observer' })).toEqual({
+      joined: true,
+      message: null,
+    });
+  });
+
+  it('reports the full-room observe copy when the room is full', () => {
+    expect(resolveJoinPanelFeedback({ side: null, outcome: 'room_full' })).toEqual({
+      joined: false,
+      message: SEAT_CLAIM_COPY.fullRoomObserve,
+    });
+  });
+
+  it('reports the join-failed copy for unavailable / error with no side', () => {
+    expect(resolveJoinPanelFeedback({ side: null, outcome: 'unavailable' })).toEqual({
+      joined: false,
+      message: SEAT_CLAIM_COPY.joinFailed,
+    });
+    expect(resolveJoinPanelFeedback({ side: null, outcome: 'error' })).toEqual({
+      joined: false,
+      message: SEAT_CLAIM_COPY.joinFailed,
+    });
   });
 });
 
