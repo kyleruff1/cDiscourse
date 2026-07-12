@@ -17,9 +17,15 @@
  * All comments are apostrophe-free for the uxOneOneTwoDoctrine scanner.
  */
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { segmentPhrases, type PendingMarkerScope } from './timestampMarkerModel';
 import { MARKER_COPY } from './markerCopy';
+// A11Y-PR0 (#913, P0-3d) — additive containment: a web-only dismissing
+// backdrop plus a topmost-gated Escape via the web-guarded useOverlayA11y hook.
+// The sheet stays a plain inline overlay (no RN Modal per the orchestrator
+// ruling); native hardware-back parity is deferred to the follow-up. Native is
+// a no-op.
+import { useOverlayA11y } from '../../a11y/useOverlayA11y';
 
 export interface MarkerPhrasePickerSheetProps {
   /** The quoted (target) argument id. */
@@ -37,6 +43,14 @@ export function MarkerPhrasePickerSheet(props: MarkerPhrasePickerSheetProps): Re
   const phrases = useMemo(() => segmentPhrases(targetBody), [targetBody]);
   const isSide = props.windowWidth >= 720;
 
+  // A11Y-PR0 (#913) — the sheet is only mounted while open, so visible is true.
+  // The hook traps Tab within the sheet, owns a topmost-gated Escape that maps
+  // to onCancel, and restores focus on close.
+  const { registerContainer } = useOverlayA11y({
+    visible: true,
+    onDismiss: props.onCancel,
+  });
+
   // Whole-move fallback when the body has no clear phrase boundary. Guarded so a
   // genuinely empty body (which submit-argument disallows) never mints a
   // zero-length span.
@@ -52,7 +66,25 @@ export function MarkerPhrasePickerSheet(props: MarkerPhrasePickerSheetProps): Re
       style={[styles.overlay, isSide ? styles.overlaySide : styles.overlayBottom]}
       testID="marker-phrase-picker-sheet"
     >
-      <View style={[styles.sheet, isSide ? styles.sheetSide : styles.sheetBottom]}>
+      {/* A11Y-PR0 (#913) — web-only dismissing backdrop. It shields background
+          taps and closes the sheet on an outside press. Hidden from assistive
+          tech and removed from the tab order (Cancel and Escape are the
+          labelled dismiss paths), mirroring the Popout scrim. */}
+      {Platform.OS === 'web' ? (
+        <Pressable
+          style={styles.backdrop}
+          onPress={props.onCancel}
+          focusable={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          testID="marker-phrase-picker-backdrop"
+        />
+      ) : null}
+      <View
+        // A11Y-PR0 (#913) — focus-trap container (sheet DOM node on web).
+        ref={(el) => registerContainer(el as unknown as HTMLElement | null)}
+        style={[styles.sheet, isSide ? styles.sheetSide : styles.sheetBottom]}
+      >
         <View style={styles.headerRow}>
           <Text style={styles.header} accessibilityRole="header">
             {MARKER_COPY.pickerHeader}
@@ -109,6 +141,14 @@ const styles = StyleSheet.create({
   },
   overlayBottom: { justifyContent: 'flex-end' },
   overlaySide: { justifyContent: 'flex-start', alignItems: 'flex-end' },
+  // A11Y-PR0 (#913) — full-bleed dismissing backdrop behind the sheet (web).
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   sheet: {
     backgroundColor: '#0f172a',
     borderColor: '#1e293b',

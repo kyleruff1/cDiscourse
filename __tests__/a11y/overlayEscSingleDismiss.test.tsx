@@ -188,6 +188,9 @@ const ROOT = path.join(__dirname, '..', '..');
 const readSrc = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const POPOUT_SRC = readSrc('src/features/arguments/oneBox/Popout.tsx');
 const DOCK_SRC = readSrc('src/features/arguments/ArgumentComposerDock.tsx');
+const PRESEND_SRC = readSrc('src/features/arguments/PreSendReviewSheet.tsx');
+const MARKER_SRC = readSrc('src/features/arguments/markers/MarkerPhrasePickerSheet.tsx');
+const REQUEST_SRC = readSrc('src/features/requestReview/RequestReviewComposer.tsx');
 
 describe('A11Y-PR0 — real surfaces adopt the arbitration primitives', () => {
   it('Popout calls useOverlayA11y with manageEsc:false and guards its inline Escape', () => {
@@ -203,7 +206,31 @@ describe('A11Y-PR0 — real surfaces adopt the arbitration primitives', () => {
     expect(DOCK_SRC).toMatch(/useOverlayA11y\(\{/);
     expect(DOCK_SRC).toMatch(/manageEsc:\s*false/);
     expect(DOCK_SRC).toMatch(/if \(!isTopmost\(\)\) return;/);
-    // The pure composer keyboard model is NOT threaded an overlay boolean.
+    // The pure composer keyboard model is NOT threaded an overlay boolean (R2).
     expect(DOCK_SRC).not.toMatch(/overlayOpen/);
+  });
+
+  it('PreSendReviewSheet owns Escape via the hook (onDismiss: onBackToEditing) and keeps the inert scrim', () => {
+    expect(PRESEND_SRC).toMatch(/useOverlayA11y\(\{/);
+    expect(PRESEND_SRC).toMatch(/onDismiss:\s*onBackToEditing/);
+    // The inert scrim is preserved (no dismissing onPress on the scrim).
+    expect(PRESEND_SRC).toMatch(/onPress=\{\(\) => undefined\}/);
+  });
+
+  it('MarkerPhrasePickerSheet stays inline (no RN Modal) with a web-only dismissing backdrop', () => {
+    expect(MARKER_SRC).toMatch(/useOverlayA11y\(\{/);
+    expect(MARKER_SRC).toMatch(/onDismiss:\s*props\.onCancel/);
+    expect(MARKER_SRC).toMatch(/Platform\.OS === 'web'/);
+    expect(MARKER_SRC).toMatch(/marker-phrase-picker-backdrop/);
+    // Additive path: no RN Modal wrap.
+    expect(MARKER_SRC).not.toMatch(/<Modal/);
+  });
+
+  it('RequestReviewComposer stays inline (no RN Modal) with a web-only dismissing backdrop', () => {
+    expect(REQUEST_SRC).toMatch(/useOverlayA11y\(\{/);
+    expect(REQUEST_SRC).toMatch(/onDismiss:\s*onCancel/);
+    expect(REQUEST_SRC).toMatch(/Platform\.OS === 'web'/);
+    expect(REQUEST_SRC).toMatch(/-backdrop/);
+    expect(REQUEST_SRC).not.toMatch(/<Modal/);
   });
 });
