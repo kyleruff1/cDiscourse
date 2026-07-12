@@ -51,11 +51,15 @@ describe('ROOM-003 flag-off — App.tsx wiring pins', () => {
   });
 
   it('gates the bar mount on roomExchangeV2Enabled', () => {
-    expect(APP_SRC).toMatch(/\{roomExchangeV2Enabled \? \(\s*\n\s*<ArgumentEntryComposer/);
+    // SETTLE-001 (#911) — additionally gated on roomAcceptsMoves (a settled
+    // room suppresses the bar); still gated on roomExchangeV2Enabled.
+    expect(APP_SRC).toMatch(/\{roomExchangeV2Enabled && roomAcceptsMoves \? \(\s*\n\s*<ArgumentEntryComposer/);
   });
 
-  it('suppresses the collapsed strip only when the flag is ON', () => {
-    expect(APP_SRC).toContain('onComposerExpand={roomExchangeV2Enabled ? undefined : handleComposerExpand}');
+  it('suppresses the collapsed strip when the flag is ON or the room does not accept moves', () => {
+    // SETTLE-001 (#911) — a settled (locked) room also suppresses the collapsed
+    // strip; the flag-ON suppression is unchanged.
+    expect(APP_SRC).toContain('onComposerExpand={roomExchangeV2Enabled || !roomAcceptsMoves ? undefined : handleComposerExpand}');
   });
 
   it('App.tsx is the flag consumer (isRoomExchangeV2Enabled), not the bar', () => {
