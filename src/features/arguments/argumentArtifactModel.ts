@@ -27,6 +27,14 @@
  * acceptance gate; classifiers run after an argument is stored.
  */
 
+// UX-PR-G (#920) — delegate the title-suffix strip to the ONE canonical
+// fixture-tag registry. The zero-dependency registry has NO runtime imports,
+// so this cross-feature import cannot form a require cycle. This also fixes the
+// pre-existing reseed drift: this file's private mirror was MISSING the reseed
+// alternative the gallery + botRoomPolicy families carried, so `[reseed-...]`
+// corpus siblings did not fold here. Consolidation repairs it by construction.
+import { stripFixtureTag } from '../debates/fixtureTagRegistry';
+
 // ── Input shape ──────────────────────────────────────────────────────────
 //
 // Inputs are `AdminArgumentRow[]` (admin surfaces) and structurally-
@@ -125,18 +133,12 @@ export function deriveRevisionIsInactive(row: { inactiveAt?: string | null }): b
   return (row.inactiveAt ?? null) !== null;
 }
 
-// ── Title-suffix dedupe (mirrors conversationGalleryModel, NOT imported) ──
+// ── Title-suffix dedupe (delegates to the shared fixtureTagRegistry) ──────
 //
-// Mirror of conversationGalleryModel.ts:437-455 SUFFIX_TAG_PATTERNS +
-// cleanTitleForDedupe. Kept local so this module stays decoupled; the
-// gallery module is the pattern source, not a dependency.
-
-const SUFFIX_TAG_PATTERNS = [
-  /\s*\[(?:xai-adv|ai-corpus|stress|stage-\d+(?:\.\d+)*|run-\d+|scenario-\d+|seed-\d+)\b[^\]]*\]\s*$/i,
-  /\s*\[(?:xai|ai|bot|corpus|stress|scenario|seed)[\w\d\s\-_:.,#]*\]\s*$/i,
-  /\s*\([\w\d\s\-_:.,#]*?(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d\s\-_:.,#]*?\)\s*$/i,
-  /\s*#(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d_-]+\s*$/i,
-];
+// UX-PR-G (#920): previously a LOCAL mirror of conversationGalleryModel's
+// SUFFIX_TAG_PATTERNS that had DRIFTED — it was missing the reseed alternative
+// the gallery + botRoomPolicy families carried. Both now delegate to the ONE
+// registry, fixing the drift by construction (mirror-parity test proves it).
 
 function normaliseWhitespace(s: string): string {
   return String(s || '').replace(/\s+/g, ' ').trim();
@@ -144,23 +146,12 @@ function normaliseWhitespace(s: string): string {
 
 /**
  * Strip the corpus-runner suffix tags from a debate title so cross-room
- * `[xai-adv …]` / `[ai-corpus …]` / `[stress …]` siblings fold together.
- * Mirrors `conversationGalleryModel.cleanTitleForDedupe`.
+ * `[xai-adv …]` / `[ai-corpus …]` / `[stress …]` / `[reseed-…]` siblings fold
+ * together. Delegates to `fixtureTagRegistry.stripFixtureTag` — the same loop
+ * `conversationGalleryModel.cleanTitleForDedupe` now runs.
  */
 export function cleanArtifactTitleForDedupe(title: string | null | undefined): string {
-  let t = normaliseWhitespace(title ?? '');
-  for (let i = 0; i < 3 && t.length > 0; i++) {
-    let changed = false;
-    for (const re of SUFFIX_TAG_PATTERNS) {
-      const next = t.replace(re, '');
-      if (next !== t) {
-        t = next.trim();
-        changed = true;
-      }
-    }
-    if (!changed) break;
-  }
-  return t;
+  return stripFixtureTag(title);
 }
 
 function normaliseBodyExcerptForDedupe(body: string): string {

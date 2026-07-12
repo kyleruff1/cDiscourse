@@ -308,34 +308,20 @@ export function isBotSeededRoom(inputs: BotRoomInputs): boolean {
 /**
  * GAME-008 — deterministic recognition of a corpus-runner bot-seed title
  * tag, e.g. "...[xai-adv 9018694f]" / "...[ai-corpus ...]" / "...[stress
- * ...]". REUSES the SUFFIX_TAG_PATTERNS family the gallery model already
- * ships (`cleanTitleForDedupe`). Pure string predicate — no I/O. This is
- * one of the two no-migration sources a caller may use to build a
- * `BotParticipantHint` (design §1.3). The model itself does not call this —
- * it is exported so a loader can build hints without a query.
+ * ...]" / "...[reseed-...]". This is one of the two no-migration sources a
+ * caller may use to build a `BotParticipantHint` (design §1.3). The model
+ * itself does not call this — it is exported so a loader can build hints
+ * without a query.
  *
- * Kept in lockstep with `conversationGalleryModel.SUFFIX_TAG_PATTERNS`; the
- * shared test fixture in `__tests__/botRoomPolicyModel.test.ts` asserts both
- * agree.
+ * UX-PR-G (#920): the pattern family + this predicate were HOISTED into the
+ * zero-dependency `fixtureTagRegistry` so the three former regex mirrors
+ * (this file, `conversationGalleryModel`, `argumentArtifactModel`) share ONE
+ * source of truth. This file re-exports the registry predicate so every
+ * existing importer (`homeModel`, `ConversationGalleryScreen`, the debates
+ * feature index, the `__tests__/botRoomPolicyModel.test.ts` parity fixture)
+ * is source-compatible.
  */
-// HOME-001 (#874): patterns 1 and 2 gained a `reseed` alternative in lockstep
-// with conversationGalleryModel.SUFFIX_TAG_PATTERNS so the reseeder title tag
-// `[reseed-<pack>-<yyyymmdd>-<hash8>]` is recognised as a bot-seed tag. The
-// `\b`-anchored `seed-` alternative did not catch `reseed` (no word boundary
-// before the inner `seed`), so a distinct alternative was required. The shared
-// parity fixture in __tests__/botRoomPolicyModel.test.ts asserts both families
-// agree on the reseed family.
-const BOT_SEED_TAG_PATTERNS: ReadonlyArray<RegExp> = Object.freeze([
-  /\s*\[(?:xai-adv|ai-corpus|stress|reseed|stage-\d+(?:\.\d+)*|run-\d+|scenario-\d+|seed-\d+)\b[^\]]*\]\s*$/i,
-  /\s*\[(?:xai|ai|bot|corpus|stress|scenario|seed|reseed)[\w\d\s\-_:.,#]*\]\s*$/i,
-  /\s*\([\w\d\s\-_:.,#]*?(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d\s\-_:.,#]*?\)\s*$/i,
-  /\s*#(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d_-]+\s*$/i,
-]);
-
-export function looksLikeBotSeedTag(title: string | null | undefined): boolean {
-  if (typeof title !== 'string' || title.trim().length === 0) return false;
-  return BOT_SEED_TAG_PATTERNS.some((re) => re.test(title));
-}
+export { looksLikeBotSeedTag } from './fixtureTagRegistry';
 
 // ── §2.3 buildBotMarkingViewModel ───────────────────────────────
 
