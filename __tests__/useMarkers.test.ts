@@ -28,6 +28,7 @@ jest.mock('../src/lib/supabase', () => ({
 }));
 
 import { useMarkers } from '../src/features/arguments/markers/useMarkers';
+import { ROOM_LOAD_ERROR_COPY } from '../src/features/arguments/gameCopy';
 
 const ROWS = [
   {
@@ -76,6 +77,8 @@ describe('useMarkers — flag-off (byte-identical)', () => {
     expect(mockFrom).not.toHaveBeenCalled();
     expect(result.current.markersByTargetId).toEqual({});
     expect(result.current.markersByReplyId).toEqual({});
+    // UX-PR-B (#918) — flag-off is absence, never an error.
+    expect(result.current.error).toBeNull();
   });
 
   it('performs no fetch when there are no argument ids', async () => {
@@ -84,6 +87,8 @@ describe('useMarkers — flag-off (byte-identical)', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockFrom).not.toHaveBeenCalled();
     expect(result.current.markersByTargetId).toEqual({});
+    // UX-PR-B (#918) — empty ids is absence, never an error.
+    expect(result.current.error).toBeNull();
   });
 });
 
@@ -97,6 +102,8 @@ describe('useMarkers — enabled', () => {
     // Only the marker with a reply id is in the reply map.
     expect(result.current.markersByReplyId.r1.map((r) => r.id)).toEqual(['m1']);
     expect(Object.keys(result.current.markersByReplyId)).toEqual(['r1']);
+    // UX-PR-B (#918) — a successful load clears any prior error.
+    expect(result.current.error).toBeNull();
   });
 
   it('degrades to empty maps on a read error', async () => {
@@ -105,5 +112,14 @@ describe('useMarkers — enabled', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.markersByTargetId).toEqual({});
     expect(result.current.markersByReplyId).toEqual({});
+  });
+
+  it('UX-PR-B (#918) — surfaces the fixed sentinel (never the raw error) on a read error', async () => {
+    mockThen.mockResolvedValue({ data: null, error: { message: 'rls', code: '42501' } });
+    const { result } = renderHook(() => useMarkers('d1', ['t1'], true));
+    await waitFor(() => expect(result.current.error).toBe(ROOM_LOAD_ERROR_COPY.hookError));
+    // The raw supabase error / code must NEVER leak into the surfaced string.
+    expect(result.current.error).not.toContain('rls');
+    expect(result.current.error).not.toContain('42501');
   });
 });

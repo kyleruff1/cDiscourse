@@ -54,6 +54,13 @@ export interface ChimeInAffordanceProps {
   onRetract: (input: { argumentId: string }) => void;
   /** True while an attach / retract is in flight — disables the control. */
   busy?: boolean;
+  /**
+   * UX-PR-B (#918) — a quiet plain-language failure note (from the parent, fed
+   * ChimeInApiResult.errorMessage, which already routes through CHIME_IN_ERROR_COPY).
+   * When set it renders a live-region Text below the pill so a failed attach /
+   * retract is announced instead of silently doing nothing. null / absent => no note.
+   */
+  note?: string | null;
   testID?: string;
 }
 
@@ -99,10 +106,20 @@ export function ChimeInAffordance(props: ChimeInAffordanceProps): React.ReactEle
   if (!alreadyChimed && state.openChimeInSeatCount <= 0) return null;
 
   const busy = props.busy === true;
+  const base = props.testID ?? 'chime-in-affordance';
+
+  // UX-PR-B (#918) — the quiet failure note, live-region announced, below the
+  // pill. Only rendered in the eligible / attached states (this render path),
+  // which is exactly where an attach / retract could have failed.
+  const noteEl = props.note ? (
+    <Text style={styles.note} accessibilityLiveRegion="polite" testID={`${base}-note`}>
+      {props.note}
+    </Text>
+  ) : null;
 
   if (alreadyChimed) {
     return (
-      <View style={styles.wrap} testID={props.testID ?? 'chime-in-affordance'}>
+      <View style={styles.wrap} testID={base}>
         <Pressable
           onPress={() => props.onRetract({ argumentId: candidate.argumentId })}
           disabled={busy}
@@ -118,12 +135,13 @@ export function ChimeInAffordance(props: ChimeInAffordanceProps): React.ReactEle
           </Text>
           <Text style={styles.pillTextActive}>{CHIME_IN_AFFORDANCE_COPY.retractLabel}</Text>
         </Pressable>
+        {noteEl}
       </View>
     );
   }
 
   return (
-    <View style={styles.wrap} testID={props.testID ?? 'chime-in-affordance'}>
+    <View style={styles.wrap} testID={base}>
       <Pressable
         onPress={() => props.onAttach({ argumentId: candidate.argumentId, targetArgumentId: parentId })}
         disabled={busy}
@@ -139,6 +157,7 @@ export function ChimeInAffordance(props: ChimeInAffordanceProps): React.ReactEle
         </Text>
         <Text style={styles.pillText}>{CHIME_IN_AFFORDANCE_COPY.attachLabel}</Text>
       </Pressable>
+      {noteEl}
     </View>
   );
 }
@@ -146,7 +165,16 @@ export function ChimeInAffordance(props: ChimeInAffordanceProps): React.ReactEle
 const styles = StyleSheet.create({
   wrap: {
     marginTop: 6,
-    flexDirection: 'row',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  // UX-PR-B (#918) — quiet failure note beneath the pill (mirrors the
+  // BooleanFeedbackBar errorNote tone).
+  note: {
+    marginTop: 6,
+    color: '#94a3b8',
+    fontSize: 11,
+    fontStyle: 'italic',
   },
   pill: {
     flexDirection: 'row',

@@ -14,6 +14,11 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, SUPABASE_CONFIGURED } from '../../lib/supabase';
+import { ROOM_LOAD_ERROR_COPY } from '../arguments/gameCopy';
+
+// UX-PR-B (#918) — the fixed plain-language read-error sentinel (never the raw
+// supabase error object / message; no code leak, ban-list clean).
+const READ_ERROR = ROOM_LOAD_ERROR_COPY.hookError;
 
 interface UnaddressedDbRow {
   debate_id: string;
@@ -23,6 +28,14 @@ interface UnaddressedDbRow {
 interface State {
   unaddressedMoveIdsByDebateId: Record<string, string[]>;
   loading: boolean;
+  /**
+   * UX-PR-B (#918) — the read-error sentinel (never the raw supabase error), or
+   * null on success / skip. Added for silent-hook FAMILY consistency; unlike the
+   * four ROOM hooks this feeds only engagement-lane heat enrichment, so there is
+   * no gallery-side visible error surface here.
+   * // gallery-side surfacing deferred to PR-G (#918)
+   */
+  error: string | null;
 }
 
 const EMPTY: Record<string, string[]> = {};
@@ -31,7 +44,11 @@ export function useGalleryMoveMarks(
   debateIds: string[],
   enabled: boolean,
 ): State & { refresh: () => void } {
-  const [state, setState] = useState<State>({ unaddressedMoveIdsByDebateId: {}, loading: false });
+  const [state, setState] = useState<State>({
+    unaddressedMoveIdsByDebateId: {},
+    loading: false,
+    error: null,
+  });
   const [reloadToken, setReloadToken] = useState(0);
   const inflightRef = useRef(false);
 
@@ -40,7 +57,8 @@ export function useGalleryMoveMarks(
   useEffect(() => {
     let cancelled = false;
     if (!enabled || !SUPABASE_CONFIGURED || !idsKey) {
-      setState({ unaddressedMoveIdsByDebateId: {}, loading: false });
+      // Disabled / unconfigured / no-ids is legitimate ABSENCE, never a failure.
+      setState({ unaddressedMoveIdsByDebateId: {}, loading: false, error: null });
       return;
     }
     if (inflightRef.current) return;
@@ -56,7 +74,7 @@ export function useGalleryMoveMarks(
         .is('retracted_at', null);
       if (cancelled) return;
       if (error) {
-        setState({ unaddressedMoveIdsByDebateId: {}, loading: false });
+        setState({ unaddressedMoveIdsByDebateId: {}, loading: false, error: READ_ERROR });
         inflightRef.current = false;
         return;
       }
@@ -68,7 +86,7 @@ export function useGalleryMoveMarks(
       for (const debateId of Object.keys(byDebate)) {
         map[debateId] = [...byDebate[debateId]].sort();
       }
-      setState({ unaddressedMoveIdsByDebateId: map, loading: false });
+      setState({ unaddressedMoveIdsByDebateId: map, loading: false, error: null });
       inflightRef.current = false;
     })();
     return () => {
@@ -80,6 +98,7 @@ export function useGalleryMoveMarks(
   return {
     unaddressedMoveIdsByDebateId: value,
     loading: state.loading,
+    error: enabled ? state.error : null,
     refresh: () => setReloadToken((n) => n + 1),
   };
 }

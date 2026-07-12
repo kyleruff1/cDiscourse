@@ -690,6 +690,10 @@ function MainAppShell({
   // move posted; drives the non-blocking retry notice (failure matrix). Null =>
   // no notice.
   const [callbackLinkRetry, setCallbackLinkRetry] = useState<CrossRoomCallback | null>(null);
+  // UX-PR-B (#918) — a rail Join attempt that genuinely failed (not a full-room
+  // degrade-to-observe) sets this plain-language room note. Null => no note. Per
+  // R2 the note is note-only; the rail itself remains the retry surface.
+  const [joinFailureNote, setJoinFailureNote] = useState<string | null>(null);
 
   const { debates, loading: debatesLoading, error: debatesError, refresh, create, join, settle, reopen } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
@@ -1496,10 +1500,18 @@ function MainAppShell({
                 const result = await join(currentDebate.id, side);
                 const effect = resolveJoinSideEffect(result);
                 if (effect.kind === 'select_side') {
+                  // A taken seat clears any prior failure note and opens the room.
+                  setJoinFailureNote(null);
                   selectDebate(currentDebate, effect.side);
                 } else if (effect.kind === 'full_room_observe') {
+                  setJoinFailureNote(null);
                   seatCount.refresh();
                   AccessibilityInfo.announceForAccessibility(SEAT_CLAIM_COPY.fullRoomObserve);
+                } else if (effect.kind === 'error') {
+                  // UX-PR-B (#918) — a genuine failure is now HONEST: a room note
+                  // plus a polite announcement. The rail stays the retry surface.
+                  setJoinFailureNote(effect.message);
+                  AccessibilityInfo.announceForAccessibility(effect.message);
                 }
               }}
               // SC-005 — the old separate bottom actionBar is gone; the
@@ -1535,6 +1547,17 @@ function MainAppShell({
               quoteForgeEnabled={quoteForgeEnabled}
               refreshLinkedPriorRef={refreshLinkedPriorRef}
             />
+
+            {/* UX-PR-B (#918) — the honest rail-join failure note. A genuine
+                join failure (not the full-room degrade-to-observe) is no longer
+                a silent no-op: it renders a room-scoped, polite live-region note.
+                Per R2 this is note-only; re-tapping Join on the rail is the retry
+                surface, so there is no duplicate retry button here. */}
+            {joinFailureNote ? (
+              <View style={styles.joinFailureNote} accessibilityLiveRegion="polite">
+                <Text style={styles.joinFailureNoteText}>{joinFailureNote}</Text>
+              </View>
+            ) : null}
 
             {/* COMPOSER-002 — in-room composer dock. Overlays the room
                 surface; the room itself stays mounted behind it so the
@@ -1739,6 +1762,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#334155',
   },
   callbackRetryButtonText: { color: '#f8fafc', fontSize: 13, fontWeight: '700' },
+  // UX-PR-B (#918) — the note-only rail-join failure notice (muted, non-blocking).
+  joinFailureNote: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#1e293b',
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  joinFailureNoteText: { color: '#e2e8f0', fontSize: 13 },
   // BRAND-001 — `surface.app` (#08060F) is the global app backdrop that
   // matches the CivilDiscourse logo's black field. `surface.appElevated`
   // is the one-step-up tone for cards / rails / sidecar.

@@ -19,6 +19,11 @@ import {
   groupMarkersByTarget,
   type MarkerRow,
 } from './timestampMarkerModel';
+import { ROOM_LOAD_ERROR_COPY } from '../gameCopy';
+
+// UX-PR-B (#918) — the fixed plain-language read-error sentinel (never the raw
+// supabase error object / message; no code leak, ban-list clean).
+const READ_ERROR = ROOM_LOAD_ERROR_COPY.hookError;
 
 const MARKER_COLUMNS =
   'id, debate_id, target_argument_id, reply_argument_id, created_by, kind, span_start, span_end, span_unit, quoted_text, created_at, deleted_at';
@@ -27,6 +32,12 @@ export interface UseMarkersResult {
   markersByTargetId: Record<string, ReadonlyArray<MarkerRow>>;
   markersByReplyId: Record<string, ReadonlyArray<MarkerRow>>;
   loading: boolean;
+  /**
+   * UX-PR-B (#918) — a fixed plain-language read-error sentinel (never the raw
+   * supabase error), or null when the load succeeded / was skipped. Additive:
+   * the success payload (the two grouped maps) is byte-identical to before.
+   */
+  error: string | null;
   refetch: () => Promise<void>;
 }
 
@@ -39,6 +50,7 @@ export function useMarkers(
 ): UseMarkersResult {
   const [rows, setRows] = useState<ReadonlyArray<MarkerRow>>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Sorted-join key so the effect re-runs only when the id SET changes.
   const idsKey = useMemo(() => [...argumentIds].sort().join(','), [argumentIds]);
   const mountedRef = useRef(true);
@@ -51,7 +63,11 @@ export function useMarkers(
 
   const refetch = useCallback(async () => {
     if (!enabled || !SUPABASE_CONFIGURED || !debateId || argumentIds.length === 0) {
-      if (mountedRef.current) setRows([]);
+      // Disabled / unconfigured / no-ids is legitimate ABSENCE, never a failure.
+      if (mountedRef.current) {
+        setRows([]);
+        setError(null);
+      }
       return;
     }
     if (mountedRef.current) setLoading(true);
@@ -59,17 +75,24 @@ export function useMarkers(
       // A marker is visible iff its target_argument_id is room-visible (the
       // shipped SELECT policy). We scope the read to the loaded moves so the
       // reply-side chips and source-span highlights only cover on-screen cards.
-      const { data, error } = await supabase
+      const { data, error: readError } = await supabase
         .from('timestamp_markers')
         .select(MARKER_COLUMNS)
         .eq('debate_id', debateId)
         .in('target_argument_id', [...argumentIds])
         .is('deleted_at', null);
-      if (error) {
-        if (mountedRef.current) setRows([]);
+      if (readError) {
+        // Honest failure: empty maps + the fixed sentinel (never the raw error).
+        if (mountedRef.current) {
+          setRows([]);
+          setError(READ_ERROR);
+        }
         return;
       }
-      if (mountedRef.current) setRows((data ?? []) as unknown as MarkerRow[]);
+      if (mountedRef.current) {
+        setRows((data ?? []) as unknown as MarkerRow[]);
+        setError(null);
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -90,5 +113,5 @@ export function useMarkers(
     [enabled, rows],
   );
 
-  return { markersByTargetId, markersByReplyId, loading, refetch };
+  return { markersByTargetId, markersByReplyId, loading, error, refetch };
 }

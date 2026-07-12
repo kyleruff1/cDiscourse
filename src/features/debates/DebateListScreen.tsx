@@ -11,6 +11,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { CreateDebateForm } from './CreateDebateForm';
 import { JoinDebatePanel } from './JoinDebatePanel';
+import { resolveJoinPanelFeedback, type JoinPanelFeedback } from './seatClaimModel';
 import type { Debate, CreateDebateInput, CreatedRoom, ParticipantSide } from './types';
 import type { JoinAttemptResult } from './useDebates';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
@@ -278,15 +279,19 @@ export function DebateListScreen({
     }
   };
 
-  const handleJoin = async (side: ParticipantSide) => {
-    if (!joiningDebate) return;
+  const handleJoin = async (side: ParticipantSide): Promise<JoinPanelFeedback> => {
+    if (!joiningDebate) return { joined: false, message: null };
     // ARG-ROOM-005 — a full room degrades to observe in the room shell; the
     // list panel opens the room only when a seat was actually taken.
-    const { side: actualSide } = await onJoin(joiningDebate.id, side);
-    if (actualSide) {
-      onSelect({ ...joiningDebate, myParticipantSide: actualSide }, actualSide);
+    // UX-PR-B (#918) — return the inline feedback so a non-join surfaces an
+    // in-panel ErrorNotice; only a taken seat unmounts the panel (opens room).
+    const result = await onJoin(joiningDebate.id, side);
+    const feedback = resolveJoinPanelFeedback(result);
+    if (feedback.joined && result.side) {
+      onSelect({ ...joiningDebate, myParticipantSide: result.side }, result.side);
+      setJoiningDebate(null);
     }
-    setJoiningDebate(null);
+    return feedback;
   };
 
   if (showCreate) {

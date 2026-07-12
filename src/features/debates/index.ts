@@ -254,6 +254,8 @@ export {
   classifyJoinOutcome,
   buildSeatAvailabilityViewModel,
   resolveJoinSideEffect,
+  // UX-PR-B (#918) — the JoinDebatePanel inline-feedback mapper.
+  resolveJoinPanelFeedback,
   _forbiddenSeatClaimTokens,
 } from './seatClaimModel';
 export type {
@@ -263,6 +265,7 @@ export type {
   JoinOutcomeKind,
   JoinSuccessOutcome,
   JoinSideEffect,
+  JoinPanelFeedback,
 } from './seatClaimModel';
 export { useActiveParticipantCount } from './useActiveParticipantCount';
 export type { UseActiveParticipantCountResult } from './useActiveParticipantCount';

@@ -15,6 +15,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, SUPABASE_CONFIGURED } from '../../lib/supabase';
 import type { ChimeInContributionRow } from './chimeInContributionModel';
+import { ROOM_LOAD_ERROR_COPY } from '../arguments/gameCopy';
+
+// UX-PR-B (#918) — the fixed plain-language read-error sentinel (never the raw
+// supabase error object / message; no code leak, ban-list clean).
+const READ_ERROR = ROOM_LOAD_ERROR_COPY.hookError;
 
 const CHIME_IN_COLUMNS =
   'id, debate_id, argument_id, target_argument_id, author_id, seat_index, retracted_at';
@@ -39,6 +44,12 @@ export interface UseChimeInContributionsResult {
   /** The loaded ACTIVE chime rows (empty when disabled / unconfigured). */
   rows: ReadonlyArray<ChimeInContributionRow>;
   loading: boolean;
+  /**
+   * UX-PR-B (#918) — a fixed plain-language read-error sentinel (never the raw
+   * supabase error), or null when the load succeeded / was skipped. Additive:
+   * the success payload (the rows list) is byte-identical to before.
+   */
+  error: string | null;
   refetch: () => Promise<void>;
 }
 
@@ -51,6 +62,7 @@ export function useChimeInContributions(
 
   const [rows, setRows] = useState<ReadonlyArray<ChimeInContributionRow>>(EMPTY_ROWS);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -62,18 +74,26 @@ export function useChimeInContributions(
 
   const refetch = useCallback(async () => {
     if (!enabled || !SUPABASE_CONFIGURED || !debateId) {
-      if (mountedRef.current) setRows(EMPTY_ROWS);
+      // Disabled / unconfigured is legitimate ABSENCE, never a failure.
+      if (mountedRef.current) {
+        setRows(EMPTY_ROWS);
+        setError(null);
+      }
       return;
     }
     if (mountedRef.current) setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error: readError } = await supabase
         .from('chime_in_contributions')
         .select(CHIME_IN_COLUMNS)
         .eq('debate_id', debateId)
         .is('retracted_at', null);
-      if (error) {
-        if (mountedRef.current) setRows(EMPTY_ROWS);
+      if (readError) {
+        // Honest failure: empty rows + the fixed sentinel (never the raw error).
+        if (mountedRef.current) {
+          setRows(EMPTY_ROWS);
+          setError(READ_ERROR);
+        }
         return;
       }
       const mapped = ((data ?? []) as ChimeInDbRow[]).map((r) => ({
@@ -85,7 +105,10 @@ export function useChimeInContributions(
         seatIndex: r.seat_index,
         retractedAt: r.retracted_at,
       }));
-      if (mountedRef.current) setRows(mapped);
+      if (mountedRef.current) {
+        setRows(mapped);
+        setError(null);
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -98,7 +121,12 @@ export function useChimeInContributions(
   const activeRows = enabled ? rows : EMPTY_ROWS;
 
   return useMemo(
-    () => ({ rows: activeRows, loading: enabled ? loading : false, refetch }),
-    [activeRows, enabled, loading, refetch],
+    () => ({
+      rows: activeRows,
+      loading: enabled ? loading : false,
+      error: enabled ? error : null,
+      refetch,
+    }),
+    [activeRows, enabled, loading, error, refetch],
   );
 }

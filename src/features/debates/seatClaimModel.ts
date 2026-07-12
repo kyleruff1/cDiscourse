@@ -318,6 +318,11 @@ export function buildSeatAvailabilityViewModel(
 export type JoinSideEffect =
   | { kind: 'select_side'; side: ParticipantSide }
   | { kind: 'full_room_observe' }
+  // UX-PR-B (#918) — a genuine join failure is no longer a silent no-op: the
+  // room shell surfaces a plain-language note (the rail stays the retry surface).
+  | { kind: 'error'; message: string }
+  // Retained so no type-only reference is disturbed; resolveJoinSideEffect no
+  // longer emits it for a genuine failure (that is now `error`).
   | { kind: 'none' };
 
 /**
@@ -328,7 +333,8 @@ export type JoinSideEffect =
  *     surface the observe affordance (never a dead-end, never a generic error).
  *   - any truthy side (`claimed` / `already_active` / `already_observer`) →
  *     `select_side`: open the room on that side (preserves today's select flow).
- *   - otherwise (`unavailable` / `error` with no side) → `none`.
+ *   - `unavailable` / `error` with no side → `error`: an HONEST note (UX-PR-B).
+ *   - otherwise (impossible: a side-null success) → `none`.
  */
 export function resolveJoinSideEffect(result: {
   side: ParticipantSide | null;
@@ -336,7 +342,37 @@ export function resolveJoinSideEffect(result: {
 }): JoinSideEffect {
   if (result.outcome === 'room_full') return { kind: 'full_room_observe' };
   if (result.side !== null) return { kind: 'select_side', side: result.side };
+  if (result.outcome === 'error' || result.outcome === 'unavailable') {
+    return { kind: 'error', message: SEAT_CLAIM_COPY.joinFailed };
+  }
   return { kind: 'none' };
+}
+
+// ── Join-panel feedback (in-panel inline surface) ───────────────
+
+export interface JoinPanelFeedback {
+  /** True iff a seat was taken (the panel parent then opens the room). */
+  joined: boolean;
+  /** The in-panel plain-language note on a non-join, else null. */
+  message: string | null;
+}
+
+/**
+ * Map a completed join attempt to the JoinDebatePanel inline feedback (UX-PR-B
+ * P2-10). A taken seat closes the panel (joined, no note); a full room reuses
+ * the existing degrade-to-observe copy; anything else is the honest join-failed
+ * note. Pure + deterministic; every string is an already-ban-list-scanned
+ * SEAT_CLAIM_COPY value.
+ */
+export function resolveJoinPanelFeedback(result: {
+  side: ParticipantSide | null;
+  outcome: JoinOutcomeKind;
+}): JoinPanelFeedback {
+  if (result.side !== null) return { joined: true, message: null };
+  if (result.outcome === 'room_full') {
+    return { joined: false, message: SEAT_CLAIM_COPY.fullRoomObserve };
+  }
+  return { joined: false, message: SEAT_CLAIM_COPY.joinFailed };
 }
 
 // ── Ban-list support ────────────────────────────────────────────

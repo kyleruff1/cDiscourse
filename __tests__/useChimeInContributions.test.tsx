@@ -23,6 +23,7 @@ jest.mock('../src/lib/supabase', () => ({
 }));
 
 import { useChimeInContributions } from '../src/features/debates/useChimeInContributions';
+import { ROOM_LOAD_ERROR_COPY } from '../src/features/arguments/gameCopy';
 
 const DB_ROW = {
   id: 'c-1',
@@ -51,6 +52,8 @@ describe('useChimeInContributions — disabled (byte-identical default)', () => 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.rows).toEqual([]);
     expect(mockFrom).not.toHaveBeenCalled();
+    // UX-PR-B (#918) — disabled is absence, never an error.
+    expect(result.current.error).toBeNull();
   });
 });
 
@@ -73,6 +76,8 @@ describe('useChimeInContributions — enabled', () => {
       seatIndex: 2,
       retractedAt: null,
     });
+    // UX-PR-B (#918) — a successful load clears any prior error.
+    expect(result.current.error).toBeNull();
   });
 
   it('degrades to empty rows on a query error (never throws)', async () => {
@@ -83,6 +88,17 @@ describe('useChimeInContributions — enabled', () => {
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.rows).toEqual([]);
+  });
+
+  it('UX-PR-B (#918) — surfaces the fixed sentinel (never the raw error) on a query error', async () => {
+    mockRows = [DB_ROW];
+    mockError = { message: 'boom', code: '42501' };
+    const { result } = renderHook(() =>
+      useChimeInContributions({ debateId: 'debate-1', enabled: true }),
+    );
+    await waitFor(() => expect(result.current.error).toBe(ROOM_LOAD_ERROR_COPY.hookError));
+    expect(result.current.error).not.toContain('boom');
+    expect(result.current.error).not.toContain('42501');
   });
 
   it('performs no query when the debate id is missing', async () => {

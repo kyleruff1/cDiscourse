@@ -140,6 +140,51 @@ describe('ChimeInAffordance — retract (already chimed)', () => {
   });
 });
 
+describe('ChimeInAffordance — UX-PR-B (#918) failure note', () => {
+  it('renders NO note when the note prop is absent', () => {
+    const { queryByTestId } = render(<ChimeInAffordance {...props()} />);
+    expect(queryByTestId('chime-in-affordance-note')).toBeNull();
+  });
+
+  it('renders a live-region note below the pill when a note is set (attach state)', () => {
+    const { getByTestId } = render(
+      <ChimeInAffordance {...props({ note: 'The chime-in seats are all taken right now.' })} />,
+    );
+    const note = getByTestId('chime-in-affordance-note');
+    expect(note.props.children).toBe('The chime-in seats are all taken right now.');
+    expect(note.props.accessibilityLiveRegion).toBe('polite');
+    // The pill still renders — the note sits beneath it, it does not replace it.
+    expect(getByTestId('chime-in-affordance-attach')).toBeTruthy();
+  });
+
+  it('renders the note in the already-chimed (retract) state too', () => {
+    const { getByTestId } = render(
+      <ChimeInAffordance
+        {...props({ contributions: [chimeRow({ argumentId: 'my-reply' })], note: 'We could not reach the room. Try again.' })}
+      />,
+    );
+    expect(getByTestId('chime-in-affordance-retract')).toBeTruthy();
+    expect(getByTestId('chime-in-affordance-note').props.children).toBe(
+      'We could not reach the room. Try again.',
+    );
+  });
+
+  it('the surfaced note copy is ban-list clean', () => {
+    const BANNED = [
+      'winner', 'loser', 'correct', 'true', 'false', 'liar', 'dishonest',
+      'popular', 'trending', 'viral',
+    ];
+    // The notes come from CHIME_IN_ERROR_COPY (proven ban-list clean by the chime
+    // governance doctrine suite); here we assert the render passes any string
+    // straight through with no injected verdict framing.
+    const { getByTestId } = render(
+      <ChimeInAffordance {...props({ note: 'The chime-in seats are all taken right now.' })} />,
+    );
+    const lower = String(getByTestId('chime-in-affordance-note').props.children).toLowerCase();
+    for (const token of BANNED) expect(lower).not.toContain(token);
+  });
+});
+
 describe('ChimeInAffordance — doctrine (ban-list clean copy)', () => {
   it('no affordance string carries a verdict / amplification / third-voice token', () => {
     const BANNED = [

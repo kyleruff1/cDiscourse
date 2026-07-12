@@ -218,6 +218,13 @@ import { ROOM_REALTIME_COPY, looksLikeInternalCode } from '../gameCopy';
 // derived mediatorBoard + evidenceDebts as precomputed counts; never re-derives.
 import { ArgumentStateRail } from './ArgumentStateRail';
 import { deriveArgumentStateRail } from './argumentStateRailModel';
+// UX-PR-B (#918) — the shared room-load error strip + its pure aggregator. Folds
+// the four room read-error sentinels into ONE honest, announced, retryable notice.
+import { RoomLoadErrorStrip } from './RoomLoadErrorStrip';
+import {
+  deriveRoomLoadErrorStrip,
+  type RoomLoadErrorSource,
+} from './roomLoadErrorModel';
 // CHIMEIN-P8 Round 2 (#761) — the chime-in contribution data source + the
 // flag-gated governance activation surface. All additive + default-off: with
 // chimeInEnabled false the hook fetches nothing and the surface renders null.
@@ -852,13 +859,24 @@ export function ArgumentRoom({
   // hook fetches nothing and returns {} when proofDrawerEnabled is falsy (the
   // flag-off path), so buildArtifactsByMessageId below falls back to the JSONB
   // path byte-identically. Additive; no service-role, no write.
-  const { proofItemsByMessageId } = useProofItems(debate.id, chronologicalIds, proofDrawerEnabled === true);
+  const {
+    proofItemsByMessageId,
+    // UX-PR-B (#918) — the read-error sentinel + refetch feed the shared strip.
+    error: proofLoadError,
+    refetch: refetchProof,
+  } = useProofItems(debate.id, chronologicalIds, proofDrawerEnabled === true);
 
   // MARK-002 (#894) — markers for the loaded moves, grouped by target + by reply.
   // The hook fetches nothing and returns empty maps when the flag is off, so the
   // Ringside cards render byte-identically. refetch converges the reply chip after
   // a post + mint (a new reply id also re-runs the effect via idsKey).
-  const { markersByTargetId, markersByReplyId } = useMarkers(
+  const {
+    markersByTargetId,
+    markersByReplyId,
+    // UX-PR-B (#918) — the read-error sentinel + refetch feed the shared strip.
+    error: markersLoadError,
+    refetch: refetchMarkers,
+  } = useMarkers(
     debate.id,
     chronologicalIds,
     timestampRebuttalsEnabled === true,
@@ -1014,11 +1032,48 @@ export function ArgumentRoom({
     () => deriveChimeInContributionState(chimeInContributions.rows),
     [chimeInContributions.rows],
   );
+  // UX-PR-B (#918) — fold the four room read-error sentinels into ONE strip
+  // state. A flag-off room reads all four as null => the strip self-renders null
+  // (byte-identical). An expired-session cascade fails all four at once => one
+  // strip, one message, one announcement (never four stacked banners).
+  const roomLoadErrorStrip = useMemo(
+    () =>
+      deriveRoomLoadErrorStrip([
+        { source: 'proof', error: proofLoadError },
+        { source: 'markers', error: markersLoadError },
+        { source: 'move_marks', error: moveMarks.error },
+        { source: 'chime_in', error: chimeInContributions.error },
+      ]),
+    [proofLoadError, markersLoadError, moveMarks.error, chimeInContributions.error],
+  );
+  // Retry fires ONLY the failed sources refetch closures (kept here, not in the
+  // pure model — they are not JSON-serializable).
+  const handleRetryRoomLoad = useCallback(() => {
+    const refetchers: Record<RoomLoadErrorSource, () => void | Promise<void>> = {
+      proof: refetchProof,
+      markers: refetchMarkers,
+      move_marks: moveMarks.refetch,
+      chime_in: chimeInContributions.refetch,
+    };
+    for (const source of roomLoadErrorStrip.failedSources) {
+      void refetchers[source]();
+    }
+  }, [
+    roomLoadErrorStrip.failedSources,
+    refetchProof,
+    refetchMarkers,
+    moveMarks.refetch,
+    chimeInContributions.refetch,
+  ]);
   // CHIMEIN-P8 Round 2 (#761) — the affordance candidate (the active message when
   // it is the viewer OWN point-scoped reply) + the attach/retract handlers (the
   // chimeInApi call, then a refetch so the seat count + marker converge). Flag off
   // => chimeInCandidate is null and the affordance renders nothing.
   const [chimeInBusy, setChimeInBusy] = useState(false);
+  // UX-PR-B (#918) — the quiet chime failure note. Set from the api results
+  // plain-language errorMessage on a failed attach / retract, cleared on success
+  // AND on every fresh attempt so a stale note never outlives the affordance.
+  const [chimeInNote, setChimeInNote] = useState<string | null>(null);
   const chimeInCandidate = useMemo(() => {
     if (!chimeInEnabled || !activeMessageId) return null;
     const msg = sorted.find((m) => m.id === activeMessageId);
@@ -1028,9 +1083,11 @@ export function ArgumentRoom({
   const handleChimeInAttach = useCallback(
     async (input: { argumentId: string; targetArgumentId: string }) => {
       setChimeInBusy(true);
+      setChimeInNote(null);
       try {
         const res = await attachChimeIn(input);
         if (res.ok) await chimeInContributions.refetch();
+        else setChimeInNote(res.errorMessage ?? null);
       } finally {
         setChimeInBusy(false);
       }
@@ -1040,9 +1097,11 @@ export function ArgumentRoom({
   const handleChimeInRetract = useCallback(
     async (input: { argumentId: string }) => {
       setChimeInBusy(true);
+      setChimeInNote(null);
       try {
         const res = await retractChimeIn(input);
         if (res.ok) await chimeInContributions.refetch();
+        else setChimeInNote(res.errorMessage ?? null);
       } finally {
         setChimeInBusy(false);
       }
@@ -2984,6 +3043,12 @@ export function ArgumentRoom({
       testID="argument-game-surface"
       topBanner={
         <>
+          {/* UX-PR-B (#918) — the ONE room-load error strip, top-most in the
+              banner so a silent read failure becomes an honest, announced,
+              retryable notice above all room chrome. Renders null when nothing
+              failed (healthy / flag-off room => byte-identical). Mounted ONCE, so
+              an all-four expired-session cascade shows a single strip. */}
+          <RoomLoadErrorStrip state={roomLoadErrorStrip} onRetry={handleRetryRoomLoad} />
           {/* ROOM-001 (#876) — ambient state rail ABOVE the microMoment, gated
               behind room_exchange_v2 (flag OFF => never mounted, topBanner
               byte-identical). Deep-links are in-app state jumps (never a route).
@@ -3029,6 +3094,7 @@ export function ArgumentRoom({
               onAttach={handleChimeInAttach}
               onRetract={handleChimeInRetract}
               busy={chimeInBusy}
+              note={chimeInNote}
             />
           ) : null}
           {/* UX-001.2 — microMoment banner. Repositioned out of the old

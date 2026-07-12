@@ -227,6 +227,35 @@ describe('AUTH-GOOGLE-SSO-003 (#746) — enabled state', () => {
     expect(mockSignInWithOAuth).not.toHaveBeenCalled();
   });
 
+  it('UX-PR-B (#918) — a failed Google sign-in surfaces the wrapper message in the ErrorNotice', async () => {
+    mockSignInWithGoogle.mockResolvedValueOnce({
+      ok: false,
+      error: 'provider',
+      message: 'Google sign-in is not enabled.',
+    });
+    const { getByTestId, queryByText } = render(<AuthScreen />);
+    expect(queryByText('Google sign-in is not enabled.')).toBeNull();
+    await act(async () => {
+      fireEvent.press(getByTestId('auth-provider-google-button'));
+    });
+    await waitFor(() => {
+      expect(queryByText('Google sign-in is not enabled.')).toBeTruthy();
+    });
+  });
+
+  it('UX-PR-B (#918) — a successful Google initiation surfaces NO error', async () => {
+    mockSignInWithGoogle.mockResolvedValueOnce({ ok: true });
+    const { getByTestId, queryByText } = render(<AuthScreen />);
+    await act(async () => {
+      fireEvent.press(getByTestId('auth-provider-google-button'));
+    });
+    await waitFor(() => {
+      expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1);
+    });
+    // On success the browser redirects away — nothing to show, no error notice.
+    expect(queryByText('Google sign-in is not enabled.')).toBeNull();
+  });
+
   it('email/password still works in the enabled state', async () => {
     const { getByLabelText } = render(<AuthScreen />);
     fireEvent.changeText(getByLabelText('Email'), 'user@example.com');
