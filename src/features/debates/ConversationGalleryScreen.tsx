@@ -18,6 +18,7 @@ import type { JoinAttemptResult } from './useDebates';
 import { StartArgumentPage } from '../arguments/startArgument';
 import type { StartArgumentSurface } from '../arguments/startArgument';
 import { JoinDebatePanel } from './JoinDebatePanel';
+import { resolveJoinPanelFeedback } from './seatClaimModel';
 import { LoadingNotice } from '../../components/LoadingNotice';
 import { EmptyState } from '../../components/EmptyState';
 import { ConversationMiniTimeline } from './ConversationMiniTimeline';
@@ -238,11 +239,15 @@ export function ConversationGalleryScreen({
         onJoin={async (side: ParticipantSide) => {
           // ARG-ROOM-005 — a full room degrades to observe (handled in the
           // room shell); the gallery panel only opens the room on a taken seat.
-          const { side: joinedSide } = await onJoin(joiningDebate.id, side);
-          if (joinedSide) {
-            onSelect(joiningDebate, joinedSide);
+          // UX-PR-B (#918) — return the inline feedback so a non-join surfaces
+          // an in-panel ErrorNotice instead of a silent no-op.
+          const result = await onJoin(joiningDebate.id, side);
+          const feedback = resolveJoinPanelFeedback(result);
+          if (feedback.joined && result.side) {
+            onSelect(joiningDebate, result.side);
             setJoiningDebate(null);
           }
+          return feedback;
         }}
         onCancel={() => setJoiningDebate(null)}
       />
@@ -377,7 +382,10 @@ export function ConversationGalleryScreen({
       ) : null}
 
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-        {paged.page.length === 0 ? (
+        {/* UX-PR-B (#918, P1-8) — during initial load an empty page is not yet
+            "empty": the LoadingNotice above already shows. Guard the EmptyState
+            with !loading so exactly one of the two renders (no double notice). */}
+        {!loading && paged.page.length === 0 ? (
           <EmptyState
             title={emptyTitleForLane(activeLane)}
             body={emptyCopyForLane(activeLane)}

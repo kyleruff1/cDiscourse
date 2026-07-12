@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { Button } from '../../components/Button';
+import { ErrorNotice } from '../../components/ErrorNotice';
 import type { Debate, ParticipantSide } from './types';
+import type { JoinPanelFeedback } from './seatClaimModel';
 
 interface Props {
   debate: Debate;
-  onJoin: (side: ParticipantSide) => Promise<void>;
+  // UX-PR-B (#918) — onJoin now returns inline feedback so a non-join (full room
+  // / failure) surfaces an ErrorNotice in-panel instead of a silent no-op.
+  onJoin: (side: ParticipantSide) => Promise<JoinPanelFeedback>;
   onCancel: () => void;
 }
 
@@ -19,11 +23,17 @@ const SIDES: Array<{ value: ParticipantSide; label: string; description: string 
 export function JoinDebatePanel({ debate, onJoin, onCancel }: Props) {
   const [selectedSide, setSelectedSide] = useState<ParticipantSide | null>(null);
   const [joining, setJoining] = useState(false);
+  // UX-PR-B (#918) — the in-panel failure note (from the returned feedback).
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const handleJoin = async () => {
     if (!selectedSide) return;
     setJoining(true);
-    await onJoin(selectedSide);
+    setJoinError(null);
+    const feedback = await onJoin(selectedSide);
+    // On a taken seat the parent opens the room (unmounts this panel); on a
+    // non-join it stays mounted and we surface the honest message inline.
+    if (!feedback.joined) setJoinError(feedback.message);
     setJoining(false);
   };
 
@@ -49,6 +59,8 @@ export function JoinDebatePanel({ debate, onJoin, onCancel }: Props) {
             <Text style={styles.sideDesc}>{s.description}</Text>
           </Pressable>
         ))}
+
+        {joinError ? <ErrorNotice message={joinError} /> : null}
 
         <View style={styles.actions}>
           <Button
