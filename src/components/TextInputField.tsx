@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import type { KeyboardTypeOptions, TextInputProps } from 'react-native';
+import { SURFACE_TOKENS, STATUS } from '../lib/designTokens';
 
 interface TextInputFieldProps {
   label: string;
@@ -32,7 +33,7 @@ export function TextInputField({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={SURFACE_TOKENS.placeholder}
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
         keyboardType={keyboardType}
@@ -47,19 +48,19 @@ export function TextInputField({
 
 const styles = StyleSheet.create({
   container: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', color: SURFACE_TOKENS.textSecondary, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: SURFACE_TOKENS.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#fff',
+    color: SURFACE_TOKENS.textPrimary,
+    backgroundColor: SURFACE_TOKENS.inputBg,
     minHeight: 44,
   },
-  inputDisabled: { backgroundColor: '#f9fafb', color: '#6b7280' },
-  inputError: { borderColor: '#ef4444' },
-  error: { fontSize: 12, color: '#ef4444', marginTop: 4 },
+  inputDisabled: { backgroundColor: SURFACE_TOKENS.base, color: SURFACE_TOKENS.textMuted },
+  inputError: { borderColor: STATUS.danger.fg },
+  error: { fontSize: 12, color: STATUS.danger.fg, marginTop: 4 },
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from './Button';
+import { SURFACE_TOKENS } from '../lib/designTokens';
 
 interface EmptyStateProps {
   title: string;
@@ -25,7 +26,7 @@ export function EmptyState({ title, body, actionLabel, onAction }: EmptyStatePro
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  title: { fontSize: 18, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 8 },
-  body: { fontSize: 15, color: '#6b7280', textAlign: 'center', lineHeight: 22 },
+  title: { fontSize: 18, fontWeight: '700', color: SURFACE_TOKENS.textPrimary, textAlign: 'center', marginBottom: 8 },
+  body: { fontSize: 15, color: SURFACE_TOKENS.textSecondary, textAlign: 'center', lineHeight: 22 },
   action: { marginTop: 20, width: '100%' },
 });

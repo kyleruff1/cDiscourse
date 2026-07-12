@@ -5,6 +5,7 @@ import { TextInputField } from '../../components/TextInputField';
 import { Button } from '../../components/Button';
 import { ErrorNotice } from '../../components/ErrorNotice';
 import { ROOM_VISIBILITY_COPY } from '../arguments/gameCopy';
+import { SURFACE_TOKENS } from '../../lib/designTokens';
 import type { CreateDebateInput, RoomVisibility } from './types';
 
 interface Props {
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   visibilityGroupLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#444',
+    color: SURFACE_TOKENS.textSecondary,
   },
   visibilityRow: {
     gap: 8,
@@ -163,14 +164,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fafafa',
+    borderColor: SURFACE_TOKENS.border,
+    backgroundColor: SURFACE_TOKENS.elevated,
     gap: 4,
   },
   visibilityOptionSelected: {
-    borderColor: '#444',
+    borderColor: SURFACE_TOKENS.focusRing,
     borderWidth: 2,
-    backgroundColor: '#f4f4f4',
+    backgroundColor: SURFACE_TOKENS.raised,
   },
   visibilityOptionHeader: {
     flexDirection: 'row',
@@ -179,23 +180,23 @@ const styles = StyleSheet.create({
   },
   visibilityCheck: {
     fontSize: 16,
-    color: '#888',
+    color: SURFACE_TOKENS.textMuted,
   },
   visibilityCheckOn: {
-    color: '#222',
+    color: SURFACE_TOKENS.textPrimary,
   },
   visibilityLabel: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#444',
+    color: SURFACE_TOKENS.textSecondary,
   },
   visibilityLabelSelected: {
     fontWeight: '700',
-    color: '#222',
+    color: SURFACE_TOKENS.textPrimary,
   },
   visibilityHelper: {
     fontSize: 12,
-    color: '#666',
+    color: SURFACE_TOKENS.textSecondary,
     marginLeft: 24,
   },
 });
