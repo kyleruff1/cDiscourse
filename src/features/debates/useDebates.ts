@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAppSession } from '../session/useAppSession';
-import { listDebates, createDebate, joinDebate } from './debatesApi';
+import { listDebates, createDebate, joinDebate, settleDebate, reopenDebate } from './debatesApi';
 import type { JoinOutcomeKind } from './seatClaimModel';
 import type { Debate, CreateDebateInput, CreatedRoom, ParticipantSide } from './types';
+import { ROOM_SETTLE_COPY } from '../arguments/gameCopy';
 
 /**
  * ARG-ROOM-005 — the result of a claim attempt. `side` is the side the viewer
@@ -28,6 +29,16 @@ export interface UseDebatesResult {
    */
   create: (input: CreateDebateInput) => Promise<CreatedRoom | null>;
   join: (debateId: string, side: ParticipantSide) => Promise<JoinAttemptResult>;
+  /**
+   * SETTLE-001 (#911) — settle (lock) a room, then optimistically patch the
+   * local list so the derived currentDebate re-renders as settled with no
+   * refetch flicker. On failure a neutral error is surfaced and refresh()
+   * reconciles the list. Creator-gated at the call sites (App wires it only
+   * for the room owner); RLS is the authoritative gate underneath.
+   */
+  settle: (debateId: string) => Promise<{ ok: boolean; error?: string }>;
+  /** SETTLE-001 (#911) — re-open (unlock) a settled room; same optimistic patch. */
+  reopen: (debateId: string) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function useDebates(): UseDebatesResult {
@@ -94,5 +105,45 @@ export function useDebates(): UseDebatesResult {
     [userId],
   );
 
-  return { debates, loading, error, refresh, create, join };
+  const settle = useCallback(
+    async (debateId: string): Promise<{ ok: boolean; error?: string }> => {
+      const result = await settleDebate(debateId);
+      if (result.ok) {
+        // Optimistic local patch — mirrors join. The derived currentDebate
+        // re-renders as settled immediately (App suppresses the composer and
+        // shows the read-only notice) with no refetch flicker.
+        setDebates((prev) =>
+          prev.map((d): Debate => (d.id === debateId ? { ...d, status: 'locked' } : d)),
+        );
+        return { ok: true };
+      }
+      // Mirror join: surface a neutral banner on genuine failure. No optimistic
+      // patch was applied (patch only on ok), so the list already matches the
+      // server and needs no refetch reconcile — and a refetch would clear this
+      // neutral banner. The raw error is returned to the caller, never shown raw.
+      setError(ROOM_SETTLE_COPY.error_network);
+      return { ok: false, error: result.error };
+    },
+    [],
+  );
+
+  const reopen = useCallback(
+    async (debateId: string): Promise<{ ok: boolean; error?: string }> => {
+      const result = await reopenDebate(debateId);
+      if (result.ok) {
+        setDebates((prev) =>
+          prev.map((d): Debate => (d.id === debateId ? { ...d, status: 'open' } : d)),
+        );
+        return { ok: true };
+      }
+      // Same as settle: neutral banner, no refetch (mirror join). No optimistic
+      // patch was applied on failure, so the list already matches the server and
+      // a refetch would only clear this neutral banner.
+      setError(ROOM_SETTLE_COPY.error_network);
+      return { ok: false, error: result.error };
+    },
+    [],
+  );
+
+  return { debates, loading, error, refresh, create, join, settle, reopen };
 }

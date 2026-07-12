@@ -469,3 +469,47 @@ export async function transitionRoomToPrivate(
 
   return { ok: true, data };
 }
+
+// ── SETTLE-001 (#911) — Room settle / re-open (status transition) ──────
+
+/**
+ * SETTLE-001 — settle (lock) a room via the existing RLS UPDATE policy
+ * "debates: creator or mod can update". Direct client UPDATE (no Edge, no
+ * migration, no new dependency) — the joinDebate precedent, NOT the QOL-039
+ * Edge precedent, because a status transition has no participant-drop /
+ * chime-in-reject / notification / audit side-effects. Doctrine: a room
+ * lifecycle state, never a verdict; no score / standing effect. Writes ONLY
+ * status (never visibility — the column-scoped visibility trigger never
+ * fires for a status-only UPDATE). The UI additionally narrows to
+ * creator-only; RLS creator-or-mod is the authoritative gate underneath.
+ */
+export async function settleDebate(
+  debateId: string,
+): Promise<DebateApiResult<{ status: 'locked' }>> {
+  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+  const { error } = await supabase
+    .from('debates')
+    .update({ status: 'locked' })
+    .eq('id', debateId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: { status: 'locked' } };
+}
+
+/**
+ * SETTLE-001 — re-open (unlock) a settled room. Same policy lane, reverse
+ * direction (locked to open). Re-opening does NOT cascade any inbound weave
+ * link: those were valid at INSERT time and the link_target_must_be_locked
+ * trigger only fires BEFORE INSERT, so existing links persist and still
+ * resolve.
+ */
+export async function reopenDebate(
+  debateId: string,
+): Promise<DebateApiResult<{ status: 'open' }>> {
+  if (!SUPABASE_CONFIGURED) return { ok: false, error: 'Supabase is not configured.' };
+  const { error } = await supabase
+    .from('debates')
+    .update({ status: 'open' })
+    .eq('id', debateId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: { status: 'open' } };
+}

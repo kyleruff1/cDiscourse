@@ -1790,6 +1790,62 @@ export const ROOM_VISIBILITY_COPY = Object.freeze({
 } as const);
 
 /**
+ * SETTLE-001 (#911) — host settle / re-open room copy.
+ *
+ * Authored beside ROOM_VISIBILITY_COPY (the same module the ban-list +
+ * plain-language tests scan). Every string describes the ROOM LIFECYCLE
+ * (open to settled/locked and back) — never a verdict, never a person,
+ * never heat / popularity. "Settled" is the established lexical for
+ * status = locked and reads as a lifecycle state, not an outcome. Scanned
+ * by settleRoomModel.banlist.test.ts + copySystemBanList.test.ts. Comments
+ * here are apostrophe-free for the naive quote-parity doctrine scanner.
+ */
+export const ROOM_SETTLE_COPY = Object.freeze({
+  // Settle action (creator-only, shown while the room is open).
+  action_settle_label: 'Settle this argument',
+  action_settle_hint:
+    'No new moves can be added. The argument stays readable, and other rooms can link to it.',
+
+  // Settle confirm sheet scaffolding.
+  confirm_settle_title: 'Settle this argument?',
+  confirm_intro: 'Here is what changes:',
+  confirm_settle_primary: 'Settle',
+  confirm_cancel: 'Cancel',
+
+  // Settle effect bullets (one per settle-mode SettleConsequence code).
+  effect_no_new_moves: 'No new moves can be added — the exchange pauses as it stands.',
+  effect_no_new_joiners: 'No new people can join while it is settled.',
+  effect_stays_readable: 'Everything stays readable — nothing is deleted or hidden.',
+  effect_becomes_linkable: 'Other arguments can point to this one as a settled prior point.',
+  effect_reversible: 'You can re-open it any time.',
+
+  settle_toast: 'This argument is settled. You can re-open it any time.',
+
+  // Settled-state read-only notice (shown in the composer slot when locked).
+  notice_settled_title: 'This argument is settled',
+  notice_settled_body: 'No new moves are being added. You can still read everything here.',
+
+  // Re-open action (creator-only, shown on the settled notice).
+  action_reopen_label: 'Re-open this argument',
+  action_reopen_hint: 'New moves can be added again.',
+  confirm_reopen_title: 'Re-open this argument?',
+  confirm_reopen_primary: 'Re-open',
+
+  // Re-open effect bullets (one per reopen-mode SettleConsequence code).
+  effect_new_moves_allowed: 'New moves can be added again.',
+  effect_content_unchanged: 'Everything here stays exactly as it is.',
+  effect_existing_links_kept: 'Any arguments that already linked to this one stay linked.',
+
+  // Reason codes — neutral plain-language for the rare surface that needs to
+  // explain why the action is unavailable. The default UI simply omits the
+  // action (no silent no-op surface needed).
+  reason_not_room_creator: 'Only the person who started this argument can settle it.',
+
+  // Neutral error copy (RLS denial / network failure mid-transition).
+  error_network: 'Could not save the change. Try again in a moment.',
+} as const);
+
+/**
  * ARG-ROOM-006 — Room access / feed / seat-state copy.
  *
  * Authored beside `ROOM_VISIBILITY_COPY` (the same module the ban-list +

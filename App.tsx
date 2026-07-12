@@ -21,7 +21,7 @@ import { AuthCallbackScreen } from './src/features/auth/AuthCallbackScreen';
 import { isAuthCallbackPath } from './src/lib/auth/parseAuthCallbackUrl';
 import { LoadingNotice } from './src/components/LoadingNotice';
 import { useAuthSession } from './src/features/auth/useAuthSession';
-import { DebateDetailHeader, useDebates, useCurrentDebate, useRoomContract } from './src/features/debates';
+import { DebateDetailHeader, RoomSettledNotice, useDebates, useCurrentDebate, useRoomContract } from './src/features/debates';
 // ARG-ROOM-005 — public seat claiming: live active-participant count + the
 // pure seat-availability model + the post-claim side-effect resolver.
 import {
@@ -691,7 +691,7 @@ function MainAppShell({
   // no notice.
   const [callbackLinkRetry, setCallbackLinkRetry] = useState<CrossRoomCallback | null>(null);
 
-  const { debates, loading: debatesLoading, error: debatesError, refresh, create, join } = useDebates();
+  const { debates, loading: debatesLoading, error: debatesError, refresh, create, join, settle, reopen } = useDebates();
   const { currentDebate, selectDebate, deselectDebate } = useCurrentDebate(debates);
   // UX-COMPOSER-005 (#831) — write the woven callback onto the shared session
   // activeDraft (never a second useArgumentComposer mount). The entry composer
@@ -899,6 +899,13 @@ function MainAppShell({
   // bar remains visible (the QOL-040 flow is preserved).
   const roomActive =
     activeTab === 'arguments' && hasDebate && Boolean(currentDebate) && !notificationsOpen;
+
+  // SETTLE-001 (#911) — a room accepts new moves only while open or draft. A
+  // settled (locked) or archived room suppresses the composer mounts and shows
+  // the calm read-only notice instead. Default true when no room is active (the
+  // composer block is not rendered then anyway).
+  const roomAcceptsMoves =
+    !currentDebate || currentDebate.status === 'open' || currentDebate.status === 'draft';
 
   const handleSignOut = async () => {
     await signOut();
@@ -1395,6 +1402,10 @@ function MainAppShell({
               inviteOpen={inviteOpen}
               onSetDevTreeMode={__DEV__ ? () => setViewMode('tree') : undefined}
               onSetDevTracksMode={__DEV__ ? () => setViewMode('tracks') : undefined}
+              // SETTLE-001 (#911) — creator settle write. The header gates the
+              // row to the creator on an open room (canSettleRoom); passing it
+              // unconditionally keeps that gate the single source of truth.
+              onSettle={() => settle(currentDebate.id)}
             />
 
             {/* Invite panel (inline, collapsible) — QOL-038 rewrite.
@@ -1501,7 +1512,7 @@ function MainAppShell({
               // composer is the primary compose surface, so suppress the
               // collapsed strip (ArgumentRoom renders no strip when this prop
               // is undefined). OFF keeps today collapsed-strip behavior.
-              onComposerExpand={roomExchangeV2Enabled ? undefined : handleComposerExpand}
+              onComposerExpand={roomExchangeV2Enabled || !roomAcceptsMoves ? undefined : handleComposerExpand}
               // UX-001.4 — Go popout's "Leave argument" entry calls the
               // existing handleLeaveRoom path (not a new room-exit path).
               onLeaveRoom={handleLeaveRoom}
@@ -1525,7 +1536,7 @@ function MainAppShell({
                 survive a compose-cancel round trip. `composerOpen` now
                 toggles the dock instead of swapping the screen. */}
             <ArgumentComposerDock
-              visible={composerOpen}
+              visible={composerOpen && roomAcceptsMoves}
               debate={currentDebate}
               selectedParentId={replyTarget?.id ?? null}
               parentArgument={replyTarget?.argument ?? null}
@@ -1545,7 +1556,7 @@ function MainAppShell({
                 handleComposerExpand, so structure stays reachable and the
                 pre-send review survives on the More path. The dock stays the
                 primary composer with the flag OFF (this subtree unmounted). */}
-            {roomExchangeV2Enabled ? (
+            {roomExchangeV2Enabled && roomAcceptsMoves ? (
               <ArgumentEntryComposer
                 debate={currentDebate}
                 selectedParentId={replyTarget?.id ?? null}
@@ -1571,6 +1582,19 @@ function MainAppShell({
                 // renders no Callback slot / draft echo (byte-identical).
                 onInsertCallback={quoteForgeEnabled ? callbackInsertion.openInsertion : undefined}
                 onCallbackPosted={quoteForgeEnabled ? handleCallbackPosted : undefined}
+              />
+            ) : null}
+
+            {/* SETTLE-001 (#911) — settled-state read-only notice. Replaces the
+                suppressed composer when the room is locked; the creator can
+                re-open from here. Inbound weave links persist, and the reopen
+                confirm copy stays honest about that. */}
+            {currentDebate.status === 'locked' ? (
+              <RoomSettledNotice
+                status={currentDebate.status}
+                canReopen={state.snapshot.userId === currentDebate.createdBy}
+                onReopen={() => reopen(currentDebate.id)}
+                reduceMotion={preferences.effectiveReduceMotion}
               />
             ) : null}
 

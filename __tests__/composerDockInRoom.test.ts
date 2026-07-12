@@ -67,7 +67,9 @@ describe('COMPOSER-002 — the dock is mounted inside the room, not as a screen 
   });
 
   it('the dock visibility is driven by `composerOpen` (a toggle, not a branch)', () => {
-    expect(APP_SRC).toMatch(/<ArgumentComposerDock[\s\S]*?visible=\{composerOpen\}/);
+    // SETTLE-001 (#911) — the dock is now additionally gated on roomAcceptsMoves
+    // so a settled (locked) room suppresses it; composerOpen is still the toggle.
+    expect(APP_SRC).toMatch(/<ArgumentComposerDock[\s\S]*?visible=\{composerOpen && roomAcceptsMoves\}/);
   });
 
   it('the dock is rendered after the room surface, inside the debateRoom view', () => {

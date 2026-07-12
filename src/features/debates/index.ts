@@ -33,6 +33,27 @@ export type {
 export { transitionRoomToPrivate } from './debatesApi';
 export type { RoomVisibilityTransitionResult } from './debatesApi';
 
+// SETTLE-001 (#911) — host settle / re-open room lifecycle model + surfaces.
+export {
+  canSettleRoom,
+  canReopenRoom,
+  buildSettleConsequences,
+  ALL_SETTLE_MODES,
+  ALL_SETTLE_REASONS,
+  ALL_SETTLE_CONSEQUENCES,
+  ROOM_SETTLE_COPY,
+} from './settleRoomModel';
+export type {
+  SettleMode,
+  SettleReason,
+  SettleContext,
+  SettleEligibility,
+  SettleConsequence,
+  SettleConsequences,
+} from './settleRoomModel';
+export { RoomSettleConfirmation } from './RoomSettleConfirmation';
+export { RoomSettledNotice } from './RoomSettledNotice';
+
 // GAME-004 — 1v1 PvP room contract + Primary Opponent model.
 export { RoomContractSeatStrip, roomTypeGlyph } from './RoomContractSeatStrip';
 export { useRoomContract } from './useRoomContract';
