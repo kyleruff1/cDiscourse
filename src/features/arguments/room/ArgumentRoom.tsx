@@ -876,7 +876,11 @@ export function ArgumentRoom({
     // UX-PR-B (#918) — the read-error sentinel + refetch feed the shared strip.
     error: markersLoadError,
     refetch: refetchMarkers,
-  } = useMarkers(debate.id, chronologicalIds, timestampRebuttalsEnabled === true);
+  } = useMarkers(
+    debate.id,
+    chronologicalIds,
+    timestampRebuttalsEnabled === true,
+  );
   // The set of loaded message ids drives the orphaned tombstone (a reply chip
   // whose quoted move is no longer in the room).
   const loadedIdSet = useMemo(() => new Set(chronologicalIds), [chronologicalIds]);
