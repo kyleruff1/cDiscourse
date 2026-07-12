@@ -12,11 +12,22 @@
  *  - Lines are non-interactive (`accessibilityRole="text"`); the words carry the
  *    meaning (never color-only). All text inside <Text>.
  *  - Advisory only — no submit, no mutation, no callback, no verdict.
+ *
+ * UX-PR-C (issue 923) — visible provenance. Each line leads with a fixed,
+ * visible "Advisory" affix so sighted users see the machine-Observation
+ * provenance the screen reader already announces (the accessibilityLabel starts
+ * "Advisory:"). The affix is a SEPARATE, accessibility-hidden sibling Text so
+ * the reader announces the sentence label ONCE (no "Advisory. Advisory:"
+ * double). The affix is chrome (an exported constant), never signal copy — the
+ * ban-list-scanned sentence copy in derivedSignalConsumerModel stays untouched.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SPACING, SURFACE_TOKENS, TYPOGRAPHY } from '../../lib/designTokens';
 import type { DerivedSignalLine } from './derivedSignalConsumerModel';
+
+/** Visible provenance affix leading every advisory line. Chrome, not signal copy. */
+export const DERIVED_SIGNAL_PROVENANCE_AFFIX = 'Advisory';
 
 export interface DerivedSignalAdvisoryLinesProps {
   lines: ReadonlyArray<DerivedSignalLine>;
@@ -31,15 +42,24 @@ export function DerivedSignalAdvisoryLines({
   return (
     <View style={styles.wrap} testID={testID ?? 'derived-signal-advisory-lines'}>
       {lines.map((line) => (
-        <Text
-          key={line.code}
-          style={styles.line}
-          accessibilityRole="text"
-          accessibilityLabel={line.accessibilityLabel}
-          testID={`derived-signal-advisory-${line.code}`}
-        >
-          {line.text}
-        </Text>
+        <View key={line.code} style={styles.row}>
+          <Text
+            style={styles.affix}
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+            testID={`derived-signal-advisory-affix-${line.code}`}
+          >
+            {DERIVED_SIGNAL_PROVENANCE_AFFIX}
+          </Text>
+          <Text
+            style={styles.line}
+            accessibilityRole="text"
+            accessibilityLabel={line.accessibilityLabel}
+            testID={`derived-signal-advisory-${line.code}`}
+          >
+            {line.text}
+          </Text>
+        </View>
       ))}
     </View>
   );
@@ -50,7 +70,19 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     gap: 2,
   },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.xs,
+  },
+  affix: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight + 3,
+    fontWeight: '700',
+  },
   line: {
+    flex: 1,
     color: SURFACE_TOKENS.textSecondary,
     fontSize: TYPOGRAPHY.chipLabel.fontSize,
     lineHeight: TYPOGRAPHY.chipLabel.lineHeight + 3,

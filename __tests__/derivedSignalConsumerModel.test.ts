@@ -10,6 +10,7 @@ import {
   deriveDerivedObservationSignals,
 } from '../src/features/feedbackFlags/derivedObservationSignals';
 import {
+  DERIVED_SIGNAL_LINE_COPY,
   selectInspectAdvisoryLines,
   selectMediatorRailOverlay,
 } from '../src/features/feedbackFlags/derivedSignalConsumerModel';
@@ -75,5 +76,28 @@ describe('FEEDBACK-002 — selectMediatorRailOverlay', () => {
   it('is frozen', () => {
     const overlay = selectMediatorRailOverlay(signals, ['P2', 'P3']);
     expect(Object.isFrozen(overlay)).toBe(true);
+  });
+});
+
+// UX-PR-C (issue 923) — the visible "Advisory" affix is CHROME rendered in the
+// view (DerivedSignalAdvisoryLines), never smuggled into the ban-list-scanned
+// model copy. This locks the chrome/signal boundary in both directions.
+describe('UX-PR-C — provenance affix is chrome, not signal copy', () => {
+  const codes = Object.keys(DERIVED_SIGNAL_LINE_COPY) as Array<keyof typeof DERIVED_SIGNAL_LINE_COPY>;
+
+  it('has at least one code to scan', () => {
+    expect(codes.length).toBeGreaterThan(0);
+  });
+
+  it('no visible sentence copy starts with the affix word (chrome stays out of the model)', () => {
+    for (const code of codes) {
+      expect(DERIVED_SIGNAL_LINE_COPY[code].text.startsWith('Advisory')).toBe(false);
+    }
+  });
+
+  it('every accessibilityLabel keeps the "Advisory:" provenance prefix (SR provenance stays at the model)', () => {
+    for (const code of codes) {
+      expect(DERIVED_SIGNAL_LINE_COPY[code].accessibilityLabel.startsWith('Advisory:')).toBe(true);
+    }
   });
 });
