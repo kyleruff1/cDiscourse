@@ -124,7 +124,9 @@ import { useRecentOpponents } from './src/features/arguments/startArgument/useRe
 import { useMyCircles } from './src/features/circles/useMyCircles';
 // HOME-003 (#840) — map the shared circle summaries into the ArgumentHome
 // filter lens (identity-free: id + name + size).
-import { toCircleLens } from './src/features/circles/circleHomeFilter';
+// UX-PR-G (#920) P1-9c — projectCirclesForPicker strips fixture tags from the
+// circles-picker rows and drops fixture-named circles for non-admins.
+import { toCircleLens, projectCirclesForPicker } from './src/features/circles/circleHomeFilter';
 // COMPOSER-002 — the composer renders as an in-room dock, not a full-page
 // "Your Move" screen swap. The room stays mounted behind the dock.
 import { ArgumentComposerDock } from './src/features/arguments/ArgumentComposerDock';
@@ -1237,11 +1239,12 @@ function MainAppShell({
             // START-002 (#839) — the caller's circles as picker rows (name +
             // structural size). Selecting one creates a private circle-scoped
             // room. [] when signed out / no circles (the slot collapses).
-            circles={myCircles.circles.map((c) => ({
-              id: c.id,
-              label: c.name,
-              memberCount: c.memberCount,
-            }))}
+            // UX-PR-G (#920) P1-9c — route through projectCirclesForPicker so
+            // labels are fixture-tag-stripped and fixture-named circles are
+            // dropped for non-admins (doctrine-consistency guard).
+            circles={projectCirclesForPicker(myCircles.circles, {
+              isAdminViewer: currentProfile?.role === 'admin',
+            })}
             onCancel={() => setStartArgumentOpen(false)}
             onCreated={(debate, surface) => {
               setEntryHint(null);
@@ -1340,6 +1343,9 @@ function MainAppShell({
               // INTEL-001 (#900) — dodge-chain heat feed. {} when move_marks OFF
               // => the deriver omits the term => heat byte-identical.
               unaddressedMoveIdsByDebateId={galleryMarks.unaddressedMoveIdsByDebateId}
+              // UX-PR-G (#920) P1-9a — admins keep fixture rooms visible (marked
+              // by BotRoomMarker); non-admins get them excluded from discovery.
+              isAdminViewer={currentProfile?.role === 'admin'}
               currentUserId={state.snapshot.userId || null}
               loading={debatesLoading || galleryArgs.loading}
               error={debatesError || galleryArgs.error}
@@ -1416,6 +1422,11 @@ function MainAppShell({
               // row to the creator on an open room (canSettleRoom); passing it
               // unconditionally keeps that gate the single source of truth.
               onSettle={() => settle(currentDebate.id)}
+              // UX-PR-G (#920) P1-13 — surface the unread badge in-room (the tab
+              // bar that normally carries it is hidden while a room is active).
+              // Opening the list hides the room, identical to the toolbar entry.
+              unreadCount={notifications.unreadCount}
+              onOpenNotifications={() => setNotificationsOpen(true)}
             />
 
             {/* Invite panel (inline, collapsible) — QOL-038 rewrite.
