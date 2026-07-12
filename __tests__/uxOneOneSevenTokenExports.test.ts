@@ -220,20 +220,25 @@ describe('UX-001.7 — BORDER_WIDTH token export', () => {
 // ── TYPOGRAPHY ──────────────────────────────────────────────────
 
 describe('UX-001.7 — TYPOGRAPHY token export', () => {
-  it('exports TYPOGRAPHY with all 10 documented groups', () => {
+  it('exports TYPOGRAPHY with all 15 documented groups (UX-PR-E added body/title roles + microLabel)', () => {
     expect(TYPOGRAPHY).toBeDefined();
     const keys = Object.keys(TYPOGRAPHY).sort();
     expect(keys).toEqual([
       'badgeLabel',
+      'body',          // UX-PR-E
+      'bodySm',        // UX-PR-E
       'chipLabel',
       'composer',
       'inspectDetail',
       'keyboardHint',
+      'microLabel',    // UX-PR-E
       'popoutBody',
       'popoutHeading',
       'roomStrip',
       'selectedContext',
       'timelineNode',
+      'title',         // UX-PR-E
+      'titleSm',       // UX-PR-E
     ]);
   });
 
@@ -281,7 +286,7 @@ describe('UX-001.7 — TYPOGRAPHY token export', () => {
     expect(TYPOGRAPHY.popoutHeading.fontWeight).toBe('700');
   });
 
-  it('TYPOGRAPHY.badgeLabel uses the smallest font (10px) for compact badges', () => {
+  it('TYPOGRAPHY.badgeLabel sits at the 10px legibility floor for compact badges (tied with UX-PR-E microLabel)', () => {
     expect(TYPOGRAPHY.badgeLabel.fontSize).toBe(10);
   });
 
@@ -436,8 +441,8 @@ describe('UX-001.7 — total new token count is well below the 50-ceiling', () =
   it('BORDER_WIDTH adds 3 keys', () => {
     expect(Object.keys(BORDER_WIDTH)).toHaveLength(3);
   });
-  it('TYPOGRAPHY adds 10 keys', () => {
-    expect(Object.keys(TYPOGRAPHY)).toHaveLength(10);
+  it('TYPOGRAPHY adds 15 keys', () => {
+    expect(Object.keys(TYPOGRAPHY)).toHaveLength(15);
   });
   it('SPACING_PRESETS adds 8 keys', () => {
     expect(Object.keys(SPACING_PRESETS)).toHaveLength(8);

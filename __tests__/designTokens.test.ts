@@ -23,8 +23,8 @@ const HEX_6 = /^#[0-9a-f]{6}$/i;
 // ── Structural completeness ──────────────────────────────────────
 
 describe('VG-003 token structure', () => {
-  it('SPACING has xs / s / m / l / xl', () => {
-    expect(Object.keys(SPACING).sort()).toEqual(['l', 'm', 's', 'xl', 'xs']);
+  it('SPACING has xs / s / m / l / xl + interior xxs / xs6 / m10 (UX-PR-E F-06)', () => {
+    expect(Object.keys(SPACING).sort()).toEqual(['l', 'm', 'm10', 's', 'xl', 'xs', 'xs6', 'xxs']);
   });
 
   it('SPACING is monotonic increasing xs < s < m < l < xl', () => {
@@ -34,8 +34,8 @@ describe('VG-003 token structure', () => {
     expect(SPACING.l).toBeLessThan(SPACING.xl);
   });
 
-  it('RADIUS has sm / md / lg / pill', () => {
-    expect(Object.keys(RADIUS).sort()).toEqual(['lg', 'md', 'pill', 'sm']);
+  it('RADIUS has sm / md / lg / pill + interior sm6 / md10 (UX-PR-E F-07)', () => {
+    expect(Object.keys(RADIUS).sort()).toEqual(['lg', 'md', 'md10', 'pill', 'sm', 'sm6']);
   });
 
   it('RADIUS.pill is a large sentinel for half-height clamping', () => {
@@ -58,7 +58,7 @@ describe('VG-003 token structure', () => {
     expect(Object.keys(ARGUMENT).sort()).toEqual(['branch', 'challenge', 'claim', 'clarify', 'concede', 'evidence']);
   });
 
-  it('TOKENS aggregate contains all sixteen categories (UX-001.7 added touchTarget / focusRing / borderWidth / typography / spacingPresets)', () => {
+  it('TOKENS aggregate contains all nineteen categories (UX-PR-E added motion / scrim / glyphs)', () => {
     expect(Object.keys(TOKENS).sort()).toEqual([
       'argument',
       'borderWidth',     // UX-001.7
@@ -66,9 +66,12 @@ describe('VG-003 token structure', () => {
       'control',
       'focusRing',       // UX-001.7
       'glow',
+      'glyphs',          // UX-PR-E
+      'motion',          // UX-PR-E
       'radius',
       'rail',
       'receiptMark',
+      'scrim',           // UX-PR-E
       'spacing',
       'spacingPresets',  // UX-001.7
       'status',
