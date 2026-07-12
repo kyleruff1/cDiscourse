@@ -25,6 +25,14 @@
  * Pure TS. No React. No Supabase. No network. No new dependency.
  */
 
+// UX-PR-G (#920) P1-9d — the ONE fixture-tag registry (zero-dependency leaf, no
+// cycle). Fixture / bot / corpus / reseed rooms are stripped AND excluded from
+// the weave picker for EVERYONE (orchestrator ruling R1 — no admin distinction:
+// the weave is an ACTION surface, not a discovery surface, so admins lose no QA
+// visibility; fixtures still appear in the admin gallery). The exclusion is
+// display-side here, never a query change.
+import { looksLikeBotSeedTag, stripFixtureTag } from '../../debates/fixtureTagRegistry';
+
 // ── Candidate + model shapes ───────────────────────────────────
 
 /**
@@ -141,7 +149,14 @@ export function buildLinkTargetPickerModel(
     // Defensive: the query excludes the current room, but never re-admit it.
     if (currentDebateId && raw.debateId === currentDebateId) continue;
 
-    const title = typeof raw.title === 'string' ? raw.title : '';
+    // UX-PR-G (#920) P1-9d / R1 — exclude fixture / bot / corpus / reseed rooms
+    // from the weave for EVERYONE (no admin distinction). Keyed on the RAW
+    // title so a legit title merely containing a bracket is NOT dropped.
+    if (looksLikeBotSeedTag(raw.title)) continue;
+
+    // Display-strip the title unconditionally so no raw fixture tag ever
+    // reaches a picker row. A non-fixture title is only whitespace-normalised.
+    const title = typeof raw.title === 'string' ? stripFixtureTag(raw.title) : '';
     const circleId =
       typeof raw.circleId === 'string' && raw.circleId.length > 0 ? raw.circleId : null;
     const isSameCircle =

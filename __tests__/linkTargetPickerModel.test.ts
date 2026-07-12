@@ -139,6 +139,55 @@ describe('buildLinkTargetPickerModel — empty + defensive', () => {
   });
 });
 
+describe('UX-PR-G (#920) P1-9d — fixture rooms excluded + titles stripped (R1: exclude-for-all)', () => {
+  it('drops fixture / bot / corpus / reseed candidates for EVERYONE (no admin distinction)', () => {
+    const candidates: LinkTargetCandidate[] = [
+      candidate({ debateId: 'real', title: 'Should cities expand bike lanes?', circleId: null }),
+      candidate({ debateId: 'fx1', title: 'Bike lanes [xai-adv 9018694f]', circleId: null }),
+      candidate({ debateId: 'fx2', title: 'Housing [reseed-baseline-20260708-1a2b3c4d]', circleId: null }),
+      candidate({ debateId: 'fx3', title: 'Chime cohort smoke [stress chime-mrgpodh6]', circleId: null }),
+    ];
+    const model = buildLinkTargetPickerModel(candidates, null);
+    expect(model.other.map((c) => c.debateId)).toEqual(['real']);
+    expect(model.isEmpty).toBe(false);
+  });
+
+  it('strips any residual tag from a kept candidate title (unconditional display-strip)', () => {
+    // A kept candidate title is only whitespace-normalised; a legit bracket
+    // title is NOT dropped and NOT altered beyond whitespace.
+    const candidates: LinkTargetCandidate[] = [
+      candidate({ debateId: 'ok', title: '[2024] budget debate', circleId: null }),
+    ];
+    const model = buildLinkTargetPickerModel(candidates, null);
+    expect(model.other.map((c) => c.debateId)).toEqual(['ok']);
+    expect(model.other[0].title).toBe('[2024] budget debate');
+  });
+
+  it('returns isEmpty when every candidate is a fixture room', () => {
+    const candidates: LinkTargetCandidate[] = [
+      candidate({ debateId: 'fx1', title: 'A [stress-2026-05-17 #scenario-7]', circleId: null }),
+      candidate({ debateId: 'fx2', title: 'B [ai-corpus fa172432]', circleId: null }),
+    ];
+    const model = buildLinkTargetPickerModel(candidates, null);
+    expect(model.isEmpty).toBe(true);
+    expect(model.sameCircle).toHaveLength(0);
+    expect(model.other).toHaveLength(0);
+  });
+
+  it('computes moreNotShown on the POST-filter count', () => {
+    const raw: LinkTargetCandidate[] = [];
+    // MAX real rooms + several fixtures. After filtering, exactly MAX remain.
+    for (let i = 0; i < MAX_LINK_TARGET_CANDIDATES; i++) {
+      raw.push(candidate({ debateId: `r${i}`, title: `Real topic ${i}`, circleId: null }));
+    }
+    raw.push(candidate({ debateId: 'fx', title: 'X [xai-adv abc]', circleId: null }));
+    const model = buildLinkTargetPickerModel(raw, null);
+    expect(model.other).toHaveLength(MAX_LINK_TARGET_CANDIDATES);
+    // The fixture was dropped, so the remaining count is exactly MAX (not MAX+1).
+    expect(model.moreNotShown).toBe(false);
+  });
+});
+
 describe('buildLinkTargetPickerModel — determinism', () => {
   it('returns equal output for equal input', () => {
     const candidates = [candidate({ debateId: 'a', circleId: 'c1' })];

@@ -26,6 +26,8 @@ import type {
   YourTurnItem,
 } from '../debates/conversationGalleryModel';
 import type { Debate } from '../debates/types';
+// UX-PR-G (#920) P1-9c — the ONE fixture-tag registry (zero-dependency leaf).
+import { looksLikeBotSeedTag, stripFixtureTag } from '../debates/fixtureTagRegistry';
 
 /**
  * The narrow local view of a circle the home filter + chip row consume. The
@@ -123,4 +125,41 @@ export function toCircleLens(raw: {
       ? Math.floor(raw.memberCount)
       : 0;
   return { id: raw.id, name: raw.name, memberCount: count };
+}
+
+/** UX-PR-G (#920) P1-9c — a picker row: label = display-stripped circle name. */
+export interface PickerCircle {
+  id: string;
+  label: string;
+  memberCount: number;
+}
+
+/**
+ * UX-PR-G (#920) P1-9c — project the caller's circles for the circles picker:
+ *   - `label = stripFixtureTag(name)` ALWAYS, so no raw fixture tag reaches a
+ *     picker row (doctrine §9). A bare-tag name falls back to the raw name.
+ *   - fixture-named circles are DROPPED for non-admins (mirrors the gallery /
+ *     home fixture exclusion); admins keep them. In practice a real circle name
+ *     never matches the fixture predicate (it needs a bracketed run-tag), so
+ *     this is a defensive consistency guard, not a common path.
+ *
+ * `memberCount` is coerced to a non-negative integer (matching `toCircleLens`),
+ * a SIZE and never a rating. Pure; never mutates the input.
+ */
+export function projectCirclesForPicker(
+  circles: ReadonlyArray<{ id: string; name: string; memberCount: number }>,
+  options: { isAdminViewer: boolean },
+): PickerCircle[] {
+  if (!Array.isArray(circles)) return [];
+  const out: PickerCircle[] = [];
+  for (const c of circles) {
+    if (!c || typeof c.id !== 'string') continue;
+    if (!options.isAdminViewer && looksLikeBotSeedTag(c.name)) continue;
+    const count =
+      typeof c.memberCount === 'number' && Number.isFinite(c.memberCount) && c.memberCount > 0
+        ? Math.floor(c.memberCount)
+        : 0;
+    out.push({ id: c.id, label: stripFixtureTag(c.name) || c.name, memberCount: count });
+  }
+  return out;
 }
