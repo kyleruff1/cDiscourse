@@ -430,6 +430,19 @@ export function DisagreementPointsRail({
         </Pressable>
       </View>
 
+      {/* UX-PR-G (issue 920) P1-11 — scope subtitle: self-explains this rail's count
+          as the structured / curated subset the mediator is actively tracking,
+          distinct from the state-rail "open points" superset. A calm caption;
+          plain text (accessibilityRole="text"), never a verdict or count. */}
+      <Text
+        style={styles.scopeNote}
+        numberOfLines={2}
+        accessibilityRole="text"
+        testID="disagreement-points-rail-scope-note"
+      >
+        {DISAGREEMENT_POINTS_RAIL_COPY.scopeNote}
+      </Text>
+
       {/* UX-MEDIATOR-005 — state-distribution bar: a COMPOSITION roll-up of the
           live points, ordered structurally (V4_PRIMARY_STATE_PRIORITY), never by
           count/votes/heat. NOT color-only — each segment carries a text count
@@ -997,6 +1010,14 @@ const styles = StyleSheet.create({
     minWidth: TOUCH_TARGET.minSizePx,
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  // UX-PR-G (issue 920) P1-11 — scope subtitle under the expanded header. A quiet
+  // secondary caption; neutral tone, never a count / verdict.
+  scopeNote: {
+    color: SURFACE_TOKENS.textSecondary,
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight + 2,
+    marginBottom: SPACING.s,
   },
   collapseLabel: {
     color: SURFACE_TOKENS.textSecondary,
