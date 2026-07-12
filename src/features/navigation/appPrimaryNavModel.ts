@@ -136,6 +136,15 @@ export interface PrimaryNavTransition {
    * leaves the current room (state-only deselect, no route).
    */
   deselectRoom: boolean;
+  /**
+   * A11Y-PR0 (#913) — whether to leave the demo corridor. Every primary
+   * nav item returns to a top-level surface, so this is always true; it
+   * mirrors `deselectRoom`. Before this field `handlePrimaryNav` never
+   * cleared `demoCorridorOpen`, so the corridor co-rendered on top of the
+   * target surface (P0-3c). The shell reads this flag and clears the
+   * corridor state (no route).
+   */
+  clearDemoCorridor: boolean;
 }
 
 /**
@@ -160,6 +169,7 @@ export function resolvePrimaryNavTransition(
         galleryLane: 'all',
         aboutOpen: false,
         deselectRoom: true,
+        clearDemoCorridor: true,
       };
     case 'browse_arguments':
       return {
@@ -168,6 +178,7 @@ export function resolvePrimaryNavTransition(
         galleryLane: 'all',
         aboutOpen: false,
         deselectRoom: true,
+        clearDemoCorridor: true,
       };
     case 'my_arguments':
       return {
@@ -176,6 +187,7 @@ export function resolvePrimaryNavTransition(
         galleryLane: 'my_rooms',
         aboutOpen: false,
         deselectRoom: true,
+        clearDemoCorridor: true,
       };
     case 'profile':
       return {
@@ -184,6 +196,7 @@ export function resolvePrimaryNavTransition(
         galleryLane: 'all',
         aboutOpen: false,
         deselectRoom: true,
+        clearDemoCorridor: true,
       };
     case 'about':
       return {
@@ -192,6 +205,7 @@ export function resolvePrimaryNavTransition(
         galleryLane: 'all',
         aboutOpen: true,
         deselectRoom: true,
+        clearDemoCorridor: true,
       };
   }
 }

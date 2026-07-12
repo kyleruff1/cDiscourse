@@ -1039,6 +1039,10 @@ function MainAppShell({
       setStartArgumentOpen(t.startArgumentOpen);
       setGalleryLane(t.galleryLane);
       setAboutOpen(t.aboutOpen);
+      // A11Y-PR0 (#913, P0-3c) — every primary nav item leaves the demo
+      // corridor (mirrors deselectRoom). Without this the corridor stayed
+      // mounted on top of the target surface (nav trap).
+      if (t.clearDemoCorridor) setDemoCorridorOpen(false);
     },
     [hasDebate, deselectDebate],
   );
@@ -1159,7 +1163,9 @@ function MainAppShell({
             <Pressable
               key={t}
               style={[styles.tab, activeTab === t && styles.tabActive]}
-              onPress={() => { setTab(t); }}
+              // A11Y-PR0 (#913, P0-3c) — a direct secondary-tab switch also
+              // leaves the demo corridor so it never co-renders behind the tab.
+              onPress={() => { setDemoCorridorOpen(false); setTab(t); }}
               accessibilityRole="tab"
               accessibilityLabel={TAB_LABELS[t]}
             >
@@ -1670,15 +1676,18 @@ function MainAppShell({
           </View>
         )}
 
-        {!aboutOpen && activeTab === 'account' && (
+        {/* A11Y-PR0 (#913, P0-3c) — Account / Admin / Debug are gated with
+            !demoCorridorOpen (mirroring the About guard) so the demo corridor
+            never co-renders on top of them. */}
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'account' && (
           <AccountScreen onSignOut={handleSignOut} signOutLoading={signOutLoading} />
         )}
 
-        {!aboutOpen && activeTab === 'admin' && currentProfile?.role === 'admin' && (
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'admin' && currentProfile?.role === 'admin' && (
           <AdminScreen onOpenArgumentTimeline={handleOpenArgumentFromAdmin} />
         )}
 
-        {!aboutOpen && activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
+        {!aboutOpen && !demoCorridorOpen && activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
       </View>
 
       {/* ARG-ROOM-006 (item c) — deep-link "unavailable" notice. Cause-neutral;
