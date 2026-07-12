@@ -996,6 +996,26 @@ export const SEAT_CLAIM_COPY = Object.freeze({
   // `roomActiveSeatCap`, never a literal in this copy.
   activeSeatsSummary: '{active} of {cap} active seats',
   readersNote: 'Readers do not use active seats',
+  // UX-PR-B (#918) — the honest join-failure note. Surfaced when a seat claim
+  // does not complete (a coded / code-less write error that is neither a taken
+  // seat nor the full-room degrade-to-observe). A neutral connection fact, never
+  // a verdict and never a person attribution: the room could not add the viewer.
+  joinFailed: 'We could not add you to this argument. Try again.',
+});
+
+// ── UX-PR-B (#918) — room-load failure copy ─────────────────────
+//
+// State-honesty copy for the silent-hook family. Every value is a neutral LOAD
+// fact ("some of this could not load"), never a verdict, never heat / popularity,
+// never a person attribution. The strip message is intentionally generic — it
+// does NOT enumerate which room read failed (naming "markers" / "proof" would
+// leak an internal concept and add noise), and it is a SINGLE stable constant so
+// a screen readers live region announces it once and stays quiet until cleared.
+export const ROOM_LOAD_ERROR_COPY = Object.freeze({
+  stripMessage: 'Some of this room could not load.',
+  hookError: 'Some of this could not load.',
+  retryLabel: 'Retry',
+  retryA11y: 'Retry loading the room details.',
 });
 
 // ── META-1E — Cards-detail metadata diff inspector copy ─────────

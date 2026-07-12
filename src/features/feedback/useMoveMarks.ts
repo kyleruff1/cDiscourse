@@ -27,8 +27,14 @@ import {
   type ViewerMoveMarkState,
 } from './moveMarksModel';
 import { retractMoveMark, setMoveMark } from './moveMarksApi';
+import { ROOM_LOAD_ERROR_COPY } from '../arguments/gameCopy';
 
 const MOVE_MARK_COLUMNS = 'argument_id, mark_code, marked_by, retracted_at';
+
+// UX-PR-B (#918) — the fixed plain-language READ-error sentinel (never the raw
+// supabase error). Distinct from the exemplary per-move WRITE note that
+// moveMarkErrorFor already surfaces; this covers the room-wide fetch failing.
+const READ_ERROR = ROOM_LOAD_ERROR_COPY.hookError;
 
 interface MoveMarkDbRow {
   argument_id: string;
@@ -54,6 +60,13 @@ export interface UseMoveMarksResult {
   onMark: (argumentId: string, code: MoveMarkCode) => void;
   onUnmark: (argumentId: string, code: MoveMarkCode) => void;
   loading: boolean;
+  /**
+   * UX-PR-B (#918) — the room-wide READ-error sentinel (never the raw supabase
+   * error), or null when the fetch succeeded / was skipped. This is SEPARATE
+   * from moveMarkErrorFor (the per-move write note): a failed room fetch feeds
+   * the shared room-load strip, a failed tap stays a quiet inline note.
+   */
+  error: string | null;
   refetch: () => Promise<void>;
 }
 
@@ -69,6 +82,9 @@ export function useMoveMarks(input: UseMoveMarksInput): UseMoveMarksResult {
   // success, cleared on failure.
   const [overrides, setOverrides] = useState<Record<string, ViewerMoveMarkState>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // UX-PR-B (#918) — the room-wide READ error (the fetch failing), distinct from
+  // the per-move write `errors` map above.
+  const [readError, setReadError] = useState<string | null>(null);
 
   const idsKey = useMemo(() => [...argumentIds].sort().join(','), [argumentIds]);
   const mountedRef = useRef(true);
@@ -81,19 +97,27 @@ export function useMoveMarks(input: UseMoveMarksInput): UseMoveMarksResult {
 
   const refetch = useCallback(async () => {
     if (!enabled || !SUPABASE_CONFIGURED || !debateId || argumentIds.length === 0) {
-      if (mountedRef.current) setRows([]);
+      // Disabled / unconfigured / no-ids is legitimate ABSENCE, never a failure.
+      if (mountedRef.current) {
+        setRows([]);
+        setReadError(null);
+      }
       return;
     }
     if (mountedRef.current) setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error: readErr } = await supabase
         .from('move_marks')
         .select(MOVE_MARK_COLUMNS)
         .eq('debate_id', debateId)
         .in('argument_id', [...argumentIds])
         .is('retracted_at', null);
-      if (error) {
-        if (mountedRef.current) setRows([]);
+      if (readErr) {
+        // Honest failure: empty rows + the fixed sentinel (never the raw error).
+        if (mountedRef.current) {
+          setRows([]);
+          setReadError(READ_ERROR);
+        }
         return;
       }
       const mapped = ((data ?? []) as MoveMarkDbRow[]).map((r) => ({
@@ -102,7 +126,10 @@ export function useMoveMarks(input: UseMoveMarksInput): UseMoveMarksResult {
         markedBy: r.marked_by,
         retractedAt: r.retracted_at,
       }));
-      if (mountedRef.current) setRows(mapped);
+      if (mountedRef.current) {
+        setRows(mapped);
+        setReadError(null);
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
@@ -210,6 +237,7 @@ export function useMoveMarks(input: UseMoveMarksInput): UseMoveMarksResult {
     onMark,
     onUnmark,
     loading,
+    error: enabled ? readError : null,
     refetch,
   };
 }
