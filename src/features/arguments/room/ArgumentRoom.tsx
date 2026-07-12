@@ -1066,6 +1066,10 @@ export function ArgumentRoom({
   // chimeInApi call, then a refetch so the seat count + marker converge). Flag off
   // => chimeInCandidate is null and the affordance renders nothing.
   const [chimeInBusy, setChimeInBusy] = useState(false);
+  // UX-PR-B (#918) — the quiet chime failure note. Set from the api results
+  // plain-language errorMessage on a failed attach / retract, cleared on success
+  // AND on every fresh attempt so a stale note never outlives the affordance.
+  const [chimeInNote, setChimeInNote] = useState<string | null>(null);
   const chimeInCandidate = useMemo(() => {
     if (!chimeInEnabled || !activeMessageId) return null;
     const msg = sorted.find((m) => m.id === activeMessageId);
@@ -1075,9 +1079,11 @@ export function ArgumentRoom({
   const handleChimeInAttach = useCallback(
     async (input: { argumentId: string; targetArgumentId: string }) => {
       setChimeInBusy(true);
+      setChimeInNote(null);
       try {
         const res = await attachChimeIn(input);
         if (res.ok) await chimeInContributions.refetch();
+        else setChimeInNote(res.errorMessage ?? null);
       } finally {
         setChimeInBusy(false);
       }
@@ -1087,9 +1093,11 @@ export function ArgumentRoom({
   const handleChimeInRetract = useCallback(
     async (input: { argumentId: string }) => {
       setChimeInBusy(true);
+      setChimeInNote(null);
       try {
         const res = await retractChimeIn(input);
         if (res.ok) await chimeInContributions.refetch();
+        else setChimeInNote(res.errorMessage ?? null);
       } finally {
         setChimeInBusy(false);
       }
@@ -3082,6 +3090,7 @@ export function ArgumentRoom({
               onAttach={handleChimeInAttach}
               onRetract={handleChimeInRetract}
               busy={chimeInBusy}
+              note={chimeInNote}
             />
           ) : null}
           {/* UX-001.2 — microMoment banner. Repositioned out of the old
