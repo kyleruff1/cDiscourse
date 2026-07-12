@@ -34,10 +34,11 @@ describe('UX-001.4 buildExpandedDockViewModel — section ordering', () => {
     }
   });
 
-  it('observer sections: watch_observe / join_side / share (UX-001.4 migrated evidence)', () => {
+  it('observer sections: watch_observe / join_side (UX-PR-G #920 removed share; UX-001.4 migrated evidence)', () => {
     const vm = buildExpandedDockViewModel(OBSERVER_ACTIONS, 'observer', 'other');
     const cats = vm.sections.map((s) => s.category);
-    expect(cats).toEqual(['watch_observe', 'join_side', 'share']);
+    // UX-PR-G (#920) P1-12 — the share section is gone (no share action).
+    expect(cats).toEqual(['watch_observe', 'join_side']);
   });
 });
 
@@ -53,9 +54,11 @@ describe('UX-001.4 buildExpandedDockViewModel — showCategoryHeaders', () => {
     expect(vm.showCategoryHeaders).toBe(false);
   });
 
-  it('is true for the observer set (3 non-empty sections after UX-001.4 migration)', () => {
+  it('is true for the observer set (2 non-empty sections after UX-PR-G #920 removed share)', () => {
+    // UX-PR-G (#920) P1-12 — observer sections dropped from 3 to 2 (watch_observe
+    // + join_side); showCategoryHeaders stays true (rule = >= 2 non-empty).
     const sectionCount = groupRailActionsByCategory(OBSERVER_ACTIONS).length;
-    expect(sectionCount).toBe(3);
+    expect(sectionCount).toBe(2);
     const vm = buildExpandedDockViewModel(OBSERVER_ACTIONS, 'observer', 'other');
     expect(vm.showCategoryHeaders).toBe(true);
   });

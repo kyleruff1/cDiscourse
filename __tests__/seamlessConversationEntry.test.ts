@@ -136,9 +136,11 @@ describe('GALLERY_SECTIONS catalogue', () => {
 // ──────────────────────────────────────────────────────────────
 
 describe('getRailActions (UX-001.4 — Act consolidation)', () => {
-  it('observer set exposes Watch / Join For / Join Against / Share (UX-001.4: ask_source + open_timeline migrated to Act / Go)', () => {
+  it('observer set exposes Watch / Join For / Join Against (UX-PR-G #920 removed Share; UX-001.4: ask_source + open_timeline migrated to Act / Go)', () => {
     const codes = getRailActions('observer', 'other').map((a) => a.code);
-    expect(codes).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
+    // UX-PR-G (#920) P1-12 — Share removed (guaranteed no-op, no room URLs).
+    expect(codes).toEqual(['watch', 'join_aff', 'join_neg']);
+    expect(codes).not.toContain('share');
   });
   it('participant on OTHER bubble exposes Reply + Disagree (UX-001.4: ask_source / ask_quote / split_branch / flag / qualifiers migrated to Act)', () => {
     const codes = getRailActions('participant', 'other').map((a) => a.code);

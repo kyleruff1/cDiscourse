@@ -1969,7 +1969,13 @@ export const STATE_RAIL_COPY = Object.freeze({
   // Open disagreement-points count. Rendered as "{n} open point(s)".
   open_point_word_one: 'open point',
   open_point_word_many: 'open points',
-  open_points_a11y_suffix: 'on this argument.',
+  // UX-PR-G (#920) P1-11 — the state-rail count is a SUPERSET (structured
+  // disagreement points PLUS unaddressed did-not-address chains when move_marks
+  // is on), so the screen-reader scope says "across this whole argument." The
+  // compact visible chip still reads "N open points". The mediator rail's own
+  // scopeNote self-explains its narrower structured/curated count. No concept
+  // unification here (copy only) — that is a follow-on.
+  open_points_a11y_suffix: 'across this whole argument.',
   // Receipts-owed (open evidence-debt) count. Rendered as "{n} receipt(s) owed".
   receipt_word_one: 'receipt owed',
   receipt_word_many: 'receipts owed',

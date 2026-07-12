@@ -9,8 +9,11 @@
  *     surface.
  *   - preserve-as-shortcut: the entry STAYS in the rail / dock.
  *   - retain-with-rationale: the entry STAYS with an explicit reason
- *     (currently only `share` survives in the rail; mark_moved_on,
- *     mark_ignored, expand_branch survive in the dock).
+ *     (mark_moved_on, mark_ignored, expand_branch survive in the dock).
+ *
+ * UX-PR-G (#920) P1-12 update: `share` was the last retain-with-rationale rail
+ * entry, but it was a guaranteed no-op (zero suppliers, no room URLs), so it was
+ * REMOVED from the observer rail. The B.1 disposition below now asserts absence.
  */
 import {
   getRailActions,
@@ -49,8 +52,8 @@ describe('UX-001.4 Table B.1 — observer rail dispositions', () => {
     expect(codes.has('open_timeline')).toBe(false);
   });
 
-  it('share — retain-with-rationale (still in rail — out-of-band action)', () => {
-    expect(codes.has('share')).toBe(true);
+  it('share — REMOVED from rail (UX-PR-G #920 P1-12: guaranteed no-op, no room URLs)', () => {
+    expect(codes.has('share')).toBe(false);
   });
 });
 

@@ -24,13 +24,16 @@ const ALL_BUBBLE_ACTORS: RailBubbleActor[] = ['self', 'other', 'bot', 'admin', '
 // ── 1. Observer set ─────────────────────────────────────────────
 
 describe('UX-001.4 matrix — observer action set (post-Act-consolidation)', () => {
-  it('observer set is the four post-UX-001.4 codes for EVERY bubbleActor (ask_source / open_timeline migrated)', () => {
+  it('observer set is the three post-UX-PR-G codes for EVERY bubbleActor (share removed; ask_source / open_timeline migrated)', () => {
+    // UX-PR-G (#920) P1-12 — share removed from the observer set (guaranteed
+    // no-op: zero suppliers, rooms have no URLs).
     const expected: RailActionCode[] = [
-      'watch', 'join_aff', 'join_neg', 'share',
+      'watch', 'join_aff', 'join_neg',
     ];
     for (const actor of ALL_BUBBLE_ACTORS) {
       const codes = getRailActions('observer', actor).map((a) => a.code);
       expect(codes).toEqual(expected);
+      expect(codes).not.toContain('share');
     }
   });
 

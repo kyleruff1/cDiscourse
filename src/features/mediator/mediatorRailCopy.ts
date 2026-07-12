@@ -34,6 +34,15 @@ export const DISAGREEMENT_POINTS_RAIL_COPY = Object.freeze({
    */
   totalSuffix: 'total',
   /**
+   * UX-PR-G (#920) P1-11 — one-line subtitle under the expanded header that
+   * self-explains this rail's count as the structured / curated subset (the
+   * disagreement points the mediator is actively tracking), distinct from the
+   * state-rail "open points" chip which is a wider superset. Stands alone with
+   * no cross-reference to the other surface. Ban-list clean; describes what is
+   * tracked, never a verdict / score / person.
+   */
+  scopeNote: 'The disagreement points the mediator is actively tracking.',
+  /**
    * UX-MEDIATOR-005 — contribution marker (rendered ONLY when a point anchor is a
    * chime-in). As of CHIMEIN-P8 Round 2 (#761) the chime-in DATA ships: ArgumentRoom
    * feeds `DisagreementPointsRail.contributionKindByNodeId` from the loaded

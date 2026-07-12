@@ -81,9 +81,11 @@ describe('ROOM-004 parity matrix — both arms derive from the REAL production d
     expect(ex).toEqual(['reply', 'disagree', 'flag', 'ask_source', 'ask_quote', 'split_branch', 'qualifiers']);
   });
 
-  it('observer: both arms produce watch / join / share', () => {
-    expect(exchangeNodeRowCodes('observer', 'other')).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
-    expect(mapNodeRowCodes('observer', 'other')).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
+  it('observer: both arms produce watch / join (UX-PR-G #920 removed share)', () => {
+    // UX-PR-G (#920) P1-12 — share removed from the observer set; both the
+    // Exchange node row and the Map node row derive from it, so both drop share.
+    expect(exchangeNodeRowCodes('observer', 'other')).toEqual(['watch', 'join_aff', 'join_neg']);
+    expect(mapNodeRowCodes('observer', 'other')).toEqual(['watch', 'join_aff', 'join_neg']);
   });
 });
 

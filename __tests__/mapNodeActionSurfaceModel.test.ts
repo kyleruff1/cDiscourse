@@ -82,13 +82,14 @@ describe('mapNodeActionSurfaceModel — action row mirrors the Ringside card', (
     ] as ArgumentBubbleControl[]);
   });
 
-  it('observer → watch / join / share', () => {
+  it('observer → watch / join (UX-PR-G #920 removed share)', () => {
     const surface = buildMapNodeActionSurface(
       makeInput({ viewerRole: 'observer' as RailViewerRole, actor: 'other' }),
     );
     expect(surface.actionRow.kind).toBe('observer');
     if (surface.actionRow.kind === 'observer') {
-      expect(surface.actionRow.actions.map((a) => a.code)).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
+      // UX-PR-G (#920) P1-12 — share removed (guaranteed no-op, no room URLs).
+      expect(surface.actionRow.actions.map((a) => a.code)).toEqual(['watch', 'join_aff', 'join_neg']);
     }
   });
 });
@@ -118,7 +119,8 @@ describe('mapNodeActionSurfaceModel — control bridge + normalization', () => {
 
   it('mapActionRowToRailCodes passes observer codes through', () => {
     const surface = buildMapNodeActionSurface(makeInput({ viewerRole: 'observer' as RailViewerRole, actor: 'other' }));
-    expect(mapActionRowToRailCodes(surface.actionRow)).toEqual(['watch', 'join_aff', 'join_neg', 'share']);
+    // UX-PR-G (#920) P1-12 — share removed from the observer set.
+    expect(mapActionRowToRailCodes(surface.actionRow)).toEqual(['watch', 'join_aff', 'join_neg']);
   });
 });
 

@@ -112,6 +112,22 @@ export interface RailActionGroup {
 }
 
 /**
+ * UX-PR-G (#920) P1-12 — rail codes the ROOM routes LOCALLY (no bubble-control
+ * equivalent). `ArgumentRoom.handleRailAction` dispatches each of these itself
+ * (join → onJoinSide, open_timeline → setMode, watch → documented no-op). Every
+ * OTHER rendered rail code MUST resolve to a non-null `railActionToBubbleControl`.
+ * The `railHandlerPresenceGuard` test asserts exactly that: no rail action can
+ * ship without a handler. `share` was removed from the observer set (it was a
+ * guaranteed no-op — rooms have no URLs), so it must NOT appear here.
+ */
+export const RAIL_LOCALLY_ROUTED_CODES: readonly RailActionCode[] = Object.freeze([
+  'join_aff',
+  'join_neg',
+  'open_timeline',
+  'watch',
+]);
+
+/**
  * Bucket a flat rail action list into ordered category groups. Skips
  * empty groups so the UI never renders an empty section.
  */

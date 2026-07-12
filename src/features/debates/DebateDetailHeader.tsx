@@ -45,6 +45,11 @@ import { useHeaderBreakpoint, type Band } from '../../hooks/useHeaderBreakpoint'
 import type { ArgumentViewMode } from '../arguments/ArgumentTreeScreen';
 import { VIEW_MODE_COPY } from '../arguments/viewModeCopy';
 import { INVITE_PANEL_COPY } from '../invites/inviteCopy';
+// UX-PR-G (#920) P1-9b — strip the raw fixture tag from the in-room title.
+import { stripFixtureTag } from './fixtureTagRegistry';
+// UX-PR-G (#920) P1-13 — surface the unread-notification badge in-room (the tab
+// bar that normally carries it is hidden while a room is active).
+import { NotificationBadge } from '../notifications/NotificationBadge';
 
 interface Props {
   debate: Debate;
@@ -102,6 +107,17 @@ interface Props {
    * settled notice, not here). Absent => the Settle row never renders.
    */
   onSettle?: () => Promise<{ ok: boolean; error?: string }>;
+  /**
+   * UX-PR-G (#920) P1-13 — unread notification count for the viewer. Drives the
+   * in-room badge (renders nothing at 0). Absent => 0.
+   */
+  unreadCount?: number;
+  /**
+   * UX-PR-G (#920) P1-13 — opens the notifications sub-screen
+   * (App sets notificationsOpen true). When omitted, the in-room notification
+   * affordance renders nothing (byte-identical to before).
+   */
+  onOpenNotifications?: () => void;
 }
 
 const SIDE_LABELS: Record<string, string> = {
@@ -186,6 +202,8 @@ export function DebateDetailHeader({
   onSetDevTreeMode,
   onSetDevTracksMode,
   onSettle,
+  unreadCount,
+  onOpenNotifications,
 }: Props) {
   const { band } = useHeaderBreakpoint();
   const sizing = useMemo(() => bandSizing(band), [band]);
@@ -349,7 +367,10 @@ export function DebateDetailHeader({
           ellipsizeMode="tail"
           testID="debate-detail-title"
         >
-          {debate.title}
+          {/* UX-PR-G (#920) P1-9b — strip the raw fixture tag so a corpus room
+              reads as its clean title. Fall back to the raw title when the
+              strip would empty it (a bare-tag title). */}
+          {stripFixtureTag(debate.title) || debate.title}
         </Text>
         {sizing.showStatusChip ? (
           <View
@@ -413,6 +434,30 @@ export function DebateDetailHeader({
               </Text>
             </Pressable>
           </View>
+        ) : null}
+        {/* UX-PR-G (#920) P1-13 — in-room notifications affordance. The global
+            tab bar (which normally carries the badge) is hidden while a room is
+            active, so the badge is surfaced here. Renders only when App supplies
+            onOpenNotifications; NotificationBadge itself renders nothing at 0. */}
+        {onOpenNotifications ? (
+          <Pressable
+            onPress={onOpenNotifications}
+            style={styles.notificationsButton}
+            accessibilityRole="button"
+            accessibilityLabel={
+              unreadCount && unreadCount > 0
+                ? `Notifications, ${unreadCount > 9 ? '9+' : unreadCount} unread`
+                : 'Notifications'
+            }
+            accessibilityHint="Shows your unread invites, replies, and other room activity."
+            hitSlop={{ top: sizing.controlHitSlop + 6, bottom: sizing.controlHitSlop + 6, left: sizing.controlHitSlop + 6, right: sizing.controlHitSlop + 6 }}
+            testID="debate-detail-notifications"
+          >
+            <Text style={[styles.notificationsGlyph, { fontSize: sizing.chipFontSize + 2 }]}>🔔</Text>
+            <View style={styles.notificationsBadgeSlot}>
+              <NotificationBadge unreadCount={unreadCount ?? 0} testID="notification-badge-in-room" />
+            </View>
+          </Pressable>
         ) : null}
         {showOverflow ? (
           <Pressable
@@ -626,6 +671,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   overflowGlyph: { color: '#e2e8f0', fontWeight: '700' },
+  // UX-PR-G (#920) P1-13 — in-room notifications control. The glyph + the
+  // count-bearing badge sit together; the count is not color-only (the a11y
+  // label states it). 44x44 effective target via hitSlop above.
+  notificationsButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#1f2937',
+    minWidth: 28,
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationsGlyph: { color: '#e2e8f0', fontWeight: '700' },
+  notificationsBadgeSlot: { marginLeft: 2 },
   overflowPanel: {
     marginTop: 6,
     paddingTop: 6,

@@ -19,9 +19,14 @@ import {
   type ConversationGalleryCard,
   type YourTurnItem,
 } from '../debates/conversationGalleryModel';
-import { looksLikeBotSeedTag } from '../debates/botRoomPolicyModel';
+// UX-PR-G (#920) — the fixture id-set collector was hoisted into the ONE
+// zero-dependency fixture-tag registry. Re-export it here so the shipped export
+// name (consumed via `src/features/home/index.ts` + App.tsx) is unchanged.
+import { collectFixtureDebateIds } from '../debates/fixtureTagRegistry';
 import type { Debate } from '../debates/types';
 import type { RoomNotification } from '../notifications/notificationModel';
+
+export { collectFixtureDebateIds };
 
 export interface BuildArgumentHomeInput {
   /** The gallery cards, already built by buildConversationGalleryCards. */
@@ -51,18 +56,12 @@ export interface ArgumentHomeViewModel {
 }
 
 /**
- * HOME-001 — pure: the set of debateIds whose RAW title looks like a
- * bot / corpus / reseed fixture tag. Built from `debate.title` (the un-cleaned
- * string), because `card.title` has already had the tag stripped by
- * cleanTitleForDedupe and would therefore no longer match.
+ * HOME-001 / UX-PR-G (#920) — the set of debateIds whose RAW title looks like a
+ * bot / corpus / reseed fixture tag now lives in `fixtureTagRegistry`
+ * (re-exported above as `collectFixtureDebateIds`). It is built from
+ * `debate.title` (the un-cleaned string), because `card.title` has already had
+ * the tag stripped by cleanTitleForDedupe and would therefore no longer match.
  */
-export function collectFixtureDebateIds(debates: Debate[]): Set<string> {
-  const ids = new Set<string>();
-  for (const d of debates) {
-    if (looksLikeBotSeedTag(d.title)) ids.add(d.id);
-  }
-  return ids;
-}
 
 /**
  * HOME-001 — pure: map the loaded notification list to the set of debateIds

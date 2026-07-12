@@ -22,6 +22,9 @@ import type { QuickActionLabel } from '../arguments/quickActionPresets';
 import type { EntryOpportunity } from '../strengthWeakness/heatModel';
 import { getLifecycleUx } from '../rulesUx/lifecycleUxMap';
 import { GALLERY_SECTION_DEFINITIONS, type GallerySectionDefinition } from '../arguments/gameCopy';
+// UX-PR-G (#920) — the ONE fixture-tag strip. Zero-dependency leaf module, so
+// importing it into this broadly-imported model cannot form a require cycle.
+import { stripFixtureTag } from './fixtureTagRegistry';
 import { buildEvidenceArtifacts } from '../evidence/evidenceModel';
 import {
   deriveEvidenceDebts,
@@ -446,32 +449,16 @@ function kindColor(family: ConversationTimelinePreviewSegment['kindFamily']): st
  * The cleaned title becomes the dedupe key when sourceHash / scenarioId
  * are not directly available.
  *
- * HOME-001 (#874): patterns 1 and 2 gained a `reseed` alternative so the
- * reseeder title tag `[reseed-<pack>-<yyyymmdd>-<hash8>]`
- * (scripts/reseeder/runReseeder.js buildReseedRunTag) is recognised. The
- * `\b`-anchored `seed-` alternative did NOT catch `reseed` (reseed has no
- * word boundary before the inner `seed`), so a distinct alternative was
- * required. Kept in lockstep with botRoomPolicyModel.BOT_SEED_TAG_PATTERNS
- * (the shared parity fixture in __tests__/botRoomPolicyModel.test.ts).
+ * UX-PR-G (#920): the pattern family + strip loop were HOISTED into the
+ * zero-dependency `fixtureTagRegistry.stripFixtureTag`, consolidating the
+ * three former regex mirrors (this file, `botRoomPolicyModel`,
+ * `argumentArtifactModel`) into ONE source of truth. Emitted output is
+ * byte-identical for the existing corpus (this file already carried the
+ * HOME-001 #874 `reseed` alternative); the mirror-parity test proves the
+ * three now agree.
  */
-const SUFFIX_TAG_PATTERNS = [
-  /\s*\[(?:xai-adv|ai-corpus|stress|reseed|stage-\d+(?:\.\d+)*|run-\d+|scenario-\d+|seed-\d+)\b[^\]]*\]\s*$/i,
-  /\s*\[(?:xai|ai|bot|corpus|stress|scenario|seed|reseed)[\w\d\s\-_:.,#]*\]\s*$/i,
-  /\s*\([\w\d\s\-_:.,#]*?(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d\s\-_:.,#]*?\)\s*$/i,
-  /\s*#(?:xai-adv|ai-corpus|stress|scenario|seed)[\w\d_-]+\s*$/i,
-];
-
 export function cleanTitleForDedupe(title: string): string {
-  let t = normaliseWhitespace(title);
-  for (let i = 0; i < 3 && t.length > 0; i++) {
-    let changed = false;
-    for (const re of SUFFIX_TAG_PATTERNS) {
-      const next = t.replace(re, '');
-      if (next !== t) { t = next.trim(); changed = true; }
-    }
-    if (!changed) break;
-  }
-  return t;
+  return stripFixtureTag(title);
 }
 
 /**
@@ -902,6 +889,21 @@ function deriveMessageStats(messages: GalleryArgumentInput[], flagsById: Record<
 
 // ── Build cards ──────────────────────────────────────────────
 
+/**
+ * UX-PR-G (#920) P1-10 — count DISTINCT non-null authorIds among the already
+ * filtered, non-deleted messages. This is the "Voices" display count (distinct
+ * posters), never a seat count and never a popularity signal. Null / anonymous
+ * authorIds are ignored (a room with only unattributable posts reads 0 Voices,
+ * which is honest). O(n) over rows the builder already iterates.
+ */
+function countDistinctAuthors(messages: GalleryArgumentInput[]): number {
+  const authors = new Set<string>();
+  for (const m of messages) {
+    if (typeof m.authorId === 'string' && m.authorId.length > 0) authors.add(m.authorId);
+  }
+  return authors.size;
+}
+
 export function buildConversationGalleryCards(input: BuildGalleryInput): ConversationGalleryCard[] {
   const argsByDebate = input.argumentsByDebateId || {};
   const flagsById = input.flagsByArgumentId || {};
@@ -931,6 +933,12 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
       (m) => m.status !== 'deleted' && (m.inactiveAt ?? null) === null,
     );
     const stats = deriveMessageStats(messages, flagsById, tagsById);
+    // UX-PR-G (#920) P1-10 — distinct-poster count from the SAME already-fetched
+    // rows (no new query). This becomes the DISPLAY "Voices" value; the heat
+    // input line below intentionally keeps reading the raw
+    // participantCountByDebateId map verbatim, so heat / bucket / lane stay
+    // byte-identical (the display field and the heat term are decoupled).
+    const distinctAuthorCount = countDistinctAuthors(messages);
 
     // EV-003 — derive the room's evidence debts from the SAME already-fetched
     // rows (the gallery's batched `in()` query; no new fetch). Tag codes come
@@ -1054,7 +1062,12 @@ export function buildConversationGalleryCards(input: BuildGalleryInput): Convers
 
       moveCount: stats.moveCount,
       rebuttalCount: stats.rebuttalCount,
-      participantCount: participantCountByDebateId[debate.id] || 0,
+      // UX-PR-G (#920) P1-10 — DISPLAY count: a supplied override wins (future
+      // caller), else the derived distinct-poster count. NOT the heat term.
+      participantCount:
+        typeof participantCountByDebateId[debate.id] === 'number'
+          ? participantCountByDebateId[debate.id]
+          : distinctAuthorCount,
 
       hasNoRebuttal,
       hasUserJoined: joinedSet.has(debate.id) || debate.myParticipantSide != null,

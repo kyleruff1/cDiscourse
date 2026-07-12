@@ -206,13 +206,15 @@ describe('RingsideFeed — actor matrix in the DOM', () => {
     }
   });
 
-  it('observer active card renders watch / join / share', () => {
+  it('observer active card renders watch / join (UX-PR-G #920 removed share)', () => {
     const { getByTestId, queryByTestId } = renderFeed(
       makeInput(THREE, { viewerRole: 'observer' as RailViewerRole, activeMessageId: 'm3' }),
     );
-    for (const code of ['watch', 'join_aff', 'join_neg', 'share']) {
+    for (const code of ['watch', 'join_aff', 'join_neg']) {
       expect(getByTestId(`ringside-action-${code}-m3`)).toBeTruthy();
     }
+    // UX-PR-G (#920) P1-12 — share removed (guaranteed no-op, no room URLs).
+    expect(queryByTestId('ringside-action-share-m3')).toBeNull();
     expect(queryByTestId('ringside-action-reply-m3')).toBeNull();
   });
 });

@@ -25,6 +25,8 @@ import { ConversationMiniTimeline } from './ConversationMiniTimeline';
 import { getBotOrTestDebateLabel } from '../devEnvironment';
 import { BotRoomMarker } from './BotRoomMarker';
 import { buildBotMarkingViewModel, looksLikeBotSeedTag } from './botRoomPolicyModel';
+// UX-PR-G (#920) P1-9a — non-admin fixture-room exclusion from the gallery.
+import { collectFixtureDebateIds } from './fixtureTagRegistry';
 import {
   buildConversationGalleryCards,
   classifyCardToSection,
@@ -56,6 +58,13 @@ interface Props {
   flagsByArgumentId?: Record<string, GalleryFlagInput[]>;
   tagsByArgumentId?: Record<string, GalleryTagInput[]>;
   participantCountByDebateId?: Record<string, number>;
+  /**
+   * UX-PR-G (#920) P1-9a — admins keep fixture / bot / corpus / reseed rooms
+   * visible (marked by the existing BotRoomMarker); non-admins (default) get
+   * them excluded from discovery. The strip of the raw tag from `card.title`
+   * is unconditional (done upstream by cleanTitleForDedupe).
+   */
+  isAdminViewer?: boolean;
   /**
    * INTEL-001 (#900) — OPTIONAL per-debate unaddressed argument ids from the
    * gated gallery move_marks read (supplied only when the move_marks flag is on;
@@ -157,6 +166,7 @@ export function ConversationGalleryScreen({
   flagsByArgumentId,
   tagsByArgumentId,
   participantCountByDebateId,
+  isAdminViewer,
   unaddressedMoveIdsByDebateId,
   joinedDebateIds,
   currentUserId,
@@ -209,8 +219,19 @@ export function ConversationGalleryScreen({
     currentUserId,
   }), [debates, argumentsByDebateId, flagsByArgumentId, tagsByArgumentId, participantCountByDebateId, unaddressedMoveIdsByDebateId, joinedDebateIds, currentUserId]);
 
-  const dedupedCards = useMemo(() => dedupeConversationCards(allCards), [allCards]);
-  const duplicatesCollapsed = allCards.length - dedupedCards.length;
+  // UX-PR-G (#920) P1-9a — non-admin fixture-room exclusion, applied BEFORE
+  // dedupe so a fixture room can never be the surviving primary of a collapsed
+  // family. Admins keep the fixtures (byte-identical to today). Keyed on the
+  // RAW debate.title (card.title is already tag-stripped by cleanTitleForDedupe).
+  const visibleCards = useMemo(() => {
+    if (isAdminViewer) return allCards;
+    const fixtureIds = collectFixtureDebateIds(debates);
+    if (fixtureIds.size === 0) return allCards;
+    return allCards.filter((c) => !fixtureIds.has(c.debateId));
+  }, [allCards, debates, isAdminViewer]);
+
+  const dedupedCards = useMemo(() => dedupeConversationCards(visibleCards), [visibleCards]);
+  const duplicatesCollapsed = visibleCards.length - dedupedCards.length;
 
   const filteredCards = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -671,7 +692,10 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
       <View style={styles.statsRow}>
         <Stat label="Moves" value={String(card.moveCount)} testID={`card-moves-${card.debateId}`} />
         <Stat label="Replies" value={String(card.rebuttalCount)} testID={`card-replies-${card.debateId}`} />
-        <Stat label="Participants" value={String(card.participantCount)} testID={`card-participants-${card.debateId}`} />
+        {/* UX-PR-G (#920) P1-10 — "Voices" = distinct posters (derived), not the
+            room's seat count. Relabeled from "Participants" so this never
+            re-creates the P1-11 problem of two different numbers sharing a label. */}
+        <Stat label="Voices" value={String(card.participantCount)} testID={`card-participants-${card.debateId}`} />
       </View>
 
       {card.signals.length > 0 ? (
