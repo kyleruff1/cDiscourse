@@ -454,8 +454,16 @@ describe('MCP-021B — composer / referee / metadata read-only boundaries', () =
     expect(gitDiffFromMain('src/features/arguments/useSemanticReferee.ts')).toBe('');
   });
 
-  it('RO-39 — designTokens.ts unchanged (no new token)', () => {
-    expect(gitDiffFromMain('src/lib/designTokens.ts')).toBe('');
+  // RO-39 — designTokens.ts boundary relaxed 2026-07-12 (UX-PR-E, issue 927).
+  // PR-E adds inert token families additively (SPACING / RADIUS / TYPOGRAPHY
+  // interior steps plus MOTION / SCRIM / GLYPHS aggregation); every
+  // pre-existing token value stays byte-identical. The byte-equal toBe('')
+  // pin is replaced with the same countDiffLines bounded-additive guard used
+  // at RO-4 / RO-5, so a runaway rewrite of the token module still fails
+  // while the additive insertions pass. Current additive diff is 84 lines.
+  it('RO-39 — designTokens.ts diff bounded to additive token insertions (UX-PR-E)', () => {
+    const lines = countDiffLines('src/lib/designTokens.ts');
+    expect(lines).toBeLessThanOrEqual(120);
   });
 
   it('RO-40 — RefereeBannerView.tsx unchanged', () => {
