@@ -34,10 +34,12 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import type { Debate, ParticipantSide } from './types';
 import { RoomContractSeatStrip } from './RoomContractSeatStrip';
 import type { RoomContractViewModel } from './roomContractModel';
-import { ROOM_VISIBILITY_COPY } from '../arguments/gameCopy';
+import { ROOM_VISIBILITY_COPY, ROOM_SETTLE_COPY } from '../arguments/gameCopy';
 import { canTransitionToPrivate, buildTransitionConsequences } from './roomVisibilityModel';
+import { canSettleRoom, buildSettleConsequences } from './settleRoomModel';
 import { transitionRoomToPrivate } from './debatesApi';
 import { MakePrivateConfirmation } from './MakePrivateConfirmation';
+import { RoomSettleConfirmation } from './RoomSettleConfirmation';
 import type { PublicRoomSeatMap } from './publicSeatModel';
 import { useHeaderBreakpoint, type Band } from '../../hooks/useHeaderBreakpoint';
 import type { ArgumentViewMode } from '../arguments/ArgumentTreeScreen';
@@ -93,6 +95,13 @@ interface Props {
    * overflow panel when `__DEV__` is true and the prop is supplied.
    */
   onSetDevTracksMode?: () => void;
+  /**
+   * SETTLE-001 (#911) — creator settle write, provided by App via
+   * useDebates().settle. When present AND the caller is the room creator on an
+   * open room, the overflow panel shows a Settle row (re-open lives on the
+   * settled notice, not here). Absent => the Settle row never renders.
+   */
+  onSettle?: () => Promise<{ ok: boolean; error?: string }>;
 }
 
 const SIDE_LABELS: Record<string, string> = {
@@ -176,6 +185,7 @@ export function DebateDetailHeader({
   inviteOpen,
   onSetDevTreeMode,
   onSetDevTracksMode,
+  onSettle,
 }: Props) {
   const { band } = useHeaderBreakpoint();
   const sizing = useMemo(() => bandSizing(band), [band]);
@@ -184,6 +194,10 @@ export function DebateDetailHeader({
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  // SETTLE-001 (#911) — settle confirm state, independent of make-private.
+  const [settleConfirming, setSettleConfirming] = useState(false);
+  const [settleSubmitting, setSettleSubmitting] = useState(false);
+  const [settleErrorMessage, setSettleErrorMessage] = useState<string | null>(null);
 
   const eligibility = useMemo(() => {
     if (!currentUserId) {
@@ -215,6 +229,22 @@ export function DebateDetailHeader({
     [debate.id, debate.visibility, debate.status, debate.createdBy, currentUserId, publicRoomSeatMap],
   );
 
+  // SETTLE-001 (#911) — creator-only settle eligibility (keyed on createdBy,
+  // never a participant side) requiring status open. Non-creator or non-open
+  // simply omits the Settle row.
+  const settleEligibility = useMemo(
+    () =>
+      canSettleRoom({
+        roomId: debate.id,
+        roomStatus: debate.status,
+        callerUserId: currentUserId ?? '',
+        createdByUserId: debate.createdBy,
+      }),
+    [debate.id, debate.status, currentUserId, debate.createdBy],
+  );
+
+  const settleConsequences = useMemo(() => buildSettleConsequences('settle'), []);
+
   const handleOpenConfirm = useCallback(() => {
     setErrorMessage(null);
     setConfirming(true);
@@ -238,10 +268,38 @@ export function DebateDetailHeader({
     onVisibilityChanged?.(debate.id);
   }, [debate.id, onVisibilityChanged]);
 
+  // SETTLE-001 (#911) — settle confirm handlers (mirror make-private). The
+  // write goes through onSettle (useDebates().settle); on failure a neutral
+  // inline message is shown and the sheet stays open.
+  const handleOpenSettle = useCallback(() => {
+    setSettleErrorMessage(null);
+    setSettleConfirming(true);
+  }, []);
+
+  const handleCancelSettle = useCallback(() => {
+    if (settleSubmitting) return;
+    setSettleConfirming(false);
+  }, [settleSubmitting]);
+
+  const handleConfirmSettle = useCallback(async () => {
+    if (!onSettle) return;
+    setSettleSubmitting(true);
+    setSettleErrorMessage(null);
+    const res = await onSettle();
+    setSettleSubmitting(false);
+    if (!res.ok) {
+      setSettleErrorMessage(ROOM_SETTLE_COPY.error_network);
+      return;
+    }
+    setSettleConfirming(false);
+  }, [onSettle]);
+
   const showMakePrivate = eligibility.allowed && debate.visibility === 'public';
+  // SETTLE-001 (#911) — creator on an open room, and App supplied the write.
+  const showSettle = settleEligibility.allowed && Boolean(onSettle);
   const showPrivateBadge = debate.visibility === 'private';
   const showToggle = Boolean(viewMode && onSetViewMode);
-  const showOverflow = Boolean(onToggleInvite) || showMakePrivate || (__DEV__ && (onSetDevTreeMode || onSetDevTracksMode));
+  const showOverflow = Boolean(onToggleInvite) || showMakePrivate || showSettle || (__DEV__ && (onSetDevTreeMode || onSetDevTracksMode));
   const sideLabel = participantSide ? SIDE_LABELS[participantSide] || null : null;
 
   const containerStyle = useMemo(
@@ -375,6 +433,11 @@ export function DebateDetailHeader({
           {errorMessage}
         </Text>
       ) : null}
+      {settleErrorMessage ? (
+        <Text style={styles.errorText} testID="debate-settle-error">
+          {settleErrorMessage}
+        </Text>
+      ) : null}
       {overflowOpen ? (
         <View style={styles.overflowPanel} testID="debate-detail-overflow-panel">
           {onToggleInvite ? (
@@ -403,6 +466,21 @@ export function DebateDetailHeader({
             >
               <Text style={styles.overflowRowText}>
                 {ROOM_VISIBILITY_COPY.action_make_private_label}
+              </Text>
+            </Pressable>
+          ) : null}
+          {showSettle ? (
+            <Pressable
+              onPress={handleOpenSettle}
+              style={styles.overflowRow}
+              accessibilityRole="button"
+              accessibilityLabel={ROOM_SETTLE_COPY.action_settle_label}
+              accessibilityHint={ROOM_SETTLE_COPY.action_settle_hint}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              testID="debate-settle-action"
+            >
+              <Text style={styles.overflowRowText}>
+                {ROOM_SETTLE_COPY.action_settle_label}
               </Text>
             </Pressable>
           ) : null}
@@ -443,6 +521,14 @@ export function DebateDetailHeader({
         submitting={submitting}
         onConfirm={handleConfirm}
         onCancel={handleCancel}
+      />
+      <RoomSettleConfirmation
+        visible={settleConfirming}
+        mode="settle"
+        consequences={settleConsequences}
+        submitting={settleSubmitting}
+        onConfirm={handleConfirmSettle}
+        onCancel={handleCancelSettle}
       />
     </View>
   );
