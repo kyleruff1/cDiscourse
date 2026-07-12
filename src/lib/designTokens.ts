@@ -20,12 +20,27 @@
  * those domains; this module is the broader surface system.
  */
 
+// UX-PR-E (F-20) — GLYPHS lives in a pure sibling leaf module so glyph
+// TEXT content stays a distinct concern from dimensional / color tokens
+// (and has a natural future home for per-glyph a11y labels). Imported
+// here for the TOKENS aggregate and re-exported below for discoverability.
+import { GLYPHS } from './glyphs';
+
 // ── Spacing ──────────────────────────────────────────────────────
 
-/** Monotonic spacing scale in dp/px. Add new values only at the ends. */
+/**
+ * Monotonic spacing scale in dp/px. Interior values may be added
+ * provided the scale stays monotonic when read in value order (the
+ * UX-PR-E F-06 interior steps xxs / xs6 / m10 sit between the base
+ * xs / s / m steps). Names embed the pixel value where they interleave
+ * the base scale so they are self-documenting and collision-proof.
+ */
 export const SPACING = {
+  xxs: 2,   // UX-PR-E F-06 — interior micro-gap, below xs
   xs: 4,
+  xs6: 6,   // UX-PR-E F-06 — interior 6px, between xs(4) and s(8)
   s: 8,
+  m10: 10,  // UX-PR-E F-06 — interior 10px, between s(8) and m(12)
   m: 12,
   l: 16,
   xl: 24,
@@ -42,7 +57,9 @@ export type SpacingKey = keyof typeof SPACING;
  */
 export const RADIUS = {
   sm: 4,
+  sm6: 6,   // UX-PR-E F-07 — interior 6px, between sm(4) and md(8)
   md: 8,
+  md10: 10, // UX-PR-E F-07 — interior 10px, between md(8) and lg(12)
   lg: 12,
   pill: 999,
 } as const;
@@ -560,6 +577,21 @@ export const TYPOGRAPHY = {
   keyboardHint:      { fontSize: 11, lineHeight: 14, fontWeight: '600' as const },
   /** InspectPopout section detail text. */
   inspectDetail:     { fontSize: 12, lineHeight: 16, fontWeight: '400' as const },
+
+  // ── UX-PR-E (F-09) — reading-body + title roles the 13px-capped scale
+  //    above cannot reach, plus the min-10 legibility floor the sub-10px
+  //    sweep migrates UP to. APPENDED only; the 10 groups above are
+  //    byte-identical. Inert until a Wave-2 consumer adopts them.
+  /** Min-10 legibility floor for micro captions (sub-10px sites migrate UP to this). */
+  microLabel:        { fontSize: 10, lineHeight: 14, fontWeight: '600' as const },
+  /** Secondary body / helper text (matches the existing 13px tier). */
+  bodySm:            { fontSize: 13, lineHeight: 18, fontWeight: '400' as const },
+  /** The reading-body role (AUDIT §4 names body as 15/21 regular). */
+  body:              { fontSize: 15, lineHeight: 21, fontWeight: '400' as const },
+  /** Small section title. */
+  titleSm:           { fontSize: 16, lineHeight: 22, fontWeight: '600' as const },
+  /** Screen / section title (top of the scale). */
+  title:             { fontSize: 18, lineHeight: 24, fontWeight: '700' as const },
 } as const;
 
 export type TypographyKey = keyof typeof TYPOGRAPHY;
@@ -606,6 +638,52 @@ export const SPACING_PRESETS = {
 
 export type SpacingPresetKey = keyof typeof SPACING_PRESETS;
 
+// ── UX-PR-E — Motion duration scale ─────────────────────────────
+
+/**
+ * UX-PR-E (F-26) — motion duration scale in milliseconds. Inert data:
+ * PR-E wires NO animation and NO reduce-motion. Consumers (Wave-2 P2-12)
+ * thread the existing `useReduceMotion` hook through the uncovered
+ * Animated sites and drop these to 0 when reduce-motion is on — see
+ * GLOW's reduce-motion contract. `Ms` suffix mirrors the repo's `…Px`
+ * unit-in-key convention (TOUCH_TARGET.minSizePx, GLOW.strokeWidthPx).
+ */
+export const MOTION = {
+  fastMs: 140 as const,
+  baseMs: 160 as const,
+  slowMs: 180 as const,
+} as const;
+export type MotionKey = keyof typeof MOTION;
+
+// ── UX-PR-E — Scrim ladder ──────────────────────────────────────
+
+/**
+ * UX-PR-E (F-18) — scrim ladder over the interior base `#020617`
+ * (= rgb(2,6,23) = SURFACE.base.bg = SURFACE_TOKENS.base). Replaces the
+ * ad-hoc `rgba(2,6,23,α)` variants scattered across the overlay
+ * callsites. Ready-to-use rgba STRINGS (not {base,alpha} objects) so a
+ * Wave-2 callsite is a direct literal→reference swap
+ * (`backgroundColor: SCRIM.medium`). Compact no-space form matches the
+ * dominant existing literal style (`rgba(2,6,23,0.7)`). Three canonical
+ * steps; Wave-2 (P2-2) maps each drifted alpha onto the nearest step (a
+ * deliberate, reviewed consolidation — NOT a blind byte swap). SCRIM
+ * darkens for legibility / focus; it never ranks or encodes importance.
+ */
+export const SCRIM = {
+  light:  'rgba(2,6,23,0.45)' as const,
+  medium: 'rgba(2,6,23,0.6)' as const,
+  heavy:  'rgba(2,6,23,0.8)' as const,
+} as const;
+export type ScrimKey = keyof typeof SCRIM;
+
+// ── UX-PR-E — Glyph vocabulary re-export ────────────────────────
+
+// Re-export the pure-leaf GLYPHS vocabulary (defined in ./glyphs) so
+// consumers can import it from the token module and getToken can reach
+// it via the TOKENS aggregate below.
+export { GLYPHS } from './glyphs';
+export type { GlyphKey } from './glyphs';
+
 // ── Aggregate ───────────────────────────────────────────────────
 
 export const TOKENS = {
@@ -626,6 +704,10 @@ export const TOKENS = {
   borderWidth: BORDER_WIDTH,
   typography: TYPOGRAPHY,
   spacingPresets: SPACING_PRESETS,
+  // UX-PR-E additions — additive only, existing keys above unchanged.
+  motion: MOTION,
+  scrim: SCRIM,
+  glyphs: GLYPHS,
 } as const;
 
 /**
