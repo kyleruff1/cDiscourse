@@ -54,6 +54,10 @@ export function AuthScreen() {
   const [displayName, setDisplayName] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
+  // UX-PR-B (#918) — a failed Google sign-in initiation was previously silent
+  // (the unawaited promise had no in-screen consumer). We now await the wrapper
+  // and surface its message through the SAME ErrorNotice as the email flow.
+  const [providerError, setProviderError] = useState<string | null>(null);
 
   const { loading, error: authError, signIn, signUp } = useAuthSession();
   // UX-BRAND-ASSETS-001 — responsive lockup width: clamped to the card's
@@ -110,7 +114,10 @@ export function AuthScreen() {
     );
   }
 
-  const displayError = validationError ?? authError;
+  // UX-PR-B (#918) — the provider (Google) error joins the existing display
+  // channel; it shows the wrappers message with the SAME parity as the email
+  // flow (which also renders result.message). null when no provider attempt failed.
+  const displayError = validationError ?? authError ?? providerError;
 
   return (
     <Screen title={mode === 'signin' ? 'Sign In' : 'Create Account'}>
@@ -246,7 +253,16 @@ export function AuthScreen() {
           <View testID="auth-provider-region">
             <Pressable
               onPress={() => {
-                void signInWithGoogle();
+                // UX-PR-B (#918) — clear any prior provider error on a fresh
+                // attempt, then surface the wrappers message on failure. On
+                // success the browser redirects away, so there is nothing to show.
+                setProviderError(null);
+                void (async () => {
+                  const result = await signInWithGoogle();
+                  if (!result.ok) {
+                    setProviderError(result.message ?? 'Sign-in could not be started.');
+                  }
+                })();
               }}
               accessibilityRole="button"
               accessibilityLabel={CONTINUE_WITH_GOOGLE_LABEL}
