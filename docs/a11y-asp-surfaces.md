@@ -222,7 +222,13 @@ the dock gates at its handler via the shared stack, not by threading an
 
 Room background suppression (`P0-3d`): `room/roomOpenMenuModel.ts`
 (`computeRoomHasOpenMenu`) folds the marker + request sheets into the single
-`hasOpenMenu` the board / stack keydown handlers read. Corridor nav (`P0-3c`):
+`hasOpenMenu` the board / stack keydown handlers read (stack arrow nav). Board
+menu-open shortcuts (A/I/G) behind a sheet are closed handler-side by the same
+module's `isBoardMenuOpenSuppressedBySheet` — a SHEET-SUBSET gate on the
+`open_act`/`open_inspect`/`open_go` effects (distinct from `hasOpenMenu`, which
+keeps A/I/G live for board-menu switching), mirroring the dock `isTopmost` gate
+and covering the input-less marker sheet the `composerFocused` gate never
+reached. The pure `boardMenuKeyboardModel` is byte-identical. Corridor nav (`P0-3c`):
 `navigation/appPrimaryNavModel.ts` `PrimaryNavTransition.clearDemoCorridor`;
 `App.tsx` `handlePrimaryNav` + the secondary tab-bar `onPress` clear the demo
 corridor (the only paths that reach the account / admin / debug tabs), so it can

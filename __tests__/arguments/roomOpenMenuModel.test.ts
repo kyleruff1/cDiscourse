@@ -5,7 +5,10 @@
  * fold into hasOpenMenu so background board / stack shortcuts bail while
  * either sheet is open.
  */
-import { computeRoomHasOpenMenu } from '../../src/features/arguments/room/roomOpenMenuModel';
+import {
+  computeRoomHasOpenMenu,
+  isBoardMenuOpenSuppressedBySheet,
+} from '../../src/features/arguments/room/roomOpenMenuModel';
 
 const NONE = {
   boardActVisible: false,
@@ -44,5 +47,48 @@ describe('A11Y-PR0 — computeRoomHasOpenMenu', () => {
         requestReviewOpen: true,
       }),
     ).toBe(true);
+  });
+});
+
+describe('A11Y-PR0 — isBoardMenuOpenSuppressedBySheet', () => {
+  const NO_SHEET = { markerPickerOpen: false, requestReviewOpen: false };
+
+  it('suppresses each menu-open effect when the marker sheet is open', () => {
+    for (const effectType of ['open_act', 'open_inspect', 'open_go']) {
+      expect(
+        isBoardMenuOpenSuppressedBySheet(effectType, {
+          markerPickerOpen: true,
+          requestReviewOpen: false,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it('suppresses each menu-open effect when the request-review composer is open', () => {
+    for (const effectType of ['open_act', 'open_inspect', 'open_go']) {
+      expect(
+        isBoardMenuOpenSuppressedBySheet(effectType, {
+          markerPickerOpen: false,
+          requestReviewOpen: true,
+        }),
+      ).toBe(true);
+    }
+  });
+
+  it('does NOT suppress a menu-open effect when no sheet is open (switching preserved)', () => {
+    for (const effectType of ['open_act', 'open_inspect', 'open_go']) {
+      expect(isBoardMenuOpenSuppressedBySheet(effectType, NO_SHEET)).toBe(false);
+    }
+  });
+
+  it('never suppresses close_open_menu or none, even with a sheet open', () => {
+    for (const effectType of ['close_open_menu', 'none']) {
+      expect(
+        isBoardMenuOpenSuppressedBySheet(effectType, {
+          markerPickerOpen: true,
+          requestReviewOpen: true,
+        }),
+      ).toBe(false);
+    }
   });
 });
