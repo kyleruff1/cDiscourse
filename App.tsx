@@ -1676,18 +1676,23 @@ function MainAppShell({
           </View>
         )}
 
-        {/* A11Y-PR0 (#913, P0-3c) — Account / Admin / Debug are gated with
-            !demoCorridorOpen (mirroring the About guard) so the demo corridor
-            never co-renders on top of them. */}
-        {!aboutOpen && !demoCorridorOpen && activeTab === 'account' && (
+        {/* A11Y-PR0 (#913, P0-3c) — the demo corridor is cleared on every
+            primary nav (handlePrimaryNav) AND every secondary tab switch
+            (tab-bar onPress), and those are the only paths that set the
+            account / admin / debug tab, so the corridor can never co-render on
+            top of these mounts. The mount conditionals are therefore left
+            exactly as-is (pinned by uxOneOneTwoHiddenTabBar /
+            uxOneOneTwoAppSafeguard); no belt-and-suspenders mount guard is
+            needed. */}
+        {!aboutOpen && activeTab === 'account' && (
           <AccountScreen onSignOut={handleSignOut} signOutLoading={signOutLoading} />
         )}
 
-        {!aboutOpen && !demoCorridorOpen && activeTab === 'admin' && currentProfile?.role === 'admin' && (
+        {!aboutOpen && activeTab === 'admin' && currentProfile?.role === 'admin' && (
           <AdminScreen onOpenArgumentTimeline={handleOpenArgumentFromAdmin} />
         )}
 
-        {!aboutOpen && !demoCorridorOpen && activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
+        {!aboutOpen && activeTab === 'debug' && __DEV__ && <SessionDebugPanel />}
       </View>
 
       {/* ARG-ROOM-006 (item c) — deep-link "unavailable" notice. Cause-neutral;
