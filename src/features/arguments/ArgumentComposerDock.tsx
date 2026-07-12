@@ -83,6 +83,11 @@ import { SURFACE_TOKENS } from '../../lib/designTokens';
 import { resolveComposerKeyEffect } from './composer/composerKeyboardModel';
 import { useComposerFocusContext } from './composer/useComposerFocusContext';
 import { triggerHaptic } from './composer/composerHaptics';
+// A11Y-PR0 (#913) — overlay-a11y for the dock: register the panel on the
+// shared layer stack + trap Tab. manageEsc is false — the composer keydown
+// handler below owns Escape and reads isTopmost() so it falls silent whenever
+// an overlay (popout / mode switcher / pre-send sheet) is stacked above.
+import { useOverlayA11y } from '../a11y/useOverlayA11y';
 
 /** Width (logical px) at or above which the dock is a right-side panel. */
 export const DOCK_SIDE_BREAKPOINT = 720;
@@ -291,6 +296,13 @@ export function ArgumentComposerDock({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const { composerFocused, registerContainer } = useComposerFocusContext(visible);
+  // A11Y-PR0 (#913) — overlay-a11y: register the dock panel on the shared
+  // layer stack and trap Tab within it. isTopmost() gates the composer
+  // shortcuts below so they suppress while any overlay sits above the dock.
+  const { registerContainer: registerOverlayContainer, isTopmost } = useOverlayA11y({
+    visible,
+    manageEsc: false,
+  });
   const [openModeSwitcherSignal, setOpenModeSwitcherSignal] = useState(0);
 
   useEffect(() => {
@@ -298,6 +310,10 @@ export function ArgumentComposerDock({
     if (Platform.OS !== 'web') return;
     if (typeof document === 'undefined' || !document.addEventListener) return;
     const handleKeyDown = (event: KeyboardEvent) => {
+      // A11Y-PR0 (#913, P0-3b) — when a popout / mode switcher / pre-send
+      // sheet is stacked above the dock, the dock is not topmost, so its
+      // Cmd+Enter / Cmd+K / Esc are suppressed and the overlay owns the key.
+      if (!isTopmost()) return;
       const effect = resolveComposerKeyEffect({
         key: event.key,
         metaKey: event.metaKey,
@@ -332,6 +348,11 @@ export function ArgumentComposerDock({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
+    // isTopmost is a stable callback and is read live at event time, so it
+    // is intentionally NOT a dependency (the listener need not re-bind when
+    // topmost status changes). The [visible, composerFocused] dep set is
+    // pinned by composerDockNoRoute.test.ts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, composerFocused]);
 
   const handleCancel = useCallback(() => {
@@ -542,6 +563,9 @@ export function ArgumentComposerDock({
         />
 
         <Animated.View
+          // A11Y-PR0 (#913) — the dock focus-trap container. On RN-web the ref
+          // is the panel DOM node; on native the callback is an inert no-op.
+          ref={(el) => registerOverlayContainer(el as unknown as HTMLElement | null)}
           style={[panelStyle, panelAnimatedStyle]}
           accessibilityViewIsModal
           accessibilityLabel="Compose your move"

@@ -126,7 +126,20 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
 
   // UX-001.3 composer files
   'src/features/arguments/ArgumentComposer.tsx',
-  'src/features/arguments/ArgumentComposerDock.tsx',
+  // NOTE: `src/features/arguments/ArgumentComposerDock.tsx` was removed from
+  // the zero-diff boundary by A11Y-PR0 (#913). A11Y-PR0 (design §"File
+  // changes" / §"Pinned-file strategy") requires the dock to (a) register on
+  // the shared overlay layer stack via the web-only `useOverlayA11y` hook and
+  // (b) gate its composer keydown handler with `if (!isTopmost()) return;` so
+  // its Cmd+Enter / Cmd+K / Esc fall silent whenever a popout / mode switcher
+  // / pre-send sheet is stacked above (the P0-3b single-Escape fix). The edit
+  // is additive (one hook call + one guard line + a ref-callback on the
+  // existing `argument-composer-dock-panel`); the pure `composerKeyboardModel`
+  // is untouched. The file's load-bearing contract stays pinned by
+  // `composerDockA11y.test.ts` (COMPOSER-002 tap targets / roles / focus trap
+  // / reduce-motion / ban-list) plus the uxOneOneSix `requiredApi`
+  // (`ArgumentComposerDock`) assertion. Mirrors the prior operator-authorized
+  // AppHeader / designTokens / TimelineMap relaxations above.
   'src/features/arguments/composer/ComposerContextStrip.tsx',
   'src/features/arguments/composer/CollapsedComposerStrip.tsx',
   'src/features/arguments/composer/composerDraftRegistry.ts',
@@ -160,7 +173,21 @@ const READ_ONLY_PATHS: ReadonlyArray<string> = Object.freeze([
   // export assertion below.
   'src/features/arguments/oneBox/ActPopout.tsx',
   'src/features/arguments/oneBox/GoPopout.tsx',
-  'src/features/arguments/oneBox/Popout.tsx',
+  // NOTE: `src/features/arguments/oneBox/Popout.tsx` was removed from the
+  // zero-diff boundary by A11Y-PR0 (#913). A11Y-PR0 (design §"File changes" /
+  // §"Pinned-file strategy") requires the focus trap + topmost-Esc to live
+  // where the panel ref is — inside the Modal (a wrapping component cannot
+  // reach the portal-rendered panel DOM node). The edit is additive: a
+  // web-only `useOverlayA11y` call (focus trap + layer registration + focus
+  // restore, manageEsc:false), a ref-callback on the existing panel
+  // `Animated.View`, and a single `if (!isTopmost()) return;` guard added to
+  // the QOL-030 inline Escape effect (which is otherwise byte-preserved). The
+  // file's load-bearing contract stays pinned by `oneBoxPopoutChassis.test.tsx`
+  // (QOL-030 chassis: `accessibilityViewIsModal`, `onRequestClose`, the inline
+  // web-Escape wiring, close control, scrim, reduce-motion) plus the
+  // uxOneOneSix `requiredApi` (`Popout`, `/onRequestClose|onDismiss/`)
+  // assertion. Mirrors the prior operator-authorized AppHeader / designTokens /
+  // TimelineMap relaxations above.
 ]);
 
 const SUBMIT_PATH_DIR = 'supabase/functions/submit-argument';

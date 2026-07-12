@@ -284,6 +284,15 @@ import {
   resolveKeyBadgeVisibility,
 } from '../oneBox/menuKeyBadgeModel';
 import { resolveBoardMenuKeyEffect } from '../boardMenuKeyboardModel';
+// A11Y-PR0 (#913, P0-3d) — fold the marker phrase picker + request-review
+// composer into hasOpenMenu so background board / stack shortcuts bail while
+// either containment sheet is open, plus a distinct sheet-subset gate that
+// declines board menu-open shortcuts (A/I/G) while a containment sheet owns
+// the overlay layer.
+import {
+  computeRoomHasOpenMenu,
+  isBoardMenuOpenSuppressedBySheet,
+} from './roomOpenMenuModel';
 import { buildTimelineMiniMapModel } from '../timelineMiniMapModel';
 import type { ArgumentType as ConstitutionArgumentType } from '../../../domain/constitution/types';
 // UX-001.5A — Node labels (Machine Observations + User Allegations).
@@ -2781,7 +2790,13 @@ export function ArgumentRoom({
         (activeEl.tagName === 'INPUT' ||
           activeEl.tagName === 'TEXTAREA' ||
           activeEl.isContentEditable === true);
-      const hasOpenMenu = boardActVisible || inspectVisible || goVisible;
+      const hasOpenMenu = computeRoomHasOpenMenu({
+        boardActVisible,
+        inspectVisible,
+        goVisible,
+        markerPickerOpen: markerPickerTargetId !== null,
+        requestReviewOpen: requestReviewTarget !== null,
+      });
       const effect = resolveBoardMenuKeyEffect({
         key: event.key,
         metaKey: event.metaKey,
@@ -2791,6 +2806,21 @@ export function ArgumentRoom({
         composerFocused,
         hasOpenMenu,
       });
+      // A11Y-PR0 (#913, P0-3d) — a containment sheet owns the overlay layer
+      // while open, so decline to spawn a board menu behind it. The marker
+      // phrase picker has no text input, so composerFocused does not cover it;
+      // this sheet-subset gate closes the A/I/G leak for BOTH sheets. The pure
+      // model still returns the effect (A/I/G stay live for menu-switching when
+      // no sheet is open); the handler declines to act, mirroring the dock
+      // isTopmost gate.
+      if (
+        isBoardMenuOpenSuppressedBySheet(effect.type, {
+          markerPickerOpen: markerPickerTargetId !== null,
+          requestReviewOpen: requestReviewTarget !== null,
+        })
+      ) {
+        return;
+      }
       switch (effect.type) {
         case 'open_act':
           event.preventDefault();
@@ -2824,7 +2854,7 @@ export function ArgumentRoom({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [boardActVisible, inspectVisible, goVisible]);
+  }, [boardActVisible, inspectVisible, goVisible, markerPickerTargetId, requestReviewTarget]);
 
   // ── CARD-VIEW-REFINE-001 — Stack-mode ←/→ (+ Home/End) keyboard nav ──
   //
@@ -2849,7 +2879,13 @@ export function ArgumentRoom({
         (activeEl.tagName === 'INPUT' ||
           activeEl.tagName === 'TEXTAREA' ||
           activeEl.isContentEditable === true);
-      const hasOpenMenu = boardActVisible || inspectVisible || goVisible;
+      const hasOpenMenu = computeRoomHasOpenMenu({
+        boardActVisible,
+        inspectVisible,
+        goVisible,
+        markerPickerOpen: markerPickerTargetId !== null,
+        requestReviewOpen: requestReviewTarget !== null,
+      });
       const effect = resolveStackKeyEffect({
         key: event.key,
         composerFocused,
@@ -2884,6 +2920,8 @@ export function ArgumentRoom({
     boardActVisible,
     inspectVisible,
     goVisible,
+    markerPickerTargetId,
+    requestReviewTarget,
     handlePrev,
     handleNext,
     handleFirst,

@@ -182,3 +182,77 @@ silently missing.
   `__tests__/a11y693GapFixes.test.tsx`,
   `__tests__/a11y693ReduceMotionPrimitive.test.tsx`,
   `__tests__/a11y693MediatorBoardAxisGuard.test.tsx`
+
+---
+
+## A11Y-PR0 (#913) — overlay keyboard grammar (web-only)
+
+Where A11Y-693 fixed the ASP surface floor (labels / color-independence /
+reduce-motion), A11Y-PR0 adds the **overlay keyboard grammar** the live RN-web
+platform was missing: programmatic focus management, Tab containment, focus
+restore, and single-Escape arbitration. It changes no overlay content and no
+room / seat / submission semantics; every primitive is `Platform.OS === 'web'`
+guarded and is a stable no-op on native (VoiceOver / TalkBack use the rotor,
+not Tab — a pinned invariant proved by a test). Design: `docs/designs/A11Y-PR0.md`.
+
+**The web-only layer** (`src/features/a11y/`):
+
+- `overlayFocusTrapModel.ts` — pure Tab-trap resolver + `FOCUSABLE_SELECTOR`.
+- `overlayLayerStack.ts` — pure LIFO reducer + module singleton; the single
+  arbiter of which layer owns Escape and the Tab trap.
+- `useOverlayA11y.ts` — the web-only hook (capture trigger, register layer,
+  initial focus, Tab trap, topmost-gated Escape, focus restore); native no-op.
+
+**Adopters** (Option B — util + 5 overlays; `AddAnnotationSheet` + native SR
+verification deferred to `A11Y-PR0-FOLLOW`):
+
+| Surface | Focus trap | Escape ownership | Containment |
+|---|---|---|---|
+| `oneBox/Popout.tsx` | hook | inline Escape effect, topmost-gated (`manageEsc:false`) | Modal chassis |
+| `ArgumentComposerDock.tsx` | hook | composer keydown handler guarded by `if (!isTopmost()) return;` (`manageEsc:false`) | Modal chassis |
+| `PreSendReviewSheet.tsx` | hook | hook (`onDismiss: onBackToEditing`) | inline; inert scrim preserved |
+| `markers/MarkerPhrasePickerSheet.tsx` | hook | hook (`onDismiss: onCancel`) | inline + web-only dismissing backdrop |
+| `requestReview/RequestReviewComposer.tsx` | hook | hook (`onDismiss: onCancel`) | inline + web-only dismissing backdrop |
+
+Marker / Request use the **additive** path (web-only backdrop + hook Escape, no
+RN Modal-wrap) per the orchestrator ruling; native hardware-back parity for the
+two is part of `A11Y-PR0-FOLLOW`. The pure `composerKeyboardModel` is untouched:
+the dock gates at its handler via the shared stack, not by threading an
+`overlayOpen` boolean into the pure model.
+
+Room background suppression (`P0-3d`): `room/roomOpenMenuModel.ts`
+(`computeRoomHasOpenMenu`) folds the marker + request sheets into the single
+`hasOpenMenu` the board / stack keydown handlers read (stack arrow nav). Board
+menu-open shortcuts (A/I/G) behind a sheet are closed handler-side by the same
+module's `isBoardMenuOpenSuppressedBySheet` — a SHEET-SUBSET gate on the
+`open_act`/`open_inspect`/`open_go` effects (distinct from `hasOpenMenu`, which
+keeps A/I/G live for board-menu switching), mirroring the dock `isTopmost` gate
+and covering the input-less marker sheet the `composerFocused` gate never
+reached. The pure `boardMenuKeyboardModel` is byte-identical. Corridor nav (`P0-3c`):
+`navigation/appPrimaryNavModel.ts` `PrimaryNavTransition.clearDemoCorridor`;
+`App.tsx` `handlePrimaryNav` + the secondary tab-bar `onPress` clear the demo
+corridor (the only paths that reach the account / admin / debug tabs), so it can
+never co-render.
+
+**Jest-provable vs RUNTIME-CHECK.** jsdom does not perform sequential focus
+navigation or render a real portal, so the automated gate proves the pure models
+plus the hook handler CALLS (`.focus()` / `preventDefault()` on the right node),
+topmost gating, single-Escape arbitration, containment, and the native no-op
+proof. The visual Tab-behind-modal cycle, the single-Escape visual dismissal,
+the corridor co-render, and dock-scrim focusability are **RUNTIME-CHECK-only**
+(operator smoke on dev-cdiscourse.netlify.app; see the design doc). Flag posture:
+**UNFLAGGED** (a conformance fix on live surfaces).
+
+### A11Y-PR0 files
+
+- New: `src/features/a11y/{overlayFocusTrapModel,overlayLayerStack,useOverlayA11y,index}.ts`,
+  `src/features/arguments/room/roomOpenMenuModel.ts`.
+- Adopters: `oneBox/Popout.tsx`, `ArgumentComposerDock.tsx`, `PreSendReviewSheet.tsx`,
+  `markers/MarkerPhrasePickerSheet.tsx`, `requestReview/RequestReviewComposer.tsx`,
+  `room/ArgumentRoom.tsx`, `App.tsx`, `navigation/appPrimaryNavModel.ts`.
+- Boundary: `__tests__/uxOneOneFiveReadOnlyBoundary.test.ts` relaxes Popout + Dock
+  (NOTE blocks citing #913; companion pins `oneBoxPopoutChassis.test.tsx` /
+  `composerDockA11y.test.ts` + uxOneOneSix `requiredApi`).
+- Guards: `__tests__/a11y/{overlayFocusTrapModel,overlayLayerStack,useOverlayA11y,overlayEscSingleDismiss}`,
+  `__tests__/{argumentRoomHasOpenMenu,markerPhrasePickerSheetContainment,requestReviewComposerContainment}`,
+  `__tests__/arguments/roomOpenMenuModel`, `__tests__/navigation/appPrimaryNavCorridorNav`.

@@ -27,6 +27,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,6 +35,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+// A11Y-PR0 (#913, P0-3d) — additive containment: a web-only dismissing
+// backdrop plus a topmost-gated Escape via the web-guarded useOverlayA11y hook.
+// The overlay stays a plain inline surface (no RN Modal per the orchestrator
+// ruling); native hardware-back parity is deferred to the follow-up. Native is
+// a no-op.
+import { useOverlayA11y } from '../a11y/useOverlayA11y';
 import type { ActEntryId } from '../arguments/oneBox/actPopoutModel';
 import {
   ALL_REVIEW_CONCERN_TYPES,
@@ -167,15 +174,40 @@ export function RequestReviewComposer(props: RequestReviewComposerProps) {
     }
   }, [submitted, draft, onRouteToActEntry, onSendForModeratorReview]);
 
+  // A11Y-PR0 (#913) — trap Tab within the composer, own a topmost-gated Escape
+  // that maps to onCancel, and restore focus on close.
+  const { registerContainer } = useOverlayA11y({
+    visible,
+    onDismiss: onCancel,
+  });
+
   if (!visible) return null;
 
   return (
     <View
+      // A11Y-PR0 (#913) — focus-trap container. On RN-web the ref is the
+      // overlay DOM node; the panel focusables (quote input, chips, actions)
+      // are cycled within it. Native is a no-op.
+      ref={(el) => registerContainer(el as unknown as HTMLElement | null)}
       style={styles.overlay}
       accessibilityLabel={REQUEST_REVIEW_COMPOSER_COPY.title}
       accessibilityViewIsModal
       testID={testID}
     >
+      {/* A11Y-PR0 (#913) — web-only dismissing backdrop. It closes the
+          composer on an outside press. Hidden from assistive tech and removed
+          from the tab order (Cancel and Escape are the labelled dismiss
+          paths), mirroring the Popout scrim. */}
+      {Platform.OS === 'web' ? (
+        <Pressable
+          style={styles.backdrop}
+          onPress={onCancel}
+          focusable={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          testID={`${testID}-backdrop`}
+        />
+      ) : null}
       <ScrollView
         style={styles.panel}
         contentContainerStyle={styles.panelContent}
@@ -343,6 +375,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
     zIndex: 50,
+  },
+  // A11Y-PR0 (#913) — full-bleed dismissing backdrop behind the panel (web).
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   panel: {
     width: '100%',

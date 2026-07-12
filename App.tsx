@@ -1039,6 +1039,10 @@ function MainAppShell({
       setStartArgumentOpen(t.startArgumentOpen);
       setGalleryLane(t.galleryLane);
       setAboutOpen(t.aboutOpen);
+      // A11Y-PR0 (#913, P0-3c) — every primary nav item leaves the demo
+      // corridor (mirrors deselectRoom). Without this the corridor stayed
+      // mounted on top of the target surface (nav trap).
+      if (t.clearDemoCorridor) setDemoCorridorOpen(false);
     },
     [hasDebate, deselectDebate],
   );
@@ -1159,7 +1163,9 @@ function MainAppShell({
             <Pressable
               key={t}
               style={[styles.tab, activeTab === t && styles.tabActive]}
-              onPress={() => { setTab(t); }}
+              // A11Y-PR0 (#913, P0-3c) — a direct secondary-tab switch also
+              // leaves the demo corridor so it never co-renders behind the tab.
+              onPress={() => { setDemoCorridorOpen(false); setTab(t); }}
               accessibilityRole="tab"
               accessibilityLabel={TAB_LABELS[t]}
             >
@@ -1670,6 +1676,14 @@ function MainAppShell({
           </View>
         )}
 
+        {/* A11Y-PR0 (#913, P0-3c) — the demo corridor is cleared on every
+            primary nav (handlePrimaryNav) AND every secondary tab switch
+            (tab-bar onPress), and those are the only paths that set the
+            account / admin / debug tab, so the corridor can never co-render on
+            top of these mounts. The mount conditionals are therefore left
+            exactly as-is (pinned by uxOneOneTwoHiddenTabBar /
+            uxOneOneTwoAppSafeguard); no belt-and-suspenders mount guard is
+            needed. */}
         {!aboutOpen && activeTab === 'account' && (
           <AccountScreen onSignOut={handleSignOut} signOutLoading={signOutLoading} />
         )}

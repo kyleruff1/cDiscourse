@@ -27,6 +27,9 @@
  */
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+// A11Y-PR0 (#913) — web-only focus trap + topmost-gated Escape. Escape returns
+// to editing (single layer) and the inert scrim is preserved. Native no-op.
+import { useOverlayA11y } from '../a11y/useOverlayA11y';
 import {
   PRESEND_SHEET_COPY,
 } from './gameCopy';
@@ -197,6 +200,15 @@ export function PreSendReviewSheet({
     [review, mode, effectiveDismissed],
   );
 
+  // A11Y-PR0 (#913, P0-3b) — Escape dismisses only the topmost overlay. The
+  // sheet is the top layer over the dock, so one Escape returns to editing and
+  // the dock (and its draft) survive. registerContainer traps Tab within the
+  // panel and restores focus on close.
+  const { registerContainer } = useOverlayA11y({
+    visible,
+    onDismiss: onBackToEditing,
+  });
+
   if (!visible) return null;
 
   return (
@@ -215,6 +227,8 @@ export function PreSendReviewSheet({
       />
 
       <View
+        // A11Y-PR0 (#913) — focus-trap container (panel DOM node on web).
+        ref={(el) => registerContainer(el as unknown as HTMLElement | null)}
         style={styles.panel}
         accessibilityViewIsModal
         accessibilityLabel={PRESEND_SHEET_COPY.header}
