@@ -39,6 +39,11 @@ import {
   View,
 } from 'react-native';
 import { SURFACE_TOKENS, RADIUS, SPACING } from '../../../lib/designTokens';
+// A11Y-PR0 (#913) — web-only focus trap + focus restore + overlay-layer
+// registration. manageEsc is false: the QOL-030-pinned inline Escape effect
+// below keeps ownership of Escape, and reads isTopmost() so exactly one layer
+// closes per keypress (single-Esc arbitration). Native is a no-op.
+import { useOverlayA11y } from '../../a11y/useOverlayA11y';
 
 /** Flash open/close duration (logical ms) — inside the design's 120-160 band. */
 export const POPOUT_FLASH_DURATION_MS = 140;
@@ -160,6 +165,17 @@ export function Popout({
     return () => animation.stop();
   }, [visible, effectiveReducedMotion, progress]);
 
+  // ── A11Y-PR0 (#913) — focus trap + layer registration ──
+  // Registers the panel on the shared overlay layer stack (so the composer
+  // dock becomes non-topmost and suppresses its own shortcuts while a popout
+  // is up), traps Tab within the panel, and restores focus to the trigger on
+  // close. manageEsc is false — the inline Escape effect below owns Escape and
+  // gates on isTopmost.
+  const { registerContainer, isTopmost } = useOverlayA11y({
+    visible,
+    manageEsc: false,
+  });
+
   // ── web Escape close ──
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -169,6 +185,9 @@ export function Popout({
     if (typeof document === 'undefined' || !document.addEventListener) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        // A11Y-PR0 (#913) — only the topmost overlay closes on Escape, so a
+        // popout over the dock dismisses just the popout (single-Esc).
+        if (!isTopmost()) return;
         event.preventDefault();
         onCloseRef.current();
       }
@@ -177,7 +196,7 @@ export function Popout({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [visible]);
+  }, [visible, isTopmost]);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -224,6 +243,9 @@ export function Popout({
         />
 
         <Animated.View
+          // A11Y-PR0 (#913) — the focus-trap container. On RN-web the ref is
+          // the panel DOM node; on native the callback is an inert no-op.
+          ref={(el) => registerContainer(el as unknown as HTMLElement | null)}
           // UX-001.4 — when the host supplies maxHeightOverride / panelWidthOverride
           // (per-band cap from menuPresentationModel.resolveMenuPresentation),
           // apply them as inline style overrides to the chassis panel. The
