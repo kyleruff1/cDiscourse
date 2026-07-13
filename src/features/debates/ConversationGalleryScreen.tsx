@@ -718,10 +718,15 @@ function ConversationCard({ card, onPress }: { card: ConversationGalleryCard; on
       ) : null}
 
       {/* ARG-ROOM-006 (items e/f) — plain-language access/seat line. Observers
-          stay uncapped: a "full" public card still reads observe-friendly. */}
-      <Text style={styles.accessLine} testID={`gallery-card-access-${card.debateId}`}>
-        {accessView.accessLine}
-      </Text>
+          stay uncapped: a "full" public card still reads observe-friendly.
+          UX-PR-G.2 (issue 922) — render only when non-empty: a private-no-access
+          card (openable admin/mod/unpropagated seam) now carries an empty line,
+          so it shows no false "may not work" hedge. */}
+      {accessView.accessLine ? (
+        <Text style={styles.accessLine} testID={`gallery-card-access-${card.debateId}`}>
+          {accessView.accessLine}
+        </Text>
+      ) : null}
 
       <View style={styles.actionRow}>
         <Text style={styles.actionText}>{accessView.actionLabel}</Text>

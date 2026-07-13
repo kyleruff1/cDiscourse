@@ -95,6 +95,32 @@ describe('ConversationGalleryScreen — private card the viewer is NOT in (priva
     expect(badge.props.accessibilityLabel).not.toBe(ROOM_VISIBILITY_COPY.badge_private_a11y);
     expect(badge.props.accessibilityLabel).toBe('');
   });
+
+  it('renders NO access line (no false "may not work" hedge) for the openable-but-unjoined seam', () => {
+    // UX-PR-G.2 (issue 922) — a private_no_access card that reaches the gallery
+    // (admin/mod broad SELECT, or an unpropagated membership row) is openable by
+    // construction; its access line is now empty, so it must render no hedge.
+    const { queryByTestId } = renderGallery(
+      [debate({ id: 'priv-x', title: 'Hidden private room', visibility: 'private', myParticipantSide: null })],
+      [],
+    );
+    expect(queryByTestId('gallery-card-access-priv-x')).toBeNull();
+  });
+
+  it('a public card still renders its access line; no rendered line equals the deep-link hedge', () => {
+    const { getByTestId, queryByTestId, queryByText } = renderGallery([
+      debate({ id: 'pub-1', visibility: 'public' }),
+      debate({ id: 'priv-x', visibility: 'private', myParticipantSide: null }),
+    ]);
+    // Public card keeps its honest line…
+    expect(getByTestId('gallery-card-access-pub-1').props.children).toBe(
+      ROOM_ACCESS_COPY.public_open_line,
+    );
+    // …the private-non-member card shows nothing…
+    expect(queryByTestId('gallery-card-access-priv-x')).toBeNull();
+    // …and the deep-link hedge string never appears as a gallery access line.
+    expect(queryByText(ROOM_ACCESS_COPY.unavailable_body)).toBeNull();
+  });
 });
 
 describe('ConversationGalleryScreen — card a11y label announces visibility', () => {
