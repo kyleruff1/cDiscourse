@@ -835,15 +835,21 @@ export const TIMELINE_KIND_COLORS: Record<TimelineKindColorFamily, string> = {
  * Strength-band → color map. Exported for opt-in Inspect-path consumers and
  * the VISUAL-SIMPLIFY-003 band-neutral contract test — `STANDING_BAND_COLOR.unscored`
  * is the neutral grey the DEFAULT edge standing stop collapses to.
+ *
+ * UX-PR-F-prime (issue 931) re-ramp: hue encodes standing MAGNITUDE in one
+ * indigo family (lighter #818cf8 = small, #6366f1 = mid/high, #4f46e5 =
+ * maximum); valence is carried by the soft label plus stroke / glyph / texture,
+ * not by hue. The 3 slate keys (neutral / unscored / not_enough_signal) are
+ * unchanged.
  */
 export const STANDING_BAND_COLOR: Record<TimelineStandingBand, string> = {
-  pretty_wrong: '#b91c1c',
-  slightly_wrong: '#f97316',
+  pretty_wrong: '#6366f1',
+  slightly_wrong: '#818cf8',
   neutral: '#64748b',
-  slightly_right: '#22d3ee',
-  maybe_right_misguided: '#facc15',
-  pretty_right: '#34d399',
-  completely_right: '#10b981',
+  slightly_right: '#818cf8',
+  maybe_right_misguided: '#6366f1',
+  pretty_right: '#6366f1',
+  completely_right: '#4f46e5',
   unscored: '#475569',
   not_enough_signal: '#374151',
 };

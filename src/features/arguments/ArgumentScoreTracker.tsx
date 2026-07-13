@@ -19,6 +19,7 @@ import {
   type ParticipantTrend,
 } from './argumentScoreModel';
 import { formatStandingBandShort } from './standingBandCopy';
+import { SURFACE_TOKENS } from '../../lib/designTokens';
 
 interface Props {
   trends: ParticipantTrend[];
@@ -59,7 +60,7 @@ export function ArgumentScoreTracker({ trends }: Props) {
                   <Text style={styles.actor} numberOfLines={1}>{t.participantLabel}</Text>
                   <Text style={styles.count}>· {t.messageCount}</Text>
                 </View>
-                <Text style={[styles.band, { color }]} numberOfLines={1}>{formatStandingBandShort(t.currentBand)}</Text>
+                <Text style={styles.band} numberOfLines={1}>{formatStandingBandShort(t.currentBand)}</Text>
                 <View style={styles.metaRow}>
                   <Text style={styles.arrow}>{dirArrow(t.trendDirection)}</Text>
                   <Text style={styles.meta} numberOfLines={1}>last: {t.lastMoveLabel}</Text>
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
   actor: { color: '#f8fafc', fontWeight: '800', fontSize: 12 },
   count: { color: '#64748b', fontSize: 11 },
-  band: { fontSize: 11, lineHeight: 15, fontWeight: '800', marginTop: 4 },
+  band: { color: SURFACE_TOKENS.textPrimary, fontSize: 11, lineHeight: 15, fontWeight: '800', marginTop: 4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   arrow: { color: '#a5b4fc', fontSize: 12, fontWeight: '800' },
   meta: { color: '#94a3b8', fontSize: 11, lineHeight: 15 },
