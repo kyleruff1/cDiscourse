@@ -114,7 +114,11 @@ describe('deriveRoomAccessView — private', () => {
     expect(v.canClaimSeat).toBe(false);
     // No enumeration: a non-member is never told a private room exists.
     expect(v.badgeLabel).toBe('');
-    expect(v.accessLine).toBe(ROOM_ACCESS_COPY.unavailable_body);
+    // UX-PR-G.2 (issue 922) — chrome fully suppressed: the accessLine is now
+    // empty (consistent with the empty badge). An openable-but-unjoined card
+    // (admin/mod/unpropagated seam) reaching the gallery no longer carries the
+    // false "may not work" hedge. The deep-link modal still owns unavailable_body.
+    expect(v.accessLine).toBe('');
   });
 
   it('member → private_member: Continue →, observable, hidden from discovery', () => {
@@ -396,9 +400,16 @@ describe('roomAccessModel — doctrine ban-list', () => {
 
   it('renderable states (public_* + private_member) have a non-empty badge + line', () => {
     for (const { state, view } of emitted) {
-      expect(view.accessLine.length).toBeGreaterThan(0);
       if (state !== 'private_no_access') {
+        // Renderable states carry a non-empty badge AND access line.
+        expect(view.accessLine.length).toBeGreaterThan(0);
         expect(view.badgeLabel.length).toBeGreaterThan(0);
+      } else {
+        // UX-PR-G.2 (issue 922) — private_no_access is non-renderable chrome:
+        // both the badge and the access line are empty (no enumeration, no
+        // false hedge).
+        expect(view.accessLine).toBe('');
+        expect(view.badgeLabel).toBe('');
       }
     }
   });

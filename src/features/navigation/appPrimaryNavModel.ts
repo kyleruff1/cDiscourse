@@ -72,8 +72,10 @@ export const PRIMARY_NAV_HINTS: Record<PrimaryNavSection, string> = {
  * - `tab`            : the active secondary tab id (`arguments` / `account` / ...).
  * - `hasDebate`      : true when a room is open (a debate is selected).
  * - `startArgumentOpen` : true when the Start Argument page is showing.
- * - `galleryLane`    : the active gallery lane filter (`'my_rooms'` means
- *                      the "My Arguments" view is active).
+ * - `galleryLane`    : the active gallery lane filter. `'my_rooms'` (the flat
+ *                      "Mine" list) OR `'home'` (the resume-first ArgumentHome
+ *                      "Your table") means the "My Arguments" view is active
+ *                      (issue 922).
  * - `aboutOpen`      : true when the public About screen is showing.
  */
 export interface PrimaryNavShellState {
@@ -90,11 +92,16 @@ export interface PrimaryNavShellState {
  * `browse_arguments`, the gallery, which is the app's home surface).
  *
  * Precedence (most specific first):
- *   1. About screen open               → 'about'
- *   2. Account tab                     → 'profile'
- *   3. Arguments tab + Start page open → 'start_argument'
- *   4. Arguments tab + 'my_rooms' lane → 'my_arguments'
- *   5. Anything else on Arguments      → 'browse_arguments'
+ *   1. About screen open                          → 'about'
+ *   2. Account tab                                → 'profile'
+ *   3. Arguments tab + Start page open            → 'start_argument'
+ *   4. Arguments tab + 'my_rooms' OR 'home' lane  → 'my_arguments'
+ *   5. Anything else on Arguments                 → 'browse_arguments'
+ *
+ * The 'home' lane is the resume-first ArgumentHome surface targeted by
+ * "My Arguments" when home_v2 is on; it maps to the same active section as the
+ * flat 'my_rooms' lane so the nav highlight tracks the visible home surface
+ * after first load (issue 922).
  *
  * A room being open does NOT change the active primary section — the user
  * reached the room from a gallery surface, so the gallery item stays the
@@ -107,7 +114,12 @@ export function deriveActivePrimaryNavSection(
   if (state.tab === 'account') return 'profile';
   if (state.tab === 'arguments') {
     if (state.startArgumentOpen) return 'start_argument';
-    if (!state.hasDebate && state.galleryLane === 'my_rooms') return 'my_arguments';
+    if (
+      !state.hasDebate &&
+      (state.galleryLane === 'my_rooms' || state.galleryLane === 'home')
+    ) {
+      return 'my_arguments';
+    }
     return 'browse_arguments';
   }
   return 'browse_arguments';
@@ -126,8 +138,13 @@ export interface PrimaryNavTransition {
   tab: 'arguments' | 'account';
   /** Whether to open the Start Argument page (Arguments tab only). */
   startArgumentOpen: boolean;
-  /** The gallery lane to activate (Arguments tab only). `'all'` = full gallery. */
-  galleryLane: 'all' | 'my_rooms';
+  /**
+   * The gallery lane to activate (Arguments tab only). `'all'` = full gallery;
+   * `'my_rooms'` = the flat "Mine" list; `'home'` = the resume-first
+   * ArgumentHome ("Your table") surface targeted by "My Arguments" when
+   * home_v2 is on (issue 922).
+   */
+  galleryLane: 'all' | 'my_rooms' | 'home';
   /** Whether the public About screen should be open. */
   aboutOpen: boolean;
   /**
@@ -152,14 +169,22 @@ export interface PrimaryNavTransition {
  *
  * - Start An Argument → Arguments tab, Start page open, room deselected.
  * - Browse Arguments  → Arguments tab, full gallery (all lanes), room deselected.
- * - My Arguments      → Arguments tab, 'my_rooms' lane, room deselected.
+ * - My Arguments      → Arguments tab, resume-first 'home' lane when home_v2 is
+ *                       on (the ArgumentHome "Your table" surface), else the
+ *                       flat 'my_rooms' lane; room deselected (issue 922).
  * - Profile           → Account tab, room deselected.
  * - About             → About screen open (tab unchanged conceptually; we
  *                       keep `tab: 'arguments'` so leaving About returns to
  *                       the gallery), room deselected.
+ *
+ * `options.homeV2Enabled` is opt-in and defaults to the flag-off shape, so
+ * `resolvePrimaryNavTransition(section)` (no options) is byte-identical to the
+ * pre-issue-922 behavior — "My Arguments" stays 'my_rooms'. Only the
+ * 'my_arguments' case reads the flag; every other section ignores it.
  */
 export function resolvePrimaryNavTransition(
   section: PrimaryNavSection,
+  options?: { homeV2Enabled?: boolean },
 ): PrimaryNavTransition {
   switch (section) {
     case 'start_argument':
@@ -184,7 +209,9 @@ export function resolvePrimaryNavTransition(
       return {
         tab: 'arguments',
         startArgumentOpen: false,
-        galleryLane: 'my_rooms',
+        // home_v2 on → resume-first ArgumentHome ("Your table"); off →
+        // byte-identical to today (the flat 'my_rooms' lane) (issue 922).
+        galleryLane: options?.homeV2Enabled ? 'home' : 'my_rooms',
         aboutOpen: false,
         deselectRoom: true,
         clearDemoCorridor: true,

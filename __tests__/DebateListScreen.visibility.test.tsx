@@ -74,6 +74,24 @@ describe('DebateListScreen — visibility badge + access line', () => {
     expect(badge.props.accessibilityLabel).not.toBe(ROOM_VISIBILITY_COPY.badge_private_a11y);
     expect(badge.props.accessibilityLabel).toBe('');
   });
+
+  it('a private row the viewer is NOT in renders NO access line (no false "may not work" hedge)', () => {
+    // UX-PR-G.2 (issue 922) — private_no_access accessLine is now empty; the row
+    // guards on it, so the hedge never renders for an openable-but-unjoined seam
+    // (admin/mod broad SELECT or an unpropagated membership row). Public/member
+    // rows are unchanged (their lines are non-empty — asserted above).
+    const { queryByTestId, queryByText } = renderList([
+      debate({ id: 'd-priv-x', visibility: 'private', myParticipantSide: null }),
+      debate({ id: 'd-pub', visibility: 'public', myParticipantSide: null }),
+    ]);
+    expect(queryByTestId('debates-cell-access-d-priv-x')).toBeNull();
+    // The public row still shows its honest line.
+    expect(queryByTestId('debates-cell-access-d-pub')?.props.children).toBe(
+      ROOM_ACCESS_COPY.public_open_line,
+    );
+    // The deep-link hedge string never appears as a list access line.
+    expect(queryByText(ROOM_ACCESS_COPY.unavailable_body)).toBeNull();
+  });
 });
 
 describe('route action-label consistency (#759)', () => {

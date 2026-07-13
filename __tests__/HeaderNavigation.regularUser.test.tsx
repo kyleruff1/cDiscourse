@@ -256,6 +256,32 @@ describe('resolvePrimaryNavTransition — in-memory shell state per item', () =>
     expect(t.startArgumentOpen).toBe(false);
   });
 
+  // UX-PR-G.2 (issue 922) — "My Arguments" routes to the resume-first
+  // ArgumentHome ("Your table") lane when home_v2 is on, else stays the flat
+  // 'my_rooms' lane. The flag is opt-in via the options arg only.
+  it('My Arguments + { homeV2Enabled: true } → the "home" lane', () => {
+    const t = resolvePrimaryNavTransition('my_arguments', { homeV2Enabled: true });
+    expect(t.tab).toBe('arguments');
+    expect(t.galleryLane).toBe('home');
+    expect(t.startArgumentOpen).toBe(false);
+  });
+
+  it('My Arguments + { homeV2Enabled: false } → "my_rooms" (byte-identical to no-options)', () => {
+    const off = resolvePrimaryNavTransition('my_arguments', { homeV2Enabled: false });
+    const noOptions = resolvePrimaryNavTransition('my_arguments');
+    expect(off.galleryLane).toBe('my_rooms');
+    // Flag-off must be byte-identical to the pre-issue-922 no-options shape.
+    expect(off).toEqual(noOptions);
+  });
+
+  it('the homeV2Enabled flag affects ONLY the my_arguments case', () => {
+    for (const section of ['start_argument', 'browse_arguments', 'profile', 'about'] as PrimaryNavSection[]) {
+      expect(resolvePrimaryNavTransition(section, { homeV2Enabled: true })).toEqual(
+        resolvePrimaryNavTransition(section),
+      );
+    }
+  });
+
   it('Profile → Account tab', () => {
     const t = resolvePrimaryNavTransition('profile');
     expect(t.tab).toBe('account');
@@ -304,12 +330,28 @@ describe('deriveActivePrimaryNavSection', () => {
     expect(deriveActivePrimaryNavSection({ ...base, galleryLane: 'my_rooms' })).toBe('my_arguments');
   });
 
+  // UX-PR-G.2 (issue 922) — the resume-first 'home' lane maps to the same
+  // active section as 'my_rooms', so the nav highlight tracks the visible
+  // "Your table" surface after first load.
+  it('Arguments tab + home lane → my_arguments', () => {
+    expect(deriveActivePrimaryNavSection({ ...base, galleryLane: 'home' })).toBe('my_arguments');
+  });
+
   it('Arguments tab, gallery default → browse_arguments', () => {
     expect(deriveActivePrimaryNavSection(base)).toBe('browse_arguments');
   });
 
   it('an open room keeps browse_arguments active (reached from the gallery)', () => {
     expect(deriveActivePrimaryNavSection({ ...base, hasDebate: true })).toBe('browse_arguments');
+  });
+
+  // UX-PR-G.2 (issue 922) — hasDebate short-circuits the lane check, so an
+  // open room on the 'home' lane does NOT read as my_arguments (matches the
+  // 'my_rooms' open-room behavior).
+  it('an open room on the home lane keeps browse_arguments active (hasDebate short-circuits)', () => {
+    expect(
+      deriveActivePrimaryNavSection({ ...base, hasDebate: true, galleryLane: 'home' }),
+    ).toBe('browse_arguments');
   });
 });
 

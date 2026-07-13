@@ -169,7 +169,12 @@ export function deriveRoomAccessView(input: RoomSeatStateSummary): RoomAccessVie
       cap,
       openSlots: null,
       badgeLabel: '', // never reveal "Private" to a non-member (no enumeration).
-      accessLine: ROOM_ACCESS_COPY.unavailable_body, // cause-neutral; asserts nothing.
+      // Chrome fully suppressed (consistent with the empty badge): an openable-
+      // but-unjoined card (admin/mod/unpropagated seam) that reaches the gallery
+      // must not carry the deep-link hedge as if it might not exist. The deep-link
+      // modal (RoomUnavailableNotice) still owns unavailable_body directly for a
+      // genuinely-absent id (issue 922).
+      accessLine: '',
       actionLabel,
     });
   }

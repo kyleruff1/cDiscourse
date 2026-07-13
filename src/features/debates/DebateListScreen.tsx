@@ -187,14 +187,19 @@ function DebateRow({ debate, onPress }: DebateRowProps) {
           <Text style={styles.title} numberOfLines={1}>{debate.title}</Text>
         </View>
         <Text style={styles.resolution} numberOfLines={2}>{debate.resolution}</Text>
-        {/* ARG-ROOM-006 (items e/f) — plain-language access/seat line. */}
-        <Text
-          style={styles.accessLine}
-          numberOfLines={1}
-          testID={`debates-cell-access-${debate.id}`}
-        >
-          {accessView.accessLine}
-        </Text>
+        {/* ARG-ROOM-006 (items e/f) — plain-language access/seat line.
+            UX-PR-G.2 (issue 922) — render only when non-empty so a
+            private-no-access card (openable admin/mod/unpropagated seam) shows
+            no false hedge; the testID stays on the rendered element. */}
+        {accessView.accessLine ? (
+          <Text
+            style={styles.accessLine}
+            numberOfLines={1}
+            testID={`debates-cell-access-${debate.id}`}
+          >
+            {accessView.accessLine}
+          </Text>
+        ) : null}
       </View>
       <View
         style={[styles.cell, { width: COL.created }]}
