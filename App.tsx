@@ -1033,7 +1033,9 @@ function MainAppShell({
   // router, no Linking — purely setState calls (the no-route invariant).
   const handlePrimaryNav = React.useCallback(
     (section: PrimaryNavSection) => {
-      const t = resolvePrimaryNavTransition(section);
+      // home_v2 on → "My Arguments" lands on the resume-first ArgumentHome
+      // ("Your table"); off → the flat 'my_rooms' lane (issue 922).
+      const t = resolvePrimaryNavTransition(section, { homeV2Enabled });
       if (t.deselectRoom) {
         setComposerOpen(false);
         setReplyTarget(null);
@@ -1050,7 +1052,7 @@ function MainAppShell({
       // mounted on top of the target surface (nav trap).
       if (t.clearDemoCorridor) setDemoCorridorOpen(false);
     },
-    [hasDebate, deselectDebate],
+    [hasDebate, deselectDebate, homeV2Enabled],
   );
 
   // Derive which primary nav item renders as active from the live shell

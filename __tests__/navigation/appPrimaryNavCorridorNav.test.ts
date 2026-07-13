@@ -54,6 +54,16 @@ describe('A11Y-PR0 — resolvePrimaryNavTransition.clearDemoCorridor', () => {
       deselectRoom: true,
       clearDemoCorridor: true,
     });
+    // UX-PR-G.2 (issue 922) — home_v2 on routes my_arguments to the resume-first
+    // 'home' lane; every other field (incl. clearDemoCorridor) is identical.
+    expect(resolvePrimaryNavTransition('my_arguments', { homeV2Enabled: true })).toEqual({
+      tab: 'arguments',
+      startArgumentOpen: false,
+      galleryLane: 'home',
+      aboutOpen: false,
+      deselectRoom: true,
+      clearDemoCorridor: true,
+    });
     expect(resolvePrimaryNavTransition('profile')).toEqual({
       tab: 'account',
       startArgumentOpen: false,
