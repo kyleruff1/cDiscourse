@@ -96,8 +96,13 @@ const ALLOWLIST_P9: Record<string, readonly string[]> = {
   'src/features/debates/ConversationGalleryScreen.tsx': ['#7f1d1d', '#fecaca'], // P2-9 misuse / KEEP error surface
   // flag kind (#ef4444), standing-band gradient (#b91c1c), tone-hostile (#dc2626) — P1-7
   'src/features/arguments/argumentGameSurfaceModel.ts': ['#ef4444', '#b91c1c', '#dc2626'], // P1-7
-  'src/features/arguments/argumentScoreModel.ts': ['#b91c1c'], // standing-band dup — P1-7
-  'src/features/arguments/ArgumentScoreTracker.tsx': ['#b91c1c'], // inline sparkline ternary — P1-7
+  // UX-PR-F (issue 929) burned down the standing-band red duplicates: the byte-identical
+  // local map in argumentScoreModel and the inline sparkline ternary in ArgumentScoreTracker
+  // now reference the canonical STANDING_BAND_COLOR in argumentGameSurfaceModel (which keeps
+  // its own #b91c1c allowlist entry above). No raw red literal remains in these two files, so
+  // per the burn-down contract their allowlists shrink to empty here. P1-7 re-ramp still pending.
+  'src/features/arguments/argumentScoreModel.ts': [], // standing-band dup removed — UX-PR-F, canonical single-source
+  'src/features/arguments/ArgumentScoreTracker.tsx': [], // inline sparkline ternary retargeted to canonical keys — UX-PR-F
   'src/features/arguments/ArgumentTimelineNode.tsx': ['#ef4444'], // legacy TRACK_COLORS counter — P1-7 (Era C, also P3-3)
   'src/features/arguments/ArgumentTrack.tsx': ['#ef4444'], // legacy TRACK_ACCENT counter — P1-7 (Era C, also P3-3)
 };
