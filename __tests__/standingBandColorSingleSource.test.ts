@@ -14,13 +14,15 @@
  *   (c) tracker static source scan — the sparkline imports the symbol,
  *       references the four canonical keys, and no longer holds any of the
  *       four removed hex literals (the unrelated muted-text #64748b stays);
- *   (d) VALUE PIN — the canonical ramp is the exact current 9 hexes. This is
- *       the assertion PR-F-prime (P1-7b) will deliberately re-ramp under the
- *       operator doctrine ruling (issue 929); it is byte-identical today.
+ *   (d) VALUE PIN — the canonical ramp is the re-ramped 9 hexes applied under
+ *       the operator doctrine ruling (issue 931): hue now encodes standing
+ *       MAGNITUDE in one indigo family, not valence. PR-F-prime (P1-7b) landed
+ *       this ramp; the 3 slate keys stay unchanged.
  *
  * Pure-model + static source scan. No React, no Supabase, no network, no
  * snapshot. Per cdiscourse-doctrine the bands are gameplay-analysis, never
- * truth verdicts; PR-F changes zero hues, labels, or user-facing strings.
+ * truth verdicts; PR-F-prime changes only hue values, no labels or
+ * user-facing strings.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -72,16 +74,16 @@ describe('UX-PR-F — ArgumentScoreTracker sparkline consumes the canonical', ()
   });
 });
 
-describe('UX-PR-F — VALUE PIN (the PR-F-prime hinge)', () => {
-  it('the canonical ramp is the current 9 hexes; PR-F-prime re-ramps these under the operator ruling (issue 929)', () => {
+describe('UX-PR-F-prime — VALUE PIN (the applied re-ramp)', () => {
+  it('the canonical ramp is the re-ramped 9 hexes applied under the operator ruling (issue 931)', () => {
     expect(CANON).toEqual({
-      pretty_wrong: '#b91c1c',
-      slightly_wrong: '#f97316',
+      pretty_wrong: '#6366f1',
+      slightly_wrong: '#818cf8',
       neutral: '#64748b',
-      slightly_right: '#22d3ee',
-      maybe_right_misguided: '#facc15',
-      pretty_right: '#34d399',
-      completely_right: '#10b981',
+      slightly_right: '#818cf8',
+      maybe_right_misguided: '#6366f1',
+      pretty_right: '#6366f1',
+      completely_right: '#4f46e5',
       unscored: '#475569',
       not_enough_signal: '#374151',
     });
