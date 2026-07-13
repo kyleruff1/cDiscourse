@@ -15,6 +15,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   standingBandColor,
+  STANDING_BAND_COLOR,
   type ParticipantTrend,
 } from './argumentScoreModel';
 import { formatStandingBandShort } from './standingBandCopy';
@@ -66,7 +67,11 @@ export function ArgumentScoreTracker({ trends }: Props) {
                 <View style={styles.sparkRow} accessibilityLabel={`sparkline ${t.sparkline.length}`}>
                   {t.sparkline.map((s, i) => {
                     const h = Math.max(2, Math.round((s + 1) * 6));
-                    const c = s >= 0.4 ? '#10b981' : s >= 0 ? '#22d3ee' : s >= -0.4 ? '#f97316' : '#b91c1c';
+                    const c =
+                      s >= 0.4 ? STANDING_BAND_COLOR.completely_right
+                      : s >= 0 ? STANDING_BAND_COLOR.slightly_right
+                      : s >= -0.4 ? STANDING_BAND_COLOR.slightly_wrong
+                      : STANDING_BAND_COLOR.pretty_wrong;
                     return <View key={`spark-${t.participantId}-${i}`} style={[styles.sparkBar, { height: h, backgroundColor: c }]} />;
                   })}
                 </View>

@@ -30,6 +30,7 @@ import {
   inferStandingBand,
   inferToneBand,
   inferTemperatureBand,
+  STANDING_BAND_COLOR,
   type TimelineStandingBand,
   type TimelineToneBand,
   type TimelineTemperatureBand,
@@ -46,17 +47,11 @@ export type StandingBand = TimelineStandingBand;
 import { STANDING_BAND_SOFT_LABEL } from './standingBandCopy';
 export const STANDING_BAND_LABEL: Record<StandingBand, string> = STANDING_BAND_SOFT_LABEL;
 
-const STANDING_BAND_COLOR: Record<StandingBand, string> = {
-  pretty_wrong: '#b91c1c',
-  slightly_wrong: '#f97316',
-  neutral: '#64748b',
-  slightly_right: '#22d3ee',
-  maybe_right_misguided: '#facc15',
-  pretty_right: '#34d399',
-  completely_right: '#10b981',
-  unscored: '#475569',
-  not_enough_signal: '#374151',
-};
+// UX-PR-F — the standing-band color map now comes from the canonical source in
+// argumentGameSurfaceModel.ts (this was a byte-identical local copy). Re-exported
+// so the score-tracker sparkline consumes the single source without a new module
+// edge. Hue values are pinned; the red-to-green re-ramp is PR-F-prime (issue 929).
+export { STANDING_BAND_COLOR };
 
 export interface StatementStanding {
   messageId: string;
