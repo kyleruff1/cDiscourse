@@ -94,8 +94,11 @@ const ALLOWLIST_P9: Record<string, readonly string[]> = {
   //   heat pill, signalChipCritical) burned down in P2-9. Same hex, two roles;
   //   a hex-literal scan cannot separate them, so both are allowlisted.
   'src/features/debates/ConversationGalleryScreen.tsx': ['#7f1d1d', '#fecaca'], // P2-9 misuse / KEEP error surface
-  // flag kind (#ef4444), standing-band gradient (#b91c1c), tone-hostile (#dc2626) — P1-7
-  'src/features/arguments/argumentGameSurfaceModel.ts': ['#ef4444', '#b91c1c', '#dc2626'], // P1-7
+  // flag kind (#ef4444), tone-hostile (#dc2626) — P1-7. The standing-band red
+  // (#b91c1c) was re-ramped to indigo by UX-PR-F-prime (issue 931), so it is
+  // dropped from both the map value and this allowlist in the same change; the
+  // remaining reds are the still-pending tone/kind burn-down.
+  'src/features/arguments/argumentGameSurfaceModel.ts': ['#ef4444', '#dc2626'], // P1-7 tone/kind burn-down pending
   // UX-PR-F (issue 929) burned down the standing-band red duplicates: the byte-identical
   // local map in argumentScoreModel and the inline sparkline ternary in ArgumentScoreTracker
   // now reference the canonical STANDING_BAND_COLOR in argumentGameSurfaceModel (which keeps
