@@ -18,7 +18,8 @@
  *   - `Modal` with `accessibilityViewIsModal`; root `accessibilityRole="dialog"`.
  *   - Scrim is a full-bleed `Pressable` (`accessibilityLabel="Close"`).
  *   - Escape / outside-press / hardware back all close: `onRequestClose` →
- *     `onClose`; on web a `keydown` listener closes on Escape.
+ *     `onClose` (native back); on web the shared `useOverlayA11y` hook owns a
+ *     topmost-gated Escape and traps Tab within the sheet.
  *   - Option rows are `accessibilityRole="radio"` with `accessibilityState`;
  *     exactly one selected at a time; ≥44×44 hit target.
  *   - Confirm is disabled until a kind is selected and while submitting.
@@ -28,7 +29,6 @@
 import React, { useCallback, useEffect, useState, type ReactElement } from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -41,6 +41,11 @@ import {
   getEvidenceAnnotationLabel,
   type EvidenceAnnotationKind,
 } from './evidenceModel';
+// A11Y-PR0-FOLLOW (issue 915) — adopt the shared overlay-a11y hook so the
+// sheet traps Tab, restores focus on close, and owns a topmost-gated web
+// Escape (replacing the ad-hoc globalThis keydown listener). Native is a
+// no-op; RN Modal.onRequestClose still covers Android hardware back.
+import { useOverlayA11y } from '../a11y/useOverlayA11y';
 
 export const ADD_ANNOTATION_NOTE_HINT = 'Describe the source, not the person.';
 export const ADD_ANNOTATION_NOTE_LABEL = 'Optional note about this source';
@@ -90,19 +95,14 @@ export function AddAnnotationSheet({
     }
   }, [visible]);
 
-  // Web: Escape closes the sheet. (Native: Modal.onRequestClose covers back.)
-  useEffect(() => {
-    if (!visible || Platform.OS !== 'web') return;
-    const handler = (e: { key?: string }) => {
-      if (e.key === 'Escape') onClose();
-    };
-    const g = globalThis as unknown as {
-      addEventListener?: (t: string, h: (e: { key?: string }) => void) => void;
-      removeEventListener?: (t: string, h: (e: { key?: string }) => void) => void;
-    };
-    g.addEventListener?.('keydown', handler);
-    return () => g.removeEventListener?.('keydown', handler);
-  }, [visible, onClose]);
+  // A11Y-PR0-FOLLOW (issue 915) — the shared hook owns the web Escape (gated
+  // on topmost layer, correct for nested overlays) and traps Tab within the
+  // sheet, restoring focus on close. Native is a no-op; Modal.onRequestClose
+  // still covers Android hardware back.
+  const { registerContainer } = useOverlayA11y({
+    visible,
+    onDismiss: onClose,
+  });
 
   const handleConfirm = useCallback(() => {
     if (!selectedKind || isSubmitting) return;
@@ -132,6 +132,9 @@ export function AddAnnotationSheet({
         {/* Inner Pressable swallows presses so a tap on the sheet body does
             not bubble to the scrim. */}
         <Pressable
+          // A11Y-PR0-FOLLOW (issue 915) — focus-trap container (sheet DOM node
+          // on web); the option radios / note input / actions are cycled here.
+          ref={(el) => registerContainer(el as unknown as HTMLElement | null)}
           style={styles.sheet}
           accessibilityViewIsModal
           accessibilityRole="none"
