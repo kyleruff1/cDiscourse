@@ -41,6 +41,10 @@ import {
 // ruling); native hardware-back parity is deferred to the follow-up. Native is
 // a no-op.
 import { useOverlayA11y } from '../a11y/useOverlayA11y';
+// A11Y-PR0-FOLLOW (issue 915) — native-only hardware-back dismissal. The
+// composer is a plain inline overlay (no RN Modal), so Android back would
+// otherwise pop the screen behind it. Web is a no-op.
+import { useNativeBackClose } from '../a11y/useNativeBackClose';
 import type { ActEntryId } from '../arguments/oneBox/actPopoutModel';
 import {
   ALL_REVIEW_CONCERN_TYPES,
@@ -180,6 +184,10 @@ export function RequestReviewComposer(props: RequestReviewComposerProps) {
     visible,
     onDismiss: onCancel,
   });
+
+  // A11Y-PR0-FOLLOW (issue 915) — on native, hardware back closes the composer
+  // instead of popping the screen; on web this is a no-op.
+  useNativeBackClose(visible, onCancel);
 
   if (!visible) return null;
 

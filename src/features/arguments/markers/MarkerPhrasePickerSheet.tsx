@@ -26,6 +26,10 @@ import { MARKER_COPY } from './markerCopy';
 // ruling); native hardware-back parity is deferred to the follow-up. Native is
 // a no-op.
 import { useOverlayA11y } from '../../a11y/useOverlayA11y';
+// A11Y-PR0-FOLLOW (issue 915) — native-only hardware-back dismissal. The sheet
+// is a plain inline overlay (no RN Modal), so Android back would otherwise pop
+// the screen behind it. Web is a no-op.
+import { useNativeBackClose } from '../../a11y/useNativeBackClose';
 
 export interface MarkerPhrasePickerSheetProps {
   /** The quoted (target) argument id. */
@@ -51,6 +55,11 @@ export function MarkerPhrasePickerSheet(props: MarkerPhrasePickerSheetProps): Re
     onDismiss: props.onCancel,
   });
 
+  // A11Y-PR0-FOLLOW (issue 915) — the sheet is only mounted while open, so open
+  // is true. On native, hardware back closes the sheet instead of popping the
+  // screen; on web this is a no-op.
+  useNativeBackClose(true, props.onCancel);
+
   // Whole-move fallback when the body has no clear phrase boundary. Guarded so a
   // genuinely empty body (which submit-argument disallows) never mints a
   // zero-length span.
@@ -64,6 +73,10 @@ export function MarkerPhrasePickerSheet(props: MarkerPhrasePickerSheetProps): Re
   return (
     <View
       style={[styles.overlay, isSide ? styles.overlaySide : styles.overlayBottom]}
+      // A11Y-PR0-FOLLOW (issue 915) — mark the root overlay as modal so iOS
+      // VoiceOver ignores the background room content (its siblings), mirroring
+      // the Request overlay placement.
+      accessibilityViewIsModal
       testID="marker-phrase-picker-sheet"
     >
       {/* A11Y-PR0 (#913) — web-only dismissing backdrop. It shields background
@@ -84,6 +97,10 @@ export function MarkerPhrasePickerSheet(props: MarkerPhrasePickerSheetProps): Re
         // A11Y-PR0 (#913) — focus-trap container (sheet DOM node on web).
         ref={(el) => registerContainer(el as unknown as HTMLElement | null)}
         style={[styles.sheet, isSide ? styles.sheetSide : styles.sheetBottom]}
+        // A11Y-PR0-FOLLOW (issue 915) — belt-and-suspenders inner-panel modal
+        // marker, mirroring the PreSend sheet double placement.
+        accessibilityViewIsModal
+        testID="marker-phrase-picker-panel"
       >
         <View style={styles.headerRow}>
           <Text style={styles.header} accessibilityRole="header">
