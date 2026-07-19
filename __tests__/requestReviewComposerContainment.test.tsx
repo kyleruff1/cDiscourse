@@ -13,7 +13,7 @@
  */
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { BackHandler, Platform } from 'react-native';
 import { RequestReviewComposer } from '../src/features/requestReview';
 import { __resetOverlayLayerStack } from '../src/features/a11y/overlayLayerStack';
 
@@ -87,6 +87,21 @@ describe('A11Y-PR0 — RequestReviewComposer containment', () => {
     expect(backdrop.props.focusable).toBe(false);
   });
 
+  // A11Y-PR0-FOLLOW (issue 915) — AVIM regression pin: the root overlay stays
+  // the modal accessibility view (verify-only; no source change here).
+  it('AVIM: the root overlay is a modal accessibility view', () => {
+    const { getByTestId } = render(
+      <RequestReviewComposer
+        visible
+        targetNodeId="n1"
+        onRouteToActEntry={noop}
+        onSendForModeratorReview={noop}
+        onCancel={noop}
+      />,
+    );
+    expect(getByTestId(TID).props.accessibilityViewIsModal).toBe(true);
+  });
+
   it('does NOT render the backdrop when not visible (no stray overlay)', () => {
     const { queryByTestId } = render(
       <RequestReviewComposer
@@ -131,5 +146,57 @@ describe('A11Y-PR0 — RequestReviewComposer containment', () => {
     );
     fireEvent.press(getByTestId(`${TID}-cancel`));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
+// A11Y-PR0-FOLLOW (issue 915) — native hardware-back dismissal (useNativeBackClose).
+describe('A11Y-PR0-FOLLOW — RequestReviewComposer native hardware-back', () => {
+  const originalOS = Platform.OS;
+  let removeSpy: jest.Mock;
+  let addSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+    removeSpy = jest.fn();
+    addSpy = jest
+      .spyOn(BackHandler, 'addEventListener')
+      .mockReturnValue({ remove: removeSpy } as unknown as ReturnType<
+        typeof BackHandler.addEventListener
+      >);
+  });
+  afterEach(() => {
+    addSpy.mockRestore();
+    Object.defineProperty(Platform, 'OS', { value: originalOS, configurable: true });
+    __resetOverlayLayerStack();
+  });
+
+  it('subscribes to hardwareBackPress; back fires onCancel once and consumes', () => {
+    const onCancel = jest.fn();
+    render(
+      <RequestReviewComposer
+        visible
+        targetNodeId="n1"
+        onRouteToActEntry={noop}
+        onSendForModeratorReview={noop}
+        onCancel={onCancel}
+      />,
+    );
+    expect(addSpy).toHaveBeenCalledWith('hardwareBackPress', expect.any(Function));
+    const handler = addSpy.mock.calls[0][1] as () => boolean;
+    expect(handler()).toBe(true);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('open=false (visible=false) never subscribes', () => {
+    render(
+      <RequestReviewComposer
+        visible={false}
+        targetNodeId="n1"
+        onRouteToActEntry={noop}
+        onSendForModeratorReview={noop}
+        onCancel={noop}
+      />,
+    );
+    expect(addSpy).not.toHaveBeenCalled();
   });
 });

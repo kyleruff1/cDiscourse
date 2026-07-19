@@ -30,3 +30,7 @@ export type {
   UseOverlayA11yOptions,
   UseOverlayA11yResult,
 } from './useOverlayA11y';
+
+// A11Y-PR0-FOLLOW (issue 915) — native-only hardware-back dismissal for the
+// two inline (non-Modal) sheets.
+export { useNativeBackClose } from './useNativeBackClose';
