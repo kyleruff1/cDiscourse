@@ -124,11 +124,21 @@ describe('AddAnnotationSheet — close paths', () => {
     expect(SHEET_SRC).toMatch(/onRequestClose=\{onClose\}/);
   });
 
-  it('on web an Escape keydown calls onClose', () => {
-    expect(SHEET_SRC).toMatch(/Platform\.OS !== 'web'/);
-    expect(SHEET_SRC).toMatch(/e\.key === 'Escape'/);
-    expect(SHEET_SRC).toMatch(/addEventListener\?\.\('keydown'/);
-    expect(SHEET_SRC).toMatch(/removeEventListener\?\.\('keydown'/);
+  it('A11Y-PR0-FOLLOW (issue 915): the shared useOverlayA11y hook owns the web Escape + Tab trap', () => {
+    // Adopts the hook (import + call), passing onDismiss=onClose, and attaches
+    // registerContainer to the sheet element that carries accessibilityViewIsModal.
+    expect(SHEET_SRC).toMatch(/import \{ useOverlayA11y \} from '\.\.\/a11y\/useOverlayA11y'/);
+    expect(SHEET_SRC).toMatch(/useOverlayA11y\(\{/);
+    expect(SHEET_SRC).toMatch(/onDismiss: onClose/);
+    expect(SHEET_SRC).toMatch(/ref=\{\(el\) => registerContainer\(el as unknown as HTMLElement \| null\)\}/);
+  });
+
+  it('A11Y-PR0-FOLLOW (issue 915): the ad-hoc globalThis keydown Escape effect is GONE', () => {
+    // The removed effect is replaced by the topmost-gated hook Escape; the
+    // duplicate ungated listener must not remain (would double-fire onClose).
+    expect(SHEET_SRC).not.toMatch(/addEventListener\?\.\('keydown'/);
+    expect(SHEET_SRC).not.toMatch(/removeEventListener\?\.\('keydown'/);
+    expect(SHEET_SRC).not.toMatch(/e\.key === 'Escape'/);
   });
 
   it('the Cancel button calls onClose', () => {
