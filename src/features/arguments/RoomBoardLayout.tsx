@@ -162,7 +162,7 @@ export function RoomBoardLayout({
 }
 
 const styles = StyleSheet.create({
-  outer: { flex: 1, backgroundColor: '#020617' },
+  outer: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
   // The row that hosts the columns on tablet/wide. `alignItems: 'stretch'`
   // lets each column own its own height so the 380 px pane never collapses.
   boardRow: { flex: 1, flexDirection: 'row', alignItems: 'stretch' },
