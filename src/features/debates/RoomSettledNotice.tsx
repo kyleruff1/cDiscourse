@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { SURFACE_TOKENS } from '../../lib/designTokens';
 import { ROOM_SETTLE_COPY } from '../arguments/gameCopy';
 import { buildSettleConsequences } from './settleRoomModel';
 import type { DebateStatus } from './types';
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
   // Calm dark-surface card matching the room chrome; shape (border + padding)
   // carries the read-only posture, not color alone.
   container: {
-    backgroundColor: '#0f172a',
+    backgroundColor: SURFACE_TOKENS.overlay,
     borderTopWidth: 1,
     borderTopColor: '#1f2937',
     paddingHorizontal: 16,
@@ -112,11 +113,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#e2e8f0',
+    color: SURFACE_TOKENS.textPrimary,
   },
   body: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: SURFACE_TOKENS.textSecondary,
     lineHeight: 18,
   },
   reopenButton: {
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
   reopenLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#e2e8f0',
+    color: SURFACE_TOKENS.textPrimary,
   },
   errorText: {
     fontSize: 12,

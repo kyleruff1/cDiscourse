@@ -46,18 +46,22 @@ const SCAN_SET_P2: readonly string[] = [
   'src/features/mediator/MediatorNodeMarker.tsx',
   'src/features/proof/ProofDrawer.tsx',
   'src/features/admin/AdminArgumentsTab.tsx',
+  // UX-P2-2 (issue 935) — RoomBoardLayout became hex-clean after its sole
+  // literal (#020617) migrated to SURFACE_TOKENS.base; add it to the ratchet.
+  'src/features/arguments/RoomBoardLayout.tsx',
 ];
 
 describe('UX-PR-D principle #2 — Era-A files carry no quoted color-hex (tokens by reference)', () => {
-  it('the scan set covers all four named Era-A canonical targets', () => {
+  it('the scan set covers all five named Era-A canonical targets', () => {
     // Sanity, mirrors the PR-A scan-set-covers-every-target test.
     expect(SCAN_SET_P2).toEqual([
       'src/features/home/ArgumentCard.tsx',
       'src/features/mediator/MediatorNodeMarker.tsx',
       'src/features/proof/ProofDrawer.tsx',
       'src/features/admin/AdminArgumentsTab.tsx',
+      'src/features/arguments/RoomBoardLayout.tsx',
     ]);
-    expect(SCAN_SET_P2).toHaveLength(4);
+    expect(SCAN_SET_P2).toHaveLength(5);
   });
 
   it.each(SCAN_SET_P2)('%s contains no quoted color-hex literal', (relPath) => {

@@ -10,6 +10,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SURFACE_TOKENS } from '../../lib/designTokens';
 import type { Debate, CreateDebateInput, CreatedRoom, ParticipantSide } from './types';
 import type { JoinAttemptResult } from './useDebates';
 // NAV-START-ARGUMENT-001 Slice A — the New Argument surface is replaced by
@@ -304,7 +305,7 @@ export function ConversationGalleryScreen({
           value={search}
           onChangeText={(v) => { setSearch(v); setPageIndex(0); }}
           placeholder="Search rooms (title, body, axis, frame)…"
-          placeholderTextColor="#64748b"
+          placeholderTextColor={SURFACE_TOKENS.placeholder}
           accessibilityLabel="Search rooms"
           testID="gallery-search-input"
         />
@@ -748,37 +749,37 @@ function Stat({ label, value, testID }: { label: string; value: string; testID: 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#020617' },
+  container: { flex: 1, backgroundColor: SURFACE_TOKENS.base },
   header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
   title: { color: '#f8fafc', fontSize: 22, fontWeight: '800' as const },
-  subtitle: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
+  subtitle: { color: SURFACE_TOKENS.textSecondary, fontSize: 12, marginTop: 2 },
 
   controls: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 8 },
-  search: { flex: 1, backgroundColor: '#0b1220', color: '#f8fafc', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#1f2937' },
+  search: { flex: 1, backgroundColor: SURFACE_TOKENS.inputBg, color: '#f8fafc', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#1f2937' },
   newButton: { backgroundColor: '#312e81', borderRadius: 10, paddingHorizontal: 12, justifyContent: 'center' },
   newButtonText: { color: '#fff', fontWeight: '700' as const, fontSize: 12 },
 
   bucketRow: { marginTop: 10, maxHeight: 44 },
   laneRowContent: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
-  bucketChip: { backgroundColor: '#0b1220', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: '#1f2937' },
+  bucketChip: { backgroundColor: SURFACE_TOKENS.elevated, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: '#1f2937' },
   bucketChipActive: { backgroundColor: '#312e81', borderColor: '#312e81' },
-  bucketChipText: { color: '#94a3b8', fontSize: 12, fontWeight: '700' as const },
+  bucketChipText: { color: SURFACE_TOKENS.textSecondary, fontSize: 12, fontWeight: '700' as const },
   bucketChipTextActive: { color: '#fff' },
 
   sortRow: { marginTop: 8, maxHeight: 36 },
   sortRowContent: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
   sortChip: { backgroundColor: 'transparent', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#1f2937' },
   sortChipActive: { borderColor: '#a5b4fc', backgroundColor: '#1e1b4b' },
-  sortChipText: { color: '#64748b', fontSize: 11, fontWeight: '700' as const },
-  sortChipTextActive: { color: '#e2e8f0' },
+  sortChipText: { color: SURFACE_TOKENS.textMuted, fontSize: 11, fontWeight: '700' as const },
+  sortChipTextActive: { color: SURFACE_TOKENS.textPrimary },
 
   countRow: { paddingHorizontal: 16, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  countText: { color: '#64748b', fontSize: 11 },
+  countText: { color: SURFACE_TOKENS.textMuted, fontSize: 11 },
   pageSizeRow: { flexDirection: 'row', gap: 4 },
-  pageSizeChip: { backgroundColor: '#0b1220', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#1f2937' },
+  pageSizeChip: { backgroundColor: SURFACE_TOKENS.elevated, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#1f2937' },
   pageSizeChipActive: { borderColor: '#a5b4fc' },
-  pageSizeText: { color: '#94a3b8', fontSize: 11, fontWeight: '700' as const },
-  pageSizeTextActive: { color: '#e2e8f0' },
+  pageSizeText: { color: SURFACE_TOKENS.textSecondary, fontSize: 11, fontWeight: '700' as const },
+  pageSizeTextActive: { color: SURFACE_TOKENS.textPrimary },
 
   errorBanner: { backgroundColor: '#7f1d1d', marginHorizontal: 16, marginTop: 8, padding: 8, borderRadius: 8 },
   errorText: { color: '#fecaca', fontSize: 12 },
@@ -789,10 +790,10 @@ const styles = StyleSheet.create({
   // GAL-001 — Per-lane section in the "all lanes" render mode.
   laneSection: { gap: 8 },
   laneHeader: { paddingTop: 4, paddingBottom: 2 },
-  laneHeaderLabel: { color: '#e2e8f0', fontSize: 14, fontWeight: '800' as const, letterSpacing: 0.2 },
-  laneHeaderHelper: { color: '#94a3b8', fontSize: 11, marginTop: 2 },
+  laneHeaderLabel: { color: SURFACE_TOKENS.textPrimary, fontSize: 14, fontWeight: '800' as const, letterSpacing: 0.2 },
+  laneHeaderHelper: { color: SURFACE_TOKENS.textSecondary, fontSize: 11, marginTop: 2 },
 
-  card: { backgroundColor: '#0b1220', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1f2937' },
+  card: { backgroundColor: SURFACE_TOKENS.elevated, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#1f2937' },
   cardPressed: { borderColor: '#a5b4fc' },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   cardHeadlineWrap: { flex: 1 },
@@ -800,27 +801,27 @@ const styles = StyleSheet.create({
   heatPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   heatPillText: { fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
   tempPill: { backgroundColor: '#1f2937', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  tempPillText: { color: '#94a3b8', fontSize: 10, fontWeight: '700' as const },
+  tempPillText: { color: SURFACE_TOKENS.textSecondary, fontSize: 10, fontWeight: '700' as const },
   botPill: { backgroundColor: '#78350f', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   botPillText: { color: '#fef3c7', fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
   // ARG-ROOM-006 — public/private access badge. Public + private use distinct
   // fills AND distinct text, so meaning survives a grayscale snapshot.
   visibilityPill: { backgroundColor: '#134e4a', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
   visibilityPillPrivate: { backgroundColor: '#4c1d95' },
-  visibilityPillText: { color: '#e2e8f0', fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
+  visibilityPillText: { color: SURFACE_TOKENS.textPrimary, fontSize: 10, fontWeight: '800' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
 
   cardTitle: { color: '#f8fafc', fontSize: 15, fontWeight: '700' as const, marginTop: 6 },
-  starter: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  starter: { color: SURFACE_TOKENS.textMuted, fontSize: 11, marginTop: 2 },
   botRoomMarkerRow: { marginTop: 6 },
 
   excerptBlock: { marginTop: 8 },
-  excerptLabel: { color: '#64748b', fontSize: 9, fontWeight: '800' as const, letterSpacing: 0.4 },
+  excerptLabel: { color: SURFACE_TOKENS.textMuted, fontSize: 9, fontWeight: '800' as const, letterSpacing: 0.4 },
   excerptText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18, marginTop: 2 },
 
   statsRow: { flexDirection: 'row', gap: 16, marginTop: 8 },
   statBlock: { alignItems: 'center' },
   statValue: { color: '#f8fafc', fontWeight: '800' as const, fontSize: 14 },
-  statLabel: { color: '#64748b', fontSize: 10, fontWeight: '700' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
+  statLabel: { color: SURFACE_TOKENS.textMuted, fontSize: 10, fontWeight: '700' as const, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
 
   signalRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 },
   signalChip: { backgroundColor: '#1f2937', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
@@ -829,14 +830,14 @@ const styles = StyleSheet.create({
   signalChipPositive: { backgroundColor: '#064e3b' },
   signalChipText: { color: '#f8fafc', fontSize: 9, fontWeight: '700' as const },
 
-  accessLine: { color: '#94a3b8', fontSize: 11, lineHeight: 16, marginTop: 8 },
+  accessLine: { color: SURFACE_TOKENS.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 8 },
   actionRow: { marginTop: 8, alignItems: 'flex-end' },
   actionText: { color: '#a5b4fc', fontWeight: '800' as const, fontSize: 12 },
-  actionTextSecondary: { color: '#64748b', fontSize: 10, marginTop: 2 },
+  actionTextSecondary: { color: SURFACE_TOKENS.textMuted, fontSize: 10, marginTop: 2 },
 
-  pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 8, backgroundColor: '#0b1220', borderTopWidth: 1, borderTopColor: '#1f2937' },
+  pagerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 8, backgroundColor: SURFACE_TOKENS.elevated, borderTopWidth: 1, borderTopColor: '#1f2937' },
   pageButton: { backgroundColor: '#1f2937', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   pageButtonDisabled: { opacity: 0.4 },
-  pageButtonText: { color: '#e2e8f0', fontWeight: '700' as const, fontSize: 12 },
-  pageStatus: { color: '#94a3b8', fontSize: 12 },
+  pageButtonText: { color: SURFACE_TOKENS.textPrimary, fontWeight: '700' as const, fontSize: 12 },
+  pageStatus: { color: SURFACE_TOKENS.textSecondary, fontSize: 12 },
 });

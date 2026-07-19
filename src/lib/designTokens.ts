@@ -469,6 +469,26 @@ export const CONTROL = {
 
 export type ControlKey = keyof typeof CONTROL;
 
+// ── UX-P2-2 — Chip-tint surface tokens (Era-A-prime) ────────────
+//
+// Three inset-chip SURFACE tints promoted from repeated raw literals. Each is a
+// chip fill or a span-highlight background only -- never a text color, never a
+// verdict / heat / popularity signal (cdiscourse-doctrine sections 1-3). A chip
+// is recognizable by its glyph plus text; the tint is supplementary. Consumers
+// and byte-identity proofs live in docs/designs/UX-P2-2.md.
+//
+//   - quote  : quote / inset-context chip fill  (15 files use this value today)
+//   - proof  : proof / receipt chip fill        (9 files use this value today)
+//   - marker : timestamp-marker source-span highlight tint (single consumer today
+//              -- added as a deliberate design-system tint; see Risks + ledger)
+export const CHIP_TINT = {
+  quote:  '#111827',
+  proof:  '#0c4a6e',
+  marker: '#1e3a5f',
+} as const;
+
+export type ChipTintKey = keyof typeof CHIP_TINT;
+
 // ── UX-001.7 — Touch target preset ──────────────────────────────
 
 /**
@@ -708,6 +728,8 @@ export const TOKENS = {
   motion: MOTION,
   scrim: SCRIM,
   glyphs: GLYPHS,
+  // UX-P2-2 — additive only; existing keys above unchanged.
+  chipTint: CHIP_TINT,
 } as const;
 
 /**

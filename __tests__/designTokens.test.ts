@@ -58,11 +58,12 @@ describe('VG-003 token structure', () => {
     expect(Object.keys(ARGUMENT).sort()).toEqual(['branch', 'challenge', 'claim', 'clarify', 'concede', 'evidence']);
   });
 
-  it('TOKENS aggregate contains all nineteen categories (UX-PR-E added motion / scrim / glyphs)', () => {
+  it('TOKENS aggregate contains all twenty categories (UX-P2-2 added chipTint)', () => {
     expect(Object.keys(TOKENS).sort()).toEqual([
       'argument',
       'borderWidth',     // UX-001.7
       'brand',
+      'chipTint',        // UX-P2-2
       'control',
       'focusRing',       // UX-001.7
       'glow',

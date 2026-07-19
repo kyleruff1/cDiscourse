@@ -25,6 +25,7 @@
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SURFACE_TOKENS, CHIP_TINT } from '../../../lib/designTokens';
 import type { ArgumentBubbleControl } from '../argumentGameSurfaceModel';
 import type { RailActionCode } from '../railActionCategories';
 import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
@@ -65,7 +66,7 @@ const CONTROL_LABEL: Record<ArgumentBubbleControl, string> = {
 
 const PRIMARY_BG = '#4338ca';
 const GHOST_BG = '#1e293b';
-const GHOST_BORDER = '#334155';
+const GHOST_BORDER = SURFACE_TOKENS.inputBorder;
 const DISABLED_BG = '#334155';
 
 export interface RingsideCardProps {
@@ -416,16 +417,16 @@ function CardActionRow(props: RingsideCardProps) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
-    backgroundColor: '#0b1220',
+    backgroundColor: SURFACE_TOKENS.elevated,
     borderWidth: 1,
-    borderColor: '#1e293b',
+    borderColor: SURFACE_TOKENS.border,
     marginVertical: 4,
     marginHorizontal: 8,
     overflow: 'hidden',
   },
   cardActive: {
     borderColor: '#6366f1',
-    backgroundColor: '#0f172a',
+    backgroundColor: SURFACE_TOKENS.overlay,
   },
   row: { flexDirection: 'row', alignItems: 'stretch' },
   spine: { width: 5 },
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   kindLabel: { fontSize: 12, fontWeight: '800', textTransform: 'lowercase' },
   headerMeta: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
-  headerTime: { color: '#64748b', fontSize: 11, marginLeft: 'auto' },
+  headerTime: { color: SURFACE_TOKENS.textMuted, fontSize: 11, marginLeft: 'auto' },
   quoteChip: {
     marginTop: 8,
     alignSelf: 'flex-start',
@@ -443,12 +444,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderLeftWidth: 3,
     borderLeftColor: '#475569',
-    backgroundColor: '#111827',
+    backgroundColor: CHIP_TINT.quote,
     minHeight: 32,
     justifyContent: 'center',
   },
-  quoteChipText: { color: '#94a3b8', fontSize: 12, fontStyle: 'italic' },
-  body: { color: '#e2e8f0', fontSize: 15, lineHeight: 21, marginTop: 8 },
+  quoteChipText: { color: SURFACE_TOKENS.textSecondary, fontSize: 12, fontStyle: 'italic' },
+  body: { color: SURFACE_TOKENS.textPrimary, fontSize: 15, lineHeight: 21, marginTop: 8 },
   // MARK-002 — reply reference chips + the Respond to this affordance.
   markerReplyRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8, alignItems: 'center' },
   respondToThis: {
@@ -458,8 +459,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#111827',
+    borderColor: SURFACE_TOKENS.inputBorder,
+    backgroundColor: CHIP_TINT.quote,
     minHeight: 32,
     minWidth: 44,
     justifyContent: 'center',
@@ -470,7 +471,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#0c4a6e',
+    backgroundColor: CHIP_TINT.proof,
     minHeight: 28,
     justifyContent: 'center',
   },
@@ -482,7 +483,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: '#0d9488',
-    backgroundColor: '#0b1220',
+    backgroundColor: SURFACE_TOKENS.elevated,
     minHeight: 28,
     justifyContent: 'center',
   },
@@ -492,8 +493,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#111827',
+    borderColor: SURFACE_TOKENS.inputBorder,
+    backgroundColor: CHIP_TINT.quote,
     minHeight: 44,
     minWidth: 44,
     justifyContent: 'center',

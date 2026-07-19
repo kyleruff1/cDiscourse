@@ -21,6 +21,7 @@
  */
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { SURFACE_TOKENS, CHIP_TINT } from '../../../lib/designTokens';
 import {
   buildSourceSpanSegments,
   formatMarkerChipLabel,
@@ -119,10 +120,10 @@ export function TimestampMarker(props: TimestampMarkerProps): React.ReactElement
 }
 
 const styles = StyleSheet.create({
-  sourceSpanBody: { color: '#e2e8f0', fontSize: 15, lineHeight: 21, marginTop: 8 },
+  sourceSpanBody: { color: SURFACE_TOKENS.textPrimary, fontSize: 15, lineHeight: 21, marginTop: 8 },
   // Tint PLUS underline: the highlight reads in grayscale (color not the only cue).
   sourceSpanMarked: {
-    backgroundColor: '#1e3a5f',
+    backgroundColor: CHIP_TINT.marker,
     color: '#f8fafc',
     textDecorationLine: 'underline',
     fontWeight: '700',
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderLeftWidth: 3,
     borderLeftColor: '#6366f1',
-    backgroundColor: '#111827',
+    backgroundColor: CHIP_TINT.quote,
     minHeight: 32,
     justifyContent: 'center',
   },
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderLeftWidth: 3,
     borderLeftColor: '#6366f1',
-    backgroundColor: '#111827',
+    backgroundColor: CHIP_TINT.quote,
     minHeight: 32,
   },
   scopeChipText: { flexShrink: 1, color: '#a5b4fc', fontSize: 12, fontWeight: '700', fontStyle: 'italic' },
@@ -161,7 +162,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scopeClearGlyph: { color: '#94a3b8', fontSize: 13 },
+  scopeClearGlyph: { color: SURFACE_TOKENS.textSecondary, fontSize: 13 },
   orphanChip: {
     alignSelf: 'flex-start',
     maxWidth: '100%',
@@ -170,11 +171,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderLeftWidth: 3,
     borderLeftColor: '#475569',
-    backgroundColor: '#0b1220',
+    backgroundColor: SURFACE_TOKENS.elevated,
     minHeight: 32,
     justifyContent: 'center',
     gap: 2,
   },
-  orphanText: { color: '#94a3b8', fontSize: 11, fontWeight: '700' },
-  orphanQuote: { color: '#64748b', fontSize: 12, fontStyle: 'italic' },
+  orphanText: { color: SURFACE_TOKENS.textSecondary, fontSize: 11, fontWeight: '700' },
+  orphanQuote: { color: SURFACE_TOKENS.textMuted, fontSize: 12, fontStyle: 'italic' },
 });
