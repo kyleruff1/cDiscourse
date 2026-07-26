@@ -48,6 +48,10 @@ import {
   MINI_MAP_RAIL_HEIGHT,
   resolveRegionJumpTarget,
 } from './timelineMiniMapModel';
+// UX-P2-12 (issue 941) — shared reduce-motion primitive (A11Y-693). The
+// reduceMotion prop remains the override; the hook adds the OS self-read this
+// component previously lacked (a latent fallback for any prop-less mount).
+import { useReduceMotion } from '../preferences/useReduceMotion';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -278,6 +282,13 @@ export function TimelineMiniMap({
   const [railWidth, setRailWidth] = useState<number>(0);
   const railWidthRef = useRef<number>(0);
 
+  // ── reduce-motion read (shared useReduceMotion hook — issue 941) ──
+  // The reduceMotion prop is the override; the hook falls back to the live OS
+  // value only when the prop is undefined. Both shipped mounts pass the prop,
+  // so this is byte-identical today and adds a correct default for any future
+  // prop-less mount under OS reduce-motion.
+  const effectiveReducedMotion = useReduceMotion(reduceMotion);
+
   // Optional one-shot expand/collapse height transition. Reduce-motion
   // snaps (no animation). The value itself is informational chrome.
   const heightAnim = useRef(new Animated.Value(initiallyExpanded === true ? 1 : 0)).current;
@@ -285,7 +296,7 @@ export function TimelineMiniMap({
   const handleToggleExpand = useCallback(() => {
     setExpanded((prev) => {
       const next = !prev;
-      if (reduceMotion === true) {
+      if (effectiveReducedMotion) {
         heightAnim.setValue(next ? 1 : 0);
       } else {
         Animated.timing(heightAnim, {
@@ -296,7 +307,7 @@ export function TimelineMiniMap({
       }
       return next;
     });
-  }, [heightAnim, reduceMotion]);
+  }, [heightAnim, effectiveReducedMotion]);
 
   const handleRailLayout = useCallback((w: number) => {
     if (typeof w === 'number' && Number.isFinite(w) && w >= 0) {
