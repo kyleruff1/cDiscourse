@@ -37,7 +37,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SURFACE_TOKENS, RADIUS, SPACING } from '../../../lib/designTokens';
+import { SURFACE_TOKENS, RADIUS, SPACING, MOTION } from '../../../lib/designTokens';
 // A11Y-PR0 (#913) — web-only focus trap + focus restore + overlay-layer
 // registration. manageEsc is false: the QOL-030-pinned inline Escape effect
 // below keeps ownership of Escape, and reads isTopmost() so exactly one layer
@@ -48,7 +48,7 @@ import { useOverlayA11y } from '../../a11y/useOverlayA11y';
 import { useReduceMotion } from '../../preferences/useReduceMotion';
 
 /** Flash open/close duration (logical ms) — inside the design's 120-160 band. */
-export const POPOUT_FLASH_DURATION_MS = 140;
+export const POPOUT_FLASH_DURATION_MS = MOTION.fastMs;
 
 /** Anchor edge for the panel. Most popouts anchor near the bottom dock. */
 export type PopoutAnchor = 'bottom' | 'top';

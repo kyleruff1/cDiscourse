@@ -52,6 +52,9 @@ import {
 // reduceMotion prop remains the override; the hook adds the OS self-read this
 // component previously lacked (a latent fallback for any prop-less mount).
 import { useReduceMotion } from '../preferences/useReduceMotion';
+// UX-MOTION-TOKENS (issue 944) — link the expand/collapse duration to the
+// shared MOTION scale. fastMs is 140, byte-identical to the prior literal.
+import { MOTION } from '../../lib/designTokens';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -301,7 +304,7 @@ export function TimelineMiniMap({
       } else {
         Animated.timing(heightAnim, {
           toValue: next ? 1 : 0,
-          duration: 140,
+          duration: MOTION.fastMs,
           useNativeDriver: false,
         }).start();
       }

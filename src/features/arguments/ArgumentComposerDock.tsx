@@ -75,7 +75,7 @@ import {
   DEFAULT_CASUAL_PACING_RULE,
 } from '../modes';
 import type { PacingRule, PacingMoveRecord } from '../modes';
-import { SURFACE_TOKENS } from '../../lib/designTokens';
+import { MOTION, SURFACE_TOKENS } from '../../lib/designTokens';
 // UX-001.3 — composer keyboard shortcut routing. The dock owns the
 // document-level keydown listener; the pure model decides what to do
 // based on the event + the focus context.
@@ -191,7 +191,7 @@ export function ArgumentComposerDock({
     }
     const animation = Animated.timing(progress, {
       toValue: visible ? 1 : 0,
-      duration: 180,
+      duration: MOTION.slowMs,
       useNativeDriver: true,
     });
     animation.start();
