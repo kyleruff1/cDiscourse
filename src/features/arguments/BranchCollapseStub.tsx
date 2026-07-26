@@ -32,7 +32,7 @@
  */
 import React, { type ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { BRAND } from '../../lib/designTokens';
+import { BRAND, TYPOGRAPHY } from '../../lib/designTokens';
 import type { RailStubViewModel } from './branchTopologyModel';
 import type { CollapsedBranchSummary } from './branchGrammarModel';
 
@@ -223,7 +223,7 @@ export function BranchCollapseStub({
 const styles = StyleSheet.create({
   glyph: {
     color: BRAND.text.muted,
-    fontSize: 8,
+    fontSize: TYPOGRAPHY.microLabel.fontSize,
     fontWeight: '700',
     lineHeight: 9,
   },
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   // promote it to a visible caption without a component change.
   summaryLine: {
     color: BRAND.text.muted,
-    fontSize: 9,
+    fontSize: 10,
     lineHeight: 11,
     marginTop: 2,
     width: 0,

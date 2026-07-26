@@ -24,6 +24,8 @@ import type {
   GovernanceControlViewModel,
   GovernanceReactionKind,
 } from './publicSeatModel';
+// UX-P2-6 (issue 939) - applied tag lifts to the shared 10px legibility floor.
+import { TYPOGRAPHY } from '../../lib/designTokens';
 
 interface ChimeInGovernanceControlProps {
   viewModel: GovernanceControlViewModel;
@@ -140,7 +142,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   appliedTag: {
-    fontSize: 9,
+    fontSize: TYPOGRAPHY.microLabel.fontSize,
     fontWeight: '700',
     color: '#1d4ed8',
   },

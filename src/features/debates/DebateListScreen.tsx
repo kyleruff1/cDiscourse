@@ -16,6 +16,8 @@ import type { Debate, CreateDebateInput, CreatedRoom, ParticipantSide } from './
 import type { JoinAttemptResult } from './useDebates';
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
 import { tableFillContentContainerStyle, flexTableColumnStyle } from '../../lib/responsiveTable';
+// UX-P2-6 (issue 939) - visibility pill lifts to the shared 10px legibility floor.
+import { TYPOGRAPHY } from '../../lib/designTokens';
 // ARG-ROOM-006 (items a/e/f) — public/private access badge + plain-language
 // access line on each list row (parity with the gallery). No counts are loaded
 // here, so the deriver degrades public rooms to `public_open` (no enumeration).
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
   headerCellActive: { backgroundColor: '#e0e7ff' },
   headerCellText: { fontSize: 11, fontWeight: '700', color: '#1f2937', textTransform: 'uppercase' },
   headerCellTextActive: { color: '#4338ca' },
-  headerCellSubtext: { fontSize: 9, color: '#6b7280', marginTop: 2 },
+  headerCellSubtext: { fontSize: 10, color: '#6b7280', marginTop: 2 },
   bodyScroller: { flex: 1 },
   row: {
     flexDirection: 'row',
@@ -493,10 +495,10 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   visibilityPill: { backgroundColor: '#ccfbf1', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999 },
   visibilityPillPrivate: { backgroundColor: '#ede9fe' },
-  visibilityPillText: { fontSize: 9, fontWeight: '800', color: '#111827', textTransform: 'uppercase', letterSpacing: 0.3 },
+  visibilityPillText: { fontSize: TYPOGRAPHY.microLabel.fontSize, fontWeight: '800', color: '#111827', textTransform: 'uppercase', letterSpacing: 0.3 },
   accessLine: { fontSize: 11, color: '#6b7280', marginTop: 3 },
   timeAbsolute: { fontSize: 11, color: '#111827', fontVariant: ['tabular-nums'] as ['tabular-nums'] },
   timeRelative: { fontSize: 10, color: '#6b7280' },
-  fallbackHint: { fontSize: 9, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 },
+  fallbackHint: { fontSize: 10, color: '#9ca3af', fontStyle: 'italic', marginTop: 2 },
   actionText: { fontSize: 12, fontWeight: '600', color: '#4338ca' },
 });
