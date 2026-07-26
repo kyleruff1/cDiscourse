@@ -231,6 +231,37 @@ The storage lane is **AWS S3 from day one** (D2): SSE-S3 encryption, **versionin
 - Consent version gate
 - Text fallback in every entry window
 - Family K payload schema contains no URL / audio field
+- `one_time_playback` coupled to `voice_entries` (flag-registry test; no `voice_entries`-ON / `one_time_playback`-OFF state without a versioned intermediate consent) — §13.1
+- Mic teaser + Speak gate on room type per D4 (composer gating-matrix test; slot absent and out of web focus order in circle / public rooms) — §13.2
+
+---
+
+## §13 Flag-coupling invariants (pre-flip gates)
+
+The 2026-07 UX continuity audit (ACTION_PLAN items P3-V9 and P3-V10) surfaced two flag-coupling risks **after** this ADR was drafted. Both are recorded here as **binding pre-flip gates**: every future voice card AND any operator flip of a voice flag must satisfy them before shipping. Like every section above, a card that violates either invariant is not mergeable; and because these invariants govern flag *state*, a flip that violates either is not armable.
+
+The two voice flags are the only members of the eleven ASP surface flags (`AspFeatureFlag`, `src/lib/featureFlags.ts:47`) still dark. Each is a default-OFF resolver — true only when its `EXPO_PUBLIC_*` var resolves to the exact string `'true'`:
+
+- **`voice_entries`** — resolver `isVoiceEntriesEnabled` (`src/lib/featureFlags.ts:120`); env var `EXPO_PUBLIC_VOICE_ENTRIES` (`VOICE_ENTRIES_FLAG`, :78); registry descriptor at :223.
+- **`one_time_playback`** — resolver `isOneTimePlaybackEnabled` (`src/lib/featureFlags.ts:136`); env var `EXPO_PUBLIC_ONE_TIME_PLAYBACK` (`ONE_TIME_PLAYBACK_FLAG`, :80); registry descriptor at :233.
+
+(Citations verified against the source by symbol, 2026-07-26; the audit's original line numbers are superseded by these current refs. Both flags remain present and dark, exactly as the audit found them.)
+
+### §13.1 `one_time_playback` is coupled to `voice_entries` — no stored-but-freely-replayable state
+
+**Risk.** `voice_entries` ON while `one_time_playback` OFF is an intermediate state in which audio is *stored* (§1) but *freely replayable* with no receipt gate — directly contradicting §2's one-listen consent promise and bypassing §3's receipt-before-URL enforcement (the `UNIQUE(recording_id, listener_id)` INSERT that must precede every URL mint). A listener told "this plays once" could replay without limit; the consent copy would describe a gate the running system does not enforce.
+
+**Binding rule (pre-flip gate).** The two flags **flip together** — `voice_entries` is NEVER ON while `one_time_playback` is OFF. The one permitted way to run `voice_entries` ahead of `one_time_playback` is if the intermediate-state consent copy (one that does NOT promise one-listen) is authored and consent-versioned FIRST — a `voice_consent_version` bump per §2 — so the promise the app makes matches the gate the app enforces. No voice flag flips until one of these two conditions holds.
+
+**Required downstream test.** A flag-registry test asserts the coupling over `ASP_FEATURE_FLAGS` (`src/lib/featureFlags.ts:214`): it must be impossible to reach a resolved state where `voice_entries` is enabled and `one_time_playback` is disabled without the intermediate-state consent version present. The test fails on any `voice_entries`-ON / `one_time_playback`-OFF combination lacking that versioned intermediate consent.
+
+### §13.2 The mic teaser and the Speak affordance gate on room type per D4
+
+**Risk.** The "Voice — coming soon" composer teaser today renders **ungated in every room type**. Its copy lives at `ARGUMENT_ENTRY_COMPOSER_COPY.micLabel` (`'Voice — coming soon'`) and `.micA11yLabel` (`src/features/arguments/composer/argumentEntryComposerModel.ts:50-51`); it is rendered by the reserved, `disabled` voice `Pressable` at `src/features/arguments/composer/ArgumentEntryComposer.tsx:369-379` (testID `argument-entry-composer-mic`), with no room-type condition around it. D4 launches voice in **private 1:1 rooms only** — circle rooms and public rooms are excluded (§5) — so a teaser shown in circle and public composers advertises a capability the launch scope cannot keep in those rooms.
+
+**Binding rule (pre-flip gate).** When voice ships, BOTH the Speak affordance AND the teaser that precedes it gate on room type per D4: they render only in private 1:1 rooms and are absent in circle and public rooms. Where the slot is absent it is **excluded from the web focus order**, not merely `disabled` — a `disabled` Pressable can still take keyboard focus on RN Web, so a gated-out slot must not be present in the tree at all (the accessibility floor; see `accessibility-targets`). Until the room-type gate exists, the teaser is a promise the D4 scope cannot honor outside 1:1 rooms.
+
+**Required downstream test.** A composer gating-matrix test asserts, by room type (private 1:1 · circle · public), that the mic teaser slot — and, once shipped, the Speak affordance — is present ONLY in private 1:1 rooms and is absent, and outside the focus order, in circle and public rooms.
 
 ---
 
