@@ -20,15 +20,14 @@
  * as children. The chassis itself authors no flash-menu copy.
  *
  * Doctrine / accessibility:
- *  - Reduce-motion is read from `AccessibilityInfo`, with a caller
+ *  - Reduce-motion is read via the shared useReduceMotion hook, with a caller
  *    override winning (mirrors `ArgumentComposerDock`).
  *  - The header label + close control are plain language; the close
  *    control is a ≥ 44×44 `Pressable` with role + label.
  *  - Presentational. No Supabase, no network, no AI.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  AccessibilityInfo,
   Animated,
   Modal,
   Platform,
@@ -44,6 +43,9 @@ import { SURFACE_TOKENS, RADIUS, SPACING } from '../../../lib/designTokens';
 // below keeps ownership of Escape, and reads isTopmost() so exactly one layer
 // closes per keypress (single-Esc arbitration). Native is a no-op.
 import { useOverlayA11y } from '../../a11y/useOverlayA11y';
+// UX-P2-12 (issue 941) — shared reduce-motion primitive (A11Y-693). Replaces
+// the prior inline OS read; the hook honors the same reduceMotionOverride prop.
+import { useReduceMotion } from '../../preferences/useReduceMotion';
 
 /** Flash open/close duration (logical ms) — inside the design's 120-160 band. */
 export const POPOUT_FLASH_DURATION_MS = 140;
@@ -64,7 +66,7 @@ export interface PopoutProps {
   anchor?: PopoutAnchor;
   /**
    * Effective reduce-motion (OS value composed with the user's
-   * preference). When omitted the popout reads `AccessibilityInfo` itself.
+   * preference). When omitted the popout reads the OS reduce-motion value itself.
    * Mirrors `ArgumentComposerDock.reduceMotionOverride`.
    */
   reduceMotionOverride?: boolean;
@@ -108,45 +110,10 @@ export function Popout({
   panelWidthOverride,
   testID,
 }: PopoutProps) {
-  // ── reduce-motion read (mirrors ArgumentComposerDock) ──
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    try {
-      const result = AccessibilityInfo.isReduceMotionEnabled();
-      if (result && typeof result.then === 'function') {
-        result
-          .then((enabled) => {
-            if (!cancelled) setPrefersReducedMotion(enabled === true);
-          })
-          .catch(() => {
-            // Some platforms (web shim, jest) reject — keep the default.
-          });
-      }
-    } catch {
-      // API unavailable — keep the default.
-    }
-    let subscription: { remove: () => void } | null = null;
-    try {
-      subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
-        if (!cancelled) setPrefersReducedMotion(enabled === true);
-      });
-    } catch {
-      // Listener API unavailable — the one-shot read above still works.
-    }
-    return () => {
-      cancelled = true;
-      try {
-        subscription?.remove();
-      } catch {
-        // Swallow — listener may already be torn down.
-      }
-    };
-  }, []);
-
-  // The threaded effective reduce-motion value WINS over the OS read.
-  const effectiveReducedMotion =
-    typeof reduceMotionOverride === 'boolean' ? reduceMotionOverride : prefersReducedMotion;
+  // ── reduce-motion read (shared useReduceMotion hook — issue 941) ──
+  // Behavior-preserving dedupe: the hook returns the identical value and honors
+  // the same reduceMotionOverride prop as the prior inline OS read.
+  const effectiveReducedMotion = useReduceMotion(reduceMotionOverride);
 
   // ── flash animation ──
   // `progress` 0 = closed, 1 = open. Reduce-motion → snap (no fade).

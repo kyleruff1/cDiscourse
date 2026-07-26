@@ -31,7 +31,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   Animated,
   Platform,
   Pressable,
@@ -65,6 +64,9 @@ import {
   type OpenIssueLedgerEntry,
   type OpenIssuesLedger,
 } from './openIssuesRailModel';
+// UX-P2-12 (issue 941) — shared reduce-motion primitive (A11Y-693). Replaces
+// the prior inline OS read; the hook honors the same reduceMotionOverride prop.
+import { useReduceMotion } from '../../preferences/useReduceMotion';
 
 /** Rows shown before the in-panel "+N more" reveal. Shared with the model default. */
 export const OPEN_ISSUES_RAIL_INITIAL_ROWS = DEFAULT_MAX_ENTRIES;
@@ -125,44 +127,10 @@ export function OpenIssuesRail({
   // Local "+N more" reveal — independent of the host's build cap.
   const [showAll, setShowAll] = useState(false);
 
-  // ── reduce-motion read (mirrors ArgumentSideActionRail) ──
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    try {
-      const result = AccessibilityInfo.isReduceMotionEnabled();
-      if (result && typeof result.then === 'function') {
-        result
-          .then((enabled) => {
-            if (!cancelled) setPrefersReducedMotion(enabled === true);
-          })
-          .catch(() => {
-            // Some platforms (web shim, jest) reject — keep the default.
-          });
-      }
-    } catch {
-      // API unavailable — keep the default.
-    }
-    let subscription: { remove: () => void } | null = null;
-    try {
-      subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
-        if (!cancelled) setPrefersReducedMotion(enabled === true);
-      });
-    } catch {
-      // Listener API unavailable — the one-shot read above still works.
-    }
-    return () => {
-      cancelled = true;
-      try {
-        subscription?.remove();
-      } catch {
-        // Swallow — listener may already be torn down.
-      }
-    };
-  }, []);
-
-  const effectiveReducedMotion =
-    typeof reduceMotionOverride === 'boolean' ? reduceMotionOverride : prefersReducedMotion;
+  // ── reduce-motion read (shared useReduceMotion hook — issue 941) ──
+  // Behavior-preserving dedupe: the hook returns the identical value and honors
+  // the same reduceMotionOverride prop as the prior inline OS read.
+  const effectiveReducedMotion = useReduceMotion(reduceMotionOverride);
 
   // ── mutual exclusion with the side action rail / node dock ──
   const expanded = !collapsed && !isAnyPanelOpen;

@@ -387,9 +387,12 @@ describe('TimelineMiniMap — marker positioning', () => {
 // ── reduce motion ───────────────────────────────────────────────
 
 describe('TimelineMiniMap — reduce motion', () => {
-  it('the expand/collapse height transition snaps when reduceMotion is true', () => {
-    // reduceMotion true → setValue (snap); false → Animated.timing.
-    expect(COMPONENT_SRC).toMatch(/reduceMotion\s*===\s*true/);
+  it('the expand/collapse height transition snaps when effective reduce-motion is on', () => {
+    // UX-P2-12 (issue 941) — the guard now reads the shared useReduceMotion
+    // hook (reduceMotion prop is the override; the hook adds an OS fallback).
+    // effectiveReducedMotion true → setValue (snap); false → Animated.timing.
+    expect(COMPONENT_SRC).toMatch(/useReduceMotion\(reduceMotion\)/);
+    expect(COMPONENT_SRC).toMatch(/effectiveReducedMotion/);
     expect(COMPONENT_SRC).toContain('heightAnim.setValue');
     expect(COMPONENT_SRC).toContain('Animated.timing');
   });
