@@ -124,6 +124,44 @@ export const ARGUMENT = {
 
 export type ArgumentKindKey = keyof typeof ARGUMENT;
 
+// ── UX-P2-4 — canonical timeline kind + tone palettes ───────────
+
+// UX-P2-4 (issue 937) - canonical timeline KIND palette. Byte-identical
+// relocation of the former argumentGameSurfaceModel map; no re-hue in this
+// step. Flat hex strings, NOT the ARGUMENT bg/fg pair shape - a separate
+// sibling export so the ARGUMENT pair-shape validity test is unaffected.
+// Re-exported from argumentGameSurfaceModel under the historical name
+// TIMELINE_KIND_COLORS so all six consumers stay unchanged.
+export const TIMELINE_KIND = {
+  claim:     '#6366f1',
+  challenge: '#f97316',
+  evidence:  '#06b6d4',
+  clarify:   '#f59e0b',
+  concede:   '#a855f7',
+  flag:      '#ef4444',
+  default:   '#475569',
+} as const;
+
+export type TimelineKindTokenKey = keyof typeof TIMELINE_KIND;
+
+// UX-P2-4 (issue 937) - canonical timeline TONE palette (Option C, operator
+// ruled). A neutral-to-warm intensity ramp: cool cyan at rest, indigo at
+// measured, orange at heated, deep rust at hostile. No green pole and no
+// crimson pole - it carries the exchange temperature, never a verdict
+// (cdiscourse-doctrine section 1/2). Every value already exists elsewhere in
+// the tree, so this introduces zero new hex. It replaces the three drifted
+// copies formerly held privately by railSegmentModel, timelineNodeVisualModel,
+// and argumentGameSurfaceModel; all three now read this one source.
+export const TIMELINE_TONE = {
+  calm:     '#22d3ee',
+  measured: '#818cf8',
+  heated:   '#f97316',
+  hostile:  '#9a3412',
+  unknown:  '#94a3b8',
+} as const;
+
+export type TimelineToneTokenKey = keyof typeof TIMELINE_TONE;
+
 // ── BRAND-001 — CivilDiscourse brand tokens ─────────────────────
 
 /**
@@ -730,6 +768,10 @@ export const TOKENS = {
   glyphs: GLYPHS,
   // UX-P2-2 — additive only; existing keys above unchanged.
   chipTint: CHIP_TINT,
+  // UX-P2-4 — additive only; existing keys above unchanged. Canonical
+  // timeline kind + tone palettes (issue 937).
+  timelineKind: TIMELINE_KIND,
+  timelineTone: TIMELINE_TONE,
 } as const;
 
 /**
