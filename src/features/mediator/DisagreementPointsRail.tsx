@@ -36,6 +36,7 @@ import {
 } from 'react-native';
 import {
   BORDER_WIDTH,
+  MOTION,
   RADIUS,
   SPACING,
   SURFACE_TOKENS,
@@ -261,7 +262,7 @@ export function DisagreementPointsRail({
     }
     const animation = Animated.timing(progress, {
       toValue: expanded ? 1 : 0,
-      duration: 160,
+      duration: MOTION.baseMs,
       useNativeDriver: true,
     });
     animation.start();

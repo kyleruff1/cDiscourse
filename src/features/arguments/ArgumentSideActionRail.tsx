@@ -60,6 +60,9 @@ import type { ParticipantSide } from '../debates/types';
 // UX-P2-12 (issue 941) — shared reduce-motion primitive (A11Y-693). Replaces
 // the prior inline OS read; the hook honors the same reduceMotionOverride prop.
 import { useReduceMotion } from '../preferences/useReduceMotion';
+// UX-MOTION-TOKENS (issue 944) — link the slide duration to the shared MOTION
+// scale. baseMs is 160, byte-identical to the prior literal; no timing change.
+import { MOTION } from '../../lib/designTokens';
 
 // Re-export the rail-action category model so existing call sites and
 // tests that import from './ArgumentSideActionRail' continue to work
@@ -261,7 +264,7 @@ export function ArgumentSideActionRail({
     }
     const animation = Animated.timing(progress, {
       toValue: expanded ? 1 : 0,
-      duration: 160,
+      duration: MOTION.baseMs,
       useNativeDriver: true,
     });
     animation.start();
