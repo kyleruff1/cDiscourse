@@ -24,6 +24,7 @@ import {
   derivePlaceholderBranchKind,
   RAIL_ACTIVE_PATH_GLOW,
   RAIL_SOURCE_CHAIN_TEAL,
+  TONE_BAND_HEX,
   VISIBLE_SLICE_DEFAULT_BUFFER_PX,
   visibleSegmentSlice,
   type RailBranchKind,
@@ -357,17 +358,17 @@ describe('VG-002 — tone wash alpha lookup', () => {
     });
   }
 
-  const toneCases: Array<[TimelineToneBand, string]> = [
-    ['calm', '#22c55e'],
-    ['measured', '#3b82f6'],
-    ['heated', '#f97316'],
-    ['hostile', '#ef4444'],
-    ['unknown', '#94a3b8'],
-  ];
-  for (const [tone, hex] of toneCases) {
-    it(`tone ${tone} → color ${hex}`, () => {
+  // UX-P2-4 (issue 937) - the tone hue byte-pin is replaced by an import-equality
+  // assertion against the canonical TONE_BAND_HEX (which now re-exports
+  // designTokens.TIMELINE_TONE). The behavior asserted is unchanged: deriveToneWash
+  // returns the canonical hue per band. The literal hexes are pinned exactly once
+  // in the suite, in uxP2FourPaletteConsolidation.test.ts, so a retune flows here
+  // automatically and cannot be satisfied by copying stale values.
+  const toneBands: TimelineToneBand[] = ['calm', 'measured', 'heated', 'hostile', 'unknown'];
+  for (const tone of toneBands) {
+    it(`tone ${tone} → canonical TONE_BAND_HEX hue`, () => {
       const s = deriveRailSegmentStyle(fakeInput({ toneBand: tone, temperatureBand: 'warm' }));
-      expect(s.toneWash.color).toBe(hex);
+      expect(s.toneWash.color).toBe(TONE_BAND_HEX[tone]);
     });
   }
 });

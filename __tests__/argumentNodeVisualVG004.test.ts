@@ -34,7 +34,7 @@ import {
 } from '../src/features/arguments/argumentGameSurfaceModel';
 import { buildBranchCollapseStubLabelParts } from '../src/features/arguments/BranchCollapseStub';
 import type { RailStubViewModel } from '../src/features/arguments/branchTopologyModel';
-import { GLOW, RECEIPT_MARK, ARGUMENT, BRAND } from '../src/lib/designTokens';
+import { GLOW, RECEIPT_MARK, ARGUMENT, BRAND, TIMELINE_TONE } from '../src/lib/designTokens';
 import { looksLikeInternalCode } from '../src/features/arguments/gameCopy';
 
 // ── Ban-list ─────────────────────────────────────────────────────
@@ -308,20 +308,17 @@ describe('VG-004 — deriveTimelineNodeVisualStyle: tone tint', () => {
     expect(v.toneTint).toBeNull();
   });
 
-  it('tint color comes from the VG-002 tone-band hue table', () => {
-    const expected: Record<TimelineToneBand, string> = {
-      calm: '#22c55e',
-      measured: '#3b82f6',
-      heated: '#f97316',
-      hostile: '#ef4444',
-      unknown: '#94a3b8',
-    };
+  it('tint color comes from the canonical tone-band hue table', () => {
+    // UX-P2-4 (issue 937) - the literal expected map is replaced by the canonical
+    // designTokens.TIMELINE_TONE (Option C). The surrounding behavioral assertions
+    // (alpha cap, null off active path, only-toneTint-differs) stay exactly as-is;
+    // this one pins the hue source by reference so a retune cannot drift a copy.
     for (const tone of ALL_TONE_BANDS) {
       const v = deriveTimelineNodeVisualStyle(
         visualInput({ isActivePath: true, toneBand: tone }),
       );
       expect(v.toneTint).not.toBeNull();
-      expect(v.toneTint!.color).toBe(expected[tone]);
+      expect(v.toneTint!.color).toBe(TIMELINE_TONE[tone]);
     }
   });
 
