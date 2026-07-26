@@ -41,7 +41,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   Animated,
   Modal,
   Platform,
@@ -88,6 +87,9 @@ import { triggerHaptic } from './composer/composerHaptics';
 // handler below owns Escape and reads isTopmost() so it falls silent whenever
 // an overlay (popout / mode switcher / pre-send sheet) is stacked above.
 import { useOverlayA11y } from '../a11y/useOverlayA11y';
+// UX-P2-12 (issue 941) — shared reduce-motion primitive (A11Y-693). Replaces
+// the prior inline OS read; the hook honors the same reduceMotionOverride prop.
+import { useReduceMotion } from '../preferences/useReduceMotion';
 
 /** Width (logical px) at or above which the dock is a right-side panel. */
 export const DOCK_SIDE_BREAKPOINT = 720;
@@ -125,7 +127,7 @@ interface ArgumentComposerDockProps {
   onSubmitSuccess: () => void;
   /**
    * PR-001 — effective reduce-motion (OS value composed with the user's
-   * preference). When omitted the dock reads AccessibilityInfo itself.
+   * preference). When omitted the dock reads the OS reduce-motion value itself.
    */
   reduceMotionOverride?: boolean;
   /**
@@ -172,46 +174,10 @@ export function ArgumentComposerDock({
   const { width } = useWindowDimensions();
   const variant = resolveDockLayoutVariant(width);
 
-  // ── reduce-motion read (mirrors TimelineNodePopover / ArgumentTimelineMap) ──
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    try {
-      const result = AccessibilityInfo.isReduceMotionEnabled();
-      if (result && typeof result.then === 'function') {
-        result
-          .then((enabled) => {
-            if (!cancelled) setPrefersReducedMotion(enabled === true);
-          })
-          .catch(() => {
-            // Some platforms (web shim, jest) reject — keep the default.
-          });
-      }
-    } catch {
-      // API unavailable — keep the default.
-    }
-    let subscription: { remove: () => void } | null = null;
-    try {
-      subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
-        if (!cancelled) setPrefersReducedMotion(enabled === true);
-      });
-    } catch {
-      // Listener API unavailable — the one-shot read above still works.
-    }
-    return () => {
-      cancelled = true;
-      try {
-        subscription?.remove();
-      } catch {
-        // Swallow — listener may already be torn down.
-      }
-    };
-  }, []);
-
-  // PR-001 — the threaded effective reduce-motion value WINS over the
-  // component's own OS read. Omitting the prop keeps the OS read.
-  const effectiveReducedMotion =
-    typeof reduceMotionOverride === 'boolean' ? reduceMotionOverride : prefersReducedMotion;
+  // ── reduce-motion read (shared useReduceMotion hook — issue 941) ──
+  // Behavior-preserving dedupe: the hook returns the identical value and honors
+  // the same reduceMotionOverride prop as the prior inline OS read.
+  const effectiveReducedMotion = useReduceMotion(reduceMotionOverride);
 
   // ── slide / fade animation ──
   // `progress` 0 = closed, 1 = open. When reduce-motion is on we drive
