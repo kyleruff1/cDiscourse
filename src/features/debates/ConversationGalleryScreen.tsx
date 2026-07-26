@@ -10,7 +10,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SURFACE_TOKENS } from '../../lib/designTokens';
+import { SURFACE_TOKENS, TYPOGRAPHY } from '../../lib/designTokens';
 import type { Debate, CreateDebateInput, CreatedRoom, ParticipantSide } from './types';
 import type { JoinAttemptResult } from './useDebates';
 // NAV-START-ARGUMENT-001 Slice A — the New Argument surface is replaced by
@@ -815,7 +815,7 @@ const styles = StyleSheet.create({
   botRoomMarkerRow: { marginTop: 6 },
 
   excerptBlock: { marginTop: 8 },
-  excerptLabel: { color: SURFACE_TOKENS.textMuted, fontSize: 9, fontWeight: '800' as const, letterSpacing: 0.4 },
+  excerptLabel: { color: SURFACE_TOKENS.textMuted, fontSize: TYPOGRAPHY.microLabel.fontSize, fontWeight: '800' as const, letterSpacing: 0.4 },
   excerptText: { color: '#cbd5e1', fontSize: 13, lineHeight: 18, marginTop: 2 },
 
   statsRow: { flexDirection: 'row', gap: 16, marginTop: 8 },
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
   signalChipCritical: { backgroundColor: '#7f1d1d' },
   signalChipWarning: { backgroundColor: '#7c2d12' },
   signalChipPositive: { backgroundColor: '#064e3b' },
-  signalChipText: { color: '#f8fafc', fontSize: 9, fontWeight: '700' as const },
+  signalChipText: { color: '#f8fafc', fontSize: TYPOGRAPHY.microLabel.fontSize, fontWeight: '700' as const },
 
   accessLine: { color: SURFACE_TOKENS.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 8 },
   actionRow: { marginTop: 8, alignItems: 'flex-end' },

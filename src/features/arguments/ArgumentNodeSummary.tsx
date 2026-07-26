@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { ArgumentRow } from './types';
+// UX-P2-6 (issue 939) - type badge lifts to the shared 10px legibility floor.
+import { TYPOGRAPHY } from '../../lib/designTokens';
 
 interface Props {
   argument: ArgumentRow;
@@ -57,6 +59,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 1,
   },
-  typeText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+  typeText: { fontSize: TYPOGRAPHY.microLabel.fontSize, fontWeight: '700', letterSpacing: 0.5 },
   body: { flex: 1, fontSize: 12, color: '#374151' },
 });

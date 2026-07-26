@@ -18,6 +18,8 @@ import {
   formatQualifierLabel,
   getQualifierUiNudge,
 } from './messageQualifiers';
+// UX-P2-6 (issue 939) - micro-label lifts to the shared 10px legibility floor.
+import { TYPOGRAPHY } from '../../lib/designTokens';
 
 interface Props {
   draft: {
@@ -105,7 +107,7 @@ const styles = StyleSheet.create({
   cardNudge: { borderColor: '#10b981' },
   cardWarning: { borderColor: '#f59e0b', backgroundColor: '#451a03' },
   cardPointStanding: { borderColor: '#0ea5e9', backgroundColor: '#082f49' },
-  cardLabel: { color: '#94a3b8', fontSize: 9, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.5 },
+  cardLabel: { color: '#94a3b8', fontSize: TYPOGRAPHY.microLabel.fontSize, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.5 },
   cardValue: { color: '#f8fafc', fontSize: 12, fontWeight: '700', marginTop: 2 },
   advisory: { color: '#64748b', fontSize: 10, fontStyle: 'italic', width: '100%', marginTop: 4 },
 });

@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   markerKind: { color: '#cbd5e1', fontSize: 11, fontWeight: '700' },
   markerKindActive: { color: '#e0e7ff' },
   markerOrdinal: { color: '#64748b', fontSize: 10 },
-  markerBadges: { color: '#94a3b8', fontSize: 9, marginTop: 2 },
+  markerBadges: { color: '#94a3b8', fontSize: 10, marginTop: 2 },
   timeRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 6 },
   timeBlock: { alignItems: 'flex-start' },
   timeLabel: { color: '#64748b', fontSize: 10, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.6 },

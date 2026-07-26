@@ -19,6 +19,8 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+// UX-P2-6 (issue 939) - band chip label lifts to the shared 10px legibility floor.
+import { TYPOGRAPHY } from '../../lib/designTokens';
 import type { ArgumentBubbleControl } from './argumentGameSurfaceModel';
 import type { TimelineNodePopoverModel } from './timelineNodePopoverModel';
 // SUNSET-003 — the popover model carries the raw tone / temperature band
@@ -395,7 +397,7 @@ const styles = StyleSheet.create({
   bodyPreview: { color: '#cbd5e1', fontSize: 13, lineHeight: 18 },
   bandRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 },
   bandChip: { backgroundColor: '#1e293b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 1, minWidth: 84 },
-  bandLabel: { color: '#94a3b8', fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  bandLabel: { color: '#94a3b8', fontSize: TYPOGRAPHY.microLabel.fontSize, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
   bandValue: { color: '#e2e8f0', fontSize: 12, fontWeight: '700' },
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 },
   actionChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
