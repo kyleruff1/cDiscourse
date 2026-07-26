@@ -74,8 +74,13 @@ function isRedFamily(hex: string): boolean {
   return nearRed && sat >= 0.15 && max >= 80;
 }
 
-// The six content-state files carrying the COHESION section 6 red-doctrine debt.
+// The seven content-state / token files carrying the COHESION section 6
+// red-doctrine debt. UX-P2-4 (issue 937) added src/lib/designTokens.ts: the
+// canonical kind flag red (#ef4444) was relocated into it, so scanning it is
+// what keeps the ratchet honest rather than letting a red slip into an
+// unwatched file.
 const SCAN_SET_P9: readonly string[] = [
+  'src/lib/designTokens.ts',
   'src/features/debates/ConversationGalleryScreen.tsx',
   'src/features/arguments/argumentGameSurfaceModel.ts',
   'src/features/arguments/argumentScoreModel.ts',
@@ -89,25 +94,34 @@ const SCAN_SET_P9: readonly string[] = [
 // still fires. A burn-down PR that removes a red MUST shrink this map in the
 // same PR; the allowlist-completeness test below fails loudly on a stale entry.
 const ALLOWLIST_P9: Record<string, readonly string[]> = {
+  // designTokens: #ef4444 is the canonical timeline kind flag red, relocated
+  //   here by UX-P2-4 (issue 937) - flag genuinely is a review/failure
+  //   affordance, the one role #9 permits red for, so it is legitimately kept.
+  //   #7f1d1d/#fecaca (STATUS.danger bg/fg) and #fca5a5 (CONTROL.danger fg) are
+  //   pre-existing app-failure/danger surfaces - also the sanctioned #9 role.
+  //   All four are the exact on-disk red set of this newly scanned token file.
+  'src/lib/designTokens.ts': ['#ef4444', '#7f1d1d', '#fecaca', '#fca5a5'], // kind flag + danger surfaces - KEEP (issue 937)
   // gallery: #7f1d1d/#fecaca serve BOTH a legit errorBanner/errorText (an
   //   app-failure red, correct per #9, KEEP) AND a content misuse (overheated
   //   heat pill, signalChipCritical) burned down in P2-9. Same hex, two roles;
   //   a hex-literal scan cannot separate them, so both are allowlisted.
   'src/features/debates/ConversationGalleryScreen.tsx': ['#7f1d1d', '#fecaca'], // P2-9 misuse / KEEP error surface
-  // flag kind (#ef4444), tone-hostile (#dc2626) — P1-7. The standing-band red
-  // (#b91c1c) was re-ramped to indigo by UX-PR-F-prime (issue 931), so it is
-  // dropped from both the map value and this allowlist in the same change; the
-  // remaining reds are the still-pending tone/kind burn-down.
-  'src/features/arguments/argumentGameSurfaceModel.ts': ['#ef4444', '#dc2626'], // P1-7 tone/kind burn-down pending
+  // UX-P2-4 (issue 937) burned down both remaining reds here: the kind flag
+  // #ef4444 was relocated to designTokens.TIMELINE_KIND (part a) and the drifted
+  // tone-hostile #dc2626 was deleted with TONE_BAND_COLOR (part b, Option C uses
+  // rust #9a3412, not red). No raw red literal remains, so this allowlist is now
+  // empty. The standing-band red was re-ramped to indigo earlier by UX-PR-F-prime.
+  'src/features/arguments/argumentGameSurfaceModel.ts': [], // tone/kind reds relocated + re-hued — UX-P2-4
   // UX-PR-F (issue 929) burned down the standing-band red duplicates: the byte-identical
   // local map in argumentScoreModel and the inline sparkline ternary in ArgumentScoreTracker
-  // now reference the canonical STANDING_BAND_COLOR in argumentGameSurfaceModel (which keeps
-  // its own #b91c1c allowlist entry above). No raw red literal remains in these two files, so
-  // per the burn-down contract their allowlists shrink to empty here. P1-7 re-ramp still pending.
+  // now reference the canonical STANDING_BAND_COLOR in argumentGameSurfaceModel. No raw red
+  // literal remains in these two files, so per the burn-down contract their allowlists are empty.
   'src/features/arguments/argumentScoreModel.ts': [], // standing-band dup removed — UX-PR-F, canonical single-source
   'src/features/arguments/ArgumentScoreTracker.tsx': [], // inline sparkline ternary retargeted to canonical keys — UX-PR-F
-  'src/features/arguments/ArgumentTimelineNode.tsx': ['#ef4444'], // legacy TRACK_COLORS counter — P1-7 (Era C, also P3-3)
-  'src/features/arguments/ArgumentTrack.tsx': ['#ef4444'], // legacy TRACK_ACCENT counter — P1-7 (Era C, also P3-3)
+  // UX-P2-4 (issue 937) re-hued the legacy counter lane #ef4444 to challenge
+  // orange #f97316 in both files, so their allowlists shrink to empty.
+  'src/features/arguments/ArgumentTimelineNode.tsx': [], // legacy TRACK_COLORS counter re-hued — UX-P2-4
+  'src/features/arguments/ArgumentTrack.tsx': [], // legacy TRACK_ACCENT counter re-hued — UX-P2-4
 };
 
 // Unique red-family hexes in a source string.
@@ -126,8 +140,8 @@ function offendersFor(relPath: string, seeded = ''): string[] {
 // ── The guard: no red offenders (post-allowlist) in the scan set ──
 
 describe('UX-PR-D principle #9 — content-state files carry no red outside the allowlist', () => {
-  it('the scan set covers all six content-state targets', () => {
-    expect(SCAN_SET_P9).toHaveLength(6);
+  it('the scan set covers all seven content-state targets', () => {
+    expect(SCAN_SET_P9).toHaveLength(7);
     // Object.keys, not toHaveProperty: the file paths contain dots, which
     // toHaveProperty would misread as a nested key path.
     const allowKeys = Object.keys(ALLOWLIST_P9);

@@ -17,6 +17,11 @@
  */
 
 import { formatDateTime, formatRelativeShort } from '../../lib/formatDateTime';
+// UX-P2-4 (issue 937) - canonical timeline kind + tone palettes. This module
+// re-exports TIMELINE_KIND under the historical name TIMELINE_KIND_COLORS and
+// reads TIMELINE_TONE for the edge gradient tone stop; the drifted local maps
+// were deleted so there is one source per palette.
+import { TIMELINE_KIND, TIMELINE_TONE } from '../../lib/designTokens';
 // VG-004 — density-aware inter-node spacing. `timelineNodeVisualModel`
 // only imports *types* from this file (erased at compile time), so this
 // is a one-directional runtime dependency, not a runtime import cycle.
@@ -821,15 +826,10 @@ const KIND_COLOR_FAMILY: Record<string, TimelineKindColorFamily> = {
   delete: 'flag',
 };
 
-export const TIMELINE_KIND_COLORS: Record<TimelineKindColorFamily, string> = {
-  claim: '#6366f1',       // indigo
-  challenge: '#f97316',   // orange/red
-  evidence: '#06b6d4',    // cyan/green
-  clarify: '#f59e0b',     // amber
-  concede: '#a855f7',     // purple
-  flag: '#ef4444',        // red/slate
-  default: '#475569',     // slate
-};
+// UX-P2-4 (issue 937) - canonical values now live in designTokens.TIMELINE_KIND.
+// Re-exported here under the historical name so every consumer and the mini-map
+// value-import guard are unaffected. Byte-identical relocation, no re-hue.
+export const TIMELINE_KIND_COLORS: Record<TimelineKindColorFamily, string> = TIMELINE_KIND;
 
 /**
  * Strength-band → color map. Exported for opt-in Inspect-path consumers and
@@ -854,13 +854,9 @@ export const STANDING_BAND_COLOR: Record<TimelineStandingBand, string> = {
   not_enough_signal: '#374151',
 };
 
-const TONE_BAND_COLOR: Record<TimelineToneBand, string> = {
-  calm: '#22d3ee',
-  measured: '#818cf8',
-  heated: '#f97316',
-  hostile: '#dc2626',
-  unknown: '#475569',
-};
+// UX-P2-4 (issue 937) - the former drifted TONE_BAND_COLOR map was deleted;
+// the edge gradient tone stop now reads the canonical designTokens.TIMELINE_TONE
+// (Option C) directly at its single consumer below.
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -1569,7 +1565,7 @@ export function buildArgumentTimelineMap(input: BuildTimelineMapInput): Argument
     const standingColor = neutralize
       ? STANDING_BAND_COLOR.unscored
       : (STANDING_BAND_COLOR[node.standingBand] || '#475569');
-    const toneColor = TONE_BAND_COLOR[node.toneBand] || '#475569';
+    const toneColor = TIMELINE_TONE[node.toneBand] ?? TIMELINE_TONE.unknown;
     const gradientStops = [
       parent.kindColor,
       mixHex(parent.kindColor, node.kindColor, 0.5),

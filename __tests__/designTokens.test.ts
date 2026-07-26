@@ -58,7 +58,7 @@ describe('VG-003 token structure', () => {
     expect(Object.keys(ARGUMENT).sort()).toEqual(['branch', 'challenge', 'claim', 'clarify', 'concede', 'evidence']);
   });
 
-  it('TOKENS aggregate contains all twenty categories (UX-P2-2 added chipTint)', () => {
+  it('TOKENS aggregate contains all twenty-two categories (UX-P2-4 added timelineKind + timelineTone)', () => {
     expect(Object.keys(TOKENS).sort()).toEqual([
       'argument',
       'borderWidth',     // UX-001.7
@@ -78,6 +78,8 @@ describe('VG-003 token structure', () => {
       'status',
       'surface',
       'surfaceTokens',
+      'timelineKind',    // UX-P2-4
+      'timelineTone',    // UX-P2-4
       'touchTarget',     // UX-001.7
       'typography',      // UX-001.7
     ]);

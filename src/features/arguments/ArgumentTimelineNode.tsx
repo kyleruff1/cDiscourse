@@ -13,7 +13,7 @@ interface Props {
 
 const TRACK_COLORS: Record<ArgumentTrackKind, string> = {
   core: '#6366f1',
-  counter: '#ef4444',
+  counter: '#f97316', // UX-P2-4 (issue 937) - counter aligned to challenge orange
   receipts: '#10b981',
   clarification: '#f59e0b',
   concession: '#8b5cf6',

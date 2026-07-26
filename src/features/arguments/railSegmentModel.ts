@@ -34,6 +34,10 @@ import {
   deriveBranchKindFromConstitutionModel,
   hasTangentLexicalCode,
 } from './branchTopologyModel';
+// UX-P2-4 (issue 937) - canonical tone palette (Option C). The rail wash reads
+// it here under the historical name TONE_BAND_HEX; the value now lives in one
+// source shared with the node tint and the edge gradient tone stop.
+import { TIMELINE_TONE } from '../../lib/designTokens';
 
 // ── Public types ─────────────────────────────────────────────────
 
@@ -156,14 +160,11 @@ export const EDGE_SEGMENTS = 6;
 export const VISIBLE_SLICE_DEFAULT_BUFFER_PX = 800;
 
 /** Hostile / heated tones push hue toward warm; calm / measured tones
- *  stay close to the base. Color is *activity*, never *correctness*. */
-const TONE_BAND_HEX: Record<TimelineToneBand, string> = {
-  calm: '#22c55e',
-  measured: '#3b82f6',
-  heated: '#f97316',
-  hostile: '#ef4444',
-  unknown: '#94a3b8',
-};
+ *  stay close to the base. Color is *activity*, never *correctness*.
+ *  UX-P2-4 (issue 937) - the canonical values now live in
+ *  designTokens.TIMELINE_TONE (Option C). Re-exported here under the historical
+ *  name so the tone equality test and any consumer reach it unchanged. */
+export const TONE_BAND_HEX: Record<TimelineToneBand, string> = TIMELINE_TONE;
 
 /** Tone-wash alpha lookup. The single continuous overlay axis. */
 const TEMPERATURE_ALPHA: Record<TimelineTemperatureBand, number> = {
