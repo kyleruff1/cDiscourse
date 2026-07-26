@@ -31,6 +31,10 @@ import type {
   TimelineTemperatureBand,
   TimelineToneBand,
 } from './argumentGameSurfaceModel';
+// UX-P2-4 (issue 937) - canonical tone palette (Option C). designTokens is a
+// pure leaf, so this value import keeps the model at zero React / component
+// imports while sharing ONE tone source with the rail wash and gradient tail.
+import { TIMELINE_TONE } from '../../lib/designTokens';
 
 // ── Density mode ────────────────────────────────────────────────
 
@@ -126,18 +130,14 @@ export const NODE_HALO_RING_WIDTH_PX = 3;
 export const NODE_TONE_TINT_MAX_ALPHA = 0.18;
 
 /**
- * VG-002 tone-band hue table. Re-stated here (not imported — the rail
- * keeps its copy private) so this pure model has zero React/component
- * imports. Values are byte-identical to `railSegmentModel.TONE_BAND_HEX`;
- * a token test pins them so the two never drift.
+ * VG-002 tone-band hue table. UX-P2-4 (issue 937) - the canonical values now
+ * live in `designTokens.TIMELINE_TONE` (Option C, operator ruled), imported
+ * so the rail wash, this node tint, and the edge gradient tail all read ONE
+ * source. `designTokens` is a pure leaf, so the model still has zero React /
+ * component imports. Local alias preserves the historical name and type; the
+ * canonical `as const` object is deep-frozen at the type level.
  */
-const TONE_BAND_HEX: Readonly<Record<TimelineToneBand, string>> = Object.freeze({
-  calm: '#22c55e',
-  measured: '#3b82f6',
-  heated: '#f97316',
-  hostile: '#ef4444',
-  unknown: '#94a3b8',
-});
+const TONE_BAND_HEX: Readonly<Record<TimelineToneBand, string>> = TIMELINE_TONE;
 
 /**
  * Per-temperature tint alpha for active-path nodes. Every value is at or
