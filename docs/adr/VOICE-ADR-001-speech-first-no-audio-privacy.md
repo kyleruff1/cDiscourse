@@ -1,6 +1,6 @@
 # VOICE-ADR-001 — Speech-first input, no-audio privacy posture
 
-**Status:** Accepted
+**Status:** Accepted — Superseded in part by VOICE-ADR-002 (sections: No-audio posture; Data-classification rows 'Raw audio' and 'Local audio URI')
 **Date:** 2026-06-18
 **Deciders:** operator (kyleruff@gmail.com)
 **Issue:** https://github.com/civildiscourse/cdiscourse/issues/658

@@ -125,7 +125,7 @@ The Constitution is a versioned JSON/TypeScript document stored in the database 
 ## Non-Goals (v1)
 
 - Real-time collaborative editing of argument bodies.
-- Video or audio arguments.
+- Video arguments; audio arguments except the scoped, consent-gated voice-entry exception governed by VOICE-ADR-002 (`docs/adr/VOICE-ADR-002-scoped-audio-persistence-one-time-playback.md`).
 - Voting/scoring system (reserved for v2).
 - Public API.
 - Web version (mobile-first; Expo Web is low-priority).
