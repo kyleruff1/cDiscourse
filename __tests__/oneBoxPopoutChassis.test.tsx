@@ -247,12 +247,16 @@ describe('QOL-030 chassis — Popout board-non-blocking scrim', () => {
 // ── 8. Popout — reduce-motion ──────────────────────────────────
 
 describe('QOL-030 chassis — Popout reduce-motion', () => {
-  it('reads reduce-motion via AccessibilityInfo with the caller override winning', () => {
-    expect(POPOUT_SRC).toMatch(/AccessibilityInfo\.isReduceMotionEnabled/);
-    expect(POPOUT_SRC).toMatch(/reduceMotionChanged/);
+  // UX-P2-12 (issue 941) — the chassis consumes the shared useReduceMotion hook
+  // instead of hand-rolling the OS read (dedupe proof). The caller override
+  // still wins through the hook arg, so motion-on behavior is byte-identical.
+  it('reads reduce-motion via the shared useReduceMotion hook with the caller override winning', () => {
     expect(POPOUT_SRC).toMatch(
-      /typeof reduceMotionOverride === 'boolean'\s*\?\s*reduceMotionOverride/,
+      /import\s*\{\s*useReduceMotion\s*\}\s*from\s*'\.\.\/\.\.\/preferences\/useReduceMotion'/,
     );
+    expect(POPOUT_SRC).toMatch(/useReduceMotion\(reduceMotionOverride\)/);
+    expect(POPOUT_SRC).not.toMatch(/AccessibilityInfo/);
+    expect(POPOUT_SRC).not.toMatch(/reduceMotionChanged/);
   });
 
   it('when reduce-motion is on, the open animation snaps (setValue, no timing)', () => {

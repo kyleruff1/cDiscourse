@@ -123,9 +123,13 @@ describe('SC-005 a11y — category headers', () => {
 // ── 4. Reduce-motion = no slide ─────────────────────────────────
 
 describe('SC-005 a11y — reduce-motion fallback', () => {
-  it('reads an effective reduce-motion value (override wins over the OS read)', () => {
+  // UX-P2-12 (issue 941) — the rail consumes the shared useReduceMotion hook
+  // instead of hand-rolling the OS read (dedupe proof). The override still wins
+  // through the hook arg, so motion-on behavior is byte-identical.
+  it('reads an effective reduce-motion value via the shared hook (override wins over the OS read)', () => {
     expect(RAIL_SRC).toMatch(/reduceMotionOverride/);
-    expect(RAIL_SRC).toMatch(/AccessibilityInfo\.isReduceMotionEnabled/);
+    expect(RAIL_SRC).toMatch(/useReduceMotion\(reduceMotionOverride\)/);
+    expect(RAIL_SRC).not.toMatch(/AccessibilityInfo/);
     expect(RAIL_SRC).toMatch(/effectiveReducedMotion/);
   });
 

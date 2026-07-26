@@ -94,12 +94,17 @@ describe('COMPOSER-002 — the dock traps screen-reader focus while open', () =>
 // ── 4. Reduce-motion fade path ─────────────────────────────────
 
 describe('COMPOSER-002 — reduce-motion disables the slide translate', () => {
-  it('reads reduce-motion via AccessibilityInfo with the PR-001 override winning', () => {
-    expect(DOCK_SRC).toMatch(/AccessibilityInfo\.isReduceMotionEnabled/);
-    expect(DOCK_SRC).toMatch(/reduceMotionChanged/);
+  // UX-P2-12 (issue 941) — the dock consumes the shared useReduceMotion hook
+  // instead of hand-rolling the OS read (dedupe proof, mirrors
+  // a11y693ReduceMotionPrimitive). The PR-001 override still wins through the
+  // hook arg, so motion-on behavior is byte-identical.
+  it('reads reduce-motion via the shared useReduceMotion hook with the PR-001 override winning', () => {
     expect(DOCK_SRC).toMatch(
-      /typeof reduceMotionOverride === 'boolean'\s*\?\s*reduceMotionOverride/,
+      /import\s*\{\s*useReduceMotion\s*\}\s*from\s*'\.\.\/preferences\/useReduceMotion'/,
     );
+    expect(DOCK_SRC).toMatch(/useReduceMotion\(reduceMotionOverride\)/);
+    expect(DOCK_SRC).not.toMatch(/AccessibilityInfo/);
+    expect(DOCK_SRC).not.toMatch(/reduceMotionChanged/);
   });
 
   it('when reduced motion is on, the panel style is opacity-only (no transform)', () => {
