@@ -1,6 +1,6 @@
 # VOICE-PATCH-001 — DAG correction + voice-to-mediator bridge
 
-**Status:** Design / planning patch (docs only).
+**Status:** Design / planning patch (docs only) — **§6.2 metadata-first persistence is superseded in part by VOICE-ADR-002 §1** (audio is now a scoped, consent-gated, retention-bounded artifact), and the current dependency DAG lives in `docs/designs/VOICE-001.md`.
 **Epic:** 15 — Speech-first voice input + waveform (`epic:voice`)
 **Patches:** `docs/designs/VOICE-001-SPEECH-WAVEFORM-ARCHITECTURE.md` (the architecture this formalizes), `docs/designs/VOICE-SLATE-2026-06-13-INDEX.md` (the slate index — dependency table + §6 DAG + §12 next command), `docs/core/next-prompts.md` (VOICE-SLATE start-here command).
 **Doctrine root:** VOICE-ADR-001 (#658) — speech-first input doctrine + no-audio privacy posture.
