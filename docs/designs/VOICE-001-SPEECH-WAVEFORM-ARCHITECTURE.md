@@ -1,6 +1,6 @@
 # VOICE-001 — Speech + Waveform Architecture
 
-**Status:** Design draft
+**Status:** Design draft — **Superseded by `docs/designs/VOICE-001.md`** (2026-08 reconciliation against the ratified VOICE-ADR-002): the no-audio v1 privacy posture and the sole-composer entry-surface inventory below no longer bind; the engineering detail this doc carries elsewhere still stands.
 **Epic:** 15 — Speech-first voice input + waveform (`epic:voice`)
 **Release:** v1 (post-Stage 6.4 UI/UX track)
 **Issue:** https://github.com/civildiscourse/cdiscourse/issues/659
