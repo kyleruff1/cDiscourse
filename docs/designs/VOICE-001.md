@@ -22,7 +22,12 @@ Issue 659 was filed 2026-06-13 and its ADR-001-era architecture doc **already sh
 
 **(b) The composer surface changed.** The ASP program (ROOM-003 #829, PROOF-002, MARK-002, UX-COMPOSER-005, SETTLE-001, A11Y-PR0) reshaped argument entry. The shipped doc's central claim — *"`ArgumentComposer.tsx` is the sole shared composer … a universal voice adapter wrapping that body TextInput covers every ordinary drafting surface in ONE insertion point"* — **is no longer true at the rendering layer.** There are now four distinct body-bearing `TextInput` elements on the drafting path (§2.1).
 
-**Handling of the prior file.** `docs/designs/VOICE-001-SPEECH-WAVEFORM-ARCHITECTURE.md` is left **byte-unchanged** (append-only doc discipline, the same treatment ADR-002 gave ADR-001). Where this doc and that doc disagree, **this doc governs**; where this doc is silent, that doc's engineering detail still stands (the state machine event table, the dB normalization math, the SVG path export, the Family K key list). Operator follow-up: add a one-line status header to the prior file reading `Superseded by docs/designs/VOICE-001.md (VOICE-ADR-002 reconciliation)` — a one-line edit outside this card's single-file scope.
+**Handling of the prior files.** The June-era docs keep their bodies **byte-unchanged** (append-only doc discipline, the same mechanic ADR-002 used on ADR-001 — *"edited by a single status-header line and is otherwise untouched"*). Where this doc and either of them disagree, **this doc governs**; where this doc is silent, their engineering detail still stands (the state machine event table, the dB normalization math, the SVG path export, the Family K key list, the minimal pre-record prompt). **This branch applied the supersession headers** — one amended `**Status:**` line each, nothing else touched:
+
+- `docs/designs/VOICE-001-SPEECH-WAVEFORM-ARCHITECTURE.md` — points at this file; its no-audio v1 posture and sole-composer inventory no longer bind.
+- `docs/designs/VOICE-PATCH-001-DAG-AND-MEDIATOR-BRIDGE.md` — its §6.2 metadata-first persistence stance is superseded in part by ADR-002 §1, and the current DAG lives here.
+
+Neither file is read by any test, script, or source module, and `docs/designs` is in no scanner `SCAN_SET`, so both edits are inert.
 
 **No doctrine conflict found.** The card is buildable as reconciled. Nothing below asks for a v1-scope-banned feature (no voting, no search, no push, no OAuth, no public API, no client AI call).
 
@@ -161,6 +166,8 @@ The reserved voice slot is live and **ungated by room type** — the exact §13.
 | `expo-speech` | TTS | — | — | **do not adopt** (v1 is speech-in, not speech-out) |
 | Deepgram **nova-3** | server-side transcript segments with word timestamps (ADR-002 §8) | *operator ruling D5* — confirmed by the VOICE-STT-001 10-clip bake-off | key in **Supabase Edge secrets only**; spend **operator-armed**; never called from the client | adopt server-side |
 | AWS S3 | the audio object store (ADR-002 §6) | *operator ruling D2* — S3 day one; Supabase Storage is the config swap | SSE-S3; versioning **OFF**; `Cache-Control: private, no-store`; 30-day lifecycle backstop; bucket-owner-enforced ACLs; **new credential surface**, operator-provisioned | adopt server-side |
+
+**`recordingOptions.persist` stays OFF on the speech-recognition path — permanently, not just in v1.** With `persist` off the recognizer emits no `{uri}` and creates no replayable file. This survives ADR-002 unchanged, and the reason is sharper now than it was under ADR-001: governed audio (D1) comes **only** from the consent-gated recorder lane owned by the VOICE-DB / VOICE-BE cards — an object with a `recordingId`, a `consentVersion`, a retention clock, receipt-gated playback, and a HEAD-verified deletion. A file produced as a *recognizer side-effect* has none of those. It would be an **ungoverned audio object living outside the ADR-002 lifecycle**, which §5.3 invariant 4 forbids outright (`audioPersistence` has exactly two values, and no code path may store audio outside the lifecycle). The same reasoning keeps `expo-audio`'s `enableBackgroundRecording` at its default `false`. Where a platform forces a recorder **cache** file to obtain metering, it is cache-only, never the document directory, never background, and its URI is deleted as soon as the waveform artifact is derived.
 
 **Every spike has a non-spike floor.** If Skia live rendering or view-shot capture fails, `react-native-svg` still draws a deterministic waveform and speech entry still works. No card downstream may make a working snapshot, or a working live renderer, a hard dependency of speech entry.
 
@@ -411,8 +418,11 @@ These four are the load-bearing shape rules. A reviewer can check them mechanica
 **This card:** one new file.
 
 - **new** — `docs/designs/VOICE-001.md` (this document, ~700 lines) — the ADR-002-reconciled architecture.
-- **modified** — none.
+- **modified** — `docs/designs/VOICE-001-SPEECH-WAVEFORM-ARCHITECTURE.md` (1 line: the `**Status:**` header gains the supersession pointer; body byte-unchanged).
+- **modified** — `docs/designs/VOICE-PATCH-001-DAG-AND-MEDIATOR-BRIDGE.md` (1 line: the `**Status:**` header records the §6.2 partial supersession and points at the current DAG; body byte-unchanged).
 - **deleted** — none.
+
+No production code, no test, no config, no migration, no Edge Function. Two docs changed by one line each; see §0.
 
 **Downstream file map** (what each card touches; nothing here is written by this card):
 
@@ -706,8 +716,8 @@ AUDIO-001  [deferred P3; off the main path]
 
 Flagged for the operator, in the order they will be needed:
 
-1. **One-line status header** on `docs/designs/VOICE-001-SPEECH-WAVEFORM-ARCHITECTURE.md` pointing at this file (outside this card's single-file scope).
-2. **VOICE-002** — after the implementer commits, confirm a development build launches on a real device. The voice stack cannot run in Expo Go.
+1. **Nothing — already done.** The supersession status headers on `docs/designs/VOICE-001-SPEECH-WAVEFORM-ARCHITECTURE.md` and `docs/designs/VOICE-PATCH-001-DAG-AND-MEDIATOR-BRIDGE.md` were applied in this branch (§0, §6), so no post-merge doc edit is owed.
+2. **VOICE-002** — after the implementer commits, confirm a development build launches on a real device. The voice stack cannot run in Expo Go. VOICE-002 also carries this card's **upstream re-verification pass**: it re-checks every §3.3 library row against the then-current upstream docs (and folds in the reviewer's remaining non-blocking nits) before installing anything, per the §3 provenance rule.
 3. **VOICE-STT-001** — Deepgram spend is operator-armed. Provision `DEEPGRAM_API_KEY` in Supabase Edge secrets only, and arm the bake-off explicitly.
 4. **VOICE-BE-*** — provision the AWS credentials (new credential surface) in Supabase Edge secrets; create the S3 bucket with SSE-S3, **versioning OFF**, `Cache-Control: private, no-store`, the 30-day lifecycle backstop, and bucket-owner-enforced ACLs.
 5. **VOICE-DB-*** — `npx supabase db push --linked`, then `npx supabase functions deploy <name> --linked` for each new function.
