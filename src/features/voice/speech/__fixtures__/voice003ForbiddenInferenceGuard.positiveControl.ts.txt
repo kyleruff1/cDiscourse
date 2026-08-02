@@ -1,0 +1,30 @@
+// VOICE-003 (issue 661) - FIRING POSITIVE CONTROL for the forbidden-inference
+// source scan.
+//
+// This file is intentionally NOT a .ts file - the .ts.txt extension keeps it
+// out of the TypeScript compilation set and out of the ESLint recurse set,
+// while still allowing readFileSync to load it as text.
+//
+// The doctrine guard test loads this file and asserts the scanner reports at
+// least three distinct hits: one banned field name, one banned string literal,
+// and one banned comment. If the scanner regex or glob is broken, this test
+// fails LOUDLY. That is the whole point of a firing positive control - the
+// classic silent-cohesion-guard bug class where a guard is greened by being
+// unreachable, not by being satisfied.
+
+// Comment hit 1: this token is banned - emotion should never appear on any
+// SpeechTranscriptArtifact field.
+
+// Comment hit 2: another banned token in a comment - a stress marker on a
+// speaker would be a doctrine violation.
+
+export interface ForbiddenInferenceControl {
+  // Field-name hits: three distinct banned identifiers so the guard
+  // continues to bite even if a single one is quietly renamed.
+  readonly credibility: number;
+  readonly sincerity: string;
+  readonly manipulation: boolean;
+}
+
+// String-literal hits: two distinct banned literals.
+export const BANNED_LITERALS = ['liar', 'verdict'];
