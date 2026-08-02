@@ -1,0 +1,35 @@
+// VOICE-004 (issue 662) - FIRING POSITIVE CONTROL for the forbidden-inference
+// source scan on the waveform tree.
+//
+// This file is intentionally NOT a .ts file - the .ts.txt extension keeps it
+// out of the TypeScript compilation set and out of the ESLint recurse set,
+// while still allowing readFileSync to load it as text.
+//
+// The doctrine guard test loads this file and asserts the scanner reports at
+// least three distinct hits across three roles (comment, field name, string
+// literal) AND at least one waveform-specific ban token. If the scanner regex
+// or glob is broken, this test fails LOUDLY. That is the whole point of a
+// firing positive control - the classic silent-cohesion-guard bug class where
+// a guard is greened by being unreachable, not by being satisfied.
+
+// Comment hit 1: this token is banned - emotion should never appear on any
+// VoiceWaveformArtifact field.
+
+// Comment hit 2: another banned token in a comment - a stress marker on a
+// speaker would be a doctrine violation.
+
+// Comment hit 3 (waveform-specific): computing formant peaks from an
+// amplitude envelope is precisely what this module refuses to do.
+
+export interface ForbiddenInferenceControl {
+  // Field-name hits: distinct banned identifiers so the guard continues to
+  // bite even if one is quietly renamed. Includes waveform-specific bans
+  // (stressScore, speakerId) alongside inherited bans (credibility).
+  readonly credibility: number;
+  readonly stressScore: number;
+  readonly speakerId: string;
+}
+
+// String-literal hits: distinct banned literals covering the string-literal
+// role. voiceprint is a waveform-specific ban token.
+export const BANNED_LITERALS = ['liar', 'angry_shouting_voiceprint'];
