@@ -511,3 +511,75 @@ Each card AC bullet → the section that satisfies it, plus whether the AC is ra
 | Reversibility floor                                                     | §8.2 step 7 (reversal recipe) + §8.4 (R1-R4)                                       | Operator          |
 | On-device visual proof of the live visualizer                           | Deferred to VOICE-005-composition / VOICE-007. Documented as non-goal in §9.        | N/A (out of scope) |
 | React component `VoiceWaveformVisualizer.tsx`                            | Deferred to VOICE-005-composition / VOICE-007. Composition documented in §5.        | N/A (out of scope) |
+
+---
+
+## §13 — Implementer note: cannot proceed (2026-08-04)
+
+**Status:** blocked by a factual gap in the design that prevents the `commit_now` file manifest from satisfying the branch reversibility floor. Implementer stopped per role-rules ("If the design is materially wrong ... STOP. Append a clearly-marked 'Implementer note: cannot proceed' section to the design doc, commit that change alone").
+
+### 13.1 The gap
+
+Design §0.1 row 7 and §1 row 15 both classify the `app.json` `plugins` array addition as **commit_now** with the explicit assurance:
+
+> "Additive; git diff is one hunk. **Inert without the operator install.**"
+
+Design §5.2 refines the same claim: "The composition card must import Skia via `Platform.select` ... Flag-gating ... does NOT prevent Skia from entering the web bundle graph." The design correctly diagnoses static-import bundle-graph risk for the React component but implicitly assumes `app.json` plugin registration is inert without the underlying npm module. It is not.
+
+### 13.2 The observed failure
+
+Implementer confirmed by direct verification:
+
+```
+$ npm run web:build
+> expo export --platform web --output-dir dist
+
+PluginError: Failed to resolve plugin for module "expo-audio" relative to "..."
+Do you have node modules installed?
+    at resolvePluginForModule (@expo/config-plugins/src/utils/plugin-resolver.ts:52:9)
+    at resolveConfigPluginFunctionWithInfo (...:110:50)
+    at withStaticPlugin (...:79:47)
+    at withPlugins (...:20:59)
+    at getConfig (@expo/config/src/Config.ts:217:10)
+```
+
+The Expo config resolver walks the `expo.plugins` array eagerly at every `getConfig()` call — including `expo export --platform web` — and calls `require.resolve('<plugin-name>/app.plugin.js')` before it knows or cares whether the plugin is even a native-only plugin. Failure to resolve is a hard `PluginError`, not a warning, and it aborts the build.
+
+Same verification, run again with the `app.json` `plugins` addition stashed:
+
+```
+$ git stash push -m "voice005-app-json-only" -- app.json
+$ npm run web:build
+Exported: dist
+EXIT: 0
+```
+
+So `web:build` is green without the plugin registration and red with it — but the design mandates the plugin registration on this branch.
+
+### 13.3 Reconciliation candidates (for the designer / operator to rule on)
+
+None of these are within the implementer's scope to pick. Each has trade-offs:
+
+- **(a) Defer the `app.json` plugin registration to VOICE-005-composition** (the same card that adds the React component + installs the deps). Runbook Step 4 becomes: "operator installs `expo-audio` AND edits `app.json` to add the plugin tuple in the same commit." The `appJsonPluginContract.test.ts` cannot ship on this branch (there is nothing yet to assert against); it moves to VOICE-005-composition too. **Only doctrinal cost:** the mic-permission copy is not yet pinned by a test on this branch. **Trade-off:** the copy is still pinned by design §8.3 + runbook Appendix A; the composition card's contract test picks up enforcement one card later.
+- **(b) Migrate `app.json` to `app.config.js` (dynamic config)** with a `try/require.resolve/catch` guard that only adds the plugin when `expo-audio` is installed. This keeps the `commit_now` file manifest intact in spirit but replaces the mechanism. `appJsonPluginContract.test.ts` would need to load the dynamic config via `require('../app.config.js')` and would assert the shape only when the dep is present (making the test conditional). **Trade-off:** introduces a new configuration mechanism (dynamic config file) not in the design's file manifest, and the contract test becomes conditional — a doctrine loosening the design intentionally avoided ("wording drift" catch is what the strict contract test bites for).
+- **(c) Install `expo-audio` as a real dep on this branch** so the plugin resolver finds it. **Rejected by operator prompt:** package.json / package-lock.json edits are explicitly excluded on `feat/voice-005-visualizer` — they would break `npm ci` on CI. The design itself excludes them in §1 (row 18).
+
+Panel-recommended: **(a)**. It preserves branch reversibility, keeps the doctrine copy pinned by design + runbook (two written sources), and moves the runtime enforcement to the same card that installs the dep — the natural anchor. **(b)** trades tighter type-of-config for looser test enforcement; **(c)** is not an option under the branch constraints.
+
+### 13.4 What implementer did commit
+
+Only this implementer note was committed to `feat/voice-005-visualizer`. All prior implementer work (pure-TS visualizer module, four adapter/property tests, two doctrine tests, one runbook file, and the `app.json` plugin edit) was reset from the worktree before this commit per role-rules ("commit that change alone").
+
+The pure-TS work was fully written and green through gates 1-4 (typecheck / lint / targeted jest / full jest 1098 passed / 1098 total, 36741 passed + 1 skipped = 36742 total, base 36643 + 99 tests). Gate 5 (web:build) went red only because of the `app.json` plugin addition; with that stashed, gate 5 was green. This scoped the gap precisely to the plugin registration.
+
+### 13.5 What the designer / operator needs to do
+
+1. Rule between reconciliation candidates (a) / (b) / (c) or an alternative none of us has thought of.
+2. If (a) — update design §0.1 row 7, §1 rows 14 + 15, §8.2 steps 3 + 5, §12 (acceptance mapping row 7) to reclassify the `app.json` change and the contract test as VOICE-005-composition scope. Update the runbook step ordering accordingly.
+3. If (b) — extend the design's file manifest with the `app.config.js` migration and rewrite §7.3 scenario 24 to describe the dynamic-config contract test.
+4. Once the design is updated, implementer resumes with a fresh pass on `feat/voice-005-visualizer` and lands the pure-TS work (already fully written and gate-green minus the plugin) plus whatever the ruling requires. Estimated re-implementation cost: low (the pure-TS core, adapter tests, guard test, and runbook are all written and self-contained — they can be re-created verbatim from this note plus the design).
+
+### 13.6 Files in this commit
+
+Only this design-doc addendum. `git diff --name-only HEAD~1` should show only `docs/designs/VOICE-005.md`.
+
