@@ -30,6 +30,9 @@ import type { RailActionCode, RailViewerRole } from './railActionCategories';
 import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
 import type { RefereeNavVerb } from './cardView/RefereeCardView';
 import type { PrioritizedPointFeedbackFlags } from '../feedbackFlags';
+// UX-FLAGS-005 (issue 837) — 3-state lifecycle discriminant type; pure pass-
+// through into the active cards CardDetailPanel below.
+import type { PointFeedbackFlagsLifecycleState } from '../feedbackFlags';
 
 interface Props {
   viewModel: ArgumentBubbleViewModel;
@@ -74,6 +77,13 @@ interface Props {
    *  CardDetailPanel as the single calm standing surface. Omitted / non-active
    *  -> no flag row. */
   pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
+  /**
+   * UX-FLAGS-005 (issue 837) — 3-state lifecycle discriminant for the active
+   * cards flag row. Pure pass-through into CardDetailPanel. Omitted defaults
+   * to `'ready'` at the row layer, so pre-UX-FLAGS-005 callers stay byte-
+   * identical.
+   */
+  lifecycleState?: PointFeedbackFlagsLifecycleState;
 }
 
 export function ArgumentBubbleCard({
@@ -92,6 +102,7 @@ export function ArgumentBubbleCard({
   onRefereeMove,
   onRefereeNavigate,
   pointFeedbackFlags,
+  lifecycleState,
 }: Props) {
   const isOwn = vm.actor === 'self';
   // CARD-VIEW-DATA-001 — the exploded detail renders only on the active
@@ -203,6 +214,9 @@ export function ArgumentBubbleCard({
             // active point (single calm standing surface in the collapsed
             // default). Pure pass-through; the surface owns the derivation.
             pointFeedbackFlags={pointFeedbackFlags ?? null}
+            // UX-FLAGS-005 (issue 837) — 3-state lifecycle discriminant.
+            // Pure pass-through; the row layer defaults absent to `'ready'`.
+            lifecycleState={lifecycleState}
             testID={`card-detail-panel-${vm.messageId}`}
           />
         </ScrollView>

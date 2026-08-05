@@ -138,6 +138,65 @@ export function isMachineObservationRunMode(
 }
 
 /**
+ * ARCH-001 queue lifecycle state. Mirrors the CHECK constraint on
+ * `argument_machine_observation_runs.state` added by migration
+ * 20260528000021_arch_001_classifier_queue_substrate.sql (lines 152-154).
+ *
+ * SERVER-ONLY VOCABULARY. A raw state value MUST NEVER be surfaced in the
+ * UI. See UX-FLAGS-005 (issue 837) for the calm three-state discriminant
+ * (`PointFeedbackFlagsLifecycleState`) that IS surfaced. Any router that
+ * turns one of these tokens into user copy is a doctrine violation
+ * (cdiscourse-doctrine section 9 + section 6).
+ *
+ * Enum values, verbatim from the migration CHECK:
+ *   - pending          : row enqueued, no drainer has leased yet
+ *   - leased           : a drainer holds the row under a TTL lease
+ *   - retry_scheduled  : a prior attempt failed; retry backed off
+ *   - succeeded        : the drainer completed the classification cycle
+ *   - failed_terminal  : the pipeline gave up after retry budget
+ *   - dead_letter      : the row was moved to the dead-letter audit lane
+ */
+export type MachineObservationRunLifecycleState =
+  | 'pending'
+  | 'leased'
+  | 'retry_scheduled'
+  | 'succeeded'
+  | 'failed_terminal'
+  | 'dead_letter';
+
+/**
+ * Frozen array of every `MachineObservationRunLifecycleState` value.
+ * Exported for exhaustive test enumeration and for the folding helper.
+ * Byte-equal to the migration CHECK list.
+ */
+export const ALL_MACHINE_OBSERVATION_RUN_LIFECYCLE_STATES:
+  ReadonlyArray<MachineObservationRunLifecycleState> = Object.freeze([
+    'pending',
+    'leased',
+    'retry_scheduled',
+    'succeeded',
+    'failed_terminal',
+    'dead_letter',
+  ]);
+
+/**
+ * ARCH-001 pure type guard. Accepts only the six documented enum values;
+ * rejects the empty string, null, near-miss tokens, and unknown values.
+ * A future migration that widens the enum without shipping a matching
+ * client update falls through to `false` here — the roll-up treats it as
+ * "no run observed" per the doctrinally correct silent-on-uncertainty
+ * default (UX-FLAGS-005 discriminant rule 2 + rule 6).
+ */
+export function isMachineObservationRunLifecycleState(
+  value: unknown,
+): value is MachineObservationRunLifecycleState {
+  return (
+    typeof value === 'string' &&
+    (ALL_MACHINE_OBSERVATION_RUN_LIFECYCLE_STATES as ReadonlyArray<string>).includes(value)
+  );
+}
+
+/**
  * Pure type guard for the family enum (member of the MCP-021A 10-family
  * set). The adapter does NOT require this to pass — `family` is stored
  * for operator-audit + future filtering; the rawKey-to-family mapping is

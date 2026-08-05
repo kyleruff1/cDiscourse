@@ -449,6 +449,7 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
     flagsByArgumentId,
     pointTagsByArgumentId,
     persistedObservationsByArgumentId,
+    classifierLifecycleByArgumentId,
     loading,
     error,
     latestId,
@@ -667,6 +668,11 @@ function FullRoomGameSurfaceMount({ debate, onReply, refreshRef, initialMode, on
         tagsByArgumentId={tagsByArgumentId}
         pointTagsByArgumentId={pointTagsByArgumentId}
         persistedObservationsByArgumentId={persistedObservationsByArgumentId}
+        // UX-FLAGS-005 (issue 837) — per-argument classifier lifecycle
+        // roll-up. Empty map on offline / RLS-denied / fetch-fail; every
+        // entry folds to `'ready'` at the room-level discriminant memo
+        // (silent-on-uncertainty).
+        classifierLifecycleByArgumentId={classifierLifecycleByArgumentId}
         latestMessageId={latestId}
         onAction={handleAction}
         onRefresh={refresh}

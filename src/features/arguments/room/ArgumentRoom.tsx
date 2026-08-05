@@ -62,6 +62,12 @@ import {
   flagIntentForKey,
   type DerivedSignal,
   type DerivedSignalNodeInput,
+  // UX-FLAGS-005 (issue 837) — the pure-TS discriminant + roll-up type; folds
+  // the ARCH-001 queue enum into `'ready' | 'pending' | 'failed'` for the
+  // flag row. Pure TS; no React/Supabase; deterministic.
+  derivePointFeedbackFlagsLifecycleState,
+  type ArgumentClassifierLifecycleRollup,
+  type PointFeedbackFlagsLifecycleState,
 } from '../../feedbackFlags';
 import { prioritizePointFeedbackFlags } from '../../feedbackFlags/feedbackFlagPriority';
 import { buildSidecarViewModel } from '../argumentReplySidecarModel';
@@ -400,6 +406,17 @@ export interface Props {
    * pre-MCP-021B.
    */
   persistedObservationsByArgumentId?: Record<string, MachineObservationResultRow[]>;
+  /**
+   * UX-FLAGS-005 (issue 837) — per-argument classifier lifecycle roll-up
+   * from `argument_machine_observation_runs.state`. Optional so pre-
+   * UX-FLAGS-005 callers (fixtures, demo corridor) are byte-identical
+   * without supplying it. When omitted or empty, every discriminant folds
+   * to `'ready'` -> the flag row renders null on empty flags (byte-
+   * identical to UX-FLAGS-002). When supplied and an argument has a
+   * non-terminal run, the flag row on that active node shows the calm
+   * pending line.
+   */
+  classifierLifecycleByArgumentId?: Record<string, ArgumentClassifierLifecycleRollup>;
   /** Optional latest-message-id hint from the full-room loader (used to snap active when new messages arrive). */
   latestMessageId?: string | null;
   /** Optional map of (messageId → boolean) for "I have an open deletion request on this". */
@@ -643,6 +660,7 @@ export function ArgumentRoom({
   tagsByArgumentId,
   pointTagsByArgumentId,
   persistedObservationsByArgumentId,
+  classifierLifecycleByArgumentId,
   latestMessageId: latestIdHint,
   deletionRequestedMap,
   categoryLabelById: _categoryLabelById,
@@ -1770,6 +1788,25 @@ export function ArgumentRoom({
     });
     return prioritizePointFeedbackFlags(built);
   }, [activeMessageId, persistedObservationsByArgumentId, activeViewModel?.actor]);
+
+  // UX-FLAGS-005 (issue 837) — the calm 3-state lifecycle discriminant for
+  // the ACTIVE nodes flag row. Content wins over posture: when a flag row
+  // has anything to show the discriminant folds to `'ready'` and the row
+  // renders exactly as today. When the flag list is empty and the drainer
+  // is still working on this argument the row shows the plain-language
+  // pending line; when the flags are empty and every run terminally
+  // failed the row renders null (silent doctrine).
+  const activePointLifecycleState = useMemo<PointFeedbackFlagsLifecycleState>(() => {
+    if (!activeMessageId) return 'ready';
+    return derivePointFeedbackFlagsLifecycleState({
+      hasVisibleFlags: activePointFeedbackFlags.visible.length > 0,
+      rollup: classifierLifecycleByArgumentId?.[activeMessageId] ?? null,
+    });
+  }, [
+    activeMessageId,
+    activePointFeedbackFlags.visible.length,
+    classifierLifecycleByArgumentId,
+  ]);
 
   // ROOM-002 (#885) — the Ringside feed projection. Built ONLY when
   // room_exchange_v2 is on (else null, so the flag-off path wastes no
@@ -3157,6 +3194,12 @@ export function ArgumentRoom({
             onRefereeMove={handleRefereeMove}
             onRefereeNavigate={handleRefereeNavigate}
             pointFeedbackFlags={activePointFeedbackFlags}
+            // UX-FLAGS-005 (issue 837) — the 3-state discriminant for the
+            // ACTIVE nodes flag row. Both lenses (RingsideCard active card +
+            // ArgumentBubbleStack -> CardDetailPanel) forward it verbatim to
+            // their PointFeedbackFlagsRow mount. Omitted defaults to `'ready'`
+            // at the row layer, so pre-UX-FLAGS-005 callers stay byte-identical.
+            activePointLifecycleState={activePointLifecycleState}
             activeViewModel={activeViewModel}
             onBubbleAction={handleBubbleAction}
             // UX-FLAGS-004 (#836) — Ringside flag-intent handler. Undefined unless
@@ -3305,6 +3348,11 @@ export function ArgumentRoom({
               // met => inert pills (byte-identical). The reply targets the active
               // node = the flagged move.
               onFlagIntent={flagIntentHandler}
+              // UX-FLAGS-005 (issue 837) — calm 3-state discriminant. Default
+              // `'ready'` reproduces UX-FLAGS-002 byte-identical on empty flags;
+              // `'pending'` renders the plain-language reading line; `'failed'`
+              // renders null (silent doctrine).
+              lifecycleState={activePointLifecycleState}
             />
             {/* FEEDBACK-002 (#899) — calm derived-signal advisory lines for the
                 active node, composed at display time over the derived signals.

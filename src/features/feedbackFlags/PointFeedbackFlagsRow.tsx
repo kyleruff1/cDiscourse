@@ -29,6 +29,8 @@ import {
 import { PointFeedbackFlagPill } from './PointFeedbackFlagPill';
 import type { PointFeedbackFlagViewModel } from './pointFeedbackFlagsModel';
 import { flagIntentForKey } from './flagComposerIntentMap';
+import type { PointFeedbackFlagsLifecycleState } from './pointFeedbackFlagsLifecycleModel';
+import { POINT_FEEDBACK_FLAGS_LIFECYCLE_COPY } from '../arguments/gameCopy';
 
 export interface PointFeedbackFlagsRowProps {
   flags: ReadonlyArray<PointFeedbackFlagViewModel>;
@@ -47,6 +49,23 @@ export interface PointFeedbackFlagsRowProps {
    * "why?" toggle path is untouched.
    */
   onFlagIntent?: (flagKey: string) => void;
+  /**
+   * UX-FLAGS-005 (issue 837) — the calm 3-state lifecycle discriminant.
+   * Default `'ready'` reproduces the shipped UX-FLAGS-002 behavior byte-
+   * for-byte on empty flags (return null). The two new empty-branches:
+   *
+   *   flags.length === 0 && lifecycleState === 'pending' -> ONE quiet
+   *     `<Text accessibilityRole="text">` with the plain-language pending
+   *     copy from `POINT_FEEDBACK_FLAGS_LIFECYCLE_COPY.pending`.
+   *   flags.length === 0 && lifecycleState === 'failed'  -> `null`
+   *     (silent doctrine: never apologise for the machine, never surface
+   *     an internal state name).
+   *
+   * When `flags.length > 0` this prop is IGNORED and the pill row renders
+   * exactly as today (content wins over posture; pending never obscures
+   * actual flags).
+   */
+  lifecycleState?: PointFeedbackFlagsLifecycleState;
   testID?: string;
 }
 
@@ -65,14 +84,38 @@ export function PointFeedbackFlagsRow({
   heading = 'On this point',
   suppressedCount = 0,
   onFlagIntent,
+  lifecycleState = 'ready',
   testID,
 }: PointFeedbackFlagsRowProps): React.ReactElement | null {
   const [expanded, setExpanded] = useState(false);
 
-  // Calm default: nothing to show → render nothing at all. The "+N more" count
-  // never resurrects an empty row — an empty flag list renders null regardless
-  // of suppressedCount.
-  if (!Array.isArray(flags) || flags.length === 0) return null;
+  // UX-FLAGS-005 (issue 837) — the calm empty-row branches. Content ALWAYS
+  // wins over posture: if there are flags to show, jump straight to the
+  // pill row below. Only when the flag list is empty do we consult
+  // lifecycleState.
+  //
+  //   pending -> render ONE quiet <Text> line with the plain-language
+  //              pending copy from gameCopy.
+  //   failed  -> render null (silent doctrine).
+  //   ready   -> render null (byte-identical to UX-FLAGS-002).
+  //
+  // The +N more count never resurrects an empty row.
+  if (!Array.isArray(flags) || flags.length === 0) {
+    if (lifecycleState === 'pending') {
+      return (
+        <View style={styles.wrap} testID={testID ?? 'point-feedback-flags-row'}>
+          <Text
+            style={styles.pendingLine}
+            accessibilityRole="text"
+            testID="point-feedback-flags-pending"
+          >
+            {POINT_FEEDBACK_FLAGS_LIFECYCLE_COPY.pending}
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  }
 
   const showWhyToggle = hasAnyHelper(flags);
   const showMoreCount = typeof suppressedCount === 'number' && suppressedCount > 0;
@@ -200,6 +243,15 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.xs,
   },
   helperLine: {
+    fontSize: TYPOGRAPHY.chipLabel.fontSize,
+    lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
+    color: SURFACE_TOKENS.textSecondary,
+  },
+  // UX-FLAGS-005 (issue 837) — quiet passive readout line for the pending
+  // lifecycle state on an empty flag list. Same secondary text token +
+  // chipLabel size as the rest of the row so it reads as another calm text
+  // line, not a signal to look at. No color-only meaning. No animation.
+  pendingLine: {
     fontSize: TYPOGRAPHY.chipLabel.fontSize,
     lineHeight: TYPOGRAPHY.chipLabel.lineHeight,
     color: SURFACE_TOKENS.textSecondary,

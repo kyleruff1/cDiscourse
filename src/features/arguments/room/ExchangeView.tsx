@@ -30,6 +30,10 @@ import type { RailViewerRole } from '../railActionCategories';
 import type { DisagreementContract, MoveSuggestion } from '../../refereeLoop';
 import type { RefereeNavVerb } from '../cardView/RefereeCardView';
 import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
+// UX-FLAGS-005 (issue 837) — the calm 3-state lifecycle discriminant type.
+// Pure TS; the value is COMPUTED ONCE in the orchestrator and forwarded to
+// the active card in both lenses (Ringside + Stack -> CardDetailPanel).
+import type { PointFeedbackFlagsLifecycleState } from '../../feedbackFlags';
 // ASP-EXTRACT-001 (Slice 2) — the rail-action code type is sourced from the
 // shared room action-code registry so both lenses reference ONE handle. It
 // aliases the shipped RailActionCode; no new code enters the type system.
@@ -60,6 +64,14 @@ export interface ExchangeViewProps {
   activeMappingSection: CardMappingSectionModel | null;
   activeRefereeCard: DisagreementContract | null;
   pointFeedbackFlags: PrioritizedPointFeedbackFlags | null;
+
+  /**
+   * UX-FLAGS-005 (issue 837) — the ACTIVE-node lifecycle discriminant. Pure
+   * pass-through to the active card in both lenses (RingsideCard active + the
+   * Stacks CardDetailPanel). Optional; omitted defaults to `'ready'` inside
+   * the row so pre-UX-FLAGS-005 callers stay byte-identical.
+   */
+  activePointLifecycleState?: PointFeedbackFlagsLifecycleState;
 
   // The conditional participant chip cluster input.
   activeViewModel: ArgumentBubbleViewModel | null;
@@ -135,6 +147,9 @@ export function ExchangeView(props: ExchangeViewProps) {
         onRailAction={props.onRailAction}
         onOpenMap={props.onOpenMap ?? props.onToggleMode}
         pointFeedbackFlags={props.pointFeedbackFlags}
+        // UX-FLAGS-005 (issue 837) — 3-state discriminant for the active
+        // Ringside card. Pure pass-through.
+        activePointLifecycleState={props.activePointLifecycleState}
         reduceMotion={props.reduceMotion}
         markersByTargetId={props.markersByTargetId}
         markersByReplyId={props.markersByReplyId}
@@ -198,6 +213,9 @@ export function ExchangeView(props: ExchangeViewProps) {
               // card as the single calm standing surface in the collapsed
               // default. Same derivation the timeline-path flag row consumes.
               pointFeedbackFlags={props.pointFeedbackFlags}
+              // UX-FLAGS-005 (issue 837) — 3-state discriminant for the
+              // active CardDetailPanels flag row. Pure pass-through.
+              activePointLifecycleState={props.activePointLifecycleState}
               // QUOTE-FORGE-002 (#842) — the active-card woven-callback echo
               // banner + its open-prior-room nav. Null when the active card is
               // not a callback (or quote_forge off) => byte-identical stack.

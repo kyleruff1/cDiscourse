@@ -2230,6 +2230,44 @@ export const ROOM_REALTIME_COPY = Object.freeze({
   statusFailed: 'Live updates: paused — open the room again to retry',
 } as const);
 
+/**
+ * UX-FLAGS-005 (issue 837) — feedback-flag lifecycle copy.
+ *
+ * The calm plain-language for the "asynchronous classifier is mid-flight"
+ * state. NO failure copy is exported by design -- failure is SILENT
+ * (returns null in the component); the app never apologises for the
+ * machine and never surfaces a provider / error / dead-letter code.
+ *
+ * The shape of this frozen object is doctrinally load-bearing: the
+ * absence of a `failed` key enforces silent-on-failure at the source
+ * layer. If a future reviewer asks why there is no `failed` string, the
+ * answer is above -- failure is silent, and the shape of the object is
+ * the enforcement. A test in
+ * `__tests__/pointFeedbackFlagsLifecycleModelDoctrine.test.ts` asserts
+ * this object has exactly one key.
+ *
+ * Doctrine anchors (cdiscourse-doctrine):
+ *   - Section 1 (advisory, never a verdict): pending is patient text about
+ *     the machines own work; it says nothing about the moves truth.
+ *   - Section 4 (AI moderator hard limits): the copy describes a general
+ *     reading process, not any judgement.
+ *   - Section 9 (plain language): internal codes like `pending`,
+ *     `retry_scheduled`, `dead_letter`, `failed_terminal`, `provider_*`,
+ *     `error` MUST NEVER appear as user-visible copy. The
+ *     `uxDoctrineCopyLint.test.ts` guard (issue 677 / 950) already scans
+ *     this file (Tier A) so the literal is walked automatically on the
+ *     next run.
+ */
+export const POINT_FEEDBACK_FLAGS_LIFECYCLE_COPY = Object.freeze({
+  /**
+   * Rendered when no flags are present yet AND at least one classifier
+   * run is in-flight for this argument. Present-continuous, calm, neutral.
+   * The horizontal ellipsis U+2026 carries the in-progress affordance
+   * without claiming a timeline.
+   */
+  pending: 'Still reading this…',
+} as const);
+
 /** RULE-004 — header + button labels for the pre-send review sheet. */
 export const PRESEND_SHEET_COPY = Object.freeze({
   header: 'One quick look before you post',

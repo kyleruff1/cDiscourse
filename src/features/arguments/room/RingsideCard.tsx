@@ -30,6 +30,10 @@ import type { ArgumentBubbleControl } from '../argumentGameSurfaceModel';
 import type { RailActionCode } from '../railActionCategories';
 import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
 import { PointFeedbackFlagsRow } from '../../feedbackFlags';
+// UX-FLAGS-005 (issue 837) — the calm 3-state lifecycle discriminant type,
+// forwarded verbatim to the active cards PointFeedbackFlagsRow so the
+// pending line can show on an empty flag list.
+import type { PointFeedbackFlagsLifecycleState } from '../../feedbackFlags';
 import type { RingsideCardViewModel } from './ringsideFeedModel';
 // QUOTE-FORGE-002 (#842) — the woven-callback echo strip. Rendered only when the
 // card carries a callbackEcho (quote_forge on + a callback move); absent => the
@@ -80,6 +84,13 @@ export interface RingsideCardProps {
   onOpenMap: () => void;
   /** Active-card friendly flags. Only supplied for the active card. */
   pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
+  /**
+   * UX-FLAGS-005 (issue 837) — 3-state discriminant for the active cards
+   * flag row. Only supplied for the active card (same gate as
+   * pointFeedbackFlags). Omitted falls back to `'ready'` at the row layer
+   * so pre-UX-FLAGS-005 renders are byte-identical.
+   */
+  lifecycleState?: PointFeedbackFlagsLifecycleState;
   reduceMotion?: boolean;
   /**
    * MARK-002 (#894) — markers relevant to this card: those quoting this card
@@ -305,6 +316,10 @@ export function RingsideCard(props: RingsideCardProps) {
                   ? props.onFlagIntent
                   : undefined
               }
+              // UX-FLAGS-005 (issue 837) — calm 3-state discriminant. Absent
+              // defaults to `'ready'` at the row layer so pre-UX-FLAGS-005 renders
+              // (fixture / demo callers that omit it) stay byte-identical.
+              lifecycleState={props.lifecycleState}
             />
           ) : null}
           {card.isActive ? <CardActionRow {...props} /> : null}

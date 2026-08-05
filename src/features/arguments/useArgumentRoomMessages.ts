@@ -43,6 +43,14 @@ import {
   usePointTagsRealtime,
   type RemoveEchoPredicate,
 } from '../metadata/usePointTagsRealtime';
+// UX-FLAGS-005 (issue 837) — per-argument classifier lifecycle roll-up
+// (`pending | leased | retry_scheduled | succeeded | failed_terminal |
+// dead_letter` folded into `{hasAnyRun, hasAnyNonTerminal, hasAnySucceeded,
+// hasAnyTerminalFailure}`). Read-only SELECT via the shipped RLS policy
+// `amor_runs_select_via_argument`; no service-role, no mutation, no
+// realtime channel in v1.
+import { fetchClassifierLifecycleForArguments } from '../feedbackFlags/pointFeedbackFlagsLifecycleQuery';
+import type { ArgumentClassifierLifecycleRollup } from '../feedbackFlags/pointFeedbackFlagsLifecycleModel';
 
 export interface ArgumentRoomMessagesResult {
   /** All posted messages in the room, chronological. */
@@ -61,6 +69,14 @@ export interface ArgumentRoomMessagesResult {
    *  MCP-021C has not yet run on the room, or when the caller is
    *  unauthorized to read. Realtime channel deferred. */
   persistedObservationsByArgumentId: Record<string, MachineObservationResultRow[]>;
+  /**
+   * UX-FLAGS-005 (issue 837) — per-argument classifier lifecycle roll-up
+   * from `public.argument_machine_observation_runs`. Empty on fetch
+   * failure or when the caller is unauthorized (RLS returns zero rows).
+   * A missing entry folds to `'ready'` at the discriminant layer per the
+   * silent-on-uncertainty doctrine. Realtime channel deferred to v2.
+   */
+  classifierLifecycleByArgumentId: Record<string, ArgumentClassifierLifecycleRollup>;
   /** Whether the initial load is still pending. */
   loading: boolean;
   /** Last fetch error, if any. */
@@ -102,6 +118,13 @@ export function useArgumentRoomMessages(
   const [pointTagsByArgumentId, setPointTags] = useState<Record<string, PersistedPointTag[]>>({});
   const [persistedObservationsByArgumentId, setPersistedObservations] = useState<
     Record<string, MachineObservationResultRow[]>
+  >({});
+  // UX-FLAGS-005 (issue 837) — per-argument classifier lifecycle roll-up.
+  // Populated in the same Promise.all as the relations fetch below; empty
+  // map on fetch failure. Downstream discriminant folds an empty entry
+  // to `'ready'` -- the row renders null on empty flags (silent).
+  const [classifierLifecycleByArgumentId, setClassifierLifecycle] = useState<
+    Record<string, ArgumentClassifierLifecycleRollup>
   >({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,13 +205,22 @@ export function useArgumentRoomMessages(
         }
         const rows = result.data;
         const ids = rows.map((r) => r.id);
-        const rel = await fetchArgumentRelations(ids);
+        // UX-FLAGS-005 (issue 837) — fetch relations and classifier
+        // lifecycle in parallel so load-time impact is max(A, B), not
+        // A + B. Lifecycle failure returns an empty map -> every argument
+        // folds to `'ready'` at the discriminant layer (silent-on-
+        // uncertainty; the fetch error is NEVER surfaced as UI state).
+        const [rel, lifecycleRes] = await Promise.all([
+          fetchArgumentRelations(ids),
+          fetchClassifierLifecycleForArguments(ids),
+        ]);
         if (cancelled) return;
         const tagMap: Record<string, ArgumentTag[]> = {};
         const flagMap: Record<string, ArgumentFlag[]> = {};
         const checkMap: Record<string, TopicSatisfactionCheck[]> = {};
         const pointTagMap: Record<string, PersistedPointTag[]> = {};
         const persistedObsMap: Record<string, MachineObservationResultRow[]> = {};
+        const lifecycleMap: Record<string, ArgumentClassifierLifecycleRollup> = {};
         if (rel.ok) {
           for (const t of rel.data.tags) {
             (tagMap[t.argumentId] = tagMap[t.argumentId] || []).push(t);
@@ -209,12 +241,18 @@ export function useArgumentRoomMessages(
               persistedObsMap[po.argumentId] || []).push(po);
           }
         }
+        if (lifecycleRes.ok) {
+          for (const rollup of lifecycleRes.data) {
+            lifecycleMap[rollup.argumentId] = rollup;
+          }
+        }
         setMessages(rows);
         setTags(tagMap);
         setFlags(flagMap);
         setChecks(checkMap);
         setPointTags(pointTagMap);
         setPersistedObservations(persistedObsMap);
+        setClassifierLifecycle(lifecycleMap);
         // META-1B — record the latest argument id set so the realtime
         // reconcile callback can re-fetch tags for the right scope after
         // a (re)subscribe. Stored in a ref to avoid re-creating the
@@ -244,6 +282,7 @@ export function useArgumentRoomMessages(
     checksByArgumentId,
     pointTagsByArgumentId,
     persistedObservationsByArgumentId,
+    classifierLifecycleByArgumentId,
     loading,
     error,
     latestId,
