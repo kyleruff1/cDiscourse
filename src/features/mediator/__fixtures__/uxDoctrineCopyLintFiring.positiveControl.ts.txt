@@ -1,0 +1,31 @@
+// UX-DOCTRINE-COPY-LINT (issue 677) — FIRING POSITIVE CONTROL.
+//
+// This fixture proves the doctrine ban-list scanner bites. It uses the
+// .ts.txt extension so it stays out of the TypeScript compilation set and out
+// of the ESLint recurse set, while readFileSync loads it as text.
+//
+// The uxDoctrineCopyLint guard test loads this file and asserts the scanner
+// reports at least three distinct banned tokens spread across at least three
+// roles: comment, string-literal, and field-name. If the extractor regex or
+// the file walk is broken, this test fails LOUDLY. That is the whole point of
+// a firing positive control — the classic silent-cohesion-guard bug class
+// where a guard is greened by being unreachable, not by being satisfied.
+//
+// Apostrophe-free comments in this fixture protect adjacent doctrine scanners.
+
+// Comment hit 1: the token liar in a plain comment should be caught.
+// Comment hit 2: the verdict token winner also appears here.
+
+export const FIRING_CONTROL_COPY = Object.freeze({
+  // String-literal hits inside an exported constant.
+  chip: 'This move is dishonest and manipulative.',
+  helper: 'You are the winner of this exchange.',
+  banner: 'Went viral, so it is popular.',
+  // Field-name hits — banned identifiers so the scanner can report role field-name.
+  truth: 5,
+  emotion: 0.9,
+  score: 100,
+});
+
+// Template-literal hit — the popularity-heat token trending in a backtick literal.
+export const FIRING_CONTROL_TEMPLATE = `A trending post is not proof.`;
