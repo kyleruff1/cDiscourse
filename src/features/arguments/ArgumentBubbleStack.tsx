@@ -35,6 +35,9 @@ import type { RailActionCode, RailViewerRole } from './railActionCategories';
 import type { DisagreementContract, MoveSuggestion } from '../refereeLoop';
 import type { RefereeNavVerb } from './cardView/RefereeCardView';
 import type { PrioritizedPointFeedbackFlags } from '../feedbackFlags';
+// UX-FLAGS-005 (issue 837) — the calm 3-state lifecycle discriminant type;
+// pure pass-through to the active cards CardDetailPanel below.
+import type { PointFeedbackFlagsLifecycleState } from '../feedbackFlags';
 // QUOTE-FORGE-002 (#842) — the woven-callback echo strip on the active card.
 // Rendered only when the active card is a callback move (quote_forge on);
 // absent => byte-identical stack.
@@ -100,6 +103,13 @@ interface Props {
    *  null`), mirroring activeCardDetail. Omitted -> no flag row. */
   pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
   /**
+   * UX-FLAGS-005 (issue 837) — 3-state discriminant for the ACTIVE cards
+   * PointFeedbackFlagsRow. Pure pass-through; forwarded to the active card
+   * only (mirrors pointFeedbackFlags gating). Omitted defaults to `'ready'`
+   * at the row layer, so pre-UX-FLAGS-005 renders stay byte-identical.
+   */
+  activePointLifecycleState?: PointFeedbackFlagsLifecycleState;
+  /**
    * QUOTE-FORGE-002 (#842) — the woven-callback echo for the ACTIVE card, or
    * null. Built ONCE at the surface and forwarded here; the Stack renders it as
    * an active-card banner. Omitted / null -> no echo chrome (byte-identical). */
@@ -125,6 +135,7 @@ export function ArgumentBubbleStack({
   onRefereeMove,
   onRefereeNavigate,
   pointFeedbackFlags,
+  activePointLifecycleState,
   activeCallbackEcho,
   onOpenPriorRoom,
 }: Props) {
@@ -255,6 +266,11 @@ export function ArgumentBubbleStack({
                 // active point, forwarded to the active card only (same gating
                 // as activeCardDetail). Pure pass-through.
                 pointFeedbackFlags={t.isActive ? pointFeedbackFlags : null}
+                // UX-FLAGS-005 (issue 837) — 3-state lifecycle discriminant
+                // for the active cards flag row. Forwarded to the active
+                // card only (same gating as pointFeedbackFlags). Pure
+                // pass-through; the row layer defaults absent to `'ready'`.
+                lifecycleState={t.isActive ? activePointLifecycleState : undefined}
               />
             </View>
           );

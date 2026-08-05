@@ -22,3 +22,11 @@ export { PointFeedbackFlagsRow } from './PointFeedbackFlagsRow';
 export * from './derivedObservationSignals';
 export * from './derivedSignalConsumerModel';
 export { DerivedSignalAdvisoryLines } from './DerivedSignalAdvisoryLines';
+// UX-FLAGS-005 (issue 837) — the calm 3-state lifecycle discriminant. Pure TS
+// (no React, no Supabase). The Supabase read-only fetcher
+// (`pointFeedbackFlagsLifecycleQuery`) is DELIBERATELY not re-exported here so
+// consumers that only need the pure discriminant (RingsideCard, ArgumentBubble
+// Card, CardDetailPanel, and their existing test files) do not transitively
+// pull in the shared supabase client and its AsyncStorage native module. The
+// hook imports the fetcher directly from its module path.
+export * from './pointFeedbackFlagsLifecycleModel';

@@ -46,6 +46,10 @@ import { buildRefereeCardViewModel } from '../../refereeLoop';
 // the row already caps at 3 pills + a quiet count and renders nothing empty.
 import { PointFeedbackFlagsRow } from '../../feedbackFlags';
 import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
+// UX-FLAGS-005 (issue 837) — 3-state lifecycle discriminant. Passive readout
+// (`ready | pending | failed`). Pure pass-through into PointFeedbackFlagsRow;
+// no interactivity added to CardDetailPanel.
+import type { PointFeedbackFlagsLifecycleState } from '../../feedbackFlags';
 import type { CardClassifierChip } from './cardClassifierStripModel';
 import type { CardMappingChip, CardMappingSectionModel } from './cardMappingSectionModel';
 import type { CardDetailViewModel } from './cardDetailModel';
@@ -145,6 +149,17 @@ export interface CardDetailPanelProps {
    *  surface in the collapsed default. Omitted / null / empty visible list ->
    *  the flag row renders nothing (byte-equivalent for direct-render callers). */
   pointFeedbackFlags?: PrioritizedPointFeedbackFlags | null;
+  /**
+   * UX-FLAGS-005 (issue 837) — 3-state lifecycle discriminant. Pure pass-
+   * through into PointFeedbackFlagsRow. Omitted defaults to `'ready'` inside
+   * the row so pre-UX-FLAGS-005 renders stay byte-identical: empty flags +
+   * omitted lifecycleState -> the row still renders nothing.
+   *
+   * The panels flag-row mount guard is RELAXED so the pending line can
+   * surface on an empty flag list. Failed remains silent (row renders null
+   * even when it does mount). Read-only; no interactivity added.
+   */
+  lifecycleState?: PointFeedbackFlagsLifecycleState;
   testID?: string;
 }
 
@@ -1073,6 +1088,7 @@ export function CardDetailPanel({
   onRefereeMove,
   onRefereeNavigate,
   pointFeedbackFlags,
+  lifecycleState,
   testID,
 }: CardDetailPanelProps): React.ReactElement {
   // VISUAL-SIMPLIFY-001 — the collapsed default leads with the message, at most
@@ -1172,11 +1188,21 @@ export function CardDetailPanel({
 
       {/* VISUAL-SIMPLIFY-001 — the single calm standing surface (the wave-2
           de-dupe target). Consumes the shipped prioritized flags as-is; renders
-          nothing for an empty visible list. */}
-      {pointFeedbackFlags && pointFeedbackFlags.visible.length > 0 ? (
+          nothing for an empty visible list.
+
+          UX-FLAGS-005 (issue 837) — the mount guard is RELAXED so the calm
+          pending line can surface when there are no flags yet AND the
+          classifier is mid-flight for this argument. When lifecycleState is
+          omitted / `'ready'` / `'failed'` the row still renders null on an
+          empty flag list (byte-identical to VISUAL-SIMPLIFY-001); only
+          `'pending'` on an empty list mounts the passive readout line. Failed
+          remains silent by design (doctrine section 4 + section 9). */}
+      {pointFeedbackFlags &&
+      (pointFeedbackFlags.visible.length > 0 || lifecycleState === 'pending') ? (
         <PointFeedbackFlagsRow
           flags={pointFeedbackFlags.visible}
           suppressedCount={pointFeedbackFlags.suppressedCount}
+          lifecycleState={lifecycleState}
           testID="card-detail-feedback-flags"
         />
       ) : null}

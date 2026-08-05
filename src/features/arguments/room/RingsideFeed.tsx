@@ -18,6 +18,10 @@ import { StyleSheet, View } from 'react-native';
 import type { ArgumentBubbleControl } from '../argumentGameSurfaceModel';
 import type { RailActionCode, RailViewerRole } from '../railActionCategories';
 import type { PrioritizedPointFeedbackFlags } from '../../feedbackFlags';
+// UX-FLAGS-005 (issue 837) — the calm 3-state lifecycle discriminant type,
+// pure pass-through here (computed once in the orchestrator, forwarded to
+// the active card only).
+import type { PointFeedbackFlagsLifecycleState } from '../../feedbackFlags';
 import type { RingsideFeedViewModel } from './ringsideFeedModel';
 import { RingsideCard } from './RingsideCard';
 // MARK-002 (#894) — per-card marker maps threaded from the orchestrator (all
@@ -38,6 +42,13 @@ export interface RingsideFeedProps {
   onOpenMap: () => void;
   /** Active-card calm friendly-flag row. */
   pointFeedbackFlags: PrioritizedPointFeedbackFlags | null;
+  /**
+   * UX-FLAGS-005 (issue 837) — 3-state discriminant for the ACTIVE cards
+   * flag row. Forwarded to the active RingsideCard only (mirrors the
+   * pointFeedbackFlags gating). Optional; omitted defaults to `'ready'` at
+   * the row layer for byte-identical pre-UX-FLAGS-005 render.
+   */
+  activePointLifecycleState?: PointFeedbackFlagsLifecycleState;
   reduceMotion?: boolean;
   /** MARK-002 — markers grouped by the quoted (target) argument id. */
   markersByTargetId?: Record<string, ReadonlyArray<MarkerRow>>;
@@ -85,6 +96,9 @@ export function RingsideFeed(props: RingsideFeedProps) {
             onRailAction={props.onRailAction}
             onOpenMap={props.onOpenMap}
             pointFeedbackFlags={card.isActive ? props.pointFeedbackFlags : null}
+            // UX-FLAGS-005 (issue 837) — forward the lifecycle discriminant
+            // to the active card only (same gating as pointFeedbackFlags).
+            lifecycleState={card.isActive ? props.activePointLifecycleState : undefined}
             reduceMotion={props.reduceMotion}
             markersForCard={markersForCard}
             isMarkerTargetLoaded={props.isMarkerTargetLoaded}
