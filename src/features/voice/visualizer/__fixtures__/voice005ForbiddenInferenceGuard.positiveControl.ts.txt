@@ -1,0 +1,53 @@
+// VOICE-005 (issue 663) - FIRING POSITIVE CONTROL for the forbidden-inference
+// source scan on the visualizer tree.
+//
+// This file is intentionally NOT a .ts file - the .ts.txt extension keeps it
+// out of the TypeScript compilation set and out of the ESLint recurse set,
+// while still allowing readFileSync to load it as text.
+//
+// The doctrine guard test loads this file and asserts the scanner reports at
+// least three distinct hits across three roles (comment, field name, string
+// literal) AND at least one visualizer-specific ban token AND at least one
+// purity ban AND at least one non-basic-arith ban AND at least one Skia
+// SVG-parser ban. If the scanner regex or glob is broken this test fails
+// LOUDLY. That is the whole point of a firing positive control - the classic
+// silent-cohesion-guard bug class where a guard is greened by being
+// unreachable, not by being satisfied.
+
+// Comment hit 1 (visualizer-specific): rendering a spectrogram is precisely
+// what this module refuses to do.
+
+// Comment hit 2 (waveform inherited): a formant kernel over an amplitude
+// envelope would be a doctrine violation.
+
+// Comment hit 3 (visualizer-specific): computing a voice signature from
+// path segments is banned.
+
+export interface ForbiddenInferenceControl {
+  // Field-name hits: distinct banned identifiers so the guard continues to
+  // bite even if one is quietly renamed. Includes visualizer-specific bans
+  // (voiceprint) alongside inherited bans (credibility, prosody).
+  readonly credibility: number;
+  readonly voiceprint: string;
+  readonly prosody: number;
+}
+
+// String-literal hits: distinct banned literals covering the string-literal
+// role. voice signature is a visualizer-specific ban token.
+export const BANNED_LITERALS = ['voice signature', 'vocal print', 'prosody visualization'];
+
+// Purity ban: Math.random and Date.now are banned in every visualizer file.
+export const RANDOM_SEED = Math.random();
+export const NOW_MARKER = Date.now();
+
+// Non-basic-arith ban: trig, sqrt, log, exp, pow, hypot are banned in the
+// visualizer folder.
+export const TRIG_MARKER = Math.sin(0);
+export const SQRT_MARKER = Math.sqrt(1);
+
+// Skia SVG-parser ban: MakeFromSVGString is banned everywhere in the folder.
+export const SKIA_PARSER_MARKER = 'Skia.Path.MakeFromSVGString would be here';
+
+// Import ban positive control (as a comment - importing react in a .ts.txt
+// fixture would be a compile signal, not a scanner signal).
+// from 'react' import target would fire the pure-TS boundary ban.
